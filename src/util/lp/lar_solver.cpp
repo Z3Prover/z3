@@ -1478,7 +1478,7 @@ bool lar_solver::strategy_is_undecided() const {
 
 void lar_solver::catch_up_in_updating_int_solver() {
     for (unsigned i = 0; i < constraints().size(); i++) {
-        m_int_solver->add_constraint_to_cut_solver(i, constraints()[i]);
+        m_int_solver->add_constraint_to_chase_cut_solver(i, constraints()[i]);
     }
 }
 
@@ -2216,6 +2216,40 @@ void lar_solver::round_to_integer_solution() {
         update_delta_for_terms(del, j, vars_to_terms[j]);
     }
 }
+
+bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & rs) const {
+    unsigned tj = term_index + m_terms_start_index;
+    auto it = m_ext_vars_to_columns.find(tj);
+    if (it == m_ext_vars_to_columns.end())
+        return false;
+    unsigned j = it->second.internal_j();
+    auto & slv = m_mpq_lar_core_solver.m_r_solver;
+    impq term_val;
+    bool term_val_ready = false;
+    if (slv.column_has_upper_bound(j)) {
+        const impq & b = slv.m_upper_bounds[j];
+        lp_assert(is_zero(b.y) && is_int(b.x));
+        term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
+        term_val_ready = true;
+        if (term_val == b) {
+            rs = b.x;
+            return true;
+        }
+    }
+    if (slv.column_has_lower_bound(j)) {
+        if (!term_val_ready)
+            term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
+        const impq & b = slv.m_lower_bounds[j];
+        lp_assert(is_zero(b.y) && is_int(b.x));
+        
+        if (term_val == b) {
+            rs = b.x;
+            return true;
+        }
+    }
+    return false;    
+}
+
 
 } // namespace lp
 

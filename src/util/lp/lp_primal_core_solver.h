@@ -419,7 +419,7 @@ public:
     // returns the number of iterations
     unsigned solve();
 
-    lu<T, X> * factorization() {return this->m_factorization;}
+    lu<static_matrix<T, X>> * factorization() {return this->m_factorization;}
 
     void delete_factorization();
 

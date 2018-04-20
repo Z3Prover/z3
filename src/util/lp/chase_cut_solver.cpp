@@ -2,7 +2,7 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
-#include "util/lp/cut_solver.h"
+#include "util/lp/chase_cut_solver.h"
 namespace lp {
     mpq polynomial::m_local_zero = zero_of_type<mpq>();
 

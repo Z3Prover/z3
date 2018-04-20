@@ -4,7 +4,7 @@ z3_add_component(lp
     binary_heap_priority_queue.cpp
     binary_heap_upair_queue.cpp
     bound_propagator.cpp
-    cut_solver.cpp
+    chase_cut_solver.cpp
     core_solver_pretty_printer.cpp
     dense_matrix.cpp
     eta_matrix.cpp
@@ -25,7 +25,7 @@ z3_add_component(lp
     permutation_matrix.cpp
     row_eta_matrix.cpp
     scaler.cpp
-    sparse_matrix.cpp
+    square_sparse_matrix.cpp
     square_dense_submatrix.cpp
     static_matrix.cpp
     random_updater.cpp      

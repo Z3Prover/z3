@@ -102,10 +102,10 @@ struct stats {
     unsigned m_need_to_solve_inf;
     unsigned m_max_cols;
     unsigned m_max_rows;
-    unsigned m_cut_solver_calls;
-    unsigned m_cut_solver_true;
-    unsigned m_cut_solver_false;
-    unsigned m_cut_solver_undef;
+    unsigned m_chase_cut_solver_calls;
+    unsigned m_chase_cut_solver_true;
+    unsigned m_chase_cut_solver_false;
+    unsigned m_chase_cut_solver_undef;
     unsigned m_gcd_calls;
     unsigned m_gcd_conflicts;
     unsigned m_cube_calls;
@@ -232,11 +232,12 @@ public:
                     backup_costs(true),
                     column_number_threshold_for_using_lu_in_lar_solver(4000),
                     m_int_gomory_cut_period(4),
-                    m_int_cut_solver_period(8),
+                    m_int_chase_cut_solver_period(8),
                     m_int_find_cube_period(4),
                     m_int_cuts_etc_period(4),
+                    m_hnf_cut_period(4),
                     m_int_run_gcd_test(true),
-                    m_cut_solver_cycle_on_var(10),
+                    m_chase_cut_solver_cycle_on_var(10),
                     m_int_pivot_fixed_vars_from_basis(false),
                     m_int_patch_only_integer_values(true)
     {}
@@ -346,11 +347,12 @@ public:
     bool             backup_costs;
     unsigned         column_number_threshold_for_using_lu_in_lar_solver;
     unsigned         m_int_gomory_cut_period;
-    unsigned         m_int_cut_solver_period;
+    unsigned         m_int_chase_cut_solver_period;
     unsigned         m_int_find_cube_period;
     unsigned         m_int_cuts_etc_period;
+    unsigned         m_hnf_cut_period;
     bool             m_int_run_gcd_test;
-    unsigned         m_cut_solver_cycle_on_var;
+    unsigned         m_chase_cut_solver_cycle_on_var;
     bool             m_int_pivot_fixed_vars_from_basis;
     bool             m_int_patch_only_integer_values;
 }; // end of lp_settings class

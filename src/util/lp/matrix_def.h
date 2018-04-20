@@ -82,9 +82,11 @@ unsigned get_width_of_column(unsigned j, vector<vector<std::string>> & A) {
     return r;
 }
 
-void print_matrix_with_widths(vector<vector<std::string>> & A, vector<unsigned> & ws, std::ostream & out) {
+void print_matrix_with_widths(vector<vector<std::string>> & A, vector<unsigned> & ws, std::ostream & out, unsigned blanks_in_front) {
     for (unsigned i = 0; i < A.size(); i++) {
         for (unsigned j = 0; j < static_cast<unsigned>(A[i].size()); j++) {
+            if (i != 0 && j == 0)
+                print_blanks(blanks_in_front, out);
             print_blanks(ws[j] - static_cast<unsigned>(A[i][j].size()), out);
             out << A[i][j] << " ";
         }
@@ -92,7 +94,7 @@ void print_matrix_with_widths(vector<vector<std::string>> & A, vector<unsigned> 
     }
 }
 
-void print_string_matrix(vector<vector<std::string>> & A, std::ostream & out) {
+void print_string_matrix(vector<vector<std::string>> & A, std::ostream & out, unsigned blanks_in_front) {
     vector<unsigned> widths;
 
     if (A.size() > 0)
@@ -100,9 +102,22 @@ void print_string_matrix(vector<vector<std::string>> & A, std::ostream & out) {
             widths.push_back(get_width_of_column(j, A));
         }
 
-    print_matrix_with_widths(A, widths, out);
+    print_matrix_with_widths(A, widths, out, blanks_in_front);
     out << std::endl;
 }
+
+template <typename T>
+void print_matrix(vector<vector<T>> & A, std::ostream & out, unsigned blanks_in_front = 0) {
+    vector<vector<std::string>> s(A.size());
+    for (unsigned i = 0; i < A.size(); i++) {
+        for (const auto & v : A[i]) {
+            s[i].push_back(T_to_string(v));
+        }
+    }
+
+    print_string_matrix(s, out, blanks_in_front);
+}
+
 
 template <typename T, typename X>
 void print_matrix(matrix<T, X> const * m, std::ostream & out) {

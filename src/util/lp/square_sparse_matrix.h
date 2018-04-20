@@ -39,7 +39,7 @@ Revision History:
 namespace lp {
 // it is a square matrix
 template <typename T, typename X>
-class sparse_matrix
+class square_sparse_matrix
 #ifdef Z3DEBUG
     : public matrix<T, X>
 #endif
@@ -96,29 +96,46 @@ public:
         return m_column_permutation[col];
     }
 
-    void copy_column_from_static_matrix(unsigned col, static_matrix<T, X> const &A, unsigned col_index_in_the_new_matrix);
-    void copy_B(static_matrix<T, X> const &A, vector<unsigned> & basis);
+    template <typename M>
+    void copy_column_from_input(unsigned input_column, const M& A, unsigned j);
+    template <typename M>
+    void copy_column_from_input_with_possible_zeros(const M& A, unsigned j);
+    
+    template <typename M>
+    void copy_from_input(const M& A);
+    template <typename M>
+    void copy_from_input_on_basis(const M& A, vector<unsigned> & basis);
 
 public:
-    // constructor that copies columns of the basis from A
-    sparse_matrix(static_matrix<T, X> const &A, vector<unsigned> & basis);
+    
+    // constructors
+    template <typename M> 
+    square_sparse_matrix(const M &A, vector<unsigned>& basis);
 
+    template <typename M>
+    square_sparse_matrix(const M &A);
+
+    square_sparse_matrix(unsigned dim, unsigned); // the second parameter is needed to distinguish this
+    // constructor from the one above
+
+
+    
     class ref_matrix_element {
-        sparse_matrix & m_matrix;
+        square_sparse_matrix & m_matrix;
         unsigned m_row;
         unsigned m_col;
     public:
-        ref_matrix_element(sparse_matrix & m, unsigned row, unsigned col):m_matrix(m), m_row(row), m_col(col) {}
+        ref_matrix_element(square_sparse_matrix & m, unsigned row, unsigned col):m_matrix(m), m_row(row), m_col(col) {}
         ref_matrix_element & operator=(T const & v) { m_matrix.set( m_row, m_col, v); return *this; }
         ref_matrix_element & operator=(ref_matrix_element const & v) { m_matrix.set(m_row, m_col, v.m_matrix.get(v.m_row, v.m_col)); return *this; }
         operator T () const { return m_matrix.get(m_row, m_col); }
     };
 
     class ref_row {
-        sparse_matrix & m_matrix;
+        square_sparse_matrix & m_matrix;
         unsigned        m_row;
     public:
-        ref_row(sparse_matrix & m, unsigned row) : m_matrix(m), m_row(row) {}
+        ref_row(square_sparse_matrix & m, unsigned row) : m_matrix(m), m_row(row) {}
         ref_matrix_element operator[](unsigned col) const { return ref_matrix_element(m_matrix, m_row, col); }
     };
 
@@ -153,11 +170,6 @@ public:
     vector<indexed_value<T>> const & get_column_values(unsigned col) const {
         return m_columns[col].m_values;
     }
-
-    // constructor creating a zero matrix of dim*dim
-    sparse_matrix(unsigned dim);
-
-
 
     unsigned dimension() const {return static_cast<unsigned>(m_row_permutation.size());}
 

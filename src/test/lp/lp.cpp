@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
+  Author:
 
-    Lev Nachmanson (levnach)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 
 #include <limits>
 #if _LINUX_
@@ -51,7 +51,11 @@ Revision History:
 #include "util/lp/stacked_map.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
-
+#include "util/lp/matrix.h"
+#include "util/lp/hnf.h"
+#include "util/lp/square_sparse_matrix_def.h"
+#include "util/lp/lu_def.h"
+#include "util/lp/general_matrix.h"
 namespace lp {
 unsigned seed = 1;
 
@@ -68,11 +72,11 @@ struct simple_column_namer:public column_namer
 
 
 template <typename T, typename X>
-void test_matrix(sparse_matrix<T, X> & a) {
+void test_matrix(square_sparse_matrix<T, X> & a) {
     auto m = a.dimension();
 
     // copy a to b in the reversed order
-    sparse_matrix<T, X> b(m);
+    square_sparse_matrix<T, X> b(m, m);
     std::cout << "copy b to a"<< std::endl;
     for (int row = m - 1; row >= 0; row--)
         for (int col = m - 1; col >= 0; col --) {
@@ -110,7 +114,7 @@ void test_matrix(sparse_matrix<T, X> & a) {
 
 void tst1() {
     std::cout << "testing the minimial matrix with 1 row and 1 column" << std::endl;
-    sparse_matrix<double, double> m0(1);
+    square_sparse_matrix<double, double> m0(1, 1);
     m0.set(0, 0, 1);
     // print_matrix(m0);
     m0.set(0, 0, 0);
@@ -118,7 +122,7 @@ void tst1() {
     test_matrix(m0);
 
     unsigned rows = 2;
-    sparse_matrix<double, double> m(rows);
+    square_sparse_matrix<double, double> m(rows, rows);
     std::cout << "setting m(0,1)=" << std::endl;
 
     m.set(0, 1,  11);
@@ -128,7 +132,7 @@ void tst1() {
 
     test_matrix(m);
 
-    sparse_matrix<double, double> m1(2);
+    square_sparse_matrix<double, double> m1(2, 2);
     m1.set(0, 0, 2);
     m1.set(1, 0, 3);
     // print_matrix(m1);
@@ -141,7 +145,7 @@ void tst1() {
 
 
     std::cout << "printing zero matrix 3 by 1" << std::endl;
-    sparse_matrix<double, double> m2(3);
+    square_sparse_matrix<double, double> m2(3, 3);
     // print_matrix(m2);
 
     m2.set(0, 0, 1);
@@ -151,7 +155,7 @@ void tst1() {
 
     test_matrix(m2);
 
-    sparse_matrix<double, double> m10by9(10);
+    square_sparse_matrix<double, double> m10by9(10, 10);
     m10by9.set(0, 1, 1);
 
     m10by9(0, 1) = 4;
@@ -226,6 +230,7 @@ void change_basis(unsigned entering, unsigned leaving, vector<unsigned>& basis, 
 }
 
 
+
 #ifdef Z3DEBUG
 void test_small_lu(lp_settings & settings) {
     std::cout << " test_small_lu" << std::endl;
@@ -245,7 +250,7 @@ void test_small_lu(lp_settings & settings) {
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, settings);
+    lu<static_matrix<double, double>> l(m, basis, settings);
     lp_assert(l.is_correct(basis));
     indexed_vector<double> w(m.row_count());
     std::cout << "entering 2, leaving 0" << std::endl;
@@ -317,7 +322,7 @@ void test_small_lu(lp_settings & settings) {
 
 #endif
 
-void fill_long_row(sparse_matrix<double, double> &m, int i) {
+void fill_long_row(square_sparse_matrix<double, double> &m, int i) {
     int n = m.dimension();
     for (int j = 0; j < n; j ++) {
         m (i, (j + i) % n) = j * j;
@@ -332,7 +337,7 @@ void fill_long_row(static_matrix<double, double> &m, int i) {
 }
 
 
-void fill_long_row_exp(sparse_matrix<double, double> &m, int i) {
+void fill_long_row_exp(square_sparse_matrix<double, double> &m, int i) {
     int n = m.dimension();
 
     for (int j = 0; j < n; j ++) {
@@ -348,23 +353,23 @@ void fill_long_row_exp(static_matrix<double, double> &m, int i) {
     }
 }
 
-void fill_larger_sparse_matrix_exp(sparse_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix_exp(square_sparse_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.dimension(); i++ )
         fill_long_row_exp(m, i);
 }
 
-void fill_larger_sparse_matrix_exp(static_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix_exp(static_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.row_count(); i++ )
         fill_long_row_exp(m, i);
 }
 
 
-void fill_larger_sparse_matrix(sparse_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix(square_sparse_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.dimension(); i++ )
         fill_long_row(m, i);
 }
 
-void fill_larger_sparse_matrix(static_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix(static_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.row_count(); i++ )
         fill_long_row(m, i);
 }
@@ -385,12 +390,12 @@ void test_larger_lu_exp(lp_settings & settings) {
     basis[5] = 6;
 
 
-    fill_larger_sparse_matrix_exp(m);
+    fill_larger_square_sparse_matrix_exp(m);
     // print_matrix(m);
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, settings);
+    lu<static_matrix<double, double>> l(m, basis, settings);
 
     dense_matrix<double, double> left_side = l.get_left_side(basis);
     dense_matrix<double, double> right_side = l.get_right_side();
@@ -434,13 +439,13 @@ void test_larger_lu_with_holes(lp_settings & settings) {
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, settings);
+    lu<static_matrix<double, double>> l(m, basis, settings);
     std::cout << "printing factorization" << std::endl;
     for (int i = l.tail_size() - 1; i >=0; i--) {
         auto lp = l.get_lp_matrix(i);
         lp->set_number_of_columns(m.row_count());
         lp->set_number_of_rows(m.row_count());
-        print_matrix( lp, std::cout);
+        print_matrix( *lp, std::cout);
     }
 
     dense_matrix<double, double> left_side = l.get_left_side(basis);
@@ -469,13 +474,13 @@ void test_larger_lu(lp_settings& settings) {
     basis[5] = 6;
 
 
-    fill_larger_sparse_matrix(m);
+    fill_larger_square_sparse_matrix(m);
     print_matrix(m, std::cout);
 
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    auto l = lu<double, double> (m, basis, settings);
+    auto l = lu<static_matrix<double, double>> (m, basis, settings);
     // std::cout << "printing factorization" << std::endl;
     // for (int i = lu.tail_size() - 1; i >=0; i--) {
     //     auto lp = lu.get_lp_matrix(i);
@@ -517,7 +522,7 @@ void test_lu(lp_settings & settings) {
 
 
 
-void init_b(vector<double> & b, sparse_matrix<double, double> & m, vector<double>& x) {
+void init_b(vector<double> & b, square_sparse_matrix<double, double> & m, vector<double>& x) {
     for (unsigned i = 0; i < m.dimension(); i++) {
         b.push_back(m.dot_product_with_row(i, x));
     }
@@ -627,7 +632,7 @@ void test_lp_primal_core_solver() {
 
 #ifdef Z3DEBUG
 template <typename T, typename X>
-void test_swap_rows_with_permutation(sparse_matrix<T, X>& m){
+void test_swap_rows_with_permutation(square_sparse_matrix<T, X>& m){
     std::cout << "testing swaps" << std::endl;
     unsigned dim = m.row_count();
     dense_matrix<double, double> original(&m);
@@ -648,10 +653,10 @@ void test_swap_rows_with_permutation(sparse_matrix<T, X>& m){
 }
 #endif
 template <typename T, typename X>
-void fill_matrix(sparse_matrix<T, X>& m); // forward definition
+void fill_matrix(square_sparse_matrix<T, X>& m); // forward definition
 #ifdef Z3DEBUG
 template <typename T, typename X>
-void test_swap_cols_with_permutation(sparse_matrix<T, X>& m){
+void test_swap_cols_with_permutation(square_sparse_matrix<T, X>& m){
     std::cout << "testing swaps" << std::endl;
     unsigned dim = m.row_count();
     dense_matrix<double, double> original(&m);
@@ -673,9 +678,9 @@ void test_swap_cols_with_permutation(sparse_matrix<T, X>& m){
 
 
 template <typename T, typename X>
-void test_swap_rows(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
+void test_swap_rows(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     std::cout << "test_swap_rows(" << i0 << "," << i1 << ")" << std::endl;
-    sparse_matrix<T, X> mcopy(m.dimension());
+    square_sparse_matrix<T, X> mcopy(m.dimension(), 0);
     for (unsigned i = 0; i  < m.dimension(); i++)
         for (unsigned j = 0; j < m.dimension(); j++) {
             mcopy(i, j)= m(i, j);
@@ -689,9 +694,9 @@ void test_swap_rows(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     }
 }
 template <typename T, typename X>
-void test_swap_columns(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
+void test_swap_columns(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     std::cout << "test_swap_columns(" << i0 << "," << i1 << ")" << std::endl;
-    sparse_matrix<T, X> mcopy(m.dimension());
+    square_sparse_matrix<T, X> mcopy(m.dimension(), 0); // the second argument does not matter
     for (unsigned i = 0; i  < m.dimension(); i++)
         for (unsigned j = 0; j < m.dimension(); j++) {
             mcopy(i, j)= m(i, j);
@@ -714,7 +719,7 @@ void test_swap_columns(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
 #endif
 
 template <typename T, typename X>
-void fill_matrix(sparse_matrix<T, X>& m){
+void fill_matrix(square_sparse_matrix<T, X>& m){
     int v = 0;
     for (int i = m.dimension() - 1; i >= 0; i--) {
         for (int j = m.dimension() - 1; j >=0; j--){
@@ -724,7 +729,7 @@ void fill_matrix(sparse_matrix<T, X>& m){
 }
 
 void test_pivot_like_swaps_and_pivot(){
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     // print_matrix(m);
     // pivot at 2,7
@@ -775,7 +780,7 @@ void test_pivot_like_swaps_and_pivot(){
 
 #ifdef Z3DEBUG
 void test_swap_rows() {
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     // print_matrix(m);
     test_swap_rows(m, 3, 5);
@@ -796,7 +801,7 @@ void test_swap_rows() {
     test_swap_rows(m, 0, 7);
 
     // go over some corner cases
-    sparse_matrix<double, double> m0(2);
+    square_sparse_matrix<double, double> m0(2, 2);
     test_swap_rows(m0, 0, 1);
     m0(0, 0) = 3;
     test_swap_rows(m0, 0, 1);
@@ -804,7 +809,7 @@ void test_swap_rows() {
     test_swap_rows(m0, 0, 1);
 
 
-    sparse_matrix<double, double> m1(10);
+    square_sparse_matrix<double, double> m1(10, 10);
     test_swap_rows(m1, 0, 1);
     m1(0, 0) = 3;
     test_swap_rows(m1, 0, 1);
@@ -816,7 +821,7 @@ void test_swap_rows() {
 
     test_swap_rows(m1, 0, 1);
 
-    sparse_matrix<double, double> m2(3);
+    square_sparse_matrix<double, double> m2(3, 3);
     test_swap_rows(m2, 0, 1);
     m2(0, 0) = 3;
     test_swap_rows(m2, 0, 1);
@@ -824,7 +829,7 @@ void test_swap_rows() {
     test_swap_rows(m2, 0, 2);
 }
 
-void fill_uniformly(sparse_matrix<double, double> & m, unsigned dim) {
+void fill_uniformly(square_sparse_matrix<double, double> & m, unsigned dim) {
     int v = 0;
     for (unsigned i = 0; i < dim; i++) {
         for (unsigned j = 0; j < dim; j++) {
@@ -842,9 +847,9 @@ void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
     }
 }
 
-void sparse_matrix_with_permutaions_test() {
+void square_sparse_matrix_with_permutaions_test() {
     unsigned dim = 4;
-    sparse_matrix<double, double> m(dim);
+    square_sparse_matrix<double, double> m(dim, dim);
     fill_uniformly(m, dim);
     dense_matrix<double, double> dm(dim, dim);
     fill_uniformly(dm, dim);
@@ -928,7 +933,7 @@ void sparse_matrix_with_permutaions_test() {
 }
 
 void test_swap_columns() {
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     // print_matrix(m);
 
@@ -948,7 +953,7 @@ void test_swap_columns() {
     test_swap_columns(m, 0, 7);
 
     // go over some corner cases
-    sparse_matrix<double, double> m0(2);
+    square_sparse_matrix<double, double> m0(2, 2);
     test_swap_columns(m0, 0, 1);
     m0(0, 0) = 3;
     test_swap_columns(m0, 0, 1);
@@ -956,7 +961,7 @@ void test_swap_columns() {
     test_swap_columns(m0, 0, 1);
 
 
-    sparse_matrix<double, double> m1(10);
+    square_sparse_matrix<double, double> m1(10, 10);
     test_swap_columns(m1, 0, 1);
     m1(0, 0) = 3;
     test_swap_columns(m1, 0, 1);
@@ -968,7 +973,7 @@ void test_swap_columns() {
 
     test_swap_columns(m1, 0, 1);
 
-    sparse_matrix<double, double> m2(3);
+    square_sparse_matrix<double, double> m2(3, 3);
     test_swap_columns(m2, 0, 1);
     m2(0, 0) = 3;
     test_swap_columns(m2, 0, 1);
@@ -1846,7 +1851,7 @@ void test_init_U() {
     basis[1] = 2;
     basis[2] = 4;
 
-    sparse_matrix<double, double> u(m, basis);
+    square_sparse_matrix<double, double> u(m, basis);
 
     for (unsigned i = 0; i < 3; i++) {
         for (unsigned j = 0; j < 3; j ++) {
@@ -1859,7 +1864,7 @@ void test_init_U() {
 }
 
 void test_replace_column() {
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     m.swap_columns(0, 7);
     m.swap_columns(6, 3);
@@ -1884,7 +1889,9 @@ void test_replace_column() {
 }
 
 
+
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-hnf", "test hermite normal form");
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
@@ -2660,7 +2667,7 @@ void check_lu_from_file(std::string lufile_name) {
     vector<int> basis_heading;
     lp_settings settings;
     vector<unsigned> non_basic_columns;
-    lu<double, double> lsuhl(A, basis, settings);
+    lu<static_matrix<double, double>> lsuhl(A, basis, settings);
     indexed_vector<double>  d(A.row_count());
     unsigned entering = 26;
     lsuhl.solve_Bd(entering, d, v);
@@ -2677,7 +2684,7 @@ void check_lu_from_file(std::string lufile_name) {
 void test_square_dense_submatrix() {
     std::cout << "testing square_dense_submatrix" << std::endl;
     unsigned parent_dim = 7;
-    sparse_matrix<double, double> parent(parent_dim);
+    square_sparse_matrix<double, double> parent(parent_dim, 0);
     fill_matrix(parent);
     unsigned index_start = 3;
     square_dense_submatrix<double, double> d;
@@ -3156,6 +3163,8 @@ void test_integer_domain_randomly(integer_domain<int> & d) {
 }
 
 void test_integer_domain() {
+#ifdef Z3DEBUG
+   
     std::cout << "test_integer_domain\n";
     unsigned e0 = 0;
     unsigned e1 = 1;
@@ -3197,6 +3206,7 @@ void test_integer_domain() {
     d.pop(2);
     d.print(std::cout);
     lp_assert(d.has_neg_inf() && d.has_pos_inf());
+#endif
     // integer_domain<int> d;
     // std::vector<integer_domain<int>> stack;
     // for (int i = 0; i < 10000; i++) {
@@ -3223,10 +3233,10 @@ void test_integer_domain() {
 
 
 
-void test_resolve_with_tight_constraint(cut_solver& cs,
-                                        lp::cut_solver::polynomial&i ,
+void test_resolve_with_tight_constraint(chase_cut_solver& cs,
+                                        lp::chase_cut_solver::polynomial&i ,
                                         unsigned int j,
-                                        cut_solver::polynomial& ti) {
+                                        chase_cut_solver::polynomial& ti) {
     
     // std::cout << "resolve constraint ";
     // cs.print_polynomial(std::cout, i);
@@ -3234,172 +3244,453 @@ void test_resolve_with_tight_constraint(cut_solver& cs,
     // cs.print_polynomial(std::cout, ti);
     // std::cout << std::endl;
     // bool j_coeff_is_one = ti.coeff(j) == 1;
-    // cut_solver::polynomial result;
+    // chase_cut_solver::polynomial result;
     // cs.resolve(i, j,  j_coeff_is_one, ti);
     // std::cout << "resolve result is ";
     // cs.print_polynomial(std::cout, i);
     // std::cout << std::endl;
 }
 
-typedef cut_solver::monomial mono;
+typedef chase_cut_solver::monomial mono;
 
-void test_resolve(cut_solver& cs, unsigned constraint_index, unsigned i0)  {
+void test_resolve(chase_cut_solver& cs, unsigned constraint_index, unsigned i0)  {
     var_index x = 0;
     var_index y = 1;
     var_index z = 2;
     std::cout << "test_resolve\n";
     
-    cut_solver::polynomial i; i += mono(2, x);i += mono(-3,y);
+    chase_cut_solver::polynomial i; i += mono(2, x);i += mono(-3,y);
     i+= mono(4, z);
     i.m_a = 5;
-    cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
+    chase_cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
     test_resolve_with_tight_constraint(cs, i, x, ti);
     test_resolve_with_tight_constraint(cs, i, y ,ti);
- }
+}
 
 
 void test_gomory_cut_0() {
-        gomory_test g(
-            [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
-            ,
-            [](unsigned j) { //get_value_p
-                if (j == 1)
-                    return mpq(2730, 1727);
-                if (j == 2)
-                    return zero_of_type<mpq>();
-                if (j == 3) return mpq(3);
-                lp_assert(false);
+    gomory_test g(
+        [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
+        ,
+        [](unsigned j) { //get_value_p
+            if (j == 1)
+                return mpq(2730, 1727);
+            if (j == 2)
                 return zero_of_type<mpq>();
-            },
-            [](unsigned j) { // at_low_p
-                if (j == 1)
-                    return false;
-                if (j == 2)
-                    return true;
-                if (j == 3)
-                    return true;
-                lp_assert(false);
+            if (j == 3) return mpq(3);
+            lp_assert(false);
+            return zero_of_type<mpq>();
+        },
+        [](unsigned j) { // at_low_p
+            if (j == 1)
                 return false;
-            },
-            [](unsigned j) { // at_upper
-                if (j == 1)
-                    return false;
-                if (j == 2)
-                    return true;
-                if (j == 3)
-                    return false;
-                lp_assert(false);
+            if (j == 2)
+                return true;
+            if (j == 3)
+                return true;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // at_upper
+            if (j == 1)
                 return false;
-            },
-            [](unsigned j) { // lower_bound
-                if (j == 1) {
-                    lp_assert(false); //unlimited from below
-                    return 0;
-                }
-                if (j == 2)
-                    return 0;
-                if (j == 3)
-                    return 3;
-                lp_assert(false);
+            if (j == 2)
+                return true;
+            if (j == 3)
+                return false;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // lower_bound
+            if (j == 1) {
+                lp_assert(false); //unlimited from below
                 return 0;
-            },
-            [](unsigned j) { // upper
-                if (j == 1) {
-                    lp_assert(false); //unlimited from above
-                    return 0;
-                }
-                if (j == 2)
-                    return 0;
-                if (j == 3)
-                    return 10;
-                lp_assert(false);
+            }
+            if (j == 2)
                 return 0;
-            },
-            [] (unsigned) { return 0; },
-            [] (unsigned) { return 0; }
-                      );
-        lar_term t;
-        mpq k;
-        explanation expl;
-        unsigned inf_col = 1;
-        vector<std::pair<mpq, unsigned>> row;
-        row.push_back(std::make_pair(mpq(1), 1));
-        row.push_back(std::make_pair(mpq(2731, 1727), 2));
-        row.push_back(std::make_pair(mpq(-910, 1727), 3));
-        g.mk_gomory_cut(t,  k, expl, inf_col, row);
+            if (j == 3)
+                return 3;
+            lp_assert(false);
+            return 0;
+        },
+        [](unsigned j) { // upper
+            if (j == 1) {
+                lp_assert(false); //unlimited from above
+                return 0;
+            }
+            if (j == 2)
+                return 0;
+            if (j == 3)
+                return 10;
+            lp_assert(false);
+            return 0;
+        },
+        [] (unsigned) { return 0; },
+        [] (unsigned) { return 0; }
+                  );
+    lar_term t;
+    mpq k;
+    explanation expl;
+    unsigned inf_col = 1;
+    vector<std::pair<mpq, unsigned>> row;
+    row.push_back(std::make_pair(mpq(1), 1));
+    row.push_back(std::make_pair(mpq(2731, 1727), 2));
+    row.push_back(std::make_pair(mpq(-910, 1727), 3));
+    g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
 
 void test_gomory_cut_1() {
-        gomory_test g(
-            [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
-            ,
-            [](unsigned j) { //get_value_p
-                if (j == 1)
-                    return mpq(-2);
-                if (j == 2)
-                    return mpq(4363334, 2730001);
-                if (j == 3)
-                    return mpq(1);
-                lp_assert(false);
-                return zero_of_type<mpq>();
-            },
-            [](unsigned j) { // at_low_p
-                if (j == 1)
-                    return false;
-                if (j == 2)
-                    return false;
-                if (j == 3)
-                    return true;
-                lp_assert(false);
+    gomory_test g(
+        [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
+        ,
+        [](unsigned j) { //get_value_p
+            if (j == 1)
+                return mpq(-2);
+            if (j == 2)
+                return mpq(4363334, 2730001);
+            if (j == 3)
+                return mpq(1);
+            lp_assert(false);
+            return zero_of_type<mpq>();
+        },
+        [](unsigned j) { // at_low_p
+            if (j == 1)
                 return false;
-            },
-            [](unsigned j) { // at_upper
-                if (j == 1)
-                    return true;
-                if (j == 2)
-                    return false;
-                if (j == 3)
-                    return true;
-                lp_assert(false);
+            if (j == 2)
                 return false;
-            },
-            [](unsigned j) { // lower_bound
-                if (j == 1) {
-                    lp_assert(false); //unlimited from below
-                    return 0;
-                }
-                if (j == 2)
-                    return 1;
-                if (j == 3)
-                    return 1;
-                lp_assert(false);
+            if (j == 3)
+                return true;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // at_upper
+            if (j == 1)
+                return true;
+            if (j == 2)
+                return false;
+            if (j == 3)
+                return true;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // lower_bound
+            if (j == 1) {
+                lp_assert(false); //unlimited from below
                 return 0;
-            },
-            [](unsigned j) { // upper
-                if (j == 1) {
-                    return -2;
-                }
-                if (j == 2)
-                    return 3333;
-                if (j == 3)
-                    return 10000;
-                lp_assert(false);
-                return 0;
-            },
-            [] (unsigned) { return 0; },
-            [] (unsigned) { return 0; }
-                      );
-        lar_term t;
-        mpq k;
-        explanation expl;
-        unsigned inf_col = 2;
-        vector<std::pair<mpq, unsigned>> row;
-        row.push_back(std::make_pair(mpq(1726667, 2730001), 1));
-        row.push_back(std::make_pair(mpq(-910000, 2730001), 3));
-        row.push_back(std::make_pair(mpq(1), 2));
-        g.mk_gomory_cut(t,  k, expl, inf_col, row);
+            }
+            if (j == 2)
+                return 1;
+            if (j == 3)
+                return 1;
+            lp_assert(false);
+            return 0;
+        },
+        [](unsigned j) { // upper
+            if (j == 1) {
+                return -2;
+            }
+            if (j == 2)
+                return 3333;
+            if (j == 3)
+                return 10000;
+            lp_assert(false);
+            return 0;
+        },
+        [] (unsigned) { return 0; },
+        [] (unsigned) { return 0; }
+                  );
+    lar_term t;
+    mpq k;
+    explanation expl;
+    unsigned inf_col = 2;
+    vector<std::pair<mpq, unsigned>> row;
+    row.push_back(std::make_pair(mpq(1726667, 2730001), 1));
+    row.push_back(std::make_pair(mpq(-910000, 2730001), 3));
+    row.push_back(std::make_pair(mpq(1), 2));
+    g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
 
+void test_hnf_m_less_than_n() {
+#ifdef Z3DEBUG
+    general_matrix A;
+    vector<mpq> v;
+    // example 4.3 from Nemhauser, Wolsey
+    v.push_back(mpq(2));
+    v.push_back(mpq(6));
+    v.push_back(mpq(1));
+    v.push_back(mpq(3));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(4));
+    v.push_back(mpq(7));
+    v.push_back(mpq(7));
+    v.push_back(mpq(3));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(0));
+    v.push_back(mpq(0));
+    v.push_back(mpq(1));
+    v.push_back(mpq(5));
+    A.push_row(v);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<general_matrix> h(A, d, r);
+#endif
+}
+void test_hnf_m_greater_than_n() {
+#ifdef Z3DEBUG
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(2));
+    v.push_back(mpq(6));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(4));
+    v.push_back(mpq(7));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(0));
+    v.push_back(mpq(0));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(12));
+    v.push_back(mpq(55));
+    A.push_row(v);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<general_matrix> h(A, d, r);
+#endif
+}
+
+
+void cutting_the_mix_example_1() {
+    mpq sev(7);
+    mpq nine(9);
+    mpq d, u, vv;
+    hnf_calc::extended_gcd_minimal_uv(sev, nine, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    hnf_calc::extended_gcd_minimal_uv(sev, -nine, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
+    hnf_calc::extended_gcd_minimal_uv(-nine, -nine, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
+    hnf_calc::extended_gcd_minimal_uv(-sev*2, sev, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    
+    hnf_calc::extended_gcd_minimal_uv(mpq(24), mpq(-7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    hnf_calc::extended_gcd_minimal_uv(-mpq(24), mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    hnf_calc::extended_gcd_minimal_uv(mpq(24), mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    hnf_calc::extended_gcd_minimal_uv(-mpq(21), mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
+    hnf_calc::extended_gcd_minimal_uv(mpq(21), -mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+}
+
+void test_determinant() {
+#ifdef Z3DEBUG
+    {
+        auto M = general_matrix(4);
+        M[0][0] = 1; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; 
+        M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0;
+        M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0;
+        M[3][0] = 0; M[3][1] =  0; M[3][2] = 0; M[3][3] = 4;
+        std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+        mpq d = hnf_calc::determinant(M);
+        std::cout << "det M = " << d  << std::endl;
+    }
+    {
+        auto M = general_matrix(3);
+        M[0][0] = 3; M[0][1] = -1; M[0][2] = 1;
+        M[1][0] = 1; M[1][1] =  0; M[1][2] = 0;
+        M[2][0] = 0; M[2][1] =  1; M[2][2] = 4;
+        unsigned r;
+        std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+        std::cout << "det M = " << d  << std::endl;
+        std::cout << "rank = " << r << std::endl;
+    }
+    {
+        auto M = general_matrix(4, 6);
+        M[0][0] = 3; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; M[0][4] = 3; M[0][5] =  -1;
+        M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0; M[1][4] = 2; M[1][5] =   7;
+        M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0; M[2][4] = 2; M[2][5] =   8;
+        M[3][0] = 6; M[3][1] = -2; M[3][2] = 2; M[3][3] = 2; M[3][4] = 6; M[3][5] =  -2;
+        unsigned r;
+        std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+        std::cout << "det M = " << d  << std::endl;
+        std::cout << "rank = " << r << std::endl;
+    }
+#endif
+}
+
+#ifdef Z3DEBUG
+
+void fill_general_matrix(general_matrix & M) {
+    unsigned m = M.row_count();
+    unsigned n = M.column_count();
+    for (unsigned i = 0; i < m; i++)
+        for (unsigned j = 0; j < n; j++)
+            M[i][j] = mpq(static_cast<int>(my_random() % 13) - 6);
+}
+
+void call_hnf(general_matrix A) {
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r);
+    if (r == A.row_count())
+        hnf<general_matrix> h(A, d, r);
+}
+
+
+void test_hnf_for_dim(int m) {
+    general_matrix M(m, m + my_random() % m);
+    fill_general_matrix(M);
+    call_hnf(M);
+}
+void test_hnf_1_2() {
+    std::cout << "test_hnf_1_2" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
+    A.push_row(v);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<general_matrix> h(A, d, r);
+    std::cout << "test_hnf_1_2 passed" << std::endl;
+}
+void test_hnf_2_2() {
+    std::cout << "test_hnf_2_2" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(2));
+    v.push_back(mpq(11));
+    A.push_row(v);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<general_matrix> h(A, d, r);
+
+    std::cout << "test_hnf_2_2 passed" << std::endl;
+}
+
+void test_hnf_3_3() {
+    std::cout << "test_hnf_3_3" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(-3));
+    v.push_back(mpq(0));
+    v.push_back(mpq(-1));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(-1));
+    v.push_back(mpq(0));
+    v.push_back(mpq(-6));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(-2));
+    v.push_back(mpq(-4));
+    v.push_back(mpq(-3));
+    A.push_row(v);
+    
+    call_hnf(A);
+    std::cout << "test_hnf_3_3 passed" << std::endl;
+}
+void test_hnf_4_4() {
+    std::cout << "test_hnf_4_4" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(4));
+    v.push_back(mpq(3));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(6));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(1));
+    v.push_back(mpq(-3));
+    v.push_back(mpq(1));
+    v.push_back(mpq(-4));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(4));
+    v.push_back(mpq(4));
+    v.push_back(mpq(4));
+    v.push_back(mpq(4));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(2));
+    v.push_back(mpq(-2));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(6));
+    A.push_row(v);
+    call_hnf(A);
+    std::cout << "test_hnf_4_4 passed" << std::endl;
+}
+void test_hnf_5_5() {
+    std::cout << "test_hnf_5_5" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(-4));
+    v.push_back(mpq(5));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(1));
+    v.push_back(mpq(-3));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(3));
+    v.push_back(mpq(-1));
+    v.push_back(mpq(2));
+    v.push_back(mpq(3));
+    v.push_back(mpq(-5));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(0));
+    v.push_back(mpq(6));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(-6));
+    v.push_back(mpq(-2));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(1));
+    v.push_back(mpq(0));
+    v.push_back(mpq(-4));
+    v.push_back(mpq(-4));
+    v.push_back(mpq(4));
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(-2));
+    v.push_back(mpq(3));
+    v.push_back(mpq(6));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(-1));
+    A.push_row(v);
+    call_hnf(A);
+    std::cout << "test_hnf_5_5 passed" << std::endl;
+}
+
+void test_hnf() {
+    test_determinant();
+    test_hnf_1_2();
+    test_hnf_3_3();
+    test_hnf_4_4();
+    test_hnf_5_5();
+    test_hnf_2_2();
+    for (unsigned k=1000; k>0; k--)
+        for (int i = 1; i < 8; i++)
+            test_hnf_for_dim(i);
+    cutting_the_mix_example_1();
+    //    test_hnf_m_less_than_n();
+    //    test_hnf_m_greater_than_n();
+}
+#endif
 void test_gomory_cut() {
     test_gomory_cut_0();
     test_gomory_cut_1();
@@ -3420,6 +3711,14 @@ void test_lp_local(int argn, char**argv) {
     }
 
     args_parser.print();
+
+    if (args_parser.option_is_used("-hnf")) {
+#ifdef Z3DEBUG
+        test_hnf();
+#endif
+        return finalize(0);
+    }
+    
     if (args_parser.option_is_used("-gomory")) {
         test_gomory_cut();
         return finalize(0);
@@ -3464,7 +3763,7 @@ void test_lp_local(int argn, char**argv) {
 
 #ifdef Z3DEBUG
     if (args_parser.option_is_used("--test_swaps")) {
-        sparse_matrix<double, double> m(10);
+        square_sparse_matrix<double, double> m(10, 0);
         fill_matrix(m);
         test_swap_rows_with_permutation(m);
         test_swap_cols_with_permutation(m);
@@ -3574,7 +3873,7 @@ void test_lp_local(int argn, char**argv) {
     test_init_U();
     test_replace_column();
 #ifdef Z3DEBUG
-    sparse_matrix_with_permutaions_test();
+    square_sparse_matrix_with_permutaions_test();
     test_dense_matrix();
     test_swap_operations();
     test_permutations();
@@ -3588,3 +3887,8 @@ void test_lp_local(int argn, char**argv) {
 void tst_lp(char ** argv, int argc, int& i) {
     lp::test_lp_local(argc - 2, argv + 2);
 }
+#ifdef Z3DEBUG
+namespace lp {
+template void print_matrix<general_matrix>(general_matrix&, std::ostream&);
+}
+#endif

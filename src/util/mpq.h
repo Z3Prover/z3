@@ -501,7 +501,7 @@ public:
 
     void machine_div(mpz const & a, mpz const & b, mpz & c) { mpz_manager<SYNCH>::machine_div(a, b, c); }
 
-    void machine_div_rem(mpz const & a, mpz const & b, mpz & c, mpz& d) { mpz_manager<SYNCH>::machine_div_rem(a, b, c, d); }
+    void machine_div_rem(mpz const & a, mpz const & b, mpz & c, mpz & d) { mpz_manager<SYNCH>::machine_div_rem(a, b, c, d); }
 
     void div(mpz const & a, mpz const & b, mpz & c) { mpz_manager<SYNCH>::div(a, b, c); }
     

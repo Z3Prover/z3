@@ -46,7 +46,7 @@ void print_sparse_vector(const vector<T> & t, std::ostream & out) {
     out << std::endl;
 }
 
-void print_vector(const vector<mpq> & t, std::ostream & out) {
+void print_vector_as_doubles(const vector<mpq> & t, std::ostream & out) {
     for (unsigned i = 0; i < t.size(); i++)
         out << t[i].get_double() << std::setprecision(3) << " ";
     out << std::endl;
