@@ -47,13 +47,18 @@ class hnf {
     }
     
     void handle_column_ij_in_row_i(unsigned i, unsigned j) {
-        mpq aii = m_A[i][i];
-        mpq aij = m_A[i][j];
+        const mpq& aii = m_A[i][i];
+        const mpq& aij = m_A[i][j];
         mpq p,q,r;
         extended_gcd(aii, aij, r, p, q);
         buffer_p_col_i_plus_q_col_j(p, i, q, j);
         replace_column_j_by_col(-aij/r, i, aii/r, j);
         copy_buffer_to_col_i(i);
+    }
+
+    void switch_sign_for_column(unsigned i) {
+        for (unsigned k = i; k < m_m; k++)
+            m_A[k][i].neg();
     }
     
     void process_row_column(unsigned i, unsigned j){ 
@@ -63,19 +68,22 @@ class hnf {
             handle_column_ij_in_row_i(i, j);
             j++;
         }
-        m_A.print(std::cout);
         // continue step 3 here
     }
     
     void process_row(unsigned i) {
         for (unsigned j = i + 1; j < m_n; j++)
             process_row_column(i, j);
+        if (is_neg(m_A[i][i]))
+            switch_sign_for_column(i);
+        m_A.print(std::cout);
     }
     
     void calculate() {
         m_A.print(std::cout);
         std::cout << "working" << std::endl;
         for (unsigned i = 0; i < m_m; i++) {
+            std::cout << "process_row " << i << std::endl;
             process_row(i);
         }
     }
