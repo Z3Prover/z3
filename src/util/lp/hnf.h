@@ -47,8 +47,6 @@ class hnf {
     }
     
     void handle_column_ij_in_row_i(unsigned i, unsigned j) {
-        std::cout << "A[" << i << "][" << i << "] = " << m_A[i][i] << "," << std::endl;
-        std::cout << "A[" << i << "][" << j << "] = " << m_A[i][j] << "," << std::endl;
         mpq aii = m_A[i][i];
         mpq aij = m_A[i][j];
         mpq p,q,r;
@@ -56,9 +54,6 @@ class hnf {
         buffer_p_col_i_plus_q_col_j(p, i, q, j);
         replace_column_j_by_col(-aij/r, i, aii/r, j);
         copy_buffer_to_col_i(i);
-        std::cout << "r = " << r << ", p = " << p << ", q = " << q << std::endl;
-        std::cout << "A[" << i << "][" << i << "] = " << m_A[i][i] << "," << std::endl;
-        std::cout << "A[" << i << "][" << j << "] = " << m_A[i][j] << "," << std::endl;
     }
     
     void process_row_column(unsigned i, unsigned j){ 
@@ -78,6 +73,7 @@ class hnf {
     }
     
     void calculate() {
+        m_A.print(std::cout);
         std::cout << "working" << std::endl;
         for (unsigned i = 0; i < m_m; i++) {
             process_row(i);
