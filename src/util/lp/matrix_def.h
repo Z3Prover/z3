@@ -104,6 +104,19 @@ void print_string_matrix(vector<vector<std::string>> & A, std::ostream & out) {
     out << std::endl;
 }
 
+template <typename T>
+void print_matrix(vector<vector<T>> & A, std::ostream & out) {
+    vector<vector<std::string>> s(A.size());
+    for (unsigned i = 0; i < A.size(); i++) {
+        for (const auto & v : A[i]) {
+            s[i].push_back(T_to_string(v));
+        }
+    }
+
+    print_string_matrix(s, out);
+}
+
+
 template <typename T, typename X>
 void print_matrix(matrix<T, X> const * m, std::ostream & out) {
     vector<vector<std::string>> A(m->row_count());
