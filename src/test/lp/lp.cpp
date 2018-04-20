@@ -3414,6 +3414,34 @@ struct matrix_A {
     void print(std::ostream & out) const {
         print_matrix<mpq>(m_data, out);
     }
+    matrix_A operator*(const matrix_A & m) const {
+        lp_assert(m.row_count() == column_count());
+        matrix_A ret;
+        auto & v = ret.m_data;
+        for (unsigned i = 0; i < row_count(); i ++) {
+            v.push_back(vector<mpq>());
+            v.back().resize(m.column_count());
+            const auto & row = m_data[i];
+            for (unsigned j = 0; j < m.column_count(); j++) {
+                mpq a(0);
+                for (unsigned k = 0; k < column_count(); k++)
+                    a += row[k]*m[k][j];
+                ret[i][j] = a;
+            }
+        }
+        return ret;
+    }
+
+    bool elements_are_equal(const matrix_A& m) const {
+        for (unsigned i = 0; i < row_count(); i++)
+            for (unsigned j = 0; j < column_count(); j++)
+                if ( (*this)[i][j] != m[i][j])
+                    return false;
+        return true;
+    }
+    bool operator==(const matrix_A& m) const {
+        return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal(m);
+    }
 };
 #endif
 void test_hnf_m_less_than_n() {

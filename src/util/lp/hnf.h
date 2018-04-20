@@ -23,6 +23,8 @@ namespace lp {
 template <typename M> // M is the matrix type
 class hnf {
     M &          m_A;
+    M            m_U;
+    M            m_A_orig;
     vector<mpq>  m_buffer;
     unsigned     m_m;
     unsigned     m_n;
@@ -106,12 +108,25 @@ class hnf {
             process_row(i);
         }
     }
-    
+
+    void prepare_U() {
+        auto & v = m_U.m_data;
+        v.resize(m_A.column_count());
+        for (auto & row: v)
+            row.resize(m_A.column_count());
+        for (unsigned i = 0; i < m_U.column_count(); i++)
+            m_U[i][i] = 1;
+
+        lp_assert(m_A == m_A_orig * m_U);
+    }
 public:
     hnf(M & A) : m_A(A),
+                 m_A_orig(A),
                  m_buffer(A.row_count()),
                  m_m(m_A.row_count()),
                  m_n(m_A.column_count()) {
+        prepare_U();
+        
         calculate();
     }
 };
