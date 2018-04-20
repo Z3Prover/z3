@@ -2254,7 +2254,12 @@ var * ast_manager::mk_var(unsigned idx, sort * s) {
     unsigned sz     = var::get_obj_size();
     void * mem      = allocate_node(sz);
     var * new_node  = new (mem) var(idx, s);
-    return register_node(new_node);
+    var * r         = register_node(new_node);
+
+    if (m_trace_stream && r == new_node) {
+        *m_trace_stream << "[mk-var] #" << r->get_id() << "\n";
+    }
+    return r;
 }
 
 app * ast_manager::mk_label(bool pos, unsigned num_names, symbol const * names, expr * n) {
