@@ -3403,7 +3403,7 @@ void test_gomory_cut_1() {
         row.push_back(std::make_pair(mpq(1), 2));
         g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
-
+#ifdef Z3DEBUG
 struct matrix_A {
     vector<vector<mpq>> m_data;
     unsigned row_count() const { return m_data.size(); }
@@ -3415,6 +3415,7 @@ struct matrix_A {
         print_matrix<mpq>(m_data, out);
     }
 };
+#endif
 void test_hnf_m_less_than_n() {
 #ifdef Z3DEBUG
     matrix_A A;
