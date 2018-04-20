@@ -51,6 +51,8 @@ Revision History:
 #include "util/lp/stacked_map.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
+#include "util/lp/matrix.h"
+#include "util/lp/hnf.h"
 
 namespace lp {
 unsigned seed = 1;
@@ -1884,7 +1886,9 @@ void test_replace_column() {
 }
 
 
+
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-hnf", "test hermite normal form");
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
     parser.add_option_with_help_string("-xyz_sample", "run a small interactive scenario");
@@ -3400,6 +3404,40 @@ void test_gomory_cut_1() {
         g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
 
+struct matrix_A {
+    vector<vector<mpq>> m_data;
+    unsigned row_count() const { return m_data.size(); }
+    unsigned column_count() const { return m_data[0].size(); }
+
+    const vector<mpq>& operator[](unsigned i) const { return m_data[i]; }
+    vector<mpq>& operator[](unsigned i) { return m_data[i]; }
+    void print(std::ostream & out) const {
+        print_matrix<mpq>(m_data, out);
+    }
+};
+void test_hnf() {
+#ifdef Z3DEBUG
+    matrix_A A;
+    vector<mpq> v;
+    // example 4.3 from Nemhauser, Wolsey
+    v.push_back(mpq(2));
+    v.push_back(mpq(6));
+    v.push_back(mpq(1));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(4));
+    v.push_back(mpq(7));
+    v.push_back(mpq(7));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(0));
+    v.push_back(mpq(0));
+    v.push_back(mpq(1));
+    A.m_data.push_back(v);
+    hnf<matrix_A> h(A);
+#endif
+}
+
 void test_gomory_cut() {
     test_gomory_cut_0();
     test_gomory_cut_1();
@@ -3420,6 +3458,12 @@ void test_lp_local(int argn, char**argv) {
     }
 
     args_parser.print();
+
+    if (args_parser.option_is_used("-hnf")) {
+        test_hnf();
+        return finalize(0);
+    }
+    
     if (args_parser.option_is_used("-gomory")) {
         test_gomory_cut();
         return finalize(0);
