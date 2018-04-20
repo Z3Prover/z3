@@ -90,6 +90,8 @@ class hnf {
     void process_row(unsigned i) {
         for (unsigned j = i + 1; j < m_n; j++)
             process_row_column(i, j);
+        if (i >= m_n)
+            return;
         if (is_neg(m_A[i][i]))
             switch_sign_for_column(i);
         work_on_columns_under_row_i(i);
@@ -107,7 +109,7 @@ class hnf {
     
 public:
     hnf(M & A) : m_A(A),
-                 m_buffer(A.column_count()),
+                 m_buffer(A.row_count()),
                  m_m(m_A.row_count()),
                  m_n(m_A.column_count()) {
         calculate();

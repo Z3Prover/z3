@@ -3415,7 +3415,7 @@ struct matrix_A {
         print_matrix<mpq>(m_data, out);
     }
 };
-void test_hnf() {
+void test_hnf_m_less_than_n() {
 #ifdef Z3DEBUG
     matrix_A A;
     vector<mpq> v;
@@ -3439,6 +3439,33 @@ void test_hnf() {
     A.m_data.push_back(v);
     hnf<matrix_A> h(A);
 #endif
+}
+void test_hnf_m_greater_than_n() {
+#ifdef Z3DEBUG
+    matrix_A A;
+    vector<mpq> v;
+    // example 4.3 from Nemhauser, Wolsey
+    v.push_back(mpq(2));
+    v.push_back(mpq(6));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(4));
+    v.push_back(mpq(7));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(0));
+    v.push_back(mpq(0));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(12));
+    v.push_back(mpq(55));
+    A.m_data.push_back(v);
+    hnf<matrix_A> h(A);
+#endif
+}
+void test_hnf() {
+    test_hnf_m_less_than_n();
+    test_hnf_m_greater_than_n();
 }
 
 void test_gomory_cut() {
