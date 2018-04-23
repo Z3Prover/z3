@@ -718,8 +718,8 @@ void cmd_context::init_manager_core(bool new_manager) {
     }
     m_dt_eh = alloc(dt_eh, *this);
     m_pmanager->set_new_datatype_eh(m_dt_eh.get());
-    if (!has_logic()) {
-        TRACE("cmd_context", tout << "init manager\n";);
+    if (!has_logic() && new_manager) {
+        TRACE("cmd_context", tout << "init manager " << m_logic << "\n";);
         // add list type only if the logic is not specified.
         // it prevents clashes with builtin types.
         insert(pm().mk_plist_decl());
@@ -757,6 +757,7 @@ void cmd_context::init_external_manager() {
 }
 
 bool cmd_context::set_logic(symbol const & s) {
+    TRACE("cmd_context", tout << s << "\n";);
     if (has_logic())
         throw cmd_exception("the logic has already been set");
     if (has_manager() && m_main_ctx)
@@ -1240,7 +1241,7 @@ void cmd_context::insert_aux_pdecl(pdecl * p) {
     m_aux_pdecls.push_back(p);
 }
 
-void cmd_context::reset(bool finalize) {
+void cmd_context::reset(bool finalize) {    
     m_processing_pareto = false;
     m_logic = symbol::null;
     m_check_sat_result = nullptr;

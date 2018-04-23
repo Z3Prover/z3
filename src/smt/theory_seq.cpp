@@ -1473,7 +1473,7 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
     if (l == r) {
         return false;
     }
-    TRACE("seq", tout << mk_pp(l, m) << " ==> " << mk_pp(r, m) << "\n";);
+    TRACE("seq", tout << mk_pp(l, m) << " ==> " << mk_pp(r, m) << "\n"; display_deps(tout, deps););
     m_new_solution = true;
     m_rep.update(l, r, deps);
     enode* n1 = ensure_enode(l);
@@ -1513,7 +1513,9 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
     change = canonize(r, rs, dep2) || change;
     deps = m_dm.mk_join(dep2, deps);
     TRACE("seq", tout << l << " = " << r << " ==> ";
-          tout << ls << " = " << rs << "\n";);
+          tout << ls << " = " << rs << "\n";
+          display_deps(tout, deps);
+          );
     if (!ctx.inconsistent() && simplify_eq(ls, rs, deps)) {
         return true;
     }
@@ -2674,7 +2676,12 @@ void theory_seq::init_model(expr_ref_vector const& es) {
     }
 }
 
+void theory_seq::finalize_model(model_generator& mg) {
+    m_rep.pop_scope(1);
+}
+
 void theory_seq::init_model(model_generator & mg) {
+    m_rep.push_scope();
     m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
     mg.register_factory(m_factory);
     for (ne const& n : m_nqs) {
