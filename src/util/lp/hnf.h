@@ -96,6 +96,8 @@ class hnf {
     void switch_sign_for_column(unsigned i) {
         for (unsigned k = i; k < m_m; k++)
             m_H[k][i].neg();
+        for (unsigned k = 0; k < m_n; k++)
+            m_U[k][i].neg();
     }
     
     void process_row_column(unsigned i, unsigned j){
@@ -144,7 +146,9 @@ class hnf {
         work_on_columns_less_than_i_in_the_triangle(i);
         std::cout << "H = " << std::endl;
         m_H.print(std::cout);
-        lp_assert(m_H == m_A_orig * m_U);
+        auto product = m_A_orig * m_U;
+        std::cout << "m_A_orig * m_U = \n"; product.print(std::cout);
+        lp_assert(m_H == product);
     }
     
     void calculate() {
@@ -169,6 +173,8 @@ class hnf {
     }
 
     bool row_is_correct_form(unsigned i) const {
+        if (i >= m_n)
+            return true;
         const mpq& hii = m_H[i][i];
         if (is_neg(hii))
             return false;
@@ -204,7 +210,6 @@ public:
         calculate();
         lp_assert(m_H == m_A_orig * m_U);
         lp_assert(is_correct());
-        lp_assert(A.column_count() >= A.row_count());
     }
 };
 }
