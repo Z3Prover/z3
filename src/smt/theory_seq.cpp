@@ -2360,9 +2360,21 @@ bool theory_seq::check_int_string() {
 
 void theory_seq::add_stoi_axiom(expr* e) {
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
-    SASSERT(m_util.str.is_stoi(e));
-    literal l = mk_simplified_literal(m_autil.mk_ge(e, arith_util(m).mk_int(-1)));
+    expr* s = nullptr;
+    VERIFY (m_util.str.is_stoi(e, s));
+
+    // stoi(s) >= -1
+    literal l = mk_simplified_literal(m_autil.mk_ge(e, m_autil.mk_int(-1)));
     add_axiom(l);    
+    
+    // stoi(s) >= 0 <=> s in (0-9)+
+    expr_ref num_re(m);
+    num_re = m_util.re.mk_range(m_util.str.mk_string(symbol("0")), m_util.str.mk_string(symbol("9")));
+    num_re = m_util.re.mk_plus(num_re);
+    app_ref in_re(m_util.re.mk_in_re(s, num_re), m);
+    literal ge0 = mk_simplified_literal(m_autil.mk_ge(e, m_autil.mk_int(0)));
+    add_axiom(~ge0, mk_literal(in_re));
+    add_axiom(ge0, ~mk_literal(in_re));
 }
 
 bool theory_seq::add_stoi_val_axiom(expr* e) {
@@ -2406,8 +2418,9 @@ bool theory_seq::add_stoi_val_axiom(expr* e) {
             lits.push_back(~is_digit(ith_char));
             nums.push_back(digit2int(ith_char));
         }        
-        for (unsigned i = sz, c = 1; i-- > 0; c *= 10) {
-            coeff = m_autil.mk_int(c);
+        rational c(1);
+        for (unsigned i = sz; i-- > 0; c *= rational(10)) {
+            coeff = m_autil.mk_numeral(c, true);
             nums[i] = m_autil.mk_mul(coeff, nums[i].get());
         }
         num = m_autil.mk_add(nums.size(), nums.c_ptr());
@@ -3482,8 +3495,8 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     literal_vector lits;
     lits.push_back(~lit);
     
-    for (unsigned i = 0; i < states.size(); ++i) {
-        lits.push_back(mk_accept(e1, zero, e3, states[i]));
+    for (unsigned s : states) {
+        lits.push_back(mk_accept(e1, zero, e3, s));
     }
     if (lits.size() == 2) {
         propagate_lit(nullptr, 1, &lit, lits[1]);
