@@ -387,7 +387,7 @@ expr_pattern_match::initialize(char const * spec_string) {
     m_instrs.push_back(instr(BACKTRACK));
 
     std::istringstream is(spec_string);
-    cmd_context      ctx(true, &m_manager);
+    cmd_context      ctx(true, &m_manager);	
     bool ps = ctx.print_success_enabled();
     ctx.set_print_success(false);
     VERIFY(parse_smt2_commands(ctx, is));

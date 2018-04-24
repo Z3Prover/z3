@@ -31,6 +31,7 @@ Revision History:
 #include "muz/base/dl_rule.h"
 #include "muz/base/dl_util.h"
 #include "util/stopwatch.h"
+#include <inttypes.h>
 
 namespace datalog {
 
@@ -623,9 +624,9 @@ namespace datalog {
 
     bool string_to_uint64(const char * s, uint64_t & res) {
 #if _WINDOWS
-        int converted = sscanf_s(s, "%I64u", &res);
+        int converted = sscanf_s(s, "%" SCNu64, &res);
 #else
-        int converted = sscanf(s, "%I64u", &res);
+        int converted = sscanf(s, "%" SCNu64, &res);
 #endif
         if(converted==0) {
             return false;
