@@ -31,6 +31,9 @@ Revision History:
 #include "muz/base/dl_rule.h"
 #include "muz/base/dl_util.h"
 #include "util/stopwatch.h"
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 
 namespace datalog {
