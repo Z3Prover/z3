@@ -461,7 +461,7 @@ namespace smt {
         TRACE("datatype", tout << "occurs_check_explain " << mk_bounded_pp(app->get_owner(), get_manager()) << " <-> " << mk_bounded_pp(root->get_owner(), get_manager()) << "\n";);
         enode* app_parent = nullptr;
 
-        // first: explain that root=v, given that app=cstor(…,v,…)
+        // first: explain that root=v, given that app=cstor(...,v,...)
         for (enode * arg : enode::args(oc_get_cstor(app))) {
             // found an argument which is equal to root
             if (arg->get_root() == root->get_root()) {

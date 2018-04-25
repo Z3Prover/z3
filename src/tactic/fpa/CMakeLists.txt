@@ -3,6 +3,7 @@ z3_add_component(fpa_tactics
     fpa2bv_model_converter.cpp
     fpa2bv_tactic.cpp
     qffp_tactic.cpp
+    qffplra_tactic.cpp
   COMPONENT_DEPENDENCIES
     arith_tactics
     bv_tactics
@@ -14,4 +15,5 @@ z3_add_component(fpa_tactics
   TACTIC_HEADERS
     fpa2bv_tactic.h
     qffp_tactic.h
+    qffplra_tactic.h
 )
