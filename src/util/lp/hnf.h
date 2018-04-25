@@ -20,6 +20,32 @@ Revision History:
 #include "util/lp/numeric_pair.h"
 #include "util/ext_gcd.h"
 namespace lp {
+mpq power_of(const mpq & a, unsigned n) {
+    if (n == 0)
+        return one_of_type<mpq>();
+    if (n == 1)
+        return a;
+    unsigned k = n / 2;
+    unsigned r = n - 2 * k;
+    mpq pk = power_of(a, k);
+    
+    return r == 0? pk * pk : pk * pk * a;
+}
+template <typename M> mpq determinant(const M& m) {
+    unsigned n = m.row_count();
+    lp_assert(m.row_count() == m.column_count());
+    lp_assert(m.row_count() > 0);
+    if (n == 1)
+        return m[0][0];
+    M smaller_m(n - 1);
+    const mpq& m00 = m[0][0];
+    for (unsigned i = 1; i < n; i++) {
+        const mpq& mi0 = m[i][0]; 
+        for (unsigned j = 1; j < n; j++)
+            smaller_m[i-1][j-1] = m00*m[i][j] - mi0*m[0][j];
+    }
+    return determinant(smaller_m) / power_of(m00, n - 2);
+}
 template <typename M> // M is the matrix type
 class hnf {
     M &          m_H;
@@ -29,7 +55,7 @@ class hnf {
     vector<mpq>  m_buffer;
     unsigned     m_m;
     unsigned     m_n;
-    
+
 
     void buffer_p_col_i_plus_q_col_j_H(const mpq & p, unsigned i, const mpq & q, unsigned j) {
         for (unsigned k = i; k < m_m; k++) {
@@ -281,5 +307,9 @@ public:
         calculate();
         lp_assert(is_correct_final());
     }
+    const M& H() const { return m_H;}
+    const M& U() const { return m_U;}
+    const M& U_reverse() const { return m_U_reverse; }
 };
+
 }

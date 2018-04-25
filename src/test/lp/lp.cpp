@@ -3411,8 +3411,8 @@ struct matrix_A {
 
     const vector<mpq>& operator[](unsigned i) const { return m_data[i]; }
     vector<mpq>& operator[](unsigned i) { return m_data[i]; }
-    void print(std::ostream & out) const {
-        print_matrix<mpq>(m_data, out);
+    void print(std::ostream & out, unsigned blanks = 0) const {
+        print_matrix<mpq>(m_data, out, blanks);
     }
     matrix_A operator*(const matrix_A & m) const {
         lp_assert(m.row_count() == column_count());
@@ -3442,7 +3442,44 @@ struct matrix_A {
     bool operator==(const matrix_A& m) const {
         return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal(m);
     }
+    vector<mpq> operator*(const vector<mpq> & x) const {
+        vector<mpq> r;
+        lp_assert(x.size() == column_count());
+        for (unsigned i = 0; i < row_count(); i++) {
+            mpq v(0);
+            for (unsigned j = 0; j < column_count(); j++) {
+                v += (*this)[i][j] * x[j];
+            }
+            r.push_back(v);
+        }
+        return r;
+    }
+
+    // bool create_upper_triangle(matrix_A& m, vector<mpq>& x) {
+    //     for (unsigned i = 1; i < m.row_count(); i++) {
+    //         lp_assert(false); // to be continued
+    //     }
+    // }
+
+    // bool solve_A_x_equal_b(const matrix_A& m, vector<mpq>& x, const vector<mpq>& b) const {
+    //     auto m_copy = m;
+    //     // for square matrices
+    //     lp_assert(row_count() == b.size());
+    //     lp_assert(x.size() == column_count());
+    //     lp_assert(row_count() == column_count());
+    //     x = b;
+    //     create_upper_triangle(copy_of_m, x);
+    //     solve_on_triangle(copy_of_m, x);
+    // }
+    // 
+    matrix_A(){}
+    matrix_A(unsigned n) :m_data(n) {
+        for (auto& v : m_data){
+            v.resize(n);
+        }
+    }
 };
+    
 #endif
 void test_hnf_m_less_than_n() {
 #ifdef Z3DEBUG
@@ -3473,7 +3510,6 @@ void test_hnf_m_greater_than_n() {
 #ifdef Z3DEBUG
     matrix_A A;
     vector<mpq> v;
-    // example 4.3 from Nemhauser, Wolsey
     v.push_back(mpq(2));
     v.push_back(mpq(6));
     A.m_data.push_back(v);
@@ -3492,8 +3528,62 @@ void test_hnf_m_greater_than_n() {
     hnf<matrix_A> h(A);
 #endif
 }
+
+void cutting_the_mix_example_1() {
+    matrix_A A;
+    vector<mpq> v;
+    v.push_back(mpq(11));
+    v.push_back(mpq(13));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(7));
+    v.push_back(mpq(-9));
+    A.m_data.push_back(v);
+    auto A_copy = A;
+    hnf<matrix_A> h(A);
+    std::string s("H = ");
+    std::cout << s ;
+    h.H().print(std::cout, s.size());
+    std::cout << std::endl;
+    s = std::string("A = ");
+    std::cout << s;
+    A_copy.print(std::cout, s.size());
+    std::cout << std::endl;
+    s = std::string("U = ");
+    std::cout << s ;
+    h.U().print(std::cout, s.size());
+    std::cout << std::endl;
+    s = std::string("U_rev = ");
+    std::cout << s ;
+    h.U_reverse().print(std::cout, s.size());
+    std::cout << std::endl;
+    
+    
+}
+
 void test_hnf() {
-    //    test_hnf_m_less_than_n();
+    matrix_A M(1);
+    M[0][0] = 3;
+    std::cout << "det M = " << determinant(M) << std::endl;
+
+    M = matrix_A(2);
+    M[0][0] = 3; M[0][1] = 2;
+    M[1][0] = 7; M[1][1] = 3;
+    
+    std::cout << "det M = " << determinant(M) << std::endl;
+
+    M = matrix_A(3);
+    M[0][0] = 3; M[0][1] = 2; M[0][2] = 4;
+    M[1][0] = 7; M[1][1] = 3; M[1][2] = -1;
+    M[2][0] = 8; M[2][1] = 8; M[2][2] = 1;
+    std::cout << "det M = " << determinant(M) << std::endl;
+    
+    
+    return;
+
+    cutting_the_mix_example_1();
+return;
+    test_hnf_m_less_than_n();
     test_hnf_m_greater_than_n();
 }
 
