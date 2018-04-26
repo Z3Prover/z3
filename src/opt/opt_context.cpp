@@ -398,10 +398,10 @@ namespace opt {
     
     /**
        \brief there is no need to use push/pop when all objectives are maxsat and engine
-       is maxres or mss.
+       is maxres.
     */
     bool context::scoped_lex() {
-        if (m_maxsat_engine == symbol("maxres") || m_maxsat_engine == symbol("mss")) {
+        if (m_maxsat_engine == symbol("maxres")) {
             for (unsigned i = 0; i < m_objectives.size(); ++i) {
                 if (m_objectives[i].m_type != O_MAXSMT) return true;
             }
