@@ -31,13 +31,32 @@ mpq power_of(const mpq & a, unsigned n) {
     
     return r == 0? pk * pk : pk * pk * a;
 }
-template <typename M> mpq determinant(const M& m) {
+
+// see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5
+template <typename M> mpq determinant_rec(M &m , const mpq & c, unsigned k) {
+    // here n-k-1 is the number of rows(columns) in the righ bottom minor we recurse to
     unsigned n = m.row_count();
+    lp_assert(k <= n);
+    const mpq& mkk = m[k][k];
+    if (k == n - 1)
+         return mkk;
+    for (unsigned i = k + 1; i < n; i++) {
+        const mpq& mik = m[i][k]; 
+        for (unsigned j = k + 1; j < n; j++) {
+            m[i][j] = (mkk * m[i][j] - mik*m[k][j]) / c;
+            lp_assert(is_int(m[i][j]));
+        }
+    }
+    return determinant_rec(m, mkk, k+1);
+}
+
+template <typename M> mpq determinant(const M& m) {
     lp_assert(m.row_count() == m.column_count());
     lp_assert(m.row_count() > 0);
-    if (n == 1)
-        return m[0][0];
-    M smaller_m(n - 1);
+    mpq c(1);
+    auto mc = m;
+    return determinant_rec(mc, c, 0);
+    /*    M smaller_m(n - 1);
     const mpq& m00 = m[0][0];
     for (unsigned i = 1; i < n; i++) {
         const mpq& mi0 = m[i][0]; 
@@ -45,6 +64,7 @@ template <typename M> mpq determinant(const M& m) {
             smaller_m[i-1][j-1] = m00*m[i][j] - mi0*m[0][j];
     }
     return determinant(smaller_m) / power_of(m00, n - 2);
+    */
 }
 template <typename M> // M is the matrix type
 class hnf {
