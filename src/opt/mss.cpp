@@ -155,10 +155,10 @@ namespace opt {
         lbool is_sat = l_true;
         for (unsigned i = 0; is_sat == l_true && i < m_cores.size(); ++i) {
             bool has_mcs = false;
-            bool not_last = i + 1 < m_cores.size();
+            bool is_last = i + 1 < m_cores.size();
             SASSERT(check_invariant());
             update_core(m_cores[i]); // remove members of mss
-            is_sat = process_core(1, m_cores[i], has_mcs, not_last);
+            is_sat = process_core(1, m_cores[i], has_mcs, is_last); 
         }    
         if (is_sat == l_true) {
             SASSERT(check_invariant());
@@ -183,7 +183,7 @@ namespace opt {
     // at least one literal in core is false in current model.
     // pick literals in core that are not yet in mss.
     //    
-    lbool mss::process_core(unsigned sz, exprs& core, bool& has_mcs, bool not_last) {
+    lbool mss::process_core(unsigned sz, exprs& core, bool& has_mcs, bool is_last) {
         SASSERT(sz > 0);
         if (core.empty()) {
             return l_true;
@@ -191,7 +191,7 @@ namespace opt {
         if (m.canceled()) {
             return l_undef;
         }
-        if (sz == 1 && core.size() == 1 && not_last && !has_mcs) {
+        if (sz == 1 && core.size() == 1 && is_last && !has_mcs) {
             // there has to be at least one false 
             // literal in the core.
             TRACE("opt", tout << "mcs: " << mk_pp(core[0], m) << "\n";);
@@ -214,7 +214,7 @@ namespace opt {
                     SASSERT(m_mss_set.contains(core[i]));
                 });
             update_core(core);
-            return process_core(2*sz, core, has_mcs, not_last);
+            return process_core(2*sz, core, has_mcs, is_last);
         case l_false:
             if (sz == 1) {
                 has_mcs = true;
@@ -232,7 +232,7 @@ namespace opt {
                 }
                 update_core(core);
             }
-            return process_core(1, core, has_mcs, not_last);
+            return process_core(1, core, has_mcs, is_last);
         case l_undef:
             return l_undef;
         }
