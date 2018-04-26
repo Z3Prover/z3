@@ -177,7 +177,7 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         return zstring(*this);
     }
     if (src.length() == 0) {
-        return zstring(*this);
+        return dst + zstring(*this);
     }
     bool found = false;
     for (unsigned i = 0; i < length(); ++i) {
