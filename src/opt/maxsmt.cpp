@@ -21,7 +21,6 @@ Notes:
 #include "opt/maxsmt.h"
 #include "opt/maxres.h"
 #include "opt/wmax.h"
-#include "opt/mss_solver.h"
 #include "ast/ast_pp.h"
 #include "util/uint_set.h"
 #include "opt/opt_context.h"
@@ -240,9 +239,6 @@ namespace opt {
         }
         else if (maxsat_engine == symbol("pd-maxres")) {            
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_weights, m_soft_constraints);
-        }
-        else if (maxsat_engine == symbol("mss")) {
-            m_msolver = mk_mss_solver(m_c, m_index, m_weights, m_soft_constraints);
         }
         else if (maxsat_engine == symbol("wmax")) {
             m_msolver = mk_wmax(m_c, m_weights, m_soft_constraints);
