@@ -38,11 +38,9 @@ namespace lp {
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
 void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
 
-template<typename T, typename X>
-void print_matrix(static_matrix<T, X> &m, std::ostream & out);
+template <typename M>
+void print_matrix(M &m, std::ostream & out);
 
-template <typename T, typename X>
-void print_matrix(sparse_matrix<T, X>& m, std::ostream & out);
 #endif
 
 template <typename T, typename X>
@@ -123,13 +121,16 @@ enum class LU_status { OK, Degenerated};
 
 // This class supports updates of the columns of B, and solves systems Bx=b,and yB=c
 // Using Suhl-Suhl method described in the dissertation of Achim Koberstein, Chapter 5
-template <typename T, typename X>
+template <typename M>
 class lu {
     LU_status m_status;
 public:
+    typedef typename M::coefftype T;
+    typedef typename M::argtype   X;
+    
     // the fields
     unsigned                   m_dim;
-    static_matrix<T, X> const &m_A;
+    const M &                  m_A;
     permutation_matrix<T, X>   m_Q;
     permutation_matrix<T, X>   m_R;
     permutation_matrix<T, X>   m_r_wave;
@@ -147,10 +148,10 @@ public:
     // constructor
     // if A is an m by n matrix then basis has length m and values in [0,n); the values are all different
     // they represent the set of m columns
-    lu(static_matrix<T, X> const & A,
+    lu(const M & A,
        vector<unsigned>& basis,
        lp_settings & settings);
-    void debug_test_of_basis(static_matrix<T, X> const & A, vector<unsigned> & basis);
+    void debug_test_of_basis(const M & A, vector<unsigned> & basis);
     void solve_Bd_when_w_is_ready(vector<T> & d, indexed_vector<T>& w );
     void solve_By(indexed_vector<X> & y);
 
@@ -364,11 +365,11 @@ public:
     
 }; // end of lu
 
-template <typename T, typename X>
-void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, vector<unsigned> & m_basis, lp_settings &m_settings);
+template <typename M>
+void init_factorization(lu<M>* & factorization, M & m_A, vector<unsigned> & m_basis, lp_settings &m_settings);
 
 #ifdef Z3DEBUG
-template <typename T, typename X>
-dense_matrix<T, X>  get_B(lu<T, X>& f, const vector<unsigned>& basis);
+template <typename T, typename X, typename M>
+dense_matrix<T, X>  get_B(lu<M>& f, const vector<unsigned>& basis);
 #endif
 }

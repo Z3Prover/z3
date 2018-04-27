@@ -82,17 +82,17 @@ public:
         ref(static_matrix & m, unsigned row, unsigned col):m_matrix(m), m_row(row), m_col(col) {}
         ref & operator=(T const & v) { m_matrix.set( m_row, m_col, v); return *this; }
 
-        ref & operator=(ref const & v) { m_matrix.set(m_row, m_col, v.m_matrix.get(v.m_row, v.m_col)); return *this; }
+        ref operator=(ref & v) { m_matrix.set(m_row, m_col, v.m_matrix.get(v.m_row, v.m_col)); return *this; }
 
         operator T () const { return m_matrix.get_elem(m_row, m_col); }
     };
 
     class ref_row {
-        static_matrix & m_matrix;
+        const static_matrix & m_matrix;
         unsigned        m_row;
     public:
-        ref_row(static_matrix & m, unsigned row):m_matrix(m), m_row(row) {}
-        ref operator[](unsigned col) const { return ref(m_matrix, m_row, col); }
+        ref_row(const static_matrix & m, unsigned row): m_matrix(m), m_row(row) {}
+        const T operator[](unsigned col) const { return m_matrix.get_elem(m_row, col); }
     };
 
 public:
@@ -450,6 +450,9 @@ public:
     column_container column(unsigned j) const {
         return column_container(j, *this);
     }
-    
+
+    ref_row operator[](unsigned i) const { return ref_row(*this, i);}
+    typedef T coefftype;
+    typedef X argtype;
 };
 }

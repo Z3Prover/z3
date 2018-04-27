@@ -26,7 +26,7 @@ Revision History:
 #include "util/lp/lu.h"
 namespace lp {
 #ifdef Z3DEBUG
-template <typename T, typename X> // print the nr x nc submatrix at the top left corner
+template <typename T, typename X, typename M> // print the nr x nc submatrix at the top left corner
 void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc, std::ostream & out) {
     vector<vector<std::string>> A;
     vector<unsigned> widths;
@@ -44,15 +44,14 @@ void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc, std::ost
     print_matrix_with_widths(A, widths, out);
 }
 
-template<typename T, typename X>
-void print_matrix(static_matrix<T, X> &m, std::ostream & out) {
+template<typename M>
+void print_matrix(M &m, std::ostream & out) {
     vector<vector<std::string>> A;
     vector<unsigned> widths;
-    std::set<std::pair<unsigned, unsigned>> domain = m.get_domain();
     for (unsigned i = 0; i < m.row_count(); i++) {
         A.push_back(vector<std::string>());
         for (unsigned j = 0; j < m.column_count(); j++) {
-            A[i].push_back(T_to_string(static_cast<T>(m(i, j))));
+            A[i].push_back(T_to_string(m[i][j]));
         }
     }
 
@@ -63,23 +62,6 @@ void print_matrix(static_matrix<T, X> &m, std::ostream & out) {
     print_matrix_with_widths(A, widths, out);
 }
 
-template <typename T, typename X>
-void print_matrix(sparse_matrix<T, X>& m, std::ostream & out) {
-    vector<vector<std::string>> A;
-    vector<unsigned> widths;
-    for (unsigned i = 0; i < m.row_count(); i++) {
-        A.push_back(vector<std::string>());
-        for (unsigned j = 0; j < m.column_count(); j++) {
-            A[i].push_back(T_to_string(static_cast<T>(m(i, j))));
-        }
-    }
-
-    for (unsigned j = 0; j < m.column_count(); j++) {
-        widths.push_back(get_width_of_column(j, A));
-    }
-
-    print_matrix_with_widths(A, widths, out);
-}
 #endif
 
 
@@ -122,8 +104,8 @@ void one_elem_on_diag<T, X>::apply_from_left_to_T(indexed_vector<T> & w, lp_sett
 
 // This class supports updates of the columns of B, and solves systems Bx=b,and yB=c
 // Using Suhl-Suhl method described in the dissertation of Achim Koberstein, Chapter 5
-template <typename T, typename X>
-lu<T, X>::lu(static_matrix<T, X> const & A,
+template <typename M>
+lu<M>::lu(const M& A,
              vector<unsigned>& basis,
              lp_settings & settings):
     m_status(LU_status::OK),
@@ -147,8 +129,8 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
     // lp_assert(check_correctness());
 #endif
 }
-template <typename T, typename X>
-void lu<T, X>::debug_test_of_basis(static_matrix<T, X> const & A, vector<unsigned> & basis) {
+template <typename M>
+void lu<M>::debug_test_of_basis( M const & A, vector<unsigned> & basis) {
     std::set<unsigned> set;
     for (unsigned i = 0; i < A.row_count(); i++) {
         lp_assert(basis[i]< A.column_count());
@@ -157,22 +139,22 @@ void lu<T, X>::debug_test_of_basis(static_matrix<T, X> const & A, vector<unsigne
     lp_assert(set.size() == A.row_count());
 }
 
- template <typename T, typename X>
- void lu<T, X>::solve_By(indexed_vector<X> & y) {
+template <typename M>
+void lu<M>::solve_By(indexed_vector<X> & y) {
      lp_assert(false); // not implemented
      // init_vector_y(y);
      // solve_By_when_y_is_ready(y);
  }
 
 
-template <typename T, typename X>
-void lu<T, X>::solve_By(vector<X> & y) {
+template <typename M>
+void lu<M>::solve_By(vector<X> & y) {
     init_vector_y(y);
     solve_By_when_y_is_ready_for_X(y);
 }
 
-template <typename T, typename X>
-void lu<T, X>::solve_By_when_y_is_ready_for_X(vector<X> & y) {
+template <typename M>
+void lu<M>::solve_By_when_y_is_ready_for_X(vector<X> & y) {
     if (numeric_traits<T>::precise()) {
         m_U.solve_U_y(y);
         m_R.apply_reverse_from_left_to_X(y); // see 24.3 from Chvatal
@@ -189,8 +171,8 @@ void lu<T, X>::solve_By_when_y_is_ready_for_X(vector<X> & y) {
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::solve_By_when_y_is_ready_for_T(vector<T> & y, vector<unsigned> & index) {
+template <typename M>
+void lu<M>::solve_By_when_y_is_ready_for_T(vector<T> & y, vector<unsigned> & index) {
     if (numeric_traits<T>::precise()) {
         m_U.solve_U_y(y);
         m_R.apply_reverse_from_left_to_T(y); // see 24.3 from Chvatal
@@ -214,8 +196,8 @@ void lu<T, X>::solve_By_when_y_is_ready_for_T(vector<T> & y, vector<unsigned> & 
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::solve_By_for_T_indexed_only(indexed_vector<T> & y, const lp_settings & settings) {
+template <typename M>
+void lu<M>::solve_By_for_T_indexed_only(indexed_vector<T> & y, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
         vector<unsigned> active_rows;
         m_U.solve_U_y_indexed_only(y, settings, active_rows);
@@ -226,8 +208,8 @@ void lu<T, X>::solve_By_for_T_indexed_only(indexed_vector<T> & y, const lp_setti
     m_R.apply_reverse_from_left(y); // see 24.3 from Chvatal
 }
 
-template <typename T, typename X>
-void lu<T, X>::print_matrix_compact(std::ostream & f) {
+template <typename M>
+void lu<M>::print_matrix_compact(std::ostream & f) {
     f << "matrix_start" << std::endl;
     f << "nrows " << m_A.row_count() << std::endl;
     f << "ncolumns " << m_A.column_count() << std::endl;
@@ -241,8 +223,8 @@ void lu<T, X>::print_matrix_compact(std::ostream & f) {
     }
     f << "matrix_end" << std::endl;
 }
-template <typename T, typename X>
-void lu<T, X>::print(indexed_vector<T> & w, const vector<unsigned>& basis) {
+template <typename M>
+void lu< M>::print(indexed_vector<T> & w, const vector<unsigned>& basis) {
     std::string dump_file_name("/tmp/lu");
     remove(dump_file_name.c_str());
     std::ofstream f(dump_file_name);
@@ -256,8 +238,8 @@ void lu<T, X>::print(indexed_vector<T> & w, const vector<unsigned>& basis) {
     print_indexed_vector(w, f);
     f.close();
 }
-template <typename T, typename X>
-void lu<T, X>::solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector<T> & w) {
+template <typename M>
+void lu< M>::solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector<T> & w) {
     init_vector_w(a_column, w);
 
     if (w.m_index.size() * ratio_of_index_size_to_all_size<T>() < d.m_data.size()) { // this const might need some tuning
@@ -270,14 +252,14 @@ void lu<T, X>::solve_Bd(unsigned a_column, indexed_vector<T> & d, indexed_vector
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::solve_Bd_faster(unsigned a_column, indexed_vector<T> & d) { // puts the a_column into d
+template <typename M>
+void lu< M>::solve_Bd_faster(unsigned a_column, indexed_vector<T> & d) { // puts the a_column into d
     init_vector_w(a_column, d);
     solve_By_for_T_indexed_only(d, m_settings);
 }
 
-template <typename T, typename X>
-void lu<T, X>::solve_yB(vector<T>& y) {
+template <typename M>
+void lu< M>::solve_yB(vector<T>& y) {
     // first solve yU = cb*R(-1)
     m_R.apply_reverse_from_right_to_T(y); // got y = cb*R(-1)
     m_U.solve_y_U(y); // got y*U=cb*R(-1)
@@ -290,8 +272,8 @@ void lu<T, X>::solve_yB(vector<T>& y) {
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::solve_yB_indexed(indexed_vector<T>& y) {
+template <typename M>
+void lu< M>::solve_yB_indexed(indexed_vector<T>& y) {
     lp_assert(y.is_OK());
     // first solve yU = cb*R(-1)
     m_R.apply_reverse_from_right_to_T(y); // got y = cb*R(-1)
@@ -309,15 +291,15 @@ void lu<T, X>::solve_yB_indexed(indexed_vector<T>& y) {
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::add_delta_to_solution(const vector<T>& yc, vector<T>& y){
+template <typename M>
+void lu< M>::add_delta_to_solution(const vector<T>& yc, vector<T>& y){
     unsigned i = static_cast<unsigned>(y.size());
     while (i--)
         y[i]+=yc[i];
 }
 
-template <typename T, typename X>
-void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
+template <typename M>
+void lu< M>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
     // the delta sits in m_y_copy, put result into y
     lp_assert(y.is_OK());
     lp_assert(m_y_copy.is_OK());
@@ -344,16 +326,16 @@ void lu<T, X>::add_delta_to_solution_indexed(indexed_vector<T>& y) {
     lp_assert(y.is_OK());
 }
 
-template <typename T, typename X>
-void lu<T, X>::find_error_of_yB(vector<T>& yc, const vector<T>& y, const vector<unsigned>& m_basis) {
+template <typename M>
+void lu< M>::find_error_of_yB(vector<T>& yc, const vector<T>& y, const vector<unsigned>& m_basis) {
     unsigned i = m_dim;
     while (i--) {
         yc[i] -= m_A.dot_product_with_column(y, m_basis[i]);
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector<int>& heading, const lp_settings& settings) {
+template <typename M>
+void lu< M>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector<int>& heading, const lp_settings& settings) {
 #if 0 == 1
     // it is a non efficient version
     indexed_vector<T> yc = m_y_copy;
@@ -423,8 +405,8 @@ void lu<T, X>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector
 
 // solves y*B = y
 // y is the input
-template <typename T, typename X>
-void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const vector<int>& heading,  const vector<unsigned> & basis, const lp_settings & settings) {
+template <typename M>
+void lu< M>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const vector<int>& heading,  const vector<unsigned> & basis, const lp_settings & settings) {
     if (numeric_traits<T>::precise()) {
         if (y.m_index.size() * ratio_of_index_size_to_all_size<T>() * 3 < m_A.column_count()) {
             solve_yB_indexed(y);
@@ -461,8 +443,8 @@ void lu<T, X>::solve_yB_with_error_check_indexed(indexed_vector<T> & y, const ve
 
 // solves y*B = y
 // y is the input
-template <typename T, typename X>
-void lu<T, X>::solve_yB_with_error_check(vector<T> & y, const vector<unsigned>& basis) {
+template <typename M>
+void lu< M>::solve_yB_with_error_check(vector<T> & y, const vector<unsigned>& basis) {
     if (numeric_traits<T>::precise()) {
         solve_yB(y);
         return;
@@ -475,8 +457,8 @@ void lu<T, X>::solve_yB_with_error_check(vector<T> & y, const vector<unsigned>& 
     add_delta_to_solution(yc, y);
     m_y_copy.clear_all();
 }
-template <typename T, typename X>
-void lu<T, X>::apply_Q_R_to_U(permutation_matrix<T, X> & r_wave) {
+template <typename M>
+void lu< M>::apply_Q_R_to_U(permutation_matrix<T, X> & r_wave) {
     m_U.multiply_from_right(r_wave);
     m_U.multiply_from_left_with_reverse(r_wave);
 }
@@ -488,62 +470,62 @@ void lu<T, X>::apply_Q_R_to_U(permutation_matrix<T, X> & r_wave) {
 
 // solving Bd = a ( to find the column d of B^{-1} A_N corresponding to the entering
 // variable
-template <typename T, typename X>
-lu<T, X>::~lu(){
+template <typename M>
+lu< M>::~lu(){
     for (auto t : m_tail) {
         delete t;
     }
 }
-template <typename T, typename X>
-void lu<T, X>::init_vector_y(vector<X> & y) {
+template <typename M>
+void lu< M>::init_vector_y(vector<X> & y) {
     apply_lp_list_to_y(y);
     m_Q.apply_reverse_from_left_to_X(y);
 }
 
-template <typename T, typename X>
-void lu<T, X>::perform_transformations_on_w(indexed_vector<T>& w) {
+template <typename M>
+void lu< M>::perform_transformations_on_w(indexed_vector<T>& w) {
     apply_lp_list_to_w(w);
     m_Q.apply_reverse_from_left(w);
     // TBD does not compile: lp_assert(numeric_traits<T>::precise() || check_vector_for_small_values(w, m_settings));
 }
 
 // see Chvatal 24.3
-template <typename T, typename X>
-void lu<T, X>::init_vector_w(unsigned entering, indexed_vector<T> & w) {
+template <typename M>
+void lu< M>::init_vector_w(unsigned entering, indexed_vector<T> & w) {
     w.clear();
     m_A.copy_column_to_indexed_vector(entering, w); // w = a, the column
     perform_transformations_on_w(w);
 }
-template <typename T, typename X>
-void lu<T, X>::apply_lp_list_to_w(indexed_vector<T> & w) {
+template <typename M>
+void lu< M>::apply_lp_list_to_w(indexed_vector<T> & w) {
     for (unsigned i = 0; i < m_tail.size(); i++) {
         m_tail[i]->apply_from_left_to_T(w, m_settings);
         // TBD does not compile: lp_assert(check_vector_for_small_values(w, m_settings));
     }
 }
-template <typename T, typename X>
-void lu<T, X>::apply_lp_list_to_y(vector<X>& y) {
+template <typename M>
+void lu< M>::apply_lp_list_to_y(vector<X>& y) {
     for (unsigned i = 0; i < m_tail.size(); i++) {
         m_tail[i]->apply_from_left(y, m_settings);
     }
 }
-template <typename T, typename X>
-void lu<T, X>::swap_rows(int j, int k) {
+template <typename M>
+void lu< M>::swap_rows(int j, int k) {
     if (j != k) {
         m_Q.transpose_from_left(j, k);
         m_U.swap_rows(j, k);
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::swap_columns(int j, int pivot_column) {
+template <typename M>
+void lu< M>::swap_columns(int j, int pivot_column) {
     if (j == pivot_column)
         return;
     m_R.transpose_from_right(j, pivot_column);
     m_U.swap_columns(j, pivot_column);
 }
-template <typename T, typename X>
-bool lu<T, X>::pivot_the_row(int row) {
+template <typename M>
+bool lu< M>::pivot_the_row(int row) {
     eta_matrix<T, X> * eta_matrix = get_eta_matrix_for_pivot(row);
     if (get_status() != LU_status::OK) {
         return false;
@@ -560,8 +542,8 @@ bool lu<T, X>::pivot_the_row(int row) {
     return true;
 }
 // we're processing the column j now
-template <typename T, typename X>
-eta_matrix<T, X> * lu<T, X>::get_eta_matrix_for_pivot(unsigned j) {
+template <typename M>
+eta_matrix<typename M::coefftype, typename M::argtype> * lu< M>::get_eta_matrix_for_pivot(unsigned j) {
     eta_matrix<T, X> *ret;
     if(!m_U.fill_eta_matrix(j, &ret)) {
         set_status(LU_status::Degenerated);
@@ -569,16 +551,16 @@ eta_matrix<T, X> * lu<T, X>::get_eta_matrix_for_pivot(unsigned j) {
     return ret;
 }
 // we're processing the column j now
-template <typename T, typename X>
-eta_matrix<T, X> * lu<T, X>::get_eta_matrix_for_pivot(unsigned j, sparse_matrix<T, X>& copy_of_U) {
+template <typename M>
+eta_matrix<typename M::coefftype, typename M::argtype> * lu<M>::get_eta_matrix_for_pivot(unsigned j, sparse_matrix<T, X>& copy_of_U) {
     eta_matrix<T, X> *ret;
     copy_of_U.fill_eta_matrix(j, &ret);
     return ret;
 }
 
 // see page 407 of Chvatal
-template <typename T, typename X>
-unsigned lu<T, X>::transform_U_to_V_by_replacing_column(indexed_vector<T> & w,
+template <typename M>
+unsigned lu<M>::transform_U_to_V_by_replacing_column(indexed_vector<T> & w,
                                                         unsigned leaving_column) {
     unsigned column_to_replace = m_R.apply_reverse(leaving_column);
     m_U.replace_column(column_to_replace, w, m_settings);
@@ -586,15 +568,15 @@ unsigned lu<T, X>::transform_U_to_V_by_replacing_column(indexed_vector<T> & w,
 }
 
 #ifdef Z3DEBUG
-template <typename T, typename X>
-void lu<T, X>::check_vector_w(unsigned entering) {
+template <typename M>
+void lu<M>::check_vector_w(unsigned entering) {
     T * w = new T[m_dim];
     m_A.copy_column_to_vector(entering, w);
     check_apply_lp_lists_to_w(w);
     delete [] w;
 }
-template <typename T, typename X>
-void lu<T, X>::check_apply_matrix_to_vector(matrix<T, X> *lp, T *w) {
+template <typename M>
+void lu<M>::check_apply_matrix_to_vector(matrix<T, X> *lp, T *w) {
     if (lp != nullptr) {
         lp -> set_number_of_rows(m_dim);
         lp -> set_number_of_columns(m_dim);
@@ -602,8 +584,8 @@ void lu<T, X>::check_apply_matrix_to_vector(matrix<T, X> *lp, T *w) {
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::check_apply_lp_lists_to_w(T * w) {
+template <typename M>
+void lu<M>::check_apply_lp_lists_to_w(T * w) {
     for (unsigned i = 0; i < m_tail.size(); i++) {
         check_apply_matrix_to_vector(m_tail[i], w);
     }
@@ -615,8 +597,8 @@ void lu<T, X>::check_apply_lp_lists_to_w(T * w) {
 }
 
 #endif
-template <typename T, typename X>
-void lu<T, X>::process_column(int j) {
+template <typename M>
+void lu<M>::process_column(int j) {
     unsigned pi, pj;
     bool success = m_U.get_pivot_for_column(pi, pj, m_settings.c_partial_pivoting, j);
     if (!success) {
@@ -637,8 +619,8 @@ void lu<T, X>::process_column(int j) {
         m_failure = true;
     }
 }
-template <typename T, typename X>
-bool lu<T, X>::is_correct(const vector<unsigned>& basis) {
+template <typename M>
+bool lu<M>::is_correct(const vector<unsigned>& basis) {
 #ifdef Z3DEBUG
     if (get_status() != LU_status::OK) {
         return false;
@@ -653,8 +635,8 @@ bool lu<T, X>::is_correct(const vector<unsigned>& basis) {
 
 
 #ifdef Z3DEBUG
-template <typename T, typename X>
-dense_matrix<T, X> lu<T, X>::tail_product() {
+template <typename M>
+dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::tail_product() {
     lp_assert(tail_size() > 0);
     dense_matrix<T, X> left_side = permutation_matrix<T, X>(m_dim);
     for (unsigned i = 0; i < tail_size(); i++) {
@@ -665,8 +647,8 @@ dense_matrix<T, X> lu<T, X>::tail_product() {
     }
     return left_side;
 }
-template <typename T, typename X>
-dense_matrix<T, X> lu<T, X>::get_left_side(const vector<unsigned>& basis) {
+template <typename M>
+dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::get_left_side(const vector<unsigned>& basis) {
     dense_matrix<T, X> left_side = get_B(*this, basis);
     for (unsigned i = 0; i < tail_size(); i++) {
         matrix<T, X>* lp =  get_lp_matrix(i);
@@ -676,8 +658,8 @@ dense_matrix<T, X> lu<T, X>::get_left_side(const vector<unsigned>& basis) {
     }
     return left_side;
 }
-template <typename T, typename X>
-dense_matrix<T, X>  lu<T, X>::get_right_side() {
+template <typename M>
+dense_matrix<typename M::coefftype, typename M::argtype>  lu<M>::get_right_side() {
     auto ret = U() * R();
     ret = Q() * ret;
     return ret;
@@ -685,8 +667,8 @@ dense_matrix<T, X>  lu<T, X>::get_right_side() {
 #endif
 
 // needed for debugging purposes
-template <typename T, typename X>
-void lu<T, X>::copy_w(T *buffer, indexed_vector<T> & w) {
+template <typename M>
+void lu<M>::copy_w(T *buffer, indexed_vector<T> & w) {
     unsigned i = m_dim;
     while (i--) {
         buffer[i] = w[i];
@@ -694,15 +676,15 @@ void lu<T, X>::copy_w(T *buffer, indexed_vector<T> & w) {
 }
 
 // needed for debugging purposes
-template <typename T, typename X>
-void lu<T, X>::restore_w(T *buffer, indexed_vector<T> & w) {
+template <typename M>
+void lu<M>::restore_w(T *buffer, indexed_vector<T> & w) {
     unsigned i = m_dim;
     while (i--) {
         w[i] = buffer[i];
     }
 }
-template <typename T, typename X>
-bool lu<T, X>::all_columns_and_rows_are_active() {
+template <typename M>
+bool lu<M>::all_columns_and_rows_are_active() {
     unsigned i = m_dim;
     while (i--) {
         lp_assert(m_U.col_is_active(i));
@@ -710,8 +692,8 @@ bool lu<T, X>::all_columns_and_rows_are_active() {
     }
     return true;
 }
-template <typename T, typename X>
-bool lu<T, X>::too_dense(unsigned j) const {
+template <typename M>
+bool lu<M>::too_dense(unsigned j) const {
     unsigned r = m_dim - j;
     if (r < 5)
         return false;
@@ -720,8 +702,8 @@ bool lu<T, X>::too_dense(unsigned j) const {
     //    return r * r * m_settings.density_threshold <= m_U.get_number_of_nonzeroes_below_row(j);
     return r * r * m_settings.density_threshold <= m_U.get_n_of_active_elems();
 }
-template <typename T, typename X>
-void lu<T, X>::pivot_in_dense_mode(unsigned i) {
+template <typename M>
+void lu<M>::pivot_in_dense_mode(unsigned i) {
     int j = m_dense_LU->find_pivot_column_in_row(i);
     if (j == -1) {
         m_failure = true;
@@ -733,8 +715,8 @@ void lu<T, X>::pivot_in_dense_mode(unsigned i) {
     }
     m_dense_LU->pivot(i, m_settings);
 }
-template <typename T, typename X>
-void lu<T, X>::create_initial_factorization(){
+template <typename M>
+void lu<M>::create_initial_factorization(){
     m_U.prepare_for_factorization();
     unsigned j;
     for (j = 0; j < m_dim; j++) {
@@ -771,8 +753,8 @@ void lu<T, X>::create_initial_factorization(){
     // lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
 }
 
-template <typename T, typename X>
-void lu<T, X>::calculate_r_wave_and_update_U(unsigned bump_start, unsigned bump_end, permutation_matrix<T, X> & r_wave) {
+template <typename M>
+void lu<M>::calculate_r_wave_and_update_U(unsigned bump_start, unsigned bump_end, permutation_matrix<T, X> & r_wave) {
     if (bump_start > bump_end) {
         set_status(LU_status::Degenerated);
         return;
@@ -790,8 +772,8 @@ void lu<T, X>::calculate_r_wave_and_update_U(unsigned bump_start, unsigned bump_
     m_U.multiply_from_right(r_wave);
     m_U.multiply_from_left_with_reverse(r_wave);
 }
-template <typename T, typename X>
-void lu<T, X>::scan_last_row_to_work_vector(unsigned lowest_row_of_the_bump) {
+template <typename M>
+void lu<M>::scan_last_row_to_work_vector(unsigned lowest_row_of_the_bump) {
     vector<indexed_value<T>> & last_row_vec = m_U.get_row_values(m_U.adjust_row(lowest_row_of_the_bump));
     for (auto & iv : last_row_vec) {
         if (is_zero(iv.m_value)) continue;
@@ -805,8 +787,8 @@ void lu<T, X>::scan_last_row_to_work_vector(unsigned lowest_row_of_the_bump) {
     }
 }
 
-template <typename T, typename X>
-void lu<T, X>::pivot_and_solve_the_system(unsigned replaced_column, unsigned lowest_row_of_the_bump) {
+template <typename M>
+void lu<M>::pivot_and_solve_the_system(unsigned replaced_column, unsigned lowest_row_of_the_bump) {
     // we have the system right side at m_row_eta_work_vector now
     // solve the system column wise
     for (unsigned j = replaced_column; j < lowest_row_of_the_bump; j++) {
@@ -846,8 +828,8 @@ void lu<T, X>::pivot_and_solve_the_system(unsigned replaced_column, unsigned low
 }
 // see Achim Koberstein's thesis page 58, but here we solve the system and pivot to the last
 // row at the same time
-template <typename T, typename X>
-row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned replaced_column, unsigned lowest_row_of_the_bump, const T &  pivot_elem_for_checking) {
+template <typename M>
+row_eta_matrix<typename M::coefftype, typename M::argtype> *lu<M>::get_row_eta_matrix_and_set_row_vector(unsigned replaced_column, unsigned lowest_row_of_the_bump, const T &  pivot_elem_for_checking) {
     if (replaced_column == lowest_row_of_the_bump) return nullptr;
     scan_last_row_to_work_vector(lowest_row_of_the_bump);
     pivot_and_solve_the_system(replaced_column, lowest_row_of_the_bump);
@@ -861,9 +843,9 @@ row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned r
         }
     }
 #ifdef Z3DEBUG
-    auto ret = new row_eta_matrix<T, X>(replaced_column, lowest_row_of_the_bump, m_dim);
+    auto ret = new row_eta_matrix<typename M::coefftype, typename M::argtype>(replaced_column, lowest_row_of_the_bump, m_dim);
 #else
-    auto ret = new row_eta_matrix<T, X>(replaced_column, lowest_row_of_the_bump);
+    auto ret = new row_eta_matrix<typename M::coefftype, typename M::argtype>(replaced_column, lowest_row_of_the_bump);
 #endif
 
     for (auto j : m_row_eta_work_vector.m_index) {
@@ -880,8 +862,8 @@ row_eta_matrix<T, X> *lu<T, X>::get_row_eta_matrix_and_set_row_vector(unsigned r
     return ret;
 }
 
-template <typename T, typename X>
-void lu<T, X>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, unsigned leaving_column_of_U){
+template <typename M>
+void lu<M>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, unsigned leaving_column_of_U){
     m_refactor_counter++;
     unsigned replaced_column =  transform_U_to_V_by_replacing_column( w, leaving_column_of_U);
     unsigned lowest_row_of_the_bump = m_U.lowest_row_in_column(replaced_column);
@@ -903,8 +885,8 @@ void lu<T, X>::replace_column(T pivot_elem_for_checking, indexed_vector<T> & w, 
     // lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
     // lp_assert(w.is_OK() && m_row_eta_work_vector.is_OK());
 }
-template <typename T, typename X>
-void lu<T, X>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump){
+template <typename M>
+void lu<M>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned lowest_row_of_the_bump){
     T diagonal_elem;
     if (replaced_column < lowest_row_of_the_bump) {
         diagonal_elem = m_row_eta_work_vector[lowest_row_of_the_bump];
@@ -922,8 +904,8 @@ void lu<T, X>::calculate_Lwave_Pwave_for_bump(unsigned replaced_column, unsigned
     //         lp_assert(m_U.is_upper_triangular_and_maximums_are_set_correctly_in_rows(m_settings));
 }
 
-template <typename T, typename X>
-void lu<T, X>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bump, T diagonal_element) {
+template <typename M>
+void lu<M>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bump, T diagonal_element) {
     auto l = new one_elem_on_diag<T, X>(lowest_row_of_the_bump, diagonal_element);
 #ifdef Z3DEBUG
     l->set_number_of_columns(m_dim);
@@ -933,21 +915,21 @@ void lu<T, X>::calculate_Lwave_Pwave_for_last_row(unsigned lowest_row_of_the_bum
     l->conjugate_by_permutation(m_Q);
 }
 
-template <typename T, typename X>
-void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, vector<unsigned> & m_basis, lp_settings &m_settings) {
+template <typename M>
+void init_factorization(lu<M>* & factorization, M & m_A, vector<unsigned> & m_basis, lp_settings &m_settings) {
     if (factorization != nullptr)
         delete factorization;
-    factorization = new lu<T, X>(m_A, m_basis, m_settings);
+    factorization = new lu<M>(m_A, m_basis, m_settings);
     // if (factorization->get_status() != LU_status::OK) 
     //     LP_OUT(m_settings, "failing in init_factorization" << std::endl);
 }
 
 #ifdef Z3DEBUG
-template <typename T, typename X>
-dense_matrix<T, X>  get_B(lu<T, X>& f, const vector<unsigned>& basis) {
+template <typename M>
+dense_matrix<typename M::coefftype, typename M::argtype>  get_B(lu<M>& f, const vector<unsigned>& basis) {
     lp_assert(basis.size() == f.dimension());
     lp_assert(basis.size() == f.m_U.dimension());
-    dense_matrix<T, X>  B(f.dimension(), f.dimension());
+    dense_matrix<typename M::coefftype, typename M::argtype>  B(f.dimension(), f.dimension());
     for (unsigned i = 0; i < f.dimension(); i++)
         for (unsigned j = 0; j < f.dimension(); j++)
             B.set_elem(i, j, f.B_(i, j, basis));

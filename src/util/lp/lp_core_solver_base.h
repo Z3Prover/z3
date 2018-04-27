@@ -69,7 +69,7 @@ public:
     lp_settings &         m_settings;
     vector<T>             m_y; // the buffer for yB = cb
     // a device that is able to solve Bx=c, xB=d, and change the basis
-    lu<T, X> *            m_factorization;
+    lu<static_matrix<T, X>> *            m_factorization;
     const column_namer &  m_column_names;
     indexed_vector<T>     m_w; // the vector featuring in 24.3 of the Chvatal book
     vector<T>             m_d; // the vector of reduced costs

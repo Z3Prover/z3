@@ -53,7 +53,7 @@ Revision History:
 #include "test/lp/gomory_test.h"
 #include "util/lp/matrix.h"
 #include "util/lp/hnf.h"
-
+#include "util/lp/lu_def.h"
 namespace lp {
 unsigned seed = 1;
 
@@ -228,6 +228,7 @@ void change_basis(unsigned entering, unsigned leaving, vector<unsigned>& basis, 
 }
 
 
+
 #ifdef Z3DEBUG
 void test_small_lu(lp_settings & settings) {
     std::cout << " test_small_lu" << std::endl;
@@ -247,7 +248,7 @@ void test_small_lu(lp_settings & settings) {
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, settings);
+    lu<static_matrix<double, double>> l(m, basis, settings);
     lp_assert(l.is_correct(basis));
     indexed_vector<double> w(m.row_count());
     std::cout << "entering 2, leaving 0" << std::endl;
@@ -392,7 +393,7 @@ void test_larger_lu_exp(lp_settings & settings) {
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, settings);
+    lu<static_matrix<double, double>> l(m, basis, settings);
 
     dense_matrix<double, double> left_side = l.get_left_side(basis);
     dense_matrix<double, double> right_side = l.get_right_side();
@@ -436,13 +437,13 @@ void test_larger_lu_with_holes(lp_settings & settings) {
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<double, double> l(m, basis, settings);
+    lu<static_matrix<double, double>> l(m, basis, settings);
     std::cout << "printing factorization" << std::endl;
     for (int i = l.tail_size() - 1; i >=0; i--) {
         auto lp = l.get_lp_matrix(i);
         lp->set_number_of_columns(m.row_count());
         lp->set_number_of_rows(m.row_count());
-        print_matrix( lp, std::cout);
+        print_matrix( *lp, std::cout);
     }
 
     dense_matrix<double, double> left_side = l.get_left_side(basis);
@@ -477,7 +478,7 @@ void test_larger_lu(lp_settings& settings) {
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
     init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    auto l = lu<double, double> (m, basis, settings);
+    auto l = lu<static_matrix<double, double>> (m, basis, settings);
     // std::cout << "printing factorization" << std::endl;
     // for (int i = lu.tail_size() - 1; i >=0; i--) {
     //     auto lp = lu.get_lp_matrix(i);
@@ -2664,7 +2665,7 @@ void check_lu_from_file(std::string lufile_name) {
     vector<int> basis_heading;
     lp_settings settings;
     vector<unsigned> non_basic_columns;
-    lu<double, double> lsuhl(A, basis, settings);
+    lu<static_matrix<double, double>> lsuhl(A, basis, settings);
     indexed_vector<double>  d(A.row_count());
     unsigned entering = 26;
     lsuhl.solve_Bd(entering, d, v);
@@ -3405,6 +3406,8 @@ void test_gomory_cut_1() {
 }
 #ifdef Z3DEBUG
 struct matrix_A {
+    typedef mpq coefftype;
+    typedef mpq argtype;
     vector<vector<mpq>> m_data;
     unsigned row_count() const { return m_data.size(); }
     unsigned column_count() const { return m_data[0].size(); }
@@ -3481,6 +3484,7 @@ struct matrix_A {
 };
     
 #endif
+
 void test_hnf_m_less_than_n() {
 #ifdef Z3DEBUG
     matrix_A A;
@@ -3529,6 +3533,77 @@ void test_hnf_m_greater_than_n() {
 #endif
 }
 
+#ifdef Z3DEBUG
+void test_matrix_A_lu(lp_settings & settings) {
+    std::cout << " test_small_lu" << std::endl;
+    matrix_A m(3);
+    vector<unsigned> basis(3);
+    basis[0] = 0;
+    basis[1] = 1;
+    basis[2] = 3;
+
+    m[0][ 0] = mpq(1); m[0][ 2]= mpq(3);
+    m[1][ 1] = 4; m[1][ 1] = 7;
+    m[2][ 0] = 1.8; m[2][1] = 5; m[2][2] = 2;
+
+#ifdef Z3DEBUG
+    print_matrix<matrix_A>(m, std::cout);
+#endif
+    vector<int> heading = allocate_basis_heading(m.column_count());
+    vector<unsigned> non_basic_columns;
+    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
+    lu<matrix_A> l(m, basis, settings);
+    lp_assert(l.is_correct(basis));
+    indexed_vector<mpq> w(m.row_count());
+    std::cout << "entering 2, leaving 0" << std::endl;
+    l.prepare_entering(2, w); // to init vector w
+    l.replace_column(0, w, heading[0]);
+    change_basis(2, 0, basis, non_basic_columns, heading);
+    // #ifdef Z3DEBUG
+    // std::cout << "we were factoring " << std::endl;
+    // print_matrix(get_B(l));
+    // #endif
+    lp_assert(l.is_correct(basis));
+    std::cout << "entering 4, leaving 3" << std::endl;
+    l.prepare_entering(4, w); // to init vector w
+    l.replace_column(0, w, heading[3]);
+    change_basis(4, 3, basis, non_basic_columns, heading);
+    std::cout << "we were factoring " << std::endl;
+#ifdef Z3DEBUG
+    {
+        auto bl = get_B(l, basis);
+        print_matrix(&bl, std::cout);
+    }
+#endif
+    lp_assert(l.is_correct(basis));
+
+    std::cout << "entering 5, leaving 1" << std::endl;
+    l.prepare_entering(5, w); // to init vector w
+    l.replace_column(0, w, heading[1]);
+    change_basis(5, 1, basis, non_basic_columns, heading);
+    std::cout << "we were factoring " << std::endl;
+#ifdef Z3DEBUG
+    {
+        auto bl = get_B(l, basis);
+        print_matrix(&bl, std::cout);
+    }
+#endif
+    lp_assert(l.is_correct(basis));
+    std::cout << "entering 3, leaving 2" << std::endl;
+    l.prepare_entering(3, w); // to init vector w
+    l.replace_column(0, w, heading[2]);
+    change_basis(3, 2, basis, non_basic_columns, heading);
+    std::cout << "we were factoring " << std::endl;
+#ifdef Z3DEBUG
+    {
+        auto bl = get_B(l, basis);
+        print_matrix(&bl, std::cout);
+    }
+#endif
+    lp_assert(l.is_correct(basis));
+}
+
+#endif
 void cutting_the_mix_example_1() {
     matrix_A A;
     vector<mpq> v;
@@ -3786,4 +3861,12 @@ void test_lp_local(int argn, char**argv) {
 }
 void tst_lp(char ** argv, int argc, int& i) {
     lp::test_lp_local(argc - 2, argv + 2);
+}
+namespace lp {
+template void print_matrix<matrix_A>(matrix_A&, std::ostream&);
+template bool lu<matrix_A>::is_correct(vector<unsigned int, true, unsigned int> const&);
+template dense_matrix<rational, rational> get_B<matrix_A>(lu<matrix_A>&, vector<unsigned int, true, unsigned int> const&);
+template void lu<matrix_A>::replace_column(rational, indexed_vector<rational>&, unsigned int);
+template lu<matrix_A>::~lu();
+template void lu<matrix_A>::prepare_entering(unsigned int, indexed_vector<rational>&);
 }
