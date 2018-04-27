@@ -36,7 +36,8 @@ namespace sat {
         m_rlimit(l),
         m_checkpoint_enabled(true),
         m_config(p),
-        m_par(0),
+        m_par(nullptr),
+        m_cls_allocator_idx(false),
         m_par_syncing_clauses(false),
         m_par_id(0),
         m_cleaner(*this),
@@ -78,7 +79,7 @@ namespace sat {
 
     void solver::del_clauses(clause_vector& clauses) {
         for (clause * cp : clauses) 
-            m_cls_allocator.del_clause(cp);
+            dealloc_clause(cp);
         clauses.reset();
         ++m_stats.m_non_learned_generation;
     }
@@ -298,7 +299,7 @@ namespace sat {
         if (m_config.m_drat && !m_drat.is_cleaned(c)) {
             m_drat.del(c);
         }
-        m_cls_allocator.del_clause(&c);        
+        dealloc_clause(&c);        
         m_stats.m_del_clause++;
     }
 
@@ -396,7 +397,7 @@ namespace sat {
 
     clause * solver::mk_ter_clause(literal * lits, bool learned) {
         m_stats.m_mk_ter_clause++;
-        clause * r = m_cls_allocator.mk_clause(3, lits, learned);
+        clause * r = alloc_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
         if (reinit && !learned) push_reinit_stack(*r);
         if (m_config.m_drat) m_drat.add(*r, learned);
@@ -435,7 +436,7 @@ namespace sat {
 
     clause * solver::mk_nary_clause(unsigned num_lits, literal * lits, bool learned) {
         m_stats.m_mk_clause++;
-        clause * r = m_cls_allocator.mk_clause(num_lits, lits, learned);
+        clause * r = alloc_clause(num_lits, lits, learned);
         SASSERT(!learned || r->is_learned());
         bool reinit = attach_nary_clause(*r);
         if (reinit && !learned) push_reinit_stack(*r);
@@ -452,7 +453,7 @@ namespace sat {
 
     bool solver::attach_nary_clause(clause & c) {
         bool reinit = false;
-        clause_offset cls_off = m_cls_allocator.get_offset(&c);
+        clause_offset cls_off = cls_allocator().get_offset(&c);
         if (!at_base_lvl()) {
             if (c.is_learned()) {
                 unsigned w2_idx = select_learned_watch_lit(c);
@@ -510,6 +511,85 @@ namespace sat {
             }
         }
     }
+
+    bool solver::memory_pressure() {
+        return 3*cls_allocator().get_allocation_size()/2 + memory::get_allocation_size() > memory::get_max_memory_size();
+    }
+
+    struct solver::cmp_activity {
+        solver& s;
+        cmp_activity(solver& s):s(s) {}
+        bool operator()(bool_var v1, bool_var v2) const {
+            return s.m_activity[v1] > s.m_activity[v2];
+        }
+    };
+
+    void solver::defrag_clauses() {
+        if (memory_pressure()) return;
+        IF_VERBOSE(1, verbose_stream() << "(sat-defrag)\n");
+        clause_allocator& alloc = m_cls_allocator[!m_cls_allocator_idx];
+        ptr_vector<clause> new_clauses, new_learned;
+        ptr_addr_map<clause, clause_offset> cls2offset;
+        for (clause* c : m_clauses) c->unmark_used();
+        for (clause* c : m_learned) c->unmark_used();
+
+        svector<bool_var> vars;
+        for (unsigned i = 0; i < num_vars(); ++i) vars.push_back(i);
+        std::stable_sort(vars.begin(), vars.end(), cmp_activity(*this));
+        literal_vector lits;
+        for (bool_var v : vars) lits.push_back(to_literal(v)), lits.push_back(~to_literal(v));
+
+        // walk clauses, reallocate them in an order that defragments memory and creates locality.
+        //for (literal lit : lits) {
+        //watch_list& wlist = m_watches[lit.index()];
+        for (watch_list& wlist : m_watches) {            
+            for (watched& w : wlist) {
+                if (w.is_clause()) {
+                    clause& c1 = get_clause(w);
+                    clause_offset offset;
+                    if (c1.was_used()) {
+                        offset = cls2offset[&c1];
+                    }
+                    else {
+                        clause* c2 = alloc.copy_clause(c1); 
+                        c1.mark_used();
+                        if (c1.is_learned()) {
+                            new_learned.push_back(c2);
+                        }
+                        else {
+                            new_clauses.push_back(c2);
+                        }
+                        offset = get_offset(*c2);
+                        cls2offset.insert(&c1, offset);
+                    }
+                    w = watched(w.get_blocked_literal(), offset);
+                }
+            }
+        }
+
+        // reallocate ternary clauses.
+        for (clause* c : m_clauses) {
+            if (!c->was_used()) {
+                SASSERT(c->size() == 3);
+                new_clauses.push_back(alloc.copy_clause(*c));
+            }
+            dealloc_clause(c);
+        }
+
+        for (clause* c : m_learned) {
+            if (!c->was_used()) {
+                SASSERT(c->size() == 3);
+                new_learned.push_back(alloc.copy_clause(*c));
+            }
+            dealloc_clause(c);
+        }
+        m_clauses.swap(new_clauses);
+        m_learned.swap(new_learned);
+
+        cls_allocator().finalize();
+        m_cls_allocator_idx = !m_cls_allocator_idx;
+    }
+
 
     void solver::set_learned(literal l1, literal l2, bool learned) {
         set_learned1(l1, l2, learned);
@@ -702,6 +782,7 @@ namespace sat {
             m_reasoned[v] = 0;
             break;
         }
+
         if (m_config.m_anti_exploration) {
             uint64 age = m_stats.m_conflict - m_canceled[v];
             if (age > 0) {
@@ -712,7 +793,10 @@ namespace sat {
                 m_case_split_queue.activity_changed_eh(v, false);
             }
         }
-
+        
+        if (m_config.m_propagate_prefetch) {
+            _mm_prefetch((char const*)(m_watches.c_ptr() + l.index()), 0);
+        }
 
         SASSERT(!l.sign() || m_phase[v] == NEG_PHASE);
         SASSERT(l.sign()  || m_phase[v] == POS_PHASE);
@@ -725,9 +809,8 @@ namespace sat {
 
     lbool solver::status(clause const & c) const {
         bool found_undef = false;
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            switch (value(c[i])) {
+        for (literal lit : c) {
+            switch (value(lit)) {
             case l_true:
                 return l_true;
             case l_undef:
@@ -1006,7 +1089,7 @@ namespace sat {
                     return l_undef;
                 }
 
-                restart();
+                restart(!m_config.m_restart_fast);
                 simplify_problem();
                 if (check_inconsistent()) return l_false;
                 gc();
@@ -1507,6 +1590,7 @@ namespace sat {
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
         m_conflicts_since_gc      = 0;
+        m_restart_next_out        = 0;
         m_asymm_branch.init_search();
         m_stopwatch.reset();
         m_stopwatch.start();
@@ -1752,15 +1836,34 @@ namespace sat {
         return ok;
     }
 
-    void solver::restart() {
+    void solver::restart(bool to_base) {
         m_stats.m_restart++;
         m_restarts++;
-        IF_VERBOSE(1,
-                   verbose_stream() << "(sat-restart :conflicts " << m_stats.m_conflict << " :decisions " << m_stats.m_decision
-                   << " :restarts " << m_stats.m_restart << mk_stat(*this)
-                   << " :time " << std::fixed << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
+        if (m_conflicts_since_init > m_restart_next_out + 500) {
+            m_restart_next_out = m_conflicts_since_init;
+            IF_VERBOSE(1,
+                       verbose_stream() << "(sat-restart :conflicts " << m_stats.m_conflict << " :decisions " << m_stats.m_decision
+                       << " :restarts " << m_stats.m_restart << mk_stat(*this)
+                       << " :time " << std::fixed << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
+        }
         IF_VERBOSE(30, display_status(verbose_stream()););
-        pop_reinit(scope_lvl() - search_lvl());
+        unsigned num_scopes = 0;
+        if (to_base || scope_lvl() == search_lvl()) {
+            num_scopes = scope_lvl() - search_lvl();
+        }
+        else {
+            bool_var next = m_case_split_queue.min_var();
+            do {
+                scope& s = m_scopes[scope_lvl() - num_scopes - 1];
+                bool_var prev = m_trail[s.m_trail_lim].var();
+                //IF_VERBOSE(0, verbose_stream() << "more active: " << m_case_split_queue.more_active(next, prev) << "\n");
+                if (!m_case_split_queue.more_active(next, prev)) break;                
+                ++num_scopes;
+            }
+            while (num_scopes < scope_lvl() - search_lvl());
+            //IF_VERBOSE(0, verbose_stream() << "backtrack " << num_scopes << " " << scope_lvl() - search_lvl() << "\n");
+        }
+        pop_reinit(num_scopes);
         m_conflicts_since_restart = 0;
         switch (m_config.m_restart) {
         case RS_GEOMETRIC:
@@ -1788,6 +1891,7 @@ namespace sat {
             return;
         if (m_config.m_gc_strategy == GC_DYN_PSM && !at_base_lvl())
             return;
+        unsigned gc = m_stats.m_gc_clause;
         IF_VERBOSE(10, verbose_stream() << "(sat.gc)\n";);
         CASSERT("sat_gc_bug", check_invariant());
         switch (m_config.m_gc_strategy) {
@@ -1813,6 +1917,11 @@ namespace sat {
             break;
         }
         if (m_ext) m_ext->gc();
+        if (gc > 0 && m_config.m_gc_defrag && !memory_pressure()) {
+            pop(scope_lvl());
+            defrag_clauses();
+            reinit_assumptions();
+        }
         m_conflicts_since_gc = 0;
         m_gc_threshold += m_config.m_gc_increment;
         CASSERT("sat_gc_bug", check_invariant());
@@ -2320,8 +2429,7 @@ namespace sat {
     void solver::resolve_conflict_for_unsat_core() {
         TRACE("sat", display(tout);
               unsigned level = 0;
-              for (unsigned i = 0; i < m_trail.size(); ++i) {
-                  literal l = m_trail[i];
+              for (literal l : m_trail) {
                   if (level != m_level[l.var()]) {
                       level = m_level[l.var()];
                       tout << level << ": ";
@@ -2341,8 +2449,8 @@ namespace sat {
         }
         SASSERT(m_unmark.empty());
         DEBUG_CODE({
-                for (unsigned i = 0; i < m_trail.size(); ++i) {
-                    SASSERT(!is_marked(m_trail[i].var()));
+                for (literal lit : m_trail) {
+                    SASSERT(!is_marked(lit.var()));
                 }});
 
         unsigned old_size = m_unmark.size();
@@ -2798,8 +2906,7 @@ namespace sat {
             }
         }
         reset_mark(m_lemma[0].var());
-        for (unsigned i = m_lemma.size(); i > sz; ) {
-            --i;
+        for (unsigned i = m_lemma.size(); i-- > sz; ) {
             reset_mark(m_lemma[i].var());
         }
         m_lemma.shrink(sz);
@@ -3431,7 +3538,7 @@ namespace sat {
     }
 
     void solver::display_watches(std::ostream & out, literal lit) const {
-        sat::display_watch_list(out << lit << ": ", m_cls_allocator, get_wlist(lit)) << "\n";
+        display_watch_list(out << lit << ": ", get_wlist(lit)) << "\n";
     }
 
     void solver::display_watches(std::ostream & out) const {
@@ -3439,8 +3546,12 @@ namespace sat {
         for (watch_list const& wlist : m_watches) {
             literal l = to_literal(l_idx++);
             if (!wlist.empty()) 
-                sat::display_watch_list(out << l << ": ", m_cls_allocator, wlist) << "\n";
+                display_watch_list(out << l << ": ", wlist) << "\n";
         }
+    }
+
+    std::ostream& solver::display_watch_list(std::ostream& out, watch_list const& wl) const {
+        return sat::display_watch_list(out, cls_allocator(), wl);
     }
 
     void solver::display_assignment(std::ostream & out) const {
@@ -3774,7 +3885,7 @@ namespace sat {
                 return l_undef;
             }
 
-            restart();
+            restart(true);
             simplify_problem();
             if (check_inconsistent()) {
                 fixup_consequence_core();
@@ -3867,7 +3978,7 @@ namespace sat {
                 else {
                     is_sat = bounded_search();
                     if (is_sat == l_undef) {
-                        restart();
+                        restart(true);
                     }
                     extract_fixed_consequences(unfixed_lits, assumptions, unfixed_vars, conseq);
                 }

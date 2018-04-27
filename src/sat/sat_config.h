@@ -85,7 +85,9 @@ namespace sat {
         unsigned           m_phase_caching_on;
         unsigned           m_phase_caching_off;
         bool               m_phase_sticky;
+        bool               m_propagate_prefetch;
         restart_strategy   m_restart;
+        bool               m_restart_fast;
         unsigned           m_restart_initial;
         double             m_restart_factor; // for geometric case
         unsigned           m_restart_max;
@@ -126,6 +128,7 @@ namespace sat {
         unsigned           m_gc_small_lbd;
         unsigned           m_gc_k;
         bool               m_gc_burst;
+        bool               m_gc_defrag;
 
 
         bool               m_minimize_lemmas;

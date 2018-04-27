@@ -2245,8 +2245,8 @@ namespace sat {
                 IF_VERBOSE(0, 
                            verbose_stream() << "Discrepancy of watched literal: " << l << " id: " << c.id() 
                            << " clause: " << c << (found?" is watched, but shouldn't be":" not watched, but should be") << "\n";
-                           display_watch_list(verbose_stream() << l << ": ", s().m_cls_allocator, get_wlist(l)) << "\n";
-                           display_watch_list(verbose_stream() << ~l << ": ", s().m_cls_allocator, get_wlist(~l)) << "\n";
+                           s().display_watch_list(verbose_stream() <<  l << ": ", get_wlist(l)) << "\n";
+                           s().display_watch_list(verbose_stream() << ~l << ": ", get_wlist(~l)) << "\n";
                            verbose_stream() << "value: " << value(l) << " level: " << lvl(l) << "\n";
                            display(verbose_stream(), c, true);
                            if (c.lit() != null_literal) verbose_stream() << value(c.lit()) << "\n";);

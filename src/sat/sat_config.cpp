@@ -41,6 +41,7 @@ namespace sat {
         else
             throw sat_param_exception("invalid restart strategy");
 
+        m_restart_fast = p.restart_fast();
         s = p.phase();
         if (s == symbol("always_false")) 
             m_phase = PS_ALWAYS_FALSE;
@@ -60,6 +61,7 @@ namespace sat {
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
         m_restart_max     = p.restart_max();
+        m_propagate_prefetch = p.propagate_prefetch();
         m_inprocess_max   = p.inprocess_max();
 
         m_random_freq     = p.random_freq();
@@ -139,6 +141,7 @@ namespace sat {
         m_gc_small_lbd    = p.gc_small_lbd();
         m_gc_k            = std::min(255u, p.gc_k());
         m_gc_burst        = p.gc_burst();
+        m_gc_defrag       = p.gc_defrag();
 
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();

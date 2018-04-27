@@ -135,11 +135,14 @@ namespace sat {
         m_allocator("clause-allocator") {
     }
 
+    void clause_allocator::finalize() {
+        m_allocator.reset();
+    }
+
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
         SASSERT(cls_off == reinterpret_cast<clause_offset>(reinterpret_cast<clause*>(cls_off)));
         return reinterpret_cast<clause *>(cls_off);
     }
-
 
     clause_offset clause_allocator::get_offset(clause const * cls) const {
         SASSERT(cls == reinterpret_cast<clause *>(reinterpret_cast<size_t>(cls)));
@@ -152,6 +155,18 @@ namespace sat {
         clause * cls = new (mem) clause(m_id_gen.mk(), num_lits, lits, learned);
         TRACE("sat_clause", tout << "alloc: " << cls->id() << " " << *cls << " " << (learned?"l":"a") << "\n";);
         SASSERT(!learned || cls->is_learned());
+        return cls;
+    }
+
+    clause * clause_allocator::copy_clause(clause const& other) {
+        size_t size = clause::get_obj_size(other.size());
+        void * mem = m_allocator.allocate(size);
+        clause * cls = new (mem) clause(m_id_gen.mk(), other.size(), other.m_lits, other.is_learned());
+        cls->m_reinit_stack = other.on_reinit_stack();
+        cls->m_glue   = other.glue();
+        cls->m_psm    = other.psm();
+        cls->m_frozen = other.frozen();
+        cls->m_approx = other.approx();
         return cls;
     }
 

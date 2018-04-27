@@ -19,10 +19,11 @@ Revision History:
 #ifndef SAT_CLAUSE_H_
 #define SAT_CLAUSE_H_
 
-#include "sat/sat_types.h"
 #include "util/small_object_allocator.h"
 #include "util/id_gen.h"
 #include "util/map.h"
+#include "sat/sat_types.h"
+#include "sat/sat_allocator.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
@@ -133,13 +134,16 @@ namespace sat {
        \brief Simple clause allocator that allows uint (32bit integers) to be used to reference clauses (even in 64bit machines).
     */
     class clause_allocator {
-        small_object_allocator m_allocator;
-        id_gen                 m_id_gen;
+        small_object_allocator    m_allocator;
+        id_gen           m_id_gen;
     public:
         clause_allocator();
+        void          finalize();
+        size_t        get_allocation_size() const { return m_allocator.get_allocation_size(); }
         clause *      get_clause(clause_offset cls_off) const;
         clause_offset get_offset(clause const * ptr) const;
         clause *      mk_clause(unsigned num_lits, literal const * lits, bool learned);
+        clause *      copy_clause(clause const& other);
         void          del_clause(clause * cls);
     };
 

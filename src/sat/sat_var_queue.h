@@ -72,6 +72,8 @@ namespace sat {
         bool_var next_var() { SASSERT(!empty()); return m_queue.erase_min(); }
 
         bool_var min_var() { SASSERT(!empty()); return m_queue.min_value(); }
+
+        bool more_active(bool_var v1, bool_var v2) const { return m_queue.less_than(v1, v2); }
     };
 };
 

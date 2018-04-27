@@ -185,7 +185,7 @@ namespace sat{
                     s.m_stats.m_mk_ter_clause++;
                 else
                     s.m_stats.m_mk_clause++;
-                clause* cp = s.m_cls_allocator.mk_clause(c.size(), c.c_ptr(), false);
+                clause* cp = s.alloc_clause(c.size(), c.c_ptr(), false);
                 s.m_clauses.push_back(cp);
                 simp.m_use_list.insert(*cp);
                 if (simp.m_sub_counter > 0)
@@ -214,7 +214,7 @@ namespace sat{
         }
         if (b.is_false()) {
             if (lits.size() > 1) {
-                clause* c = s.m_cls_allocator.mk_clause(lits.size(), lits.c_ptr(), false);
+                clause* c = s.alloc_clause(lits.size(), lits.c_ptr(), false);
                 clauses.push_back(c);
             }
             else {

@@ -100,7 +100,7 @@ namespace sat {
             !m_learned_in_use_lists && m_num_calls >= m_bce_delay && single_threaded();
     }
 
-    bool simplifier::ate_enabled()  const { return m_ate; }
+    bool simplifier::ate_enabled()  const { return m_num_calls >= m_bce_delay && m_ate; }
     bool simplifier::bce_enabled()  const { return bce_enabled_base() && (m_bce || m_bce_at == m_num_calls || m_acce || m_abce || m_cce); }
     bool simplifier::acce_enabled() const { return bce_enabled_base() && m_acce; }
     bool simplifier::cce_enabled()  const { return bce_enabled_base() && (m_cce || m_acce); }
@@ -1581,8 +1581,8 @@ namespace sat {
                 IF_VERBOSE(0, verbose_stream() << "blocked: " << l << " @ " << c << " :covered " << m_covered_clause << "\n";
                            s.m_use_list.display(verbose_stream() << "use  " << l << ":", l);
                            s.m_use_list.display(verbose_stream() << "use  " << ~l << ":", ~l);
-                           display_watch_list(verbose_stream() <<  ~l << ": ", s.s.m_cls_allocator, s.get_wlist(l)) << "\n";
-                           display_watch_list(verbose_stream() <<   l << ": ", s.s.m_cls_allocator, s.get_wlist(~l)) << "\n";
+                           s.s.display_watch_list(verbose_stream() <<  ~l << ": ", s.get_wlist(l)) << "\n";
+                           s.s.display_watch_list(verbose_stream() <<   l << ": ", s.get_wlist(~l)) << "\n";
                            );
                 
             }
@@ -1999,8 +1999,8 @@ namespace sat {
             literal l(v, false);
             IF_VERBOSE(0, 
                        verbose_stream() << "elim: " << l << "\n";
-                       display_watch_list(verbose_stream() <<  ~l << ": ", s.m_cls_allocator, get_wlist(l)) << "\n";
-                       display_watch_list(verbose_stream() <<   l << ": ", s.m_cls_allocator, get_wlist(~l)) << "\n";);
+                       s.display_watch_list(verbose_stream() <<  ~l << ": ", get_wlist(l)) << "\n";
+                       s.display_watch_list(verbose_stream() <<   l << ": ", get_wlist(~l)) << "\n";);
         }
         // eliminate variable
         ++s.m_stats.m_elim_var_res;
@@ -2017,8 +2017,6 @@ namespace sat {
         neg_occs.reset();
 
         m_elim_counter -= num_pos * num_neg + before_lits;
-
-
 
         for (auto & c1 : m_pos_cls) {
             for (auto & c2 : m_neg_cls) {
@@ -2046,7 +2044,7 @@ namespace sat {
                         s.m_stats.m_mk_ter_clause++;
                     else
                         s.m_stats.m_mk_clause++;
-                    clause * new_c = s.m_cls_allocator.mk_clause(m_new_cls.size(), m_new_cls.c_ptr(), false);
+                    clause * new_c = s.alloc_clause(m_new_cls.size(), m_new_cls.c_ptr(), false);
 
                     if (s.m_config.m_drat) s.m_drat.add(*new_c, true);
                     s.m_clauses.push_back(new_c);
