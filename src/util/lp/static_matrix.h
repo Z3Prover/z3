@@ -455,4 +455,5 @@ public:
     typedef T coefftype;
     typedef X argtype;
 };
+
 }

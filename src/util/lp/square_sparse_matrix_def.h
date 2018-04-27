@@ -19,38 +19,37 @@ Revision History:
 --*/
 
 #include "util/vector.h"
-#include "util/lp/sparse_matrix.h"
+#include "util/lp/square_sparse_matrix.h"
 #include <set>
 #include <queue>
 namespace lp {
 template <typename T, typename X>
-void sparse_matrix<T, X>::copy_column_from_static_matrix(unsigned col, static_matrix<T, X> const &A, unsigned col_index_in_the_new_matrix) {
-    vector<column_cell> const & A_col_vector = A.m_columns[col];
-    unsigned size = static_cast<unsigned>(A_col_vector.size());
-    vector<indexed_value<T>> & new_column_vector = m_columns[col_index_in_the_new_matrix].m_values;
-    for (unsigned l = 0; l < size; l++) {
-        column_cell const & col_cell = A_col_vector[l];
+template <typename M>
+void square_sparse_matrix<T, X>::copy_column_from_input(unsigned input_column, const M& A, unsigned j) {
+    vector<indexed_value<T>> & new_column_vector = m_columns[j].m_values;
+    for (const auto & c : A.column(input_column)) {
         unsigned col_offset = static_cast<unsigned>(new_column_vector.size());
-        vector<indexed_value<T>> & row_vector = m_rows[col_cell.m_i];
+        vector<indexed_value<T>> & row_vector = m_rows[c.var()];
         unsigned row_offset = static_cast<unsigned>(row_vector.size());
-        const T & val = A.get_val(col_cell);
-        new_column_vector.push_back(indexed_value<T>(val, col_cell.m_i, row_offset));
-        row_vector.push_back(indexed_value<T>(val, col_index_in_the_new_matrix, col_offset));
+        new_column_vector.push_back(indexed_value<T>(c.coeff(), c.var(), row_offset));
+        row_vector.push_back(indexed_value<T>(c.coeff(), j, col_offset));
         m_n_of_active_elems++;
     }
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::copy_B(static_matrix<T, X> const &A, vector<unsigned> & basis) {
-    unsigned m = A.row_count(); // this should be the size of basis
+template <typename M>
+void square_sparse_matrix<T, X>::copy_from_input_on_basis(const M & A, vector<unsigned> & basis) {
+    unsigned m = A.row_count();
     for (unsigned j = m; j-- > 0;) {
-        copy_column_from_static_matrix(basis[j], A, j);
+        copy_column_from_input(basis[j], A, j);
     }
 }
 
 // constructor that copies columns of the basis from A
 template <typename T, typename X>
-sparse_matrix<T, X>::sparse_matrix(static_matrix<T, X> const &A, vector<unsigned> & basis) :
+template <typename M>
+square_sparse_matrix<T, X>::square_sparse_matrix(const M &A, vector<unsigned> & basis) :
     m_n_of_active_elems(0),
     m_pivot_queue(A.row_count()),
     m_row_permutation(A.row_count()),
@@ -59,11 +58,26 @@ sparse_matrix<T, X>::sparse_matrix(static_matrix<T, X> const &A, vector<unsigned
     m_processed(A.row_count()) {
     init_row_headers();
     init_column_headers();
-    copy_B(A, basis);
+    copy_from_input_on_basis(A, basis);
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::set_with_no_adjusting_for_row(unsigned row, unsigned col, T val) { // should not be used in efficient code
+template <typename M>
+square_sparse_matrix<T, X>::square_sparse_matrix(const M &A) :
+    m_n_of_active_elems(0),
+    m_pivot_queue(A.row_count()),
+    m_row_permutation(A.row_count()),
+    m_column_permutation(A.row_count()),
+    m_work_pivot_vector(A.row_count(), -1),
+    m_processed(A.row_count()) {
+    init_row_headers();
+    init_column_headers();
+    copy_from_input(A);
+}
+
+
+template <typename T, typename X>
+void square_sparse_matrix<T, X>::set_with_no_adjusting_for_row(unsigned row, unsigned col, T val) { // should not be used in efficient code
     vector<indexed_value<T>> & row_vec = m_rows[row];
     for (auto & iv : row_vec) {
         if (iv.m_index == col) {
@@ -76,7 +90,7 @@ void sparse_matrix<T, X>::set_with_no_adjusting_for_row(unsigned row, unsigned c
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::set_with_no_adjusting_for_col(unsigned row, unsigned col, T val) { // should not be used in efficient code
+void square_sparse_matrix<T, X>::set_with_no_adjusting_for_col(unsigned row, unsigned col, T val) { // should not be used in efficient code
     vector<indexed_value<T>> & col_vec = m_columns[col].m_values;
     for (auto & iv : col_vec) {
         if (iv.m_index == row) {
@@ -90,13 +104,13 @@ void sparse_matrix<T, X>::set_with_no_adjusting_for_col(unsigned row, unsigned c
 
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::set_with_no_adjusting(unsigned row, unsigned col, T val) { // should not be used in efficient code
+void square_sparse_matrix<T, X>::set_with_no_adjusting(unsigned row, unsigned col, T val) { // should not be used in efficient code
     set_with_no_adjusting_for_row(row, col, val);
     set_with_no_adjusting_for_col(row, col, val);
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::set(unsigned row, unsigned col, T val) { // should not be used in efficient code
+void square_sparse_matrix<T, X>::set(unsigned row, unsigned col, T val) { // should not be used in efficient code
     lp_assert(row < dimension() && col < dimension());
     //            m_dense.set_elem(row, col, val);
     row = adjust_row(row);
@@ -106,7 +120,7 @@ void sparse_matrix<T, X>::set(unsigned row, unsigned col, T val) { // should not
 }
 
 template <typename T, typename X>
-T const & sparse_matrix<T, X>::get_not_adjusted(unsigned row, unsigned col) const {
+T const & square_sparse_matrix<T, X>::get_not_adjusted(unsigned row, unsigned col) const {
     for (indexed_value<T> const & iv : m_rows[row]) {
         if (iv.m_index == col) {
             return iv.m_value;
@@ -116,7 +130,7 @@ T const & sparse_matrix<T, X>::get_not_adjusted(unsigned row, unsigned col) cons
 }
 
 template <typename T, typename X>
-T const & sparse_matrix<T, X>::get(unsigned row, unsigned col) const { // should not be used in efficient code
+T const & square_sparse_matrix<T, X>::get(unsigned row, unsigned col) const { // should not be used in efficient code
     row = adjust_row(row);
     auto & row_chunk = m_rows[row];
     col = adjust_column(col);
@@ -130,7 +144,7 @@ T const & sparse_matrix<T, X>::get(unsigned row, unsigned col) const { // should
 
 // constructor creating a zero matrix of dim*dim
 template <typename T, typename X>
-sparse_matrix<T, X>::sparse_matrix(unsigned dim) :
+square_sparse_matrix<T, X>::square_sparse_matrix(unsigned dim, unsigned ) :
     m_pivot_queue(dim), // dim will be the initial size of the queue
     m_row_permutation(dim),
     m_column_permutation(dim),
@@ -141,21 +155,21 @@ sparse_matrix<T, X>::sparse_matrix(unsigned dim) :
     }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::init_row_headers() {
+void square_sparse_matrix<T, X>::init_row_headers() {
     for (unsigned l = 0; l < m_row_permutation.size(); l++) {
         m_rows.push_back(vector<indexed_value<T>>());
     }
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::init_column_headers() { // we alway have only square sparse_matrix
+void square_sparse_matrix<T, X>::init_column_headers() { // we alway have only square square_sparse_matrix
     for (unsigned l = 0; l < m_row_permutation.size(); l++) {
         m_columns.push_back(col_header());
     }
 }
 
 template <typename T, typename X>
-unsigned sparse_matrix<T, X>::lowest_row_in_column(unsigned j) {
+unsigned square_sparse_matrix<T, X>::lowest_row_in_column(unsigned j) {
     auto & mc = get_column_values(adjust_column(j));
     unsigned ret = 0;
     for (auto & iv : mc) {
@@ -168,7 +182,7 @@ unsigned sparse_matrix<T, X>::lowest_row_in_column(unsigned j) {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::remove_element(vector<indexed_value<T>> & row_vals, unsigned row_offset, vector<indexed_value<T>> & column_vals, unsigned column_offset) {
+void square_sparse_matrix<T, X>::remove_element(vector<indexed_value<T>> & row_vals, unsigned row_offset, vector<indexed_value<T>> & column_vals, unsigned column_offset) {
     if (column_offset != column_vals.size() - 1) {
         auto & column_iv = column_vals[column_offset] = column_vals.back(); // copy from the tail
         column_iv_other(column_iv).m_other = column_offset;
@@ -187,14 +201,14 @@ void sparse_matrix<T, X>::remove_element(vector<indexed_value<T>> & row_vals, un
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::remove_element(vector<indexed_value<T>> & row_chunk, indexed_value<T> & row_el_iv) {
+void square_sparse_matrix<T, X>::remove_element(vector<indexed_value<T>> & row_chunk, indexed_value<T> & row_el_iv) {
     auto & column_chunk = get_column_values(row_el_iv.m_index);
     indexed_value<T> & col_el_iv = column_chunk[row_el_iv.m_other];
     remove_element(row_chunk, col_el_iv.m_other, column_chunk, row_el_iv.m_other);
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::put_max_index_to_0(vector<indexed_value<T>> & row_vals, unsigned max_index)  {
+void square_sparse_matrix<T, X>::put_max_index_to_0(vector<indexed_value<T>> & row_vals, unsigned max_index)  {
     if (max_index == 0) return;
     indexed_value<T> * max_iv = & row_vals[max_index];
     indexed_value<T> * start_iv = & row_vals[0];
@@ -209,7 +223,7 @@ void sparse_matrix<T, X>::put_max_index_to_0(vector<indexed_value<T>> & row_vals
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::set_max_in_row(vector<indexed_value<T>> & row_vals) {
+void square_sparse_matrix<T, X>::set_max_in_row(vector<indexed_value<T>> & row_vals) {
     if (row_vals.size() == 0)
         return;
     T max_val = abs(row_vals[0].m_value);
@@ -225,7 +239,7 @@ void sparse_matrix<T, X>::set_max_in_row(vector<indexed_value<T>> & row_vals) {
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::pivot_with_eta(unsigned i, eta_matrix<T, X> *eta_matrix, lp_settings & settings) {
+bool square_sparse_matrix<T, X>::pivot_with_eta(unsigned i, eta_matrix<T, X> *eta_matrix, lp_settings & settings) {
     const T& pivot = eta_matrix->get_diagonal_element();
     for (auto & it : eta_matrix->m_column_vector.m_data) {
         if (!pivot_row_to_row(i, it.second, it.first, settings)) {
@@ -243,7 +257,7 @@ bool sparse_matrix<T, X>::pivot_with_eta(unsigned i, eta_matrix<T, X> *eta_matri
 
 // returns the offset of the pivot column in the row
 template <typename T, typename X>
-void sparse_matrix<T, X>::scan_row_to_work_vector_and_remove_pivot_column(unsigned row, unsigned pivot_column) {
+void square_sparse_matrix<T, X>::scan_row_to_work_vector_and_remove_pivot_column(unsigned row, unsigned pivot_column) {
     auto & rvals = m_rows[row];
     unsigned size = rvals.size();
     for (unsigned j = 0; j < size; j++) {
@@ -260,7 +274,7 @@ void sparse_matrix<T, X>::scan_row_to_work_vector_and_remove_pivot_column(unsign
 
 #ifdef Z3DEBUG
 template <typename T, typename X>
-vector<T> sparse_matrix<T, X>::get_full_row(unsigned i) const {
+vector<T> square_sparse_matrix<T, X>::get_full_row(unsigned i) const {
     vector<T> r;
     for (unsigned j = 0; j < column_count(); j++)
         r.push_back(get(i, j));
@@ -275,7 +289,7 @@ vector<T> sparse_matrix<T, X>::get_full_row(unsigned i) const {
 // After pivoting the row i0 has a max abs value set correctly at the beginning of m_start,
 // Returns false if the resulting row is all zeroes, and true otherwise
 template <typename T, typename X>
-bool sparse_matrix<T, X>::pivot_row_to_row(unsigned i, const T& alpha, unsigned i0, lp_settings & settings ) {
+bool square_sparse_matrix<T, X>::pivot_row_to_row(unsigned i, const T& alpha, unsigned i0, lp_settings & settings ) {
     lp_assert(i < dimension() && i0 < dimension());
     lp_assert(i != i0);
     unsigned pivot_col = adjust_column(i);
@@ -334,7 +348,7 @@ bool sparse_matrix<T, X>::pivot_row_to_row(unsigned i, const T& alpha, unsigned 
 // set the max val as well
 // returns false if the resulting row is all zeroes, and true otherwise
 template <typename T, typename X>
-bool sparse_matrix<T, X>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
+bool square_sparse_matrix<T, X>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
                                                                                       lp_settings & settings) {
     remove_zero_elements_and_set_data_on_existing_elements_not_adjusted(i0, work_vec, settings);
     // all non-zero elements in m_work_pivot_vector are new
@@ -358,7 +372,7 @@ bool sparse_matrix<T, X>::set_row_from_work_vector_and_clean_work_vector_not_adj
 
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::remove_zero_elements_and_set_data_on_existing_elements(unsigned row) {
+void square_sparse_matrix<T, X>::remove_zero_elements_and_set_data_on_existing_elements(unsigned row) {
     auto & row_vals = m_rows[row];
     for (unsigned k = static_cast<unsigned>(row_vals.size()); k-- > 0;) { // we cannot simply run the iterator since we are removing
         // elements from row_vals
@@ -377,7 +391,7 @@ void sparse_matrix<T, X>::remove_zero_elements_and_set_data_on_existing_elements
 
 // work_vec here has not adjusted column indices
 template <typename T, typename X>
-void sparse_matrix<T, X>::remove_zero_elements_and_set_data_on_existing_elements_not_adjusted(unsigned row, indexed_vector<T> & work_vec, lp_settings & settings) {
+void square_sparse_matrix<T, X>::remove_zero_elements_and_set_data_on_existing_elements_not_adjusted(unsigned row, indexed_vector<T> & work_vec, lp_settings & settings) {
     auto & row_vals = m_rows[row];
     for (unsigned k = static_cast<unsigned>(row_vals.size()); k-- > 0;) { // we cannot simply run the iterator since we are removing
         // elements from row_vals
@@ -398,7 +412,7 @@ void sparse_matrix<T, X>::remove_zero_elements_and_set_data_on_existing_elements
 
 // adding delta columns at the end of the matrix
 template <typename T, typename X>
-void sparse_matrix<T, X>::add_columns_at_the_end(unsigned delta) {
+void square_sparse_matrix<T, X>::add_columns_at_the_end(unsigned delta) {
     for (unsigned i = 0; i < delta; i++) {
         col_header col_head;
         m_columns.push_back(col_head);
@@ -407,7 +421,7 @@ void sparse_matrix<T, X>::add_columns_at_the_end(unsigned delta) {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::delete_column(int i) {
+void square_sparse_matrix<T, X>::delete_column(int i) {
     lp_assert(i < dimension());
     for (auto cell = m_columns[i].m_head; cell != nullptr;) {
         auto next_cell = cell->m_down;
@@ -417,7 +431,7 @@ void sparse_matrix<T, X>::delete_column(int i) {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::divide_row_by_constant(unsigned i, const T & t, lp_settings & settings) {
+void square_sparse_matrix<T, X>::divide_row_by_constant(unsigned i, const T & t, lp_settings & settings) {
     lp_assert(!settings.abs_val_is_smaller_than_zero_tolerance(t));
     i = adjust_row(i);
     for (auto & iv : m_rows[i]) {
@@ -434,7 +448,7 @@ void sparse_matrix<T, X>::divide_row_by_constant(unsigned i, const T & t, lp_set
 // solving x * this = y, and putting the answer into y
 // the matrix here has to be upper triangular
 template <typename T, typename X>
-void sparse_matrix<T, X>::solve_y_U(vector<T> & y) const { // works by rows
+void square_sparse_matrix<T, X>::solve_y_U(vector<T> & y) const { // works by rows
 #ifdef Z3DEBUG
     // T * rs = clone_vector<T>(y, dimension());
 #endif
@@ -464,7 +478,7 @@ void sparse_matrix<T, X>::solve_y_U(vector<T> & y) const { // works by rows
 // solving x * this = y, and putting the answer into y
 // the matrix here has to be upper triangular
 template <typename T, typename X>
-void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_settings & settings) {
+void square_sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_settings & settings) {
 #if 0 && Z3DEBUG
     vector<T> ycopy(y.m_data);
     if (numeric_traits<T>::precise() == false)
@@ -525,7 +539,7 @@ void sparse_matrix<T, X>::solve_y_U_indexed(indexed_vector<T> & y, const lp_sett
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::find_error_in_solution_U_y(vector<L>& y_orig, vector<L> & y) {
+void square_sparse_matrix<T, X>::find_error_in_solution_U_y(vector<L>& y_orig, vector<L> & y) {
     unsigned i = dimension();
     while (i--) {
         y_orig[i] -= dot_product_with_row(i, y);
@@ -534,7 +548,7 @@ void sparse_matrix<T, X>::find_error_in_solution_U_y(vector<L>& y_orig, vector<L
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y,  const vector<unsigned>& sorted_active_rows) {
+void square_sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& y_orig, indexed_vector<L> & y,  const vector<unsigned>& sorted_active_rows) {
     for (unsigned i: sorted_active_rows)
         y_orig.add_value_at_index(i, -dot_product_with_row(i, y)); // cannot round up here!!!
     // y_orig can contain very small values
@@ -543,7 +557,7 @@ void sparse_matrix<T, X>::find_error_in_solution_U_y_indexed(indexed_vector<L>& 
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::add_delta_to_solution(const vector<L>& del, vector<L> & y) {
+void square_sparse_matrix<T, X>::add_delta_to_solution(const vector<L>& del, vector<L> & y) {
     unsigned i = dimension();
     while (i--) {
         y[i] += del[i];
@@ -551,7 +565,7 @@ void sparse_matrix<T, X>::add_delta_to_solution(const vector<L>& del, vector<L> 
 }
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y) {
+void square_sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, indexed_vector<L> & y) {
 //    lp_assert(del.is_OK());
  //   lp_assert(y.is_OK());
     for (auto i : del.m_index) {
@@ -560,7 +574,7 @@ void sparse_matrix<T, X>::add_delta_to_solution(const indexed_vector<L>& del, in
 }
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settings & settings){
+void square_sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settings & settings){
     lp_assert(y.is_OK());
     indexed_vector<L> y_orig(y); // copy y aside
     vector<unsigned> active_rows;
@@ -582,7 +596,7 @@ void sparse_matrix<T, X>::double_solve_U_y(indexed_vector<L>& y, const lp_settin
 }
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::double_solve_U_y(vector<L>& y){
+void square_sparse_matrix<T, X>::double_solve_U_y(vector<L>& y){
     vector<L> y_orig(y); // copy y aside
     solve_U_y(y);
     find_error_in_solution_U_y(y_orig, y);
@@ -595,7 +609,7 @@ void sparse_matrix<T, X>::double_solve_U_y(vector<L>& y){
 // the matrix here has to be upper triangular
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::solve_U_y(vector<L> & y) { // it is a column wise version
+void square_sparse_matrix<T, X>::solve_U_y(vector<L> & y) { // it is a column wise version
 #ifdef Z3DEBUG
     // T * rs = clone_vector<T>(y, dimension());
 #endif
@@ -618,7 +632,7 @@ void sparse_matrix<T, X>::solve_U_y(vector<L> & y) { // it is a column wise vers
 #endif
 }
 template <typename T, typename X>
-void sparse_matrix<T, X>::process_index_recursively_for_y_U(unsigned j, vector<unsigned> & sorted_active_rows) {
+void square_sparse_matrix<T, X>::process_index_recursively_for_y_U(unsigned j, vector<unsigned> & sorted_active_rows) {
     lp_assert(m_processed[j] == false);
     m_processed[j]=true;
     auto & row = m_rows[adjust_row(j)];
@@ -633,7 +647,7 @@ void sparse_matrix<T, X>::process_index_recursively_for_y_U(unsigned j, vector<u
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::process_column_recursively(unsigned j, vector<unsigned> & sorted_active_rows) {
+void square_sparse_matrix<T, X>::process_column_recursively(unsigned j, vector<unsigned> & sorted_active_rows) {
     lp_assert(m_processed[j] == false);
     auto & mc = m_columns[adjust_column(j)].m_values;
     for (auto & iv : mc) {
@@ -649,7 +663,7 @@ void sparse_matrix<T, X>::process_column_recursively(unsigned j, vector<unsigned
 
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::create_graph_G(const vector<unsigned> & index_or_right_side, vector<unsigned> & sorted_active_rows) {
+void square_sparse_matrix<T, X>::create_graph_G(const vector<unsigned> & index_or_right_side, vector<unsigned> & sorted_active_rows) {
     for (auto i : index_or_right_side) {
         if (m_processed[i]) continue;
         process_column_recursively(i, sorted_active_rows);
@@ -662,7 +676,7 @@ void sparse_matrix<T, X>::create_graph_G(const vector<unsigned> & index_or_right
 
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::extend_and_sort_active_rows(const vector<unsigned> & index_or_right_side, vector<unsigned> & sorted_active_rows) {
+void square_sparse_matrix<T, X>::extend_and_sort_active_rows(const vector<unsigned> & index_or_right_side, vector<unsigned> & sorted_active_rows) {
     for (auto i : index_or_right_side) {
         if (m_processed[i]) continue;
         process_index_recursively_for_y_U(i, sorted_active_rows);
@@ -676,7 +690,7 @@ void sparse_matrix<T, X>::extend_and_sort_active_rows(const vector<unsigned> & i
 
 template <typename T, typename X>
 template <typename L>
-void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings & settings, vector<unsigned> & sorted_active_rows) { // it is a column wise version
+void square_sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp_settings & settings, vector<unsigned> & sorted_active_rows) { // it is a column wise version
     create_graph_G(y.m_index, sorted_active_rows);
 
     for (auto k = sorted_active_rows.size(); k-- > 0;) {
@@ -710,7 +724,7 @@ void sparse_matrix<T, X>::solve_U_y_indexed_only(indexed_vector<L> & y, const lp
 
 template <typename T, typename X>
 template <typename L>
-L sparse_matrix<T, X>::dot_product_with_row (unsigned row, const vector<L> & y) const {
+L square_sparse_matrix<T, X>::dot_product_with_row (unsigned row, const vector<L> & y) const {
     L ret = zero_of_type<L>();
     auto & mc = get_row_values(adjust_row(row));
     for (auto & c : mc) {
@@ -722,7 +736,7 @@ L sparse_matrix<T, X>::dot_product_with_row (unsigned row, const vector<L> & y) 
 
 template <typename T, typename X>
 template <typename L>
-L sparse_matrix<T, X>::dot_product_with_row (unsigned row, const indexed_vector<L> & y) const {
+L square_sparse_matrix<T, X>::dot_product_with_row (unsigned row, const indexed_vector<L> & y) const {
     L ret = zero_of_type<L>();
     auto & mc = get_row_values(adjust_row(row));
     for (auto & c : mc) {
@@ -734,7 +748,7 @@ L sparse_matrix<T, X>::dot_product_with_row (unsigned row, const indexed_vector<
 
 
 template <typename T, typename X>
-unsigned sparse_matrix<T, X>::get_number_of_nonzeroes() const {
+unsigned square_sparse_matrix<T, X>::get_number_of_nonzeroes() const {
     unsigned ret = 0;
     for (unsigned i = dimension(); i--; ) {
         ret += number_of_non_zeroes_in_row(i);
@@ -743,7 +757,7 @@ unsigned sparse_matrix<T, X>::get_number_of_nonzeroes() const {
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::get_non_zero_column_in_row(unsigned i, unsigned *j) const {
+bool square_sparse_matrix<T, X>::get_non_zero_column_in_row(unsigned i, unsigned *j) const {
     // go over the i-th row
     auto & mc = get_row_values(adjust_row(i));
     if (mc.size() > 0) {
@@ -754,7 +768,7 @@ bool sparse_matrix<T, X>::get_non_zero_column_in_row(unsigned i, unsigned *j) co
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::remove_element_that_is_not_in_w(vector<indexed_value<T>> & column_vals, indexed_value<T> & col_el_iv) {
+void square_sparse_matrix<T, X>::remove_element_that_is_not_in_w(vector<indexed_value<T>> & column_vals, indexed_value<T> & col_el_iv) {
     auto & row_chunk = m_rows[col_el_iv.m_index];
     indexed_value<T> & row_el_iv = row_chunk[col_el_iv.m_other];
     unsigned index_in_row = col_el_iv.m_other;
@@ -767,7 +781,7 @@ void sparse_matrix<T, X>::remove_element_that_is_not_in_w(vector<indexed_value<T
 // w contains the new column
 // the old column inside of the matrix has not been changed yet
 template <typename T, typename X>
-void sparse_matrix<T, X>::remove_elements_that_are_not_in_w_and_update_common_elements(unsigned column_to_replace, indexed_vector<T> & w) {
+void square_sparse_matrix<T, X>::remove_elements_that_are_not_in_w_and_update_common_elements(unsigned column_to_replace, indexed_vector<T> & w) {
     // --------------------------------
     // column_vals represents the old column
     auto & column_vals = m_columns[column_to_replace].m_values;
@@ -796,7 +810,7 @@ void sparse_matrix<T, X>::remove_elements_that_are_not_in_w_and_update_common_el
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::add_new_element(unsigned row, unsigned col, const T& val) {
+void square_sparse_matrix<T, X>::add_new_element(unsigned row, unsigned col, const T& val) {
     auto & row_vals = m_rows[row];
     auto & col_vals = m_columns[col].m_values;
     unsigned row_el_offs = static_cast<unsigned>(row_vals.size());
@@ -809,7 +823,7 @@ void sparse_matrix<T, X>::add_new_element(unsigned row, unsigned col, const T& v
 // w contains the "rest" of the new column; all common elements of w and the old column has been zeroed
 // the old column inside of the matrix has not been changed yet
 template <typename T, typename X>
-void sparse_matrix<T, X>::add_new_elements_of_w_and_clear_w(unsigned column_to_replace, indexed_vector<T> & w, lp_settings & settings) {
+void square_sparse_matrix<T, X>::add_new_elements_of_w_and_clear_w(unsigned column_to_replace, indexed_vector<T> & w, lp_settings & settings) {
     for (unsigned i : w.m_index) {
         T w_at_i = w[i];
         if (numeric_traits<T>::is_zero(w_at_i)) continue; // was dealt with already
@@ -827,14 +841,14 @@ void sparse_matrix<T, X>::add_new_elements_of_w_and_clear_w(unsigned column_to_r
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::replace_column(unsigned column_to_replace, indexed_vector<T> & w, lp_settings &settings) {
+void square_sparse_matrix<T, X>::replace_column(unsigned column_to_replace, indexed_vector<T> & w, lp_settings &settings) {
     column_to_replace = adjust_column(column_to_replace);
     remove_elements_that_are_not_in_w_and_update_common_elements(column_to_replace, w);
     add_new_elements_of_w_and_clear_w(column_to_replace, w, settings);
 }
 
 template <typename T, typename X>
-unsigned sparse_matrix<T, X>::pivot_score(unsigned i, unsigned j) {
+unsigned square_sparse_matrix<T, X>::pivot_score(unsigned i, unsigned j) {
     // It goes like this (rnz-1)(cnz-1) is the Markovitz number, that is the max number of
     // new non zeroes we can obtain after the pivoting.
     // In addition we will get another cnz - 1 elements in the eta matrix created for this pivot,
@@ -847,7 +861,7 @@ unsigned sparse_matrix<T, X>::pivot_score(unsigned i, unsigned j) {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::enqueue_domain_into_pivot_queue() {
+void square_sparse_matrix<T, X>::enqueue_domain_into_pivot_queue() {
     lp_assert(m_pivot_queue.size() == 0);
     for (unsigned i = 0; i < dimension(); i++) {
         auto & rh = m_rows[i];
@@ -860,7 +874,7 @@ void sparse_matrix<T, X>::enqueue_domain_into_pivot_queue() {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::set_max_in_rows() {
+void square_sparse_matrix<T, X>::set_max_in_rows() {
     unsigned i = dimension();
     while (i--)
         set_max_in_row(i);
@@ -868,27 +882,27 @@ void sparse_matrix<T, X>::set_max_in_rows() {
 
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::zero_shortened_markovitz_numbers() {
+void square_sparse_matrix<T, X>::zero_shortened_markovitz_numbers() {
     for (auto & ch : m_columns)
         ch.zero_shortened_markovitz();
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::prepare_for_factorization() {
+void square_sparse_matrix<T, X>::prepare_for_factorization() {
     zero_shortened_markovitz_numbers();
     set_max_in_rows();
     enqueue_domain_into_pivot_queue();
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::recover_pivot_queue(vector<upair> & rejected_pivots)  {
+void square_sparse_matrix<T, X>::recover_pivot_queue(vector<upair> & rejected_pivots)  {
     for (auto p : rejected_pivots) {
         m_pivot_queue.enqueue(p.first, p.second, pivot_score(p.first, p.second));
     }
 }
 
 template <typename T, typename X>
-int sparse_matrix<T, X>::elem_is_too_small(unsigned i, unsigned j, int c_partial_pivoting)  {
+int square_sparse_matrix<T, X>::elem_is_too_small(unsigned i, unsigned j, int c_partial_pivoting)  {
     auto & row_chunk = m_rows[i];
 
     if (j == row_chunk[0].m_index) {
@@ -904,7 +918,7 @@ int sparse_matrix<T, X>::elem_is_too_small(unsigned i, unsigned j, int c_partial
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsigned row) {
+bool square_sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsigned row) {
     unsigned arow = adjust_row(row);
     for (auto & iv : m_rows[arow]) {
         m_pivot_queue.remove(arow, iv.m_index);
@@ -921,7 +935,7 @@ bool sparse_matrix<T, X>::remove_row_from_active_pivots_and_shorten_columns(unsi
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::remove_pivot_column(unsigned row) {
+void square_sparse_matrix<T, X>::remove_pivot_column(unsigned row) {
     unsigned acol = adjust_column(row);
     for (const auto & iv : m_columns[acol].m_values)
         if (adjust_row_inverse(iv.m_index) >= row)
@@ -929,7 +943,7 @@ void sparse_matrix<T, X>::remove_pivot_column(unsigned row) {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::update_active_pivots(unsigned row) {
+void square_sparse_matrix<T, X>::update_active_pivots(unsigned row) {
     unsigned arow = adjust_row(row);
     for (const auto & iv : m_rows[arow]) {
         col_header & ch = m_columns[iv.m_index];
@@ -944,7 +958,7 @@ void sparse_matrix<T, X>::update_active_pivots(unsigned row) {
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::shorten_active_matrix(unsigned row, eta_matrix<T, X> *eta_matrix) {
+bool square_sparse_matrix<T, X>::shorten_active_matrix(unsigned row, eta_matrix<T, X> *eta_matrix) {
     if (!remove_row_from_active_pivots_and_shorten_columns(row))
         return false;
     remove_pivot_column(row);
@@ -969,7 +983,7 @@ bool sparse_matrix<T, X>::shorten_active_matrix(unsigned row, eta_matrix<T, X> *
 }
 
 template <typename T, typename X>
-unsigned sparse_matrix<T, X>::pivot_score_without_shortened_counters(unsigned i, unsigned j, unsigned k) {
+unsigned square_sparse_matrix<T, X>::pivot_score_without_shortened_counters(unsigned i, unsigned j, unsigned k) {
     auto &cols = m_columns[j].m_values;
     unsigned cnz = cols.size();
     for (auto & iv : cols) {
@@ -981,7 +995,7 @@ unsigned sparse_matrix<T, X>::pivot_score_without_shortened_counters(unsigned i,
 }
 #ifdef Z3DEBUG
 template <typename T, typename X>
-bool sparse_matrix<T, X>::can_improve_score_for_row(unsigned row, unsigned score, T const & c_partial_pivoting, unsigned k) {
+bool square_sparse_matrix<T, X>::can_improve_score_for_row(unsigned row, unsigned score, T const & c_partial_pivoting, unsigned k) {
     unsigned arow = adjust_row(row);
     auto & row_vals = m_rows[arow].m_values;
     auto & begin_iv = row_vals[0];
@@ -1005,7 +1019,7 @@ bool sparse_matrix<T, X>::can_improve_score_for_row(unsigned row, unsigned score
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::really_best_pivot(unsigned i, unsigned j, T const & c_partial_pivoting, unsigned k) {
+bool square_sparse_matrix<T, X>::really_best_pivot(unsigned i, unsigned j, T const & c_partial_pivoting, unsigned k) {
     unsigned queue_pivot_score = pivot_score_without_shortened_counters(i, j, k);
     for (unsigned ii = k; ii < dimension(); ii++) {
         lp_assert(!can_improve_score_for_row(ii, queue_pivot_score, c_partial_pivoting, k));
@@ -1013,7 +1027,7 @@ bool sparse_matrix<T, X>::really_best_pivot(unsigned i, unsigned j, T const & c_
     return true;
 }
 template <typename T, typename X>
-void sparse_matrix<T, X>::print_active_matrix(unsigned k, std::ostream & out) {
+void square_sparse_matrix<T, X>::print_active_matrix(unsigned k, std::ostream & out) {
     out << "active matrix for k = " << k << std::endl;
     if (k >= dimension()) {
         out << "empty" << std::endl;
@@ -1038,7 +1052,7 @@ void sparse_matrix<T, X>::print_active_matrix(unsigned k, std::ostream & out) {
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::pivot_queue_is_correct_for_row(unsigned i, unsigned k) {
+bool square_sparse_matrix<T, X>::pivot_queue_is_correct_for_row(unsigned i, unsigned k) {
     unsigned arow = adjust_row(i);
     for (auto & iv : m_rows[arow].m_values) {
         lp_assert(pivot_score_without_shortened_counters(arow, iv.m_index, k + 1) ==
@@ -1048,7 +1062,7 @@ bool sparse_matrix<T, X>::pivot_queue_is_correct_for_row(unsigned i, unsigned k)
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::pivot_queue_is_correct_after_pivoting(int k) {
+bool square_sparse_matrix<T, X>::pivot_queue_is_correct_after_pivoting(int k) {
     for (unsigned i = k + 1; i < dimension(); i++ )
         lp_assert(pivot_queue_is_correct_for_row(i, k));
     lp_assert(m_pivot_queue.is_correct());
@@ -1057,7 +1071,7 @@ bool sparse_matrix<T, X>::pivot_queue_is_correct_after_pivoting(int k) {
 #endif
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::get_pivot_for_column(unsigned &i, unsigned &j, int c_partial_pivoting, unsigned k) {
+bool square_sparse_matrix<T, X>::get_pivot_for_column(unsigned &i, unsigned &j, int c_partial_pivoting, unsigned k) {
     vector<upair> pivots_candidates_that_are_too_small;
     while (!m_pivot_queue.is_empty()) {
         m_pivot_queue.dequeue(i, j);
@@ -1087,7 +1101,7 @@ bool sparse_matrix<T, X>::get_pivot_for_column(unsigned &i, unsigned &j, int c_p
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::elem_is_too_small(vector<indexed_value<T>> & row_chunk, indexed_value<T> & iv, int c_partial_pivoting) {
+bool square_sparse_matrix<T, X>::elem_is_too_small(vector<indexed_value<T>> & row_chunk, indexed_value<T> & iv, int c_partial_pivoting) {
     if (&iv == &row_chunk[0]) {
         return false; // the max element is at the head
     }
@@ -1097,7 +1111,7 @@ bool sparse_matrix<T, X>::elem_is_too_small(vector<indexed_value<T>> & row_chunk
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::shorten_columns_by_pivot_row(unsigned i, unsigned pivot_column) {
+bool square_sparse_matrix<T, X>::shorten_columns_by_pivot_row(unsigned i, unsigned pivot_column) {
     vector<indexed_value<T>> & row_chunk = get_row_values(i);
 
     for (indexed_value<T> & iv : row_chunk) {
@@ -1116,7 +1130,7 @@ bool sparse_matrix<T, X>::shorten_columns_by_pivot_row(unsigned i, unsigned pivo
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
+bool square_sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
     const vector<indexed_value<T>> & col_chunk = get_column_values(adjust_column(j));
     bool is_unit = true;
     for (const auto & iv : col_chunk) {
@@ -1163,7 +1177,7 @@ bool sparse_matrix<T, X>::fill_eta_matrix(unsigned j, eta_matrix<T, X> ** eta) {
 }
 #ifdef Z3DEBUG
 template <typename T, typename X>
-bool sparse_matrix<T, X>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings & settings) const {
+bool square_sparse_matrix<T, X>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings & settings) const {
     for (unsigned i = 0; i < dimension(); i++) {
         vector<indexed_value<T>> const & row_chunk = get_row_values(i);
         lp_assert(row_chunk.size());
@@ -1188,7 +1202,7 @@ bool sparse_matrix<T, X>::is_upper_triangular_and_maximums_are_set_correctly_in_
 }
 
 template <typename T, typename X>
-bool sparse_matrix<T, X>::is_upper_triangular_until(unsigned k) const {
+bool square_sparse_matrix<T, X>::is_upper_triangular_until(unsigned k) const {
     for (unsigned j = 0; j < dimension() && j < k; j++) {
         unsigned aj = adjust_column(j);
         auto & col = get_column_values(aj);
@@ -1202,7 +1216,7 @@ bool sparse_matrix<T, X>::is_upper_triangular_until(unsigned k) const {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::check_column_vs_rows(unsigned col) {
+void square_sparse_matrix<T, X>::check_column_vs_rows(unsigned col) {
     auto & mc = get_column_values(col);
     for (indexed_value<T> & column_iv : mc) {
         indexed_value<T> & row_iv = column_iv_other(column_iv);
@@ -1225,7 +1239,7 @@ void sparse_matrix<T, X>::check_column_vs_rows(unsigned col) {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::check_row_vs_columns(unsigned row) {
+void square_sparse_matrix<T, X>::check_row_vs_columns(unsigned row) {
     auto & mc = get_row_values(row);
     for (indexed_value<T> & row_iv : mc) {
         indexed_value<T> & column_iv = row_iv_other(row_iv);
@@ -1249,20 +1263,20 @@ void sparse_matrix<T, X>::check_row_vs_columns(unsigned row) {
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::check_rows_vs_columns() {
+void square_sparse_matrix<T, X>::check_rows_vs_columns() {
     for (unsigned i = 0; i < dimension(); i++) {
         check_row_vs_columns(i);
     }
 }
 
 template <typename T, typename X>
-void sparse_matrix<T, X>::check_columns_vs_rows() {
+void square_sparse_matrix<T, X>::check_columns_vs_rows() {
     for (unsigned i = 0; i < dimension(); i++) {
         check_column_vs_rows(i);
     }
 }
 template <typename T, typename X>
-void sparse_matrix<T, X>::check_matrix() {
+void square_sparse_matrix<T, X>::check_matrix() {
     check_rows_vs_columns();
     check_columns_vs_rows();
 }

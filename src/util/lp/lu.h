@@ -24,7 +24,7 @@ Revision History:
 #include "util/debug.h"
 #include <algorithm>
 #include <set>
-#include "util/lp/sparse_matrix.h"
+#include "util/lp/square_sparse_matrix.h"
 #include "util/lp/static_matrix.h"
 #include <string>
 #include "util/lp/numeric_pair.h"
@@ -36,7 +36,7 @@ Revision History:
 namespace lp {
 #ifdef Z3DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
-void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
+void print_submatrix(square_sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
 
 template <typename M>
 void print_matrix(M &m, std::ostream & out);
@@ -134,7 +134,7 @@ public:
     permutation_matrix<T, X>   m_Q;
     permutation_matrix<T, X>   m_R;
     permutation_matrix<T, X>   m_r_wave;
-    sparse_matrix<T, X>        m_U;
+    square_sparse_matrix<T, X>        m_U;
     square_dense_submatrix<T, X>* m_dense_LU;
     
     vector<tail_matrix<T, X> *> m_tail;
@@ -223,7 +223,7 @@ public:
 
     eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j);
     // we're processing the column j now
-    eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j, sparse_matrix<T, X>& copy_of_U);
+    eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j, square_sparse_matrix<T, X>& copy_of_U);
 
     // see page 407 of Chvatal
     unsigned transform_U_to_V_by_replacing_column(indexed_vector<T> & w, unsigned leaving_column_of_U);
@@ -246,7 +246,7 @@ public:
     }
 
     T B_(unsigned i, unsigned j,  const vector<unsigned>& basis) {
-        return m_A.get_elem(i, basis[j]);
+        return m_A[i][basis[j]];
     }
 
     unsigned dimension() { return m_dim; }

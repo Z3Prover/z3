@@ -27,7 +27,7 @@ Revision History:
 namespace lp {
 #ifdef Z3DEBUG
 template <typename T, typename X, typename M> // print the nr x nc submatrix at the top left corner
-void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc, std::ostream & out) {
+void print_submatrix(square_sparse_matrix<T, X> & m, unsigned mr, unsigned nc, std::ostream & out) {
     vector<vector<std::string>> A;
     vector<unsigned> widths;
     for (unsigned i = 0; i < m.row_count() && i < mr ; i++) {
@@ -106,8 +106,8 @@ void one_elem_on_diag<T, X>::apply_from_left_to_T(indexed_vector<T> & w, lp_sett
 // Using Suhl-Suhl method described in the dissertation of Achim Koberstein, Chapter 5
 template <typename M>
 lu<M>::lu(const M& A,
-             vector<unsigned>& basis,
-             lp_settings & settings):
+          vector<unsigned>& basis,
+          lp_settings & settings):
     m_status(LU_status::OK),
     m_dim(A.row_count()),
     m_A(A),
@@ -552,7 +552,7 @@ eta_matrix<typename M::coefftype, typename M::argtype> * lu< M>::get_eta_matrix_
 }
 // we're processing the column j now
 template <typename M>
-eta_matrix<typename M::coefftype, typename M::argtype> * lu<M>::get_eta_matrix_for_pivot(unsigned j, sparse_matrix<T, X>& copy_of_U) {
+eta_matrix<typename M::coefftype, typename M::argtype> * lu<M>::get_eta_matrix_for_pivot(unsigned j, square_sparse_matrix<T, X>& copy_of_U) {
     eta_matrix<T, X> *ret;
     copy_of_U.fill_eta_matrix(j, &ret);
     return ret;

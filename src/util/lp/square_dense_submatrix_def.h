@@ -21,7 +21,7 @@ Revision History:
 #include "util/lp/square_dense_submatrix.h"
 namespace lp {
 template <typename T, typename X>
-square_dense_submatrix<T, X>::square_dense_submatrix (sparse_matrix<T, X> *parent_matrix, unsigned index_start) :
+square_dense_submatrix<T, X>::square_dense_submatrix (square_sparse_matrix<T, X> *parent_matrix, unsigned index_start) :
     m_index_start(index_start),
     m_dim(parent_matrix->dimension() - index_start),
     m_v(m_dim * m_dim),
@@ -40,7 +40,7 @@ square_dense_submatrix<T, X>::square_dense_submatrix (sparse_matrix<T, X> *paren
     }
 }
 
-template <typename T, typename X> void square_dense_submatrix<T, X>::init(sparse_matrix<T, X> *parent_matrix, unsigned index_start) {
+template <typename T, typename X> void square_dense_submatrix<T, X>::init(square_sparse_matrix<T, X> *parent_matrix, unsigned index_start) {
     m_index_start = index_start;
     m_dim = parent_matrix->dimension() - index_start;
     m_v.resize(m_dim * m_dim);

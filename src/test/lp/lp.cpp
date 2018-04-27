@@ -53,6 +53,7 @@ Revision History:
 #include "test/lp/gomory_test.h"
 #include "util/lp/matrix.h"
 #include "util/lp/hnf.h"
+#include "util/lp/square_sparse_matrix_def.h"
 #include "util/lp/lu_def.h"
 namespace lp {
 unsigned seed = 1;
@@ -70,11 +71,11 @@ struct simple_column_namer:public column_namer
 
 
 template <typename T, typename X>
-void test_matrix(sparse_matrix<T, X> & a) {
+void test_matrix(square_sparse_matrix<T, X> & a) {
     auto m = a.dimension();
 
     // copy a to b in the reversed order
-    sparse_matrix<T, X> b(m);
+    square_sparse_matrix<T, X> b(m, m);
     std::cout << "copy b to a"<< std::endl;
     for (int row = m - 1; row >= 0; row--)
         for (int col = m - 1; col >= 0; col --) {
@@ -112,7 +113,7 @@ void test_matrix(sparse_matrix<T, X> & a) {
 
 void tst1() {
     std::cout << "testing the minimial matrix with 1 row and 1 column" << std::endl;
-    sparse_matrix<double, double> m0(1);
+    square_sparse_matrix<double, double> m0(1, 1);
     m0.set(0, 0, 1);
     // print_matrix(m0);
     m0.set(0, 0, 0);
@@ -120,7 +121,7 @@ void tst1() {
     test_matrix(m0);
 
     unsigned rows = 2;
-    sparse_matrix<double, double> m(rows);
+    square_sparse_matrix<double, double> m(rows, rows);
     std::cout << "setting m(0,1)=" << std::endl;
 
     m.set(0, 1,  11);
@@ -130,7 +131,7 @@ void tst1() {
 
     test_matrix(m);
 
-    sparse_matrix<double, double> m1(2);
+    square_sparse_matrix<double, double> m1(2, 2);
     m1.set(0, 0, 2);
     m1.set(1, 0, 3);
     // print_matrix(m1);
@@ -143,7 +144,7 @@ void tst1() {
 
 
     std::cout << "printing zero matrix 3 by 1" << std::endl;
-    sparse_matrix<double, double> m2(3);
+    square_sparse_matrix<double, double> m2(3, 3);
     // print_matrix(m2);
 
     m2.set(0, 0, 1);
@@ -153,7 +154,7 @@ void tst1() {
 
     test_matrix(m2);
 
-    sparse_matrix<double, double> m10by9(10);
+    square_sparse_matrix<double, double> m10by9(10, 10);
     m10by9.set(0, 1, 1);
 
     m10by9(0, 1) = 4;
@@ -320,7 +321,7 @@ void test_small_lu(lp_settings & settings) {
 
 #endif
 
-void fill_long_row(sparse_matrix<double, double> &m, int i) {
+void fill_long_row(square_sparse_matrix<double, double> &m, int i) {
     int n = m.dimension();
     for (int j = 0; j < n; j ++) {
         m (i, (j + i) % n) = j * j;
@@ -335,7 +336,7 @@ void fill_long_row(static_matrix<double, double> &m, int i) {
 }
 
 
-void fill_long_row_exp(sparse_matrix<double, double> &m, int i) {
+void fill_long_row_exp(square_sparse_matrix<double, double> &m, int i) {
     int n = m.dimension();
 
     for (int j = 0; j < n; j ++) {
@@ -351,23 +352,23 @@ void fill_long_row_exp(static_matrix<double, double> &m, int i) {
     }
 }
 
-void fill_larger_sparse_matrix_exp(sparse_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix_exp(square_sparse_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.dimension(); i++ )
         fill_long_row_exp(m, i);
 }
 
-void fill_larger_sparse_matrix_exp(static_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix_exp(static_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.row_count(); i++ )
         fill_long_row_exp(m, i);
 }
 
 
-void fill_larger_sparse_matrix(sparse_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix(square_sparse_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.dimension(); i++ )
         fill_long_row(m, i);
 }
 
-void fill_larger_sparse_matrix(static_matrix<double, double> & m){
+void fill_larger_square_sparse_matrix(static_matrix<double, double> & m){
     for ( unsigned i = 0; i < m.row_count(); i++ )
         fill_long_row(m, i);
 }
@@ -388,7 +389,7 @@ void test_larger_lu_exp(lp_settings & settings) {
     basis[5] = 6;
 
 
-    fill_larger_sparse_matrix_exp(m);
+    fill_larger_square_sparse_matrix_exp(m);
     // print_matrix(m);
     vector<int> heading = allocate_basis_heading(m.column_count());
     vector<unsigned> non_basic_columns;
@@ -472,7 +473,7 @@ void test_larger_lu(lp_settings& settings) {
     basis[5] = 6;
 
 
-    fill_larger_sparse_matrix(m);
+    fill_larger_square_sparse_matrix(m);
     print_matrix(m, std::cout);
 
     vector<int> heading = allocate_basis_heading(m.column_count());
@@ -520,7 +521,7 @@ void test_lu(lp_settings & settings) {
 
 
 
-void init_b(vector<double> & b, sparse_matrix<double, double> & m, vector<double>& x) {
+void init_b(vector<double> & b, square_sparse_matrix<double, double> & m, vector<double>& x) {
     for (unsigned i = 0; i < m.dimension(); i++) {
         b.push_back(m.dot_product_with_row(i, x));
     }
@@ -630,7 +631,7 @@ void test_lp_primal_core_solver() {
 
 #ifdef Z3DEBUG
 template <typename T, typename X>
-void test_swap_rows_with_permutation(sparse_matrix<T, X>& m){
+void test_swap_rows_with_permutation(square_sparse_matrix<T, X>& m){
     std::cout << "testing swaps" << std::endl;
     unsigned dim = m.row_count();
     dense_matrix<double, double> original(&m);
@@ -651,10 +652,10 @@ void test_swap_rows_with_permutation(sparse_matrix<T, X>& m){
 }
 #endif
 template <typename T, typename X>
-void fill_matrix(sparse_matrix<T, X>& m); // forward definition
+void fill_matrix(square_sparse_matrix<T, X>& m); // forward definition
 #ifdef Z3DEBUG
 template <typename T, typename X>
-void test_swap_cols_with_permutation(sparse_matrix<T, X>& m){
+void test_swap_cols_with_permutation(square_sparse_matrix<T, X>& m){
     std::cout << "testing swaps" << std::endl;
     unsigned dim = m.row_count();
     dense_matrix<double, double> original(&m);
@@ -676,9 +677,9 @@ void test_swap_cols_with_permutation(sparse_matrix<T, X>& m){
 
 
 template <typename T, typename X>
-void test_swap_rows(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
+void test_swap_rows(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     std::cout << "test_swap_rows(" << i0 << "," << i1 << ")" << std::endl;
-    sparse_matrix<T, X> mcopy(m.dimension());
+    square_sparse_matrix<T, X> mcopy(m.dimension(), 0);
     for (unsigned i = 0; i  < m.dimension(); i++)
         for (unsigned j = 0; j < m.dimension(); j++) {
             mcopy(i, j)= m(i, j);
@@ -692,9 +693,9 @@ void test_swap_rows(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     }
 }
 template <typename T, typename X>
-void test_swap_columns(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
+void test_swap_columns(square_sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
     std::cout << "test_swap_columns(" << i0 << "," << i1 << ")" << std::endl;
-    sparse_matrix<T, X> mcopy(m.dimension());
+    square_sparse_matrix<T, X> mcopy(m.dimension(), 0); // the second argument does not matter
     for (unsigned i = 0; i  < m.dimension(); i++)
         for (unsigned j = 0; j < m.dimension(); j++) {
             mcopy(i, j)= m(i, j);
@@ -717,7 +718,7 @@ void test_swap_columns(sparse_matrix<T, X>& m, unsigned i0, unsigned i1){
 #endif
 
 template <typename T, typename X>
-void fill_matrix(sparse_matrix<T, X>& m){
+void fill_matrix(square_sparse_matrix<T, X>& m){
     int v = 0;
     for (int i = m.dimension() - 1; i >= 0; i--) {
         for (int j = m.dimension() - 1; j >=0; j--){
@@ -727,7 +728,7 @@ void fill_matrix(sparse_matrix<T, X>& m){
 }
 
 void test_pivot_like_swaps_and_pivot(){
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     // print_matrix(m);
     // pivot at 2,7
@@ -778,7 +779,7 @@ void test_pivot_like_swaps_and_pivot(){
 
 #ifdef Z3DEBUG
 void test_swap_rows() {
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     // print_matrix(m);
     test_swap_rows(m, 3, 5);
@@ -799,7 +800,7 @@ void test_swap_rows() {
     test_swap_rows(m, 0, 7);
 
     // go over some corner cases
-    sparse_matrix<double, double> m0(2);
+    square_sparse_matrix<double, double> m0(2, 2);
     test_swap_rows(m0, 0, 1);
     m0(0, 0) = 3;
     test_swap_rows(m0, 0, 1);
@@ -807,7 +808,7 @@ void test_swap_rows() {
     test_swap_rows(m0, 0, 1);
 
 
-    sparse_matrix<double, double> m1(10);
+    square_sparse_matrix<double, double> m1(10, 10);
     test_swap_rows(m1, 0, 1);
     m1(0, 0) = 3;
     test_swap_rows(m1, 0, 1);
@@ -819,7 +820,7 @@ void test_swap_rows() {
 
     test_swap_rows(m1, 0, 1);
 
-    sparse_matrix<double, double> m2(3);
+    square_sparse_matrix<double, double> m2(3, 3);
     test_swap_rows(m2, 0, 1);
     m2(0, 0) = 3;
     test_swap_rows(m2, 0, 1);
@@ -827,7 +828,7 @@ void test_swap_rows() {
     test_swap_rows(m2, 0, 2);
 }
 
-void fill_uniformly(sparse_matrix<double, double> & m, unsigned dim) {
+void fill_uniformly(square_sparse_matrix<double, double> & m, unsigned dim) {
     int v = 0;
     for (unsigned i = 0; i < dim; i++) {
         for (unsigned j = 0; j < dim; j++) {
@@ -845,9 +846,9 @@ void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
     }
 }
 
-void sparse_matrix_with_permutaions_test() {
+void square_sparse_matrix_with_permutaions_test() {
     unsigned dim = 4;
-    sparse_matrix<double, double> m(dim);
+    square_sparse_matrix<double, double> m(dim, dim);
     fill_uniformly(m, dim);
     dense_matrix<double, double> dm(dim, dim);
     fill_uniformly(dm, dim);
@@ -931,7 +932,7 @@ void sparse_matrix_with_permutaions_test() {
 }
 
 void test_swap_columns() {
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     // print_matrix(m);
 
@@ -951,7 +952,7 @@ void test_swap_columns() {
     test_swap_columns(m, 0, 7);
 
     // go over some corner cases
-    sparse_matrix<double, double> m0(2);
+    square_sparse_matrix<double, double> m0(2, 2);
     test_swap_columns(m0, 0, 1);
     m0(0, 0) = 3;
     test_swap_columns(m0, 0, 1);
@@ -959,7 +960,7 @@ void test_swap_columns() {
     test_swap_columns(m0, 0, 1);
 
 
-    sparse_matrix<double, double> m1(10);
+    square_sparse_matrix<double, double> m1(10, 10);
     test_swap_columns(m1, 0, 1);
     m1(0, 0) = 3;
     test_swap_columns(m1, 0, 1);
@@ -971,7 +972,7 @@ void test_swap_columns() {
 
     test_swap_columns(m1, 0, 1);
 
-    sparse_matrix<double, double> m2(3);
+    square_sparse_matrix<double, double> m2(3, 3);
     test_swap_columns(m2, 0, 1);
     m2(0, 0) = 3;
     test_swap_columns(m2, 0, 1);
@@ -1849,7 +1850,7 @@ void test_init_U() {
     basis[1] = 2;
     basis[2] = 4;
 
-    sparse_matrix<double, double> u(m, basis);
+    square_sparse_matrix<double, double> u(m, basis);
 
     for (unsigned i = 0; i < 3; i++) {
         for (unsigned j = 0; j < 3; j ++) {
@@ -1862,7 +1863,7 @@ void test_init_U() {
 }
 
 void test_replace_column() {
-    sparse_matrix<double, double> m(10);
+    square_sparse_matrix<double, double> m(10, 10);
     fill_matrix(m);
     m.swap_columns(0, 7);
     m.swap_columns(6, 3);
@@ -2682,7 +2683,7 @@ void check_lu_from_file(std::string lufile_name) {
 void test_square_dense_submatrix() {
     std::cout << "testing square_dense_submatrix" << std::endl;
     unsigned parent_dim = 7;
-    sparse_matrix<double, double> parent(parent_dim);
+    square_sparse_matrix<double, double> parent(parent_dim, 0);
     fill_matrix(parent);
     unsigned index_start = 3;
     square_dense_submatrix<double, double> d;
@@ -3404,18 +3405,81 @@ void test_gomory_cut_1() {
         row.push_back(std::make_pair(mpq(1), 2));
         g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
+
 #ifdef Z3DEBUG
+
 struct matrix_A {
+    struct column_collection {
+        column_collection(const vector<mpq>& v) : m_column(v) {}
+        const vector<mpq>& m_column;
+
+        struct ival {
+            unsigned m_var;
+            const mpq & m_coeff;
+            ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
+            }
+            unsigned var() const { return m_var;}
+            const mpq & coeff() const { return m_coeff; }
+        };
+    
+        struct const_iterator {
+            // fields
+            unsigned m_i;
+            const vector<mpq>& m_v;
+        
+            //typedefs
+            
+            
+            typedef const_iterator self_type;
+            typedef ival value_type;
+            typedef const ival reference;
+            //        typedef const column_cell* pointer;
+            typedef int difference_type;
+            typedef std::forward_iterator_tag iterator_category;
+
+            reference operator*() const {
+                return ival(m_i, m_v[m_i]);
+            }        
+            self_type operator++() {  self_type i = *this; m_i++; return i;  }
+            self_type operator++(int) { m_i++; return *this; }
+
+            const_iterator(unsigned i, const vector<mpq> v) :
+                m_i(i),
+                m_v(v)
+            {}
+            bool operator==(const self_type &other) const {
+                return m_i == other.m_i;
+            }
+            bool operator!=(const self_type &other) const { return !(*this == other); }
+        };
+
+        const_iterator begin() const {
+            return const_iterator(0, m_column);
+        }
+        
+        const_iterator end() const {
+            return const_iterator(m_column.size(), m_column);
+        }
+
+    };
     typedef mpq coefftype;
     typedef mpq argtype;
     vector<vector<mpq>> m_data;
     unsigned row_count() const { return m_data.size(); }
     unsigned column_count() const { return m_data[0].size(); }
 
+    column_collection column(unsigned j) const {
+        return column_collection(m_data[j]);
+    }
+    
     const vector<mpq>& operator[](unsigned i) const { return m_data[i]; }
     vector<mpq>& operator[](unsigned i) { return m_data[i]; }
     void print(std::ostream & out, unsigned blanks = 0) const {
         print_matrix<mpq>(m_data, out, blanks);
+    }
+    
+    void copy_column_to_indexed_vector(unsigned entering, indexed_vector<mpq> &w ) const {
+        lp_assert(false); //
     }
     matrix_A operator*(const matrix_A & m) const {
         lp_assert(m.row_count() == column_count());
@@ -3738,7 +3802,7 @@ void test_lp_local(int argn, char**argv) {
 
 #ifdef Z3DEBUG
     if (args_parser.option_is_used("--test_swaps")) {
-        sparse_matrix<double, double> m(10);
+        square_sparse_matrix<double, double> m(10, 0);
         fill_matrix(m);
         test_swap_rows_with_permutation(m);
         test_swap_cols_with_permutation(m);
@@ -3848,7 +3912,7 @@ void test_lp_local(int argn, char**argv) {
     test_init_U();
     test_replace_column();
 #ifdef Z3DEBUG
-    sparse_matrix_with_permutaions_test();
+    square_sparse_matrix_with_permutaions_test();
     test_dense_matrix();
     test_swap_operations();
     test_permutations();
@@ -3870,3 +3934,4 @@ template void lu<matrix_A>::replace_column(rational, indexed_vector<rational>&, 
 template lu<matrix_A>::~lu();
 template void lu<matrix_A>::prepare_entering(unsigned int, indexed_vector<rational>&);
 }
+template lp::square_sparse_matrix<rational, rational>::square_sparse_matrix<lp::matrix_A>(lp::matrix_A const&, vector<unsigned int, true, unsigned int>&);

@@ -34,7 +34,7 @@ Revision History:
 #include "util/lp/lp_settings.h"
 #include "util/lp/eta_matrix.h"
 #include "util/lp/binary_heap_upair_queue.h"
-#include "util/lp/sparse_matrix.h"
+#include "util/lp/square_sparse_matrix.h"
 namespace lp {
 template <typename T, typename X>
 class square_dense_submatrix : public tail_matrix<T, X> {
@@ -57,7 +57,7 @@ public:
     unsigned m_index_start;
     unsigned m_dim;
     vector<T> m_v;
-    sparse_matrix<T, X> * m_parent;
+    square_sparse_matrix<T, X> * m_parent;
     permutation_matrix<T, X>  m_row_permutation;
     indexed_vector<T> m_work_vector;
 public:
@@ -66,9 +66,9 @@ public:
 
     square_dense_submatrix() {}
 
-    square_dense_submatrix (sparse_matrix<T, X> *parent_matrix, unsigned index_start);
+    square_dense_submatrix (square_sparse_matrix<T, X> *parent_matrix, unsigned index_start);
 
-    void init(sparse_matrix<T, X> *parent_matrix, unsigned index_start);
+    void init(square_sparse_matrix<T, X> *parent_matrix, unsigned index_start);
 
     bool is_dense() const override { return true; }
     
