@@ -8096,7 +8096,7 @@ namespace smt {
             rational nn1Len, nn2Len;
             bool nn1Len_exists = get_len_value(lhs, nn1Len);
             bool nn2Len_exists = get_len_value(rhs, nn2Len);
-            expr * emptyStr = mk_string("");
+            expr_ref emptyStr(mk_string(""), m);
 
             if (nn1Len_exists && nn1Len.is_zero()) {
                 if (!in_same_eqc(lhs, emptyStr) && rhs != emptyStr) {
