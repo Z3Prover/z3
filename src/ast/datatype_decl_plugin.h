@@ -239,7 +239,6 @@ namespace datatype {
             map<symbol, def*, symbol_hash_proc, symbol_eq_proc> m_defs; 
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
-            util & u() const;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
@@ -279,6 +278,8 @@ namespace datatype {
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
+            util & u() const;
+
         private:
             bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
         

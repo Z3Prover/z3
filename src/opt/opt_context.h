@@ -283,13 +283,13 @@ namespace opt {
         struct is_propositional_fn;
         bool is_propositional(expr* e);
 
-        void    init_solver();
-        void    update_solver();
-        void    setup_arith_solver();
-        void    add_maxsmt(symbol const& id, unsigned index);
-        void    set_simplify(tactic *simplify);
-        void    set_pareto(pareto_base* p);        
-        void    clear_state();
+        void init_solver();
+        void update_solver();
+        void setup_arith_solver();
+        void add_maxsmt(symbol const& id, unsigned index);
+        void set_simplify(tactic *simplify);
+        void set_pareto(pareto_base* p);        
+        void clear_state();
 
         bool is_numeral(expr* e, rational& n) const;
 

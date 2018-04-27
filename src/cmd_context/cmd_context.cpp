@@ -1328,7 +1328,8 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
-    if (m_solver)
+    m().limit().push(m_params.rlimit());
+    if (m_solver) 
         m_solver->push();
     if (m_opt)
         m_opt->push();
@@ -1443,6 +1444,9 @@ void cmd_context::pop(unsigned n) {
     restore_assertions(s.m_assertions_lim);
     restore_psort_inst(s.m_psort_inst_stack_lim);
     m_scopes.shrink(new_lvl);
+    while (n--) {
+        m().limit().pop();
+    }
 
 }
 
@@ -1453,7 +1457,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     TRACE("before_check_sat", dump_assertions(tout););
     init_manager();
     unsigned timeout = m_params.m_timeout;
-    unsigned rlimit  = m_params.m_rlimit;
+    unsigned rlimit  = m_params.rlimit();
     scoped_watch sw(*this);
     lbool r;
     bool was_opt = false;
@@ -1530,7 +1534,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
 
 void cmd_context::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector & conseq) {
     unsigned timeout = m_params.m_timeout;
-    unsigned rlimit  = m_params.m_rlimit;
+    unsigned rlimit  = m_params.rlimit();
     lbool r;
     m_check_sat_result = m_solver.get(); // solver itself stores the result.
     m_solver->set_progress_callback(this);
