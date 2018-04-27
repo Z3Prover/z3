@@ -84,6 +84,9 @@ namespace opt {
                 if (m.canceled()) {
                     is_sat = l_undef;
                 }
+                if (is_sat == l_undef) {
+                    break;
+                }
                 if (is_sat == l_false) {
                     TRACE("opt", tout << "Unsat\n";);
                     break;
@@ -96,9 +99,6 @@ namespace opt {
                     expr_ref fml = wth().mk_block();
                     //DEBUG_CODE(verify_cores(cores););
                     s().assert_expr(fml);
-                }
-                else {
-                    //DEBUG_CODE(verify_cores(cores););
                 }
                 update_cores(wth(), cores);
                 wth().init_min_cost(m_upper - m_lower);
