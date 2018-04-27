@@ -27,9 +27,11 @@ class tactic;
 
 solver * mk_fd_solver(ast_manager & m, params_ref const & p, bool incremental_mode = true);
 tactic * mk_fd_tactic(ast_manager & m, params_ref const & p);
+tactic * mk_parallel_qffd_tactic(ast_manager& m, params_ref const& p);
 
 /*
     ADD_TACTIC("qffd", "builtin strategy for solving QF_FD problems.", "mk_fd_tactic(m, p)")
+    ADD_TACTIC("pqffd", "builtin strategy for solving QF_FD problems in parallel.", "mk_parallel_qffd_tactic(m, p)")
 */
 
 #endif

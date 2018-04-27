@@ -39,7 +39,8 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/portfolio/fd_solver.h"
-#include "tactic/smtlogics/parallel_params.hpp"
+#include "solver/parallel_tactic.h"
+#include "solver/parallel_params.hpp"
 #include "smt/tactic/smt_tactic.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver/inc_sat_solver.h"
@@ -710,37 +711,7 @@ public:
 };
 
 
-
-tactic * mk_parallel_qffd_tactic(ast_manager& m, params_ref const& p) {
-    solver* s = mk_fd_solver(m, p);
-    return alloc(parallel_tactic, s, p);
-}
-
 tactic * mk_parallel_tactic(solver* s, params_ref const& p) {
     return alloc(parallel_tactic, s, p);
 }
 
-
-tactic * mk_psat_tactic(ast_manager& m, params_ref const& p) {
-    parallel_params pp(p);
-    bool use_parallel = pp.enable();
-    return pp.enable() ? mk_parallel_tactic(mk_inc_sat_solver(m, p), p) : mk_sat_tactic(m);
-}
-
-tactic * mk_psmt_tactic(ast_manager& m, params_ref const& p, symbol const& logic) {
-    parallel_params pp(p);
-    bool use_parallel = pp.enable();
-    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p);
-}
-
-tactic * mk_psmt_tactic_using(ast_manager& m, bool auto_config, params_ref const& _p, symbol const& logic) {
-    parallel_params pp(_p);
-    bool use_parallel = pp.enable();
-    params_ref p = _p;
-    p.set_bool("auto_config", auto_config);
-    return using_params(pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p), p);
-}
-
-tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
-    return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
-}

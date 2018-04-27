@@ -34,7 +34,6 @@ Notes:
 #include "sat/tactic/sat_tactic.h"
 #include "tactic/arith/bound_manager.h"
 #include "tactic/arith/probe_arith.h"
-#include "tactic/portfolio/parallel_tactic.h"
 
 struct quasi_pb_probe : public probe {
     virtual result operator()(goal const & g) {
