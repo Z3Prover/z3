@@ -78,7 +78,6 @@ namespace api {
         m_bv_util(m()),
         m_datalog_util(m()),
         m_fpa_util(m()),
-        m_dtutil(m()),
         m_sutil(m()),
         m_last_result(m()),
         m_ast_trail(m()),

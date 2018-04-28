@@ -64,14 +64,14 @@ namespace smt {
         // + a cache for normalization.
         class solution_map {
             enum map_update { INS, DEL };
-            ast_manager&                      m;
+            ast_manager&           m;
             dependency_manager&    m_dm;
-            eqdep_map_t                       m_map;            
-            eval_cache                        m_cache;
-            expr_ref_vector                   m_lhs, m_rhs;
+            eqdep_map_t            m_map;            
+            eval_cache             m_cache;
+            expr_ref_vector        m_lhs, m_rhs;
             ptr_vector<dependency> m_deps;
-            svector<map_update>               m_updates;
-            unsigned_vector                   m_limit;
+            svector<map_update>    m_updates;
+            unsigned_vector        m_limit;
 
             void add_trail(map_update op, expr* l, expr* r, dependency* d);
         public:
@@ -362,6 +362,7 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
         void init_model(model_generator & mg) override;
+        void finalize_model(model_generator & mg) override;
         void init_search_eh() override;
 
         void init_model(expr_ref_vector const& es);
@@ -389,7 +390,6 @@ namespace smt {
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
         bool is_complex(eq const& e);
-        bool internalize_re(expr* e);
 
         bool check_extensionality();
         bool check_contains();

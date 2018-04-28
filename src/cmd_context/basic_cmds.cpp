@@ -503,7 +503,7 @@ public:
             ctx.set_random_seed(to_unsigned(val));
         }
         else if (m_option == m_reproducible_resource_limit) {
-            ctx.params().m_rlimit = to_unsigned(val);
+            ctx.params().set_rlimit(to_unsigned(val));
         }
         else if (m_option == m_verbosity) {
             set_verbosity_level(to_unsigned(val));

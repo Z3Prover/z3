@@ -177,7 +177,7 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         return zstring(*this);
     }
     if (src.length() == 0) {
-        return zstring(*this);
+        return dst + zstring(*this);
     }
     bool found = false;
     for (unsigned i = 0; i < length(); ++i) {
@@ -256,6 +256,7 @@ bool zstring::contains(zstring const& other) const {
 
 int zstring::indexof(zstring const& other, int offset) const {
     SASSERT(offset >= 0);
+    if (static_cast<unsigned>(offset) <= length() && other.length() == 0) return offset;
     if (static_cast<unsigned>(offset) == length()) return -1;
     if (other.length() + offset > length()) return -1;
     unsigned last = length() - other.length();
