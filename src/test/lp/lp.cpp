@@ -3684,23 +3684,11 @@ void cutting_the_mix_example_1() {
     std::cout << s ;
     h.H().print(std::cout, s.size());
     std::cout << std::endl;
-    s = std::string("A = ");
-    std::cout << s;
-    A_copy.print(std::cout, s.size());
-    std::cout << std::endl;
-    s = std::string("U = ");
-    std::cout << s ;
-    h.U().print(std::cout, s.size());
-    std::cout << std::endl;
-    s = std::string("U_rev = ");
-    std::cout << s ;
-    h.U_reverse().print(std::cout, s.size());
-    std::cout << std::endl;
-
     lp_settings lps;
-    
-    lu<matrix_A> f(A_copy, lps );
-    
+    lu<matrix_A> f(h.H(), lps );
+    vector<mpq> b;
+    b.push_back(mpq(45));
+    b.push_back(mpq(4));
 }
 
 void test_determinant() {
@@ -3937,5 +3925,5 @@ template void lu<matrix_A>::replace_column(rational, indexed_vector<rational>&, 
 template lu<matrix_A>::~lu();
 template void lu<matrix_A>::prepare_entering(unsigned int, indexed_vector<rational>&);
 }
-template lp::square_sparse_matrix<rational, rational>::square_sparse_matrix<lp::matrix_A>(lp::matrix_A const&, vector<unsigned int, true, unsigned int>&);
+template lp::square_sparse_matrix<rational, rational>::square_sparse_matrix(lp::matrix_A const&, vector<unsigned int, true, unsigned int>&);
 template lp::dense_matrix<rational, rational> lp::lu<lp::matrix_A>::get_left_side();
