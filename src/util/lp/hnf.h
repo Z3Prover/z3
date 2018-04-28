@@ -244,11 +244,7 @@ class hnf {
     }
     
     void calculate() {
-        std::cout << "A orig\n";
-        m_H.print(std::cout);
-        std::cout << "working" << std::endl;
         for (unsigned i = 0; i < m_m; i++) {
-            std::cout << "process_row " << i << std::endl;
             process_row(i);
         }
     }

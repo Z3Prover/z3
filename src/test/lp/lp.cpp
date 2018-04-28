@@ -3689,6 +3689,14 @@ void cutting_the_mix_example_1() {
     vector<mpq> b;
     b.push_back(mpq(45));
     b.push_back(mpq(4));
+    f.solve_By(b);
+    std::cout << "H-1b= ";
+    print_vector(b, std::cout);
+    std::cout << "b[1] = " << b[1] << std::endl;
+    auto c = h.H()*b;
+    std::cout << "c= "; print_vector(c, std::cout);
+
+    
 }
 
 void test_determinant() {
@@ -3716,9 +3724,8 @@ void test_determinant() {
 }
 
 void test_hnf() {
-    
-    test_determinant();
     cutting_the_mix_example_1();
+    return;
     test_hnf_m_less_than_n();
     test_hnf_m_greater_than_n();
 }

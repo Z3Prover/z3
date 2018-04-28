@@ -50,3 +50,4 @@ template void lp::indexed_vector<double>::resize(unsigned int);
 template void lp::print_vector< lp::mpq>(vector< lp::mpq> const &, std::basic_ostream<char, std::char_traits<char> > &);
 template void lp::print_vector<std::pair<lp::mpq, unsigned int> >(vector<std::pair<lp::mpq, unsigned int>> const&, std::ostream&);
 template void lp::indexed_vector<lp::numeric_pair<lp::mpq> >::erase_from_index(unsigned int);
+template void lp::print_vector(class vector<class rational,1,unsigned int> const &,class std::basic_ostream<char,struct std::char_traits<char> > &);
