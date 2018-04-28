@@ -130,6 +130,28 @@ lu<M>::lu(const M& A,
 #endif
 }
 template <typename M>
+lu<M>::lu(const M& A,
+          lp_settings & settings):
+    m_status(LU_status::OK),
+    m_dim(A.row_count()),
+    m_A(A),
+    m_Q(m_dim),
+    m_R(m_dim),
+    m_r_wave(m_dim),
+    m_U(A), // create the square matrix that eventually will be factorized
+    m_settings(settings),
+    m_failure(false),
+    m_row_eta_work_vector(A.row_count()),
+    m_refactor_counter(0) {
+    lp_assert(A.row_count() == A.column_count());
+    std::cout << "m_U = \n";
+    print_matrix(&m_U, std::cout);
+    create_initial_factorization();
+#ifdef Z3DEBUG
+    lp_assert(is_correct());
+#endif
+}
+template <typename M>
 void lu<M>::debug_test_of_basis( M const & A, vector<unsigned> & basis) {
     std::set<unsigned> set;
     for (unsigned i = 0; i < A.row_count(); i++) {
@@ -633,6 +655,23 @@ bool lu<M>::is_correct(const vector<unsigned>& basis) {
 #endif
 }
 
+template <typename M>
+bool lu<M>::is_correct() {
+#ifdef Z3DEBUG
+    if (get_status() != LU_status::OK) {
+        std::cout << " status" << std::endl;
+        return false;
+    }
+    dense_matrix<T, X> left_side = get_left_side();
+    std::cout << "ls = "; print_matrix(left_side, std::cout);
+    dense_matrix<T, X> right_side = get_right_side();
+    std::cout << "rs = "; print_matrix(right_side, std::cout);
+    return left_side == right_side;
+#else
+    return true;
+#endif
+}
+
 
 #ifdef Z3DEBUG
 template <typename M>
@@ -650,6 +689,17 @@ dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::tail_product() {
 template <typename M>
 dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::get_left_side(const vector<unsigned>& basis) {
     dense_matrix<T, X> left_side = get_B(*this, basis);
+    for (unsigned i = 0; i < tail_size(); i++) {
+        matrix<T, X>* lp =  get_lp_matrix(i);
+        lp->set_number_of_rows(m_dim);
+        lp->set_number_of_columns(m_dim);
+        left_side = ((*lp) * left_side);
+    }
+    return left_side;
+}
+template <typename M>
+dense_matrix<typename M::coefftype, typename M::argtype> lu<M>::get_left_side() {
+    dense_matrix<T, X> left_side = get_B(*this);
     for (unsigned i = 0; i < tail_size(); i++) {
         matrix<T, X>* lp =  get_lp_matrix(i);
         lp->set_number_of_rows(m_dim);
@@ -933,6 +983,15 @@ dense_matrix<typename M::coefftype, typename M::argtype>  get_B(lu<M>& f, const 
     for (unsigned i = 0; i < f.dimension(); i++)
         for (unsigned j = 0; j < f.dimension(); j++)
             B.set_elem(i, j, f.B_(i, j, basis));
+
+    return B;
+}
+template <typename M>
+dense_matrix<typename M::coefftype, typename M::argtype>  get_B(lu<M>& f) {
+    dense_matrix<typename M::coefftype, typename M::argtype>  B(f.dimension(), f.dimension());
+    for (unsigned i = 0; i < f.dimension(); i++)
+        for (unsigned j = 0; j < f.dimension(); j++)
+            B.set_elem(i, j, f.m_A[i][j]);
 
     return B;
 }

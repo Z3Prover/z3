@@ -151,6 +151,7 @@ public:
     lu(const M & A,
        vector<unsigned>& basis,
        lp_settings & settings);
+    lu(const M & A, lp_settings&);
     void debug_test_of_basis(const M & A, vector<unsigned> & basis);
     void solve_Bd_when_w_is_ready(vector<T> & d, indexed_vector<T>& w );
     void solve_By(indexed_vector<X> & y);
@@ -262,11 +263,13 @@ public:
     void process_column(int j);
 
     bool is_correct(const vector<unsigned>& basis);
+    bool is_correct();
 
 
 #ifdef Z3DEBUG
     dense_matrix<T, X> tail_product();
     dense_matrix<T, X>  get_left_side(const vector<unsigned>& basis);
+    dense_matrix<T, X>  get_left_side();
 
     dense_matrix<T, X>  get_right_side();
 #endif
@@ -371,5 +374,8 @@ void init_factorization(lu<M>* & factorization, M & m_A, vector<unsigned> & m_ba
 #ifdef Z3DEBUG
 template <typename T, typename X, typename M>
 dense_matrix<T, X>  get_B(lu<M>& f, const vector<unsigned>& basis);
+
+template <typename T, typename X, typename M>
+dense_matrix<T, X>  get_B(lu<M>& f);
 #endif
 }

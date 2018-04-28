@@ -99,6 +99,9 @@ public:
     template <typename M>
     void copy_column_from_input(unsigned input_column, const M& A, unsigned j);
     template <typename M>
+    void copy_column_from_input_with_possible_zeros(const M& A, unsigned j);
+    
+    template <typename M>
     void copy_from_input(const M& A);
     template <typename M>
     void copy_from_input_on_basis(const M& A, vector<unsigned> & basis);
@@ -108,10 +111,12 @@ public:
     // constructors
     template <typename M> 
     square_sparse_matrix(const M &A, vector<unsigned>& basis);
+
     template <typename M>
     square_sparse_matrix(const M &A);
 
-    square_sparse_matrix(unsigned dim, unsigned);
+    square_sparse_matrix(unsigned dim, unsigned); // the second parameter is needed to distinguish this
+    // constructor from the one above
 
 
     

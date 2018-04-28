@@ -39,10 +39,34 @@ void square_sparse_matrix<T, X>::copy_column_from_input(unsigned input_column, c
 
 template <typename T, typename X>
 template <typename M>
+void square_sparse_matrix<T, X>::copy_column_from_input_with_possible_zeros(const M& A, unsigned j) {
+    vector<indexed_value<T>> & new_column_vector = m_columns[j].m_values;
+    for (const auto & c : A.column(j)) {
+        if (is_zero(c.coeff()))
+            continue;
+        unsigned col_offset = static_cast<unsigned>(new_column_vector.size());
+        vector<indexed_value<T>> & row_vector = m_rows[c.var()];
+        unsigned row_offset = static_cast<unsigned>(row_vector.size());
+        new_column_vector.push_back(indexed_value<T>(c.coeff(), c.var(), row_offset));
+        row_vector.push_back(indexed_value<T>(c.coeff(), j, col_offset));
+        m_n_of_active_elems++;
+    }
+}
+
+template <typename T, typename X>
+template <typename M>
 void square_sparse_matrix<T, X>::copy_from_input_on_basis(const M & A, vector<unsigned> & basis) {
     unsigned m = A.row_count();
     for (unsigned j = m; j-- > 0;) {
         copy_column_from_input(basis[j], A, j);
+    }
+}
+template <typename T, typename X>
+template <typename M>
+void square_sparse_matrix<T, X>::copy_from_input(const M & A) {
+    unsigned m = A.row_count();
+    for (unsigned j = m; j-- > 0;) {
+        copy_column_from_input_with_possible_zeros(A, j);
     }
 }
 

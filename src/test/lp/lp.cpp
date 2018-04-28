@@ -3410,9 +3410,9 @@ void test_gomory_cut_1() {
 
 struct matrix_A {
     struct column_collection {
-        column_collection(const vector<mpq>& v) : m_column(v) {}
-        const vector<mpq>& m_column;
-
+        column_collection(const vector<vector<mpq>>& v, unsigned j) : m_data(v), m_j(j) {}
+        const vector<vector<mpq>>& m_data;
+        unsigned m_j;
         struct ival {
             unsigned m_var;
             const mpq & m_coeff;
@@ -3425,7 +3425,7 @@ struct matrix_A {
         struct const_iterator {
             // fields
             unsigned m_i;
-            const vector<mpq>& m_v;
+            const column_collection& m_column;
         
             //typedefs
             
@@ -3438,14 +3438,14 @@ struct matrix_A {
             typedef std::forward_iterator_tag iterator_category;
 
             reference operator*() const {
-                return ival(m_i, m_v[m_i]);
+                return ival(m_i, m_column.m_data[m_i][m_column.m_j]);
             }        
             self_type operator++() {  self_type i = *this; m_i++; return i;  }
             self_type operator++(int) { m_i++; return *this; }
 
-            const_iterator(unsigned i, const vector<mpq> v) :
+            const_iterator(unsigned i, const column_collection& c) :
                 m_i(i),
-                m_v(v)
+                m_column(c)
             {}
             bool operator==(const self_type &other) const {
                 return m_i == other.m_i;
@@ -3454,11 +3454,11 @@ struct matrix_A {
         };
 
         const_iterator begin() const {
-            return const_iterator(0, m_column);
+            return const_iterator(0, *this);
         }
         
         const_iterator end() const {
-            return const_iterator(m_column.size(), m_column);
+            return const_iterator(m_data.size(), *this);
         }
 
     };
@@ -3469,7 +3469,7 @@ struct matrix_A {
     unsigned column_count() const { return m_data[0].size(); }
 
     column_collection column(unsigned j) const {
-        return column_collection(m_data[j]);
+        return column_collection(m_data, j);
     }
     
     const vector<mpq>& operator[](unsigned i) const { return m_data[i]; }
@@ -3696,11 +3696,14 @@ void cutting_the_mix_example_1() {
     std::cout << s ;
     h.U_reverse().print(std::cout, s.size());
     std::cout << std::endl;
+
+    lp_settings lps;
     
+    lu<matrix_A> f(A_copy, lps );
     
 }
 
-void test_hnf() {
+void test_determinant() {
     matrix_A M(1);
     M[0][0] = 3;
     std::cout << "det M = " << determinant(M) << std::endl;
@@ -3722,12 +3725,12 @@ void test_hnf() {
     M[2][0] = 0; M[2][1] =  0; M[2][2] = 4; M[2][3] = 0;
     M[3][0] = 0; M[3][1] =  0; M[3][2] = 0; M[3][3] = 4;
     std::cout << "det M = " << determinant(M) << std::endl;
-    
-    
-    return;
+}
 
+void test_hnf() {
+    
+    test_determinant();
     cutting_the_mix_example_1();
-return;
     test_hnf_m_less_than_n();
     test_hnf_m_greater_than_n();
 }
@@ -3935,3 +3938,4 @@ template lu<matrix_A>::~lu();
 template void lu<matrix_A>::prepare_entering(unsigned int, indexed_vector<rational>&);
 }
 template lp::square_sparse_matrix<rational, rational>::square_sparse_matrix<lp::matrix_A>(lp::matrix_A const&, vector<unsigned int, true, unsigned int>&);
+template lp::dense_matrix<rational, rational> lp::lu<lp::matrix_A>::get_left_side();
