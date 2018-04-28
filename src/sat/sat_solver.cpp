@@ -529,26 +529,26 @@ namespace sat {
         IF_VERBOSE(1, verbose_stream() << "(sat-defrag)\n");
         clause_allocator& alloc = m_cls_allocator[!m_cls_allocator_idx];
         ptr_vector<clause> new_clauses, new_learned;
-        ptr_addr_map<clause, clause_offset> cls2offset;
         for (clause* c : m_clauses) c->unmark_used();
         for (clause* c : m_learned) c->unmark_used();
 
+#if 0
         svector<bool_var> vars;
         for (unsigned i = 0; i < num_vars(); ++i) vars.push_back(i);
         std::stable_sort(vars.begin(), vars.end(), cmp_activity(*this));
         literal_vector lits;
         for (bool_var v : vars) lits.push_back(to_literal(v)), lits.push_back(~to_literal(v));
-
         // walk clauses, reallocate them in an order that defragments memory and creates locality.
         //for (literal lit : lits) {
         //watch_list& wlist = m_watches[lit.index()];
+#endif
         for (watch_list& wlist : m_watches) {            
             for (watched& w : wlist) {
                 if (w.is_clause()) {
                     clause& c1 = get_clause(w);
                     clause_offset offset;
                     if (c1.was_used()) {
-                        offset = cls2offset[&c1];
+                        offset = c1.get_new_offset();
                     }
                     else {
                         clause* c2 = alloc.copy_clause(c1); 
@@ -560,7 +560,7 @@ namespace sat {
                             new_clauses.push_back(c2);
                         }
                         offset = get_offset(*c2);
-                        cls2offset.insert(&c1, offset);
+                        c1.set_new_offset(offset);
                     }
                     w = watched(w.get_blocked_literal(), offset);
                 }

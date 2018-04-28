@@ -98,6 +98,8 @@ namespace sat {
         unsigned glue() const { return m_glue; }
         void set_psm(unsigned psm) { m_psm = psm > 255 ? 255 : psm; }
         unsigned psm() const { return m_psm; }
+        clause_offset get_new_offset() const;
+        void set_new_offset(clause_offset off); 
 
         bool on_reinit_stack() const { return m_reinit_stack; }
         void set_reinit_stack(bool f) { m_reinit_stack = f; }

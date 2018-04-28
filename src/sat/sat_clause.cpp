@@ -95,7 +95,6 @@ namespace sat {
         } 
     }
 
-
     bool clause::satisfied_by(model const & m) const {
         for (literal l : *this) {
             if (l.sign()) {
@@ -109,6 +108,23 @@ namespace sat {
         }
         return false;
     }
+
+    clause_offset clause::get_new_offset() const {
+        unsigned o1 = m_lits[0].index();
+        if (sizeof(clause_offset) == 8) {
+            unsigned o2 = m_lits[1].index();
+            return (clause_offset)o1 + (((clause_offset)o2) << 32);
+        }        
+        return (clause_offset)o1;
+    }
+
+    void clause::set_new_offset(clause_offset offset) {
+        m_lits[0] = to_literal(static_cast<unsigned>(offset));
+        if (sizeof(offset) == 8) {
+            m_lits[1] = to_literal(static_cast<unsigned>(offset >> 32));
+        }
+    }
+
 
     void tmp_clause::set(unsigned num_lits, literal const * lits, bool learned) {
         if (m_clause && m_clause->m_capacity < num_lits) {

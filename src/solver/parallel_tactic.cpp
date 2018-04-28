@@ -99,6 +99,8 @@ class parallel_tactic : public tactic {
             }
         }
 
+        bool in_shutdown() const { return m_shutdown; }
+
         void add_task(solver_state* task) {
             std::lock_guard<std::mutex> lock(m_mutex);
             m_tasks.push_back(task);
@@ -285,6 +287,7 @@ class parallel_tactic : public tactic {
             p.set_uint("restart.max", pp.simplify_restart_max() * mult);
             p.set_bool("lookahead_simplify", true);
             p.set_bool("retain_blocked_clauses", retain_blocked);
+            if (m_depth > 1) p.set_uint("bce_delay", 0);
             get_solver().updt_params(p);
         }
 
@@ -479,8 +482,8 @@ private:
                 break;
 
             }
-            if (cubes.size() >= conquer_batch_size() || (!cubes.empty() && m_queue.is_idle())) {
-                spawn_cubes(s, std::max(2u, width), cubes);
+            if (cubes.size() >= conquer_batch_size()) {
+                spawn_cubes(s, 10*width, cubes);
                 first = false;
                 cubes.reset();
             }
@@ -575,6 +578,7 @@ private:
         }
         catch (z3_exception& ex) {            
             IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+            if (m_queue.in_shutdown()) return;
             m_queue.shutdown();
             std::lock_guard<std::mutex> lock(m_mutex);
             if (ex.has_error_code()) {
