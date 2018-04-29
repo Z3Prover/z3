@@ -55,8 +55,8 @@ struct front_end_resource_limit : public lp::lp_resource_limit {
 void run_solver(lp_params & params, char const * mps_file_name) {
 
     reslimit rlim;
-    unsigned timeout = gparams::get().get_uint("timeout", 0);
-    unsigned rlimit  = gparams::get().get_uint("rlimit", 0);
+    unsigned timeout = gparams::get_ref().get_uint("timeout", 0);
+    unsigned rlimit  = gparams::get_ref().get_uint("rlimit", 0);
     front_end_resource_limit lp_limit(rlim);
 
     scoped_rlimit _rlimit(rlim, rlimit);
