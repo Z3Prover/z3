@@ -580,20 +580,20 @@ namespace smt {
         case b_justification::BIN_CLAUSE: {
             literal l2 = j.get_literal();
             out << "bin-clause ";
-            display_literal_verbose(out, l2);
+            display_literal(out, l2);
             break;
         }
         case b_justification::CLAUSE: {
             clause * cls = j.get_clause();
             out << "clause ";
-            if (cls) display_literals_verbose(out, cls->get_num_literals(), cls->begin_literals());
+            if (cls) display_literals(out, cls->get_num_literals(), cls->begin_literals());
             break;
         }
         case b_justification::JUSTIFICATION: {
             out << "justification " << j.get_justification()->get_from_theory() << ": ";
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            display_literals_verbose(out, lits);
+            display_literals(out, lits);
             break;
         }
         default:
