@@ -171,6 +171,9 @@ namespace smt {
             if (f) {
                 if (has_trace_stream()) {
                     std::ostream & out = trace_stream();
+                    for (unsigned i = 0; i < num_bindings; ++i) {
+                        log_transitive_justification(out, bindings[i]);
+                    }
                     for (auto n : used_enodes) {
                         enode *orig = std::get<0>(n);
                         enode *substituted = std::get<1>(n);
