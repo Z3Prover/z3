@@ -297,6 +297,7 @@ namespace sat {
         unsigned lvl(literal l) const { return m_level[l.var()]; }
         unsigned init_trail_size() const { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
         literal  trail_literal(unsigned i) const { return m_trail[i]; }
+        literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
         void assign(literal l, justification j) {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
             switch (value(l)) {

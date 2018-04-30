@@ -115,9 +115,11 @@ namespace sat {
         m_lookahead_cube_psat_clause_base = p.lookahead_cube_psat_clause_base();
         m_lookahead_cube_psat_trigger = p.lookahead_cube_psat_trigger();
         m_lookahead_global_autarky = p.lookahead_global_autarky();
+        m_lookahead_use_learned = p.lookahead_use_learned();
+
 
         // These parameters are not exposed
-        m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
+        m_next_simplify1  = _p.get_uint("next_simplify", 30000);
         m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
         m_simplify_max    = _p.get_uint("simplify_max", 500000);
         // --------------------------------

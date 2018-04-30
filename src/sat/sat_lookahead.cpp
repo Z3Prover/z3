@@ -2227,7 +2227,7 @@ namespace sat {
     void lookahead::init_search() {
         m_search_mode = lookahead_mode::searching;
         scoped_level _sl(*this, c_fixed_truth);
-        init(true);            
+        init(m_s.m_config.m_lookahead_use_learned);            
     }
 
     void lookahead::checkpoint() {

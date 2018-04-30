@@ -113,9 +113,10 @@ namespace sat {
         double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
         bool               m_lookahead_global_autarky;
+        bool               m_lookahead_use_learned;
 
         bool               m_incremental;
-        unsigned           m_simplify_mult1;
+        unsigned           m_next_simplify1;
         double             m_simplify_mult2;
         unsigned           m_simplify_max;
         unsigned           m_simplify_delay;

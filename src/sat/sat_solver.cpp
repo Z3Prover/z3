@@ -532,17 +532,15 @@ namespace sat {
         for (clause* c : m_clauses) c->unmark_used();
         for (clause* c : m_learned) c->unmark_used();
 
-#if 0
         svector<bool_var> vars;
         for (unsigned i = 0; i < num_vars(); ++i) vars.push_back(i);
         std::stable_sort(vars.begin(), vars.end(), cmp_activity(*this));
         literal_vector lits;
-        for (bool_var v : vars) lits.push_back(to_literal(v)), lits.push_back(~to_literal(v));
+        for (bool_var v : vars) lits.push_back(literal(v, false)), lits.push_back(literal(v, true));
         // walk clauses, reallocate them in an order that defragments memory and creates locality.
-        //for (literal lit : lits) {
-        //watch_list& wlist = m_watches[lit.index()];
-#endif
-        for (watch_list& wlist : m_watches) {            
+        for (literal lit : lits) {
+            watch_list& wlist = m_watches[lit.index()];
+            // for (watch_list& wlist : m_watches) {            
             for (watched& w : wlist) {
                 if (w.is_clause()) {
                     clause& c1 = get_clause(w);
@@ -795,7 +793,7 @@ namespace sat {
         }
         
         if (m_config.m_propagate_prefetch) {
-            _mm_prefetch((char const*)(m_watches.c_ptr() + l.index()), 0);
+            _mm_prefetch((const char*)(m_watches[l.index()].c_ptr()), 1);
         }
 
         SASSERT(!l.sign() || m_phase[v] == NEG_PHASE);
@@ -1502,7 +1500,6 @@ namespace sat {
         SASSERT(m_search_lvl == 1);
     }
 
-
     void solver::update_min_core() {
         if (!m_min_core_valid || m_core.size() < m_min_core.size()) {
             m_min_core.reset();
@@ -1533,8 +1530,7 @@ namespace sat {
         push();
         reset_assumptions();
         TRACE("sat", tout << "reassert: " << m_min_core << "\n";);
-        for (unsigned i = 0; i < m_min_core.size(); ++i) {
-            literal lit = m_min_core[i];
+        for (literal lit : m_min_core) {
             SASSERT(is_external(lit.var()));
             add_assumption(lit);
             assign(lit, justification());
@@ -1554,12 +1550,12 @@ namespace sat {
                 assign(m_assumptions[i], justification());
             }
             TRACE("sat",
-                 for (unsigned i = 0; i < m_assumptions.size(); ++i) {
-                     index_set s;
-                     if (m_antecedents.find(m_assumptions[i].var(), s)) {
-                         tout << m_assumptions[i] << ": "; display_index_set(tout, s) << "\n";
-                     }
-                 });
+                  for (literal a : m_assumptions) {
+                      index_set s;
+                      if (m_antecedents.find(a.var(), s)) {
+                          tout << a << ": "; display_index_set(tout, s) << "\n";
+                      }
+                  });
         }
     }
 
@@ -1602,7 +1598,6 @@ namespace sat {
 
     /**
        \brief Apply all simplifications.
-
     */
     void solver::simplify_problem() {
         if (m_conflicts_since_init < m_next_simplify) {
@@ -1657,7 +1652,7 @@ namespace sat {
         reinit_assumptions();
 
         if (m_next_simplify == 0) {
-            m_next_simplify = m_config.m_restart_initial * m_config.m_simplify_mult1;
+            m_next_simplify = m_config.m_next_simplify1;
         }
         else {
             m_next_simplify = static_cast<unsigned>(m_conflicts_since_init * m_config.m_simplify_mult2);
@@ -1853,15 +1848,23 @@ namespace sat {
         }
         else {
             bool_var next = m_case_split_queue.min_var();
+
+            // Implementations of Marijn's idea of reusing the 
+            // trail when the next decision literal has lower precedence.
+#if 0
+            // pop the trail from top
             do {
-                scope& s = m_scopes[scope_lvl() - num_scopes - 1];
-                bool_var prev = m_trail[s.m_trail_lim].var();
-                //IF_VERBOSE(0, verbose_stream() << "more active: " << m_case_split_queue.more_active(next, prev) << "\n");
-                if (!m_case_split_queue.more_active(next, prev)) break;                
+                bool_var prev = scope_literal(scope_lvl() - num_scopes - 1).var();
+                if (m_case_split_queue.more_active(prev, next)) break;                
                 ++num_scopes;
             }
             while (num_scopes < scope_lvl() - search_lvl());
-            //IF_VERBOSE(0, verbose_stream() << "backtrack " << num_scopes << " " << scope_lvl() - search_lvl() << "\n");
+#else            
+            // pop the trail from bottom
+            unsigned n = search_lvl();
+            for (; n < scope_lvl() && m_case_split_queue.more_active(scope_literal(n).var(), next); ++n) ;
+            num_scopes = n - search_lvl();
+#endif
         }
         pop_reinit(num_scopes);
         m_conflicts_since_restart = 0;
@@ -2860,7 +2863,8 @@ namespace sat {
        \brief Reset the mark of the variables in the current lemma.
     */
     void solver::reset_lemma_var_marks() {
-        if (m_config.m_branching_heuristic == BH_LRB) {
+        if (m_config.m_branching_heuristic == BH_LRB ||
+            m_config.m_branching_heuristic == BH_VSIDS) {
             update_lrb_reasoned();
         }        
         literal_vector::iterator it  = m_lemma.begin();
@@ -2917,6 +2921,7 @@ namespace sat {
         if (!is_marked(v)) {
             mark(v);
             m_reasoned[v]++;
+            inc_activity(v);
             m_lemma.push_back(lit);
         }
     }
