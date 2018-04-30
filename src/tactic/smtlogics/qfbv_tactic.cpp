@@ -28,6 +28,7 @@ Notes:
 #include "tactic/bv/bv_size_reduction_tactic.h"
 #include "tactic/aig/aig_tactic.h"
 #include "sat/tactic/sat_tactic.h"
+#include "sat/sat_solver/inc_sat_solver.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
 
 #define MEMLIMIT 300
@@ -127,11 +128,10 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
 
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
-
     tactic * new_sat = cond(mk_produce_proofs_probe(),
                             and_then(mk_simplify_tactic(m), mk_smt_tactic()),
-                            mk_sat_tactic(m));
+                            mk_psat_tactic(m, p));
 
-    return mk_qfbv_tactic(m, p, new_sat, mk_smt_tactic());
+    return mk_qfbv_tactic(m, p, new_sat, mk_psmt_tactic(m, p));
 
 }

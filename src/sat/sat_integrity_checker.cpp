@@ -66,7 +66,7 @@ namespace sat {
         if (c.size() == 3) {
             CTRACE("sat_ter_watch_bug", !contains_watched(s.get_wlist(~c[0]), c[1], c[2]), tout << c << "\n";
                    tout << "watch_list:\n";
-                   sat::display_watch_list(tout, s.m_cls_allocator, s.get_wlist(~c[0]));
+                   s.display_watch_list(tout, s.get_wlist(~c[0]));
                    tout << "\n";);
             VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
             VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
@@ -164,9 +164,9 @@ namespace sat {
                        tout << "was_eliminated1: " << s.was_eliminated(l.var());
                        tout << " was_eliminated2: " << s.was_eliminated(w.get_literal().var());
                        tout << " learned: " << w.is_learned() << "\n";
-                       sat::display_watch_list(tout, s.m_cls_allocator, wlist);
+                       s.display_watch_list(tout, wlist);
                        tout << "\n";
-                       sat::display_watch_list(tout, s.m_cls_allocator, s.get_wlist(~(w.get_literal())));
+                       s.display_watch_list(tout, s.get_wlist(~(w.get_literal())));
                        tout << "\n";);
                 VERIFY(find_binary_watch(s.get_wlist(~(w.get_literal())), l));
                 break;
@@ -176,7 +176,7 @@ namespace sat {
                 VERIFY(w.get_literal1().index() < w.get_literal2().index());
                 break;
             case watched::CLAUSE:
-                VERIFY(!s.m_cls_allocator.get_clause(w.get_clause_offset())->was_removed());
+                VERIFY(!s.get_clause(w.get_clause_offset()).was_removed());
                 break;
             default:
                 break;

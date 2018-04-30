@@ -16,19 +16,21 @@ Author:
 Notes:
 
 --*/
-#include "tactic/tactic.h"
-#include "tactic/tactical.h"
+#include "util/lp/lp_params.hpp"
+#include "ast/rewriter/rewriter_types.h"
+#include "ast/ast_util.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "smt/params/smt_params_helper.hpp"
-#include "util/lp/lp_params.hpp"
-#include "ast/rewriter/rewriter_types.h"
-#include "tactic/generic_model_converter.h"
-#include "ast/ast_util.h"
-#include "solver/solver2tactic.h"
 #include "smt/smt_solver.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/generic_model_converter.h"
+#include "solver/solver2tactic.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
+#include "solver/parallel_tactic.h"
+#include "solver/parallel_params.hpp"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -301,3 +303,20 @@ tactic * mk_smt_tactic_using(bool auto_config, params_ref const & _p) {
     return using_params(r, p);
 }
 
+tactic * mk_psmt_tactic(ast_manager& m, params_ref const& p, symbol const& logic) {
+    parallel_params pp(p);
+    bool use_parallel = pp.enable();
+    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p);
+}
+
+tactic * mk_psmt_tactic_using(ast_manager& m, bool auto_config, params_ref const& _p, symbol const& logic) {
+    parallel_params pp(_p);
+    bool use_parallel = pp.enable();
+    params_ref p = _p;
+    p.set_bool("auto_config", auto_config);
+    return using_params(pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p), p);
+}
+
+tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
+    return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
+}

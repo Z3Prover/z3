@@ -194,7 +194,9 @@ namespace sat {
                     if (u != get_parent(v) && safe_reach(u, v)) {
                         ++elim;
                         add_del(~u, v);
-                        // IF_VERBOSE(1, verbose_stream() << "remove " << u << " -> " << v << "\n");
+                        if (s.get_config().m_drat) s.m_drat.del(~u, v);
+                        s.m_mc.stackv().reset(); // TBD: brittle code
+                        s.add_ate(~u, v);
                         if (find_binary_watch(wlist, ~v)) {
                             IF_VERBOSE(10, verbose_stream() << "binary: " << ~u << "\n");
                             s.assign(~u, justification());

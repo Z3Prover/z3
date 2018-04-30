@@ -1034,7 +1034,7 @@ namespace sat {
         }
         
         if (m_s.m_ext) {
-            m_ext = m_s.m_ext->copy(this, learned);
+            // m_ext = m_s.m_ext->copy(this, learned);
         }
         propagate();
         m_qhead = m_trail.size();
@@ -1832,7 +1832,7 @@ namespace sat {
         unsigned dl_truth = base + m_lookahead.size() * m_config.m_dl_max_iterations;
         scoped_level _sl(*this, dl_truth);
         //SASSERT(get_level(m_trail.back()) == dl_truth);
-        IF_VERBOSE(2, verbose_stream() << "(sat-lookahead :double " << l << " :depth " << m_trail_lim.size() << ")\n";);
+        IF_VERBOSE(3, verbose_stream() << "(sat-lookahead :double " << l << " :depth " << m_trail_lim.size() << ")\n";);
         lookahead_backtrack();
         assign(l);
         propagate();
@@ -2227,7 +2227,7 @@ namespace sat {
     void lookahead::init_search() {
         m_search_mode = lookahead_mode::searching;
         scoped_level _sl(*this, c_fixed_truth);
-        init(true);            
+        init(m_s.m_config.m_lookahead_use_learned);            
     }
 
     void lookahead::checkpoint() {

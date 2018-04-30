@@ -42,7 +42,7 @@ namespace sat {
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             clause* c = m_proof[i];
             if (c && (c->size() == 2 || m_status[i] == status::deleted || m_status[i] == status::external)) {
-                s.m_cls_allocator.del_clause(c);
+                s.dealloc_clause(c);
             }
         }
     }
@@ -118,7 +118,7 @@ namespace sat {
             if (st == status::learned) {
                 verify(2, lits);
             }
-            clause* c = s.m_cls_allocator.mk_clause(2, lits, st == status::learned);
+            clause* c = s.alloc_clause(2, lits, st == status::learned);
             m_proof.push_back(c);
             m_status.push_back(st);
             unsigned idx = m_watched_clauses.size();
@@ -452,7 +452,7 @@ namespace sat {
             case 0: add(); break;
             case 1: append(lits[0], status::external); break;
             default: {
-                clause* c = s.m_cls_allocator.mk_clause(lits.size(), lits.c_ptr(), true);
+                clause* c = s.alloc_clause(lits.size(), lits.c_ptr(), true);
                 append(*c, status::external);
                 break;
             }
@@ -468,7 +468,7 @@ namespace sat {
             case 1: append(c[0], status::learned); break;
             default: {
                 verify(c.size(), c.begin());
-                clause* cl = s.m_cls_allocator.mk_clause(c.size(), c.c_ptr(), true);
+                clause* cl = s.alloc_clause(c.size(), c.c_ptr(), true);
                 append(*cl, status::external);                
                 break;
             }
@@ -490,7 +490,7 @@ namespace sat {
         TRACE("sat", tout << "del: " << c << "\n";);
         if (m_out) dump(c.size(), c.begin(), status::deleted);
         if (m_check) {
-            clause* c1 = s.m_cls_allocator.mk_clause(c.size(), c.begin(), c.is_learned()); 
+            clause* c1 = s.alloc_clause(c.size(), c.begin(), c.is_learned()); 
             append(*c1, status::deleted);
         }
     }

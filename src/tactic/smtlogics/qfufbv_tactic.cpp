@@ -40,6 +40,7 @@ Notes:
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "solver/tactic2solver.h"
 #include "tactic/bv/bv_bound_chk_tactic.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
 ///////////////
 
 class qfufbv_ackr_tactic : public tactic {
@@ -157,13 +158,14 @@ static tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
 
 static tactic * mk_qfufbv_preamble(ast_manager & m, params_ref const & p) {
     return and_then(mk_simplify_tactic(m),
-        mk_propagate_values_tactic(m),
-        mk_solve_eqs_tactic(m),
-        mk_elim_uncnstr_tactic(m),
-        if_no_proofs(if_no_unsat_cores(mk_reduce_args_tactic(m))),
-        if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
-        mk_max_bv_sharing_tactic(m)
-        );
+                    mk_propagate_values_tactic(m),
+                    mk_solve_eqs_tactic(m),
+                    mk_elim_uncnstr_tactic(m),
+                    if_no_proofs(if_no_unsat_cores(mk_reduce_args_tactic(m))),
+                    if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
+                    mk_max_bv_sharing_tactic(m),
+                    if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m,p)))
+                    );
 }
 
 tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {

@@ -89,7 +89,7 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
                                  mk_max_bv_sharing_tactic(m),
                                  mk_bit_blaster_tactic(m),
                                  mk_aig_tactic(),
-                                 mk_sat_tactic(m)),
+                                 mk_sat_tactic(m, solver_p)),
                         solver_p);
 }
 
@@ -220,7 +220,7 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
                                                          using_params(mk_lia2sat_tactic(m), quasi_pb_p),
                                                          mk_fail_if_undecided_tactic()),
                                                 mk_bounded_tactic(m),
-                                                mk_smt_tactic())),
+                                                mk_psmt_tactic(m, p))),
                                main_p);
     
     st->updt_params(p);

@@ -66,11 +66,11 @@ namespace sat {
             unsigned ref_count() const { return m_refcount; }
         };
 
-        enum kind { ELIM_VAR = 0, BLOCK_LIT, CCE, ACCE };
+        enum kind { ELIM_VAR = 0, BCE, CCE, ACCE, ABCE, ATE };
         class entry {
             friend class model_converter;
-            unsigned                m_var:30;
-            unsigned                m_kind:2;
+            bool_var                m_var;
+            kind                    m_kind;
             literal_vector          m_clauses; // the different clauses are separated by null_literal
             sref_vector<elim_stack> m_elim_stack;
             entry(kind k, bool_var v): m_var(v), m_kind(k) {}
@@ -82,11 +82,12 @@ namespace sat {
                 m_elim_stack.append(src.m_elim_stack);
             }
             bool_var var() const { return m_var; }
-            kind get_kind() const { return static_cast<kind>(m_kind); }
+            kind get_kind() const { return m_kind; }
         };
     private:
         vector<entry>          m_entries;
         solver const*          m_solver;
+        elim_stackv            m_elim_stack;
 
         void process_stack(model & m, literal_vector const& clause, elim_stackv const& stack) const;
 
@@ -96,6 +97,8 @@ namespace sat {
 
         void swap(bool_var v, unsigned sz, literal_vector& clause);
 
+        void add_elim_stack(entry & e);
+
     public:
         model_converter();
         ~model_converter();
@@ -103,11 +106,17 @@ namespace sat {
         void operator()(model & m) const;
         model_converter& operator=(model_converter const& other);
 
+        elim_stackv& stackv() { return m_elim_stack; }
+
         entry & mk(kind k, bool_var v);
         void insert(entry & e, clause const & c);
         void insert(entry & e, literal l1, literal l2);
         void insert(entry & e, clause_wrapper const & c);
-        void insert(entry & c, literal_vector const& covered_clause, elim_stackv const& elim_stack);
+        void insert(entry & c, literal_vector const& covered_clause);
+
+        void add_ate(literal_vector const& lits);
+        void add_ate(literal l1, literal l2);
+        void add_ate(clause const& c);
 
         bool empty() const { return m_entries.empty(); }
 
@@ -137,9 +146,11 @@ namespace sat {
     inline std::ostream& operator<<(std::ostream& out, model_converter::kind k) {
         switch (k) {
         case model_converter::ELIM_VAR: out << "elim"; break;
-        case model_converter::BLOCK_LIT: out << "blocked"; break;
+        case model_converter::BCE: out << "bce"; break;
         case model_converter::CCE: out << "cce"; break;
         case model_converter::ACCE: out << "acce"; break;
+        case model_converter::ABCE: out << "abce"; break;
+        case model_converter::ATE: out << "ate"; break;
         }
         return out;
     }

@@ -54,7 +54,8 @@ namespace sat {
         PB_SOLVER,
         PB_CIRCUIT,
         PB_SORTING,
-        PB_TOTALIZER
+        PB_TOTALIZER,
+        PB_SEGMENTED
     };
 
     enum reward_t {
@@ -84,7 +85,9 @@ namespace sat {
         unsigned           m_phase_caching_on;
         unsigned           m_phase_caching_off;
         bool               m_phase_sticky;
+        bool               m_propagate_prefetch;
         restart_strategy   m_restart;
+        bool               m_restart_fast;
         unsigned           m_restart_initial;
         double             m_restart_factor; // for geometric case
         unsigned           m_restart_max;
@@ -110,11 +113,13 @@ namespace sat {
         double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
         bool               m_lookahead_global_autarky;
+        bool               m_lookahead_use_learned;
 
         bool               m_incremental;
-        unsigned           m_simplify_mult1;
+        unsigned           m_next_simplify1;
         double             m_simplify_mult2;
         unsigned           m_simplify_max;
+        unsigned           m_simplify_delay;
 
         unsigned           m_variable_decay;
 
@@ -124,6 +129,8 @@ namespace sat {
         unsigned           m_gc_small_lbd;
         unsigned           m_gc_k;
         bool               m_gc_burst;
+        bool               m_gc_defrag;
+
 
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;

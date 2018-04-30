@@ -108,7 +108,6 @@ namespace sat {
         int64 limit = -m_asymm_branch_limit;
         std::stable_sort(clauses.begin(), clauses.end(), clause_size_lt());
         m_counter -= clauses.size();
-        SASSERT(s.m_qhead == s.m_trail.size());
         clause_vector::iterator it  = clauses.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = clauses.end();
@@ -120,7 +119,6 @@ namespace sat {
                     }
                     break;
                 }
-                SASSERT(s.m_qhead == s.m_trail.size());
                 clause & c = *(*it);
                 if (m_counter < limit || s.inconsistent() || c.was_removed()) {
                     *it2 = *it;
@@ -335,13 +333,18 @@ namespace sat {
         if (!m_to_delete.empty()) {
             unsigned j = 0;
             for (unsigned i = 0; i < c.size(); ++i) {
-                if (!m_to_delete.contains(c[i])) {
-                    c[j] = c[i];
-                    ++j;
-                }
-                else {
-                    m_pos.erase(c[i]);
-                    m_neg.erase(~c[i]);
+                literal lit = c[i];
+                switch (s.value(lit)) {
+                case l_true:
+                    scoped_d.del_clause();
+                    return false;
+                case l_false:    
+                    break;
+                default:
+                    if (!m_to_delete.contains(lit)) {
+                        c[j++] = lit;
+                    }
+                    break;
                 }
             }
             return re_attach(scoped_d, c, j);
@@ -361,6 +364,7 @@ namespace sat {
     }
 
     bool asymm_branch::flip_literal_at(clause const& c, unsigned flip_index, unsigned& new_sz) {
+        VERIFY(s.m_trail.size() == s.m_qhead);
         bool found_conflict = false;
         unsigned i = 0, sz = c.size();        
         s.push();
@@ -401,10 +405,12 @@ namespace sat {
     }
 
     bool asymm_branch::re_attach(scoped_detach& scoped_d, clause& c, unsigned new_sz) {
+        VERIFY(s.m_trail.size() == s.m_qhead);
         m_elim_literals += c.size() - new_sz;
         if (c.is_learned()) {
             m_elim_learned_literals += c.size() - new_sz; 
         }
+
         switch(new_sz) {
         case 0:
             s.set_conflict(justification());
@@ -414,19 +420,18 @@ namespace sat {
             s.assign(c[0], justification());
             s.propagate_core(false); 
             scoped_d.del_clause();
-            SASSERT(s.inconsistent() || s.m_qhead == s.m_trail.size());
             return false; // check_missed_propagation() may fail, since m_clauses is not in a consistent state.
         case 2:
             SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
+            VERIFY(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
+            if (s.m_trail.size() > s.m_qhead) s.propagate_core(false);
             scoped_d.del_clause();
-            SASSERT(s.m_qhead == s.m_trail.size());
             return false;
         default:
             c.shrink(new_sz);
             if (s.m_config.m_drat) s.m_drat.add(c, true);
             // if (s.m_config.m_drat) s.m_drat.del(c0); // TBD
-            SASSERT(s.m_qhead == s.m_trail.size());
             return true;
         }
     }
@@ -445,12 +450,8 @@ namespace sat {
     bool asymm_branch::process(clause & c) {
         TRACE("asymm_branch_detail", tout << "processing: " << c << "\n";);
         SASSERT(s.scope_lvl() == 0);
-        SASSERT(s.m_qhead == s.m_trail.size());
         SASSERT(!s.inconsistent());
 
-#ifdef Z3DEBUG
-        unsigned trail_sz = s.m_trail.size();
-#endif
         unsigned sz = c.size();
         SASSERT(sz > 0);
         unsigned i;
@@ -474,8 +475,6 @@ namespace sat {
         bool found_conflict = flip_literal_at(c, flip_position, new_sz);
         SASSERT(!s.inconsistent());
         SASSERT(s.scope_lvl() == 0);
-        SASSERT(trail_sz == s.m_trail.size());
-        SASSERT(s.m_qhead == s.m_trail.size());
         if (!found_conflict) {
             // clause size can't be reduced.
             return true;

@@ -47,6 +47,7 @@ namespace sat {
         clause_use_list & get(literal l) { return m_use_list[l.index()]; }
         clause_use_list const & get(literal l) const { return m_use_list[l.index()]; }
         void finalize() { m_use_list.finalize(); }
+        std::ostream& display(std::ostream& out, literal l) const { return m_use_list[l.index()].display(out); }
     };
 
     class simplifier {

@@ -4,7 +4,6 @@ z3_add_component(portfolio
     default_tactic.cpp
     enum2bv_solver.cpp
     fd_solver.cpp
-    parallel_tactic.cpp
     pb2bv_solver.cpp
     smt_strategic_solver.cpp
     solver2lookahead.cpp
@@ -21,5 +20,4 @@ z3_add_component(portfolio
   TACTIC_HEADERS
     default_tactic.h
     fd_solver.h
-    parallel_tactic.h
 )

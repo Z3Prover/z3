@@ -86,7 +86,8 @@ namespace sat {
         scoped_ptr<extension>   m_ext;
         parallel*               m_par;
         random_gen              m_rand;
-        clause_allocator        m_cls_allocator;
+        clause_allocator        m_cls_allocator[2];
+        bool                    m_cls_allocator_idx;
         cleaner                 m_cleaner;
         model                   m_model;        
         model_converter         m_mc;
@@ -217,9 +218,16 @@ namespace sat {
         void mk_clause(literal_vector const& lits, bool learned = false) { mk_clause(lits.size(), lits.c_ptr(), learned); }
         void mk_clause(unsigned num_lits, literal * lits, bool learned = false);
         void mk_clause(literal l1, literal l2, bool learned = false);
-        void mk_clause(literal l1, literal l2, literal l3, bool learned = false);
+        void mk_clause(literal l1, literal l2, literal l3, bool learned = false);        
 
     protected:
+        inline clause_allocator& cls_allocator() { return m_cls_allocator[m_cls_allocator_idx]; }
+        inline clause_allocator const& cls_allocator() const { return m_cls_allocator[m_cls_allocator_idx]; }
+        inline clause * alloc_clause(unsigned num_lits, literal const * lits, bool learned) { return cls_allocator().mk_clause(num_lits, lits, learned); }
+        inline void     dealloc_clause(clause* c) { cls_allocator().del_clause(c); }
+        struct cmp_activity;
+        void defrag_clauses();
+        bool memory_pressure();
         void del_clause(clause & c);
         clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
         clause * mk_clause_core(literal_vector const& lits) { return mk_clause_core(lits.size(), lits.c_ptr()); }
@@ -236,6 +244,10 @@ namespace sat {
         void set_learned(clause& c, bool learned);
         void set_learned(literal l1, literal l2, bool learned);
         void set_learned1(literal l1, literal l2, bool learned);
+        void add_ate(clause& c) { m_mc.add_ate(c); }        
+        void add_ate(literal l1, literal l2) { m_mc.add_ate(l1, l2); }        
+        void add_ate(literal_vector const& lits) { m_mc.add_ate(lits); }
+
         class scoped_disable_checkpoint {
             solver& s;
         public:
@@ -285,6 +297,7 @@ namespace sat {
         unsigned lvl(literal l) const { return m_level[l.var()]; }
         unsigned init_trail_size() const { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
         literal  trail_literal(unsigned i) const { return m_trail[i]; }
+        literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
         void assign(literal l, justification j) {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
             switch (value(l)) {
@@ -297,7 +310,7 @@ namespace sat {
         void set_conflict(justification c, literal not_l);
         void set_conflict(justification c) { set_conflict(c, null_literal); }
         lbool status(clause const & c) const;        
-        clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
+        clause_offset get_offset(clause const & c) const { return cls_allocator().get_offset(&c); }
         void checkpoint() {
             if (!m_checkpoint_enabled) return;
             if (!m_rlimit.inc()) {
@@ -369,6 +382,7 @@ namespace sat {
 
         unsigned m_conflicts_since_init;
         unsigned m_restarts;
+        unsigned m_restart_next_out;
         unsigned m_conflicts_since_restart;
         unsigned m_simplifications;
         unsigned m_restart_threshold;
@@ -401,7 +415,7 @@ namespace sat {
         void simplify_problem();
         void mk_model();
         bool check_model(model const & m) const;
-        void restart();
+        void restart(bool to_base);
         void sort_watch_lits();
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
@@ -433,12 +447,17 @@ namespace sat {
             if (value(l0) != l_true)
                 return true;
             justification const & jst = m_justification[l0.var()];
-            return !jst.is_clause() || m_cls_allocator.get_clause(jst.get_clause_offset()) != &c;
+            return !jst.is_clause() || cls_allocator().get_clause(jst.get_clause_offset()) != &c;
         }
 
         clause& get_clause(watch_list::iterator it) const {
             SASSERT(it->get_kind() == watched::CLAUSE);
             return get_clause(it->get_clause_offset());
+        }
+
+        clause& get_clause(watched const& w) const {
+            SASSERT(w.get_kind() == watched::CLAUSE);
+            return get_clause(w.get_clause_offset());
         }
 
         clause& get_clause(justification const& j) const {
@@ -447,7 +466,7 @@ namespace sat {
         }
 
         clause& get_clause(clause_offset cls_off) const {
-            return *(m_cls_allocator.get_clause(cls_off));
+            return *(cls_allocator().get_clause(cls_off));
         }
         
         // -----------------------
@@ -630,6 +649,7 @@ namespace sat {
         void display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const;
         void display_assignment(std::ostream & out) const;
         std::ostream& display_justification(std::ostream & out, justification const& j) const;
+        std::ostream& display_watch_list(std::ostream& out, watch_list const& wl) const;
 
     protected:
         void display_binary(std::ostream & out) const;

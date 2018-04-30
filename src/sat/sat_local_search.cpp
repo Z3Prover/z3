@@ -79,11 +79,13 @@ namespace sat {
     void local_search::init_cur_solution() {
         for (var_info& vi : m_vars) {
             // use bias with a small probability
-            if (m_rand() % 10 < 5 || m_config.phase_sticky()) {
-                vi.m_value = ((unsigned)(m_rand() % 100) < vi.m_bias);
-            }
-            else {
-                vi.m_value = (m_rand() % 2) == 0;
+            if (!vi.m_unit) {
+                if (m_rand() % 10 < 5 || m_config.phase_sticky()) {
+                    vi.m_value = ((unsigned)(m_rand() % 100) < vi.m_bias);
+                }
+                else {
+                    vi.m_value = (m_rand() % 2) == 0;
+                }
             }
         }
     }
@@ -149,7 +151,7 @@ namespace sat {
 
     void local_search::reinit() {
 
-        IF_VERBOSE(0, verbose_stream() << "(sat-local-search reinit)\n";);
+        IF_VERBOSE(1, verbose_stream() << "(sat-local-search reinit)\n";);
         if (true || !m_is_pb) {
             //
             // the following methods does NOT converge for pseudo-boolean
@@ -216,13 +218,15 @@ namespace sat {
         for (unsigned i = 0; i < m_prop_queue.size() && i < m_vars.size(); ++i) {
             literal lit2 = m_prop_queue[i];
             if (!is_true(lit2)) {
-                if (is_unit(lit2)) return false;
+                if (is_unit(lit2)) {
+                    return false;
+                }
                 flip_walksat(lit2.var());
                 add_propagation(lit2);
             }
         }
         if (m_prop_queue.size() >= m_vars.size()) {
-            IF_VERBOSE(0, verbose_stream() << "failed literal\n");
+            IF_VERBOSE(0, verbose_stream() << "propagation loop\n");
             return false;
         }
         if (unit) {
@@ -328,6 +332,7 @@ namespace sat {
             return;
         }
         if (k == 1 && sz == 2) {
+            // IF_VERBOSE(0, verbose_stream() << "bin: " << ~c[0] << " + " << ~c[1] << " <= 1\n");
             for (unsigned i = 0; i < 2; ++i) {
                 literal t(c[i]), s(c[1-i]);
                 m_vars.reserve(t.var() + 1);
@@ -750,11 +755,12 @@ namespace sat {
             IF_VERBOSE(1, verbose_stream() << "(sat.local_search :unsat)\n");
             return;
         }
-
+        if (is_unit(best_var)) {
+            goto reflip;
+        }
         flip_walksat(best_var);
         literal lit(best_var, !cur_solution(best_var));
         if (!propagate(lit)) {
-            IF_VERBOSE(0, verbose_stream() << "failed literal " << lit << "\n");
             if (is_true(lit)) { 
                 flip_walksat(best_var);
             }
@@ -774,6 +780,7 @@ namespace sat {
     }
 
     void local_search::flip_walksat(bool_var flipvar) {
+        VERIFY(!is_unit(flipvar));
         m_vars[flipvar].m_value = !cur_solution(flipvar);
 
         bool flip_is_true = cur_solution(flipvar);

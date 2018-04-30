@@ -24,6 +24,8 @@ Notes:
 #include "ast/ast_util.h"
 #include "solver/solver.h"
 #include "solver/tactic2solver.h"
+#include "solver/parallel_params.hpp"
+#include "solver/parallel_tactic.h"
 #include "tactic/tactical.h"
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -31,14 +33,15 @@ Notes:
 #include "tactic/arith/card2bv_tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/core/simplify_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/bv/bit_blaster_model_converter.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
 #include "model/model_evaluator.h"
-#include "tactic/bv/bit_blaster_model_converter.h"
-#include "tactic/core/propagate_values_tactic.h"
 #include "sat/sat_solver.h"
 #include "sat/sat_params.hpp"
 #include "sat/tactic/goal2sat.h"
+#include "sat/tactic/sat_tactic.h"
 #include "sat/sat_simplifier_params.hpp"
 
 // incremental SAT solver.
@@ -281,9 +284,12 @@ public:
         m_params.append(p);
         sat_params p1(p);
         m_params.set_bool("keep_cardinality_constraints", p1.cardinality_solver());
+        m_params.set_sym("pb.solver", p1.pb_solver());
+
         m_params.set_bool("keep_pb_constraints", m_solver.get_config().m_pb_solver == sat::PB_SOLVER);
         m_params.set_bool("pb_num_system", m_solver.get_config().m_pb_solver == sat::PB_SORTING);
         m_params.set_bool("pb_totalizer", m_solver.get_config().m_pb_solver == sat::PB_TOTALIZER);
+
         m_params.set_bool("xor_solver", p1.xor_solver());
         m_solver.updt_params(m_params);
         m_solver.set_incremental(is_incremental() && !override_incremental());
@@ -498,7 +504,10 @@ public:
         simp2_p.set_bool("elim_and", true);
         simp2_p.set_bool("blast_distinct", true);
         m_preprocess =
-            and_then(mk_card2bv_tactic(m, m_params),                  // updates model converter
+            and_then(mk_simplify_tactic(m),
+                     mk_propagate_values_tactic(m),
+                     //time consuming if done in inner loop: mk_solve_eqs_tactic(m, simp2_p),
+                     mk_card2bv_tactic(m, m_params),                  // updates model converter
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m, m_bb_rewriter.get()),   // updates model converter
@@ -859,3 +868,9 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
     s.display_weighted(out, sz, soft, weights.c_ptr());
 }
 
+
+tactic * mk_psat_tactic(ast_manager& m, params_ref const& p) {
+    parallel_params pp(p);
+    bool use_parallel = pp.enable();
+    return pp.enable() ? mk_parallel_tactic(mk_inc_sat_solver(m, p, false), p) : mk_sat_tactic(m);
+}

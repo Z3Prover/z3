@@ -41,6 +41,7 @@ namespace sat {
         else
             throw sat_param_exception("invalid restart strategy");
 
+        m_restart_fast = p.restart_fast();
         s = p.phase();
         if (s == symbol("always_false")) 
             m_phase = PS_ALWAYS_FALSE;
@@ -60,6 +61,7 @@ namespace sat {
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
         m_restart_max     = p.restart_max();
+        m_propagate_prefetch = p.propagate_prefetch();
         m_inprocess_max   = p.inprocess_max();
 
         m_random_freq     = p.random_freq();
@@ -113,12 +115,15 @@ namespace sat {
         m_lookahead_cube_psat_clause_base = p.lookahead_cube_psat_clause_base();
         m_lookahead_cube_psat_trigger = p.lookahead_cube_psat_trigger();
         m_lookahead_global_autarky = p.lookahead_global_autarky();
+        m_lookahead_use_learned = p.lookahead_use_learned();
+
 
         // These parameters are not exposed
-        m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
+        m_next_simplify1  = _p.get_uint("next_simplify", 30000);
         m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
         m_simplify_max    = _p.get_uint("simplify_max", 500000);
         // --------------------------------
+        m_simplify_delay  = p.simplify_delay();
 
         s = p.gc();
         if (s == symbol("dyn_psm")) 
@@ -138,6 +143,7 @@ namespace sat {
         m_gc_small_lbd    = p.gc_small_lbd();
         m_gc_k            = std::min(255u, p.gc_k());
         m_gc_burst        = p.gc_burst();
+        m_gc_defrag       = p.gc_defrag();
 
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
@@ -178,8 +184,10 @@ namespace sat {
             m_pb_solver = PB_TOTALIZER;
         else if (s == symbol("solver")) 
             m_pb_solver = PB_SOLVER;
+        else if (s == symbol("segmented")) 
+            m_pb_solver = PB_SEGMENTED;
         else 
-            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting");
+            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented");
 
         m_card_solver = p.cardinality_solver();
 

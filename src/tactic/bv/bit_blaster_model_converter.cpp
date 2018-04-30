@@ -144,9 +144,6 @@ struct bit_blaster_model_converter : public model_converter {
             }
             new_val = util.mk_numeral(val, bv_sz);
             new_model->register_decl(m_vars.get(i), new_val);
-            continue;
-        bail:
-            new_model->register_decl(m_vars.get(i), mk_bv(bs, *old_model));                                    
         }
     }
 

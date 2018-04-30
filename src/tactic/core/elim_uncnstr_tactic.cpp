@@ -804,19 +804,17 @@ class elim_uncnstr_tactic : public tactic {
         ast_manager & m() { return m_manager; }
         
         void init_mc(bool produce_models) {
-            if (!produce_models) {
-                m_mc = nullptr;
-                return;
+            m_mc = nullptr;
+            if (produce_models) {
+                m_mc = alloc(mc, m(), "elim_uncstr");
             }
-            m_mc = alloc(mc, m(), "elim_uncstr");
         }
         
         void init_rw(bool produce_proofs) {
             m_rw = alloc(rw, m(), produce_proofs, m_vars, m_mc.get(), m_max_memory, m_max_steps);            
         }
-        
-        void operator()(goal_ref const & g, goal_ref_buffer& result) {
-            bool produce_models = g->models_enabled();
+
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             bool produce_proofs = g->proofs_enabled();
             
             TRACE("elim_uncnstr_bug", g->display(tout););
@@ -831,11 +829,9 @@ class elim_uncnstr_tactic : public tactic {
             }
             bool modified = true;
             TRACE("elim_uncnstr", tout << "unconstrained variables...\n";
-                  for (expr * v : m_vars) {
-                      tout << mk_ismt2_pp(v, m()) << " ";
-                  }
+                  for (expr * v : m_vars) tout << mk_ismt2_pp(v, m()) << " "; 
                   tout << "\n";);
-            init_mc(produce_models);
+            init_mc(g->models_enabled());
             init_rw(produce_proofs);
             
             expr_ref   new_f(m());
@@ -862,14 +858,9 @@ class elim_uncnstr_tactic : public tactic {
                     else {
                         app_ref_vector & fresh_vars = m_rw->cfg().m_fresh_vars;
                         m_num_elim_apps = fresh_vars.size();
-                        if (produce_models && !fresh_vars.empty()) {
-                            generic_model_converter * fmc = alloc(generic_model_converter, m(), "elim_uncnstr");
-                            for (app * f : fresh_vars) 
-                                fmc->hide(f);
-                            g->add(concat(fmc, m_mc.get()));
-                        }
-                        else {
-                            g->set((model_converter*)nullptr);
+                        if (m_mc.get()) {
+                            for (app * f : fresh_vars) m_mc->hide(f);
+                            g->add(m_mc.get());
                         }
                     }
                     m_mc = nullptr;

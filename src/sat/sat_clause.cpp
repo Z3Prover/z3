@@ -95,7 +95,6 @@ namespace sat {
         } 
     }
 
-
     bool clause::satisfied_by(model const & m) const {
         for (literal l : *this) {
             if (l.sign()) {
@@ -109,6 +108,23 @@ namespace sat {
         }
         return false;
     }
+
+    clause_offset clause::get_new_offset() const {
+        unsigned o1 = m_lits[0].index();
+        if (sizeof(clause_offset) == 8) {
+            unsigned o2 = m_lits[1].index();
+            return (clause_offset)o1 + (((clause_offset)o2) << 32);
+        }        
+        return (clause_offset)o1;
+    }
+
+    void clause::set_new_offset(clause_offset offset) {
+        m_lits[0] = to_literal(static_cast<unsigned>(offset));
+        if (sizeof(offset) == 8) {
+            m_lits[1] = to_literal(static_cast<unsigned>(offset >> 32));
+        }
+    }
+
 
     void tmp_clause::set(unsigned num_lits, literal const * lits, bool learned) {
         if (m_clause && m_clause->m_capacity < num_lits) {
@@ -135,11 +151,14 @@ namespace sat {
         m_allocator("clause-allocator") {
     }
 
+    void clause_allocator::finalize() {
+        m_allocator.reset();
+    }
+
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
         SASSERT(cls_off == reinterpret_cast<clause_offset>(reinterpret_cast<clause*>(cls_off)));
         return reinterpret_cast<clause *>(cls_off);
     }
-
 
     clause_offset clause_allocator::get_offset(clause const * cls) const {
         SASSERT(cls == reinterpret_cast<clause *>(reinterpret_cast<size_t>(cls)));
@@ -152,6 +171,18 @@ namespace sat {
         clause * cls = new (mem) clause(m_id_gen.mk(), num_lits, lits, learned);
         TRACE("sat_clause", tout << "alloc: " << cls->id() << " " << *cls << " " << (learned?"l":"a") << "\n";);
         SASSERT(!learned || cls->is_learned());
+        return cls;
+    }
+
+    clause * clause_allocator::copy_clause(clause const& other) {
+        size_t size = clause::get_obj_size(other.size());
+        void * mem = m_allocator.allocate(size);
+        clause * cls = new (mem) clause(m_id_gen.mk(), other.size(), other.m_lits, other.is_learned());
+        cls->m_reinit_stack = other.on_reinit_stack();
+        cls->m_glue   = other.glue();
+        cls->m_psm    = other.psm();
+        cls->m_frozen = other.frozen();
+        cls->m_approx = other.approx();
         return cls;
     }
 

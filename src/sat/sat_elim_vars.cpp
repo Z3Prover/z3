@@ -101,7 +101,7 @@ namespace sat{
         pos_occs.reset();
         neg_occs.reset();
         literal_vector lits;
-        add_clauses(b, lits);         
+        add_clauses(v, b, lits);         
         return true;
     }
 
@@ -157,7 +157,7 @@ namespace sat{
         return b;
     }
 
-    void elim_vars::add_clauses(bdd const& b, literal_vector& lits) {
+    void elim_vars::add_clauses(bool_var v0, bdd const& b, literal_vector& lits) {
         if (b.is_true()) {
             // no-op
         }
@@ -167,6 +167,7 @@ namespace sat{
             if (simp.cleanup_clause(c)) 
                 return;
             
+            if (v0 == 39063) IF_VERBOSE(0, verbose_stream() << "bdd: " << c << "\n");
             switch (c.size()) {
             case 0:
                 s.set_conflict(justification());
@@ -184,7 +185,7 @@ namespace sat{
                     s.m_stats.m_mk_ter_clause++;
                 else
                     s.m_stats.m_mk_clause++;
-                clause* cp = s.m_cls_allocator.mk_clause(c.size(), c.c_ptr(), false);
+                clause* cp = s.alloc_clause(c.size(), c.c_ptr(), false);
                 s.m_clauses.push_back(cp);
                 simp.m_use_list.insert(*cp);
                 if (simp.m_sub_counter > 0)
@@ -198,10 +199,10 @@ namespace sat{
         else {
             unsigned v = m_vars[b.var()];
             lits.push_back(literal(v, false));
-            add_clauses(b.lo(), lits);
+            add_clauses(v0, b.lo(), lits);
             lits.pop_back();
             lits.push_back(literal(v, true));
-            add_clauses(b.hi(), lits);
+            add_clauses(v0, b.hi(), lits);
             lits.pop_back();
         }
     }
@@ -213,7 +214,7 @@ namespace sat{
         }
         if (b.is_false()) {
             if (lits.size() > 1) {
-                clause* c = s.m_cls_allocator.mk_clause(lits.size(), lits.c_ptr(), false);
+                clause* c = s.alloc_clause(lits.size(), lits.c_ptr(), false);
                 clauses.push_back(c);
             }
             else {
