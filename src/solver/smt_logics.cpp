@@ -22,14 +22,14 @@ Revision History:
 
 
 bool smt_logics::supported_logic(symbol const & s) {
-    return logic_has_uf(s) || logic_is_all(s) || logic_has_fd(s) || 
+    return logic_has_uf(s) || logic_is_all(s) || logic_has_fd(s) ||
         logic_has_arith(s) || logic_has_bv(s) ||
         logic_has_array(s) || logic_has_seq(s) || logic_has_str(s) ||
         logic_has_horn(s) || logic_has_fpa(s);
 }
 
 bool smt_logics::logic_has_reals_only(symbol const& s) {
-    return 
+    return
         s == "QF_RDL" ||
         s == "QF_LRA" ||
         s == "UFLRA" ||
@@ -84,8 +84,9 @@ bool smt_logics::logic_has_arith(symbol const & s) {
         s == "QF_BVFP" ||
         s == "QF_S" ||
         s == "ALL" ||
-        s == "QF_FD" || 
-        s == "HORN";
+        s == "QF_FD" ||
+        s == "HORN" ||
+        s == "QF_FPLRA";
 }
 
 bool smt_logics::logic_has_bv(symbol const & s) {
@@ -137,7 +138,7 @@ bool smt_logics::logic_has_str(symbol const & s) {
 }
 
 bool smt_logics::logic_has_fpa(symbol const & s) {
-    return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP" || s == "ALL";
+    return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP" || s == "QF_FPLRA"  || s == "ALL";
 }
 
 bool smt_logics::logic_has_uf(symbol const & s) {

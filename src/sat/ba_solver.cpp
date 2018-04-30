@@ -1020,14 +1020,14 @@ namespace sat {
         SASSERT(v != null_bool_var);
         m_coeffs.reserve(v + 1, 0);
 
-        int64 coeff0 = m_coeffs[v];
+        int64_t coeff0 = m_coeffs[v];
         if (coeff0 == 0) {
             m_active_vars.push_back(v);
         }
         
-        int64 loffset = static_cast<int64>(offset);
-        int64 inc = l.sign() ? -loffset : loffset;
-        int64 coeff1 = inc + coeff0;
+        int64_t loffset = static_cast<int64_t>(offset);
+        int64_t inc = l.sign() ? -loffset : loffset;
+        int64_t coeff1 = inc + coeff0;
         m_coeffs[v] = coeff1;
         if (coeff1 > INT_MAX || coeff1 < INT_MIN) {
             m_overflow = true;
@@ -1040,7 +1040,7 @@ namespace sat {
         else if (coeff0 < 0 && inc > 0) {
             inc_bound(coeff0 - std::min(0LL, coeff1));
         }
-        int64 lbound = static_cast<int64>(m_bound);
+        int64_t lbound = static_cast<int64_t>(m_bound);
 
         // reduce coefficient to be no larger than bound.
         if (coeff1 > lbound) {
@@ -1051,12 +1051,12 @@ namespace sat {
         }        
     }
 
-    int64 ba_solver::get_coeff(bool_var v) const {
+    int64_t ba_solver::get_coeff(bool_var v) const {
         return m_coeffs.get(v, 0);
     }
 
     unsigned ba_solver::get_abs_coeff(bool_var v) const {
-        int64 c = get_coeff(v);
+        int64_t c = get_coeff(v);
         if (c < INT_MIN+1 || c > UINT_MAX) {
             m_overflow = true;
             return UINT_MAX;
@@ -1065,7 +1065,7 @@ namespace sat {
     }
 
     int ba_solver::get_int_coeff(bool_var v) const {
-        int64 c = m_coeffs.get(v, 0);
+        int64_t c = m_coeffs.get(v, 0);
         if (c < INT_MIN || c > INT_MAX) {
             m_overflow = true;
             return 0;
@@ -1073,12 +1073,12 @@ namespace sat {
         return static_cast<int>(c);
     }
 
-    void ba_solver::inc_bound(int64 i) {
+    void ba_solver::inc_bound(int64_t i) {
         if (i < INT_MIN || i > INT_MAX) {
             m_overflow = true;
             return;
         }
-        int64 new_bound = m_bound;
+        int64_t new_bound = m_bound;
         new_bound += i;
         if (new_bound < 0) {
             m_overflow = true;
@@ -1196,7 +1196,7 @@ namespace sat {
                 switch (cnstr.tag()) {
                 case card_t: {
                     card& c = cnstr.to_card();
-                    inc_bound(static_cast<int64>(offset) * c.k());
+                    inc_bound(static_cast<int64_t>(offset) * c.k());
                     process_card(c, offset);
                     break;
                 }
@@ -1269,7 +1269,7 @@ namespace sat {
             js = s().m_justification[v];
             offset = get_abs_coeff(v);
             if (offset > m_bound) {
-                int64 bound64 = static_cast<int64>(m_bound);
+                int64_t bound64 = static_cast<int64_t>(m_bound);
                 m_coeffs[v] = (get_coeff(v) < 0) ? -bound64 : bound64;
                 offset = m_bound;
                 DEBUG_CODE(active2pb(m_A););
@@ -1323,8 +1323,8 @@ namespace sat {
                 }
                 IF_VERBOSE(0, 
                            active2pb(m_A);
-                           uint64 c = 0;
-                           for (uint64 c1 : m_A.m_coeffs) c += c1;
+                           uint64_t c = 0;
+                           for (uint64_t c1 : m_A.m_coeffs) c += c1;
                            verbose_stream() << "sum of coefficients: " << c << "\n";
                            display(verbose_stream(), m_A, true);
                            verbose_stream() << "conflicting literal: " << s().m_not_l << "\n";);
@@ -1347,18 +1347,18 @@ namespace sat {
         bool adjusted = false;
 
     adjust_conflict_level:
-        int64 bound64 = m_bound;
-        int64 slack = -bound64;
+        int64_t bound64 = m_bound;
+        int64_t slack = -bound64;
         for (bool_var v : m_active_vars) {
             slack += get_abs_coeff(v);
         }
         m_lemma.reset();        
         m_lemma.push_back(null_literal);
         unsigned num_skipped = 0;
-        int64 asserting_coeff = 0;
+        int64_t asserting_coeff = 0;
         for (unsigned i = 0; 0 <= slack && i < m_active_vars.size(); ++i) { 
             bool_var v = m_active_vars[i];
-            int64 coeff = get_coeff(v);
+            int64_t coeff = get_coeff(v);
             lbool val = value(v);
             bool is_true = val == l_true;
             bool append = coeff != 0 && val != l_undef && (coeff < 0 == is_true);
@@ -1434,7 +1434,7 @@ namespace sat {
                 continue;
             }
             if (m_bound < coeff) {
-                int64 bound64 = m_bound;
+                int64_t bound64 = m_bound;
                 if (get_coeff(v) > 0) {
                     m_coeffs[v] = bound64;
                 }
@@ -1474,7 +1474,7 @@ namespace sat {
             inc_coeff(c[i], offset);                        
         }
         if (lit != null_literal) {
-            uint64 offset1 = static_cast<uint64>(offset) * c.k();
+            uint64_t offset1 = static_cast<uint64_t>(offset) * c.k();
             if (offset1 > UINT_MAX) {
                 m_overflow = true;
             }
@@ -3753,12 +3753,12 @@ namespace sat {
     }
 
     bool ba_solver::validate_lemma() { 
-        int64 bound64 = m_bound;
-        int64 val = -bound64;
+        int64_t bound64 = m_bound;
+        int64_t val = -bound64;
         reset_active_var_set();
         for (bool_var v : m_active_vars) {
             if (m_active_var_set.contains(v)) continue;            
-            int64 coeff = get_coeff(v);
+            int64_t coeff = get_coeff(v);
             if (coeff == 0) continue;
             m_active_var_set.insert(v);
             literal lit(v, false);
@@ -3782,7 +3782,7 @@ namespace sat {
         p.reset(m_bound);
         for (bool_var v : m_active_vars) {
             if (m_active_var_set.contains(v)) continue;            
-            int64 coeff = get_coeff(v);
+            int64_t coeff = get_coeff(v);
             if (coeff == 0) continue;
             m_active_var_set.insert(v);
             literal lit(v, coeff < 0);
@@ -3794,7 +3794,7 @@ namespace sat {
     ba_solver::constraint* ba_solver::active2constraint() {
         reset_active_var_set();
         m_wlits.reset();
-        uint64 sum = 0;
+        uint64_t sum = 0;
         if (m_bound == 1) return 0;
         if (m_overflow) return 0;
         
@@ -3855,7 +3855,7 @@ namespace sat {
         }
         std::sort(m_wlits.begin(), m_wlits.end(), compare_wlit());
         unsigned k = 0;
-        uint64 sum = 0, sum0 = 0;
+        uint64_t sum = 0, sum0 = 0;
         for (wliteral wl : m_wlits) {
             if (sum >= m_bound) break;
             sum0 = sum;
@@ -3986,15 +3986,15 @@ namespace sat {
 
     bool ba_solver::validate_resolvent() {
         return true;
-        u_map<uint64> coeffs;
-        uint64 k = m_A.m_k + m_B.m_k;
+        u_map<uint64_t> coeffs;
+        uint64_t k = m_A.m_k + m_B.m_k;
         for (unsigned i = 0; i < m_A.m_lits.size(); ++i) {
-            uint64 coeff = m_A.m_coeffs[i];
+            uint64_t coeff = m_A.m_coeffs[i];
             SASSERT(!coeffs.contains(m_A.m_lits[i].index()));
             coeffs.insert(m_A.m_lits[i].index(), coeff);
         }
         for (unsigned i = 0; i < m_B.m_lits.size(); ++i) {
-            uint64 coeff1 = m_B.m_coeffs[i], coeff2;
+            uint64_t coeff1 = m_B.m_coeffs[i], coeff2;
             literal lit = m_B.m_lits[i];
             if (coeffs.find((~lit).index(), coeff2)) {
                 if (coeff1 == coeff2) {
@@ -4022,7 +4022,7 @@ namespace sat {
         // C is above the sum of A and B
         for (unsigned i = 0; i < m_C.m_lits.size(); ++i) {
             literal lit = m_C.m_lits[i];
-            uint64 coeff;
+            uint64_t coeff;
             if (coeffs.find(lit.index(), coeff)) {
                 if (coeff > m_C.m_coeffs[i] && m_C.m_coeffs[i] < m_C.m_k) {
                     goto violated;
@@ -4103,7 +4103,7 @@ namespace sat {
       \brief encode the case where Sum(a) >= k-1 & Sum(b) >= 1 \/ ... \/ Sum(a) >= 1 & Sum(b) >= k-1
      */
     literal ba_solver::translate_to_sat(solver& s, u_map<bool_var>& translation, ineq& a, ineq& b) {
-        uint64 k0 = a.m_k;
+        uint64_t k0 = a.m_k;
         literal_vector lits;
         for (unsigned k = 1; k < a.m_k - 1; ++k) {
             a.m_k = k; b.m_k = k0 - k;
@@ -4143,7 +4143,7 @@ namespace sat {
 
     ba_solver::ineq ba_solver::negate(ineq const& a) const {
         ineq result;
-        uint64 sum = 0;
+        uint64_t sum = 0;
         for (unsigned i = 0; i < a.m_lits.size(); ++i) { 
             result.push(~a.m_lits[i], a.m_coeffs[i]);
             sum += a.m_coeffs[i];
@@ -4170,9 +4170,9 @@ namespace sat {
                 return false;
             }
         }
-        uint64 value = 0;        
+        uint64_t value = 0;        
         for (unsigned i = 0; i < p.m_lits.size(); ++i) {
-            uint64 coeff = p.m_coeffs[i];
+            uint64_t coeff = p.m_coeffs[i];
             if (!lits.contains(p.m_lits[i])) {
                 value += coeff;
             }

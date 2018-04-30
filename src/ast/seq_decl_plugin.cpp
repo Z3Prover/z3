@@ -177,7 +177,7 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         return zstring(*this);
     }
     if (src.length() == 0) {
-        return zstring(*this);
+        return dst + zstring(*this);
     }
     bool found = false;
     for (unsigned i = 0; i < length(); ++i) {
@@ -212,6 +212,9 @@ std::string zstring::encode() const {
         }
         else if (ch == '\\') {
             strm << "\\\\";
+        }
+        else if (ch >= 128) {
+            strm << "\\x" << std::hex << (unsigned)ch << std::dec; 
         }
         else {
             strm << (char)(ch);

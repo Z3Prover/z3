@@ -212,7 +212,7 @@ unsigned read_datalog(char const * file) {
             if (early_termination) {
                 IF_VERBOSE(1, verbose_stream() << "restarting saturation\n";);
                 
-                uint64 new_timeout = static_cast<uint64>(timeout)*ctx.initial_restart_timeout(); 
+                uint64_t new_timeout = static_cast<uint64_t>(timeout)*ctx.initial_restart_timeout();
                 if(new_timeout>UINT_MAX) {
                     timeout=UINT_MAX;
                 }

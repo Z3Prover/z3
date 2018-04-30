@@ -3,11 +3,11 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    IntNum.cs
+    BitVecNum.cs
 
 Abstract:
 
-    Z3 Managed API: Int Numerals
+    Z3 Managed API: BitVec Numerals
 
 Author:
 

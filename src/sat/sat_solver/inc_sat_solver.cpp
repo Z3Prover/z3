@@ -816,7 +816,7 @@ private:
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););
         
 
-        if (!gparams::get().get_bool("model_validate", false)) return;
+        if (!gparams::get_ref().get_bool("model_validate", false)) return;
         IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
         model_evaluator eval(*mdl);
         eval.set_model_completion(false);

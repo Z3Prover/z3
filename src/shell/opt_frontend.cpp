@@ -115,7 +115,7 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         case l_undef: std::cout << "unknown\n"; break;
         }
         
-        if (r != l_false && gparams::get().get_bool("model_validate", false)) {
+        if (r != l_false && gparams::get_ref().get_bool("model_validate", false)) {
             model_ref mdl;
             opt.get_model(mdl);
             expr_ref_vector hard(m);

@@ -61,7 +61,6 @@ namespace api {
         bv_util                    m_bv_util;
         datalog::dl_decl_util      m_datalog_util;
         fpa_util                   m_fpa_util;
-        datatype_util              m_dtutil;
         seq_util                   m_sutil;
 
         // Support for old solver API
@@ -121,13 +120,13 @@ namespace api {
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
         bool use_auto_config() const { return m_params.m_auto_config; }
-        unsigned get_timeout() { return params().m_timeout; }
-        unsigned get_rlimit() { return params().m_rlimit; }
+        unsigned get_timeout() const { return m_params.m_timeout; }
+        unsigned get_rlimit() const { return m_params.rlimit(); }
         arith_util & autil() { return m_arith_util; }
         bv_util & bvutil() { return m_bv_util; }
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
         fpa_util & fpautil() { return m_fpa_util; }
-        datatype_util& dtutil() { return m_dtutil; }
+        datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }

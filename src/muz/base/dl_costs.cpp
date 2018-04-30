@@ -141,7 +141,7 @@ namespace datalog {
     }
 
     void cost_recorder::start(accounted_object * obj) {
-        uint64 curr_time = static_cast<uint64>(m_stopwatch->get_current_seconds()*1000);
+        uint64_t curr_time = static_cast<uint64_t>(m_stopwatch->get_current_seconds()*1000);
         if(m_obj) {
             costs::time_type time_delta = static_cast<costs::time_type>(curr_time-m_last_time);
             costs & c = m_obj->get_current_costs();

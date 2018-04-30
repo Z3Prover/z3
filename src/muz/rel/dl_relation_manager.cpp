@@ -448,7 +448,7 @@ namespace datalog {
     }
 
     std::string relation_manager::to_nice_string(const relation_element & el) const {
-        uint64 val;
+        uint64_t val;
         std::stringstream stm;
         if(get_context().get_decl_util().is_numeral_ext(el, val)) {
             stm << val;
@@ -461,7 +461,7 @@ namespace datalog {
 
     std::string relation_manager::to_nice_string(const relation_sort & s, const relation_element & el) const {
         std::stringstream stm;
-        uint64 val;
+        uint64_t val;
         if(get_context().get_decl_util().is_numeral_ext(el, val)) {
             get_context().print_constant_name(s, val, stm);
         }
@@ -1339,9 +1339,9 @@ namespace datalog {
     class relation_manager::default_table_filter_not_equal_fn 
             : public table_mutator_fn, auxiliary_table_filter_fn {
         unsigned      m_column;
-        uint64        m_value;
+        uint64_t      m_value;
     public:
-        default_table_filter_not_equal_fn(context & ctx, unsigned column, uint64 value)
+        default_table_filter_not_equal_fn(context & ctx, unsigned column, uint64_t value)
             : m_column(column), 
               m_value(value) {
         }
@@ -1372,7 +1372,7 @@ namespace datalog {
                 return nullptr;
             }
             dl_decl_util decl_util(m);
-            uint64 value = 0;
+            uint64_t value = 0;
             if (!decl_util.is_numeral_ext(y, value)) {
                 return nullptr;
             }

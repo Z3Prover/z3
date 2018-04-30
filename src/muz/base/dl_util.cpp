@@ -31,6 +31,10 @@ Revision History:
 #include "muz/base/dl_rule.h"
 #include "muz/base/dl_util.h"
 #include "util/stopwatch.h"
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
 
 namespace datalog {
 
@@ -165,7 +169,7 @@ namespace datalog {
             }
 
             expr * arg = f->get_arg(i);
-            uint64 sym_num;
+            uint64_t sym_num;
             SASSERT(is_app(arg));
             VERIFY( ctx.get_decl_util().is_numeral_ext(to_app(arg), sym_num) );
             relation_sort sort = pred_decl->get_domain(i);            
@@ -626,11 +630,11 @@ namespace datalog {
         return name.substr(ofs, count);
     }
 
-    bool string_to_uint64(const char * s, uint64 & res) {
+    bool string_to_uint64(const char * s, uint64_t & res) {
 #if _WINDOWS
-        int converted = sscanf_s(s, "%I64u", &res);
+        int converted = sscanf_s(s, "%" SCNu64, &res);
 #else
-        int converted = sscanf(s, "%llu", &res);
+        int converted = sscanf(s, "%" SCNu64, &res);
 #endif
         if(converted==0) {
             return false;
@@ -639,9 +643,9 @@ namespace datalog {
         return true;
     }
 
-    bool read_uint64(const char * & s, uint64 & res) {
-        static const uint64 max_but_one_digit = ULLONG_MAX/10;
-        static const uint64 max_but_one_digit_safe = (ULLONG_MAX-9)/10;
+    bool read_uint64(const char * & s, uint64_t & res) {
+        static const uint64_t max_but_one_digit = ULLONG_MAX/10;
+        static const uint64_t max_but_one_digit_safe = (ULLONG_MAX-9)/10;
 
         if(*s<'0' || *s>'9') {
             return false;
@@ -669,7 +673,7 @@ namespace datalog {
         return true;
     }
 
-    std::string to_string(uint64 num) {
+    std::string to_string(uint64_t num) {
         std::stringstream stm;
         stm<<num;
         return stm.str();

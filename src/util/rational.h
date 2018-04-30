@@ -59,10 +59,10 @@ public:
     explicit rational(char const * v) { m().set(m_val, v); }
 
     struct i64 {};
-    rational(int64 i, i64) { m().set(m_val, i); }
+    rational(int64_t i, i64) { m().set(m_val, i); }
 
     struct ui64 {};
-    rational(uint64 i, ui64) { m().set(m_val, i); }
+    rational(uint64_t i, ui64) { m().set(m_val, i); }
     
     ~rational() { m().del(m_val); }
     
@@ -98,9 +98,9 @@ public:
 
     bool is_int64() const { return m().is_int64(m_val); }
 
-    uint64 get_uint64() const { return m().get_uint64(m_val); }
+    uint64_t get_uint64() const { return m().get_uint64(m_val); }
 
-    int64 get_int64() const { return m().get_int64(m_val); }
+    int64_t get_int64() const { return m().get_int64(m_val); }
     
     bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32)); }
 
@@ -113,7 +113,7 @@ public:
         if (is_small() && is_int()) return true; 
         // we don't assume that if it is small, then it is int32.
         if (!is_int64()) return false;
-        int64 v = get_int64();
+        int64_t v = get_int64();
         return INT_MIN <= v && v <= INT_MAX;
     }
 

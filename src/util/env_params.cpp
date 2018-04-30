@@ -23,7 +23,7 @@ Notes:
 #include "util/memory_manager.h"
 
 void env_params::updt_params() {
-    params_ref p = gparams::get();
+    params_ref const& p = gparams::get_ref();
     set_verbosity_level(p.get_uint("verbose", get_verbosity_level()));
     enable_warning_messages(p.get_bool("warning", true));
     memory::set_max_size(megabytes_to_bytes(p.get_uint("memory_max_size", 0)));

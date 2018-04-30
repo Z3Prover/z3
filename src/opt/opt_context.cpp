@@ -265,6 +265,9 @@ namespace opt {
         normalize();
         internalize();
         update_solver();
+        if (contains_quantifiers()) {
+            warning_msg("optimization with quantified constraints is not supported");
+        }
 #if 0
         if (is_qsat_opt()) {
             return run_qsat_opt();
@@ -372,7 +375,6 @@ namespace opt {
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
         if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
             throw default_exception("unbounded objectives on quantified constraints is not supported");
-            result = l_undef;
         }
         return result;
     }
@@ -1525,7 +1527,7 @@ namespace opt {
     }
 
     void context::validate_model() {
-        if (!gparams::get().get_bool("model_validate", false)) return;
+        if (!gparams::get_ref().get_bool("model_validate", false)) return;
         expr_ref_vector fmls(m);
         get_hard_constraints(fmls);
         expr_ref tmp(m);

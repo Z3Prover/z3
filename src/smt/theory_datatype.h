@@ -26,7 +26,6 @@ Revision History:
 #include "smt/proto_model/datatype_factory.h"
 
 namespace smt {
-    
     class theory_datatype : public theory {
         typedef trail_stack<theory_datatype> th_trail_stack;
         typedef union_find<theory_datatype>  th_union_find;
@@ -73,11 +72,36 @@ namespace smt {
         void propagate_recognizer(theory_var v, enode * r);
         void sign_recognizer_conflict(enode * c, enode * r);
 
-        ptr_vector<enode>    m_to_unmark;
-        enode_pair_vector    m_used_eqs;
-        enode *              m_main;
+        typedef enum { ENTER, EXIT } stack_op;
+        typedef map<enode*, enode*, obj_ptr_hash<enode>, ptr_eq<enode> > parent_tbl;
+        typedef std::pair<stack_op, enode*> stack_entry;
+
+        ptr_vector<enode>     m_to_unmark;
+        ptr_vector<enode>     m_to_unmark2;
+        enode_pair_vector     m_used_eqs; // conflict, if any
+        parent_tbl            m_parent; // parent explanation for occurs_check
+        svector<stack_entry>  m_stack; // stack for DFS for occurs_check
+
+        void oc_mark_on_stack(enode * n);
+        bool oc_on_stack(enode * n) const { return n->get_root()->is_marked(); }
+
+        void oc_mark_cycle_free(enode * n);
+        bool oc_cycle_free(enode * n) const { return n->get_root()->is_marked2(); }
+
+        void oc_push_stack(enode * n);
+
+        // class for managing state of final_check
+        class final_check_st {
+            theory_datatype * th;
+        public:
+            final_check_st(theory_datatype * th);
+            ~final_check_st();
+        };
+
+        enode * oc_get_cstor(enode * n);
         bool occurs_check(enode * n);
-        bool occurs_check_core(enode * n);
+        bool occurs_check_enter(enode * n);
+        void occurs_check_explain(enode * top, enode * root);
 
         void mk_split(theory_var v);
 

@@ -33,7 +33,7 @@ namespace sat {
         
         solver &   s;
         params_ref m_params;
-        int64      m_counter;
+        int64_t    m_counter;
         random_gen m_rand;
         unsigned   m_calls;
         
@@ -43,7 +43,7 @@ namespace sat {
         unsigned   m_asymm_branch_delay;
         bool       m_asymm_branch_sampled;
         bool       m_asymm_branch_all;
-        int64      m_asymm_branch_limit;
+        int64_t    m_asymm_branch_limit;
 
         // stats
         unsigned   m_elim_literals;

@@ -51,9 +51,9 @@ public:
     tbv* allocate0();
     tbv* allocateX();
     tbv* allocate(tbv const& bv);
-    tbv* allocate(uint64 n);
+    tbv* allocate(uint64_t n);
     tbv* allocate(rational const& r);
-    tbv* allocate(uint64 n, unsigned hi, unsigned lo);
+    tbv* allocate(uint64_t n, unsigned hi, unsigned lo);
     tbv* allocate(tbv const& bv, unsigned const* permutation);
     tbv* allocate(char const* bv);
 
@@ -80,7 +80,7 @@ public:
     std::ostream& display(std::ostream& out, tbv const& b, unsigned hi, unsigned lo) const;
     tbv* project(bit_vector const& to_delete, tbv const& src);
     bool is_well_formed(tbv const& b) const; // - does not contain BIT_z;
-    void set(tbv& dst, uint64 n, unsigned hi, unsigned lo);
+    void set(tbv& dst, uint64_t n, unsigned hi, unsigned lo);
     void set(tbv& dst, rational const& r, unsigned hi, unsigned lo);
     void set(tbv& dst, tbv const& other, unsigned hi, unsigned lo);
     void set(tbv& dst, unsigned index, tbit value);

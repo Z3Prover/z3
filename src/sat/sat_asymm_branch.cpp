@@ -105,7 +105,7 @@ namespace sat {
 
 
     void asymm_branch::process(big* big, clause_vector& clauses) {
-        int64 limit = -m_asymm_branch_limit;
+        int64_t limit = -m_asymm_branch_limit;
         std::stable_sort(clauses.begin(), clauses.end(), clause_size_lt());
         m_counter -= clauses.size();
         clause_vector::iterator it  = clauses.begin();

@@ -208,14 +208,22 @@ struct scoped_timer::imp {
         pthread_cond_signal(&m_condition_var);
         pthread_mutex_unlock(&m_mutex);
 
-        if (pthread_join(m_thread_id, nullptr) != 0)
-            throw default_exception("failed to join thread");
-        if (pthread_mutex_destroy(&m_mutex) != 0)
-            throw default_exception("failed to destroy pthread mutex");
-        if (pthread_cond_destroy(&m_condition_var) != 0)
-            throw default_exception("failed to destroy pthread condition variable");
-        if (pthread_attr_destroy(&m_attributes) != 0)
-            throw default_exception("failed to destroy pthread attributes object");
+        if (pthread_join(m_thread_id, nullptr) != 0) {
+            warning_msg("failed to join thread");
+            return;
+        }
+        if (pthread_mutex_destroy(&m_mutex) != 0) {
+            warning_msg("failed to destroy pthread mutex");
+            return;
+        }
+        if (pthread_cond_destroy(&m_condition_var) != 0) {
+            warning_msg("failed to destroy pthread condition variable");
+            return;
+        }
+        if (pthread_attr_destroy(&m_attributes) != 0) {
+            warning_msg("failed to destroy pthread attributes object");
+            return;
+        }
 #elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
         // Linux & FreeBSD & NetBSD
         bool init = false;

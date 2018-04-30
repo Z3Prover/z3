@@ -47,7 +47,7 @@ namespace sat {
 
     void lookahead::flip_prefix() {
         if (m_trail_lim.size() < 64) {
-            uint64 mask = (1ull << m_trail_lim.size());
+            uint64_t mask = (1ull << m_trail_lim.size());
             m_prefix = mask | (m_prefix & (mask - 1));
         }
     }
@@ -909,7 +909,7 @@ namespace sat {
 
     void lookahead::display_search_string() {
         printf("\r"); 
-        uint64 q = m_prefix;
+        uint64_t q = m_prefix;
         unsigned depth = m_trail_lim.size();
         unsigned d = std::min(63u, depth);
         unsigned new_prefix_length = d;

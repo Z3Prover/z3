@@ -120,11 +120,11 @@ namespace sat {
         // branch variable selection:
         svector<unsigned>       m_activity;
         unsigned                m_activity_inc;
-        svector<uint64>         m_last_conflict;
-        svector<uint64>         m_last_propagation;
-        svector<uint64>         m_participated;
-        svector<uint64>         m_canceled;
-        svector<uint64>         m_reasoned;
+        svector<uint64_t>       m_last_conflict;
+        svector<uint64_t>       m_last_propagation;
+        svector<uint64_t>       m_participated;
+        svector<uint64_t>       m_canceled;
+        svector<uint64_t>       m_reasoned;
         int                     m_action;
         double                  m_step_size;
         // phase

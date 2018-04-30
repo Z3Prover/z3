@@ -782,7 +782,7 @@ namespace sat {
         }
 
         if (m_config.m_anti_exploration) {
-            uint64 age = m_stats.m_conflict - m_canceled[v];
+            uint64_t age = m_stats.m_conflict - m_canceled[v];
             if (age > 0) {
                 double decay = pow(0.95, age);
                 m_activity[v] = static_cast<unsigned>(m_activity[v] * decay);
@@ -1032,7 +1032,7 @@ namespace sat {
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
-        if (m_mc.empty() && gparams::get().get_bool("model_validate", false)) {
+        if (m_mc.empty() && gparams::get_ref().get_bool("model_validate", false)) {
             m_clone = alloc(solver, m_params, m_rlimit);
             m_clone->copy(*this);
         }
@@ -3101,7 +3101,7 @@ namespace sat {
             SASSERT(value(v) == l_undef);
             m_case_split_queue.unassign_var_eh(v);
             if (m_config.m_branching_heuristic == BH_LRB) {
-                uint64 interval = m_stats.m_conflict - m_last_propagation[v];
+                uint64_t interval = m_stats.m_conflict - m_last_propagation[v];
                 if (interval > 0) {
                     auto activity = m_activity[v];
                     auto reward = (m_config.m_reward_offset * (m_participated[v] + m_reasoned[v])) / interval;

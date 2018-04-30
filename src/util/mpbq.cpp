@@ -250,7 +250,7 @@ void mpbq_manager::mul(mpbq const & a, mpz const & b, mpbq & r) {
 }
 
 void mpbq_manager::power(mpbq & a, unsigned k) {
-    SASSERT(static_cast<uint64>(k) * static_cast<uint64>(a.k()) <= static_cast<uint64>(UINT_MAX));
+    SASSERT(static_cast<uint64_t>(k) * static_cast<uint64_t>(a.k()) <= static_cast<uint64_t>(UINT_MAX));
     // We don't need to normalize because:
     //   If a.m_k == 0, then a is an integer, and the result be an integer
     //   If a.m_k > 0, then a.m_num must be odd, and the (a.m_num)^k will also be odd

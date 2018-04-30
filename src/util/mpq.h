@@ -686,7 +686,7 @@ public:
         normalize(a);
     }
 
-    void set(mpq & a, int64 n, uint64 d) {
+    void set(mpq & a, int64_t n, uint64_t d) {
         SASSERT(d != 0);
         set(a.m_num, n);
         set(a.m_den, d);
@@ -718,16 +718,16 @@ public:
 
     void set(mpq & a, char const * val);
 
-    void set(mpz & a, int64 val) { mpz_manager<SYNCH>::set(a, val); }
+    void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
 
-    void set(mpq & a, int64 val) {
+    void set(mpq & a, int64_t val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
 
-    void set(mpz & a, uint64 val) { mpz_manager<SYNCH>::set(a, val); }
+    void set(mpz & a, uint64_t val) { mpz_manager<SYNCH>::set(a, val); }
     
-    void set(mpq & a, uint64 val) { 
+    void set(mpq & a, uint64_t val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
@@ -765,17 +765,17 @@ public:
 
     bool is_int64(mpz const & a) const { return mpz_manager<SYNCH>::is_int64(a); }
 
-    uint64 get_uint64(mpz const & a) const { return mpz_manager<SYNCH>::get_uint64(a); }
+    uint64_t get_uint64(mpz const & a) const { return mpz_manager<SYNCH>::get_uint64(a); }
 
-    int64 get_int64(mpz const & a) const { return mpz_manager<SYNCH>::get_int64(a); }
+    int64_t get_int64(mpz const & a) const { return mpz_manager<SYNCH>::get_int64(a); }
 
     bool is_uint64(mpq const & a) const { return is_int(a) && is_uint64(a.m_num); }
 
     bool is_int64(mpq const & a) const { return is_int(a) && is_int64(a.m_num); }
 
-    uint64 get_uint64(mpq const & a) const { SASSERT(is_uint64(a)); return get_uint64(a.m_num); }
+    uint64_t get_uint64(mpq const & a) const { SASSERT(is_uint64(a)); return get_uint64(a.m_num); }
 
-    int64 get_int64(mpq const & a) const { SASSERT(is_int64(a)); return get_int64(a.m_num); }
+    int64_t get_int64(mpq const & a) const { SASSERT(is_int64(a)); return get_int64(a.m_num); }
 
     double get_double(mpz const & a) const { return mpz_manager<SYNCH>::get_double(a); }
 

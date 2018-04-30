@@ -200,12 +200,12 @@ public:
     bool is_minus_one(mpfx const & n) const { return is_neg(n) && is_abs_one(n); }
 
     /**
-       \brief Return true if \c a is an integer and fits in an int64 machine integer.
+       \brief Return true if \c a is an integer and fits in an \c int64_t machine integer.
     */
     bool is_int64(mpfx const & a) const;
 
     /**
-       \brief Return true if \c a is a non-negative integer and fits in an int64 machine integer.
+       \brief Return true if \c a is a non-negative integer and fits in an \c int64_t machine integer.
     */
     bool is_uint64(mpfx const & a) const;
     
@@ -306,10 +306,10 @@ public:
 
     void set(mpfx & n, int v);
     void set(mpfx & n, unsigned v);
-    void set(mpfx & n, int64 v);
-    void set(mpfx & n, uint64 v);
+    void set(mpfx & n, int64_t v);
+    void set(mpfx & n, uint64_t v);
     void set(mpfx & n, int num, unsigned den);
-    void set(mpfx & n, int64 num, uint64 den);
+    void set(mpfx & n, int64_t num, uint64_t den);
     void set(mpfx & n, mpfx const & v);
     void set(mpfx & n, unsynch_mpz_manager & m, mpz const & v);
     void set(mpfx & n, synch_mpz_manager & m, mpz const & v); 
@@ -343,14 +343,14 @@ public:
 
        \pre is_int64(n)
     */
-    int64 get_int64(mpfx const & n) const;
+    int64_t get_int64(mpfx const & n) const;
 
     /**
        \brief Return n as an uint64.
 
        \pre is_uint64(n)
     */
-    uint64 get_uint64(mpfx const & n) const;
+    uint64_t get_uint64(mpfx const & n) const;
 
     /**
        \brief Convert n into a mpz numeral.

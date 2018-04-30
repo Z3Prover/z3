@@ -204,12 +204,12 @@ namespace sat {
     protected:
 
         struct ineq {
-            literal_vector  m_lits;
-            svector<uint64> m_coeffs;
-            uint64        m_k;
+            literal_vector    m_lits;
+            svector<uint64_t> m_coeffs;
+            uint64_t          m_k;
             ineq(): m_k(0) {}
-            void reset(uint64 k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
-            void push(literal l, uint64 c) { m_lits.push_back(l); m_coeffs.push_back(c); }
+            void reset(uint64_t k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
+            void push(literal l, uint64_t c) { m_lits.push_back(l); m_coeffs.push_back(c); }
         };
 
         solver*                m_solver;
@@ -229,7 +229,7 @@ namespace sat {
         // conflict resolution
         unsigned          m_num_marks;
         unsigned          m_conflict_lvl;
-        svector<int64>    m_coeffs;
+        svector<int64_t>  m_coeffs;
         svector<bool_var> m_active_vars;
         unsigned          m_bound;
         tracked_uint_set  m_active_var_set;
@@ -426,11 +426,11 @@ namespace sat {
         void reset_active_var_set();
         void normalize_active_coeffs();
         void inc_coeff(literal l, unsigned offset);
-        int64 get_coeff(bool_var v) const;
+        int64_t get_coeff(bool_var v) const;
         unsigned get_abs_coeff(bool_var v) const;       
         int   get_int_coeff(bool_var v) const;
         unsigned get_bound() const;
-        void inc_bound(int64 i);
+        void inc_bound(int64_t i);
 
         literal get_asserting_literal(literal conseq);
         void process_antecedent(literal l, unsigned offset);

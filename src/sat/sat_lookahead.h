@@ -27,13 +27,13 @@ Notes:
 namespace sat {
 
     struct pp_prefix {
-        uint64 m_prefix;
+        uint64_t m_prefix;
         unsigned m_depth;
-        pp_prefix(uint64 p, unsigned d) : m_prefix(p), m_depth(d) {}
+        pp_prefix(uint64_t p, unsigned d) : m_prefix(p), m_depth(d) {}
     };
     
     inline std::ostream& operator<<(std::ostream& out, pp_prefix const& p) {
-        uint64 q = p.m_prefix;
+        uint64_t q = p.m_prefix;
         unsigned d = std::min(63u, p.m_depth);
         for (unsigned i = 0; i <= d; ++i) {
             if (0 != (p.m_prefix & (1ull << i))) out << "1"; else out << "0";
@@ -238,7 +238,7 @@ namespace sat {
         double                 m_lookahead_reward; // metric associated with current lookahead1 literal.
         literal_vector         m_wstack;        // windofall stack that is populated in lookahead1 mode
         unsigned               m_last_prefix_length;
-        uint64                 m_prefix;        // where we are in search tree
+        uint64_t                 m_prefix;        // where we are in search tree
         svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
         unsigned               m_rating_throttle; // throttle to recompute rating
         indexed_uint_set       m_freevars;
@@ -523,7 +523,7 @@ namespace sat {
         void update_lookahead_reward(literal l, unsigned level);
         bool dl_enabled(literal l) const { return m_lits[l.index()].m_double_lookahead != m_istamp_id; }
         void dl_disable(literal l) { m_lits[l.index()].m_double_lookahead = m_istamp_id; }
-        bool dl_no_overflow(unsigned base) const { return base + 2 * m_lookahead.size() * static_cast<uint64>(m_config.m_dl_max_iterations + 1) < c_fixed_truth; }
+        bool dl_no_overflow(unsigned base) const { return base + 2 * m_lookahead.size() * static_cast<uint64_t>(m_config.m_dl_max_iterations + 1) < c_fixed_truth; }
 
         unsigned do_double(literal l, unsigned& base);
         unsigned double_look(literal l, unsigned& base);
