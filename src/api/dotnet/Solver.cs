@@ -99,48 +99,6 @@ namespace Microsoft.Z3
 	public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
 
 
-        /// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, bool value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, uint value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, double value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, string value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(string name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, bool value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, uint value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, double value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, string value) { Parameters = Context.MkParams().Add(name, value); }
-	/// <summary>
-	/// Sets parameter on the solver
-	/// </summary>
-	public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
-
-
 
         /// <summary>
         /// Retrieves parameter descriptions for solver.
@@ -359,10 +317,6 @@ namespace Microsoft.Z3
             return lboolToStatus(r);
         }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> fc719a5ee82361ffedb9ef46793e3401fdc32cc5
         /// <summary>
         /// Retrieve fixed assignments to the set of variables in the form of consequences.
         /// Each consequence is an implication of the form 
