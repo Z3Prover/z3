@@ -14,6 +14,7 @@ set -o pipefail
 : ${PYTHON_EXECUTABLE?"PYTHON_EXECUTABLE must be specified"}
 : ${DOTNET_BINDINGS?"DOTNET_BINDINGS must be specified"}
 : ${JAVA_BINDINGS?"JAVA_BINDINGS must be specified"}
+: ${ML_BINDINGS?"ML_BINDINGS must be specified"}
 : ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
 : ${RUN_API_EXAMPLES?"RUN_API_EXAMPLES must be specified"}
 
@@ -118,5 +119,22 @@ if [ "X${JAVA_BINDINGS}" = "X1" ]; then
       run_non_native_binding \
         java -cp .:examples/java:com.microsoft.z3.jar JavaExample
   fi
+fi
+
+if [ "X${ML_BINDINGS}" = "X1" ]; then
+  # Build OCaml example
+  # FIXME: Move compilation step into CMake target
+  mkdir -p examples/ml
+  cp ${Z3_SRC_DIR}/examples/ml/ml_example.ml examples/ml/
+  if [ "$(uname)" = "Darwin" ]; then
+    # macOS
+    export DYLD_LIBRARY_PATH=$(pwd):${DYLD_LIBRARY_PATH}
+  else
+    # Assume Linux for now
+    export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
+  fi
+  ocamlopt -I ${Z3_BUILD_DIR} libz3.cmxa examples/ml/ml_example.ml -o ml_example.native
+  run_quiet run_non_native_binding ./ml_example.native
+
 fi
 

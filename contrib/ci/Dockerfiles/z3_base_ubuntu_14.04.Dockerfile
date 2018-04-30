@@ -20,6 +20,8 @@ RUN apt-get update && \
         make \
         mono-devel \
         ninja-build \
+        ocaml \
+        ocaml-findlib \
         python3 \
         python3-setuptools \
         python2.7 \

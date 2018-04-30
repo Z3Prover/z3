@@ -45,3 +45,8 @@ fi
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then
   brew cask install java
 fi
+
+if [ "X${ML_BINDINGS}" = "X1" ]; then
+  brew_install_or_upgrade ocaml
+  brew_install_or_upgrade ocaml-findlib
+fi

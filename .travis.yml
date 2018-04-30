@@ -24,7 +24,7 @@ env:
     # Build for running unit tests under ASan/UBSan
     # FIXME: We should really be doing a debug build but the unit tests run too
     # slowly when we do that.
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo ASAN_BUILD=1 RUN_UNIT_TESTS=BUILD_AND_RUN ASAN_DSO=/usr/lib/clang/3.9/lib/linux/libclang_rt.asan-x86_64.so UBSAN_BUILD=1 RUN_API_EXAMPLES=0 RUN_SYSTEM_TESTS=0 DOTNET_BINDINGS=0 JAVA_BINDINGS=0 PYTHON_BINDINGS=0
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo ASAN_BUILD=1 RUN_UNIT_TESTS=BUILD_AND_RUN ASAN_DSO=/usr/lib/clang/3.9/lib/linux/libclang_rt.asan-x86_64.so UBSAN_BUILD=1 RUN_API_EXAMPLES=0 RUN_SYSTEM_TESTS=0 DOTNET_BINDINGS=0 ML_BINDINGS=0 JAVA_BINDINGS=0 PYTHON_BINDINGS=0
 
     # 64-bit GCC 5.4 RelWithDebInfo
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
@@ -64,7 +64,7 @@ env:
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 USE_LTO=1
 
     # Static build. Note we have disable building the bindings because they won't work with a static libz3
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_STATIC_BUILD=1 DOTNET_BINDINGS=0 JAVA_BINDINGS=0 PYTHON_BINDINGS=0
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_STATIC_BUILD=1 DOTNET_BINDINGS=0 JAVA_BINDINGS=0 ML_BINDINGS=0 PYTHON_BINDINGS=0
 
 ###############################################################################
 # Ubuntu 14.04 LTS
