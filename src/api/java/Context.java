@@ -2549,14 +2549,9 @@ public class Context implements AutoCloseable {
      * set of assertions returned are the ones in the 
      * last scope level.
      **/
-<<<<<<< HEAD
     public BoolExpr[] parseSMTLIB2String(String str, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
            
-=======
-    public BoolExpr parseSMTLIB2String(String str, Symbol[] sortNames,
-            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)           
->>>>>>> fc719a5ee82361ffedb9ef46793e3401fdc32cc5
     {
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
