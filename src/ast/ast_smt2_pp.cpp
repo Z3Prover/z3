@@ -33,11 +33,6 @@ using namespace format_ns;
 
 format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len, bool is_skolem) const {
     ast_manager & m = get_manager();
-#if 0
-    symbol s1 = m_renaming.get_symbol(s, is_skolem);
-    len = static_cast<unsigned>(strlen(s1.bare_str()));
-    return mk_string(m, s1.bare_str());    
-#else
     if (is_smt2_quoted_symbol(s)) {
         std::string str = mk_smt2_quoted_symbol(s);
         len = static_cast<unsigned>(str.length());
@@ -56,7 +51,6 @@ format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len, bo
         len = static_cast<unsigned>(strlen(s.bare_str()));
         return mk_string(m, s.bare_str());
     }
-#endif
 }
 
 format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const {

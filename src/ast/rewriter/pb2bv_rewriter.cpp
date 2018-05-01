@@ -5,7 +5,7 @@ Module Name:
 
     pb2bv_rewriter.cpp
 
-Abstralct:
+Abstract:
 
     Conversion from pseudo-booleans to bit-vectors.
 

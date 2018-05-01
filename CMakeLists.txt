@@ -33,7 +33,7 @@ endif()
 # Project version
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 7)
+set(Z3_VERSION_MINOR 8)
 set(Z3_VERSION_PATCH 0)
 set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")

@@ -429,7 +429,7 @@ public:
         #pragma omp critical (gparams)
         {
             if (m_module_params.find(module_name, ps)) {
-                result = *ps;
+                result.copy(*ps);
             }
         }
         return result;
