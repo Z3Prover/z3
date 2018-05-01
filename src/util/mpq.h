@@ -515,6 +515,13 @@ public:
         reset_denominator(c);
     }
 
+    void machine_idiv_rem(mpq const & a, mpq const & b, mpq & c, mpq & d) {
+        SASSERT(is_int(a) && is_int(b));
+        machine_div_rem(a.m_num, b.m_num, c.m_num, d.m_num);
+        reset_denominator(c);
+        reset_denominator(d);
+    }
+
     void machine_idiv(mpq const & a, mpq const & b, mpz & c) {
         SASSERT(is_int(a) && is_int(b));
         machine_div(a.m_num, b.m_num, c);

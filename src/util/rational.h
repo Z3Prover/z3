@@ -189,6 +189,12 @@ public:
         return r;
     }
 
+    friend inline rational machine_div_rem(rational const & r1, rational const & r2, rational & rem) {
+        rational r;
+        rational::m().machine_idiv(r1.m_val, r2.m_val, r.m_val, rem.m_val);
+        return r;
+    }
+
     friend inline rational mod(rational const & r1, rational const & r2) {
         rational r;
         rational::m().mod(r1.m_val, r2.m_val, r.m_val);

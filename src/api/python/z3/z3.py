@@ -8251,14 +8251,10 @@ def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-<<<<<<< HEAD
-    return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
-=======
     try: 
-        return _to_expr_ref(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+        return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
     except Z3Exception as e:
         _handle_parse_error(e, ctx)
->>>>>>> fc719a5ee82361ffedb9ef46793e3401fdc32cc5
 
 def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     """Parse a file in SMT 2.0 format using the given sorts and decls.
@@ -8268,14 +8264,10 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-<<<<<<< HEAD
-    return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
-=======
-    try: 
-        return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    try:
+        return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
     except Z3Exception as e:
         _handle_parse_error(e, ctx)
->>>>>>> fc719a5ee82361ffedb9ef46793e3401fdc32cc5
 
 def Interpolant(a,ctx=None):
     """Create an interpolation operator.
