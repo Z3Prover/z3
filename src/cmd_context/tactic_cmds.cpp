@@ -205,7 +205,7 @@ public:
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
         unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
-        unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
+        unsigned rlimit  =   p.get_uint("rlimit", ctx.params().rlimit());
         labels_vec labels;
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
@@ -321,7 +321,7 @@ public:
             assert_exprs_from(ctx, *g);
 
             unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
-            unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
+            unsigned rlimit  =   p.get_uint("rlimit", ctx.params().rlimit());
 
             goal_ref_buffer     result_goals;
             model_converter_ref mc;

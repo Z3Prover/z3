@@ -50,7 +50,7 @@ static void tst1() {
 static void tst2() {
     synch_mpz_manager m;
     mpz v1, v2, v3;
-    m.set(v1, static_cast<int64>(UINT_MAX));
+    m.set(v1, static_cast<int64_t>(UINT_MAX));
     m.add(v1, m.mk_z(1), v2);
     m.mul(v2, v2, v3);
     std::cout << "v2:\n" << m.to_string(v2) << "\n";
@@ -63,7 +63,7 @@ static void tst2() {
 static void tst2b() {
     synch_mpz_manager m;
     mpz v1, v2, v3;
-    m.set(v1, static_cast<int64>(UINT_MAX));
+    m.set(v1, static_cast<int64_t>(UINT_MAX));
     m.add(v1, m.mk_z(1), v2);
     m.mul(v2, v2, v3);
     std::cout << "v2:\n" << m.to_string(v2) << "\n";
@@ -127,8 +127,8 @@ static void bug3() {
 static void bug4() {
     synch_mpz_manager m;
     mpz x, y;
-    m.set(y, 4294967295ull);
-    m.set(x, 4026531839ull);
+    m.set(y, static_cast<uint64_t>(4294967295ull));
+    m.set(x, static_cast<uint64_t>(4026531839ull));
     mpz result1;
     m.bitwise_or(x, y, result1);
 
@@ -282,7 +282,7 @@ void tst_int_min_bug() {
     mpz big;
     mpz expected;
     mpz r;
-    m.set(big, static_cast<uint64>(UINT64_MAX));
+    m.set(big, static_cast<uint64_t>(UINT64_MAX));
     m.set(expected, "18446744075857035263");
     m.sub(big, intmin, r);
     std::cout << "r: " << m.to_string(r) << "\nexpected: " << m.to_string(expected) << "\n";

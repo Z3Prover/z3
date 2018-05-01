@@ -78,7 +78,6 @@ namespace api {
         m_bv_util(m()),
         m_datalog_util(m()),
         m_fpa_util(m()),
-        m_dtutil(m()),
         m_sutil(m()),
         m_last_result(m()),
         m_ast_trail(m()),
@@ -184,7 +183,7 @@ namespace api {
             e = m_bv_util.mk_numeral(n, s);
         }
         else if (fid == get_datalog_fid() && n.is_uint64()) {
-            uint64 sz;
+            uint64_t sz;
             if (m_datalog_util.try_get_size(s, sz) && 
                 sz <= n.get_uint64()) {
                 invoke_error_handler(Z3_INVALID_ARG);

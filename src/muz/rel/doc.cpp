@@ -62,13 +62,13 @@ doc* doc_manager::allocate(tbv* t) {
 doc* doc_manager::allocate(tbv const& src) {
     return allocate(m.allocate(src));
 }
-doc* doc_manager::allocate(uint64 n) {
+doc* doc_manager::allocate(uint64_t n) {
     return allocate(m.allocate(n));
 }
 doc* doc_manager::allocate(rational const& r) {
     return allocate(m.allocate(r));
 }
-doc* doc_manager::allocate(uint64 n, unsigned hi, unsigned lo) {
+doc* doc_manager::allocate(uint64_t n, unsigned hi, unsigned lo) {
     return allocate(m.allocate(n, hi, lo));
 }
 doc* doc_manager::allocate(doc const& src, unsigned const* permutation) {

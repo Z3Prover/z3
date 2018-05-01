@@ -104,10 +104,8 @@ public:
 
     ~imp() {
         reset();
-        dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
-        dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+        for (auto & kv : m_module_param_descrs) {
+            dealloc(kv.m_value);
         }
     }
 
@@ -115,10 +113,8 @@ public:
         #pragma omp critical (gparams)
         {
             m_params.reset();
-            dictionary<params_ref*>::iterator it  = m_module_params.begin();
-            dictionary<params_ref*>::iterator end = m_module_params.end();
-            for (; it != end; ++it) {
-                dealloc(it->m_value);
+            for (auto & kv : m_module_params) {
+                dealloc(kv.m_value);
             }
             m_module_params.reset();
         }
@@ -437,14 +433,8 @@ public:
         return result;
     }
     
-    params_ref get() { 
-        params_ref result;
-        TRACE("gparams", tout << "get() m_params: " << m_params << "\n";);
-        #pragma omp critical (gparams)
-        {
-            result = m_params;
-        }
-        return result;
+    params_ref const& get_ref() { 
+        return m_params;
     }
 
     // -----------------------------------------------
@@ -464,16 +454,14 @@ public:
                 out << "Example:  pp.decimal=true\n";
                 out << "\n";
             }
-            dictionary<param_descrs*>::iterator it  = get_module_param_descrs().begin();
-            dictionary<param_descrs*>::iterator end = get_module_param_descrs().end();
-            for (; it != end; ++it) {
-                out << "[module] " << it->m_key;
+            for (auto & kv : get_module_param_descrs()) {
+                out << "[module] " << kv.m_key;
                 char const * descr = nullptr;
-                if (get_module_descrs().find(it->m_key, descr)) {
+                if (get_module_descrs().find(kv.m_key, descr)) {
                     out << ", description: " << descr;
                 }
                 out << "\n";
-                it->m_value->display(out, indent + 4, smt2_style, include_descr);
+                kv.m_value->display(out, indent + 4, smt2_style, include_descr);
             }
         }
     }
@@ -481,12 +469,10 @@ public:
     void display_modules(std::ostream & out) {
         #pragma omp critical (gparams)
         {
-            dictionary<param_descrs*>::iterator it  = get_module_param_descrs().begin();
-            dictionary<param_descrs*>::iterator end = get_module_param_descrs().end();
-            for (; it != end; ++it) {
-                out << "[module] " << it->m_key;
+            for (auto & kv : get_module_param_descrs()) {
+                out << "[module] " << kv.m_key;
                 char const * descr = nullptr;
-                if (get_module_descrs().find(it->m_key, descr)) {
+                if (get_module_descrs().find(kv.m_key, descr)) {
                     out << ", description: " << descr;
                 }
                 out << "\n";
@@ -618,10 +604,10 @@ params_ref gparams::get_module(symbol const & module_name) {
     return g_imp->get_module(module_name);
 }
 
-params_ref gparams::get() {
-    TRACE("gparams", tout << "gparams::get()\n";);
+params_ref const& gparams::get_ref() {
+    TRACE("gparams", tout << "gparams::get_ref()\n";);
     SASSERT(g_imp != 0);
-    return g_imp->get();
+    return g_imp->get_ref();
 }
 
 void gparams::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) {

@@ -1071,7 +1071,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     SASSERT(m_mpz_manager.is_int64(max_exp_diff));
     SASSERT(m_mpz_manager.get_uint64(max_exp_diff) <= UINT_MAX);
 
-    uint64 max_exp_diff_ui64 = m_mpz_manager.get_uint64(max_exp_diff);
+    uint64_t max_exp_diff_ui64 = m_mpz_manager.get_uint64(max_exp_diff);
     SASSERT(max_exp_diff_ui64 <= UINT_MAX);
     unsigned max_exp_diff_ui = (unsigned)max_exp_diff_ui64;
     m_mpz_manager.del(max_exp_diff);
@@ -1919,7 +1919,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
 
     expr_ref pow_2_sbitsm1(m), m1(m);
     pow_2_sbitsm1 = m_bv_util.mk_numeral(fu().fm().m_powers2(sbits - 1), sbits);
-    m1 = m_bv_util.mk_numeral(-1, ebits);
+    m1 = m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits));
     m_simp.mk_eq(a_sig, pow_2_sbitsm1, t1);
     m_simp.mk_eq(a_exp, m1, t2);
     m_simp.mk_and(t1, t2, tie);
@@ -1927,7 +1927,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
 
     m_simp.mk_and(tie, rm_is_rte, c421);
     m_simp.mk_and(tie, rm_is_rta, c422);
-    c423 = m_bv_util.mk_sle(a_exp, m_bv_util.mk_numeral(-2, ebits));
+    c423 = m_bv_util.mk_sle(a_exp, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(2, ebits)));
 
     dbg_decouple("fpa2bv_r2i_c421", c421);
     dbg_decouple("fpa2bv_r2i_c422", c422);
@@ -2452,7 +2452,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
             const mpz & ovft = m_mpf_manager.m_powers2.m1(to_ebits+1, false);
             first_ovf_exp = m_bv_util.mk_numeral(ovft, from_ebits+2);
             first_udf_exp = m_bv_util.mk_concat(
-                m_bv_util.mk_numeral(-1, ebits_diff + 3),
+                m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits_diff + 3)),
                 m_bv_util.mk_numeral(1, to_ebits + 1));
             dbg_decouple("fpa2bv_to_float_first_ovf_exp", first_ovf_exp);
             dbg_decouple("fpa2bv_to_float_first_udf_exp", first_udf_exp);
@@ -3107,7 +3107,7 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
 
         expr_ref exp_bv(m), exp_all_ones(m);
         exp_bv = m_bv_util.mk_extract(ebits+sbits-2, sbits-1, result);
-        exp_all_ones = m.mk_eq(exp_bv, m_bv_util.mk_numeral(-1, ebits));
+        exp_all_ones = m.mk_eq(exp_bv, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits)));
         m_extra_assertions.push_back(exp_all_ones);
 
         expr_ref sig_bv(m), sig_is_non_zero(m);
@@ -3246,18 +3246,22 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     incd = m.mk_eq(rounding_decision, bv1);
     pr_is_zero = m.mk_eq(pre_rounded, m_bv_util.mk_numeral(0, bv_sz + 3));
     ovfl = m.mk_and(incd, pr_is_zero);
+    dbg_decouple("fpa2bv_to_bv_incd", incd);
+    dbg_decouple("fpa2bv_to_bv_ovfl", ovfl);
 
     expr_ref ul(m), in_range(m);
     if (!is_signed) {
-        ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_numeral(-1, bv_sz));
-        in_range = m.mk_and(m.mk_not(x_is_neg), m.mk_not(ovfl),
+        ul = m_bv_util.mk_zero_extend(3, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz)));
+        in_range = m.mk_and(m.mk_or(m.mk_not(x_is_neg),
+                                    m.mk_eq(pre_rounded, m_bv_util.mk_numeral(0, bv_sz+3))),
+                            m.mk_not(ovfl),
                             m_bv_util.mk_ule(pre_rounded, ul));
     }
     else {
         expr_ref ll(m);
         ll = m_bv_util.mk_sign_extend(3, m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, bv_sz-1)));
-        ul = m_bv_util.mk_zero_extend(4, m_bv_util.mk_numeral(-1, bv_sz-1));
-        ovfl = m.mk_or(ovfl, m_bv_util.mk_sle(pre_rounded, m_bv_util.mk_numeral(-1, bv_sz + 3)));
+        ul = m_bv_util.mk_zero_extend(4, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz-1)));
+        ovfl = m.mk_or(ovfl, m_bv_util.mk_sle(pre_rounded, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz + 3))));
         in_range = m.mk_and(m.mk_not(ovfl),
                             m_bv_util.mk_sle(ll, pre_rounded),
                             m_bv_util.mk_sle(pre_rounded, ul));

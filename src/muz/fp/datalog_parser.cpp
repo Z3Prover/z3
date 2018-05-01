@@ -979,7 +979,7 @@ protected:
             if(!num.is_uint64()) {
                 return unexpected(tok, "integer expected");
             }
-            uint64 int_num = num.get_uint64();
+            uint64_t int_num = num.get_uint64();
             
             app * numeral = mk_symbol_const(int_num, s);
             args.push_back(numeral);
@@ -1072,7 +1072,7 @@ protected:
         }
     }
 
-    sort * register_finite_sort(symbol name, uint64 domain_size, context::sort_kind k) {
+    sort * register_finite_sort(symbol name, uint64_t domain_size, context::sort_kind k) {
         if(m_sort_dict.contains(name.bare_str())) {
             throw default_exception(default_exception::fmt(), "sort %s already declared", name.bare_str());
         }
@@ -1102,7 +1102,7 @@ protected:
     app* mk_const(symbol const& name, sort* s) {
         app * res;
         if(m_arith.is_int(s)) {
-            uint64 val;
+            uint64_t val;
             if(!string_to_uint64(name.bare_str(), val)) {
                 throw default_exception(default_exception::fmt(), "Invalid integer: \"%s\"", name.bare_str());
             }
@@ -1117,7 +1117,7 @@ protected:
     /**
        \brief Make a constant for DK_SYMBOL sort out of an integer
      */
-    app* mk_symbol_const(uint64 el, sort* s) {
+    app* mk_symbol_const(uint64_t el, sort* s) {
         app * res;
         if(m_arith.is_int(s)) {
             res = m_arith.mk_numeral(rational(el, rational::ui64()), s);
@@ -1128,7 +1128,7 @@ protected:
         }
         return res;
     }
-    app* mk_const(uint64 el, sort* s) {
+    app* mk_const(uint64_t el, sort* s) {
         unsigned idx = m_context.get_constant_number(s, el);
         app * res = m_decl_util.mk_numeral(idx, s);
         return res;
@@ -1137,7 +1137,7 @@ protected:
     table_element mk_table_const(symbol const& name, sort* s) {
         return m_context.get_constant_number(s, name);
     }
-    table_element mk_table_const(uint64 el, sort* s) {
+    table_element mk_table_const(uint64_t el, sort* s) {
         return m_context.get_constant_number(s, el);
     }
 };
@@ -1169,9 +1169,9 @@ protected:
 // -----------------------------------
 
 class wpa_parser_impl : public wpa_parser, dparser {
-    typedef svector<uint64> uint64_vector;
-    typedef hashtable<uint64, uint64_hash, default_eq<uint64> > uint64_set;
-    typedef map<uint64, symbol, uint64_hash, default_eq<uint64> > num2sym;
+    typedef svector<uint64_t> uint64_vector;
+    typedef hashtable<uint64_t, uint64_hash, default_eq<uint64_t> > uint64_set;
+    typedef map<uint64_t, symbol, uint64_hash, default_eq<uint64_t> > num2sym;
     typedef map<symbol, uint64_set*, symbol_hash_proc, symbol_eq_proc> sym2nums;
 
     num2sym m_number_names;
@@ -1261,7 +1261,7 @@ private:
         return true;
     }
 
-    bool inp_num_to_element(sort * s, uint64 num, table_element & res) {
+    bool inp_num_to_element(sort * s, uint64_t num, table_element & res) {
         if(s==m_bool_sort.get() || s==m_short_sort.get()) {
             res = mk_table_const(num, s);
             return true;
@@ -1332,7 +1332,7 @@ private:
             if(*ptr==0) {
                 break;
             }
-            uint64 num;
+            uint64_t num;
             if(!read_uint64(ptr, num)) {
                 throw default_exception(default_exception::fmt(), "number expected on line %d in file %s", 
                     m_current_line, m_current_file.c_str());
@@ -1389,7 +1389,7 @@ private:
             bool fact_fail = false;
             fact.reset();
             for(unsigned i=0;i<pred_arity; i++) {
-                uint64 const_num = args[i];
+                uint64_t const_num = args[i];
                 table_element c;
                 if(!inp_num_to_element(arg_sorts[i], const_num, c)) {
                     fact_fail = true;
@@ -1415,7 +1415,7 @@ private:
             symbol sort_name = sit->m_key;
             uint64_set & sort_content = *sit->m_value;
             //the +1 is for a zero element which happens to appear in the problem files
-            uint64 domain_size = sort_content.size()+1;
+            uint64_t domain_size = sort_content.size()+1;
             // sort * s;
             if(!m_use_map_names) {
                 /* s = */ register_finite_sort(sort_name, domain_size, context::SK_UINT64);
@@ -1428,7 +1428,7 @@ private:
             uint64_set::iterator cit = sort_content.begin();
             uint64_set::iterator cend = sort_content.end();
             for(; cit!=cend; ++cit) {
-                uint64 const_num = *cit;
+                uint64_t const_num = *cit;
                 inp_num_to_element(s, const_num);
             }
             */
@@ -1443,7 +1443,7 @@ private:
         *ptr=0;
     }
 
-    bool parse_map_line(char * full_line, uint64 & num, symbol & name) {
+    bool parse_map_line(char * full_line, uint64_t & num, symbol & name) {
         cut_off_comment(full_line);
         if(full_line[0]==0) {
             return false;
@@ -1515,7 +1515,7 @@ private:
             m_current_line++;
             char * full_line = rdr.get_line();
 
-            uint64 num;
+            uint64_t num;
             symbol el_name;
 
             if(!parse_map_line(full_line, num, el_name)) {

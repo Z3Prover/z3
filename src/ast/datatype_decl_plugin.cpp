@@ -390,6 +390,7 @@ namespace datatype {
                 TRACE("datatype", tout << "declaring " << datatypes[i]->name() << "\n";);
                 if (m_defs.find(datatypes[i]->name(), d)) {
                     TRACE("datatype", tout << "delete previous version for " << datatypes[i]->name() << "\n";);
+                    u().reset();
                     dealloc(d);
                 }
                 m_defs.insert(datatypes[i]->name(), datatypes[i]);

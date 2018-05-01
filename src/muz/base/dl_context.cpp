@@ -45,7 +45,7 @@ namespace datalog {
     protected:
         sort_ref m_sort;
         bool m_limited_size;
-        uint64 m_size;
+        uint64_t m_size;
 
         sort_domain(sort_kind k, context & ctx, sort * s)
             : m_kind(k), m_sort(s, ctx.get_manager()) {
@@ -103,15 +103,15 @@ namespace datalog {
     };
 
     class context::uint64_sort_domain : public sort_domain {
-        typedef map<uint64,       finite_element,   uint64_hash, default_eq<uint64> > el2num;
-        typedef svector<uint64> num2el;
+        typedef map<uint64_t,     finite_element,   uint64_hash, default_eq<uint64_t> > el2num;
+        typedef svector<uint64_t> num2el;
 
         el2num m_el_numbers;
         num2el m_el_names;
     public:
         uint64_sort_domain(context & ctx, sort * s) : sort_domain(SK_UINT64, ctx, s) {}
 
-        finite_element get_number(uint64 el) {
+        finite_element get_number(uint64_t el) {
             //we number symbols starting from zero, so table->size() is equal to the
             //index of the symbol to be added next
 
@@ -368,14 +368,14 @@ namespace datalog {
         return dom.get_number(sym);
     }
 
-    context::finite_element context::get_constant_number(relation_sort srt, uint64 el) {
+    context::finite_element context::get_constant_number(relation_sort srt, uint64_t el) {
         sort_domain & dom0 = get_sort_domain(srt);
         SASSERT(dom0.get_kind()==SK_UINT64);
         uint64_sort_domain & dom = static_cast<uint64_sort_domain &>(dom0);
         return dom.get_number(el);
     }
 
-    void context::print_constant_name(relation_sort srt, uint64 num, std::ostream & out)
+    void context::print_constant_name(relation_sort srt, uint64_t num, std::ostream & out)
     {
         if (has_sort_domain(srt)) {
             SASSERT(num<=UINT_MAX);
@@ -386,7 +386,7 @@ namespace datalog {
         }
     }
 
-    bool context::try_get_sort_constant_count(relation_sort srt, uint64 & constant_count) {
+    bool context::try_get_sort_constant_count(relation_sort srt, uint64_t & constant_count) {
         if (!has_sort_domain(srt)) {
             return false;
         }
@@ -394,18 +394,18 @@ namespace datalog {
         return true;
     }
 
-    uint64 context::get_sort_size_estimate(relation_sort srt) {
+    uint64_t context::get_sort_size_estimate(relation_sort srt) {
         if (get_decl_util().is_rule_sort(srt)) {
             return 1;
         }
-        uint64 res;
+        uint64_t res;
         if (!try_get_sort_constant_count(srt, res)) {
             const sort_size & sz = srt->get_num_elements();
             if (sz.is_finite()) {
                 res = sz.size();
             }
             else {
-                res = std::numeric_limits<uint64>::max();
+                res = std::numeric_limits<uint64_t>::max();
             }
         }
         return res;

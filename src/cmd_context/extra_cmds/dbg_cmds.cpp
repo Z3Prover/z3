@@ -271,7 +271,7 @@ UNARY_CMD(elim_unused_vars_cmd, "dbg-elim-unused-vars", "<expr>", "eliminate unu
         return;
     }
     expr_ref r(ctx.m());
-    elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get(), r);
+    elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get_ref(), r);
     SASSERT(!is_quantifier(r) || !to_quantifier(r)->may_have_unused_vars());
     ctx.display(ctx.regular_stream(), r);
     ctx.regular_stream() << std::endl;

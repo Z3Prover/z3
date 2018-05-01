@@ -194,8 +194,8 @@ static void tst2() {
     ENSURE(uint64_max.is_uint64());
 
     // get_int64, get_uint64
-    uint64 u1 = uint64_max.get_uint64();
-    uint64 u2 = UINT64_MAX;
+    uint64_t u1 = uint64_max.get_uint64();
+    uint64_t u2 = UINT64_MAX;
     VERIFY(u1 == u2);
     std::cout << "int64_max: " << int64_max << ", INT64_MAX: " << INT64_MAX << ", int64_max.get_int64(): " << int64_max.get_int64() << ", int64_max.get_uint64(): " << int64_max.get_uint64() << "\n";
     ENSURE(int64_max.get_int64() == INT64_MAX);

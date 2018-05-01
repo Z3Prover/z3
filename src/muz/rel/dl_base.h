@@ -832,7 +832,7 @@ namespace datalog {
     class table_plugin;
     class table_base;
 
-    typedef uint64 table_sort;
+    typedef uint64_t table_sort;
     typedef svector<table_sort> table_signature_base0;
     typedef uint64_hash table_sort_hash;
 

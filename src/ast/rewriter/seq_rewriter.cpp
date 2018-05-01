@@ -200,6 +200,9 @@ void re2automaton::set_solver(expr_solver* solver) {
     m_sa = alloc(symbolic_automata_t, sm, *m_ba.get());
 }
 
+eautomaton* re2automaton::mk_product(eautomaton* a1, eautomaton* a2) {
+    return m_sa->mk_product(*a1, *a2);
+}
 
 eautomaton* re2automaton::operator()(expr* e) { 
     eautomaton* r = re2aut(e); 
@@ -364,6 +367,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         return mk_re_concat(args[0], args[1], result);
     case OP_RE_UNION:
+        if (num_args == 1) {
+            result = args[0]; return BR_DONE;
+        }
         SASSERT(num_args == 2);
         return mk_re_union(args[0], args[1], result);
     case OP_RE_RANGE:
@@ -850,7 +856,7 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         return BR_DONE;
     }
     if (m_util.str.is_string(b, s2) && s2.length() == 0) {
-        result = m_util.str.mk_concat(a, c);
+        result = m_util.str.mk_concat(c, a);
         return BR_REWRITE1;
     }
     if (m_util.str.is_string(a, s1) && s1.length() == 0) {

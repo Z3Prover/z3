@@ -61,7 +61,7 @@ namespace datalog {
     class relation_manager;
 
     typedef sort * relation_sort;
-    typedef uint64 table_element;
+    typedef uint64_t table_element;
     typedef svector<table_element> table_fact;
 
     typedef app * relation_element;
@@ -351,16 +351,16 @@ namespace datalog {
         /**
            \brief Return number of a symbol in a DK_UINT64 kind sort (\see register_sort() )
          */
-        finite_element get_constant_number(relation_sort srt, uint64 el);
+        finite_element get_constant_number(relation_sort srt, uint64_t el);
 
         /**
            \brief Output name of constant with number \c num in sort \c sort.
         */
-        void print_constant_name(relation_sort sort, uint64 num, std::ostream & out);
+        void print_constant_name(relation_sort sort, uint64_t num, std::ostream & out);
 
-        bool try_get_sort_constant_count(relation_sort srt, uint64 & constant_count);
+        bool try_get_sort_constant_count(relation_sort srt, uint64_t & constant_count);
 
-        uint64 get_sort_size_estimate(relation_sort srt);
+        uint64_t get_sort_size_estimate(relation_sort srt);
 
         /**
            \brief Assign names of variables used in the declaration of a predicate.

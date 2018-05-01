@@ -718,8 +718,8 @@ void cmd_context::init_manager_core(bool new_manager) {
     }
     m_dt_eh = alloc(dt_eh, *this);
     m_pmanager->set_new_datatype_eh(m_dt_eh.get());
-    if (!has_logic()) {
-        TRACE("cmd_context", tout << "init manager\n";);
+    if (!has_logic() && new_manager) {
+        TRACE("cmd_context", tout << "init manager " << m_logic << "\n";);
         // add list type only if the logic is not specified.
         // it prevents clashes with builtin types.
         insert(pm().mk_plist_decl());
@@ -757,6 +757,7 @@ void cmd_context::init_external_manager() {
 }
 
 bool cmd_context::set_logic(symbol const & s) {
+    TRACE("cmd_context", tout << s << "\n";);
     if (has_logic())
         throw cmd_exception("the logic has already been set");
     if (has_manager() && m_main_ctx)
@@ -1240,7 +1241,7 @@ void cmd_context::insert_aux_pdecl(pdecl * p) {
     m_aux_pdecls.push_back(p);
 }
 
-void cmd_context::reset(bool finalize) {
+void cmd_context::reset(bool finalize) {    
     m_processing_pareto = false;
     m_logic = symbol::null;
     m_check_sat_result = nullptr;
@@ -1327,7 +1328,8 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
-    if (m_solver)
+    m().limit().push(m_params.rlimit());
+    if (m_solver) 
         m_solver->push();
     if (m_opt)
         m_opt->push();
@@ -1350,9 +1352,10 @@ void cmd_context::restore_func_decls(unsigned old_sz) {
 }
 
 void cmd_context::restore_psort_inst(unsigned old_sz) {
-    for (unsigned i = old_sz; i < m_psort_inst_stack.size(); ++i) {
+    for (unsigned i = m_psort_inst_stack.size(); i-- > old_sz; ) {
         pdecl * s = m_psort_inst_stack[i];
-        s->reset_cache(*m_pmanager);
+        s->reset_cache(pm());
+        pm().dec_ref(s);
     }
     m_psort_inst_stack.resize(old_sz);
 }
@@ -1441,6 +1444,9 @@ void cmd_context::pop(unsigned n) {
     restore_assertions(s.m_assertions_lim);
     restore_psort_inst(s.m_psort_inst_stack_lim);
     m_scopes.shrink(new_lvl);
+    while (n--) {
+        m().limit().pop();
+    }
 
 }
 
@@ -1451,7 +1457,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     TRACE("before_check_sat", dump_assertions(tout););
     init_manager();
     unsigned timeout = m_params.m_timeout;
-    unsigned rlimit  = m_params.m_rlimit;
+    unsigned rlimit  = m_params.rlimit();
     scoped_watch sw(*this);
     lbool r;
     bool was_opt = false;
@@ -1528,7 +1534,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
 
 void cmd_context::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector & conseq) {
     unsigned timeout = m_params.m_timeout;
-    unsigned rlimit  = m_params.m_rlimit;
+    unsigned rlimit  = m_params.rlimit();
     lbool r;
     m_check_sat_result = m_solver.get(); // solver itself stores the result.
     m_solver->set_progress_callback(this);
@@ -2024,8 +2030,8 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
         }
     }
     if (m_owner.m_scopes.size() > 0) {
+        m_owner.pm().inc_ref(pd);
         m_owner.m_psort_inst_stack.push_back(pd);
-
     }
 }
 

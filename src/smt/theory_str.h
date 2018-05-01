@@ -20,9 +20,11 @@
 #include "util/trail.h"
 #include "util/union_find.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/hashtable.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq_decl_plugin.h"
 #include "smt/smt_theory.h"
 #include "smt/params/theory_str_params.h"
@@ -36,6 +38,7 @@
 namespace smt {
 
 typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
+typedef int_hashtable<int_hash, default_eq<int> > integer_set;
 
 class str_value_factory : public value_factory {
     seq_util u;
@@ -148,6 +151,70 @@ public:
     bool matches(zstring input);
 };
 
+class regex_automaton_under_assumptions {
+protected:
+    expr * re_term;
+    eautomaton * aut;
+    bool polarity;
+
+    bool assume_lower_bound;
+    rational lower_bound;
+
+    bool assume_upper_bound;
+    rational upper_bound;
+public:
+    regex_automaton_under_assumptions() :
+        re_term(NULL), aut(NULL), polarity(false),
+        assume_lower_bound(false), assume_upper_bound(false) {}
+
+    regex_automaton_under_assumptions(expr * re_term, eautomaton * aut, bool polarity) :
+        re_term(re_term), aut(aut), polarity(polarity),
+        assume_lower_bound(false), assume_upper_bound(false) {}
+
+    void set_lower_bound(rational & lb) {
+        lower_bound = lb;
+        assume_lower_bound = true;
+    }
+    void unset_lower_bound() {
+        assume_lower_bound = false;
+    }
+
+    void set_upper_bound(rational & ub) {
+        upper_bound = ub;
+        assume_upper_bound = true;
+    }
+    void unset_upper_bound() {
+        assume_upper_bound = false;
+    }
+
+    bool get_lower_bound(rational & lb) const {
+        if (assume_lower_bound) {
+            lb = lower_bound;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool get_upper_bound(rational & ub) const {
+        if (assume_upper_bound) {
+            ub = upper_bound;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    eautomaton * get_automaton() const { return aut; }
+    expr * get_regex_term() const { return re_term; }
+    bool get_polarity() const { return polarity; }
+
+    virtual ~regex_automaton_under_assumptions() {
+        // don't free str_in_re or aut;
+        // they are managed separately
+    }
+};
+
 class theory_str : public theory {
     struct T_cut
     {
@@ -250,6 +317,8 @@ protected:
 
     str_value_factory * m_factory;
 
+    re2automaton m_mk_aut;
+
     // Unique identifier appended to unused variables to ensure that model construction
     // does not introduce equalities when they weren't enforced.
     unsigned m_unused_id;
@@ -266,6 +335,10 @@ protected:
 
     // enode lists for library-aware/high-level string terms (e.g. substr, contains)
     ptr_vector<enode> m_library_aware_axiom_todo;
+
+    // list of axioms that are re-asserted every time the scope is popped
+    expr_ref_vector m_persisted_axioms;
+    expr_ref_vector m_persisted_axiom_todo;
 
     // hashtable of all exprs for which we've already set up term-specific axioms --
     // this prevents infinite recursive descent with respect to axioms that
@@ -320,7 +393,31 @@ protected:
     // TBD: do a curried map for determinism.
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
     obj_map<expr, std::set<zstring> > regex_in_var_reg_str_map;
+
+    // regex automata
+    scoped_ptr_vector<eautomaton> m_automata;
+    ptr_vector<eautomaton> regex_automata;
+    obj_hashtable<expr> regex_terms;
+    obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
+    obj_map<expr, svector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
     obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
+    obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
+    obj_hashtable<expr> regex_terms_with_length_constraints; // set of regex terms which had had length constraints asserted in the current scope
+    obj_map<expr, expr*> regex_term_to_length_constraint; // (str.in.re S R) -> (length constraint over S wrt. R)
+    obj_map<expr, ptr_vector<expr> > regex_term_to_extra_length_vars; // extra length vars used in regex_term_to_length_constraint entries
+
+    // keep track of the last lower/upper bound we saw for each string term
+    // so we don't perform duplicate work
+    obj_map<expr, rational> regex_last_lower_bound;
+    obj_map<expr, rational> regex_last_upper_bound;
+
+    // each counter maps a (str.in.re) expression to an integer.
+    // use helper functions regex_inc_counter() and regex_get_counter() to access
+    obj_map<expr, unsigned> regex_length_attempt_count;
+    obj_map<expr, unsigned> regex_fail_count;
+    obj_map<expr, unsigned> regex_intersection_fail_count;
+
+    obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
     svector<char> char_set;
     std::map<char, int>  charSetLookupTable;
@@ -439,13 +536,31 @@ protected:
     void instantiate_axiom_str_to_int(enode * e);
     void instantiate_axiom_int_to_str(enode * e);
 
+    void add_persisted_axiom(expr * a);
+
     expr * mk_RegexIn(expr * str, expr * regexp);
     void instantiate_axiom_RegexIn(enode * e);
     app * mk_unroll(expr * n, expr * bound);
-
     void process_unroll_eq_const_str(expr * unrollFunc, expr * constStr);
     void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
     void process_concat_eq_unroll(expr * concat, expr * unroll);
+
+    // regex automata and length-aware regex
+    unsigned estimate_regex_complexity(expr * re);
+    unsigned estimate_regex_complexity_under_complement(expr * re);
+    unsigned estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2);
+    bool check_regex_length_linearity(expr * re);
+    bool check_regex_length_linearity_helper(expr * re, bool already_star);
+    expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
+    void check_subterm_lengths(expr * re, integer_set & lens);
+    void find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut);
+    bool refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound);
+    bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
+    expr_ref generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints);
+    void aut_path_add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
+    expr_ref aut_path_rewrite_constraint(expr * cond, expr * ch_var);
+    void regex_inc_counter(obj_map<expr, unsigned> & counter_map, expr * key);
+    unsigned regex_get_counter(obj_map<expr, unsigned> & counter_map, expr * key);
 
     void set_up_axioms(expr * ex);
     void handle_equality(expr * lhs, expr * rhs);
@@ -535,6 +650,7 @@ protected:
             std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
             std::map<expr*, std::set<expr*> > & unrollGroupMap);
 
+    bool term_appears_as_subterm(expr * needle, expr * haystack);
     void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
             std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
     void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
@@ -623,6 +739,7 @@ protected:
     void new_diseq_eh(theory_var, theory_var) override;
 
     theory* mk_fresh(context*) override { return alloc(theory_str, get_manager(), m_params); }
+    void init(context * ctx) override;
     void init_search_eh() override;
     void add_theory_assumptions(expr_ref_vector & assumptions) override;
     lbool validate_unsat_core(expr_ref_vector & unsat_core) override;

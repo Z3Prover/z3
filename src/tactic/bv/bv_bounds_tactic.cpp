@@ -25,7 +25,7 @@ Author:
 #include "ast/ast_pp.h"
 #include <climits>
 
-static uint64 uMaxInt(unsigned sz) {
+static uint64_t uMaxInt(unsigned sz) {
     SASSERT(sz <= 64);
     return ULLONG_MAX >> (64u - sz);
 }
@@ -35,12 +35,12 @@ namespace {
     struct interval {
         // l < h: [l, h]
         // l > h: [0, h] U [l, UMAX_INT]
-        uint64 l, h;
+        uint64_t l, h;
         unsigned sz;
         bool tight;
 
         interval() {}
-        interval(uint64 l, uint64 h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
+        interval(uint64_t l, uint64_t h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
             // canonicalize full set
             if (is_wrapped() && l == h + 1) {
                 this->l = 0;
@@ -183,7 +183,7 @@ namespace {
         svector<expr_set*> m_expr_vars;
         svector<expr_cnt*> m_bound_exprs;
 
-        bool is_number(expr *e, uint64& n, unsigned& sz) const {
+        bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
             rational r;
             if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
                 n = r.get_uint64();
@@ -193,7 +193,7 @@ namespace {
         }
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
-            uint64 n;
+            uint64_t n;
             expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz;
 
@@ -550,7 +550,7 @@ namespace {
         svector<expr_set*> m_expr_vars;
         svector<expr_cnt*> m_bound_exprs;
 
-        bool is_number(expr *e, uint64& n, unsigned& sz) const {
+        bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
             rational r;
             if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
                 n = r.get_uint64();
@@ -560,7 +560,7 @@ namespace {
         }
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
-            uint64 n;
+            uint64_t n;
             expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz = 0;
 

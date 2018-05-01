@@ -26,11 +26,11 @@ prime_generator::prime_generator() {
     process_next_k_numbers(128);
 }
 
-void prime_generator::process_next_k_numbers(uint64 k) {
-    svector<uint64> todo;
-    uint64 begin = m_primes.back() + 2;
-    uint64 end   = begin + k;
-    for (uint64 i = begin; i < end; i+=2) {
+void prime_generator::process_next_k_numbers(uint64_t k) {
+    svector<uint64_t> todo;
+    uint64_t begin = m_primes.back() + 2;
+    uint64_t end   = begin + k;
+    for (uint64_t i = begin; i < end; i+=2) {
         todo.push_back(i);
     }
     unsigned j = 1;
@@ -38,7 +38,7 @@ void prime_generator::process_next_k_numbers(uint64 k) {
     while (!todo.empty()) {
         unsigned sz = m_primes.size();
         for (; j < sz; j++) {
-            uint64 p = m_primes[j];
+            uint64_t p = m_primes[j];
             unsigned todo_sz = todo.size();
             unsigned k1 = 0;
             unsigned k2 = 0;
@@ -59,7 +59,7 @@ void prime_generator::process_next_k_numbers(uint64 k) {
                 return;
             }
         }
-        uint64 p = m_primes.back();
+        uint64_t p = m_primes.back();
         p = p*p;
         unsigned todo_sz = todo.size();
         unsigned k1 = 0;
@@ -83,7 +83,7 @@ void prime_generator::finalize() {
     m_primes.finalize();
 }
 
-uint64 prime_generator::operator()(unsigned idx) {
+uint64_t prime_generator::operator()(unsigned idx) {
     if (idx < m_primes.size())
         return m_primes[idx];
     if (idx > PRIME_LIST_MAX_SIZE)
@@ -109,14 +109,14 @@ prime_iterator::prime_iterator(prime_generator * g):m_idx(0) {
     }
 }
 
-uint64 prime_iterator::next() {
+uint64_t prime_iterator::next() {
     unsigned idx = m_idx;
     m_idx++;
     if (!m_global) {
         return (*m_generator)(idx);
     }
     else {
-        uint64 r;
+        uint64_t r;
         #pragma omp critical (prime_iterator)
         {
             r = (*m_generator)(idx);

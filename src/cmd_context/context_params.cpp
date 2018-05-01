@@ -135,7 +135,7 @@ void context_params::set(char const * param, char const * value) {
 }
 
 void context_params::updt_params() {
-    updt_params(gparams::get());
+    updt_params(gparams::get_ref());
 }
 
 void context_params::updt_params(params_ref const & p) {

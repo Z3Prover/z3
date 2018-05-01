@@ -446,7 +446,16 @@ namespace smt {
             expr* arg = atom->get_arg(i);
             literal l = compile_arg(arg);
             numeral c = m_util.get_coeff(atom, i);
-            args.push_back(std::make_pair(l, c));
+            switch (ctx.get_assignment(l)) {
+            case l_true: 
+                k -= c;
+                break;
+            case l_false:
+                break;
+            default:
+                args.push_back(std::make_pair(l, c));
+                break;
+            }
         }
         if (m_util.is_at_most_k(atom) || m_util.is_le(atom)) {
             // turn W <= k into -W >= -k
@@ -458,7 +467,7 @@ namespace smt {
         else {
             SASSERT(m_util.is_at_least_k(atom) || m_util.is_ge(atom) || m_util.is_eq(atom));
         }
-        TRACE("pb", display(tout, *c););        
+        TRACE("pb", display(tout, *c, true););        
         //app_ref fml1(m), fml2(m);
         //fml1 = c->to_expr(ctx, m);
         c->unique();
