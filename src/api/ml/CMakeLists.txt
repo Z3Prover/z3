@@ -1,5 +1,5 @@
 
-# FIXME
+# FIXME: what's the extension on windows? This is used in AddOCaml.cmake
 set(CMAKE_C_OUTPUT_EXTENSION ".o")
 
 include(FindOCaml)
@@ -57,6 +57,6 @@ add_ocaml_library(z3
   OCAML z3
   OCAMLGEN z3enums z3native
   CGEN z3native_stubs
-  CFLAGS "-std=c++11 -I ../ -I ${OCAML_STDLIB_PATH}"
+  CFLAGS "-I ../ -I ${OCAML_STDLIB_PATH}"
   PKG num)
 
