@@ -34,7 +34,6 @@ namespace sat {
         svector<int>           m_left, m_right;
         literal_vector         m_root, m_parent;
         bool                   m_learned;
-        bool                   m_binary;   // is the BIG produced from binary clauses or hyper-binary resolution?
 
         svector<std::pair<literal, literal>> m_del_bin;
         

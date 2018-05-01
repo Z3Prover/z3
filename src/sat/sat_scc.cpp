@@ -237,7 +237,6 @@ namespace sat {
     }
 
     unsigned scc::reduce_tr(bool learned) {        
-        unsigned num_lits = m_solver.num_vars() * 2;
         init_big(learned);
         unsigned num_elim = m_big.reduce_tr(m_solver);
         m_num_elim_bin += num_elim;

@@ -113,13 +113,13 @@ class eq2bv_tactic : public tactic {
             return v;
         }
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             for (auto const& kv : m_map) {
                 out << "(model-set " << kv.m_key->get_name() << " " << kv.m_value->get_name() << ")\n";
             }
         }
 
-        virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }
+        void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
     };
 

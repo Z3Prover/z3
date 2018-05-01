@@ -177,7 +177,6 @@ namespace sat {
     }
 
     unsigned big::reduce_tr(solver& s) {
-        unsigned num_lits = s.num_vars() * 2;
         unsigned idx = 0;
         unsigned elim = 0;
         m_del_bin.reset();

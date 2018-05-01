@@ -162,11 +162,16 @@ class parallel_tactic : public tactic {
         expr_ref_vector m_vars;
         expr_ref_vector m_cube;
     public:
-        cube_var(expr_ref_vector& c, expr_ref_vector& vs):
+        cube_var(expr_ref_vector const& c, expr_ref_vector const& vs):
             m_vars(vs), m_cube(c) {}
 
+        cube_var(cube_var const& other):
+            m_vars(other.m_vars), m_cube(other.m_cube) {}
+
         cube_var operator()(ast_translation& tr) {
-            return cube_var(tr(m_cube), tr(m_vars));
+            expr_ref_vector vars(tr(m_vars));
+            expr_ref_vector cube(tr(m_cube));
+            return cube_var(cube, vars);
         }
 
         expr_ref_vector const& cube() const { return m_cube; }

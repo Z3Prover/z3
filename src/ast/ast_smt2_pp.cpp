@@ -1146,7 +1146,6 @@ public:
 
 
     void operator()(func_decl * f, expr * e, format_ref & r, char const* cmd) {
-        unsigned arity = f->get_arity();
         unsigned len;
         format * fname = m_env.pp_fdecl_name(f, len);
         register_var_names(f->get_arity());        
