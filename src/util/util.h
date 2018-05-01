@@ -191,16 +191,22 @@ bool is_threaded();
         }                                                       \
     } } ((void) 0)              
 
+#ifdef _MSC_VER
+#define DO_PRAGMA(x) __pragma(x)
+#else
+#define DO_PRAGMA(x) _Pragma(x)
+#endif
+
 #ifdef _NO_OMP_
 #define LOCK_CODE(CODE) CODE;
 #else
 #define LOCK_CODE(CODE)                         \
     {                                           \
-        __pragma(omp critical (verbose_lock))   \
+        DO_PRAGMA(omp critical (verbose_lock))   \
             {                                   \
                 CODE;                           \
             }                                   \
-    }                                           
+    }                      
 #endif
 
 template<typename T>
