@@ -1035,10 +1035,10 @@ namespace sat {
         }
 
         if (coeff0 > 0 && inc < 0) {
-            inc_bound(std::max(0LL, coeff1) - coeff0);
+            inc_bound(std::max((int64_t)0, coeff1) - coeff0);
         }
         else if (coeff0 < 0 && inc > 0) {
-            inc_bound(coeff0 - std::min(0LL, coeff1));
+            inc_bound(coeff0 - std::min((int64_t)0, coeff1));
         }
         int64_t lbound = static_cast<int64_t>(m_bound);
 

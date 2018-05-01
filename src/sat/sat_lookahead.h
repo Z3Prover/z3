@@ -33,7 +33,6 @@ namespace sat {
     };
     
     inline std::ostream& operator<<(std::ostream& out, pp_prefix const& p) {
-        uint64_t q = p.m_prefix;
         unsigned d = std::min(63u, p.m_depth);
         for (unsigned i = 0; i <= d; ++i) {
             if (0 != (p.m_prefix & (1ull << i))) out << "1"; else out << "0";

@@ -32,11 +32,11 @@ class sat_allocator {
         char    m_data[CHUNK_SIZE];
         chunk():m_curr(m_data) {}
     };
+    char const *              m_id;
+    size_t                    m_alloc_size;
     ptr_vector<chunk>         m_chunks;
     void *                    m_chunk_ptr;
     ptr_vector<void>          m_free[NUM_FREE];
-    size_t                    m_alloc_size;
-    char const *              m_id;
 
     unsigned align_size(size_t sz) const {
         return  free_slot_id(sz) << PTR_ALIGNMENT;
