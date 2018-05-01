@@ -194,7 +194,7 @@ bool is_threaded();
 #ifdef _MSC_VER
 #define DO_PRAGMA(x) __pragma(x)
 #else
-#define DO_PRAGMA(x) _Pragma((x))
+#define DO_PRAGMA(x) _Pragma(#x)
 #endif
 
 #ifdef _NO_OMP_
