@@ -243,11 +243,13 @@ namespace sat {
 
         struct ba_sort {
             ba_solver& s;
+            typedef typename sat::literal literal;
+            typedef typename sat::literal_vector literal_vector;
+
             literal m_true;
             literal_vector m_lits;
+            
 
-            typedef sat::literal literal;
-            typedef sat::literal_vector literal_vector;
             ba_sort(ba_solver& s): s(s), m_true(null_literal) {}
             literal mk_false();
             literal mk_true();

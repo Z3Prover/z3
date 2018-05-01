@@ -1125,8 +1125,6 @@ namespace sat {
         unsigned offset = 1;
         DEBUG_CODE(active2pb(m_A););
 
-        unsigned init_marks = m_num_marks;
-
         do {
 
             if (m_overflow || offset > (1 << 12)) {
@@ -1361,10 +1359,9 @@ namespace sat {
             int64_t coeff = get_coeff(v);
             lbool val = value(v);
             bool is_true = val == l_true;
-            bool append = coeff != 0 && val != l_undef && (coeff < 0 == is_true);
+            bool append = coeff != 0 && val != l_undef && ((coeff < 0) == is_true);
             if (append) {
                 literal lit(v, !is_true);
-                unsigned acoeff = get_abs_coeff(v);
                 if (lvl(lit) == m_conflict_lvl) {
                     if (m_lemma[0] == null_literal) {
                         asserting_coeff = std::abs(coeff);
@@ -1699,7 +1696,6 @@ namespace sat {
 
     double ba_solver::get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const {
         constraint const& c = index2constraint(idx);
-        unsigned sz = c.size();
         switch (c.tag()) {
         case card_t: return get_reward(c.to_card(), occs);
         case pb_t: return get_reward(c.to_pb(), occs); 
@@ -2264,7 +2260,7 @@ namespace sat {
     bool ba_solver::validate_watch(pb const& p, literal alit) const {
         for (unsigned i = 0; i < p.size(); ++i) {
             literal l = p[i].second;
-            if (l != alit && lvl(l) != 0 && is_watched(l, p) != i < p.num_watch()) {
+            if (l != alit && lvl(l) != 0 && is_watched(l, p) != (i < p.num_watch())) {
                 IF_VERBOSE(0, display(verbose_stream(), p, true);
                            verbose_stream() << "literal " << l << " at position " << i << " " << is_watched(l, p) << "\n";);
                 UNREACHABLE();

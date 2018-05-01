@@ -90,7 +90,7 @@ namespace sat {
             double   m_cube_psat_trigger;
 
             config() {
-                memset(this, sizeof(*this), 0);
+                memset(this, 0, sizeof(*this));
                 m_dl_success = 0.8;
                 m_alpha = 3.5;
                 m_max_score = 20.0;
