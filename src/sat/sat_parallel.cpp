@@ -91,7 +91,7 @@ namespace sat {
         return false;
     }
 
-    parallel::parallel(solver& s): m_scoped_rlimit(s.rlimit()), m_num_clauses(0), m_consumer_ready(false) {}
+    parallel::parallel(solver& s): m_num_clauses(0), m_consumer_ready(false), m_scoped_rlimit(s.rlimit()) {}
 
     parallel::~parallel() {
         for (unsigned i = 0; i < m_solvers.size(); ++i) {            

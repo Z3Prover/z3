@@ -41,6 +41,7 @@ namespace sat {
     }
     lookahead::scoped_assumptions::~scoped_assumptions() {
         for (auto l : lits) {
+            (void)l;
             p.pop();
         }
     }
@@ -2070,7 +2071,7 @@ namespace sat {
         scoped_level _sl(*this, c_fixed_truth);
         m_search_mode = lookahead_mode::searching;
         unsigned depth = 0;
-        unsigned init_trail = m_trail.size();
+        // unsigned init_trail = m_trail.size();
         
         m_cube_state.reset_stats();
         if (!is_first) {
@@ -2184,8 +2185,6 @@ namespace sat {
     }
 
     std::ostream& lookahead::display_clauses(std::ostream& out) const {
-        bool first = true;
-
         for (unsigned idx = 0; idx < m_ternary.size(); ++idx) {
             literal lit = to_literal(idx);
             unsigned sz = m_ternary_count[idx];
@@ -2268,7 +2267,7 @@ namespace sat {
         init(learned);                
         if (inconsistent()) return;
         inc_istamp();            
-        literal l = choose();        
+        choose();        
         if (inconsistent()) return;
         SASSERT(m_trail_lim.empty());
         unsigned num_units = 0;

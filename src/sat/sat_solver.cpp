@@ -791,7 +791,7 @@ namespace sat {
         }
         
         if (m_config.m_propagate_prefetch) {
-            _mm_prefetch((const char*)(m_watches[l.index()].c_ptr()), 1);
+            _mm_prefetch((const char*)(m_watches[l.index()].c_ptr()), _MM_HINT_T1);
         }
 
         SASSERT(!l.sign() || m_phase[v] == NEG_PHASE);

@@ -377,9 +377,9 @@ namespace sat {
         verify_unsat_stack();
     }
 
-    local_search::local_search() : 
-        m_par(0),
-        m_is_unsat(false) {
+    local_search::local_search() :         
+        m_is_unsat(false),
+        m_par(nullptr) {
     }
 
     void local_search::import(solver& s, bool _init) {        
@@ -575,7 +575,6 @@ namespace sat {
 
     void local_search::gsat() {
         reinit();
-        bool reach_known_best_value = false;
         bool_var flipvar;
         timer timer;
         timer.start();
@@ -925,7 +924,6 @@ namespace sat {
         // update all flipvar's neighbor's conf_change to true, add goodvar/okvar
 
         var_info& vi = m_vars[flipvar];
-        unsigned sz = vi.m_neighbors.size();
         for (auto v : vi.m_neighbors) {
             m_vars[v].m_conf_change = true;
             if (score(v) > 0 && !already_in_goodvar_stack(v)) {

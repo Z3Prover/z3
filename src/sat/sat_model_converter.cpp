@@ -290,7 +290,7 @@ namespace sat {
                     for (literal l : it2->m_clauses) {
                         CTRACE("sat_model_converter", l.var() == it->var(), tout << "var: " << it->var() << "\n"; display(tout););
                         SASSERT(l.var() != it->var());
-                        SASSERT(l == null_literal || l.var() < num_vars);
+                        VERIFY(l == null_literal || l.var() < num_vars);
                         if (it2->var() == it->var()) return false;
                     }
                 }
@@ -391,7 +391,6 @@ namespace sat {
         sat::literal_vector clause;
         for (entry const& e : m_entries) {
             unsigned index = 0;
-            bool var_sign = false;
             clause.reset();
             for (literal l : e.m_clauses) {
                 if (l == null_literal) {
