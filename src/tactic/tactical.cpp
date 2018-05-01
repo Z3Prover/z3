@@ -103,7 +103,6 @@ public:
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override { 
 
-        bool models_enabled = in->models_enabled();
         bool proofs_enabled = in->proofs_enabled();
         bool cores_enabled  = in->unsat_core_enabled();
 
@@ -513,7 +512,6 @@ public:
 
         // enabling proofs is possible, but requires translating subgoals back.
         fail_if_proof_generation("par_and_then", in);
-        bool models_enabled = in->models_enabled();
         bool proofs_enabled = in->proofs_enabled();
         bool cores_enabled  = in->unsat_core_enabled();
 

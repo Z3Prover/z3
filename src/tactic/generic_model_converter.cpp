@@ -188,8 +188,6 @@ void generic_model_converter::get_units(obj_map<expr, bool>& units) {
     th_rewriter rw(m);
     expr_safe_replace rep(m);
     expr_ref tmp(m);
-    bool val = false;
-    expr* f = nullptr;
     for (auto const& kv : units) {
         rep.insert(kv.m_key, kv.m_value ? m.mk_true() : m.mk_false());
     }

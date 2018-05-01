@@ -38,9 +38,9 @@ namespace sat {
         m_config(p),
         m_par(nullptr),
         m_cls_allocator_idx(false),
-        m_par_syncing_clauses(false),
-        m_par_id(0),
         m_cleaner(*this),
+        m_par_id(0),
+        m_par_syncing_clauses(false),
         m_simplifier(*this, p),
         m_scc(*this, p),
         m_asymm_branch(*this, p),
@@ -486,8 +486,6 @@ namespace sat {
         m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
         return reinit;
     }
-
-    static unsigned s_count = 0;
 
     void solver::attach_clause(clause & c, bool & reinit) {
         SASSERT(c.size() > 2);
@@ -1332,7 +1330,6 @@ namespace sat {
                 next = m_case_split_queue.min_var();
                 auto age = m_stats.m_conflict - m_canceled[next];
                 while (age > 0) {
-                    double decay = pow(0.95, age);
                     m_activity[next] = static_cast<unsigned>(m_activity[next] * pow(0.95, age));
                     m_case_split_queue.activity_changed_eh(next, false);
                     m_canceled[next] = m_stats.m_conflict;

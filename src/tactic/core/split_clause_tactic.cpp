@@ -46,11 +46,10 @@ class split_clause_tactic : public tactic {
     }
 
     class split_pc : public proof_converter {
-        ast_manager & m;
         app_ref       m_clause;
         proof_ref     m_clause_pr;
     public:
-        split_pc(ast_manager & m, app * cls, proof * pr):m(m), m_clause(cls, m), m_clause_pr(pr, m) {
+        split_pc(ast_manager & m, app * cls, proof * pr):m_clause(cls, m), m_clause_pr(pr, m) {
         }
 
         ~split_pc() override { }

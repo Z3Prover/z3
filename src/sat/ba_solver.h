@@ -242,10 +242,10 @@ namespace sat {
         unsigned_vector   m_pb_undef;
 
         struct ba_sort {
-            ba_solver& s;
             typedef typename sat::literal literal;
             typedef typename sat::literal_vector literal_vector;
 
+            ba_solver& s;
             literal m_true;
             literal_vector m_lits;
             

@@ -36,14 +36,14 @@ public:
     sine_tactic(ast_manager& m, params_ref const& p):
         m(m), m_params(p) {}
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(sine_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
 
     void operator()(goal_ref const & g, goal_ref_buffer& result) override {
@@ -63,7 +63,7 @@ public:
         SASSERT(g->is_well_sorted());
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
 private:

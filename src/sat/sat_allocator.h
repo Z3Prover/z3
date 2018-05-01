@@ -90,6 +90,8 @@ public:
         }
     }
     size_t get_allocation_size() const { return m_alloc_size; }
+
+    char const* id() const { return m_id; }
 };
 
 inline void * operator new(size_t s, sat_allocator & r) { return r.allocate(s); }
