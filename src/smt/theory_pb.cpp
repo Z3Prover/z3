@@ -1830,8 +1830,9 @@ namespace smt {
         ast_manager& m = get_manager();
         smt_params fp;
         kernel k(m, fp);
+        expr_ref notB(m.mk_not(B), m);
         k.assert_expr(A);
-        k.assert_expr(m.mk_not(B));
+        k.assert_expr(notB);
         lbool is_sat = k.check();
         validating = false;
         std::cout << is_sat << "\n";
