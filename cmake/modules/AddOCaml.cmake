@@ -147,13 +147,13 @@ function(add_ocaml_library name)
         endif()
     endforeach()
 
-    install(FILES ${install_files}
-            DESTINATION lib/ocaml)
-    install(FILES ${install_shlibs}
-            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                        GROUP_READ GROUP_EXECUTE
-                        WORLD_READ WORLD_EXECUTE
-            DESTINATION lib/ocaml)
+    #install(FILES ${install_files}
+    #        DESTINATION lib/ocaml)
+    #install(FILES ${install_shlibs}
+    #        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    #                    GROUP_READ GROUP_EXECUTE
+    #                    WORLD_READ WORLD_EXECUTE
+    #        DESTINATION lib/ocaml)
 
     message(STATUS ${CMAKE_SHARED_LIBRARY_SUFFIX})
 endfunction()
