@@ -100,7 +100,7 @@ namespace datalog {
             return nullptr;
         }
 
-        virtual void display(std::ostream& out) { out << "(scale-model-converter)\n"; }
+        void display(std::ostream& out) override { out << "(scale-model-converter)\n"; }
 
     };
 

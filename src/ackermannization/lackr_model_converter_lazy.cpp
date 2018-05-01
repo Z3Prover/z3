@@ -46,7 +46,7 @@ public:
         NOT_IMPLEMENTED_YET();
     }
 
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         out << "(lackr-model-converter)\n";
     }
 

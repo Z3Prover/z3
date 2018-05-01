@@ -177,7 +177,7 @@ public:
         return mc;
     }
 
-    virtual model_converter_ref get_model_converter() const { 
+    model_converter_ref get_model_converter() const override { 
         model_converter_ref mc = external_model_converter();
         mc = concat(mc.get(), m_solver->get_model_converter().get());
         return mc;

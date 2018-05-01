@@ -53,9 +53,9 @@ namespace datalog {
             return alloc(qa_model_converter, m);
         }
 
-        virtual void display(std::ostream& out) { display_add(out, m); }
+        void display(std::ostream& out) override { display_add(out, m); }
 
-        virtual void get_units(obj_map<expr, bool>& units) { units.reset(); }        
+        void get_units(obj_map<expr, bool>& units) override { units.reset(); }        
 
         void insert(func_decl* old_p, func_decl* new_p, expr_ref_vector& sub, sort_ref_vector& sorts, svector<bool> const& bound) {
             m_old_funcs.push_back(old_p);

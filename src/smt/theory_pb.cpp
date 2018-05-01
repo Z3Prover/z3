@@ -317,6 +317,7 @@ namespace smt {
     void theory_pb::card::set_conflict(theory_pb& th, literal l) {
         SASSERT(validate_conflict(th));
         context& ctx = th.get_context();
+        (void)ctx;
         literal_vector& lits = th.get_literals();
         SASSERT(ctx.get_assignment(l) == l_false);
         SASSERT(ctx.get_assignment(lit()) == l_true);
@@ -343,7 +344,7 @@ namespace smt {
 
     bool theory_pb::card::validate_assign(theory_pb& th, literal_vector const& lits, literal l) {
         context& ctx = th.get_context();
-        SASSERT(ctx.get_assignment(l) == l_undef);
+        VERIFY(ctx.get_assignment(l) == l_undef);
         for (unsigned i = 0; i < lits.size(); ++i) {
             SASSERT(ctx.get_assignment(lits[i]) == l_true);
         }
@@ -906,7 +907,6 @@ namespace smt {
     }
 
     std::ostream& theory_pb::display(std::ostream& out, card const& c, bool values) const {
-        ast_manager& m = get_manager();
         context& ctx = get_context();
         out << c.lit();
         if (c.lit() != null_literal) {
@@ -1494,12 +1494,10 @@ namespace smt {
             if (v == null_bool_var) continue;
             card* c = m_var_infos[v].m_card;
             if (c) {
-                unsigned np = c->num_propagations();
                 c->reset_propagations();
                 literal lit = c->lit();
                 if (c->is_aux() && ctx.get_assign_level(lit) > ctx.get_search_level()) {
                     double activity = ctx.get_activity(v);
-                    // std::cout << "activity: " << ctx.get_activity(v) << " " << np << "\n";
                     if (activity <= 0) {
                         nz++;
                     }
@@ -2528,7 +2526,6 @@ namespace smt {
         normalize_active_coeffs();
         for (unsigned i = 0; i < m_active_vars.size(); ++i) {
             bool_var v = m_active_vars[i];
-            int coeff = get_coeff(v);
             literal lit(v, get_coeff(v) < 0);
             args.push_back(literal2expr(lit));
             coeffs.push_back(rational(get_abs_coeff(v)));
@@ -2541,7 +2538,6 @@ namespace smt {
 
     void theory_pb::display_resolved_lemma(std::ostream& out) const {
         context& ctx = get_context();
-        literal_vector const& lits = ctx.assigned_literals();                
         bool_var v;
         unsigned lvl;
         out << "num marks: " << m_num_marks << "\n";

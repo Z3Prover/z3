@@ -305,13 +305,11 @@ tactic * mk_smt_tactic_using(bool auto_config, params_ref const & _p) {
 
 tactic * mk_psmt_tactic(ast_manager& m, params_ref const& p, symbol const& logic) {
     parallel_params pp(p);
-    bool use_parallel = pp.enable();
     return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p);
 }
 
 tactic * mk_psmt_tactic_using(ast_manager& m, bool auto_config, params_ref const& _p, symbol const& logic) {
     parallel_params pp(_p);
-    bool use_parallel = pp.enable();
     params_ref p = _p;
     p.set_bool("auto_config", auto_config);
     return using_params(pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p), p);

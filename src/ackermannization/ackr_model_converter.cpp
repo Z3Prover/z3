@@ -61,7 +61,7 @@ public:
         }
     }
 
-    virtual void display(std::ostream & out) {
+    void display(std::ostream & out) override {
         out << "(ackr-model-converter)\n";
     }
 

@@ -39,8 +39,6 @@ namespace sat {
         m_par(nullptr),
         m_cls_allocator_idx(false),
         m_cleaner(*this),
-        m_par_id(0),
-        m_par_syncing_clauses(false),
         m_simplifier(*this, p),
         m_scc(*this, p),
         m_asymm_branch(*this, p),
@@ -55,7 +53,9 @@ namespace sat {
         m_qhead(0),
         m_scope_lvl(0),
         m_search_lvl(0),
-        m_params(p) {
+        m_params(p),
+        m_par_id(0),
+        m_par_syncing_clauses(false) {
         init_reason_unknown();
         updt_params(p);
         m_conflicts_since_gc      = 0;

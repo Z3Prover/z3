@@ -83,13 +83,13 @@ public:
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 
-    virtual void updt_params(params_ref const & p) { solver::updt_params(p); m_solver->updt_params(p);  }
-    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }    
-    virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
-    virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
-    virtual void collect_statistics(statistics & st) const { m_solver->collect_statistics(st); }
-    virtual void get_unsat_core(ptr_vector<expr> & r) { m_solver->get_unsat_core(r); }
-    virtual void get_model_core(model_ref & mdl) { 
+    void updt_params(params_ref const & p) override { solver::updt_params(p); m_solver->updt_params(p);  }
+    void collect_param_descrs(param_descrs & r) override { m_solver->collect_param_descrs(r); }    
+    void set_produce_models(bool f) override { m_solver->set_produce_models(f); }
+    void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
+    void collect_statistics(statistics & st) const override { m_solver->collect_statistics(st); }
+    void get_unsat_core(ptr_vector<expr> & r) override { m_solver->get_unsat_core(r); }
+    void get_model_core(model_ref & mdl) override { 
         m_solver->get_model(mdl);
         if (mdl) {
             model_converter_ref mc = local_model_converter();
@@ -113,24 +113,24 @@ public:
         return concat(mc0(), local_model_converter());
     }
 
-    virtual model_converter_ref get_model_converter() const { 
+    model_converter_ref get_model_converter() const override { 
         model_converter_ref mc = external_model_converter();
         mc = concat(mc.get(), m_solver->get_model_converter().get());
         return mc;
     }
-    virtual proof * get_proof() { return m_solver->get_proof(); }
-    virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
-    virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
-    virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
-    virtual ast_manager& get_manager() const { return m;  }
-    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { 
+    proof * get_proof() override { return m_solver->get_proof(); }
+    std::string reason_unknown() const override { return m_solver->reason_unknown(); }
+    void set_reason_unknown(char const* msg) override { m_solver->set_reason_unknown(msg); }
+    void get_labels(svector<symbol> & r) override { m_solver->get_labels(r); }
+    ast_manager& get_manager() const override { return m;  }
+    lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { 
         return m_solver->find_mutexes(vars, mutexes); 
     }
-    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) { 
+    expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
         return m_solver->cube(vars, backtrack_level); 
     }
     
-    virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
+    lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
         datatype_util dt(m);
         bv_util bv(m);
         expr_ref_vector bvars(m), conseq(m), bounds(m);

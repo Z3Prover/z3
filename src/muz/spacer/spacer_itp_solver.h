@@ -110,9 +110,7 @@ public:
     void set_produce_models(bool f) override  { m_solver.set_produce_models(f);}
     void assert_expr_core(expr *t) override  { m_solver.assert_expr(t);}
     void assert_expr_core2(expr *t, expr *a) override   { NOT_IMPLEMENTED_YET();}
-    virtual void assert_lemma(expr* e) { NOT_IMPLEMENTED_YET(); }
-    virtual expr_ref lookahead(const expr_ref_vector &,const expr_ref_vector &) { return expr_ref(m.mk_true(), m); }
-    virtual expr_ref_vector cube(expr_ref_vector&, unsigned) { return expr_ref_vector(m); }
+    expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
 
     void push() override;
     void pop(unsigned n) override;

@@ -636,7 +636,7 @@ struct aig_manager::imp {
 
         bool check_cache() const {
             for (auto const& kv : m_cache) {
-                SASSERT(ref_count(kv.m_value) > 0);
+                VERIFY(ref_count(kv.m_value) > 0);
             }
             return true;
         }

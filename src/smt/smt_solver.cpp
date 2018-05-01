@@ -244,7 +244,7 @@ namespace smt {
             return m_context.get_formula(idx);
         }
 
-        virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) {
+        expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
             ast_manager& m = get_manager();
             if (!m_cuber) {
                 m_cuber = alloc(cuber, *this);

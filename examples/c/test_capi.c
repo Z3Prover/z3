@@ -378,7 +378,7 @@ void assert_comm_axiom(Z3_context ctx, Z3_solver s, Z3_func_decl f)
 {
     Z3_sort t;
     Z3_symbol f_name, t_name;
-    Z3_ast q;
+    Z3_ast_vector q;
 
     t = Z3_get_range(ctx, f);
 
@@ -394,13 +394,14 @@ void assert_comm_axiom(Z3_context ctx, Z3_solver s, Z3_func_decl f)
     /* Inside the parser, type t will be referenced using the symbol 'T'. */
     t_name = Z3_mk_string_symbol(ctx, "T");
 
-
     q = Z3_parse_smtlib2_string(ctx,
                            "(assert (forall ((x T) (y T)) (= (f x y) (f y x))))",
                            1, &t_name, &t,
                            1, &f_name, &f);
-    printf("assert axiom:\n%s\n", Z3_ast_to_string(ctx, q));
-    Z3_solver_assert(ctx, s, q);
+    printf("assert axiom:\n%s\n", Z3_ast_vector_to_string(ctx, q));
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, q); ++i) {
+        Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, q, i));
+    }
 }
 
 /**
@@ -1642,7 +1643,7 @@ void parser_example2()
     Z3_ast x, y;
     Z3_symbol         names[2];
     Z3_func_decl decls[2];
-    Z3_ast f;
+    Z3_ast_vector f;
 
     printf("\nparser_example2\n");
     LOG_MSG("parser_example2");
@@ -1665,8 +1666,11 @@ void parser_example2()
                            0, 0, 0,
                            /* 'x' and 'y' declarations are inserted as 'a' and 'b' into the parser symbol table. */
                            2, names, decls);
-    printf("formula: %s\n", Z3_ast_to_string(ctx, f));
-    Z3_solver_assert(ctx, s, f);
+    printf("formula: %s\n", Z3_ast_vector_to_string(ctx, f));
+    printf("assert axiom:\n%s\n", Z3_ast_vector_to_string(ctx, f));
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, f); ++i) {
+        Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, f, i));
+    }
     check(ctx, s, Z3_L_TRUE);
 
     del_solver(ctx, s);
@@ -1685,7 +1689,7 @@ void parser_example3()
     Z3_symbol     g_name;
     Z3_sort       g_domain[2];
     Z3_func_decl  g;
-    Z3_ast        thm;
+    Z3_ast_vector thm;
 
     printf("\nparser_example3\n");
     LOG_MSG("parser_example3");
@@ -1710,8 +1714,8 @@ void parser_example3()
                            "(assert (forall ((x Int) (y Int)) (=> (= x y) (= (g x 0) (g 0 y)))))",
                            0, 0, 0,
                            1, &g_name, &g);
-    printf("formula: %s\n", Z3_ast_to_string(ctx, thm));
-    prove(ctx, s, thm, Z3_TRUE);
+    printf("formula: %s\n", Z3_ast_vector_to_string(ctx, thm));
+    prove(ctx, s, Z3_ast_vector_get(ctx, thm, 0), Z3_TRUE);
 
     del_solver(ctx, s);
     Z3_del_context(ctx);

@@ -152,7 +152,9 @@ namespace datalog {
             return mc;
         }
 
-        virtual void display(std::ostream& out) { out << "(add-invariant-model-converter)\n"; }
+        void display(std::ostream& out) override { 
+            out << "(add-invariant-model-converter)\n"; 
+        }
 
     private:
         void mk_body(matrix const& M, expr_ref& body) {
