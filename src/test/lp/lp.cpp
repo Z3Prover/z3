@@ -3668,7 +3668,24 @@ void test_matrix_A_lu(lp_settings & settings) {
 }
 
 #endif
+
 void cutting_the_mix_example_1() {
+    mpq sev(7);
+    mpq nine(9);
+    mpq d, u, vv;
+    extended_gcd_minimal_uv(sev, nine, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    extended_gcd_minimal_uv(sev, -nine, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
+    extended_gcd_minimal_uv(-nine, -nine, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
+    extended_gcd_minimal_uv(-sev*2, sev, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    
+    
+    
     matrix_A A;
     vector<mpq> v;
     v.push_back(mpq(11));

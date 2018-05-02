@@ -32,6 +32,64 @@ mpq power_of(const mpq & a, unsigned n) {
     return r == 0? pk * pk : pk * pk * a;
 }
 
+    // d = u *a + b * b and the sum of abs(u) + abs(v) is minimal
+inline
+void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq & v) {
+        extended_gcd(a, b, d, u, v);
+        if (is_neg(d)) {
+            d = -d;
+            u = -u;
+            v = -v;
+        }
+            
+        if (d == a) {
+            u = one_of_type<mpq>();
+            v = zero_of_type<mpq>();
+        } else if (d == -a) {
+            u = - one_of_type<mpq>();
+            v = zero_of_type<mpq>();
+        }
+        lp_assert(is_pos(d));
+        
+        mpq a_over_d = abs(a) / d;
+        mpq r;
+        
+        mpq k = machine_div_rem(v, a_over_d, r);
+        if (is_neg(r)) {
+            r += a_over_d;
+            k -= one_of_type<mpq>();
+        }
+           
+        lp_assert(!is_neg(r));
+        if (is_pos(b)) {
+            v = r - a_over_d; //   v -= (k + 1) * a_over_d;
+            lp_assert(- a_over_d < v && v <= zero_of_type<mpq>());
+
+            if (is_pos(u)) {
+                u += (k+1) * (b / d);
+                lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
+            } else {
+                u -= (k + 1) * (b/d);
+                lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
+            }
+        } else {
+            std::cout << "v = " << v << ", a_over_d = " << a_over_d << ", k = " << k << std::endl;
+            v = r; // v -= k * a_over_d;
+            std::cout << "after -=  v= " << v << std::endl;
+            lp_assert(- a_over_d < -v && -v <= zero_of_type<mpq>());
+
+            if (is_pos(u)) {
+                u += k * (b / d);
+                lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
+            } else {
+                u -= k * (b/d);
+                lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
+            }
+        }
+        lp_assert(d == u*a + v*b);
+    }
+
+
 // see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5
 template <typename M> mpq determinant_rec(M &m , const mpq & c, unsigned k) {
     // here n-k-1 is the number of rows(columns) in the righ bottom minor we recurse to
@@ -56,18 +114,10 @@ template <typename M> mpq determinant(const M& m) {
     mpq c(1);
     auto mc = m;
     return determinant_rec(mc, c, 0);
-    /*    M smaller_m(n - 1);
-    const mpq& m00 = m[0][0];
-    for (unsigned i = 1; i < n; i++) {
-        const mpq& mi0 = m[i][0]; 
-        for (unsigned j = 1; j < n; j++)
-            smaller_m[i-1][j-1] = m00*m[i][j] - mi0*m[0][j];
-    }
-    return determinant(smaller_m) / power_of(m00, n - 2);
-    */
 }
 template <typename M> // M is the matrix type
 class hnf {
+    // fields
     M &          m_H;
     M            m_U;
     M            m_A_orig;  // debug only
@@ -75,7 +125,7 @@ class hnf {
     vector<mpq>  m_buffer;
     unsigned     m_m;
     unsigned     m_n;
-
+    mpq          m_D; // it is a positive number and a multiple of determinant(m_A_orig), at least initially
 
     void buffer_p_col_i_plus_q_col_j_H(const mpq & p, unsigned i, const mpq & q, unsigned j) {
         for (unsigned k = i; k < m_m; k++) {
@@ -135,8 +185,8 @@ class hnf {
             m_U_reverse[i][k] = m_buffer[k];
         }
     }
-    
-    void handle_column_ij_in_row_i(unsigned i, unsigned j) {
+
+ void handle_column_ij_in_row_i(unsigned i, unsigned j) {
         lp_assert(is_correct());
         const mpq& aii = m_H[i][i];
         const mpq& aij = m_H[i][j];
@@ -164,6 +214,7 @@ class hnf {
         multiply_U_reverse_from_left_by(i, j, aii_over_r, aij_over_r, -q, p);
         lp_assert(is_correct());
     }
+    
 
     void switch_sign_for_column(unsigned i) {
         for (unsigned k = i; k < m_m; k++)
@@ -178,7 +229,6 @@ class hnf {
     }
     
     void process_row_column(unsigned i, unsigned j){
-        std::cout << "process_row_column (" << i << ", " << j << ")" << std::endl;
         if (is_zero(m_H[i][j]))
             return;
         handle_column_ij_in_row_i(i, j);
@@ -242,14 +292,15 @@ class hnf {
         lp_assert(m_H == product);
         lp_assert(is_correct());
     }
-    
+
+
     void calculate() {
         for (unsigned i = 0; i < m_m; i++) {
             process_row(i);
         }
     }
 
-    void prepare_U() {
+    void prepare_U_and_U_reverse() {
         auto & v = m_U.m_data;
         v.resize(m_H.column_count());
         for (auto & row: v)
@@ -312,14 +363,21 @@ class hnf {
         return is_correct() && is_correct_form();
     }
 
+    void calculate_naive() {
+        prepare_U_and_U_reverse();
+        calculate();
+    }
+
     
 public:
     hnf(M & A) : m_H(A),
                  m_A_orig(A),
                  m_buffer(std::max(A.row_count(), A.column_count())),
                  m_m(m_H.row_count()),
-                 m_n(m_H.column_count()) {
-        prepare_U();
+                 m_n(m_H.column_count()),
+                 m_D(determinant(A))
+    {
+        prepare_U_and_U_reverse();
         calculate();
         lp_assert(is_correct_final());
     }
