@@ -61,10 +61,13 @@ namespace smt {
             smt_solver * result = alloc(smt_solver, m, p, m_logic);
             smt::kernel::copy(m_context, result->m_context);
 
-            for (auto & kv : m_name2assertion) 
-                result->m_name2assertion.insert(translator(kv.m_key),
-                                                translator(kv.m_value));
-
+            for (auto & kv : m_name2assertion) { 
+                expr* val = translator(kv.m_value);
+                expr* t = translator(kv.m_key);
+                result->m_name2assertion.insert(t, val);
+                result->solver_na2as::assert_expr(val, t);
+                m.inc_ref(val);
+            }
             return result;
         }
 
