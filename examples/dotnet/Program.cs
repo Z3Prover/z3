@@ -175,7 +175,7 @@ namespace test_mapi
 
             string bench = string.Format("(assert (forall ((x {0}) (y {1})) (= ({2} x y) ({3} y x))))",
                              t.Name, t.Name, f.Name, f.Name);
-            return ctx.ParseSMTLIB2String(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f });
+            return ctx.ParseSMTLIB2String(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f })[0];
         }
 
         /// <summary>
@@ -322,7 +322,6 @@ namespace test_mapi
             Status q = s.Check();
             Console.WriteLine("Solver says: " + q);
             Console.WriteLine("Model: \n" + s.Model);
-            Console.WriteLine("Converted Model: \n" + ar.ConvertModel(0, s.Model));
             if (q != Status.SATISFIABLE)
                 throw new TestFailedException();
         }
@@ -1383,7 +1382,9 @@ namespace test_mapi
         {
             Console.WriteLine("ParserExample1");
 
-            var fml = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
+            var fmls = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
+            var fml = ctx.MkAnd(fmls);
+
             Console.WriteLine("formula {0}", fml);
 
             Model m = Check(ctx, fml, Status.SATISFIABLE);
@@ -1399,7 +1400,7 @@ namespace test_mapi
             FuncDecl a = ctx.MkConstDecl(declNames[0], ctx.MkIntSort());
             FuncDecl b = ctx.MkConstDecl(declNames[1], ctx.MkIntSort());
             FuncDecl[] decls = new FuncDecl[] { a, b };
-            BoolExpr f = ctx.ParseSMTLIB2String("(assert (> a b))", null, null, declNames, decls);
+            BoolExpr f = ctx.ParseSMTLIB2String("(assert (> a b))", null, null, declNames, decls)[0];
             Console.WriteLine("formula: {0}", f);
             Check(ctx, f, Status.SATISFIABLE);
         }
@@ -1420,7 +1421,7 @@ namespace test_mapi
             BoolExpr thm = ctx.ParseSMTLIB2String("(assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
              null, null,
              new Symbol[] { ctx.MkSymbol("gg") },
-             new FuncDecl[] { g });
+             new FuncDecl[] { g })[0];
 
             Console.WriteLine("formula: {0}", thm);
             Prove(ctx, thm, false, ca);
