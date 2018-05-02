@@ -176,10 +176,10 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         if (mc.get()) {
             (*mc)(labels);
             model_converter2model(m, mc.get(), md);
-            if (!md) {
-                // create empty model.
-                md = alloc(model, m);
-            }
+        }
+        if (!md) {
+            // create empty model.
+            md = alloc(model, m);
         }
         return l_true;
     }
