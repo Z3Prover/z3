@@ -59,7 +59,8 @@ private:
     ref<solver>          m_solver2;
     // We delay sending assertions to solver 2
     // This is relevant for big benchmarks that are meant to be solved
-    // by a non-incremental solver. 
+    // by a non-incremental solver.                                                 );
+
     bool                 m_solver2_initialized;
 
     bool                 m_ignore_solver1;
@@ -137,6 +138,7 @@ public:
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override {
+        TRACE("solver", tout << "translate\n";);
         solver* s1 = m_solver1->translate(m, p);
         solver* s2 = m_solver2->translate(m, p);
         combined_solver* r = alloc(combined_solver, s1, s2, p);
