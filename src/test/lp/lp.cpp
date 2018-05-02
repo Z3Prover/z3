@@ -3751,7 +3751,25 @@ void test_determinant() {
     std::cout << "det M = " << determinant(M) << std::endl;
 }
 
+
+void fill_matrix_A(matrix_A & M) {
+    unsigned m = M.row_count();
+    for (unsigned i = 0; i < m; i++)
+        for (unsigned j = 0; j < m; j++)
+            M[i][j] = mpq(static_cast<int>(my_random() % 13) - 6);
+}
+
+
+void test_hnf_for_dim(int m) {
+    matrix_A M(m);
+    fill_matrix_A(M);
+    hnf<matrix_A> h(M);
+}
+
 void test_hnf() {
+    for (unsigned k=1000; k>0; k--)
+        for (int i = 1; i < 6; i++)
+            test_hnf_for_dim(i);
     cutting_the_mix_example_1();
     return;
     test_hnf_m_less_than_n();

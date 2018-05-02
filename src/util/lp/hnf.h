@@ -98,6 +98,8 @@ template <typename M> mpq determinant_rec(M &m , const mpq & c, unsigned k) {
     const mpq& mkk = m[k][k];
     if (k == n - 1)
          return mkk;
+    if (is_zero(c))
+        return zero_of_type<mpq>();
     for (unsigned i = k + 1; i < n; i++) {
         const mpq& mik = m[i][k]; 
         for (unsigned j = k + 1; j < n; j++) {
@@ -263,12 +265,14 @@ class hnf {
 
     void work_on_columns_less_than_i_in_the_triangle(unsigned i) {
         for (unsigned j = 0; j < i; j++) {
-            mpq u = ceil(m_H[i][j]/m_H[i][i]);
-            if (is_zero(u))
-                return;
+            const mpq & mij = m_H[i][j];
+            const mpq & mii = m_H[i][i];
+            lp_assert(is_pos(mii));
+            if (!is_pos(mij) && - mij < mii)
+                continue;
+            mpq u = ceil(mij / mii);
             replace_column_j_by_j_minus_u_col_i_H(i, j, u);
             replace_column_j_by_j_minus_u_col_i_U(i, j, u);
-
         }
     }
     
@@ -284,10 +288,7 @@ class hnf {
         if (is_neg(m_H[i][i]))
             switch_sign_for_column(i);
         work_on_columns_less_than_i_in_the_triangle(i);
-        std::cout << "H = " << std::endl;
-        m_H.print(std::cout);
         auto product = m_A_orig * m_U;
-        std::cout << "m_A_orig * m_U = \n"; product.print(std::cout);
         
         lp_assert(m_H == product);
         lp_assert(is_correct());
@@ -377,6 +378,8 @@ public:
                  m_n(m_H.column_count()),
                  m_D(determinant(A))
     {
+        if (is_zero(m_D))
+            return;
         prepare_U_and_U_reverse();
         calculate();
         lp_assert(is_correct_final());
