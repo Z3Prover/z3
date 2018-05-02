@@ -976,7 +976,8 @@ namespace test_mapi
 
             using (Context ctx = new Context(new Dictionary<string, string>() { { "MODEL", "true" } }))
             {
-                Expr a = ctx.ParseSMTLIB2File(filename);
+                BoolExpr[] fmls = ctx.ParseSMTLIB2File(filename);
+                BoolExpr a = ctx.MkAnd(fmls);
 
                 Console.WriteLine("SMT2 file read time: " + (System.DateTime.Now - before).TotalSeconds + " sec");
 
