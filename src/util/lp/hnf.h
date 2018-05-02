@@ -32,62 +32,65 @@ mpq power_of(const mpq & a, unsigned n) {
     return r == 0? pk * pk : pk * pk * a;
 }
 
-    // d = u *a + b * b and the sum of abs(u) + abs(v) is minimal
+    // d = u * a + b * b and the sum of abs(u) + abs(v) is minimal, d is positive
 inline
 void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq & v) {
-        extended_gcd(a, b, d, u, v);
-        if (is_neg(d)) {
-            d = -d;
-            u = -u;
-            v = -v;
-        }
-            
-        if (d == a) {
-            u = one_of_type<mpq>();
-            v = zero_of_type<mpq>();
-        } else if (d == -a) {
-            u = - one_of_type<mpq>();
-            v = zero_of_type<mpq>();
-        }
-        lp_assert(is_pos(d));
-        
-        mpq a_over_d = abs(a) / d;
-        mpq r;
-        
-        mpq k = machine_div_rem(v, a_over_d, r);
-        if (is_neg(r)) {
-            r += a_over_d;
-            k -= one_of_type<mpq>();
-        }
-           
-        lp_assert(!is_neg(r));
-        if (is_pos(b)) {
-            v = r - a_over_d; //   v -= (k + 1) * a_over_d;
-            lp_assert(- a_over_d < v && v <= zero_of_type<mpq>());
-
-            if (is_pos(u)) {
-                u += (k+1) * (b / d);
-                lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
-            } else {
-                u -= (k + 1) * (b/d);
-                lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
-            }
-        } else {
-            std::cout << "v = " << v << ", a_over_d = " << a_over_d << ", k = " << k << std::endl;
-            v = r; // v -= k * a_over_d;
-            std::cout << "after -=  v= " << v << std::endl;
-            lp_assert(- a_over_d < -v && -v <= zero_of_type<mpq>());
-
-            if (is_pos(u)) {
-                u += k * (b / d);
-                lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
-            } else {
-                u -= k * (b/d);
-                lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
-            }
-        }
-        lp_assert(d == u*a + v*b);
+    extended_gcd(a, b, d, u, v);
+    if (is_neg(d)) {
+        d = -d;
+        u = -u;
+        v = -v;
     }
+    /*
+    int sign_a = is_pos(a)? 1 : -1;
+    int sign_b = is_pos(b)? 1 : -1;
+    */
+    if (d == a) {
+        u = one_of_type<mpq>();
+        v = zero_of_type<mpq>();
+        return;
+    }
+    if (d == -a) {
+        u = - one_of_type<mpq>();
+        v = zero_of_type<mpq>();
+        return;
+    }
+        
+    mpq a_over_d = abs(a) / d;
+    mpq r;
+        
+    mpq k = machine_div_rem(v, a_over_d, r);
+    if (is_neg(r)) {
+        r += a_over_d;
+        k -= one_of_type<mpq>();
+    }
+
+    lp_assert(v == k * a_over_d + r);
+
+    if (is_pos(b)) {
+        v = r - a_over_d; //   v -= (k + 1) * a_over_d;
+        lp_assert(- a_over_d < v && v <= zero_of_type<mpq>());
+
+        if (is_pos(a)) {
+            u += (k + 1) * (b / d);
+            lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
+        } else {
+            u -= (k + 1) * (b / d);
+            lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
+        }
+    } else {
+        v = r; // v -= k * a_over_d;
+        lp_assert(- a_over_d < -v && -v <= zero_of_type<mpq>());
+        if (is_pos(a)) {
+            u += k * (b / d);
+            lp_assert( one_of_type<mpq>() <= u && u <= abs(b)/d);
+        } else {
+            u -= k * (b / d);
+            lp_assert( one_of_type<mpq>() <= -u && -u <= abs(b)/d);
+        }
+    }
+    lp_assert(d == u * a + v * b);
+}
 
 
 // see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5

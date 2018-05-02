@@ -3684,7 +3684,18 @@ void cutting_the_mix_example_1() {
     extended_gcd_minimal_uv(-sev*2, sev, d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
     
-    
+    extended_gcd_minimal_uv(mpq(24), mpq(-7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    extended_gcd_minimal_uv(-mpq(24), mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    extended_gcd_minimal_uv(mpq(24), mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+    extended_gcd_minimal_uv(-mpq(21), mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
+    extended_gcd_minimal_uv(mpq(21), -mpq(7), d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
     
     matrix_A A;
     vector<mpq> v;
