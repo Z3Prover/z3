@@ -41,10 +41,7 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
         u = -u;
         v = -v;
     }
-    /*
-    int sign_a = is_pos(a)? 1 : -1;
-    int sign_b = is_pos(b)? 1 : -1;
-    */
+
     if (d == a) {
         u = one_of_type<mpq>();
         v = zero_of_type<mpq>();
