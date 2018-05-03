@@ -140,6 +140,9 @@ extern "C" {
                 r = to_optimize_ptr(o)->optimize();
             }
             catch (z3_exception& ex) {
+                if (!mk_c(c)->m().canceled()) {
+                    mk_c(c)->handle_exception(ex);
+                }
                 r = l_undef;
                 if (ex.msg() == std::string("canceled") && mk_c(c)->m().canceled()) {
                     to_optimize_ptr(o)->set_reason_unknown(ex.msg());
