@@ -173,6 +173,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
             break;
         }
         m_mc = g->mc();
+        TRACE("tactic", if (m_mc) m_mc->display(tout););
     }
     catch (z3_error & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
@@ -225,8 +226,9 @@ void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
 }
 
 void tactic2solver::get_model_core(model_ref & m) {
-    if (m_result.get())
+    if (m_result.get()) {
         m_result->get_model_core(m);
+    }
 }
 
 proof * tactic2solver::get_proof() {

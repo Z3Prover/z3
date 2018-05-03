@@ -1527,6 +1527,7 @@ namespace opt {
     }
 
     void context::validate_model() {
+        return;
         if (!gparams::get_ref().get_bool("model_validate", false)) return;
         expr_ref_vector fmls(m);
         get_hard_constraints(fmls);
@@ -1536,9 +1537,9 @@ namespace opt {
         for (expr * f : fmls) {
             if (!mdl->eval(f, tmp) || !m.is_true(tmp)) {
                 //IF_VERBOSE(0, m_fm->display(verbose_stream() << "fm\n"));
-                //IF_VERBOSE(0, m_model_converter->display(verbose_stream() << "mc\n"));
+                IF_VERBOSE(0, m_model_converter->display(verbose_stream() << "mc\n"));
                 IF_VERBOSE(0, verbose_stream() << "Failed to validate " << mk_pp(f, m) << "\n" << tmp << "\n");
-                //IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *mdl, 0)); 
+                IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *mdl, 0)); 
                 IF_VERBOSE(11, verbose_stream() << to_string_internal() << "\n");
                 exit(0);
             }

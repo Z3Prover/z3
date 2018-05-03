@@ -817,7 +817,7 @@ private:
         
 
         if (!gparams::get_ref().get_bool("model_validate", false)) return;
-        IF_VERBOSE(0, verbose_stream() << "Verifying solution\n";);
+        IF_VERBOSE(1, verbose_stream() << "Verifying solution\n";);
         model_evaluator eval(*mdl);
         eval.set_model_completion(false);
         bool all_true = true;
@@ -842,7 +842,7 @@ private:
             IF_VERBOSE(0, for (auto const& kv : m_map) verbose_stream() << mk_pp(kv.m_key, m) << " |-> " << kv.m_value << "\n");
         }
         else {
-            IF_VERBOSE(0, verbose_stream() << "solution verified\n");
+            IF_VERBOSE(1, verbose_stream() << "solution verified\n");
 //            IF_VERBOSE(0, if (m_mcs.back()) m_mcs.back()->display(verbose_stream() << "mcs\n"));
 //            IF_VERBOSE(0, if (m_sat_mc) m_sat_mc->display(verbose_stream() << "sat_mc\n"));
 //            IF_VERBOSE(0, model_smt2_pp(verbose_stream() << "after\n", m, *mdl, 0););

@@ -98,6 +98,7 @@ class elim_uncnstr_tactic : public tactic {
                 TRACE("elim_uncnstr_bug", tout << "eliminating:\n" << mk_ismt2_pp(t, m()) << "\n";);
                 TRACE("elim_uncnstr_bug_ll", tout << "eliminating:\n" << mk_bounded_pp(t, m()) << "\n";);
                 m_fresh_vars.push_back(v);
+                if (m_mc) m_mc->hide(v);
                 m_cache_domain.push_back(t);
                 m_cache.insert(t, v);
                 return true;
@@ -856,15 +857,12 @@ class elim_uncnstr_tactic : public tactic {
                     if (round == 0) {                        
                     }
                     else {
-                        app_ref_vector & fresh_vars = m_rw->cfg().m_fresh_vars;
-                        m_num_elim_apps = fresh_vars.size();
-                        if (m_mc.get()) {
-                            for (app * f : fresh_vars) m_mc->hide(f);
-                            g->add(m_mc.get());
-                        }
+                        m_num_elim_apps = m_rw->cfg().m_fresh_vars.size();
+                        g->add(m_mc.get());                        
                     }
+                    TRACE("elim_uncnstr", if (m_mc) m_mc->display(tout); else tout << "no mc\n";);
                     m_mc = nullptr;
-                    m_rw  = nullptr;                    
+                    m_rw = nullptr;                    
                     result.push_back(g.get());
                     g->inc_depth();
                     return;
