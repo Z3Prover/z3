@@ -344,8 +344,6 @@ class JavaExample
         Status q = s.check();
         System.out.println("Solver says: " + q);
         System.out.println("Model: \n" + s.getModel());
-        System.out.println("Converted Model: \n"
-                + ar.convertModel(0, s.getModel()));
         if (q != Status.SATISFIABLE)
             throw new TestFailedException();
     }
@@ -1041,7 +1039,7 @@ class JavaExample
             HashMap<String, String> cfg = new HashMap<String, String>();
             cfg.put("model", "true");
             Context ctx = new Context(cfg);
-            Expr a = ctx.MkAnd(ctx.parseSMTLIB2File(filename, null, null, null, null));
+            Expr a = ctx.mkAnd(ctx.parseSMTLIB2File(filename, null, null, null, null));
 
             long t_diff = ((new Date()).getTime() - before.getTime()) / 1000;
 
