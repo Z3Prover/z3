@@ -611,7 +611,6 @@ namespace test_mapi
                 Expr f_x = ctx.MkApp(f, x);
                 Expr f_y = ctx.MkApp(f, y);
                 Expr g_y = ctx.MkApp(g, y);
-                Pattern[] pats = new Pattern[] { ctx.MkPattern(new Expr[] { f_x, g_y }) };
                 Expr[] no_pats = new Expr[] { f_y };
                 Expr[] bound = new Expr[2] { x, y };
                 Expr body = ctx.MkAnd(ctx.MkEq(f_x, f_y), ctx.MkEq(f_y, g_y));
@@ -628,7 +627,6 @@ namespace test_mapi
                 Expr f_x = ctx.MkApp(f, x);
                 Expr f_y = ctx.MkApp(f, y);
                 Expr g_y = ctx.MkApp(g, y);
-                Pattern[] pats = new Pattern[] { ctx.MkPattern(new Expr[] { f_x, g_y }) };
                 Expr[] no_pats = new Expr[] { f_y };
                 Symbol[] names = new Symbol[] { ctx.MkSymbol("x"), ctx.MkSymbol("y") };
                 Sort[] sorts = new Sort[] { ctx.IntSort, ctx.IntSort };
@@ -729,7 +727,6 @@ namespace test_mapi
         {
             Console.WriteLine("BasicTests");
 
-            Symbol qi = ctx.MkSymbol(1);
             Symbol fname = ctx.MkSymbol("f");
             Symbol x = ctx.MkSymbol("x");
             Symbol y = ctx.MkSymbol("y");
@@ -1319,7 +1316,7 @@ namespace test_mapi
              new Sort[] { int_type, int_type } // types of projection operators
                 );
             FuncDecl first = tuple.FieldDecls[0];  // declarations are for projections
-            FuncDecl second = tuple.FieldDecls[1];
+            // FuncDecl second = tuple.FieldDecls[1];
             Expr x = ctx.MkConst("x", int_type);
             Expr y = ctx.MkConst("y", int_type);
             Expr n1 = tuple.MkDecl[x, y];

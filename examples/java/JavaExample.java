@@ -1508,7 +1508,7 @@ class JavaExample
                      * parenthesis
                      */
                     "(declare-const x Int (declare-const y Int)) (assert (> x y))",
-                    null, null, null, null)[0];
+                    null, null, null, null);
         } catch (Z3Exception e)
         {
             System.out.println("Z3 error: " + e);
