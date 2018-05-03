@@ -371,6 +371,9 @@ Notes:
                 break;
             case ordered_at_most_1:
                 return mk_ordered_exactly_1(full, n, xs);
+            default:
+                UNREACHABLE();
+                return mk_ordered_exactly_1(full, n, xs);                
             }
 
             if (full) {

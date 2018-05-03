@@ -1415,7 +1415,7 @@ namespace sat {
             return l_false;
         if (m_conflicts_since_init > m_config.m_max_conflicts) 
             return l_undef;
-        if (m_conflicts_since_restart > m_restart_threshold) 
+        if (should_restart()) 
             return l_undef;
         if (at_base_lvl()) {
             cleanup(); // cleaner may propagate frozen clauses
@@ -1826,6 +1826,10 @@ namespace sat {
         }
         IF_VERBOSE(1, verbose_stream() << "model check " << (ok?"OK":"failed") << "\n";);
         return ok;
+    }
+
+    bool solver::should_restart() const {
+        return m_conflicts_since_restart > m_restart_threshold;
     }
 
     void solver::restart(bool to_base) {

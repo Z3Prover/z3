@@ -416,6 +416,7 @@ namespace sat {
         void mk_model();
         bool check_model(model const & m) const;
         void restart(bool to_base);
+        bool should_restart() const;
         void sort_watch_lits();
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);

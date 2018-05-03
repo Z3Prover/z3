@@ -17,12 +17,11 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
         return false;
     }
     infile.getline(line, 16383);
-    int num_vars, num_constraints;
 #ifdef _WINDOWS
+    int num_vars = 0, num_constraints = 0;
     sscanf_s(line, "%d %d", &num_vars, &num_constraints);
 #else
     return false;
-#endif
     //std::cout << "number of variables: " << num_vars << '\n';
     //std::cout << "number of constraints: " << num_constraints << '\n';
 
@@ -70,6 +69,7 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
 
     infile.close();
     return true;
+#endif
 }
 
 void tst_sat_local_search(char ** argv, int argc, int& i) {
