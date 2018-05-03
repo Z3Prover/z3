@@ -1039,7 +1039,7 @@ class JavaExample
             HashMap<String, String> cfg = new HashMap<String, String>();
             cfg.put("model", "true");
             Context ctx = new Context(cfg);
-            Expr a = ctx.mkAnd(ctx.parseSMTLIB2File(filename, null, null, null, null));
+            BoolExpr a = ctx.mkAnd(ctx.parseSMTLIB2File(filename, null, null, null, null));
 
             long t_diff = ((new Date()).getTime() - before.getTime()) / 1000;
 
