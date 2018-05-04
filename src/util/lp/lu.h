@@ -10,8 +10,8 @@ Abstract:
     <abstract>
     for matrix B we have
     t0*...*tn-1*B = Q*U*R
-    here ti are matrices corresponding to a pivot operation,
-    including columna and rows swaps,
+    here ti are matrices corresponding to pivot operations,
+    including columns and rows swaps,
     or a multiplication matrix row by a number
     Q, R - permutations and U is an upper triangular matrix
 Author:

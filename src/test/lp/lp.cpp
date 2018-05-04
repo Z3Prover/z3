@@ -3506,9 +3506,23 @@ struct matrix_A {
                     return false;
         return true;
     }
+
+    bool elements_are_equal_modulo(const matrix_A& m, const mpq & d) const {
+        for (unsigned i = 0; i < row_count(); i++)
+            for (unsigned j = 0; j < column_count(); j++)
+                if (!is_zero(((*this)[i][j] - m[i][j]) % d)) 
+                    return false;
+        return true;
+    }
     bool operator==(const matrix_A& m) const {
         return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal(m);
     }
+
+    bool equal_modulo(const matrix_A& m, const mpq & d) const {
+        return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal_modulo(m, d);
+    }
+
+    
     vector<mpq> operator*(const vector<mpq> & x) const {
         vector<mpq> r;
         lp_assert(x.size() == column_count());
@@ -3766,9 +3780,25 @@ void test_hnf_for_dim(int m) {
     hnf<matrix_A> h(M);
 }
 
+void test_hnf_2_2() {
+    std::cout << "test_hnf_2_2" << std::endl;
+    matrix_A A;
+    vector<mpq> v;
+    v.push_back(mpq(6));
+    v.push_back(mpq(-6));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(-3));
+    v.push_back(mpq(4));
+    A.m_data.push_back(v);
+    hnf<matrix_A> h(A);
+    std::cout << "test_hnf_2_2 passed" << std::endl;
+}
+
 void test_hnf() {
+    test_hnf_2_2();
     for (unsigned k=1000; k>0; k--)
-        for (int i = 1; i < 6; i++)
+        for (int i = 1; i < 8; i++)
             test_hnf_for_dim(i);
     cutting_the_mix_example_1();
     return;

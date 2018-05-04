@@ -9,6 +9,16 @@ Abstract:
 
     <abstract>
     Creates the Hermite Normal Form of a matrix in place.
+    We suppose that $A$ is an integral $m$ by $n$ matrix or rank $m$, where $n >= m$.
+    The paragraph below is applicable to the usage of HNF.
+We have $H = AU$ where $H$ is in Hermite Normal Form
+and $U$ is a unimodular matrix. We do not have an explicit
+ representation of $U$. For a given $i$ we need to find the $i$-th
+    row of $U^{-1}$. 
+Let $e_i$ be a vector of length $m$ with all elements equal to $0$ and
+$1$ at $i$-th position. Then we need to find the row vector $e_iU^{-1}=t$. Noticing that $U^{-1} = H^{-1}A$, we have $e_iH^{-1}A=t$.
+We find  $e_iH^{-1} = f$ by solving $e_i = fH$ and then $fA$ gives us $t$.
+
 Author:
     Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
@@ -89,7 +99,6 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
     lp_assert(d == u * a + v * b);
 }
 
-
 // see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5
 template <typename M> mpq determinant_rec(M &m , const mpq & c, unsigned k) {
     // here n-k-1 is the number of rows(columns) in the righ bottom minor we recurse to
@@ -122,16 +131,46 @@ class hnf {
     // fields
     M &          m_H;
     M            m_U;
-    M            m_A_orig;  // debug only
+    M            m_A_orig;
+    M            m_W;
     M            m_U_reverse;  // debug only
     vector<mpq>  m_buffer;
     unsigned     m_m;
     unsigned     m_n;
     mpq          m_D; // it is a positive number and a multiple of determinant(m_A_orig), at least initially
+    unsigned     m_i;
+    unsigned     m_j;
+    mpq          m_R;
+    mpq          m_half_R;
 
+    mpq mod_R_balanced(const mpq & a) const {
+       mpq t = a % m_R;
+       return t > m_half_R? t - m_R : (t < - m_half_R? t + m_R : t);
+    }
+
+    mpq mod_R(const mpq & a) const {
+       mpq t = a % m_R;
+       return is_neg(t) ? t + m_R : t;
+    }
+
+    
     void buffer_p_col_i_plus_q_col_j_H(const mpq & p, unsigned i, const mpq & q, unsigned j) {
         for (unsigned k = i; k < m_m; k++) {
-            m_buffer[k] = p * m_H[k][i] + q * m_H[k][j];
+            m_buffer[k] =  p * m_H[k][i] + q * m_H[k][j];
+        }
+    }
+
+    bool zeros_in_column_W_above(unsigned i) {
+        for (unsigned k = 0; k < i; k++)
+            if (!is_zero(m_W[k][i]))
+                return false;
+        return true;
+    }
+    
+    void buffer_p_col_i_plus_q_col_j_W_modulo(const mpq & p, const mpq & q) {
+        lp_assert(zeros_in_column_W_above(m_i));
+        for (unsigned k = m_i; k < m_m; k++) {
+            m_buffer[k] =  mod_R_balanced(mod_R_balanced(p * m_W[k][m_i]) + mod_R_balanced(q * m_W[k][m_j]));
         }
     }
 
@@ -149,6 +188,14 @@ class hnf {
                   
     }
 
+    void pivot_column_i_to_column_j_W_modulo(mpq u, mpq v)  {
+        lp_assert(is_zero((u * m_W[m_i][m_i] + v * m_W[m_i][m_j]) % m_R));
+        m_W[m_i][m_j] = zero_of_type<mpq>();
+        for (unsigned k = m_i + 1; k < m_m; k ++)
+            m_W[k][m_j] = mod_R_balanced(mod_R_balanced(u * m_W[k][m_i]) + mod_R_balanced(v * m_W[k][m_j]));
+    }
+
+    
     void pivot_column_i_to_column_j_U(mpq u, unsigned i, mpq v, unsigned j) {
         for (unsigned k = 0; k < m_n; k ++)
             m_U[k][j] = u * m_U[k][i] + v * m_U[k][j];
@@ -156,8 +203,15 @@ class hnf {
     }
 
     void copy_buffer_to_col_i_H(unsigned i) {
-        for (unsigned k = i; k < m_m; k++)
+        for (unsigned k = i; k < m_m; k++) {
             m_H[k][i] = m_buffer[k];
+        }
+    }
+
+    void copy_buffer_to_col_i_W_modulo() {
+        for (unsigned k = m_i; k < m_m; k++) {
+            m_W[k][m_i] = m_buffer[k];
+        }
     }
 
     void copy_buffer_to_col_i_U(unsigned i) {
@@ -189,7 +243,7 @@ class hnf {
     }
 
  void handle_column_ij_in_row_i(unsigned i, unsigned j) {
-        lp_assert(is_correct());
+     lp_assert(is_correct_modulo());
         const mpq& aii = m_H[i][i];
         const mpq& aij = m_H[i][j];
         mpq p,q,r;
@@ -214,7 +268,7 @@ class hnf {
         // from the left
         
         multiply_U_reverse_from_left_by(i, j, aii_over_r, aij_over_r, -q, p);
-        lp_assert(is_correct());
+        lp_assert(is_correct_modulo());
     }
     
 
@@ -234,8 +288,6 @@ class hnf {
         if (is_zero(m_H[i][j]))
             return;
         handle_column_ij_in_row_i(i, j);
-        
-        lp_assert(m_H == m_A_orig * m_U);
     }
 
     void replace_column_j_by_j_minus_u_col_i_H(unsigned i, unsigned j, const mpq & u) {
@@ -245,6 +297,14 @@ class hnf {
         }
     }
 
+    void replace_column_j_by_j_minus_u_col_i_W(unsigned j, const mpq & u) {
+        lp_assert(j < m_i);
+        for (unsigned k = m_i; k < m_m; k++) {
+            m_W[k][j] -= u * m_W[k][m_i];
+        }
+    }
+
+    
     void replace_column_j_by_j_minus_u_col_i_U(unsigned i, unsigned j, const mpq & u) {
         
         lp_assert(j < i);
@@ -264,10 +324,10 @@ class hnf {
     }
 
     void work_on_columns_less_than_i_in_the_triangle(unsigned i) {
+        const mpq & mii = m_H[i][i];
+        lp_assert(is_pos(mii));
         for (unsigned j = 0; j < i; j++) {
             const mpq & mij = m_H[i][j];
-            const mpq & mii = m_H[i][i];
-            lp_assert(is_pos(mii));
             if (!is_pos(mij) && - mij < mii)
                 continue;
             mpq u = ceil(mij / mii);
@@ -277,7 +337,7 @@ class hnf {
     }
     
     void process_row(unsigned i) {
-        lp_assert(is_correct());
+        lp_assert(is_correct_modulo());
         for (unsigned j = i + 1; j < m_n; j++) {
             process_row_column(i, j);
         }
@@ -288,12 +348,8 @@ class hnf {
         if (is_neg(m_H[i][i]))
             switch_sign_for_column(i);
         work_on_columns_less_than_i_in_the_triangle(i);
-        auto product = m_A_orig * m_U;
-        
-        lp_assert(m_H == product);
-        lp_assert(is_correct());
+        lp_assert(is_correct_modulo());
     }
-
 
     void calculate() {
         for (unsigned i = 0; i < m_m; i++) {
@@ -360,29 +416,106 @@ class hnf {
         return m_H == m_A_orig * m_U && is_unit_matrix(m_U * m_U_reverse);
     }
 
+    bool is_correct_modulo() const {
+        return m_H.equal_modulo(m_A_orig * m_U, m_D) && is_unit_matrix(m_U * m_U_reverse);
+    }
+
     bool is_correct_final() const {
-        return is_correct() && is_correct_form();
+        if (!is_correct()) {
+            std::cout << "m_H =            "; m_H.print(std::cout, 17);
+            
+            std::cout << "\nm_A_orig * m_U = ";  (m_A_orig * m_U).print(std::cout, 17);
+            
+            std::cout << "is_correct() does not hold" << std::endl;
+            return false;
+        }
+        if (!is_correct_form()) {
+            std::cout << "is_correct_form() does not hold" << std::endl;
+            return false;
+        }
+        return true;
     }
 
-    void calculate_naive() {
-        prepare_U_and_U_reverse();
-        calculate();
+    // follows Algorithm 2.4.8 of Henri Cohen's "A cource on computational algebraic number theory",
+    // with some changes related to that we create a low triangle matrix
+    // with non-positive elements under the diagonal
+    void process_column_in_row_modulo() {
+        const mpq& aii = m_W[m_i][m_i];
+        const mpq& aij = m_W[m_i][m_j];
+        mpq d, p,q;
+        extended_gcd_minimal_uv(aii, aij, d, p, q);
+        mpq aii_over_d = aii / d;
+        mpq aij_over_d = aij / d;
+        buffer_p_col_i_plus_q_col_j_W_modulo(p, q);
+        pivot_column_i_to_column_j_W_modulo(- aij_over_d, aii_over_d);
+        copy_buffer_to_col_i_W_modulo();
     }
 
+    void endl() {
+        std::cout << std::endl;
+    }
+    
+    void fix_row_under_diagonal_W_modulo() {
+        mpq d, u, v;
+        if (is_zero(m_W[m_i][m_i])) {
+            m_W[m_i][m_i] = m_R;
+            u = one_of_type<mpq>();
+        } else {
+            extended_gcd_minimal_uv(m_W[m_i][m_i], m_R, d, u, v);
+        }
+        // adjust column m_i
+        for (unsigned k = m_i + 1; k < m_m; k++) {
+            m_W[k][m_i] *= u;
+            m_W[k][m_i] %= m_R;
+        }
+
+        const mpq & mii = m_W[m_i][m_i];
+        lp_assert(is_pos(mii));
+        for (unsigned j = 0; j < m_i; j++) {
+            const mpq & mij = m_W[m_i][j];
+            if (!is_pos(mij) && - mij < mii)
+                continue;
+            mpq q = ceil(mij / mii);
+            replace_column_j_by_j_minus_u_col_i_W(j, q);
+        }
+    }
+
+    
+    void process_row_modulo() {
+        for (m_j = m_i + 1; m_j < m_n; m_j++) {
+            process_column_in_row_modulo();
+        }
+        fix_row_under_diagonal_W_modulo();
+    }
+    
+    void calculate_by_modulo() {
+        for (m_i = 0; m_i < m_m; m_i ++) {
+            process_row_modulo();
+            lp_assert(is_pos(m_W[m_i][m_i]));
+            m_R /= m_W[m_i][m_i];
+            m_half_R = floor(m_R / 2);
+        }
+    }
     
 public:
     hnf(M & A) : m_H(A),
                  m_A_orig(A),
+                 m_W(A),
                  m_buffer(std::max(A.row_count(), A.column_count())),
                  m_m(m_H.row_count()),
                  m_n(m_H.column_count()),
-                 m_D(determinant(A))
+                 m_D(abs(determinant(A))),
+                 m_R(m_D),
+                 m_half_R(floor(m_R / 2))
     {
+        lp_assert(m_m > 0 && m_n > 0);
         if (is_zero(m_D))
             return;
         prepare_U_and_U_reverse();
         calculate();
         lp_assert(is_correct_final());
+        calculate_by_modulo();
+        lp_assert(m_H == m_W);
     }
     const M& H() const { return m_H;}
     const M& U() const { return m_U;}
