@@ -53,6 +53,8 @@ namespace sat {
         m_qhead(0),
         m_scope_lvl(0),
         m_search_lvl(0),
+        m_fast_glue_avg(),
+        m_slow_glue_avg(),
         m_params(p),
         m_par_id(0),
         m_par_syncing_clauses(false) {
@@ -538,7 +540,6 @@ namespace sat {
         // walk clauses, reallocate them in an order that defragments memory and creates locality.
         for (literal lit : lits) {
             watch_list& wlist = m_watches[lit.index()];
-            // for (watch_list& wlist : m_watches) {            
             for (watched& w : wlist) {
                 if (w.is_clause()) {
                     clause& c1 = get_clause(w);
@@ -791,12 +792,11 @@ namespace sat {
         }
         
         if (m_config.m_propagate_prefetch) {
-            _mm_prefetch((const char*)(m_watches[l.index()].c_ptr()), _MM_HINT_T1);
+            _mm_prefetch((const char*)(&*(m_watches[l.index()].c_ptr())), _MM_HINT_T1);
         }
 
         SASSERT(!l.sign() || m_phase[v] == NEG_PHASE);
         SASSERT(l.sign()  || m_phase[v] == POS_PHASE);
-
         SASSERT(!l.sign() || value(v) == l_false);
         SASSERT(l.sign()  || value(v) == l_true);
         SASSERT(value(l) == l_true);
@@ -1059,16 +1059,14 @@ namespace sat {
                     return r;
                 pop_reinit(scope_lvl());
                 m_conflicts_since_restart = 0;
-                m_restart_threshold       = m_config.m_restart_initial;
+                m_restart_threshold = m_config.m_restart_initial;
             }
 
             // iff3_finder(*this)();
             simplify_problem();
             if (check_inconsistent()) return l_false;
 
-            if (m_config.m_max_conflicts == 0) {
-                m_reason_unknown = "sat.max.conflicts";
-                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = 0\")\n";);
+            if (reached_max_conflicts()) {
                 return l_undef;
             }
 
@@ -1079,9 +1077,7 @@ namespace sat {
                 if (r != l_undef)
                     return r;
 
-                if (m_conflicts_since_init > m_config.m_max_conflicts) {
-                    m_reason_unknown = "sat.max.conflicts";
-                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts_since_init << "\")\n";);
+                if (reached_max_conflicts()) {
                     return l_undef;
                 }
 
@@ -1413,7 +1409,7 @@ namespace sat {
             return l_true;
         if (!resolve_conflict())
             return l_false;
-        if (m_conflicts_since_init > m_config.m_max_conflicts) 
+        if (reached_max_conflicts()) 
             return l_undef;
         if (should_restart()) 
             return l_undef;
@@ -1829,7 +1825,12 @@ namespace sat {
     }
 
     bool solver::should_restart() const {
-        return m_conflicts_since_restart > m_restart_threshold;
+        if (m_conflicts_since_restart <= m_restart_threshold) return false;
+        if (scope_lvl() < 2 + search_lvl()) return false;
+        if (m_config.m_restart != RS_EMA) return true;
+        return 
+            m_fast_glue_avg + search_lvl() <= scope_lvl() && 
+            m_config.m_restart_margin * m_slow_glue_avg <= m_fast_glue_avg;
     }
 
     void solver::restart(bool to_base) {
@@ -1843,31 +1844,39 @@ namespace sat {
                        << " :time " << std::fixed << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
         }
         IF_VERBOSE(30, display_status(verbose_stream()););
-        unsigned num_scopes = 0;
+        pop_reinit(restart_level(to_base));
+        set_next_restart();
+    }
+
+    unsigned solver::restart_level(bool to_base) {
         if (to_base || scope_lvl() == search_lvl()) {
-            num_scopes = scope_lvl() - search_lvl();
+            return scope_lvl() - search_lvl();
         }
         else {
             bool_var next = m_case_split_queue.min_var();
 
             // Implementations of Marijn's idea of reusing the 
             // trail when the next decision literal has lower precedence.
+            // pop trail from top
 #if 0
-            // pop the trail from top
+            unsigned n = 0;
             do {
-                bool_var prev = scope_literal(scope_lvl() - num_scopes - 1).var();
+                bool_var prev = scope_literal(scope_lvl() - n - 1).var();
                 if (m_case_split_queue.more_active(prev, next)) break;                
-                ++num_scopes;
+                ++n;
             }
-            while (num_scopes < scope_lvl() - search_lvl());
-#else            
-            // pop the trail from bottom
-            unsigned n = search_lvl();
-            for (; n < scope_lvl() && m_case_split_queue.more_active(scope_literal(n).var(), next); ++n) ;
-            num_scopes = n - search_lvl();
+            while (n < scope_lvl() - search_lvl());
+            return n;
 #endif
+            // pop trail from bottom
+            unsigned n = search_lvl();
+            for (; n < scope_lvl() && m_case_split_queue.more_active(scope_literal(n).var(), next); ++n) {
+            }
+            return n - search_lvl();
         }
-        pop_reinit(num_scopes);
+    }
+
+    void solver::set_next_restart() {
         m_conflicts_since_restart = 0;
         switch (m_config.m_restart) {
         case RS_GEOMETRIC:
@@ -1876,6 +1885,11 @@ namespace sat {
         case RS_LUBY:
             m_luby_idx++;
             m_restart_threshold = m_config.m_restart_initial * get_luby(m_luby_idx);
+            break;
+        case RS_EMA:
+            m_restart_threshold = m_config.m_restart_initial;
+            break;
+        case RS_STATIC:
             break;
         default:
             UNREACHABLE();
@@ -2356,6 +2370,8 @@ namespace sat {
         }
 
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
+        m_fast_glue_avg.update(glue);
+        m_slow_glue_avg.update(glue);
 
         pop_reinit(m_scope_lvl - new_scope_lvl);
         TRACE("sat_conflict_detail", tout << new_scope_lvl << "\n"; display(tout););
@@ -3303,6 +3319,8 @@ namespace sat {
         m_rand.set_seed(m_config.m_random_seed);
         m_step_size = m_config.m_step_size_init;
         m_drat.updt_config();
+        m_fast_glue_avg.set_alpha(m_config.m_fast_glue_avg);
+        m_slow_glue_avg.set_alpha(m_config.m_slow_glue_avg);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {
@@ -3849,6 +3867,17 @@ namespace sat {
         TRACE("sat", tout << m_core << "\n";);
     }
 
+    bool solver::reached_max_conflicts() {
+        if (m_config.m_max_conflicts == 0 || m_conflicts_since_init > m_config.m_max_conflicts) {
+            if (m_reason_unknown != "sat.max.conflicts") {
+                m_reason_unknown = "sat.max.conflicts";
+                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts_since_init << "\")\n";);
+            }
+            return true;
+        }
+        return false;
+    }
+
 
     lbool solver::get_bounded_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
         bool_var_set unfixed_vars;
@@ -3894,8 +3923,7 @@ namespace sat {
 
             extract_fixed_consequences(num_units, asms, unfixed_vars, conseq);
 
-            if (m_conflicts_since_init > m_config.m_max_conflicts) {
-                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts_since_init << "\")\n";);
+            if (reached_max_conflicts()) {
                 return l_undef;
             }
 

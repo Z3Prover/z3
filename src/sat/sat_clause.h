@@ -136,7 +136,7 @@ namespace sat {
        \brief Simple clause allocator that allows uint (32bit integers) to be used to reference clauses (even in 64bit machines).
     */
     class clause_allocator {
-        small_object_allocator    m_allocator;
+        sat_allocator    m_allocator;
         id_gen           m_id_gen;
     public:
         clause_allocator();

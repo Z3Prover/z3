@@ -41,6 +41,7 @@ Revision History:
 #include "util/params.h"
 #include "util/statistics.h"
 #include "util/stopwatch.h"
+#include "util/ema.h"
 #include "util/trace.h"
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
@@ -137,6 +138,8 @@ namespace sat {
         unsigned                m_qhead;
         unsigned                m_scope_lvl;
         unsigned                m_search_lvl;
+        ema                     m_fast_glue_avg;
+        ema                     m_slow_glue_avg;
         literal_vector          m_trail;
         clause_wrapper_vector   m_clauses_to_reinit;
         std::string             m_reason_unknown;
@@ -416,7 +419,10 @@ namespace sat {
         void mk_model();
         bool check_model(model const & m) const;
         void restart(bool to_base);
+        unsigned restart_level(bool to_base);
         bool should_restart() const;
+        void set_next_restart();
+        bool reached_max_conflicts();
         void sort_watch_lits();
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);

@@ -38,9 +38,16 @@ namespace sat {
             m_restart = RS_LUBY;
         else if (s == symbol("geometric"))
             m_restart = RS_GEOMETRIC;
+        else if (s == symbol("ema"))
+            m_restart = RS_EMA;
+        else if (s == symbol("static"))
+            m_restart = RS_STATIC;
         else
             throw sat_param_exception("invalid restart strategy");
 
+        m_fast_glue_avg = p.restart_emafastglue();
+        m_slow_glue_avg = p.restart_emaslowglue();
+        m_restart_margin = p.restart_margin();
         m_restart_fast = p.restart_fast();
         s = p.phase();
         if (s == symbol("always_false")) 

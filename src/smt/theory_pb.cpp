@@ -782,7 +782,6 @@ namespace smt {
         if (pb.is_at_least_k(atom)) {
             return true;
         }
-        // TBD: other conditions
         return false;
     }
 
@@ -791,7 +790,6 @@ namespace smt {
         if (ctx.b_internalized(atom)) {
             return true;
         }
-
         if (!is_cardinality_constraint(atom)) {
             return false;
         }       
@@ -816,8 +814,7 @@ namespace smt {
 
         card* c = alloc(card, lit, bound, aux);
         
-        for (unsigned i = 0; i < num_args; ++i) {
-            expr* arg = atom->get_arg(i);
+        for (expr* arg : *atom) {
             c->add_arg(compile_arg(arg));
         }
 
@@ -2432,9 +2429,9 @@ namespace smt {
 
     void theory_pb::validate_assign(ineq const& c, literal_vector const& lits, literal l) const {
         uint_set nlits;
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            SASSERT(get_context().get_assignment(lits[i]) == l_true);
-            nlits.insert((~lits[i]).index());
+        for (literal lit : lits) {
+            SASSERT(get_context().get_assignment(lit) == l_true);
+            nlits.insert((~lit).index());
         }
         SASSERT(get_context().get_assignment(l) == l_undef);
         SASSERT(get_context().get_assignment(c.lit()) == l_true);
@@ -2448,9 +2445,7 @@ namespace smt {
         }
         CTRACE("pb", (sum >= c.k()),
                display(tout << "invalid assign" , c, true);
-               for (unsigned i = 0; i < lits.size(); ++i) {
-                   tout << lits[i] << " ";
-               }
+               for (literal lit : lits) tout << lit << " ";
                tout << " => " << l << "\n";);
         SASSERT(sum < c.k());
     }

@@ -33,7 +33,9 @@ namespace sat {
 
     enum restart_strategy {
         RS_GEOMETRIC,
-        RS_LUBY
+        RS_LUBY,
+        RS_EMA,
+        RS_STATIC
     };
 
     enum gc_strategy {
@@ -90,7 +92,10 @@ namespace sat {
         bool               m_restart_fast;
         unsigned           m_restart_initial;
         double             m_restart_factor; // for geometric case
+        double             m_restart_margin; // for ema
         unsigned           m_restart_max;
+        double             m_fast_glue_avg;
+        double             m_slow_glue_avg;
         unsigned           m_inprocess_max;
         double             m_random_freq;
         unsigned           m_random_seed;
