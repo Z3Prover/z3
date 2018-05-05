@@ -3846,8 +3846,50 @@ void test_hnf_4_4() {
     hnf<matrix_A> h(A);
     std::cout << "test_hnf_4_4 passed" << std::endl;
 }
+void test_hnf_5_5() {
+    std::cout << "test_hnf_5_5" << std::endl;
+    matrix_A A;
+    vector<mpq> v;
+    v.push_back(mpq(-4));
+    v.push_back(mpq(5));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(1));
+    v.push_back(mpq(-3));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(3));
+    v.push_back(mpq(-1));
+    v.push_back(mpq(2));
+    v.push_back(mpq(3));
+    v.push_back(mpq(-5));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(0));
+    v.push_back(mpq(6));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(-6));
+    v.push_back(mpq(-2));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(1));
+    v.push_back(mpq(0));
+    v.push_back(mpq(-4));
+    v.push_back(mpq(-4));
+    v.push_back(mpq(4));
+    A.m_data.push_back(v);
+    v.clear();
+    v.push_back(mpq(-2));
+    v.push_back(mpq(3));
+    v.push_back(mpq(6));
+    v.push_back(mpq(-5));
+    v.push_back(mpq(-1));
+    A.m_data.push_back(v);
+    hnf<matrix_A> h(A);
+    std::cout << "test_hnf_5_5 passed" << std::endl;
+}
 
 void test_hnf() {
+    test_hnf_5_5();
     test_hnf_3_3();
     test_hnf_2_2();
     test_hnf_4_4();

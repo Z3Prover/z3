@@ -162,7 +162,12 @@ class hnf {
 
     mpq mod_R(const mpq & a) const {
        mpq t = a % m_R;
-       return is_neg(t) ? t + m_R : t;
+       t = is_neg(t) ? t + m_R : t;
+       if(is_neg(t)){
+           std::cout << "a=" << a << ", m_R= " << m_R << std::endl;
+       }
+       return t;
+           
     }
 
     
@@ -312,12 +317,8 @@ class hnf {
     void replace_column_j_by_j_minus_u_col_i_W(unsigned j, const mpq & u) {
         lp_assert(j < m_i);
         for (unsigned k = m_i; k < m_m; k++) {
-            if (k == m_i) {
-                m_W[k][j] -= u * m_W[k][m_i];
-            } else {
-                m_W[k][j] -= mod_R_balanced(u * m_W[k][m_i]);
-                m_W[k][j] = mod_R_balanced(m_W[k][j]);
-            }
+            m_W[k][j] -= u * m_W[k][m_i];
+            //  m_W[k][j] = mod_R_balanced(m_W[k][j]);
         }
     }
 
@@ -365,8 +366,6 @@ class hnf {
         if (is_neg(m_H[i][i]))
             switch_sign_for_column(i);
         work_on_columns_less_than_i_in_the_triangle(i);
-        std::cout << "i = " << i << std::endl;
-        std::cout << "H="; m_H.print(std::cout, 2); endl();
         lp_assert(is_correct_modulo());
     }
 
@@ -455,7 +454,7 @@ class hnf {
         return true;
     }
 
-    // follows Algorithm 2.4.8 of Henri Cohen's "A cource on computational algebraic number theory",
+    // follows Algorithm 2.4.8 of Henri Cohen's "A course on computational algebraic number theory",
     // with some changes related to that we create a low triangle matrix
     // with non-positive elements under the diagonal
     void process_column_in_row_modulo() {
@@ -463,6 +462,8 @@ class hnf {
         const mpq& aij = m_W[m_i][m_j];
         mpq d, p,q;
         extended_gcd_minimal_uv(aii, aij, d, p, q);
+        if (is_zero(d))
+            return;
         mpq aii_over_d = aii / d;
         mpq aij_over_d = aij / d;
         buffer_p_col_i_plus_q_col_j_W_modulo(p, q);
@@ -481,17 +482,19 @@ class hnf {
         if (is_zero(m_W[m_i][m_i])) {
             m_W[m_i][m_i] = m_R;
             u = one_of_type<mpq>();
+            d = m_R;
         } else {
             extended_gcd_minimal_uv(m_W[m_i][m_i], m_R, d, u, v);
         }
         auto & mii = m_W[m_i][m_i];
-        if (u != one_of_type<mpq>()) {
-            mii *= u;
-            mii = mod_R(mii);
-            if (is_zero(mii))
-                mii = d;
-        }
-        // adjust column m_i
+        mii *= u;
+        mii = mod_R(mii);
+        if (is_zero(mii))
+            mii = d;
+
+        lp_assert(is_pos(mii));
+
+         // adjust column m_i
         for (unsigned k = m_i + 1; k < m_m; k++) {
             m_W[k][m_i] *= u;
             m_W[k][m_i] = mod_R_balanced(m_W[k][m_i]);
@@ -521,9 +524,6 @@ class hnf {
         for (m_i = 0; m_i < m_m; m_i ++) {
             lp_assert(is_zero(determinant(m_W) % m_D));
             process_row_modulo();
-            std::cout << "m_i=" << m_i; endl();
-            std::cout << "W="; m_W.print(std::cout, 2);endl();
-                            
             lp_assert(is_zero(determinant(m_W) % m_D));
             lp_assert(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
