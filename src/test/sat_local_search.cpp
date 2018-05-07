@@ -20,8 +20,6 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
 #ifdef _WINDOWS
     int num_vars = 0, num_constraints = 0;
     sscanf_s(line, "%d %d", &num_vars, &num_constraints);
-#else
-    return false;
     //std::cout << "number of variables: " << num_vars << '\n';
     //std::cout << "number of constraints: " << num_constraints << '\n';
 
@@ -69,6 +67,8 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
 
     infile.close();
     return true;
+#else
+    return false;
 #endif
 }
 
