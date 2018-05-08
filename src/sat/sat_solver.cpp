@@ -792,7 +792,11 @@ namespace sat {
         }
         
         if (m_config.m_propagate_prefetch) {
+#if defined(__GLUC__) || defined(__clang__)
+            __builtin_prefetch((const char*)(&*(m_watches[l.index()].c_ptr()));
+#else
             _mm_prefetch((const char*)(&*(m_watches[l.index()].c_ptr())), _MM_HINT_T1);
+#endif
         }
 
         SASSERT(!l.sign() || m_phase[v] == NEG_PHASE);
