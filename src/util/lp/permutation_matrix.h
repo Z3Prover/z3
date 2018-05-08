@@ -132,7 +132,7 @@ class permutation_matrix : public tail_matrix<T, X> {
 
         unsigned size() const { return static_cast<unsigned>(m_rev.size()); }
 
-        unsigned * values() const { return m_permutation; }
+        unsigned * values() const { return m_permutation.c_ptr(); }
 
         void resize(unsigned size) {
             unsigned old_size = m_permutation.size();
