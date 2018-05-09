@@ -524,8 +524,15 @@ namespace sat {
         }
     };
 
+    bool solver::should_defrag() {
+        if (m_defrag_threshold > 0) --m_defrag_threshold;
+        return m_defrag_threshold == 0 && m_config.m_gc_defrag;
+    }
+
     void solver::defrag_clauses() {
+        return;
         if (memory_pressure()) return;
+        pop(scope_lvl());
         IF_VERBOSE(1, verbose_stream() << "(sat-defrag)\n");
         clause_allocator& alloc = m_cls_allocator[!m_cls_allocator_idx];
         ptr_vector<clause> new_clauses, new_learned;
@@ -585,6 +592,8 @@ namespace sat {
 
         cls_allocator().finalize();
         m_cls_allocator_idx = !m_cls_allocator_idx;
+
+        reinit_assumptions();
     }
 
 
@@ -1576,6 +1585,7 @@ namespace sat {
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
+        m_defrag_threshold        = 2;
         m_restarts                = 0;
         m_simplifications         = 0;
         m_conflicts_since_init    = 0;
@@ -1590,6 +1600,7 @@ namespace sat {
         m_core.reset();
         m_min_core_valid = false;
         m_min_core.reset();
+        m_simplifier.init_search();
         TRACE("sat", display(tout););
     }
 
@@ -1939,10 +1950,8 @@ namespace sat {
             break;
         }
         if (m_ext) m_ext->gc();
-        if (gc > 0 && m_config.m_gc_defrag && !memory_pressure()) {
-            pop(scope_lvl());
+        if (gc > 0 && should_defrag()) {
             defrag_clauses();
-            reinit_assumptions();
         }
         m_conflicts_since_gc = 0;
         m_gc_threshold += m_config.m_gc_increment;

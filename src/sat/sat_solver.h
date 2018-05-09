@@ -230,6 +230,7 @@ namespace sat {
         inline void     dealloc_clause(clause* c) { cls_allocator().del_clause(c); }
         struct cmp_activity;
         void defrag_clauses();
+        bool should_defrag();
         bool memory_pressure();
         void del_clause(clause & c);
         clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
@@ -392,6 +393,7 @@ namespace sat {
         unsigned m_luby_idx;
         unsigned m_conflicts_since_gc;
         unsigned m_gc_threshold;
+        unsigned m_defrag_threshold;
         unsigned m_num_checkpoints;
         double   m_min_d_tk;
         unsigned m_next_simplify;

@@ -8,6 +8,8 @@ from __future__ import print_function
 from z3 import *
 import time
 
+set_option("sat.gc.burst", False)      # disable GC at every search. It is wasteful for these small queries.
+
 def diff_at_j_is_i(xs, j, i):
     assert(0 <= j and j + 1 < len(xs))
     assert(1 <= i and i < len(xs))

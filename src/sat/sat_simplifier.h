@@ -219,6 +219,8 @@ namespace sat {
         simplifier(solver & s, params_ref const & p);
         ~simplifier();
 
+        void init_search() { m_num_calls = 0; }
+
         void insert_elim_todo(bool_var v) { m_elim_todo.insert(v); }
 
         void reset_todos() {

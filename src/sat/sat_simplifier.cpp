@@ -664,8 +664,9 @@ namespace sat {
                 m_sub_todo.insert(it.curr());
             }
             clause_use_list& cs = m_use_list.get(l);
-            for (auto it = cs.mk_iterator(); !it.at_end(); it.next()) {
+            for (auto it = cs.mk_iterator(); !it.at_end(); ) {
                 clause & c = it.curr();
+                it.next();
                 remove_clause(c, l);
             }
             cs.reset();            
@@ -2023,7 +2024,7 @@ namespace sat {
                 m_new_cls.reset();
                 if (!resolve(c1, c2, pos_l, m_new_cls))
                     continue;
-                if (false && v == 27041) IF_VERBOSE(0, verbose_stream() << "elim: " << c1 << " +  " << c2 << " -> " << m_new_cls << "\n");
+                if (false && v == 767) IF_VERBOSE(0, verbose_stream() << "elim: " << c1 << " +  " << c2 << " -> " << m_new_cls << "\n");
                 TRACE("resolution_new_cls", tout << c1 << "\n" << c2 << "\n-->\n" << m_new_cls << "\n";);
                 if (cleanup_clause(m_new_cls))
                     continue; // clause is already satisfied.
