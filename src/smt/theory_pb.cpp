@@ -1820,8 +1820,8 @@ namespace smt {
         return value < 0;
     }
 
-    bool theory_pb::validate_implies(app_ref& A, app_ref& B) {
-        static bool validating = false;
+    bool theory_pb::validate_implies(app_ref& A, app_ref& B) {       
+        static bool validating = true; // false;
         if (validating) return true;
         validating = true;
         ast_manager& m = get_manager();
