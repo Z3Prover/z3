@@ -30,6 +30,7 @@ Notes:
 
 #include <thread>
 #include <mutex>
+#include <cmath>
 #include <condition_variable>
 #include "util/scoped_ptr_vector.h"
 #include "ast/ast_util.h"
