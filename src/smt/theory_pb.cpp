@@ -2504,7 +2504,7 @@ namespace smt {
     bool theory_pb::validate_unit_propagation(card const& c) {
         context& ctx = get_context();
         for (unsigned i = c.k(); i < c.size(); ++i) {
-            SASSERT(ctx.get_assignment(c.lit(i)) == l_false);
+            VERIFY(ctx.get_assignment(c.lit(i)) == l_false);
         }
         return true;
     }
