@@ -3559,7 +3559,17 @@ struct matrix_A {
     //     create_upper_triangle(copy_of_m, x);
     //     solve_on_triangle(copy_of_m, x);
     // }
-    // 
+    //
+
+    void transpose_rows(unsigned i, unsigned l) {
+        lp_assert(i != l);
+        for (unsigned j = 0; j < column_count(); j++) {
+            auto t = (*this)[i][j];
+            (*this)[i][j] = (*this)[l][j];
+            (*this)[l][j] = t; 
+        }
+    }
+    
     matrix_A(){}
     matrix_A(unsigned n) :m_data(n) {
         for (auto& v : m_data){
@@ -3752,12 +3762,13 @@ void test_determinant() {
     #ifdef Z3DEBUG
     matrix_A M(1);
     M[0][0] = 3;
+    lp_assert(determinant(M) == mpq(3));
     std::cout << "det M = " << determinant(M) << std::endl;
 
     M = matrix_A(2);
     M[0][0] = 3; M[0][1] = 2;
     M[1][0] = 7; M[1][1] = 3;
-    
+    lp_assert(determinant(M) == mpq(-5));
     std::cout << "det M = " << determinant(M) << std::endl;
 
     M = matrix_A(3);
@@ -3766,10 +3777,11 @@ void test_determinant() {
     M[2][0] = 8; M[2][1] = 8; M[2][2] = 1;
     std::cout << "det M = " << determinant(M) << std::endl;
     M = matrix_A(4);
-    M[0][0] = 1; M[0][1] = -1; M[0][2] = 0; M[0][3] = 0;
+    M[0][0] = 1; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1;
     M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0;
-    M[2][0] = 0; M[2][1] =  0; M[2][2] = 4; M[2][3] = 0;
+    M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0;
     M[3][0] = 0; M[3][1] =  0; M[3][2] = 0; M[3][3] = 4;
+    lp_assert(mpq(20) == determinant(M));
     std::cout << "det M = " << determinant(M) << std::endl;
     #endif
 }
@@ -3899,6 +3911,7 @@ void test_hnf_5_5() {
 }
 
 void test_hnf() {
+    test_determinant();
     test_hnf_3_3();
     test_hnf_4_4();
     test_hnf_5_5();

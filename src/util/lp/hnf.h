@@ -111,33 +111,58 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
     lp_assert(d == u * a + v * b);
 }
 
-// see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5
-template <typename M> mpq determinant_rec(M &m , const mpq & c, unsigned k) {
+template <typename M> void determinant_prepare_mkk(M &m, unsigned k) {
+    if (!is_zero(m[k][k]))
+        return;
+    for (unsigned i = k + 1; i < m.row_count(); i++)
+        if (!is_zero(m[i][k])) {
+            m.transpose_rows(k, i);
+            break;
+        }
+}
+
+
+template <typename M> mpq determinant_rec(M &m, unsigned k) {
     // here n-k-1 is the number of rows(columns) in the righ bottom minor we recurse to
     unsigned n = m.row_count();
     lp_assert(k <= n);
+    determinant_prepare_mkk(m, k);
     const mpq& mkk = m[k][k];
     if (k == n - 1)
          return mkk;
-    if (is_zero(c))
+    if (is_zero(mkk))
         return zero_of_type<mpq>();
     for (unsigned i = k + 1; i < n; i++) {
         const mpq& mik = m[i][k]; 
         for (unsigned j = k + 1; j < n; j++) {
-            m[i][j] = (mkk * m[i][j] - mik*m[k][j]) / c;
+            m[i][j] = (k > 0)?
+                (mkk * m[i][j] - mik*m[k][j]) / m[k-1][k-1] :
+                (mkk * m[i][j] - mik*m[k][j]);
             lp_assert(is_int(m[i][j]));
         }
     }
-    return determinant_rec(m, mkk, k+1);
+    return determinant_rec(m, k+1);
 }
+// see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5
+
 
 template <typename M> mpq determinant(const M& m) {
     lp_assert(m.row_count() == m.column_count());
-    lp_assert(m.row_count() > 0);
+    auto mc = m;
+    return determinant_rec(mc, 0);
+}
+/*
+template <typename M> mpq determinant_of_rectangular_matrix_rec(M &m, const mpq
+
+// it returns the gcd of r-minors where r is the rank of m
+template <typename M> mpq determinant_of_rectangular_matrix(const M& m) {
     mpq c(1);
     auto mc = m;
-    return determinant_rec(mc, c, 0);
+    return determinant_of_rectangular_matrix_rec(m, c, 0);
 }
+
+*/
+
 template <typename M> // M is the matrix type
 class hnf {
     // fields
