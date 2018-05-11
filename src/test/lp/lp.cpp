@@ -3162,6 +3162,8 @@ void test_integer_domain_randomly(integer_domain<int> & d) {
 }
 
 void test_integer_domain() {
+    #ifdef Z3DEBUG
+   
     std::cout << "test_integer_domain\n";
     unsigned e0 = 0;
     unsigned e1 = 1;
@@ -3203,6 +3205,7 @@ void test_integer_domain() {
     d.pop(2);
     d.print(std::cout);
     lp_assert(d.has_neg_inf() && d.has_pos_inf());
+    #endif
     // integer_domain<int> d;
     // std::vector<integer_domain<int>> stack;
     // for (int i = 0; i < 10000; i++) {
@@ -3518,6 +3521,10 @@ struct matrix_A {
         return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal(m);
     }
 
+    bool operator!=(const matrix_A& m) const {
+        return !(*this == m);
+    }
+
     bool equal_modulo(const matrix_A& m, const mpq & d) const {
         return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal_modulo(m, d);
     }
@@ -3710,7 +3717,7 @@ void cutting_the_mix_example_1() {
     extended_gcd_minimal_uv(mpq(21), -mpq(7), d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
 
-    
+    #ifdef Z3DEBUG
     matrix_A A;
     vector<mpq> v;
     v.push_back(mpq(11));
@@ -3738,10 +3745,11 @@ void cutting_the_mix_example_1() {
     auto c = h.H()*b;
     std::cout << "c= "; print_vector(c, std::cout);
 
-    
+    #endif
 }
 
 void test_determinant() {
+    #ifdef Z3DEBUG
     matrix_A M(1);
     M[0][0] = 3;
     std::cout << "det M = " << determinant(M) << std::endl;
@@ -3763,8 +3771,10 @@ void test_determinant() {
     M[2][0] = 0; M[2][1] =  0; M[2][2] = 4; M[2][3] = 0;
     M[3][0] = 0; M[3][1] =  0; M[3][2] = 0; M[3][3] = 4;
     std::cout << "det M = " << determinant(M) << std::endl;
+    #endif
 }
 
+ #ifdef Z3DEBUG
 
 void fill_matrix_A(matrix_A & M) {
     unsigned m = M.row_count();
@@ -3784,12 +3794,12 @@ void test_hnf_2_2() {
     std::cout << "test_hnf_2_2" << std::endl;
     matrix_A A;
     vector<mpq> v;
-    v.push_back(mpq(6));
-    v.push_back(mpq(-6));
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
     A.m_data.push_back(v);
     v.clear();
-    v.push_back(mpq(-3));
-    v.push_back(mpq(4));
+    v.push_back(mpq(2));
+    v.push_back(mpq(11));
     A.m_data.push_back(v);
     hnf<matrix_A> h(A);
     std::cout << "test_hnf_2_2 passed" << std::endl;
@@ -3889,10 +3899,10 @@ void test_hnf_5_5() {
 }
 
 void test_hnf() {
-    test_hnf_5_5();
     test_hnf_3_3();
-    test_hnf_2_2();
     test_hnf_4_4();
+    test_hnf_5_5();
+    test_hnf_2_2();
     for (unsigned k=1000; k>0; k--)
         for (int i = 1; i < 8; i++)
             test_hnf_for_dim(i);
@@ -3901,7 +3911,7 @@ void test_hnf() {
     test_hnf_m_less_than_n();
     test_hnf_m_greater_than_n();
 }
-
+#endif
 void test_gomory_cut() {
     test_gomory_cut_0();
     test_gomory_cut_1();
@@ -3924,7 +3934,9 @@ void test_lp_local(int argn, char**argv) {
     args_parser.print();
 
     if (args_parser.option_is_used("-hnf")) {
+#ifdef Z3DEBUG
         test_hnf();
+#endif
         return finalize(0);
     }
     
@@ -4096,6 +4108,7 @@ void test_lp_local(int argn, char**argv) {
 void tst_lp(char ** argv, int argc, int& i) {
     lp::test_lp_local(argc - 2, argv + 2);
 }
+#ifdef Z3DEBUG
 namespace lp {
 template void print_matrix<matrix_A>(matrix_A&, std::ostream&);
 template bool lu<matrix_A>::is_correct(vector<unsigned int, true, unsigned int> const&);
@@ -4106,3 +4119,4 @@ template void lu<matrix_A>::prepare_entering(unsigned int, indexed_vector<ration
 }
 template lp::square_sparse_matrix<rational, rational>::square_sparse_matrix(lp::matrix_A const&, vector<unsigned int, true, unsigned int>&);
 template lp::dense_matrix<rational, rational> lp::lu<lp::matrix_A>::get_left_side();
+#endif

@@ -154,7 +154,6 @@ class hnf {
     unsigned     m_j;
     mpq          m_R;
     mpq          m_half_R;
-
     mpq mod_R_balanced(const mpq & a) const {
        mpq t = a % m_R;
        return t > m_half_R? t - m_R : (t < - m_half_R? t + m_R : t);
@@ -355,6 +354,7 @@ class hnf {
     }
     
     void process_row(unsigned i) {
+
         lp_assert(is_correct_modulo());
         for (unsigned j = i + 1; j < m_n; j++) {
             process_row_column(i, j);
@@ -473,7 +473,7 @@ class hnf {
         lp_assert(is_zero(determinant(m_W) % m_D));
     }
 
-    void endl() {
+    void endl() const {
         std::cout << std::endl;
     }
     
@@ -550,8 +550,16 @@ public:
         calculate();
         lp_assert(is_correct_final());
         calculate_by_modulo();
-        lp_assert(m_H == m_W);
+        if (m_H != m_W) {
+            std::cout << "A = "; m_A_orig.print(std::cout, 4); endl();
+            std::cout << "H = "; m_H.print(std::cout, 4); endl();
+            std::cout << "W = "; m_W.print(std::cout, 4); endl();
+            lp_assert(false);
+        }
     }
+
+
+    
     const M& H() const { return m_H;}
     const M& U() const { return m_U;}
     const M& U_reverse() const { return m_U_reverse; }

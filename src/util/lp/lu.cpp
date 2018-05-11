@@ -78,5 +78,7 @@ template void lu<static_matrix<double, double>>::solve_yB_indexed(indexed_vector
 template void lu<static_matrix<mpq, impq> >::solve_yB_indexed(indexed_vector<mpq>&);
 template void lu<static_matrix<mpq, mpq>>::solve_By_for_T_indexed_only(indexed_vector<mpq>&, lp_settings const&);
 template void lu<static_matrix<double, double>>::solve_By_for_T_indexed_only(indexed_vector<double>&, lp_settings const&);
+#ifdef Z3DEBUG
 template void print_matrix<tail_matrix<double, double>>(tail_matrix<double, double>&, std::ostream&);
+#endif
 }
