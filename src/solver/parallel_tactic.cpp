@@ -683,7 +683,7 @@ public:
         solver* s = m_solver->translate(m, m_params);
         solver_state* st = alloc(solver_state, 0, s, m_params);
         m_queue.add_task(st);
-        expr_ref_vector clauses(m);o
+        expr_ref_vector clauses(m);
         ptr_vector<expr> assumptions;
         obj_map<expr, expr*> bool2dep;
         ref<generic_model_converter> fmc;
