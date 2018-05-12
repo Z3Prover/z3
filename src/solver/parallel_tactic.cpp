@@ -183,6 +183,7 @@ class parallel_tactic : public tactic {
         scoped_ptr<ast_manager> m_manager;        // ownership handle to ast_manager
         vector<cube_var> m_cubes;                 // set of cubes to process by task
         expr_ref_vector m_asserted_cubes;         // set of cubes asserted on the current solver
+        expr_ref_vector m_assumptions;            // set of auxiliary assumptions passed in
         params_ref      m_params;                 // configuration parameters
         ref<solver>     m_solver;                 // solver state
         unsigned        m_depth;                  // number of nested calls to cubing
@@ -192,6 +193,7 @@ class parallel_tactic : public tactic {
         solver_state(ast_manager* m, solver* s, params_ref const& p): 
             m_manager(m),
             m_asserted_cubes(s->get_manager()),
+            m_assumptions(s->get_manager()),
             m_params(p),
             m_solver(s),
             m_depth(0),
@@ -207,6 +209,12 @@ class parallel_tactic : public tactic {
 
         solver const& get_solver() const { return *m_solver; }
 
+        void set_assumptions(ptr_vector<expr> const& asms) {
+            m_assumptions.append(asms.size(), asms.c_ptr());
+        }
+        
+        bool has_assumptions() const { return !m_assumptions.empty(); }
+
         solver_state* clone() {
             SASSERT(!m_cubes.empty());
             ast_manager& m = m_solver->get_manager();
@@ -214,8 +222,9 @@ class parallel_tactic : public tactic {
             ast_translation tr(m, *new_m);
             solver* s = m_solver.get()->translate(*new_m, m_params);
             solver_state* st = alloc(solver_state, new_m, s, m_params);
-            for (auto & c : m_cubes) st->m_cubes.push_back(c(tr));
+            for (auto& c : m_cubes) st->m_cubes.push_back(c(tr));
             for (expr* c : m_asserted_cubes) st->m_asserted_cubes.push_back(tr(c));
+            for (expr* c : m_assumptions) st->m_assumptions.push_back(tr(c));
             st->m_depth = m_depth;
             st->m_width = m_width;
             return st;
@@ -250,11 +259,11 @@ class parallel_tactic : public tactic {
             lbool r = l_undef;
             IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-1)\n";);
             set_simplify_params(true);         // retain blocked
-            r = get_solver().check_sat(0,0);
+            r = get_solver().check_sat(m_assumptions);
             if (r != l_undef) return r;
             IF_VERBOSE(2, verbose_stream() << "(parallel.tactic simplify-2)\n";);
             set_simplify_params(false);        // remove blocked
-            r = get_solver().check_sat(0,0);
+            r = get_solver().check_sat(m_assumptions);
             return r;            
         }
 
@@ -314,6 +323,7 @@ private:
     ast_manager&  m_manager;
     params_ref    m_params;
     sref_vector<model> m_models;
+    expr_ref_vector m_core;
     unsigned      m_num_threads;    
     statistics    m_stats;
     task_queue    m_queue;
@@ -340,6 +350,7 @@ private:
         m_conquer_delay = pp.conquer_delay();
         m_exn_code = 0;
         m_params.set_bool("override_incremental", true);
+        m_core.reset();
     }
 
     void log_branches(lbool status) {
@@ -361,6 +372,15 @@ private:
     void dec_branch() {
         std::lock_guard<std::mutex> lock(m_mutex);
         --m_branches;
+    }
+
+    void collect_core(expr_ref_vector const& core) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ast_translation tr(core.get_manager(), m_manager);
+        expr_ref_vector core1(tr(core));
+        for (expr* c : core1) {
+            if (!m_core.contains(c)) m_core.push_back(c);
+        }
     }
 
     void close_branch(solver_state& s, lbool status) {
@@ -398,6 +418,11 @@ private:
     void report_unsat(solver_state& s) {        
         inc_unsat();
         close_branch(s, l_false);
+        if (s.has_assumptions()) {
+            expr_ref_vector core(s.m());
+            s.get_solver().get_unsat_core(core);
+            collect_core(core);
+        }
     }
         
     void report_undef(solver_state& s) {
@@ -454,7 +479,7 @@ private:
                 break;
             }
             lbool is_sat = l_undef;
-            if (width >= m_conquer_delay && !conquer) {
+            if (!s.has_assumptions() && width >= m_conquer_delay && !conquer) {
                 conquer = s.copy_solver();
                 s.set_conquer_params(*conquer.get());
             }
@@ -647,37 +672,43 @@ public:
     parallel_tactic(solver* s, params_ref const& p) :
         m_solver(s),
         m_manager(s->get_manager()),        
-        m_params(p) {
+        m_params(p),
+        m_core(m_manager) {
         init();
     }
 
     void operator ()(const goal_ref & g,goal_ref_buffer & result) {
-        ast_manager& m = g->m();
+        fail_if_proof_generation("parallel-tactic", g);
+        ast_manager& m = g->m();        
         solver* s = m_solver->translate(m, m_params);
         solver_state* st = alloc(solver_state, 0, s, m_params);
         m_queue.add_task(st);
-        expr_ref_vector clauses(m);
+        expr_ref_vector clauses(m);o
         ptr_vector<expr> assumptions;
         obj_map<expr, expr*> bool2dep;
         ref<generic_model_converter> fmc;
+        expr_dependency * lcore = nullptr;
+        proof* pr = nullptr;
         extract_clauses_and_dependencies(g, clauses, assumptions, bool2dep, fmc);
         for (expr * clause : clauses) {
             s->assert_expr(clause);
         }
-        SASSERT(assumptions.empty());
+        st->set_assumptions(assumptions);
         model_ref mdl;
         lbool is_sat = solve(mdl);
         switch (is_sat) {
         case l_true:
+            g->reset();
             if (g->models_enabled()) {
                 g->add(concat(fmc.get(), model2model_converter(mdl.get())));
             }
-            g->reset();
             break;
         case l_false:
             SASSERT(!g->proofs_enabled());
-            SASSERT(!g->unsat_core_enabled());
-            g->assert_expr(m.mk_false(), nullptr, nullptr);
+            for (expr * c : m_core) {
+                lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(c)));
+            }
+            g->assert_expr(m.mk_false(), pr, lcore);            
             break;
         case l_undef:
             if (m.canceled()) {
