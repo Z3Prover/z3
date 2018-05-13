@@ -108,7 +108,9 @@ public:
 #endif
     }
     ~line_reader() {
-        fclose(m_file);
+        if (m_file != nullptr){
+            fclose(m_file);
+        }
     }
 
     bool operator()() { return m_ok; }

@@ -9826,6 +9826,14 @@ def String(name, ctx=None):
     ctx = _get_ctx(ctx)
     return SeqRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), StringSort(ctx).ast), ctx)
 
+def SubString(s, offset, length):
+    """Extract substring or subsequence starting at offset"""
+    return Extract(s, offset, length)
+
+def SubSeq(s, offset, length):
+    """Extract substring or subsequence starting at offset"""
+    return Extract(s, offset, length)
+
 def Strings(names, ctx=None):
     """Return a tuple of String constants. """
     ctx = _get_ctx(ctx)

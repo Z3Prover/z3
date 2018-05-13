@@ -361,7 +361,9 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
-                mk_c(c)->handle_exception(ex);
+                if (!mk_c(c)->m().canceled()) {
+                    mk_c(c)->handle_exception(ex);
+                }
                 return Z3_L_UNDEF;
             }
         }
