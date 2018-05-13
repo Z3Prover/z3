@@ -238,8 +238,7 @@ theory_seq::~theory_seq() {
 }
 
 void theory_seq::init(context* ctx) {
-    theory::init(ctx);
-    m_mk_aut.set_solver(alloc(seq_expr_solver, m, get_context().get_fparams()));
+    theory::init(ctx);    
 }
 
 final_check_status theory_seq::final_check_eh() {
@@ -4167,6 +4166,9 @@ eautomaton* theory_seq::get_automaton(expr* re) {
     eautomaton* result = nullptr;
     if (m_re2aut.find(re, result)) {
         return result;
+    }
+    if (!m_mk_aut.has_solver()) {
+        m_mk_aut.set_solver(alloc(seq_expr_solver, m, get_context().get_fparams()));
     }
     result = m_mk_aut(re);
     if (result) {

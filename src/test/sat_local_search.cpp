@@ -7,7 +7,6 @@
 static bool build_instance(char const * filename, sat::solver& s, sat::local_search& local_search)
 {
     char  line[16383];
-    int   cur_term;
     // for temperally storage
 
     std::ifstream infile(filename);
@@ -18,6 +17,7 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
     }
     infile.getline(line, 16383);
 #ifdef _WINDOWS
+    int cur_term;
     int num_vars = 0, num_constraints = 0;
     sscanf_s(line, "%d %d", &num_vars, &num_constraints);
     //std::cout << "number of variables: " << num_vars << '\n';
