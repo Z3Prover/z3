@@ -24,12 +24,10 @@ Revision History:
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/for_each_expr.h"
-
+#include "ast/factor_equivs.h"
 #include "muz/spacer/spacer_term_graph.h"
-
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/substitution/matcher.h"
-
 #include "ast/expr_functors.h"
 
 
