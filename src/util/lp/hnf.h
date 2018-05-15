@@ -174,7 +174,6 @@ mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
         if (is_zero(t)) continue;
         g = gcd(g, t);
     }
-    std::cout << "gcd = " << g << std::endl;
     return g;
 }
 
@@ -199,7 +198,8 @@ template <typename M> mpq determinant(const M& m) {
     lp_assert(m.row_count() == m.column_count());
     auto mc = m;
     unsigned r;
-    return determinant_of_rectangular_matrix(mc, r);
+    mpq d = determinant_of_rectangular_matrix(mc, r);
+    return r < m.row_count() ? zero_of_type<mpq>() : d;
 }
 
 } // end of namespace hnf_calc

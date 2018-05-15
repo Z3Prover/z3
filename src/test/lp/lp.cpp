@@ -3839,8 +3839,9 @@ void fill_matrix_A(matrix_A & M) {
 
 void call_hnf(matrix_A A) {
     unsigned r;
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<matrix_A> h(A, d, r);
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r);
+    if (r == A.row_count())
+        hnf<matrix_A> h(A, d, r);
 }
 
 
@@ -3964,7 +3965,6 @@ void test_hnf_5_5() {
 
 void test_hnf() {
     test_determinant();
-    return;
     test_hnf_3_3();
     test_hnf_4_4();
     test_hnf_5_5();
