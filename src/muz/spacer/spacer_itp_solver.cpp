@@ -287,23 +287,29 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
             verbose_stream() << "Stats before transformation:";
             iuc_before.print_farkas_stats();
         }
-
-        spacer::reduce_hypotheses(pr);
-        spacer::reduce_hypotheses(pr);
-
+        
+        theory_axiom_reducer ta_reducer(m);
+        proof_ref pr_without_theory_lemmas = ta_reducer.reduce(pr.get());
+        
         if (m_print_farkas_stats)
         {
-            iuc_proof iuc_after(m, pr.get(), B);
-            verbose_stream() << "Stats after transformation:";
+            iuc_proof iuc_mid(m, pr_without_theory_lemmas.get(), B);
+            verbose_stream() << "Stats after first transformation:";
+            iuc_mid.print_farkas_stats();
+        }
+        
+        hypothesis_reducer hyp_reducer(m);
+        proof_ref pr_with_less_hypothesis = hyp_reducer.reduce(pr_without_theory_lemmas);
+        
+        if (m_print_farkas_stats)
+        {
+            iuc_proof iuc_after(m, pr_with_less_hypothesis.get(), B);
+            verbose_stream() << "Stats after second transformation:";
             iuc_after.print_farkas_stats();
         }
         
-        STRACE("spacer.unsat_core_learner",
-               verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";
-               );
-        
         // construct proof object with contains partition information
-        iuc_proof iuc_pr(m, pr.get(), B);
+        iuc_proof iuc_pr(m, pr_with_less_hypothesis, B);
         
         // configure learner
         unsat_core_learner learner(m, iuc_pr, m_print_farkas_stats, m_iuc_debug_proof);
