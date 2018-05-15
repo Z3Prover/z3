@@ -538,7 +538,7 @@ bool int_solver::tighten_terms_for_cube() {
 }
 
 bool int_solver::find_cube() {
-	if (m_branch_cut_counter % settings().m_int_find_cube_period != 0)
+    if (m_branch_cut_counter % settings().m_int_find_cube_period != 0)
         return false;
     
     settings().st().m_cube_calls++;
@@ -636,6 +636,34 @@ lia_move int_solver::gomory_cut() {
     return create_branch_on_column(j);
 }
 
+
+void int_solver::try_add_term_to_A_for_hnf(unsigned) {
+}
+bool int_solver::hnf_matrix_is_empty() const { return true; }
+
+bool int_solver::prepare_matrix_A_for_hnf_cut() {
+    clean_hnf_matrix();
+    for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
+        try_add_term_to_A_for_hnf(i);
+    return ! hnf_matrix_is_empty();
+}
+
+void int_solver::clean_hnf_matrix() {
+}
+
+lia_move int_solver::make_hnf_cut() {
+    if( !prepare_matrix_A_for_hnf_cut())
+        return lia_move::undef;
+    return lia_move::undef;
+}
+
+lia_move int_solver::hnf_cut() {
+    if ((m_branch_cut_counter) % settings().m_hnf_cut_period == 0) {
+        return make_hnf_cut();
+    }
+    return lia_move::undef;
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     if (!has_inf_int()) 
         return lia_move::sat;
@@ -657,6 +685,10 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     }
 
     lia_move r = call_cut_solver();
+    if (r != lia_move::undef)
+        return r;
+
+    r = hnf_cut();
     if (r != lia_move::undef)
         return r;
     
