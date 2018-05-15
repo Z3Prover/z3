@@ -82,9 +82,9 @@ public:
     void add_callback(void *state,
                       const datalog::t_new_lemma_eh new_lemma_eh,
                       const datalog::t_predecessor_eh predecessor_eh,
-                      const datalog::t_unfold_eh unfold_eh);
+                      const datalog::t_unfold_eh unfold_eh) override;
 
-    void add_constraint (expr *c, unsigned lvl);
+    void add_constraint (expr *c, unsigned lvl) override;
 
 };
 }

@@ -16,20 +16,22 @@ Revision History:
 
 --*/
 
-#include "muz/spacer/spacer_proof_utils.h"
-#include "ast/ast_util.h"
-
-#include "ast/ast_pp.h"
-
-#include "ast/proof_checker/proof_checker.h"
 #include <unordered_map>
-#include "params.h"
-#include "muz/spacer/spacer_iuc_proof.h"
+#include "util/params.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/proofs/proof_checker.h"
 #include "muz/base/dl_util.h"
+#include "muz/spacer/spacer_iuc_proof.h"
+
+#include "ast/proofs/proof_utils.h"
+#include "muz/spacer/spacer_proof_utils.h"
 
 namespace spacer {
 
-    // arith lemmas: second parameter specifies exact type of lemma, could be "farkas", "triangle-eq", "eq-propagate", "assign-bounds", maybe also something else
+    // arith lemmas: second parameter specifies exact type of lemma,
+    // could be "farkas", "triangle-eq", "eq-propagate",
+    // "assign-bounds", maybe also something else
     bool is_arith_lemma(ast_manager& m, proof* pr)
     {
         if (pr->get_decl_kind() == PR_TH_LEMMA)
@@ -63,57 +65,6 @@ namespace spacer {
 
     /*
      * ====================================
-     * methods for proof traversal
-     * ====================================
-     */
-ProofIteratorPostOrder::ProofIteratorPostOrder(proof* root, ast_manager& manager) : m(manager)
-{m_todo.push_back(root);}
-
-bool ProofIteratorPostOrder::hasNext()
-{return !m_todo.empty();}
-
-/*
- * iterative post-order depth-first search (DFS) through the proof DAG
- */
-proof* ProofIteratorPostOrder::next()
-{
-    while (!m_todo.empty()) {
-        proof* currentNode = m_todo.back();
-
-        // if we haven't already visited the current unit
-        if (!m_visited.is_marked(currentNode)) {
-            bool existsUnvisitedParent = false;
-
-            // add unprocessed premises to stack for DFS. If there is at least one unprocessed premise, don't compute the result
-            // for currentProof now, but wait until those unprocessed premises are processed.
-            for (unsigned i = 0; i < m.get_num_parents(currentNode); ++i) {
-                SASSERT(m.is_proof(currentNode->get_arg(i)));
-                proof* premise = to_app(currentNode->get_arg(i));
-
-                // if we haven't visited the current premise yet
-                if (!m_visited.is_marked(premise)) {
-                    // add it to the stack
-                    m_todo.push_back(premise);
-                    existsUnvisitedParent = true;
-                }
-            }
-
-            // if we already visited all parent-inferences, we can visit the inference too
-            if (!existsUnvisitedParent) {
-                m_visited.mark(currentNode, true);
-                m_todo.pop_back();
-                return currentNode;
-            }
-        } else {
-            m_todo.pop_back();
-        }
-    }
-    // we have already iterated through all inferences
-    return NULL;
-}
-
-    /*
-     * ====================================
      * methods for dot printing
      * ====================================
      */
@@ -140,7 +91,7 @@ proof* ProofIteratorPostOrder::next()
         std::unordered_map<unsigned, unsigned> id_to_small_id;
         unsigned counter = 0;
 
-        ProofIteratorPostOrder it2(pr, m);
+        proof_post_order it2(pr, m);
         while (it2.hasNext())
         {
             proof* currentNode = it2.next();
@@ -306,7 +257,7 @@ proof* ProofIteratorPostOrder::next()
 
     proof_ref theory_axiom_reducer::reduce(proof* pr)
     {
-        ProofIteratorPostOrder pit(pr, m);
+        proof_post_order pit(pr, m);
         while (pit.hasNext())
         {
             proof* p = pit.next();
@@ -468,11 +419,11 @@ proof* ProofIteratorPostOrder::next()
                         for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i)
                         {
                             proof* pp = m.get_parent(p, i);
-                            datalog::set_union(*parent_hyps, *m_parent_hyps.find(pp));
+                            set_union(*parent_hyps, *m_parent_hyps.find(pp));
 
                             if (!m.is_lemma(p)) // lemmas clear all hypotheses
                             {
-                                datalog::set_union(*active_hyps, *m_active_hyps.find(pp));
+                                set_union(*active_hyps, *m_active_hyps.find(pp));
                             }
                         }
                     }
@@ -488,7 +439,7 @@ proof* ProofIteratorPostOrder::next()
         expr_set* all_hyps = m_parent_hyps.find(pr);
         SASSERT(all_hyps != nullptr);
 
-        ProofIteratorPostOrder pit(pr, m);
+        proof_post_order pit(pr, m);
         while (pit.hasNext()) {
             proof* p = pit.next();
             if (!m.is_hypothesis(p))

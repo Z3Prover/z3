@@ -22,6 +22,7 @@ Revision History:
 #include "muz/spacer/spacer_iuc_proof.h"
 #include "ast/for_each_expr.h"
 
+#include "ast/proofs/proof_utils.h"
 #include "muz/spacer/spacer_util.h"
 
 
@@ -54,7 +55,7 @@ void unsat_core_learner::compute_unsat_core(expr_ref_vector& unsat_core)
             {
                 SASSERT(m.is_proof(currentNode->get_arg(i)));
                 proof* premise = to_app(currentNode->get_arg(i));
-                
+
                 need_to_mark_closed = need_to_mark_closed && (!m_pr.is_b_marked(premise) || m_closed.is_marked(premise));
             }
 
@@ -109,7 +110,7 @@ void unsat_core_learner::set_closed(proof* p, bool value)
 {
     m_closed.mark(p, value);
 }
-  
+
 bool unsat_core_learner::is_b_open(proof *p)
 {
      return m_pr.is_b_marked(p) && !is_closed (p);

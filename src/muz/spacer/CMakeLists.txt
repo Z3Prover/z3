@@ -14,6 +14,7 @@ z3_add_component(spacer
   spacer_iuc_solver.cpp
   spacer_virtual_solver.cpp
   spacer_legacy_mbp.cpp
+  spacer_proof_utils.cpp
   spacer_unsat_core_learner.cpp
   spacer_unsat_core_plugin.cpp
   spacer_matrix.cpp

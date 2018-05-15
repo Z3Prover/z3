@@ -362,5 +362,5 @@ void dl_interface::add_callback(void *state,
 }
 
 void dl_interface::add_constraint (expr *c, unsigned lvl){
-    m_context->add_constraint(c,lvl);
+    m_context->add_constraint(c, lvl);
 }

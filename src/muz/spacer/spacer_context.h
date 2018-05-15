@@ -914,7 +914,7 @@ public:
     pob& get_root() const { return m_pob_queue.get_root(); }
 
     expr_ref get_constraints (unsigned lvl);
-    void add_constraint (unsigned lvl, const expr_ref& c);
+    void add_constraint (expr *c, unsigned lvl);
 
     void new_lemma_eh(pred_transformer &pt, lemma *lem);
 

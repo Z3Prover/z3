@@ -19,7 +19,7 @@ Notes:
 #include"muz/spacer/spacer_iuc_solver.h"
 #include"ast/ast.h"
 #include"muz/spacer/spacer_util.h"
-#include"muz/base/proof_utils.h"
+#include"ast/proofs/proof_utils.h"
 #include"muz/spacer/spacer_farkas_learner.h"
 #include"ast/rewriter/expr_replacer.h"
 #include"muz/spacer/spacer_unsat_core_learner.h"

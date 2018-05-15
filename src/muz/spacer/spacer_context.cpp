@@ -40,7 +40,7 @@ Notes:
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "smt/smt_value_sort.h"
 #include "ast/scoped_proof.h"
 #include "muz/spacer/spacer_qe_project.h"
@@ -3618,9 +3618,9 @@ expr_ref context::get_constraints (unsigned level)
     return m_pm.mk_and (constraints);
 }
 
-void context::add_constraint (unsigned level, const expr_ref& c)
+void context::add_constraint (expr *c, unsigned level)
 {
-    if (!c.get()) { return; }
+    if (!c) { return; }
     if (m.is_true(c)) { return; }
 
         expr *e1, *e2;
