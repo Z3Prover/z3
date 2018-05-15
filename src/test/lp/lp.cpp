@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
+  Author:
 
-    Lev Nachmanson (levnach)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 
 #include <limits>
 #if _LINUX_
@@ -55,6 +55,7 @@ Revision History:
 #include "util/lp/hnf.h"
 #include "util/lp/square_sparse_matrix_def.h"
 #include "util/lp/lu_def.h"
+#include "util/lp/general_matrix.h"
 namespace lp {
 unsigned seed = 1;
 
@@ -3162,7 +3163,7 @@ void test_integer_domain_randomly(integer_domain<int> & d) {
 }
 
 void test_integer_domain() {
-    #ifdef Z3DEBUG
+#ifdef Z3DEBUG
    
     std::cout << "test_integer_domain\n";
     unsigned e0 = 0;
@@ -3205,7 +3206,7 @@ void test_integer_domain() {
     d.pop(2);
     d.print(std::cout);
     lp_assert(d.has_neg_inf() && d.has_pos_inf());
-    #endif
+#endif
     // integer_domain<int> d;
     // std::vector<integer_domain<int>> stack;
     // for (int i = 0; i < 10000; i++) {
@@ -3264,350 +3265,154 @@ void test_resolve(cut_solver& cs, unsigned constraint_index, unsigned i0)  {
     cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
     test_resolve_with_tight_constraint(cs, i, x, ti);
     test_resolve_with_tight_constraint(cs, i, y ,ti);
- }
+}
 
 
 void test_gomory_cut_0() {
-        gomory_test g(
-            [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
-            ,
-            [](unsigned j) { //get_value_p
-                if (j == 1)
-                    return mpq(2730, 1727);
-                if (j == 2)
-                    return zero_of_type<mpq>();
-                if (j == 3) return mpq(3);
-                lp_assert(false);
+    gomory_test g(
+        [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
+        ,
+        [](unsigned j) { //get_value_p
+            if (j == 1)
+                return mpq(2730, 1727);
+            if (j == 2)
                 return zero_of_type<mpq>();
-            },
-            [](unsigned j) { // at_low_p
-                if (j == 1)
-                    return false;
-                if (j == 2)
-                    return true;
-                if (j == 3)
-                    return true;
-                lp_assert(false);
+            if (j == 3) return mpq(3);
+            lp_assert(false);
+            return zero_of_type<mpq>();
+        },
+        [](unsigned j) { // at_low_p
+            if (j == 1)
                 return false;
-            },
-            [](unsigned j) { // at_upper
-                if (j == 1)
-                    return false;
-                if (j == 2)
-                    return true;
-                if (j == 3)
-                    return false;
-                lp_assert(false);
+            if (j == 2)
+                return true;
+            if (j == 3)
+                return true;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // at_upper
+            if (j == 1)
                 return false;
-            },
-            [](unsigned j) { // lower_bound
-                if (j == 1) {
-                    lp_assert(false); //unlimited from below
-                    return 0;
-                }
-                if (j == 2)
-                    return 0;
-                if (j == 3)
-                    return 3;
-                lp_assert(false);
+            if (j == 2)
+                return true;
+            if (j == 3)
+                return false;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // lower_bound
+            if (j == 1) {
+                lp_assert(false); //unlimited from below
                 return 0;
-            },
-            [](unsigned j) { // upper
-                if (j == 1) {
-                    lp_assert(false); //unlimited from above
-                    return 0;
-                }
-                if (j == 2)
-                    return 0;
-                if (j == 3)
-                    return 10;
-                lp_assert(false);
+            }
+            if (j == 2)
                 return 0;
-            },
-            [] (unsigned) { return 0; },
-            [] (unsigned) { return 0; }
-                      );
-        lar_term t;
-        mpq k;
-        explanation expl;
-        unsigned inf_col = 1;
-        vector<std::pair<mpq, unsigned>> row;
-        row.push_back(std::make_pair(mpq(1), 1));
-        row.push_back(std::make_pair(mpq(2731, 1727), 2));
-        row.push_back(std::make_pair(mpq(-910, 1727), 3));
-        g.mk_gomory_cut(t,  k, expl, inf_col, row);
+            if (j == 3)
+                return 3;
+            lp_assert(false);
+            return 0;
+        },
+        [](unsigned j) { // upper
+            if (j == 1) {
+                lp_assert(false); //unlimited from above
+                return 0;
+            }
+            if (j == 2)
+                return 0;
+            if (j == 3)
+                return 10;
+            lp_assert(false);
+            return 0;
+        },
+        [] (unsigned) { return 0; },
+        [] (unsigned) { return 0; }
+                  );
+    lar_term t;
+    mpq k;
+    explanation expl;
+    unsigned inf_col = 1;
+    vector<std::pair<mpq, unsigned>> row;
+    row.push_back(std::make_pair(mpq(1), 1));
+    row.push_back(std::make_pair(mpq(2731, 1727), 2));
+    row.push_back(std::make_pair(mpq(-910, 1727), 3));
+    g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
 
 void test_gomory_cut_1() {
-        gomory_test g(
-            [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
-            ,
-            [](unsigned j) { //get_value_p
-                if (j == 1)
-                    return mpq(-2);
-                if (j == 2)
-                    return mpq(4363334, 2730001);
-                if (j == 3)
-                    return mpq(1);
-                lp_assert(false);
-                return zero_of_type<mpq>();
-            },
-            [](unsigned j) { // at_low_p
-                if (j == 1)
-                    return false;
-                if (j == 2)
-                    return false;
-                if (j == 3)
-                    return true;
-                lp_assert(false);
+    gomory_test g(
+        [](unsigned j) { return "v" + T_to_string(j);} // name_function_p
+        ,
+        [](unsigned j) { //get_value_p
+            if (j == 1)
+                return mpq(-2);
+            if (j == 2)
+                return mpq(4363334, 2730001);
+            if (j == 3)
+                return mpq(1);
+            lp_assert(false);
+            return zero_of_type<mpq>();
+        },
+        [](unsigned j) { // at_low_p
+            if (j == 1)
                 return false;
-            },
-            [](unsigned j) { // at_upper
-                if (j == 1)
-                    return true;
-                if (j == 2)
-                    return false;
-                if (j == 3)
-                    return true;
-                lp_assert(false);
+            if (j == 2)
                 return false;
-            },
-            [](unsigned j) { // lower_bound
-                if (j == 1) {
-                    lp_assert(false); //unlimited from below
-                    return 0;
-                }
-                if (j == 2)
-                    return 1;
-                if (j == 3)
-                    return 1;
-                lp_assert(false);
+            if (j == 3)
+                return true;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // at_upper
+            if (j == 1)
+                return true;
+            if (j == 2)
+                return false;
+            if (j == 3)
+                return true;
+            lp_assert(false);
+            return false;
+        },
+        [](unsigned j) { // lower_bound
+            if (j == 1) {
+                lp_assert(false); //unlimited from below
                 return 0;
-            },
-            [](unsigned j) { // upper
-                if (j == 1) {
-                    return -2;
-                }
-                if (j == 2)
-                    return 3333;
-                if (j == 3)
-                    return 10000;
-                lp_assert(false);
-                return 0;
-            },
-            [] (unsigned) { return 0; },
-            [] (unsigned) { return 0; }
-                      );
-        lar_term t;
-        mpq k;
-        explanation expl;
-        unsigned inf_col = 2;
-        vector<std::pair<mpq, unsigned>> row;
-        row.push_back(std::make_pair(mpq(1726667, 2730001), 1));
-        row.push_back(std::make_pair(mpq(-910000, 2730001), 3));
-        row.push_back(std::make_pair(mpq(1), 2));
-        g.mk_gomory_cut(t,  k, expl, inf_col, row);
+            }
+            if (j == 2)
+                return 1;
+            if (j == 3)
+                return 1;
+            lp_assert(false);
+            return 0;
+        },
+        [](unsigned j) { // upper
+            if (j == 1) {
+                return -2;
+            }
+            if (j == 2)
+                return 3333;
+            if (j == 3)
+                return 10000;
+            lp_assert(false);
+            return 0;
+        },
+        [] (unsigned) { return 0; },
+        [] (unsigned) { return 0; }
+                  );
+    lar_term t;
+    mpq k;
+    explanation expl;
+    unsigned inf_col = 2;
+    vector<std::pair<mpq, unsigned>> row;
+    row.push_back(std::make_pair(mpq(1726667, 2730001), 1));
+    row.push_back(std::make_pair(mpq(-910000, 2730001), 3));
+    row.push_back(std::make_pair(mpq(1), 2));
+    g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
-
-#ifdef Z3DEBUG
-
-struct matrix_A {
-    struct column_collection {
-        column_collection(const vector<vector<mpq>>& v, unsigned j) : m_data(v), m_j(j) {}
-        const vector<vector<mpq>>& m_data;
-        unsigned m_j;
-        struct ival {
-            unsigned m_var;
-            const mpq & m_coeff;
-            ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
-            }
-            unsigned var() const { return m_var;}
-            const mpq & coeff() const { return m_coeff; }
-        };
-    
-        struct const_iterator {
-            // fields
-            unsigned m_i;
-            const column_collection& m_column;
-        
-            //typedefs
-            
-            
-            typedef const_iterator self_type;
-            typedef ival value_type;
-            typedef const ival reference;
-            //        typedef const column_cell* pointer;
-            typedef int difference_type;
-            typedef std::forward_iterator_tag iterator_category;
-
-            reference operator*() const {
-                return ival(m_i, m_column.m_data[m_i][m_column.m_j]);
-            }        
-            self_type operator++() {  self_type i = *this; m_i++; return i;  }
-            self_type operator++(int) { m_i++; return *this; }
-
-            const_iterator(unsigned i, const column_collection& c) :
-                m_i(i),
-                m_column(c)
-            {}
-            bool operator==(const self_type &other) const {
-                return m_i == other.m_i;
-            }
-            bool operator!=(const self_type &other) const { return !(*this == other); }
-        };
-
-        const_iterator begin() const {
-            return const_iterator(0, *this);
-        }
-        
-        const_iterator end() const {
-            return const_iterator(m_data.size(), *this);
-        }
-
-    };
-    typedef mpq coefftype;
-    typedef mpq argtype;
-    vector<vector<mpq>> m_data;
-    unsigned row_count() const { return m_data.size(); }
-    unsigned column_count() const { return m_data[0].size(); }
-
-    column_collection column(unsigned j) const {
-        return column_collection(m_data, j);
-    }
-    
-    const vector<mpq>& operator[](unsigned i) const { return m_data[i]; }
-    vector<mpq>& operator[](unsigned i) { return m_data[i]; }
-    void print(std::ostream & out, unsigned blanks = 0) const {
-        print_matrix<mpq>(m_data, out, blanks);
-    }
-
-    void print_submatrix(std::ostream & out, unsigned k, unsigned blanks = 0) const {
-        matrix_A m(row_count() - k, column_count() - k);
-        for (unsigned i = k; i < row_count(); i++) {
-            for (unsigned j = k; j < column_count(); j++)
-                m[i-k][j-k] = (*this)[i][j];
-        }
-        print_matrix<mpq>(m.m_data, out, blanks);
-    }
-
-    
-    void copy_column_to_indexed_vector(unsigned entering, indexed_vector<mpq> &w ) const {
-        lp_assert(false); //
-    }
-    matrix_A operator*(const matrix_A & m) const {
-        lp_assert(m.row_count() == column_count());
-        matrix_A ret;
-        auto & v = ret.m_data;
-        for (unsigned i = 0; i < row_count(); i ++) {
-            v.push_back(vector<mpq>());
-            v.back().resize(m.column_count());
-            const auto & row = m_data[i];
-            for (unsigned j = 0; j < m.column_count(); j++) {
-                mpq a(0);
-                for (unsigned k = 0; k < column_count(); k++)
-                    a += row[k]*m[k][j];
-                ret[i][j] = a;
-            }
-        }
-        return ret;
-    }
-
-    bool elements_are_equal(const matrix_A& m) const {
-        for (unsigned i = 0; i < row_count(); i++)
-            for (unsigned j = 0; j < column_count(); j++)
-                if ( (*this)[i][j] != m[i][j])
-                    return false;
-        return true;
-    }
-
-    bool elements_are_equal_modulo(const matrix_A& m, const mpq & d) const {
-        for (unsigned i = 0; i < row_count(); i++)
-            for (unsigned j = 0; j < column_count(); j++)
-                if (!is_zero(((*this)[i][j] - m[i][j]) % d)) 
-                    return false;
-        return true;
-    }
-    bool operator==(const matrix_A& m) const {
-        return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal(m);
-    }
-
-    bool operator!=(const matrix_A& m) const {
-        return !(*this == m);
-    }
-
-    bool equal_modulo(const matrix_A& m, const mpq & d) const {
-        return row_count() == m.row_count() && column_count() == m.column_count() && elements_are_equal_modulo(m, d);
-    }
-
-    
-    vector<mpq> operator*(const vector<mpq> & x) const {
-        vector<mpq> r;
-        lp_assert(x.size() == column_count());
-        for (unsigned i = 0; i < row_count(); i++) {
-            mpq v(0);
-            for (unsigned j = 0; j < column_count(); j++) {
-                v += (*this)[i][j] * x[j];
-            }
-            r.push_back(v);
-        }
-        return r;
-    }
-
-    // bool create_upper_triangle(matrix_A& m, vector<mpq>& x) {
-    //     for (unsigned i = 1; i < m.row_count(); i++) {
-    //         lp_assert(false); // to be continued
-    //     }
-    // }
-
-    // bool solve_A_x_equal_b(const matrix_A& m, vector<mpq>& x, const vector<mpq>& b) const {
-    //     auto m_copy = m;
-    //     // for square matrices
-    //     lp_assert(row_count() == b.size());
-    //     lp_assert(x.size() == column_count());
-    //     lp_assert(row_count() == column_count());
-    //     x = b;
-    //     create_upper_triangle(copy_of_m, x);
-    //     solve_on_triangle(copy_of_m, x);
-    // }
-    //
-
-    void transpose_rows(unsigned i, unsigned l) {
-        lp_assert(i != l);
-        for (unsigned j = 0; j < column_count(); j++) {
-            auto t = (*this)[i][j];
-            (*this)[i][j] = (*this)[l][j];
-            (*this)[l][j] = t; 
-        }
-    }
-    
-    void transpose_columns(unsigned j, unsigned k) {
-        lp_assert(j != k);
-        for (unsigned i = 0; i < row_count(); i++) {
-            auto t = (*this)[i][j];
-            (*this)[i][j] = (*this)[i][k];
-            (*this)[i][k] = t; 
-        }
-    }
-    
-    matrix_A(){}
-    matrix_A(unsigned n) :m_data(n) {
-        for (auto& v : m_data){
-            v.resize(n);
-        }
-    }
-
-    matrix_A(unsigned m, unsigned n) :m_data(m) {
-        for (auto& v : m_data){
-            v.resize(n);
-        }
-    }
-};
-    
-#endif
 
 void test_hnf_m_less_than_n() {
 #ifdef Z3DEBUG
-    matrix_A A;
+    general_matrix A;
     vector<mpq> v;
     // example 4.3 from Nemhauser, Wolsey
     v.push_back(mpq(2));
@@ -3629,12 +3434,12 @@ void test_hnf_m_less_than_n() {
     A.m_data.push_back(v);
     unsigned r;
     mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<matrix_A> h(A, d, r);
+    hnf<general_matrix> h(A, d, r);
 #endif
 }
 void test_hnf_m_greater_than_n() {
 #ifdef Z3DEBUG
-    matrix_A A;
+    general_matrix A;
     vector<mpq> v;
     v.push_back(mpq(2));
     v.push_back(mpq(6));
@@ -3653,81 +3458,10 @@ void test_hnf_m_greater_than_n() {
     A.m_data.push_back(v);
     unsigned r;
     mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<matrix_A> h(A, d, r);
+    hnf<general_matrix> h(A, d, r);
 #endif
 }
 
-#ifdef Z3DEBUG
-void test_matrix_A_lu(lp_settings & settings) {
-    std::cout << " test_small_lu" << std::endl;
-    matrix_A m(3);
-    vector<unsigned> basis(3);
-    basis[0] = 0;
-    basis[1] = 1;
-    basis[2] = 3;
-
-    m[0][ 0] = mpq(1); m[0][ 2]= mpq(3);
-    m[1][ 1] = 4; m[1][ 1] = 7;
-    m[2][ 0] = 1.8; m[2][1] = 5; m[2][2] = 2;
-
-#ifdef Z3DEBUG
-    print_matrix<matrix_A>(m, std::cout);
-#endif
-    vector<int> heading = allocate_basis_heading(m.column_count());
-    vector<unsigned> non_basic_columns;
-    init_basis_heading_and_non_basic_columns_vector(basis, heading, non_basic_columns);
-    lu<matrix_A> l(m, basis, settings);
-    lp_assert(l.is_correct(basis));
-    indexed_vector<mpq> w(m.row_count());
-    std::cout << "entering 2, leaving 0" << std::endl;
-    l.prepare_entering(2, w); // to init vector w
-    l.replace_column(0, w, heading[0]);
-    change_basis(2, 0, basis, non_basic_columns, heading);
-    // #ifdef Z3DEBUG
-    // std::cout << "we were factoring " << std::endl;
-    // print_matrix(get_B(l));
-    // #endif
-    lp_assert(l.is_correct(basis));
-    std::cout << "entering 4, leaving 3" << std::endl;
-    l.prepare_entering(4, w); // to init vector w
-    l.replace_column(0, w, heading[3]);
-    change_basis(4, 3, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-
-    std::cout << "entering 5, leaving 1" << std::endl;
-    l.prepare_entering(5, w); // to init vector w
-    l.replace_column(0, w, heading[1]);
-    change_basis(5, 1, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-    std::cout << "entering 3, leaving 2" << std::endl;
-    l.prepare_entering(3, w); // to init vector w
-    l.replace_column(0, w, heading[2]);
-    change_basis(3, 2, basis, non_basic_columns, heading);
-    std::cout << "we were factoring " << std::endl;
-#ifdef Z3DEBUG
-    {
-        auto bl = get_B(l, basis);
-        print_matrix(&bl, std::cout);
-    }
-#endif
-    lp_assert(l.is_correct(basis));
-}
-
-#endif
 
 void cutting_the_mix_example_1() {
     mpq sev(7);
@@ -3755,82 +3489,49 @@ void cutting_the_mix_example_1() {
 
     hnf_calc::extended_gcd_minimal_uv(mpq(21), -mpq(7), d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
-
-    #ifdef Z3DEBUG
-    matrix_A A;
-    vector<mpq> v;
-    v.push_back(mpq(11));
-    v.push_back(mpq(13));
-    A.m_data.push_back(v);
-    v.clear();
-    v.push_back(mpq(7));
-    v.push_back(mpq(-9));
-    A.m_data.push_back(v);
-    auto A_copy = A;
-    unsigned r;
-    d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<matrix_A> h(A, d, r);
-
-    std::string s("H = ");
-    std::cout << s ;
-    h.H().print(std::cout, s.size());
-    std::cout << std::endl;
-    lp_settings lps;
-    lu<matrix_A> f(h.H(), lps );
-    vector<mpq> b;
-    b.push_back(mpq(45));
-    b.push_back(mpq(4));
-    f.solve_By(b);
-    std::cout << "H-1b= ";
-    print_vector(b, std::cout);
-    std::cout << "b[1] = " << b[1] << std::endl;
-    auto c = h.H()*b;
-    std::cout << "c= "; print_vector(c, std::cout);
-
-    #endif
 }
 
 void test_determinant() {
-    #ifdef Z3DEBUG
+#ifdef Z3DEBUG
     {
-    auto M = matrix_A(4);
-    M[0][0] = 1; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; 
-    M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0;
-    M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0;
-    M[3][0] = 0; M[3][1] =  0; M[3][2] = 0; M[3][3] = 4;
-    std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
-    mpq d = hnf_calc::determinant(M);
-    std::cout << "det M = " << d  << std::endl;
+        auto M = general_matrix(4);
+        M[0][0] = 1; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; 
+        M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0;
+        M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0;
+        M[3][0] = 0; M[3][1] =  0; M[3][2] = 0; M[3][3] = 4;
+        std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+        mpq d = hnf_calc::determinant(M);
+        std::cout << "det M = " << d  << std::endl;
     }
     {
-    auto M = matrix_A(3);
-    M[0][0] = 3; M[0][1] = -1; M[0][2] = 1;
-    M[1][0] = 1; M[1][1] =  0; M[1][2] = 0;
-    M[2][0] = 0; M[2][1] =  1; M[2][2] = 4;
-    unsigned r;
-    std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
-    std::cout << "det M = " << d  << std::endl;
-    std::cout << "rank = " << r << std::endl;
+        auto M = general_matrix(3);
+        M[0][0] = 3; M[0][1] = -1; M[0][2] = 1;
+        M[1][0] = 1; M[1][1] =  0; M[1][2] = 0;
+        M[2][0] = 0; M[2][1] =  1; M[2][2] = 4;
+        unsigned r;
+        std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+        std::cout << "det M = " << d  << std::endl;
+        std::cout << "rank = " << r << std::endl;
     }
     {
-    auto M = matrix_A(4, 6);
-    M[0][0] = 3; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; M[0][4] = 3; M[0][5] =  -1;
-    M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0; M[1][4] = 2; M[1][5] =   7;
-    M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0; M[2][4] = 2; M[2][5] =   8;
-    M[3][0] = 6; M[3][1] = -2; M[3][2] = 2; M[3][3] = 2; M[3][4] = 6; M[3][5] =  -2;
-    unsigned r;
-    std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
-    std::cout << "det M = " << d  << std::endl;
-    std::cout << "rank = " << r << std::endl;
+        auto M = general_matrix(4, 6);
+        M[0][0] = 3; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; M[0][4] = 3; M[0][5] =  -1;
+        M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0; M[1][4] = 2; M[1][5] =   7;
+        M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0; M[2][4] = 2; M[2][5] =   8;
+        M[3][0] = 6; M[3][1] = -2; M[3][2] = 2; M[3][3] = 2; M[3][4] = 6; M[3][5] =  -2;
+        unsigned r;
+        std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+        std::cout << "det M = " << d  << std::endl;
+        std::cout << "rank = " << r << std::endl;
     }
-    #endif
+#endif
 }
 
- #ifdef Z3DEBUG
+#ifdef Z3DEBUG
 
-void fill_matrix_A(matrix_A & M) {
+void fill_general_matrix(general_matrix & M) {
     unsigned m = M.row_count();
     unsigned n = M.column_count();
     for (unsigned i = 0; i < m; i++)
@@ -3838,34 +3539,34 @@ void fill_matrix_A(matrix_A & M) {
             M[i][j] = mpq(static_cast<int>(my_random() % 13) - 6);
 }
 
-void call_hnf(matrix_A A) {
+void call_hnf(general_matrix A) {
     unsigned r;
     mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r);
     if (r == A.row_count())
-        hnf<matrix_A> h(A, d, r);
+        hnf<general_matrix> h(A, d, r);
 }
 
 
 void test_hnf_for_dim(int m) {
-    matrix_A M(m, m + my_random() % m);
-    fill_matrix_A(M);
+    general_matrix M(m, m + my_random() % m);
+    fill_general_matrix(M);
     call_hnf(M);
 }
 void test_hnf_1_2() {
     std::cout << "test_hnf_1_2" << std::endl;
-    matrix_A A;
+    general_matrix A;
     vector<mpq> v;
     v.push_back(mpq(5));
     v.push_back(mpq(26));
     A.m_data.push_back(v);
     unsigned r;
     mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<matrix_A> h(A, d, r);
+    hnf<general_matrix> h(A, d, r);
     std::cout << "test_hnf_1_2 passed" << std::endl;
 }
 void test_hnf_2_2() {
     std::cout << "test_hnf_2_2" << std::endl;
-    matrix_A A;
+    general_matrix A;
     vector<mpq> v;
     v.push_back(mpq(5));
     v.push_back(mpq(26));
@@ -3876,14 +3577,14 @@ void test_hnf_2_2() {
     A.m_data.push_back(v);
     unsigned r;
     mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<matrix_A> h(A, d, r);
+    hnf<general_matrix> h(A, d, r);
 
     std::cout << "test_hnf_2_2 passed" << std::endl;
 }
 
 void test_hnf_3_3() {
     std::cout << "test_hnf_3_3" << std::endl;
-    matrix_A A;
+    general_matrix A;
     vector<mpq> v;
     v.push_back(mpq(-3));
     v.push_back(mpq(0));
@@ -3905,7 +3606,7 @@ void test_hnf_3_3() {
 }
 void test_hnf_4_4() {
     std::cout << "test_hnf_4_4" << std::endl;
-    matrix_A A;
+    general_matrix A;
     vector<mpq> v;
     v.push_back(mpq(4));
     v.push_back(mpq(3));
@@ -3935,7 +3636,7 @@ void test_hnf_4_4() {
 }
 void test_hnf_5_5() {
     std::cout << "test_hnf_5_5" << std::endl;
-    matrix_A A;
+    general_matrix A;
     vector<mpq> v;
     v.push_back(mpq(-4));
     v.push_back(mpq(5));
@@ -4188,13 +3889,6 @@ void tst_lp(char ** argv, int argc, int& i) {
 }
 #ifdef Z3DEBUG
 namespace lp {
-template void print_matrix<matrix_A>(matrix_A&, std::ostream&);
-template bool lu<matrix_A>::is_correct(vector<unsigned int, true, unsigned int> const&);
-template dense_matrix<rational, rational> get_B<matrix_A>(lu<matrix_A>&, vector<unsigned int, true, unsigned int> const&);
-template void lu<matrix_A>::replace_column(rational, indexed_vector<rational>&, unsigned int);
-template lu<matrix_A>::~lu();
-template void lu<matrix_A>::prepare_entering(unsigned int, indexed_vector<rational>&);
+template void print_matrix<general_matrix>(general_matrix&, std::ostream&);
 }
-template lp::square_sparse_matrix<rational, rational>::square_sparse_matrix(lp::matrix_A const&, vector<unsigned int, true, unsigned int>&);
-template lp::dense_matrix<rational, rational> lp::lu<lp::matrix_A>::get_left_side();
 #endif
