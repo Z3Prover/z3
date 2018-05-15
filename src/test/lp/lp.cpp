@@ -3480,6 +3480,16 @@ struct matrix_A {
     void print(std::ostream & out, unsigned blanks = 0) const {
         print_matrix<mpq>(m_data, out, blanks);
     }
+
+    void print_submatrix(std::ostream & out, unsigned k, unsigned blanks = 0) const {
+        matrix_A m(row_count() - k, column_count() - k);
+        for (unsigned i = k; i < row_count(); i++) {
+            for (unsigned j = k; j < column_count(); j++)
+                m[i-k][j-k] = (*this)[i][j];
+        }
+        print_matrix<mpq>(m.m_data, out, blanks);
+    }
+
     
     void copy_column_to_indexed_vector(unsigned entering, indexed_vector<mpq> &w ) const {
         lp_assert(false); //
@@ -3570,8 +3580,23 @@ struct matrix_A {
         }
     }
     
+    void transpose_columns(unsigned j, unsigned k) {
+        lp_assert(j != k);
+        for (unsigned i = 0; i < row_count(); i++) {
+            auto t = (*this)[i][j];
+            (*this)[i][j] = (*this)[i][k];
+            (*this)[i][k] = t; 
+        }
+    }
+    
     matrix_A(){}
     matrix_A(unsigned n) :m_data(n) {
+        for (auto& v : m_data){
+            v.resize(n);
+        }
+    }
+
+    matrix_A(unsigned m, unsigned n) :m_data(m) {
         for (auto& v : m_data){
             v.resize(n);
         }
@@ -3602,7 +3627,9 @@ void test_hnf_m_less_than_n() {
     v.push_back(mpq(1));
     v.push_back(mpq(5));
     A.m_data.push_back(v);
-    hnf<matrix_A> h(A);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<matrix_A> h(A, d, r);
 #endif
 }
 void test_hnf_m_greater_than_n() {
@@ -3624,7 +3651,9 @@ void test_hnf_m_greater_than_n() {
     v.push_back(mpq(12));
     v.push_back(mpq(55));
     A.m_data.push_back(v);
-    hnf<matrix_A> h(A);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<matrix_A> h(A, d, r);
 #endif
 }
 
@@ -3704,27 +3733,27 @@ void cutting_the_mix_example_1() {
     mpq sev(7);
     mpq nine(9);
     mpq d, u, vv;
-    extended_gcd_minimal_uv(sev, nine, d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(sev, nine, d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
-    extended_gcd_minimal_uv(sev, -nine, d, u, vv);
-    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
-
-    extended_gcd_minimal_uv(-nine, -nine, d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(sev, -nine, d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
 
-    extended_gcd_minimal_uv(-sev*2, sev, d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(-nine, -nine, d, u, vv);
+    std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
+
+    hnf_calc::extended_gcd_minimal_uv(-sev*2, sev, d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
     
-    extended_gcd_minimal_uv(mpq(24), mpq(-7), d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(mpq(24), mpq(-7), d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
-    extended_gcd_minimal_uv(-mpq(24), mpq(7), d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(-mpq(24), mpq(7), d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
-    extended_gcd_minimal_uv(mpq(24), mpq(7), d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(mpq(24), mpq(7), d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
-    extended_gcd_minimal_uv(-mpq(21), mpq(7), d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(-mpq(21), mpq(7), d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
 
-    extended_gcd_minimal_uv(mpq(21), -mpq(7), d, u, vv);
+    hnf_calc::extended_gcd_minimal_uv(mpq(21), -mpq(7), d, u, vv);
     std::cout << "d = " << d << ", u = " << u << ", vv = " << vv << std::endl;
 
     #ifdef Z3DEBUG
@@ -3738,7 +3767,10 @@ void cutting_the_mix_example_1() {
     v.push_back(mpq(-9));
     A.m_data.push_back(v);
     auto A_copy = A;
-    hnf<matrix_A> h(A);
+    unsigned r;
+    d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<matrix_A> h(A, d, r);
+
     std::string s("H = ");
     std::cout << s ;
     h.H().print(std::cout, s.size());
@@ -3760,29 +3792,39 @@ void cutting_the_mix_example_1() {
 
 void test_determinant() {
     #ifdef Z3DEBUG
-    matrix_A M(1);
-    M[0][0] = 3;
-    lp_assert(determinant(M) == mpq(3));
-    std::cout << "det M = " << determinant(M) << std::endl;
-
-    M = matrix_A(2);
-    M[0][0] = 3; M[0][1] = 2;
-    M[1][0] = 7; M[1][1] = 3;
-    lp_assert(determinant(M) == mpq(-5));
-    std::cout << "det M = " << determinant(M) << std::endl;
-
-    M = matrix_A(3);
-    M[0][0] = 3; M[0][1] = 2; M[0][2] = 4;
-    M[1][0] = 7; M[1][1] = 3; M[1][2] = -1;
-    M[2][0] = 8; M[2][1] = 8; M[2][2] = 1;
-    std::cout << "det M = " << determinant(M) << std::endl;
-    M = matrix_A(4);
-    M[0][0] = 1; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1;
+    {
+    auto M = matrix_A(4);
+    M[0][0] = 1; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; 
     M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0;
     M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0;
     M[3][0] = 0; M[3][1] =  0; M[3][2] = 0; M[3][3] = 4;
-    lp_assert(mpq(20) == determinant(M));
-    std::cout << "det M = " << determinant(M) << std::endl;
+    std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+    mpq d = hnf_calc::determinant(M);
+    std::cout << "det M = " << d  << std::endl;
+    }
+    {
+    auto M = matrix_A(3);
+    M[0][0] = 3; M[0][1] = -1; M[0][2] = 1;
+    M[1][0] = 1; M[1][1] =  0; M[1][2] = 0;
+    M[2][0] = 0; M[2][1] =  1; M[2][2] = 4;
+    unsigned r;
+    std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+    std::cout << "det M = " << d  << std::endl;
+    std::cout << "rank = " << r << std::endl;
+    }
+    {
+    auto M = matrix_A(4, 6);
+    M[0][0] = 3; M[0][1] = -1; M[0][2] = 1; M[0][3] = 1; M[0][4] = 3; M[0][5] =  -1;
+    M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0; M[1][4] = 2; M[1][5] =   7;
+    M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0; M[2][4] = 2; M[2][5] =   8;
+    M[3][0] = 6; M[3][1] = -2; M[3][2] = 2; M[3][3] = 2; M[3][4] = 6; M[3][5] =  -2;
+    unsigned r;
+    std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+    std::cout << "det M = " << d  << std::endl;
+    std::cout << "rank = " << r << std::endl;
+    }
     #endif
 }
 
@@ -3795,11 +3837,17 @@ void fill_matrix_A(matrix_A & M) {
             M[i][j] = mpq(static_cast<int>(my_random() % 13) - 6);
 }
 
+void call_hnf(matrix_A A) {
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<matrix_A> h(A, d, r);
+}
+
 
 void test_hnf_for_dim(int m) {
     matrix_A M(m);
     fill_matrix_A(M);
-    hnf<matrix_A> h(M);
+    call_hnf(M);
 }
 
 void test_hnf_2_2() {
@@ -3813,7 +3861,10 @@ void test_hnf_2_2() {
     v.push_back(mpq(2));
     v.push_back(mpq(11));
     A.m_data.push_back(v);
-    hnf<matrix_A> h(A);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<matrix_A> h(A, d, r);
+
     std::cout << "test_hnf_2_2 passed" << std::endl;
 }
 
@@ -3835,7 +3886,8 @@ void test_hnf_3_3() {
     v.push_back(mpq(-4));
     v.push_back(mpq(-3));
     A.m_data.push_back(v);
-    hnf<matrix_A> h(A);
+    
+    call_hnf(A);
     std::cout << "test_hnf_3_3 passed" << std::endl;
 }
 void test_hnf_4_4() {
@@ -3865,7 +3917,7 @@ void test_hnf_4_4() {
     v.push_back(mpq(-5));
     v.push_back(mpq(6));
     A.m_data.push_back(v);
-    hnf<matrix_A> h(A);
+    call_hnf(A);
     std::cout << "test_hnf_4_4 passed" << std::endl;
 }
 void test_hnf_5_5() {
@@ -3906,12 +3958,13 @@ void test_hnf_5_5() {
     v.push_back(mpq(-5));
     v.push_back(mpq(-1));
     A.m_data.push_back(v);
-    hnf<matrix_A> h(A);
+    call_hnf(A);
     std::cout << "test_hnf_5_5 passed" << std::endl;
 }
 
 void test_hnf() {
     test_determinant();
+    return;
     test_hnf_3_3();
     test_hnf_4_4();
     test_hnf_5_5();

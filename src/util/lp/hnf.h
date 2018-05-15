@@ -30,6 +30,7 @@ Revision History:
 #include "util/lp/numeric_pair.h"
 #include "util/ext_gcd.h"
 namespace lp {
+namespace hnf_calc {
 mpq power_of(const mpq & a, unsigned n) {
     if (n == 0)
         return one_of_type<mpq>();
@@ -111,57 +112,97 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
     lp_assert(d == u * a + v * b);
 }
 
-template <typename M> void determinant_prepare_mkk(M &m, unsigned k) {
-    if (!is_zero(m[k][k]))
-        return;
-    for (unsigned i = k + 1; i < m.row_count(); i++)
-        if (!is_zero(m[i][k])) {
-            m.transpose_rows(k, i);
-            break;
+
+
+template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
+    lp_assert(m.row_count() <= m.column_count());
+    for (unsigned i = r; i < m.row_count(); i++) {
+        for (unsigned j = r; j < m.column_count(); j++) {
+            if (!is_zero(m[i][j])) {
+                if (i != r) {
+                    m.transpose_rows(i, r);
+                }
+                if (j != r) {
+                    m.transpose_columns(j, r);
+                }
+                return true;
+            }
         }
+    }
+    return false;
 }
 
-
-template <typename M> mpq determinant_rec(M &m, unsigned k) {
-    // here n-k-1 is the number of rows(columns) in the righ bottom minor we recurse to
-    unsigned n = m.row_count();
-    lp_assert(k <= n);
-    determinant_prepare_mkk(m, k);
-    const mpq& mkk = m[k][k];
-    if (k == n - 1)
-         return mkk;
-    if (is_zero(mkk))
-        return zero_of_type<mpq>();
-    for (unsigned i = k + 1; i < n; i++) {
-        const mpq& mik = m[i][k]; 
-        for (unsigned j = k + 1; j < n; j++) {
-            m[i][j] = (k > 0)?
-                (mkk * m[i][j] - mik*m[k][j]) / m[k-1][k-1] :
-                (mkk * m[i][j] - mik*m[k][j]);
+template <typename M> void pivot_column_non_fractional(M &m, unsigned & r) {
+    lp_assert(m.row_count() <= m.column_count());
+    for (unsigned j = r + 1; j < m.column_count(); j++) {
+        for (unsigned i = r + 1; i  < m.row_count(); i++) {
+            m[i][j] =
+                (r > 0 )?
+                (m[r][r]*m[i][j] - m[i][r]*m[r][j]) / m[r-1][r-1] :
+                (m[r][r]*m[i][j] - m[i][r]*m[r][j]);
             lp_assert(is_int(m[i][j]));
         }
     }
-    return determinant_rec(m, k+1);
+        
 }
+
+// returns the rank of the matrix
+template <typename M> unsigned to_lower_triangle_non_fractional(M &m) {
+    lp_assert(m.row_count() <= m.column_count());
+    unsigned i = 0;
+    for (; i < m.row_count() - 1; i++) {
+        if (!prepare_pivot_for_lower_triangle(m, i)) {
+            return i;
+        }
+        pivot_column_non_fractional(m, i);
+    }
+    lp_assert(i == m.row_count() - 1);
+    // go over the last row and try to find a non-zero in the row to the right of diagonal
+    for (unsigned j = i; j < m.column_count(); j++) {
+        if (!is_zero(m[i][j])) {
+            return m.row_count();
+        }
+    }
+    return i;
+}
+template <typename M>
+mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
+    mpq g = abs(m[i][i]);
+    lp_assert(!is_zero(g));
+    for (unsigned j = i + 1; j < m.column_count(); j++) {
+        const auto & t = m[i][j];
+        if (is_zero(t)) continue;
+        g = gcd(g, t);
+    }
+    std::cout << "gcd = " << g << std::endl;
+    return g;
+}
+
+
+// it returns "r" - the rank of the matrix and the gcd of r-minors
+template <typename M> mpq determinant_of_rectangular_matrix(const M& m, unsigned & r) {
+    if (m.column_count() < m.row_count())
+        throw "not implemented"; // consider working with the transposed m, or create a "transposed" version if needed
+    // The plan is to transform m to the lower triangular form by using non-fractional Gaussian Elimination by columns.
+    // Then the elements of the following elements of the last non-zero row of the matrix
+    // m[r-1][r-1], m[r-1][r], ..., m[r-1]m[m.column_count() - 1] give the determinants of all minors of rank r.
+    // The gcd of these minors is the return value
+    auto mc = m;
+    r = to_lower_triangle_non_fractional(mc);
+    if (r == 0)
+        return one_of_type<mpq>();
+    return gcd_of_row_starting_from_diagonal(mc, r - 1);
+}
+
 // see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5
-
-
 template <typename M> mpq determinant(const M& m) {
     lp_assert(m.row_count() == m.column_count());
     auto mc = m;
-    return determinant_rec(mc, 0);
-}
-/*
-template <typename M> mpq determinant_of_rectangular_matrix_rec(M &m, const mpq
-
-// it returns the gcd of r-minors where r is the rank of m
-template <typename M> mpq determinant_of_rectangular_matrix(const M& m) {
-    mpq c(1);
-    auto mc = m;
-    return determinant_of_rectangular_matrix_rec(m, c, 0);
+    unsigned r;
+    return determinant_of_rectangular_matrix(mc, r);
 }
 
-*/
+} // end of namespace hnf_calc
 
 template <typename M> // M is the matrix type
 class hnf {
@@ -174,7 +215,8 @@ class hnf {
     vector<mpq>  m_buffer;
     unsigned     m_m;
     unsigned     m_n;
-    mpq          m_D; // it is a positive number and a multiple of determinant(m_A_orig), at least initially
+    mpq          m_d; // it is a positive number and a multiple of gcd of r-minors of m_A_orig, where r is the rank of m_A_orig
+    mpq          m_r; // the rank of m_A
     unsigned     m_i;
     unsigned     m_j;
     mpq          m_R;
@@ -460,7 +502,7 @@ class hnf {
     }
 
     bool is_correct_modulo() const {
-        return m_H.equal_modulo(m_A_orig * m_U, m_D) && is_unit_matrix(m_U * m_U_reverse);
+        return m_H.equal_modulo(m_A_orig * m_U, m_d) && is_unit_matrix(m_U * m_U_reverse);
     }
 
     bool is_correct_final() const {
@@ -486,16 +528,16 @@ class hnf {
         mpq& aii = m_W[m_i][m_i];
         const mpq& aij = m_W[m_i][m_j];
         mpq d, p,q;
-        extended_gcd_minimal_uv(aii, aij, d, p, q);
+        hnf_calc::extended_gcd_minimal_uv(aii, aij, d, p, q);
         if (is_zero(d))
             return;
         mpq aii_over_d = aii / d;
         mpq aij_over_d = aij / d;
         buffer_p_col_i_plus_q_col_j_W_modulo(p, q);
         pivot_column_i_to_column_j_W_modulo(- aij_over_d, aii_over_d);
-        lp_assert(is_zero(determinant(m_W) % m_D));
+        lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
         copy_buffer_to_col_i_W_modulo();
-        lp_assert(is_zero(determinant(m_W) % m_D));
+        lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
     }
 
     void endl() const {
@@ -509,7 +551,7 @@ class hnf {
             u = one_of_type<mpq>();
             d = m_R;
         } else {
-            extended_gcd_minimal_uv(m_W[m_i][m_i], m_R, d, u, v);
+            hnf_calc::extended_gcd_minimal_uv(m_W[m_i][m_i], m_R, d, u, v);
         }
         auto & mii = m_W[m_i][m_i];
         mii *= u;
@@ -538,18 +580,18 @@ class hnf {
     
     void process_row_modulo() {
         for (m_j = m_i + 1; m_j < m_n; m_j++) {
-            lp_assert(is_zero(determinant(m_W) % m_D));
+            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
             process_column_in_row_modulo();
-            lp_assert(is_zero(determinant(m_W) % m_D));
+            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
         }
         fix_row_under_diagonal_W_modulo();
     }
     
     void calculate_by_modulo() {
         for (m_i = 0; m_i < m_m; m_i ++) {
-            lp_assert(is_zero(determinant(m_W) % m_D));
+            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
             process_row_modulo();
-            lp_assert(is_zero(determinant(m_W) % m_D));
+            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
             lp_assert(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
             lp_assert(is_int(m_R));
@@ -558,18 +600,20 @@ class hnf {
     }
     
 public:
-    hnf(M & A) : m_H(A),
-                 m_A_orig(A),
-                 m_W(A),
-                 m_buffer(std::max(A.row_count(), A.column_count())),
-                 m_m(m_H.row_count()),
-                 m_n(m_H.column_count()),
-                 m_D(abs(determinant(A))),
-                 m_R(m_D),
-                 m_half_R(floor(m_R / 2))
+    hnf(M & A, const mpq & d, unsigned r) :
+        m_H(A),
+        m_A_orig(A),
+        m_W(A),
+        m_buffer(std::max(A.row_count(), A.column_count())),
+        m_m(m_H.row_count()),
+        m_n(m_H.column_count()),
+        m_d(d),
+        m_r(r),
+        m_R(m_d),
+        m_half_R(floor(m_R / 2))
     {
         lp_assert(m_m > 0 && m_n > 0);
-        if (is_zero(m_D))
+        if (is_zero(m_d))
             return;
         prepare_U_and_U_reverse();
         calculate();
