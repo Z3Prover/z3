@@ -287,8 +287,8 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
                );
         
         // construct proof object with contains partition information
-        iuc_proof iuc_pr(m, get_proof(), B);
-
+        iuc_proof iuc_pr(m, pr.get(), B);
+        
         // configure learner
         unsat_core_learner learner(m, iuc_pr, m_print_farkas_stats, m_iuc_debug_proof);
 
