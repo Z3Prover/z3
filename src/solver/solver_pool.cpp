@@ -17,10 +17,10 @@ Notes:
 
 --*/
 
-#include "solver/solver_pool.h"
-#include "solver/solver_na2as.h"
 #include "ast/proofs/proof_utils.h"
 #include "ast/ast_util.h"
+#include "solver/solver_pool.h"
+
 
 class pool_solver : public solver_na2as {
     solver_pool&       m_pool;
@@ -33,7 +33,6 @@ class pool_solver : public solver_na2as {
     bool               m_pushed;
     bool               m_in_delayed_scope;
     unsigned           m_dump_counter;
-
     bool is_virtual() const { return !m.is_true(m_pred); }
 public:
     pool_solver(solver* b, solver_pool& pool, app_ref& pred):
@@ -240,10 +239,8 @@ public:
     }
 };
 
-solver_pool::solver_pool(solver* base_solver, unsigned num_solvers_per_pool):
-    m_base_solver(base_solver),
-    m_num_solvers_per_pool(num_solvers_per_pool),
-    m_num_solvers_in_last_pool(0)
+solver_pool::solver_pool(solver* base_solver):
+    m_base_solver(base_solver)
 {}
 
 
@@ -261,10 +258,10 @@ ptr_vector<solver> solver_pool::get_base_solvers() const {
 void solver_pool::collect_statistics(statistics &st) const {
     ptr_vector<solver> solvers = get_base_solvers();
     for (solver* s : solvers) s->collect_statistics(st);        
-    st.update("time.pool_solver.smt.total", m_check_watch.get_seconds());
-    st.update("time.pool_solver.smt.total.sat", m_check_sat_watch.get_seconds());
-    st.update("time.pool_solver.smt.total.undef", m_check_undef_watch.get_seconds());
-    st.update("time.pool_solver.proof", m_proof_watch.get_seconds());
+    st.update("pool_solver.time.total", m_check_watch.get_seconds());
+    st.update("pool_solver.time.total.sat", m_check_sat_watch.get_seconds());
+    st.update("pool_solver.time.total.undef", m_check_undef_watch.get_seconds());
+    st.update("pool_solver.time.proof", m_proof_watch.get_seconds());
     st.update("pool_solver.checks", m_stats.m_num_checks);
     st.update("pool_solver.checks.sat", m_stats.m_num_sat_checks);
     st.update("pool_solver.checks.undef", m_stats.m_num_undef_checks);
@@ -285,22 +282,23 @@ void solver_pool::reset_statistics() {
 }
 
 solver* solver_pool::mk_solver() {
-    ref<solver> base_solver;
     ast_manager& m = m_base_solver->get_manager();
-    if (m_solvers.empty() || m_num_solvers_in_last_pool == m_num_solvers_per_pool) {
-        base_solver = m_base_solver->translate(m, m_base_solver->get_params());
-        m_num_solvers_in_last_pool = 0;
-    }
-    else {
-        base_solver = dynamic_cast<pool_solver*>(m_solvers.back())->base_solver();
-    }
-    m_num_solvers_in_last_pool++;
-    std::stringstream name;
-    name << "vsolver#" << m_solvers.size();
-    app_ref pred(m.mk_const(symbol(name.str().c_str()), m.mk_bool_sort()), m);
+    ref<solver> base_solver = m_base_solver->translate(m, m_base_solver->get_params());
+    app_ref pred(m.mk_true(), m);
     pool_solver* solver = alloc(pool_solver, base_solver.get(), *this, pred);
     m_solvers.push_back(solver);
     return solver;
+}
+
+solver* solver_pool::clone_solver(solver* psolver) {
+    ast_manager& m = m_base_solver->get_manager();
+    solver* base_solver = dynamic_cast<pool_solver*>(psolver)->base_solver();
+    std::stringstream name;
+    name << "vsolver#" << m_solvers.size();
+    app_ref pred(m.mk_const(symbol(name.str().c_str()), m.mk_bool_sort()), m);
+    pool_solver* solver = alloc(pool_solver, base_solver, *this, pred);
+    m_solvers.push_back(solver);
+    return solver;    
 }
 
 void solver_pool::reset_solver(solver* s) {

@@ -18,11 +18,20 @@ Notes:
 
     This is a revision of spacer_virtual_solver by Arie Gurfinkel
 
+
+it is not quite the same + there are good reasons to do that management at a higher level.
+not the same == in spacer, there is an upper bound on the number of base solvers (i.e., number of pools). 
+Then the pools are distributed between different predicate transformers. I can't just switch to solver_pool, 
+since this, in most configuration, will result in either few solvers (which is bad for most of my benchmarks), 
+or one solver per predicate transformer (which is bad for a few benchmarks with many predicates).
+ 
+
 --*/
 #ifndef SOLVER_POOL_H_
 #define SOLVER_POOL_H_
 
 #include "solver/solver.h"
+#include "solver/solver_na2as.h"
 #include "util/stopwatch.h"
 
 class pool_solver;
@@ -39,11 +48,9 @@ class solver_pool {
         void reset() { memset(this, 0, sizeof(*this)); }
     };
 
-    ref<solver>        m_base_solver;
-    unsigned           m_num_solvers_per_pool;
-    unsigned           m_num_solvers_in_last_pool;
+    ref<solver>         m_base_solver;
     sref_vector<solver> m_solvers;
-    stats              m_stats;
+    stats               m_stats;
 
     stopwatch m_check_watch;
     stopwatch m_check_sat_watch;
@@ -55,12 +62,16 @@ class solver_pool {
     ptr_vector<solver> get_base_solvers() const;
   
 public:
-    solver_pool(solver* base_solver, unsigned num_solvers_per_pool);
+    solver_pool(solver* base_solver);
 
     void collect_statistics(statistics &st) const;
     void reset_statistics();
 
+    // create a fresh pool solver
     solver* mk_solver();
+
+    // clone an existing pool solver
+    solver* clone_solver(solver* pool_solver);
 
     void reset_solver(solver* s);
 };
