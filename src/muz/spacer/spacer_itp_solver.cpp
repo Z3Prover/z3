@@ -265,10 +265,10 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
 
     if (m_iuc == 0)
     {
+        // ORIGINAL PDR CODE
         proof_ref pr(m);
         pr = get_proof ();
 
-        // old code
         farkas_learner learner_old;
         learner_old.set_split_literals(m_split_literals);
 
@@ -278,9 +278,10 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
     }
     else
     {
-        proof_ref res(get_proof(),m);
+        // NEW IUC
+        proof_ref res(get_proof(), m);
 
-        // new code
+        // -- old hypothesis reducer while the new one is broken
         if (m_old_hyp_reducer)
         {
             // preprocess proof in order to get a proof which is better suited for unsat-core-extraction
@@ -301,7 +302,7 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
                 iuc_after.print_farkas_stats();
             }
         }
-        else
+        else // -- new hypothesis reducer
         {
             // preprocess proof in order to get a proof which is better suited for unsat-core-extraction
             if (m_print_farkas_stats)
@@ -312,44 +313,49 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
             }
 
             theory_axiom_reducer ta_reducer(m);
-            proof_ref pr_without_theory_lemmas = ta_reducer.reduce(res.get());
+            proof_ref pr1(ta_reducer.reduce (res.get()), m);
 
             hypothesis_reducer hyp_reducer(m);
-            proof_ref pr_with_less_hypothesis = hyp_reducer.reduce(pr_without_theory_lemmas);
+            proof_ref pr2(hyp_reducer.reduce(pr1), m);
+
+            res = pr2;
 
             if (m_print_farkas_stats)
             {
-                iuc_proof iuc_after(m, pr_with_less_hypothesis.get(), B);
+                iuc_proof iuc_after(m, res.get(), B);
                 verbose_stream() << "Stats after transformation:";
                 iuc_after.print_farkas_stats();
             }
-            res = pr_with_less_hypothesis;
         }
 
         // construct proof object with contains partition information
-        iuc_proof iuc_pr(m, res, B);
+        iuc_proof iuc_pf(m, res, B);
 
         // configure learner
-        unsat_core_learner learner(m, iuc_pr);
+        unsat_core_learner learner(m, iuc_pf);
 
         if (m_iuc_arith == 0 || m_iuc_arith > 3)
         {
-            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, false);
+            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma,
+                                                                        learner, m_split_literals,
+                                                                        false /* use constants from A */);
             learner.register_plugin(plugin_farkas_lemma);
         }
         else if (m_iuc_arith == 1)
         {
-            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma, learner, m_split_literals, true);
+            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma,
+                                                                        learner, m_split_literals,
+                                                                        true /* use constants from A */);
             learner.register_plugin(plugin_farkas_lemma);
         }
         else if (m_iuc_arith == 2)
         {
-            unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner,m);
+            unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m);
             learner.register_plugin(plugin_farkas_lemma_optimized);
         }
         else if(m_iuc_arith == 3)
         {
-            unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner,m);
+            unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner, m);
             learner.register_plugin(plugin_farkas_lemma_bounded);
         }
 

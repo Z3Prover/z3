@@ -53,7 +53,12 @@ private:
 class unsat_core_plugin_farkas_lemma : public unsat_core_plugin {
 
 public:
-    unsat_core_plugin_farkas_lemma(unsat_core_learner& learner, bool split_literals, bool use_constant_from_a=true) : unsat_core_plugin(learner), m_split_literals(split_literals), m_use_constant_from_a(use_constant_from_a) {};
+    unsat_core_plugin_farkas_lemma(unsat_core_learner& learner,
+                                   bool split_literals,
+                                   bool use_constant_from_a=true) :
+        unsat_core_plugin(learner),
+        m_split_literals(split_literals),
+        m_use_constant_from_a(use_constant_from_a) {};
 
     void compute_partial_core(proof* step) override;
 
