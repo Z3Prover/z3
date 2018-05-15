@@ -496,8 +496,9 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
 
     if (stride > 1 && m_arith.is_numeral(constant, init)) {
         unsigned mod = init.get_unsigned() % stride;
-        TRACE("spacer_qgen", tout << "mod=" << mod << " init=" << init << " stride=" << stride << "\n";);
-        tout.flush();
+        TRACE("spacer_qgen",
+              tout << "mod=" << mod << " init=" << init << " stride=" << stride << "\n";
+              tout.flush(););
         abs_cube.push_back(m.mk_eq(
                 m_arith.mk_mod(var, m_arith.mk_numeral(rational(stride), true)),
                 m_arith.mk_numeral(rational(mod), true)));
