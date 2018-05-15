@@ -167,12 +167,17 @@ template <typename M> unsigned to_lower_triangle_non_fractional(M &m) {
 }
 template <typename M>
 mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
-    mpq g = abs(m[i][i]);
-    lp_assert(!is_zero(g));
-    for (unsigned j = i + 1; j < m.column_count(); j++) {
+    mpq g = zero_of_type<mpq>();
+    unsigned j = i;
+    for (; j < m.column_count() && is_zero(j); j++) {
         const auto & t = m[i][j];
-        if (is_zero(t)) continue;
-        g = gcd(g, t);
+        if (!is_zero(t))
+            g = t;
+    }
+    for (; j < m.column_count(); j++) {
+        const auto & t = m[i][j];
+        if (!is_zero(t))
+            g = gcd(g, t);
     }
     return g;
 }
@@ -190,6 +195,7 @@ template <typename M> mpq determinant_of_rectangular_matrix(const M& m, unsigned
     r = to_lower_triangle_non_fractional(mc);
     if (r == 0)
         return one_of_type<mpq>();
+    lp_assert(!is_zero(gcd_of_row_starting_from_diagonal(mc, r - 1)));
     return gcd_of_row_starting_from_diagonal(mc, r - 1);
 }
 
@@ -535,9 +541,7 @@ class hnf {
         mpq aij_over_d = aij / d;
         buffer_p_col_i_plus_q_col_j_W_modulo(p, q);
         pivot_column_i_to_column_j_W_modulo(- aij_over_d, aii_over_d);
-        lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
         copy_buffer_to_col_i_W_modulo();
-        lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
     }
 
     void endl() const {
@@ -580,18 +584,14 @@ class hnf {
     
     void process_row_modulo() {
         for (m_j = m_i + 1; m_j < m_n; m_j++) {
-            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
             process_column_in_row_modulo();
-            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
         }
         fix_row_under_diagonal_W_modulo();
     }
     
     void calculate_by_modulo() {
         for (m_i = 0; m_i < m_m; m_i ++) {
-            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
             process_row_modulo();
-            lp_assert(is_zero(hnf_calc::determinant(m_W) % m_d));
             lp_assert(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
             lp_assert(is_int(m_R));

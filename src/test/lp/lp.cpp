@@ -3832,8 +3832,9 @@ void test_determinant() {
 
 void fill_matrix_A(matrix_A & M) {
     unsigned m = M.row_count();
+    unsigned n = M.column_count();
     for (unsigned i = 0; i < m; i++)
-        for (unsigned j = 0; j < m; j++)
+        for (unsigned j = 0; j < n; j++)
             M[i][j] = mpq(static_cast<int>(my_random() % 13) - 6);
 }
 
@@ -3846,11 +3847,22 @@ void call_hnf(matrix_A A) {
 
 
 void test_hnf_for_dim(int m) {
-    matrix_A M(m);
+    matrix_A M(m, m + my_random() % m);
     fill_matrix_A(M);
     call_hnf(M);
 }
-
+void test_hnf_1_2() {
+    std::cout << "test_hnf_1_2" << std::endl;
+    matrix_A A;
+    vector<mpq> v;
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
+    A.m_data.push_back(v);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<matrix_A> h(A, d, r);
+    std::cout << "test_hnf_1_2 passed" << std::endl;
+}
 void test_hnf_2_2() {
     std::cout << "test_hnf_2_2" << std::endl;
     matrix_A A;
@@ -3965,6 +3977,7 @@ void test_hnf_5_5() {
 
 void test_hnf() {
     test_determinant();
+    test_hnf_1_2();
     test_hnf_3_3();
     test_hnf_4_4();
     test_hnf_5_5();
@@ -3973,9 +3986,8 @@ void test_hnf() {
         for (int i = 1; i < 8; i++)
             test_hnf_for_dim(i);
     cutting_the_mix_example_1();
-    return;
-    test_hnf_m_less_than_n();
-    test_hnf_m_greater_than_n();
+    //    test_hnf_m_less_than_n();
+    //    test_hnf_m_greater_than_n();
 }
 #endif
 void test_gomory_cut() {
