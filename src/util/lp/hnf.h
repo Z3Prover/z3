@@ -199,7 +199,6 @@ template <typename M> mpq determinant_of_rectangular_matrix(const M& m, unsigned
     return gcd_of_row_starting_from_diagonal(mc, r - 1);
 }
 
-// see Henri Cohen, A course in Computational Algebraic.. ,Proposition 2.2.5
 template <typename M> mpq determinant(const M& m) {
     lp_assert(m.row_count() == m.column_count());
     auto mc = m;
@@ -213,11 +212,15 @@ template <typename M> mpq determinant(const M& m) {
 template <typename M> // M is the matrix type
 class hnf {
     // fields
+
+#ifdef Z3DEBUG
     M &          m_H;
     M            m_U;
+    M            m_U_reverse;
+#endif
+
     M            m_A_orig;
     M            m_W;
-    M            m_U_reverse;  // debug only
     vector<mpq>  m_buffer;
     unsigned     m_m;
     unsigned     m_n;
@@ -242,13 +245,13 @@ class hnf {
            
     }
 
-    
+#ifdef Z3DEBUG
     void buffer_p_col_i_plus_q_col_j_H(const mpq & p, unsigned i, const mpq & q, unsigned j) {
         for (unsigned k = i; k < m_m; k++) {
             m_buffer[k] =  p * m_H[k][i] + q * m_H[k][j];
         }
     }
-
+#endif
     bool zeros_in_column_W_above(unsigned i) {
         for (unsigned k = 0; k < i; k++)
             if (!is_zero(m_W[k][i]))
@@ -262,7 +265,7 @@ class hnf {
             m_buffer[k] =  mod_R_balanced(mod_R_balanced(p * m_W[k][m_i]) + mod_R_balanced(q * m_W[k][m_j]));
         }
     }
-
+#ifdef Z3DEBUG
     void buffer_p_col_i_plus_q_col_j_U(const mpq & p, unsigned i, const mpq & q, unsigned j) {
         for (unsigned k = 0; k < m_n; k++) {
             m_buffer[k] = p * m_U[k][i] + q * m_U[k][j];
@@ -276,7 +279,7 @@ class hnf {
             m_H[k][j] = u * m_H[k][i] + v * m_H[k][j];
                   
     }
-
+#endif
     void pivot_column_i_to_column_j_W_modulo(mpq u, mpq v)  {
         lp_assert(is_zero((u * m_W[m_i][m_i] + v * m_W[m_i][m_j]) % m_R));
         m_W[m_i][m_j] = zero_of_type<mpq>();
@@ -284,7 +287,7 @@ class hnf {
             m_W[k][m_j] = mod_R_balanced(mod_R_balanced(u * m_W[k][m_i]) + mod_R_balanced(v * m_W[k][m_j]));
     }
 
-    
+#ifdef Z3DEBUG
     void pivot_column_i_to_column_j_U(mpq u, unsigned i, mpq v, unsigned j) {
         for (unsigned k = 0; k < m_n; k ++)
             m_U[k][j] = u * m_U[k][i] + v * m_U[k][j];
@@ -296,13 +299,6 @@ class hnf {
             m_H[k][i] = m_buffer[k];
         }
     }
-
-    void copy_buffer_to_col_i_W_modulo() {
-        for (unsigned k = m_i; k < m_m; k++) {
-            m_W[k][m_i] = m_buffer[k];
-        }
-    }
-
     void copy_buffer_to_col_i_U(unsigned i) {
         for (unsigned k = 0; k < m_n; k++)
             m_U[k][i] = m_buffer[k];
@@ -385,16 +381,6 @@ class hnf {
             m_H[k][j] -= u * m_H[k][i];
         }
     }
-
-    void replace_column_j_by_j_minus_u_col_i_W(unsigned j, const mpq & u) {
-        lp_assert(j < m_i);
-        for (unsigned k = m_i; k < m_m; k++) {
-            m_W[k][j] -= u * m_W[k][m_i];
-            //  m_W[k][j] = mod_R_balanced(m_W[k][j]);
-        }
-    }
-
-    
     void replace_column_j_by_j_minus_u_col_i_U(unsigned i, unsigned j, const mpq & u) {
         
         lp_assert(j < i);
@@ -485,24 +471,6 @@ class hnf {
         return true;
     }
 
-
-    bool is_unit_matrix(const M& u) const {
-        unsigned m = u.row_count();
-        unsigned n = u.column_count();
-        if (m != n) return false;
-        for (unsigned i = 0; i < m; i ++)
-            for (unsigned j = 0; j < n; j++) {
-                if (i == j) {
-                    if (one_of_type<mpq>() != u[i][j])
-                        return false;
-                } else {
-                    if (!is_zero(u[i][j]))
-                        return false;
-                }
-            }
-        return true;
-    }
-    
     bool is_correct() const {
         return m_H == m_A_orig * m_U && is_unit_matrix(m_U * m_U_reverse);
     }
@@ -526,6 +494,45 @@ class hnf {
         }
         return true;
     }
+public:
+    const M& H() const { return m_H;}
+    const M& U() const { return m_U;}
+    const M& U_reverse() const { return m_U_reverse; }
+private:
+#endif
+    void copy_buffer_to_col_i_W_modulo() {
+        for (unsigned k = m_i; k < m_m; k++) {
+            m_W[k][m_i] = m_buffer[k];
+        }
+    }
+
+    void replace_column_j_by_j_minus_u_col_i_W(unsigned j, const mpq & u) {
+        lp_assert(j < m_i);
+        for (unsigned k = m_i; k < m_m; k++) {
+            m_W[k][j] -= u * m_W[k][m_i];
+            //  m_W[k][j] = mod_R_balanced(m_W[k][j]);
+        }
+    }
+
+    
+
+    bool is_unit_matrix(const M& u) const {
+        unsigned m = u.row_count();
+        unsigned n = u.column_count();
+        if (m != n) return false;
+        for (unsigned i = 0; i < m; i ++)
+            for (unsigned j = 0; j < n; j++) {
+                if (i == j) {
+                    if (one_of_type<mpq>() != u[i][j])
+                        return false;
+                } else {
+                    if (!is_zero(u[i][j]))
+                        return false;
+                }
+            }
+        return true;
+    }
+    
 
     // follows Algorithm 2.4.8 of Henri Cohen's "A course on computational algebraic number theory",
     // with some changes related to that we create a low triangle matrix
@@ -601,12 +608,14 @@ class hnf {
     
 public:
     hnf(M & A, const mpq & d, unsigned r) :
+#ifdef Z3DEBUG
         m_H(A),
+#endif
         m_A_orig(A),
         m_W(A),
         m_buffer(std::max(A.row_count(), A.column_count())),
-        m_m(m_H.row_count()),
-        m_n(m_H.column_count()),
+        m_m(A.row_count()),
+        m_n(A.column_count()),
         m_d(d),
         m_r(r),
         m_R(m_d),
@@ -615,23 +624,24 @@ public:
         lp_assert(m_m > 0 && m_n > 0);
         if (is_zero(m_d))
             return;
+#ifdef Z3DEBUG
         prepare_U_and_U_reverse();
         calculate();
         lp_assert(is_correct_final());
+#endif
         calculate_by_modulo();
+#ifdef Z3DEBUG
         if (m_H != m_W) {
             std::cout << "A = "; m_A_orig.print(std::cout, 4); endl();
             std::cout << "H = "; m_H.print(std::cout, 4); endl();
             std::cout << "W = "; m_W.print(std::cout, 4); endl();
             lp_assert(false);
         }
+#endif
     }
 
 
     
-    const M& H() const { return m_H;}
-    const M& U() const { return m_U;}
-    const M& U_reverse() const { return m_U_reverse; }
 };
 
 }
