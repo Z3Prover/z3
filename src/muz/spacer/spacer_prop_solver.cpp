@@ -60,11 +60,11 @@ prop_solver::prop_solver(manager& pm, fixedpoint_params const& p, symbol const& 
     m_solvers[1] = pm.mk_fresh2();
     m_fparams[1] = &pm.fparams2();
 
-    m_contexts[0] = alloc(spacer::itp_solver, *(m_solvers[0]), p.spacer_iuc(),
+    m_contexts[0] = alloc(spacer::iuc_solver, *(m_solvers[0]), p.spacer_iuc(),
                           p.spacer_iuc_arith(),
                           p.spacer_iuc_old_hyp_reducer(),
                           p.spacer_iuc_split_farkas_literals());
-    m_contexts[1] = alloc(spacer::itp_solver, *(m_solvers[1]), p.spacer_iuc(),
+    m_contexts[1] = alloc(spacer::iuc_solver, *(m_solvers[1]), p.spacer_iuc(),
                           p.spacer_iuc_arith(),
                           p.spacer_iuc_old_hyp_reducer(),
                           p.spacer_iuc_split_farkas_literals());
@@ -138,7 +138,7 @@ void prop_solver::assert_expr(expr * form, unsigned level)
 lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft)
 {
     // replace expressions by assumption literals
-    itp_solver::scoped_mk_proxy _p_(*m_ctx, hard);
+    iuc_solver::scoped_mk_proxy _p_(*m_ctx, hard);
     unsigned hard_sz = hard.size();
     // assume soft constraints are propositional literals (no need to proxy)
     hard.append(soft);
@@ -234,7 +234,7 @@ lbool prop_solver::internal_check_assumptions(
     if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
         TRACE("spacer", tout << "theory core\n";);
         m_core->reset();
-        m_ctx->get_itp_core(*m_core);
+        m_ctx->get_iuc(*m_core);
     } else if (result == l_false && m_core) {
         m_core->reset();
         m_ctx->get_unsat_core(*m_core);
@@ -263,7 +263,7 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
     // can be disabled if use_push_bg == true
     // solver::scoped_push _s_(*m_ctx);
     if (!m_use_push_bg) { m_ctx->push(); }
-    itp_solver::scoped_bg _b_(*m_ctx);
+    iuc_solver::scoped_bg _b_(*m_ctx);
 
     for (unsigned i = 0; i < num_bg; ++i)
         if (m_use_push_bg) { m_ctx->push_bg(bg [i]); }

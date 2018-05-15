@@ -3,7 +3,7 @@ Copyright (c) 2017 Arie Gurfinkel
 
 Module Name:
 
-    spacer_itp_solver.h
+    spacer_iuc_solver.h
 
 Abstract:
 
@@ -16,23 +16,23 @@ Author:
 Notes:
 
 --*/
-#ifndef SPACER_ITP_SOLVER_H_
-#define SPACER_ITP_SOLVER_H_
+#ifndef SPACER_IUC_SOLVER_H_
+#define SPACER_IUC_SOLVER_H_
 
 #include"solver/solver.h"
 #include"ast/expr_substitution.h"
 #include"util/stopwatch.h"
 namespace spacer {
-class itp_solver : public solver {
+class iuc_solver : public solver {
 private:
     struct def_manager {
-        itp_solver &m_parent;
+        iuc_solver &m_parent;
         obj_map<expr, app*> m_expr2proxy;
         obj_map<app, app*> m_proxy2def;
 
         expr_ref_vector m_defs;
 
-        def_manager(itp_solver &parent) :
+        def_manager(iuc_solver &parent) :
             m_parent(parent), m_defs(m_parent.m)
         {}
 
@@ -54,7 +54,7 @@ private:
     unsigned m_first_assumption;
     bool m_is_proxied;
 
-    stopwatch m_itp_watch;
+    stopwatch m_iuc_watch;
 
     expr_substitution m_elim_proxies_sub;
     bool m_split_literals;
@@ -68,7 +68,9 @@ private:
     app* fresh_proxy();
     void elim_proxies(expr_ref_vector &v);
 public:
-    itp_solver(solver &solver, unsigned iuc, unsigned iuc_arith, bool print_farkas_stats, bool old_hyp_reducer, bool split_literals = false) :
+    iuc_solver(solver &solver, unsigned iuc, unsigned iuc_arith,
+               bool print_farkas_stats, bool old_hyp_reducer,
+               bool split_literals = false) :
         m(solver.get_manager()),
         m_solver(solver),
         m_proxies(m),
@@ -85,11 +87,11 @@ public:
         m_old_hyp_reducer(old_hyp_reducer)
     {}
 
-    ~itp_solver() override {}
+    ~iuc_solver() override {}
 
-    /* itp solver specific */
+    /* iuc solver specific */
     void get_unsat_core(expr_ref_vector &core) override;
-    virtual void get_itp_core(expr_ref_vector &core);
+    virtual void get_iuc(expr_ref_vector &core);
     void set_split_literals(bool v) {m_split_literals = v;}
     bool mk_proxies(expr_ref_vector &v, unsigned from = 0);
     void undo_proxies(expr_ref_vector &v);
@@ -149,22 +151,22 @@ public:
     virtual void refresh();
 
     class scoped_mk_proxy {
-        itp_solver &m_s;
+        iuc_solver &m_s;
         expr_ref_vector &m_v;
     public:
-        scoped_mk_proxy(itp_solver &s, expr_ref_vector &v) : m_s(s), m_v(v)
+        scoped_mk_proxy(iuc_solver &s, expr_ref_vector &v) : m_s(s), m_v(v)
         {m_s.mk_proxies(m_v);}
         ~scoped_mk_proxy()
         {m_s.undo_proxies(m_v);}
     };
 
     class scoped_bg {
-        itp_solver &m_s;
+        iuc_solver &m_s;
         unsigned m_bg_sz;
     public:
-        scoped_bg(itp_solver &s) : m_s(s), m_bg_sz(m_s.get_num_bg()) {}
+        scoped_bg(iuc_solver &s) : m_s(s), m_bg_sz(m_s.get_num_bg()) {}
         ~scoped_bg()
-        {if (m_s.get_num_bg() > m_bg_sz) { m_s.pop_bg(m_s.get_num_bg() - m_bg_sz); }}
+        {if(m_s.get_num_bg() > m_bg_sz) { m_s.pop_bg(m_s.get_num_bg() - m_bg_sz); }}
     };
 };
 }

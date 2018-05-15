@@ -3,11 +3,11 @@ Copyright (c) 2017 Arie Gurfinkel
 
 Module Name:
 
-    spacer_itp_solver.cpp
+    spacer_iuc_solver.cpp
 
 Abstract:
 
-   A solver that produces interpolated unsat cores
+   A solver that produces interpolated unsat cores (IUCs)
 
 Author:
 
@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include"muz/spacer/spacer_itp_solver.h"
+#include"muz/spacer/spacer_iuc_solver.h"
 #include"ast/ast.h"
 #include"muz/spacer/spacer_util.h"
 #include"muz/base/proof_utils.h"
@@ -27,13 +27,13 @@ Notes:
 #include "muz/spacer/spacer_iuc_proof.h"
 
 namespace spacer {
-void itp_solver::push ()
+void iuc_solver::push ()
 {
     m_defs.push_back (def_manager (*this));
     m_solver.push ();
 }
 
-void itp_solver::pop (unsigned n)
+void iuc_solver::pop (unsigned n)
 {
     m_solver.pop (n);
     unsigned lvl = m_defs.size ();
@@ -45,7 +45,7 @@ void itp_solver::pop (unsigned n)
     }
 }
 
-app* itp_solver::fresh_proxy ()
+app* iuc_solver::fresh_proxy ()
 {
     if (m_num_proxies == m_proxies.size()) {
         std::stringstream name;
@@ -64,7 +64,7 @@ app* itp_solver::fresh_proxy ()
     return m_proxies.get (m_num_proxies++);
 }
 
-app* itp_solver::mk_proxy (expr *v)
+app* iuc_solver::mk_proxy (expr *v)
 {
     {
         expr *e = v;
@@ -76,7 +76,7 @@ app* itp_solver::mk_proxy (expr *v)
     return def.mk_proxy (v);
 }
 
-bool itp_solver::mk_proxies (expr_ref_vector &v, unsigned from)
+bool iuc_solver::mk_proxies (expr_ref_vector &v, unsigned from)
 {
     bool dirty = false;
     for (unsigned i = from, sz = v.size(); i < sz; ++i) {
@@ -87,7 +87,7 @@ bool itp_solver::mk_proxies (expr_ref_vector &v, unsigned from)
     return dirty;
 }
 
-void itp_solver::push_bg (expr *e)
+void iuc_solver::push_bg (expr *e)
 {
     if (m_assumptions.size () > m_first_assumption)
     { m_assumptions.shrink(m_first_assumption); }
@@ -95,7 +95,7 @@ void itp_solver::push_bg (expr *e)
     m_first_assumption = m_assumptions.size ();
 }
 
-void itp_solver::pop_bg (unsigned n)
+void iuc_solver::pop_bg (unsigned n)
 {
     if (n == 0) { return; }
 
@@ -105,9 +105,9 @@ void itp_solver::pop_bg (unsigned n)
     m_assumptions.shrink (m_first_assumption);
 }
 
-unsigned itp_solver::get_num_bg () {return m_first_assumption;}
+unsigned iuc_solver::get_num_bg () {return m_first_assumption;}
 
-lbool itp_solver::check_sat (unsigned num_assumptions, expr * const *assumptions)
+lbool iuc_solver::check_sat (unsigned num_assumptions, expr * const *assumptions)
 {
     // -- remove any old assumptions
     if (m_assumptions.size () > m_first_assumption)
@@ -128,7 +128,7 @@ lbool itp_solver::check_sat (unsigned num_assumptions, expr * const *assumptions
 }
 
 
-app* itp_solver::def_manager::mk_proxy (expr *v)
+app* iuc_solver::def_manager::mk_proxy (expr *v)
 {
     app* r;
     if (m_expr2proxy.find(v, r)) { return r; }
@@ -146,7 +146,7 @@ app* itp_solver::def_manager::mk_proxy (expr *v)
     return proxy;
 }
 
-bool itp_solver::def_manager::is_proxy (app *k, app_ref &def)
+bool iuc_solver::def_manager::is_proxy (app *k, app_ref &def)
 {
     app *r = nullptr;
     bool found = m_proxy2def.find (k, r);
@@ -154,20 +154,20 @@ bool itp_solver::def_manager::is_proxy (app *k, app_ref &def)
     return found;
 }
 
-void itp_solver::def_manager::reset ()
+void iuc_solver::def_manager::reset ()
 {
     m_expr2proxy.reset ();
     m_proxy2def.reset ();
     m_defs.reset ();
 }
 
-bool itp_solver::def_manager::is_proxy_def (expr *v)
+bool iuc_solver::def_manager::is_proxy_def (expr *v)
 {
     // XXX This might not be the most robust way to check
     return m_defs.contains (v);
 }
 
-bool itp_solver::is_proxy(expr *e, app_ref &def)
+bool iuc_solver::is_proxy(expr *e, app_ref &def)
 {
     if (!is_uninterp_const(e)) { return false; }
 
@@ -183,23 +183,23 @@ bool itp_solver::is_proxy(expr *e, app_ref &def)
     return false;
 }
 
-void itp_solver::collect_statistics (statistics &st) const
+void iuc_solver::collect_statistics (statistics &st) const
 {
     m_solver.collect_statistics (st);
-    st.update ("time.itp_solver.itp_core", m_itp_watch.get_seconds ());
+    st.update ("time.iuc_solver.iuc_core", m_iuc_watch.get_seconds ());
 }
 
-void itp_solver::reset_statistics ()
+void iuc_solver::reset_statistics ()
 {
-    m_itp_watch.reset ();
+    m_iuc_watch.reset ();
 }
 
-void itp_solver::get_unsat_core (ptr_vector<expr> &core)
+void iuc_solver::get_unsat_core (ptr_vector<expr> &core)
 {
     m_solver.get_unsat_core (core);
     undo_proxies_in_core (core);
 }
-void itp_solver::undo_proxies_in_core (ptr_vector<expr> &r)
+void iuc_solver::undo_proxies_in_core (ptr_vector<expr> &r)
 {
     app_ref e(m);
     expr_fast_mark1 bg;
@@ -222,7 +222,7 @@ void itp_solver::undo_proxies_in_core (ptr_vector<expr> &r)
     r.shrink (j);
 }
 
-void itp_solver::undo_proxies (expr_ref_vector &r)
+void iuc_solver::undo_proxies (expr_ref_vector &r)
 {
     app_ref e(m);
     // expand proxies
@@ -233,14 +233,14 @@ void itp_solver::undo_proxies (expr_ref_vector &r)
         }
 }
 
-void itp_solver::get_unsat_core (expr_ref_vector &_core)
+void iuc_solver::get_unsat_core (expr_ref_vector &_core)
 {
     ptr_vector<expr> core;
     get_unsat_core (core);
     _core.append (core.size (), core.c_ptr ());
 }
 
-void itp_solver::elim_proxies (expr_ref_vector &v)
+void iuc_solver::elim_proxies (expr_ref_vector &v)
 {
     expr_ref f = mk_and (v);
     scoped_ptr<expr_replacer> rep = mk_expr_simp_replacer (m);
@@ -250,9 +250,9 @@ void itp_solver::elim_proxies (expr_ref_vector &v)
     flatten_and (f, v);
 }
 
-void itp_solver::get_itp_core (expr_ref_vector &core)
+void iuc_solver::get_iuc(expr_ref_vector &core)
 {
-    scoped_watch _t_ (m_itp_watch);
+    scoped_watch _t_ (m_iuc_watch);
 
     typedef obj_hashtable<expr> expr_set;
     expr_set B;
@@ -379,12 +379,12 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
     }
 
     IF_VERBOSE(2,
-               verbose_stream () << "Itp Core:\n"
+               verbose_stream () << "IUC Core:\n"
                << mk_pp (mk_and (core), m) << "\n";);
 
 }
 
-void itp_solver::refresh ()
+void iuc_solver::refresh ()
 {
     // only refresh in non-pushed state
     SASSERT (m_defs.size () == 0);

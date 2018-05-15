@@ -31,7 +31,7 @@ Revision History:
 #include "util/vector.h"
 #include "muz/spacer/spacer_manager.h"
 #include "muz/spacer/spacer_smt_context_manager.h"
-#include "muz/spacer/spacer_itp_solver.h"
+#include "muz/spacer/spacer_iuc_solver.h"
 
 struct fixedpoint_params;
 
@@ -45,8 +45,8 @@ private:
     symbol              m_name;
     smt_params*         m_fparams[2];
     solver*             m_solvers[2];
-    scoped_ptr<itp_solver>  m_contexts[2];
-    itp_solver *            m_ctx;
+    scoped_ptr<iuc_solver>  m_contexts[2];
+    iuc_solver *            m_ctx;
     smt_params *            m_ctx_fparams;
     decl_vector         m_level_preds;
     app_ref_vector      m_pos_level_atoms;  // atoms used to identify level
