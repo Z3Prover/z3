@@ -32,7 +32,8 @@ namespace spacer {
         typedef obj_hashtable<expr> expr_set;
 
     public:
-        unsat_core_learner(ast_manager& m, iuc_proof& pr, bool print_farkas_stats = false, bool iuc_debug_proof = false) : m(m), m_pr(pr), m_unsat_core(m), m_print_farkas_stats(print_farkas_stats), m_iuc_debug_proof(iuc_debug_proof) {};
+        unsat_core_learner(ast_manager& m, iuc_proof& pr) :
+            m(m), m_pr(pr), m_unsat_core(m) {};
         virtual ~unsat_core_learner();
 
         ast_manager& m;
@@ -60,7 +61,7 @@ namespace spacer {
         void set_closed(proof* p, bool value);
 
         bool is_b_open (proof *p);
-        
+
         /*
          * adds a lemma to the unsat core
          */
@@ -72,7 +73,9 @@ namespace spacer {
         ptr_vector<unsat_core_plugin> m_plugins;
         ast_mark m_closed;
 
-        expr_ref_vector m_unsat_core; // collects the lemmas of the unsat-core, will at the end be inserted into unsat_core.
+        // collects the lemmas of the unsat-core
+        // will at the end be inserted into unsat_core.
+        expr_ref_vector m_unsat_core;
 
         /*
          * computes partial core for step by delegating computation to plugins
@@ -83,9 +86,7 @@ namespace spacer {
          * finalize computation of unsat-core
          */
         void finalize();
-        
-        bool m_print_farkas_stats;
-        bool m_iuc_debug_proof;
+
     };
 
 }

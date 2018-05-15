@@ -61,7 +61,6 @@ private:
     unsigned m_iuc;
     unsigned m_iuc_arith;
     bool m_print_farkas_stats;
-    bool m_iuc_debug_proof;
     bool m_old_hyp_reducer;
     bool is_proxy(expr *e, app_ref &def);
     void undo_proxies_in_core(ptr_vector<expr> &v);
@@ -69,7 +68,7 @@ private:
     app* fresh_proxy();
     void elim_proxies(expr_ref_vector &v);
 public:
-    itp_solver(solver &solver, unsigned iuc, unsigned iuc_arith, bool print_farkas_stats, bool iuc_debug_proof, bool old_hyp_reducer, bool split_literals = false) :
+    itp_solver(solver &solver, unsigned iuc, unsigned iuc_arith, bool print_farkas_stats, bool old_hyp_reducer, bool split_literals = false) :
         m(solver.get_manager()),
         m_solver(solver),
         m_proxies(m),
@@ -83,7 +82,6 @@ public:
         m_iuc(iuc),
         m_iuc_arith(iuc_arith),
         m_print_farkas_stats(print_farkas_stats),
-        m_iuc_debug_proof(iuc_debug_proof),
         m_old_hyp_reducer(old_hyp_reducer)
     {}
 

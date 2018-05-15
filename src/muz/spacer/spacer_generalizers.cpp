@@ -158,6 +158,7 @@ void unsat_core_generalizer::operator()(lemma_ref &lemma)
 
     unsigned old_sz = lemma->get_cube().size();
     unsigned old_level = lemma->level();
+    (void)old_level;
 
     unsigned uses_level;
     expr_ref_vector core(m);

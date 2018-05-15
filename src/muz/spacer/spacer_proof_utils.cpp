@@ -28,7 +28,7 @@ Revision History:
 #include "muz/base/dl_util.h"
 
 namespace spacer {
-    
+
     // arith lemmas: second parameter specifies exact type of lemma, could be "farkas", "triangle-eq", "eq-propagate", "assign-bounds", maybe also something else
     bool is_arith_lemma(ast_manager& m, proof* pr)
     {
@@ -44,7 +44,7 @@ namespace spacer {
         }
         return false;
     }
-    
+
     bool is_farkas_lemma(ast_manager& m, proof* pr)
     {
         if (pr->get_decl_kind() == PR_TH_LEMMA)
@@ -126,28 +126,28 @@ proof* ProofIteratorPostOrder::next()
         // open temporary dot-file
         std::string dotfile_path = "proof.dot";
         std::ofstream dotstream(dotfile_path);
-        
+
         // dump dot representation to stream
         pp_proof_dot_to_stream(m, dotstream, pr, iuc_pr);
-        
+
         // post process dot-file, TODO: factor this out to a different place
         pp_proof_post_process_dot(dotfile_path,dotstream);
     }
-    
+
     void pp_proof_dot_to_stream(ast_manager& m, std::ofstream& dotstream, proof* pr, iuc_proof* iuc_pr)
     {
         dotstream << "digraph proof { \n";
         std::unordered_map<unsigned, unsigned> id_to_small_id;
         unsigned counter = 0;
-        
+
         ProofIteratorPostOrder it2(pr, m);
         while (it2.hasNext())
         {
             proof* currentNode = it2.next();
-            
+
             SASSERT(id_to_small_id.find(currentNode->get_id()) == id_to_small_id.end());
             id_to_small_id.insert(std::make_pair(currentNode->get_id(), counter));
-            
+
             std::string color = "white";
             if (iuc_pr != nullptr)
             {
@@ -169,11 +169,11 @@ proof* ProofIteratorPostOrder::next()
             params_ref p;
             p.set_uint("max_depth", 4294967295u);
             p.set_uint("min_alias_size", 4294967295u);
-            
+
             std::ostringstream label_ostream;
             label_ostream << mk_pp(m.get_fact(currentNode),m,p) << "\n";
             std::string label = escape_dot(label_ostream.str());
-            
+
             // compute edge-label
             std::string edge_label = "";
             if (m.get_num_parents(currentNode) == 0)
@@ -223,7 +223,7 @@ proof* ProofIteratorPostOrder::next()
                     }
                 }
             }
-            
+
             // generate entry for node in dot-file
             dotstream   << "node_" << counter << " "
             << "["
@@ -231,7 +231,7 @@ proof* ProofIteratorPostOrder::next()
             << "label=\"" << edge_label << " " << label << "\", "
             << "fillcolor=\"" << color << "\""
             << "]\n";
-            
+
             // add entry for each edge to that node
             for (unsigned i = m.get_num_parents(currentNode); i > 0  ; --i)
             {
@@ -242,12 +242,12 @@ proof* ProofIteratorPostOrder::next()
                 << "node_" << counter
                 << ";\n";
             }
-            
+
             ++counter;
         }
         dotstream << "\n}" << std::endl;
     }
-    
+
     std::string escape_dot(const std::string &s)
     {
         std::string res;
@@ -260,7 +260,7 @@ proof* ProofIteratorPostOrder::next()
         }
         return res;
     }
-    
+
     void pp_proof_post_process_dot(std::string dot_filepath, std::ofstream &dotstream)
     {
         // replace variables in the dotfiles with nicer descriptions (hack: hard coded replacement for now)
@@ -269,7 +269,7 @@ proof* ProofIteratorPostOrder::next()
         predicates.push_back(l1);
         std::vector<std::string> l2 = {"L2","j","m","B"};
         predicates.push_back(l2);
-        
+
         for(auto& predicate : predicates)
         {
             std::string predicate_name = predicate[0];
@@ -278,17 +278,17 @@ proof* ProofIteratorPostOrder::next()
                 std::string new_name = predicate[i+1];
                 std::string substring0 = predicate_name + "_" + std::to_string(i) + "_0";
                 std::string substringN = predicate_name + "_" + std::to_string(i) + "_n";
-                
+
                 std::string command0 = "sed -i '.bak' 's/" + substring0 + "/" + new_name + "/g' " + dot_filepath;
                 verbose_stream() << command0 << std::endl;
                 system(command0.c_str());
-                
+
                 std::string commandN = "sed -i '.bak' s/" + substringN + "/" + new_name + "\\'" + "/g " + dot_filepath;
                 verbose_stream() << commandN << std::endl;
                 system(commandN.c_str());
             }
         }
-        
+
         verbose_stream() << "end of postprocessing";
     }
 
@@ -297,20 +297,20 @@ proof* ProofIteratorPostOrder::next()
      * methods for transforming proofs
      * ====================================
      */
-    
+
     void theory_axiom_reducer::reset()
     {
         m_cache.reset();
         m_pinned.reset();
     }
-    
+
     proof_ref theory_axiom_reducer::reduce(proof* pr)
     {
         ProofIteratorPostOrder pit(pr, m);
         while (pit.hasNext())
         {
             proof* p = pit.next();
-            
+
             if (m.get_num_parents(p) == 0 && is_arith_lemma(m, p))
             {
                 // we have an arith-theory-axiom and want to get rid of it
@@ -321,7 +321,7 @@ proof* ProofIteratorPostOrder::next()
                     for (unsigned i = 0, sz = cls_fact->get_num_args(); i < sz; ++i)
                     { cls.push_back(cls_fact->get_arg(i)); }
                 } else { cls.push_back(cls_fact); }
-                
+
                 // 1a) create hypothesis'
                 ptr_buffer<proof> hyps;
                 for (unsigned i=0; i < cls.size(); ++i)
@@ -331,7 +331,7 @@ proof* ProofIteratorPostOrder::next()
                     m_pinned.push_back(hyp);
                     hyps.push_back(hyp);
                 }
-                
+
                 // 1b) create farkas lemma: need to rebuild parameters since mk_th_lemma adds tid as first parameter
                 unsigned num_params = p->get_decl()->get_num_parameters();
                 parameter const* params = p->get_decl()->get_parameters();
@@ -339,14 +339,14 @@ proof* ProofIteratorPostOrder::next()
                 for (unsigned i = 1; i < num_params; ++i) {
                     parameters.push_back(params[i]);
                 }
-                
+
                 SASSERT(params[0].is_symbol());
                 family_id tid = m.mk_family_id(params[0].get_symbol());
                 SASSERT(tid != null_family_id);
-                
+
                 proof* th_lemma = m.mk_th_lemma(tid, m.mk_false(),hyps.size(), hyps.c_ptr(), num_params-1, parameters.c_ptr());
                 SASSERT(is_arith_lemma(m, th_lemma));
-                
+
                 // 1c) create lemma
                 proof* res = m.mk_lemma(th_lemma, cls_fact);
                 SASSERT(m.get_fact(res) == m.get_fact(p));
@@ -386,15 +386,14 @@ proof* ProofIteratorPostOrder::next()
                 }
             }
         }
-        
+
         proof* res;
-        bool found = m_cache.find(pr,res);
-        SASSERT(found);
+        VERIFY(m_cache.find(pr,res));
         DEBUG_CODE(proof_checker pc(m);
                    expr_ref_vector side(m);
                    SASSERT(pc.check(res, side));
                    );
-        
+
         return proof_ref(res,m);
     }
 
@@ -408,16 +407,16 @@ proof* ProofIteratorPostOrder::next()
         m_pinned_parent_hyps.reset();
         m_pinned.reset();
     }
-    
+
     void hypothesis_reducer::compute_hypsets(proof* pr)
     {
         ptr_vector<proof> todo;
         todo.push_back(pr);
-        
+
         while (!todo.empty())
         {
             proof* p = todo.back();
-            
+
             if (m_active_hyps.contains(p))
             {
                 SASSERT(m_parent_hyps.contains(p));
@@ -427,13 +426,13 @@ proof* ProofIteratorPostOrder::next()
             else
             {
                 bool existsUnvisitedParent = false;
-                
+
                 // add unprocessed premises to stack for DFS. If there is at least one unprocessed premise, don't compute the result
                 // for p now, but wait until those unprocessed premises are processed.
                 for (unsigned i = 0; i < m.get_num_parents(p); ++i) {
                     SASSERT(m.is_proof(p->get_arg(i)));
                     proof* premise = to_app(p->get_arg(i));
-                    
+
                     // if we haven't visited the premise yet
                     if (!m_active_hyps.contains(premise))
                     {
@@ -443,7 +442,7 @@ proof* ProofIteratorPostOrder::next()
                         existsUnvisitedParent = true;
                     }
                 }
-                
+
                 // if we already visited all premises, we can visit p too
                 if (!existsUnvisitedParent)
                 {
@@ -453,11 +452,11 @@ proof* ProofIteratorPostOrder::next()
                     proof_set* active_hyps = alloc(proof_set);
                     m_pinned_active_hyps.insert(active_hyps);
                     m_active_hyps.insert(p, active_hyps);
-                    
+
                     expr_set* parent_hyps = alloc(expr_set);
                     m_pinned_parent_hyps.insert(parent_hyps);
                     m_parent_hyps.insert(p, parent_hyps);
-                    
+
                     // fill both sets
                     if (m.is_hypothesis(p))
                     {
@@ -481,7 +480,7 @@ proof* ProofIteratorPostOrder::next()
             }
         }
     }
-    
+
     // collect all units that are hyp-free and are used as hypotheses somewhere
     // requires that m_active_hyps and m_parent_hyps have been computed
     void hypothesis_reducer::collect_units(proof* pr)
@@ -510,12 +509,12 @@ proof* ProofIteratorPostOrder::next()
     {
         compute_hypsets(pr);
         collect_units(pr);
-        
+
         proof* res = compute_transformed_proof(pr);
         SASSERT(res != nullptr);
-        
+
         proof_ref res_ref(res,m);
-        
+
         reset();
         DEBUG_CODE(proof_checker pc(m);
                    expr_ref_vector side(m);
@@ -523,7 +522,7 @@ proof* ProofIteratorPostOrder::next()
                    );
         return res_ref;
     }
-    
+
     proof* hypothesis_reducer::compute_transformed_proof(proof* pf)
     {
         proof *res = NULL;
@@ -559,7 +558,7 @@ proof* ProofIteratorPostOrder::next()
             if (todo_sz < todo.size()) { continue; }
             else { todo.pop_back(); }
 
-            
+
             // here the proof transformation begins
             // INV: whenever we visit p, active_hyps and parent_hyps have been computed for the args.
             if (m.is_hypothesis(p))
@@ -578,7 +577,7 @@ proof* ProofIteratorPostOrder::next()
 
                     // compute hypsets (have not been computed in general, since the unit can be anywhere in the proof)
                     compute_hypsets(proof_of_unit);
-                    
+
                     // if the transformation doesn't create a cycle, perform it
                     SASSERT(m_parent_hyps.contains(proof_of_unit));
                     expr_set* parent_hyps = m_parent_hyps.find(proof_of_unit);
@@ -622,8 +621,8 @@ proof* ProofIteratorPostOrder::next()
             }
 
             SASSERT(res);
-            m_cache.insert(p, res);            
-            
+            m_cache.insert(p, res);
+
             SASSERT(m_active_hyps.contains(res));
             proof_set* active_hyps = m_active_hyps.find(res);
             if (active_hyps->empty() && m.has_fact(res) && m.is_false(m.get_fact(res)))
@@ -634,11 +633,11 @@ proof* ProofIteratorPostOrder::next()
         UNREACHABLE();
         return nullptr;
     }
-    
+
     proof* hypothesis_reducer::mk_lemma_core(proof* premise, expr *fact)
     {
         SASSERT(m.is_false(m.get_fact(premise)));
-        
+
         SASSERT(m_active_hyps.contains(premise));
         proof_set* active_hyps = m_active_hyps.find(premise);
 
@@ -658,7 +657,7 @@ proof* ProofIteratorPostOrder::next()
                 negated_hyp_fact = m.is_not(hyp_fact) ? to_app(hyp_fact)->get_arg(0) : m.mk_not(hyp_fact);
                 args.push_back(negated_hyp_fact);
             }
-            
+
             expr_ref lemma(m);
             if (args.size() == 1)
             {
@@ -731,7 +730,7 @@ proof* ProofIteratorPostOrder::next()
             return res;
         }
     }
-    
+
     proof* hypothesis_reducer::mk_step_core(proof* old_step, ptr_buffer<proof>& args)
     {
         // if any of the literals is false, we don't need a step
@@ -742,10 +741,10 @@ proof* ProofIteratorPostOrder::next()
                 return args[i];
             }
         }
-        
+
         // otherwise build step
         args.push_back(to_app(m.get_fact(old_step))); // BUG: I guess this doesn't work with quantifiers (since they are no apps)
-        
+
         SASSERT(old_step->get_decl()->get_arity() == args.size());
         proof* res = m.mk_app(old_step->get_decl(), args.size(), (expr * const*)args.c_ptr());
         m_pinned.push_back(res);
