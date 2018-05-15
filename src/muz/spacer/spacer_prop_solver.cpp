@@ -62,12 +62,12 @@ prop_solver::prop_solver(manager& pm, fixedpoint_params const& p, symbol const& 
 
     m_contexts[0] = alloc(spacer::itp_solver, *(m_solvers[0]), p.spacer_iuc(),
                           p.spacer_iuc_arith(),
-                          p.spacer_old_hyp_reducer(),
-                          p.spacer_split_farkas_literals());
+                          p.spacer_iuc_old_hyp_reducer(),
+                          p.spacer_iuc_split_farkas_literals());
     m_contexts[1] = alloc(spacer::itp_solver, *(m_solvers[1]), p.spacer_iuc(),
                           p.spacer_iuc_arith(),
-                          p.spacer_old_hyp_reducer(),
-                          p.spacer_split_farkas_literals());
+                          p.spacer_iuc_old_hyp_reducer(),
+                          p.spacer_iuc_split_farkas_literals());
 
     for (unsigned i = 0; i < 2; ++i)
     { m_contexts[i]->assert_expr(m_pm.get_background()); }

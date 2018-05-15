@@ -2026,8 +2026,8 @@ context::context(fixedpoint_params const&     params,
     m_expanded_lvl(0),
     m_use_native_mbp(params.spacer_native_mbp ()),
     m_ground_cti (params.spacer_ground_cti ()),
-    m_instantiate (params.spacer_instantiate ()),
-    m_use_qlemmas (params.spacer_qlemmas ()),
+    m_instantiate (params.spacer_q3_instantiate ()),
+    m_use_qlemmas (params.spacer_q3()),
     m_weak_abs(params.spacer_weak_abs()),
     m_use_restarts(params.spacer_restarts()),
     m_restart_initial_threshold(params.spacer_restart_initial_threshold()),
@@ -2303,11 +2303,11 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
         fparams.m_ng_lift_ite = LI_FULL;
     }
 
-    if (m_params.spacer_use_quant_generalizer()) {
+    if (m_params.spacer_q3_use_qgen()) {
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer,
                                              *this, 0, true));
         m_lemma_generalizers.push_back(alloc(lemma_quantifier_generalizer, *this,
-                                             m_params.spacer_quic_gen_normalize()));
+                                             m_params.spacer_q3_qgen_normalize()));
     }
 
     if (get_params().spacer_use_eqclass()) {
@@ -3138,7 +3138,7 @@ lbool context::expand_node(pob& n)
                    sanity_checker(lemma);
                    );
 
-        
+
         TRACE("spacer", tout << "invariant state: "
               << (is_infty_level(lemma->level())?"(inductive)":"")
               <<  mk_pp(lemma->get_expr(), m) << "\n";);
@@ -3649,8 +3649,8 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
     }
     if (!handle)
         return;
-    if ((is_infty_level(lem->level()) && m_params.spacer_share_invariants()) ||
-        (!is_infty_level(lem->level()) && m_params.spacer_share_lemmas())) {
+    if ((is_infty_level(lem->level()) && m_params.spacer_p3_share_invariants()) ||
+        (!is_infty_level(lem->level()) && m_params.spacer_p3_share_lemmas())) {
         expr_ref_vector args(m);
         for (unsigned i = 0; i < pt.sig_size(); ++i) {
             args.push_back(m.mk_const(pt.get_manager().o2n(pt.sig(i), 0)));

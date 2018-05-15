@@ -166,7 +166,7 @@ def_module_params('fixedpoint',
                           ('spacer.nondet_tie_break', BOOL, False, "Break ties in obligation queue non-deterministically"),
                           ('spacer.reach_dnf', BOOL, True, "Restrict reachability facts to DNF"),
                           ('bmc.linear_unrolling_depth', UINT, UINT_MAX, "Maximal level to explore"),
-                          ('spacer.split_farkas_literals', BOOL, False, "Split Farkas literals"),
+                          ('spacer.iuc.split_farkas_literals', BOOL, False, "Split Farkas literals"),
                           ('spacer.native_mbp', BOOL, False, "Use native mbp of Z3"),
                           ('spacer.eq_prop', BOOL, True, "Enable equality and bound propagation in arithmetic"),
                           ('spacer.weak_abs', BOOL, True, "Weak abstraction"),
@@ -179,23 +179,26 @@ def_module_params('fixedpoint',
                           ('spacer.vs.recheck', BOOL, False, 're-check locally during benchmark dumping'),
                           ('spacer.mbqi', BOOL, True, 'use model-based quantifier instantiation'),
                           ('spacer.keep_proxy', BOOL, True, 'keep proxy variables (internal parameter)'),
-                          ('spacer.instantiate', BOOL, True, 'instantiate quantified lemmas'),
-                          ('spacer.qlemmas', BOOL, True, 'allow quantified lemmas in frames'),
-                          ('spacer.iuc', UINT, 1, '0 = use old implementation of unsat-core-generation, 1 = use new implementation of IUC generation, 2 = use new implementation of IUC + min-cut optimization'),
-                          ('spacer.iuc.arith', UINT, 2, '0 = use simple Farkas plugin, 1 = use simple Farkas plugin with constant from other partition (like old unsat-core-generation), 2 = use Gaussian elimination optimization, 3 = use additive IUC plugin'), 
-						  ('spacer.old_hyp_reducer', BOOL, False, 'use old hyp reducer instead of new implementation, for debugging only'),
+                          ('spacer.q3.instantiate', BOOL, True, 'instantiate quantified lemmas'),
+                          ('spacer.q3', BOOL, True, 'allow quantified lemmas in frames'),
+                          ('spacer.iuc', UINT, 0,
+                           '0 = use old implementation of unsat-core-generation, ' +
+                           '1 = use new implementation of IUC generation, ' +
+                           '2 = use new implementation of IUC + min-cut optimization'),
+                          ('spacer.iuc.arith', UINT, 0,
+                           '0 = use simple Farkas plugin, ' +
+                           '1 = use simple Farkas plugin with constant from other partition (like old unsat-core-generation),' +
+                           '2 = use Gaussian elimination optimization (broken), 3 = use additive IUC plugin'),
+                          ('spacer.iuc.old_hyp_reducer', BOOL, True, 'use old hyp reducer instead of new implementation, for debugging only'),
                           ('spacer.lemma_sanity_check', BOOL, False, 'check during generalization whether lemma is actually correct'),
                           ('spacer.reuse_pobs', BOOL, True, 'reuse POBs'),
-                          ('spacer.print_farkas_stats', BOOL, False, 'prints for each proof how many Farkas lemmas it contains and how many of these participate in the cut'),
+                          ('spacer.iuc.print_farkas_stats', BOOL, False, 'prints for each proof how many Farkas lemmas it contains and how many of these participate in the cut'),
                           ('spacer.iuc.debug_proof', BOOL, False, 'prints proof used by unsat-core-learner for debugging purposes'),
                           ('spacer.simplify_pob', BOOL, False, 'simplify POBs by removing redundant constraints'),
-                          ('spacer.use_quant_generalizer', BOOL, False, 'use quantified lemma generalizer'),
-                          ('spacer.quic_gen_normalize', BOOL, True, 'normalize cube before quantified generalization'),
-                          ('spacer.share_lemmas', BOOL, False, "Share frame lemmas"),
-                          ('spacer.share_invariants', BOOL, False, "Share invariants lemmas"),
+                          ('spacer.q3.use_qgen', BOOL, False, 'use quantified lemma generalizer'),
+                          ('spacer.q3.qgen.normalize', BOOL, True, 'normalize cube before quantified generalization'),
+                          ('spacer.p3.share_lemmas', BOOL, False, 'Share frame lemmas'),
+                          ('spacer.p3.share_invariants', BOOL, False, "Share invariants lemmas"),
                           ('spacer.from_level', UINT, 0, 'starting level to explore'),
                           ('spacer.print_json', SYMBOL, '', 'print pobs tree in JSON format to a given file')
                           ))
-
-
-
