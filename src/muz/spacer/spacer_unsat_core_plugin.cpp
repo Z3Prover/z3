@@ -30,6 +30,7 @@ Revision History:
 #include "muz/spacer/spacer_matrix.h"
 #include "muz/spacer/spacer_unsat_core_plugin.h"
 #include "muz/spacer/spacer_unsat_core_learner.h"
+#include "muz/spacer/spacer_iuc_proof.h"
 
 namespace spacer
 {
@@ -37,8 +38,8 @@ namespace spacer
 
 void unsat_core_plugin_lemma::compute_partial_core(proof* step)
 {
-    SASSERT(m_learner.is_a_marked(step));
-    SASSERT(m_learner.is_b_marked(step));
+    SASSERT(m_learner.m_pr.is_a_marked(step));
+    SASSERT(m_learner.m_pr.is_b_marked(step));
 
     for (unsigned i = 0; i < m_learner.m.get_num_parents(step); ++i)
     {
@@ -48,7 +49,7 @@ void unsat_core_plugin_lemma::compute_partial_core(proof* step)
         if (m_learner.is_b_open (premise))
         {
             // by IH, premises that are AB marked are already closed
-            SASSERT(!m_learner.is_a_marked(premise));
+            SASSERT(!m_learner.m_pr.is_a_marked(premise));
             add_lowest_split_to_core(premise);
         }
     }
@@ -75,13 +76,13 @@ void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
             // the step is b-marked and not closed.
             // by I.H. the step must be already visited
             // so if it is also a-marked, it must be closed
-            SASSERT(m_learner.is_b_marked(pf));
-            SASSERT(!m_learner.is_a_marked(pf));
+            SASSERT(m_learner.m_pr.is_b_marked(pf));
+            SASSERT(!m_learner.m_pr.is_a_marked(pf));
 
             // the current step needs to be interpolated:
             expr* fact = m_learner.m.get_fact(pf);
             // if we trust the current step and we are able to use it
-            if (m_learner.is_b_pure (pf) &&
+            if (m_learner.m_pr.is_b_pure (pf) &&
                 (m.is_asserted(pf) || is_literal(m, fact)))
             {
                 // just add it to the core
@@ -109,8 +110,8 @@ void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
 void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
 {
     ast_manager &m = m_learner.m;
-    SASSERT(m_learner.is_a_marked(step));
-    SASSERT(m_learner.is_b_marked(step));
+    SASSERT(m_learner.m_pr.is_a_marked(step));
+    SASSERT(m_learner.m_pr.is_b_marked(step));
     // XXX this assertion should be true so there is no need to check for it
     SASSERT (!m_learner.is_closed (step));
     func_decl* d = step->get_decl();
@@ -162,7 +163,7 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
                 rational coef;
                 VERIFY(params[i].is_rational(coef));
 
-                bool b_pure = m_learner.is_b_pure (prem);
+                bool b_pure = m_learner.m_pr.is_b_pure (prem);
                 verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";
             }
         );
@@ -176,9 +177,9 @@ void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
 
             if (m_learner.is_b_open (premise))
             {
-                SASSERT(!m_learner.is_a_marked(premise));
+                SASSERT(!m_learner.m_pr.is_a_marked(premise));
 
-                if (m_learner.is_b_pure (step))
+                if (m_learner.m_pr.is_b_pure (step))
                 {
                     if (!m_use_constant_from_a)
                     {
@@ -287,8 +288,8 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
 
     void unsat_core_plugin_farkas_lemma_optimized::compute_partial_core(proof* step)
     {
-        SASSERT(m_learner.is_a_marked(step));
-        SASSERT(m_learner.is_b_marked(step));
+        SASSERT(m_learner.m_pr.is_a_marked(step));
+        SASSERT(m_learner.m_pr.is_b_marked(step));
 
         func_decl* d = step->get_decl();
         symbol sym;
@@ -315,7 +316,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                    rational coef;
                    VERIFY(params[i].is_rational(coef));
 
-                   bool b_pure = m_learner.is_b_pure (prem);
+                   bool b_pure = m_learner.m_pr.is_b_pure (prem);
                    verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m_learner.m.get_fact(prem), m_learner.m) << "\n";
                }
             );
@@ -326,11 +327,11 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 SASSERT(m_learner.m.is_proof(step->get_arg(i)));
                 proof * premise = m.get_parent (step, i);
 
-                if (m_learner.is_b_marked(premise) && !m_learner.is_closed(premise))
+                if (m_learner.m_pr.is_b_marked(premise) && !m_learner.is_closed(premise))
                 {
-                    SASSERT(!m_learner.is_a_marked(premise));
+                    SASSERT(!m_learner.m_pr.is_a_marked(premise));
 
-                    if (m_learner.only_contains_symbols_b(m_learner.m.get_fact(premise)) && !m_learner.is_h_marked(premise))
+                    if (m_learner.m_pr.only_contains_symbols_b(m_learner.m.get_fact(premise)) && !m_learner.m_pr.is_h_marked(premise))
                     {
                         rational coefficient;
                         VERIFY(params[i].is_rational(coefficient));
@@ -603,8 +604,8 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
     {
         ptr_vector<proof> todo;
 
-        SASSERT(m_learner.is_a_marked(step));
-        SASSERT(m_learner.is_b_marked(step));
+        SASSERT(m_learner.m_pr.is_a_marked(step));
+        SASSERT(m_learner.m_pr.is_b_marked(step));
         SASSERT(m.get_num_parents(step) > 0);
         SASSERT(!m_learner.is_closed(step));
         todo.push_back(step);
@@ -641,7 +642,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         {
             proof* premise = m.get_parent (step, i);
             {
-                if (m_learner.is_b_marked(premise))
+                if (m_learner.m_pr.is_b_marked(premise))
                 {
                     todo_subproof.push_back(premise);
                 }
@@ -655,19 +656,19 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             // if we need to deal with the node
             if (!m_learner.is_closed(current))
             {
-                SASSERT(!m_learner.is_a_marked(current)); // by I.H. the step must be already visited
+                SASSERT(!m_learner.m_pr.is_a_marked(current)); // by I.H. the step must be already visited
 
                 // and the current step needs to be interpolated:
-                if (m_learner.is_b_marked(current))
+                if (m_learner.m_pr.is_b_marked(current))
                 {
                     // if we trust the current step and we are able to use it
-                    if (m_learner.is_b_pure (current) &&
+                    if (m_learner.m_pr.is_b_pure (current) &&
                         (m.is_asserted(current) ||
                          is_literal(m, m.get_fact(current))))
                     {
                         // we found a leaf of the subproof, so
                         // 1) we add corresponding edges
-                        if (m_learner.is_a_marked(step))
+                        if (m_learner.m_pr.is_a_marked(step))
                         {
                             add_edge(nullptr, current); // current is sink
                         }

@@ -23,6 +23,7 @@ Notes:
 #include"ast/rewriter/expr_replacer.h"
 #include"muz/spacer/spacer_unsat_core_learner.h"
 #include"muz/spacer/spacer_unsat_core_plugin.h"
+#include "muz/spacer/spacer_iuc_proof.h"
 
 namespace spacer {
 void itp_solver::push ()
@@ -261,11 +262,11 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
         B.insert (a);
     }
 
-    proof_ref pr(m);
-    pr = get_proof ();
-
     if (m_iuc == 0)
     {
+        proof_ref pr(m);
+        pr = get_proof ();
+
         // old code
         farkas_learner learner_old;
         learner_old.set_split_literals(m_split_literals);
@@ -277,7 +278,19 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
     else
     {
         // new code
-        unsat_core_learner learner(m, m_print_farkas_stats, m_iuc_debug_proof);
+        // preprocess proof in order to get a proof which is better suited for unsat-core-extraction
+        proof_ref pr(get_proof(), m);
+        
+        spacer::reduce_hypotheses(pr);
+        STRACE("spacer.unsat_core_learner",
+               verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";
+               );
+        
+        // construct proof object with contains partition information
+        iuc_proof iuc_pr(m, get_proof(), B);
+
+        // configure learner
+        unsat_core_learner learner(m, iuc_pr, m_print_farkas_stats, m_iuc_debug_proof);
 
         if (m_iuc_arith == 0 || m_iuc_arith > 3)
         {
@@ -311,31 +324,12 @@ void itp_solver::get_itp_core (expr_ref_vector &core)
             learner.register_plugin(plugin_lemma);
         }
 
-        learner.compute_unsat_core(pr, B, core);
+        // compute interpolating unsat core
+        learner.compute_unsat_core(core);
 
+        // postprocessing, TODO: elim_proxies should be done inside iuc_proof
         elim_proxies (core);
         simplify_bounds (core); // XXX potentially redundant
-
-//            // debug
-//            expr_ref_vector core2(m);
-//            unsat_core_learner learner2(m);
-//
-//            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma2 = alloc(unsat_core_plugin_farkas_lemma, learner2, m_split_literals);
-//            learner2.register_plugin(plugin_farkas_lemma2);
-//            unsat_core_plugin_lemma* plugin_lemma2 = alloc(unsat_core_plugin_lemma, learner2);
-//            learner2.register_plugin(plugin_lemma2);
-//            learner2.compute_unsat_core(pr, B, core2);
-//
-//            elim_proxies (core2);
-//            simplify_bounds (core2);
-//
-//            IF_VERBOSE(2,
-//                       verbose_stream () << "Itp Core:\n"
-//                       << mk_pp (mk_and (core), m) << "\n";);
-//            IF_VERBOSE(2,
-//                       verbose_stream () << "Itp Core2:\n"
-//                       << mk_pp (mk_and (core2), m) << "\n";);
-        //SASSERT(mk_and (core) == mk_and (core2));
     }
 
     IF_VERBOSE(2,
