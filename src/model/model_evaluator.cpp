@@ -562,6 +562,12 @@ void model_evaluator::reset(params_ref const & p) {
     updt_params(p);
 }
 
+void model_evaluator::reset(model_core &model, params_ref const& p) {
+    dealloc(m_imp);
+    m_imp = alloc(imp, model, p);
+}
+
+
 void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
@@ -574,3 +580,40 @@ expr_ref model_evaluator::operator()(expr * t) {
     this->operator()(t, result);
     return result;
 }
+
+bool model_evaluator::is_true(expr* t) {
+    expr_ref tmp(m());
+    return eval(t, tmp, true) && m().is_true(tmp);
+}
+
+bool model_evaluator::is_false(expr* t) {
+    expr_ref tmp(m());
+    return eval(t, tmp, true) && m().is_false(tmp);
+}
+
+bool model_evaluator::is_true(expr_ref_vector const& ts) {
+    for (expr* t : ts) if (!is_true(t)) return false;
+    return true;
+}
+
+bool model_evaluator::eval(expr* t, expr_ref& r, bool model_completion) {
+    set_model_completion(model_completion);
+    try {
+        r = (*this)(t);
+        return true;
+    } 
+    catch (model_evaluator_exception &ex) {
+        (void)ex;
+        TRACE("model_evaluator", tout << ex.msg () << "\n";);
+        return false;
+    }    
+}
+
+bool model_evaluator::eval(expr_ref_vector const& ts, expr_ref& r, bool model_completion) {
+    expr_ref tmp(m());
+    tmp = mk_and(ts);
+    return eval(tmp, r, model_completion);
+}
+
+
+
