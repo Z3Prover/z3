@@ -289,7 +289,7 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
             {
                 iuc_proof iuc_before(m, res.get(), B);
                 verbose_stream() << "\nStats before transformation:";
-                iuc_before.print_farkas_stats();
+                iuc_before.dump_farkas_stats();
             }
 
             proof_utils::reduce_hypotheses(res);
@@ -299,7 +299,7 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
             {
                 iuc_proof iuc_after(m, res.get(), B);
                 verbose_stream() << "Stats after transformation:";
-                iuc_after.print_farkas_stats();
+                iuc_after.dump_farkas_stats();
             }
         }
         else // -- new hypothesis reducer
@@ -309,7 +309,7 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
             {
                 iuc_proof iuc_before(m, res.get(), B);
                 verbose_stream() << "\nStats before transformation:";
-                iuc_before.print_farkas_stats();
+                iuc_before.dump_farkas_stats();
             }
 
             theory_axiom_reducer ta_reducer(m);
@@ -324,7 +324,7 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
             {
                 iuc_proof iuc_after(m, res.get(), B);
                 verbose_stream() << "Stats after transformation:";
-                iuc_after.print_farkas_stats();
+                iuc_after.dump_farkas_stats();
             }
         }
 

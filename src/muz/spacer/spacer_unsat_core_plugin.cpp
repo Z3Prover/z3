@@ -331,11 +331,13 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 {
                     SASSERT(!m_learner.m_pr.is_a_marked(premise));
 
-                    if (m_learner.m_pr.only_contains_symbols_b(m_learner.m.get_fact(premise)) && !m_learner.m_pr.is_h_marked(premise))
+                    if (m_learner.m_pr.is_b_pure(premise))
                     {
                         rational coefficient;
                         VERIFY(params[i].is_rational(coefficient));
-                        linear_combination.push_back(std::make_pair(to_app(m_learner.m.get_fact(premise)), abs(coefficient)));
+                        linear_combination.push_back
+                            (std::make_pair(to_app(m_learner.m.get_fact(premise)),
+                                            abs(coefficient)));
                     }
                     else
                     {
@@ -529,14 +531,14 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             for (unsigned l=0; l < n; ++l) {
                 for (unsigned j=0; j < matrix.num_cols(); ++j) {
                     expr* s_jn = bounded_vectors[j][l].get();
-                    
+
                     expr_ref lb(util.mk_le(util.mk_int(0), s_jn), m);
                     expr_ref ub(util.mk_le(s_jn, util.mk_int(1)), m);
                     s->assert_expr(lb);
                     s->assert_expr(ub);
                 }
             }
-            
+
             // assert: forall i,j: a_ij = sum_k w_ik * s_jk
             for (unsigned i=0; i < matrix.num_rows(); ++i)
                 {
@@ -563,13 +565,13 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
             if (res == lbool::l_true) {
                 model_ref model;
                 s->get_model(model);
-                
+
                 for (unsigned k=0; k < n; ++k) {
                     ptr_vector<app> literals;
                     vector<rational> coefficients;
                     for (unsigned j=0; j < matrix.num_cols(); ++j) {
                         expr_ref evaluation(m);
-                        
+
                         model.get()->eval(bounded_vectors[j][k].get(), evaluation, false);
                         if (!util.is_zero(evaluation)) {
                             literals.push_back(ordered_basis[j]);
@@ -579,7 +581,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                     SASSERT(!literals.empty()); // since then previous outer loop would have found solution already
                     expr_ref linear_combination(m);
                     compute_linear_combination(coefficients, literals, linear_combination);
-                    
+
                     m_learner.add_lemma_to_core(linear_combination);
                 }
                 return;
@@ -622,7 +624,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
                 // add an edge from current to each leaf of that subproof
                 // add the leaves to todo
                 advance_to_lowest_partial_cut(current, todo);
-                
+
                 m_visited.mark(current, true);
 
             }
@@ -630,7 +632,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         m_learner.set_closed(step, true);
     }
 
-    
+
     void unsat_core_plugin_min_cut::advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo)
     {
         bool is_sink = true;
@@ -709,7 +711,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
     void unsat_core_plugin_min_cut::add_edge(proof* i, proof* j)
     {
         SASSERT(i != nullptr || j != nullptr);
-        
+
         unsigned node_i;
         unsigned node_j;
         if (i == nullptr)
@@ -777,7 +779,7 @@ void unsat_core_plugin_farkas_lemma::compute_linear_combination(const vector<rat
         {
             m_min_cut.add_edge(node_i, node_j, 1);
         }
-        
+
         if (i == nullptr)
         {
             m_connected_to_s.mark(j, true);

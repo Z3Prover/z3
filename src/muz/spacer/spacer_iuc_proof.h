@@ -4,62 +4,58 @@
 #include "ast/ast.h"
 
 namespace spacer {
-    typedef obj_hashtable<expr> expr_set;
-    typedef obj_hashtable<func_decl> func_decl_set;
+typedef obj_hashtable<expr> expr_set;
+typedef obj_hashtable<func_decl> func_decl_set;
 
-    /*
-     * an iuc_proof is a proof together with information of the coloring of the axioms.
-     */
-    class iuc_proof
-    {
-    public:
-        
-        iuc_proof(ast_manager& m, proof* pr, expr_set& b_conjuncts);
-        
-        proof* get();
+/*
+ * An iuc_proof is a proof together with information of the
+ * coloring of the axioms.
+ */
+class iuc_proof
+{
+public:
 
-        /*
-         * returns whether symbol contains only symbols which occur in B.
-         */
-        bool only_contains_symbols_b(expr* expr) const;
+    // Constructs an iuc_proof given an ast_manager, a proof, and a set of
+    // literals core_lits that might be included in the unsat core
+    iuc_proof(ast_manager& m, proof* pr, expr_set& core_lits);
 
-        bool is_a_marked(proof* p);
-        bool is_b_marked(proof* p);
-        bool is_h_marked(proof* p);
+    // returns the proof object
+    proof* get() {return m_pr.get();}
 
-        bool is_b_pure (proof *p)
-        {return !is_h_marked (p) && only_contains_symbols_b (m.get_fact (p));}
+    // returns true if all uninterpreted symbols of e are from the core literals
+    // requires that m_core_symbols has already been computed
+    bool is_core_pure(expr* e) const;
 
-        /*
-         * print dot-representation to file proof.dot
-         * use Graphviz's dot with option -Tpdf to convert dot-representation into pdf
-         */
-        void pp_dot();
-        
-        void print_farkas_stats();
-    private:
-        ast_manager& m;
-        proof_ref m_pr;
-        
-        ast_mark m_a_mark;
-        ast_mark m_b_mark;
-        ast_mark m_h_mark;
-        
-        func_decl_set m_symbols_b; // symbols, which occur in any b-asserted formula
+    bool is_a_marked(proof* p) {return m_a_mark.is_marked(p);}
+    bool is_b_marked(proof* p) {return m_b_mark.is_marked(p);}
+    bool is_h_marked(proof* p) {return m_h_mark.is_marked(p);}
 
-        // collect symbols occuring in B
-        void collect_symbols_b(expr_set& b_conjuncts);
+    bool is_b_pure (proof *p) {
+        return !is_h_marked (p) && is_core_pure(m.get_fact (p));
+    }
 
-        // compute for each formula of the proof whether it derives from A and whether it derives from B
-        void compute_marks(expr_set& b_conjuncts);
-        
-        void pp_dot_to_stream(std::ofstream& dotstream);
-        std::string escape_dot(const std::string &s);
-        
-        void post_process_dot(std::string dot_filepath, std::ofstream& dotstream);
-    };
-    
-    
+    // debug method
+    void dump_farkas_stats();
+private:
+    ast_manager& m;
+    proof_ref m_pr;
+
+    ast_mark m_a_mark;
+    ast_mark m_b_mark;
+    ast_mark m_h_mark;
+
+    // symbols that occur in any literals in the core
+    func_decl_set m_core_symbols;
+
+    // collect symbols occuring in B (the core)
+    void collect_core_symbols(expr_set& core_lits);
+
+    // compute for each formula of the proof whether it derives
+    // from A or from B
+    void compute_marks(expr_set& core_lits);
+};
+
+
 }
 
 #endif /* IUC_PROOF_H_ */
