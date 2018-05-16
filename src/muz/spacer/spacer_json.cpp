@@ -77,7 +77,7 @@ namespace spacer {
 
         std::ostringstream ls;
         for (auto l:lemmas) {
-            ls << (ls.tellp() == 0 ? "" : ",");
+            ls << ((unsigned)ls.tellp() == 0 ? "" : ",");
             json_marshal(ls, l);
         }
         out << "[" << ls.str() << "]";
@@ -104,11 +104,11 @@ namespace spacer {
         for (auto &pob_map:m_relations) {
             std::ostringstream pob_lemmas;
             for (auto &depth_lemmas : pob_map.second) {
-                pob_lemmas << (pob_lemmas.tellp() == 0 ? "" : ",") << "\"" << depth_lemmas.first << "\":";
+                pob_lemmas << ((unsigned)pob_lemmas.tellp() == 0 ? "" : ",") << "\"" << depth_lemmas.first << "\":";
                 json_marshal(pob_lemmas, depth_lemmas.second);
             }
             if (pob_lemmas.tellp()) {
-                lemmas << (lemmas.tellp() == 0 ? "" : ",\n");
+                lemmas << ((unsigned)lemmas.tellp() == 0 ? "" : ",\n");
                 lemmas << "\"" << pob_id << "\":{" << pob_lemmas.str() << "}";
             }
             pob_id++;
@@ -127,7 +127,7 @@ namespace spacer {
                     std::ostringstream pob_expr;
                     json_marshal(pob_expr, n->post(), n->get_ast_manager());
 
-                    nodes << (nodes.tellp() == 0 ? "" : ",\n") <<
+                    nodes << ((unsigned)nodes.tellp() == 0 ? "" : ",\n") <<
                           "{\"id\":\"" << depth << n <<
                           "\",\"relative_time\":\"" << expand_time / root_expand_time <<
                           "\",\"absolute_time\":\"" << std::setprecision(2) << expand_time <<
@@ -137,7 +137,7 @@ namespace spacer {
                           "\",\"depth\":\"" << depth <<
                           "\",\"expr\":" << pob_expr.str() << "}";
                     if (n->parent()) {
-                        edges << (edges.tellp() == 0 ? "" : ",\n") <<
+                        edges << ((unsigned)edges.tellp() == 0 ? "" : ",\n") <<
                               "{\"from\":\"" << depth << n->parent() <<
                               "\",\"to\":\"" << depth << n << "\"}";
                     }
