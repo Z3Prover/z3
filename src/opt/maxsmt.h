@@ -153,6 +153,48 @@ namespace opt {
         solver& s();
     };
 
+    /**
+       \brief Standalone MaxSMT solver.
+
+       It takes as input a solver object and provides a MaxSAT solver routine.
+
+       It assumes the solver state is satisfiable and therefore there is a model
+       associated with the constraints asserted to the solver. A model of the 
+       solver state must be supplied as a last argument.
+
+       It assumes that the caller manages scope on the solver such that
+       the solver can be left in a stronger or inconsistent state upon return.
+       Callers should therefore use this feature under a push/pop.
+    */
+    class maxsmt_wrapper {
+        params_ref  m_params;
+        ref<solver> m_solver;
+        model_ref   m_model;
+    public:
+        maxsmt_wrapper(params_ref & p, solver* s, model* m): 
+            m_params(p), 
+            m_solver(s),
+            m_model(m) {}
+        
+        lbool operator()(expr_ref_vector& soft) {
+            vector<std::pair<expr*, rational>> _soft;
+            for (expr* e : soft) _soft.push_back(std::make_pair(e, rational::one()));
+            lbool r = (*this)(_soft);
+            soft.reset();
+            for (auto const& p : _soft) soft.push_back(p.first);
+            return r;
+        }
+
+        /**
+           \brief takes a vector of weighted soft constraints.
+           Returns a modified list of soft constraints that are 
+           satisfied in the maximal satisfying assignment.
+        */
+        lbool operator()(vector<std::pair<expr*,rational>> & soft);
+
+        model_ref get_model() { return m_model; }
+    };
+
 };
 
 #endif
