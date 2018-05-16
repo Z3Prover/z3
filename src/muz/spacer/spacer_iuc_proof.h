@@ -1,6 +1,7 @@
 #ifndef IUC_PROOF_H_
 #define IUC_PROOF_H_
 
+#include <ostream>
 #include "ast/ast.h"
 
 namespace spacer {
@@ -35,6 +36,7 @@ public:
         return !is_h_marked (p) && is_core_pure(m.get_fact (p));
     }
 
+    void display_dot(std::ostream &out);
     // debug method
     void dump_farkas_stats();
 private:

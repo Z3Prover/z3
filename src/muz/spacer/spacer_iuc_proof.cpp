@@ -1,9 +1,12 @@
+#include <unordered_map>
+#include "ast/ast_pp_dot.h"
+
 #include "muz/spacer/spacer_iuc_proof.h"
 #include "ast/for_each_expr.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/proofs/proof_utils.h"
 #include "muz/spacer/spacer_proof_utils.h"
-
+#include "muz/spacer/spacer_util.h"
 namespace spacer {
 
 /*
@@ -190,5 +193,88 @@ void iuc_proof::dump_farkas_stats()
     IF_VERBOSE(1, verbose_stream()
                << "\n total farkas lemmas " << fl_total
                << " farkas lemmas in lowest cut " << fl_lowcut << "\n";);
+}
+
+void iuc_proof::display_dot(std::ostream& out) {
+    out << "digraph proof { \n";
+
+    std::unordered_map<unsigned, unsigned> ids;
+    unsigned last_id = 0;
+
+    proof_post_order it(m_pr, m);
+    while (it.hasNext())
+    {
+        proof* curr = it.next();
+
+        SASSERT(ids.count(curr->get_id()) == 0);
+        ids.insert(std::make_pair(curr->get_id(), last_id));
+
+        std::string color = "white";
+        if (this->is_a_marked(curr) && !this->is_b_marked(curr))
+            color = "red";
+        else if(!this->is_a_marked(curr) && this->is_b_marked(curr))
+            color = "blue";
+        else if(this->is_a_marked(curr) && this->is_b_marked(curr) )
+            color = "purple";
+
+        // compute node label
+        std::ostringstream label_ostream;
+        label_ostream << mk_epp(m.get_fact(curr), m) << "\n";
+        std::string label = escape_dot(label_ostream.str());
+
+        // compute edge-label
+        std::string edge_label = "";
+        if (m.get_num_parents(curr) == 0) {
+            switch (curr->get_decl_kind())
+            {
+            case PR_ASSERTED:
+                edge_label = "asserted:";
+                break;
+            case PR_HYPOTHESIS:
+                edge_label = "hyp:";
+                color = "grey";
+                break;
+            case PR_TH_LEMMA:
+                if (is_farkas_lemma(m, curr))
+                    edge_label = "th_axiom(farkas):";
+                else if (is_arith_lemma(m, curr))
+                    edge_label = "th_axiom(arith):";
+                else
+                    edge_label = "th_axiom:";
+                break;
+            default:
+                edge_label = "unknown axiom:";
+            }
+        }
+        else {
+            if (curr->get_decl_kind() == PR_LEMMA)
+                edge_label = "lemma:";
+            else if (curr->get_decl_kind() == PR_TH_LEMMA) {
+                if (is_farkas_lemma(m, curr))
+                    edge_label = "th_lemma(farkas):";
+                else if (is_arith_lemma(m, curr))
+                    edge_label = "th_lemma(arith):";
+                else
+                    edge_label = "th_lemma(other):";
+            }
+        }
+
+        // generate entry for node in dot-file
+        out   << "node_" << last_id << " " << "["
+              << "shape=box,style=\"filled\","
+              << "label=\"" << edge_label << " " << label << "\", "
+              << "fillcolor=\"" << color << "\"" << "]\n";
+
+        // add entry for each edge to that node
+        for (unsigned i = m.get_num_parents(curr); i > 0  ; --i)
+        {
+            proof* premise = to_app(curr->get_arg(i-1));
+            unsigned pid = ids.at(premise->get_id());
+            out   << "node_" << pid << " -> " << "node_" << last_id << ";\n";
+        }
+
+        ++last_id;
+    }
+    out << "\n}" << std::endl;
 }
 }
