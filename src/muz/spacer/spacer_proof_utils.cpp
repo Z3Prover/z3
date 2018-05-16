@@ -66,89 +66,96 @@ bool is_farkas_lemma(ast_manager& m, proof* pr)
  * ====================================
  */
 
-void theory_axiom_reducer::reset()
-{
+void theory_axiom_reducer::reset() {
     m_cache.reset();
     m_pinned.reset();
 }
 
-proof_ref theory_axiom_reducer::reduce(proof* pr)
-{
+// -- rewrite theory axioms into theory lemmas
+proof_ref theory_axiom_reducer::reduce(proof* pr) {
     proof_post_order pit(pr, m);
-    while (pit.hasNext())
-    {
+    while (pit.hasNext()) {
         proof* p = pit.next();
 
-        if (m.get_num_parents(p) == 0 && is_arith_lemma(m, p))
-        {
+        if (m.get_num_parents(p) == 0 && is_arith_lemma(m, p)) {
             // we have an arith-theory-axiom and want to get rid of it
-            // we need to replace the axiom with 1a) corresponding hypothesis', 1b) a theory lemma and a 1c) a lemma. Furthermore update datastructures
-            app *cls_fact = to_app(m.get_fact(p));
+            // we need to replace the axiom with
+            // (a) corresponding hypothesis,
+            // (b) a theory lemma, and
+            // (c) a lemma.
+            // Furthermore update data-structures
+            app *fact = to_app(m.get_fact(p));
             ptr_buffer<expr> cls;
-            if (m.is_or(cls_fact)) {
-                for (unsigned i = 0, sz = cls_fact->get_num_args(); i < sz; ++i)
-                { cls.push_back(cls_fact->get_arg(i)); }
-            } else { cls.push_back(cls_fact); }
+            if (m.is_or(fact)) {
+                for (unsigned i = 0, sz = fact->get_num_args(); i < sz; ++i)
+                 cls.push_back(fact->get_arg(i));
+            }
+            else
+                cls.push_back(fact);
 
-            // 1a) create hypothesis'
+            // (a) create hypothesis
             ptr_buffer<proof> hyps;
-            for (unsigned i=0; i < cls.size(); ++i)
-            {
-                expr* hyp_fact = m.is_not(cls[i]) ? to_app(cls[i])->get_arg(0) : m.mk_not(cls[i]);
+            for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
+                expr *c;
+                expr_ref hyp_fact(m);
+                if (m.is_not(cls[i], c))
+                    hyp_fact = c;
+                else
+                    hyp_fact = m.mk_not (cls[i]);
+
                 proof* hyp = m.mk_hypothesis(hyp_fact);
                 m_pinned.push_back(hyp);
                 hyps.push_back(hyp);
             }
 
-            // 1b) create farkas lemma: need to rebuild parameters since mk_th_lemma adds tid as first parameter
+            // (b) create farkas lemma. Rebuild parameters since
+            // mk_th_lemma() adds tid as first parameter
             unsigned num_params = p->get_decl()->get_num_parameters();
             parameter const* params = p->get_decl()->get_parameters();
             vector<parameter> parameters;
-            for (unsigned i = 1; i < num_params; ++i) {
-                parameters.push_back(params[i]);
-            }
+            for (unsigned i = 1; i < num_params; ++i) parameters.push_back(params[i]);
 
             SASSERT(params[0].is_symbol());
             family_id tid = m.mk_family_id(params[0].get_symbol());
             SASSERT(tid != null_family_id);
 
-            proof* th_lemma = m.mk_th_lemma(tid, m.mk_false(),hyps.size(), hyps.c_ptr(), num_params-1, parameters.c_ptr());
+            proof* th_lemma = m.mk_th_lemma(tid, m.mk_false(),
+                                            hyps.size(), hyps.c_ptr(),
+                                            num_params-1, parameters.c_ptr());
+            m_pinned.push_back(th_lemma);
             SASSERT(is_arith_lemma(m, th_lemma));
 
-            // 1c) create lemma
-            proof* res = m.mk_lemma(th_lemma, cls_fact);
-            SASSERT(m.get_fact(res) == m.get_fact(p));
+            // (c) create lemma
+            proof* res = m.mk_lemma(th_lemma, fact);
             m_pinned.push_back(res);
             m_cache.insert(p, res);
+
+            SASSERT(m.get_fact(res) == m.get_fact(p));
         }
-        else
-        {
-            bool dirty = false; // proof is dirty, if a subproof of one of its premises has been transformed
+        else {
+            // proof is dirty, if a subproof of one of its premises
+            // has been transformed
+            bool dirty = false;
 
             ptr_buffer<expr> args;
-            for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i)
-            {
-                proof* pp = m.get_parent(p, i);
-                proof* tmp;
-                if (m_cache.find(pp, tmp))
-                {
-                    args.push_back(tmp);
-                    dirty = dirty || pp != tmp;
-                }
-                else
-                {
-                    SASSERT(false);
-                }
+            for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
+                proof *pp, *tmp;
+                pp = m.get_parent(p, i);
+                VERIFY(m_cache.find(pp, tmp));
+                args.push_back(tmp);
+                dirty |= (pp != tmp);
             }
-            if (!dirty) // if not dirty just use the old step
-            {
-                m_cache.insert(p, p);
-            }
-            else // otherwise create new step with the corresponding proofs of the premises
-            {
-                if (m.has_fact(p)) { args.push_back(m.get_fact(p)); }
+            // if not dirty just use the old step
+            if (!dirty) m_cache.insert(p, p);
+            // otherwise create new proof with the corresponding proofs
+            // of the premises
+            else {
+                if (m.has_fact(p)) args.push_back(m.get_fact(p));
+
                 SASSERT(p->get_decl()->get_arity() == args.size());
-                proof* res = m.mk_app(p->get_decl(), args.size(), (expr * const*)args.c_ptr());
+
+                proof* res = m.mk_app(p->get_decl(),
+                                      args.size(), (expr * const*)args.c_ptr());
                 m_pinned.push_back(res);
                 m_cache.insert(p, res);
             }
@@ -157,12 +164,13 @@ proof_ref theory_axiom_reducer::reduce(proof* pr)
 
     proof* res;
     VERIFY(m_cache.find(pr,res));
-    DEBUG_CODE(proof_checker pc(m);
-               expr_ref_vector side(m);
-               SASSERT(pc.check(res, side));
+    DEBUG_CODE(
+        proof_checker pc(m);
+        expr_ref_vector side(m);
+        SASSERT(pc.check(res, side));
         );
 
-    return proof_ref(res,m);
+    return proof_ref(res, m);
 }
 
 void hypothesis_reducer::reset()
