@@ -17,7 +17,8 @@ public:
 
     // Constructs an iuc_proof given an ast_manager, a proof, and a set of
     // literals core_lits that might be included in the unsat core
-    iuc_proof(ast_manager& m, proof* pr, expr_set& core_lits);
+    iuc_proof(ast_manager& m, proof* pr, const expr_set& core_lits);
+    iuc_proof(ast_manager& m, proof* pr, const expr_ref_vector &core_lits);
 
     // returns the proof object
     proof* get() {return m_pr.get();}
@@ -44,15 +45,18 @@ private:
     ast_mark m_b_mark;
     ast_mark m_h_mark;
 
+    // -- literals that are part of the core
+    expr_set m_core_lits;
+
     // symbols that occur in any literals in the core
     func_decl_set m_core_symbols;
 
-    // collect symbols occuring in B (the core)
-    void collect_core_symbols(expr_set& core_lits);
+    // collect symbols occurring in B (the core)
+    void collect_core_symbols();
 
     // compute for each formula of the proof whether it derives
     // from A or from B
-    void compute_marks(expr_set& core_lits);
+    void compute_marks();
 };
 
 

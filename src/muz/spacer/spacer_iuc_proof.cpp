@@ -11,13 +11,21 @@ namespace spacer {
  * init
  * ====================================
  */
-iuc_proof::iuc_proof(ast_manager& m, proof* pr, expr_set& core_lits) :
+iuc_proof::iuc_proof(ast_manager& m, proof* pr, const expr_set& core_lits) :
     m(m), m_pr(pr,m) {
+    for (auto lit : core_lits) m_core_lits.insert(lit);
     // init A-marks and B-marks
-    collect_core_symbols(core_lits);
-    compute_marks(core_lits);
+    collect_core_symbols();
+    compute_marks();
 }
 
+iuc_proof::iuc_proof(ast_manager& m, proof* pr, const expr_ref_vector& core_lits) :
+    m(m), m_pr(pr,m) {
+    for (auto lit : core_lits) m_core_lits.insert(lit);
+    // init A-marks and B-marks
+    collect_core_symbols();
+    compute_marks();
+}
 /*
  * ====================================
  * methods for computing symbol colors
@@ -37,13 +45,12 @@ public:
     void operator()(quantifier*) {}
 };
 
-void iuc_proof::collect_core_symbols(expr_set& core_lits)
+void iuc_proof::collect_core_symbols()
 {
     expr_mark visited;
     collect_pure_proc proc(m_core_symbols);
-    for (expr_set::iterator it = core_lits.begin(); it != core_lits.end(); ++it) {
-        for_each_expr(proc, visited, *it);
-    }
+    for (auto lit : m_core_lits)
+        for_each_expr(proc, visited, lit);
 }
 
 class is_pure_expr_proc {
@@ -84,7 +91,7 @@ bool iuc_proof::is_core_pure(expr* e) const
     return true;
 }
 
-void iuc_proof::compute_marks(expr_set& core_lits)
+void iuc_proof::compute_marks()
 {
     proof_post_order it(m_pr, m);
     while (it.hasNext())
@@ -95,7 +102,7 @@ void iuc_proof::compute_marks(expr_set& core_lits)
             switch(cur->get_decl_kind())
             {
             case PR_ASSERTED:
-                if (core_lits.contains(m.get_fact(cur)))
+                if (m_core_lits.contains(m.get_fact(cur)))
                     m_b_mark.mark(cur, true);
                 else
                     m_a_mark.mark(cur, true);
