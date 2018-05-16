@@ -46,10 +46,12 @@ private:
     void reset();
 };
 
+/// reduces the number of hypotheses in a proof
 class hypothesis_reducer
 {
 public:
     hypothesis_reducer(ast_manager &m) : m(m), m_pinned(m) {}
+    ~hypothesis_reducer() {reset();}
 
     // reduce hypothesis and return transformed proof
     proof_ref reduce(proof* pf);
@@ -90,7 +92,7 @@ private:
 
     proof* mk_lemma_core(proof *pf, expr *fact);
     proof* mk_unit_resolution_core(ptr_buffer<proof>& args);
-    proof* mk_step_core(proof* old_step, ptr_buffer<proof>& args);
+    proof* mk_proof_core(proof* old, ptr_buffer<proof>& args);
 };
 }
 #endif
