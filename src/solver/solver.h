@@ -229,4 +229,8 @@ protected:
 
 typedef ref<solver> solver_ref;
 
+inline std::ostream& operator<<(std::ostream& out, solver const& s) {
+    return s.display(out);
+}
+
 #endif

@@ -17,10 +17,10 @@ Notes:
 
 --*/
 
+#include "solver/solver_pool.h"
+#include "solver/solver_na2as.h"
 #include "ast/proofs/proof_utils.h"
 #include "ast/ast_util.h"
-#include "solver/solver_pool.h"
-
 
 class pool_solver : public solver_na2as {
     solver_pool&       m_pool;
@@ -33,6 +33,7 @@ class pool_solver : public solver_na2as {
     bool               m_pushed;
     bool               m_in_delayed_scope;
     unsigned           m_dump_counter;
+
     bool is_virtual() const { return !m.is_true(m_pred); }
 public:
     pool_solver(solver* b, solver_pool& pool, app_ref& pred):
@@ -66,6 +67,8 @@ public:
     void updt_params(params_ref const& p) override { solver::updt_params(p); m_base->updt_params(p); }
     void collect_param_descrs(param_descrs & r) override { m_base->collect_param_descrs(r); }
     void collect_statistics(statistics & st) const override { m_base->collect_statistics(st); }
+    unsigned get_num_assertions() const override { return m_base->get_num_assertions(); }
+    expr * get_assertion(unsigned idx) const override { return m_base->get_assertion(idx); }
 
     void get_unsat_core(ptr_vector<expr> & r) override {
         m_base->get_unsat_core(r);
@@ -80,6 +83,7 @@ public:
         unsigned sz = solver_na2as::get_num_assumptions();
         return is_virtual() ? sz - 1 : sz;
     }
+
 
     proof * get_proof() override {
         scoped_watch _t_(m_pool.m_proof_watch);
@@ -126,33 +130,7 @@ public:
         set_status(res);
         
         if (false /*m_dump_benchmarks && sw.get_seconds() >= m_pool.fparams().m_dump_min_time*/) {
-            std::stringstream file_name;
-            file_name << "virt_solver";
-            if (is_virtual()) { file_name << "_" << m_pred->get_decl()->get_name(); }
-            file_name << "_" << (m_dump_counter++) << ".smt2";
-            
-            std::ofstream out(file_name.str().c_str());
-            if (!out) { verbose_stream() << "could not open file " << file_name.str() << " for output\n"; }
-            
-            out << "(set-info :status ";
-            switch (res) {
-            case l_true: out << "sat"; break;
-            case l_false: out << "unsat"; break;
-            case l_undef: out << "unknown"; break;
-            }
-            out << ")\n";            
-            m_base->display(out, num_assumptions, assumptions);
-            out << "(check-sat";
-            for (unsigned i = 0; i < num_assumptions; ++i) {
-                out << " " << mk_pp(assumptions[i], m);
-            }
-            out << ")";            
-            out << "(exit)\n";
-            ::statistics st;
-            m_base->collect_statistics(st);
-            st.update("time", sw.get_seconds());
-            st.display_smt2(out);            
-            out.close();
+            dump_benchmark(num_assumptions, assumptions, res, sw);
         }
         return res;
     }
@@ -171,21 +149,21 @@ public:
             m_in_delayed_scope = true; 
         }
         else {
-            SASSERT(m_pushed);
             SASSERT(!m_in_delayed_scope);
             m_base->push();
         }
     }
 
     void pop_core(unsigned n) override {
-        SASSERT(!m_pushed || get_scope_level() > 0);
+        unsigned lvl = get_scope_level();
+        SASSERT(!m_pushed || lvl > 0);
         if (m_pushed) {
             SASSERT(!m_in_delayed_scope);
             m_base->pop(n);
-            m_pushed = get_scope_level() - n > 0;
+            m_pushed = lvl - n > 0;
         } 
         else { 
-            m_in_delayed_scope = get_scope_level() - n > 0; 
+            m_in_delayed_scope = lvl - n > 0; 
         }
     }
     
@@ -237,11 +215,58 @@ public:
         m_assertions.reset();
         m_pool.refresh(m_base.get());
     }
+
+private:
+
+    void dump_benchmark(unsigned num_assumptions, expr * const * assumptions, lbool res, stopwatch& sw) {
+        std::string file_name = mk_file_name();            
+        std::ofstream out(file_name);
+        if (!out) { 
+            IF_VERBOSE(0, verbose_stream() << "could not open file " << file_name << " for output\n");
+            return;
+        }
+
+        out << "(set-info :status " << lbool2status(res) << ")\n";
+        m_base->display(out, num_assumptions, assumptions);
+        out << "(check-sat";
+        for (unsigned i = 0; i < num_assumptions; ++i) {
+            out << " " << mk_pp(assumptions[i], m);
+        }
+        out << ")";            
+        out << "(exit)\n";
+        ::statistics st;
+        m_base->collect_statistics(st);
+        st.update("time", sw.get_seconds());
+        st.display_smt2(out);            
+        out.close();        
+    }
+
+    char const* lbool2status(lbool r) const {
+        switch (r) {
+        case l_true:  return "sat";
+        case l_false: return "unsat";
+        case l_undef: return "unknown"; 
+        }
+        return "?";
+    }
+
+    std::string mk_file_name() {
+        std::stringstream file_name;
+        file_name << "virt_solver";
+        if (is_virtual()) file_name << "_" << m_pred->get_decl()->get_name(); 
+        file_name << "_" << (m_dump_counter++) << ".smt2";
+        return file_name.str();
+    }
+
 };
 
-solver_pool::solver_pool(solver* base_solver):
-    m_base_solver(base_solver)
-{}
+solver_pool::solver_pool(solver* base_solver, unsigned num_pools):
+    m_base_solver(base_solver),
+    m_num_pools(num_pools),
+    m_current_pool(0)
+{
+    SASSERT(num_pools > 0);
+}
 
 
 ptr_vector<solver> solver_pool::get_base_solvers() const {
@@ -258,10 +283,10 @@ ptr_vector<solver> solver_pool::get_base_solvers() const {
 void solver_pool::collect_statistics(statistics &st) const {
     ptr_vector<solver> solvers = get_base_solvers();
     for (solver* s : solvers) s->collect_statistics(st);        
-    st.update("pool_solver.time.total", m_check_watch.get_seconds());
-    st.update("pool_solver.time.total.sat", m_check_sat_watch.get_seconds());
-    st.update("pool_solver.time.total.undef", m_check_undef_watch.get_seconds());
-    st.update("pool_solver.time.proof", m_proof_watch.get_seconds());
+    st.update("time.pool_solver.smt.total", m_check_watch.get_seconds());
+    st.update("time.pool_solver.smt.total.sat", m_check_sat_watch.get_seconds());
+    st.update("time.pool_solver.smt.total.undef", m_check_undef_watch.get_seconds());
+    st.update("time.pool_solver.proof", m_proof_watch.get_seconds());
     st.update("pool_solver.checks", m_stats.m_num_checks);
     st.update("pool_solver.checks.sat", m_stats.m_num_sat_checks);
     st.update("pool_solver.checks.undef", m_stats.m_num_undef_checks);
@@ -281,24 +306,29 @@ void solver_pool::reset_statistics() {
     m_proof_watch.reset();
 }
 
+/**
+   \brief Create a fresh solver instance.
+   The first num_pools solvers are independent and 
+   use a fresh instance of the base solver.
+   Subsequent solvers reuse the first num_polls base solvers, rotating
+   among the first num_pools.
+*/
 solver* solver_pool::mk_solver() {
+    ref<solver> base_solver;
     ast_manager& m = m_base_solver->get_manager();
-    ref<solver> base_solver = m_base_solver->translate(m, m_base_solver->get_params());
-    app_ref pred(m.mk_true(), m);
-    pool_solver* solver = alloc(pool_solver, base_solver.get(), *this, pred);
-    m_solvers.push_back(solver);
-    return solver;
-}
-
-solver* solver_pool::clone_solver(solver* psolver) {
-    ast_manager& m = m_base_solver->get_manager();
-    solver* base_solver = dynamic_cast<pool_solver*>(psolver)->base_solver();
+    if (m_solvers.size() < m_num_pools) {
+        base_solver = m_base_solver->translate(m, m_base_solver->get_params());
+    }
+    else {
+        solver* s = m_solvers[(m_current_pool++) % m_num_pools];
+        base_solver = dynamic_cast<pool_solver*>(s)->base_solver();
+    }
     std::stringstream name;
     name << "vsolver#" << m_solvers.size();
     app_ref pred(m.mk_const(symbol(name.str().c_str()), m.mk_bool_sort()), m);
-    pool_solver* solver = alloc(pool_solver, base_solver, *this, pred);
+    pool_solver* solver = alloc(pool_solver, base_solver.get(), *this, pred);
     m_solvers.push_back(solver);
-    return solver;    
+    return solver;
 }
 
 void solver_pool::reset_solver(solver* s) {
