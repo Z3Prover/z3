@@ -35,6 +35,7 @@ Revision History:
 #include "muz/spacer/spacer_farkas_learner.h"
 #include "muz/spacer/spacer_prop_solver.h"
 
+#include "model/model_evaluator.h"
 #include "muz/base/fixedpoint_params.hpp"
 
 namespace spacer {
@@ -135,6 +136,96 @@ void prop_solver::assert_expr(expr * form, unsigned level)
     assert_expr(lform);
 }
 
+
+/// Local model guided maxsmt
+lbool prop_solver::mss(expr_ref_vector &hard, expr_ref_vector &soft) {
+    // replace expressions by assumption literals
+    iuc_solver::scoped_mk_proxy _p_(*m_ctx, hard);
+    unsigned hard_sz = hard.size();
+
+    lbool res = m_ctx->check_sat(hard.size(), hard.c_ptr());
+    // bail out if hard constraints are not sat, or if there are no
+    // soft constraints
+    if (res != l_true || soft.empty()) {return res;}
+
+    // the main loop
+
+    model_ref mdl;
+    m_ctx->get_model(mdl);
+
+    // don't proxy soft literals. Assume that they are propositional.
+    hard.append(soft);
+    soft.reset();
+
+
+    // hard is divided into 4 regions
+    //            x < hard_sz      ---> hard constraints
+    // hard_sz <= x < i            ---> sat soft constraints
+    //       i <= x < j            ---> backbones (unsat soft constraints)
+    //       j <= x < hard.size()  ---> unprocessed soft constraints
+    unsigned i, j;
+    i = hard_sz;
+    j = hard_sz;
+
+    while (j < hard.size()) {
+        model_evaluator mev(*mdl);
+
+        // move all true soft constraints to [hard_sz, i)
+        for (unsigned k = j; k < hard.size(); ++k) {
+            expr_ref e(m);
+            e = hard.get(k);
+            if (!mev.is_false(e) /* true or unset */) {
+                expr_ref tmp(m);
+                tmp = hard.get(i);
+                hard[i] = e;
+                if (i < j) {
+                    // tmp is a backbone, put it at j
+                    if (j == k) {hard[j] = tmp;}
+                    else /* j < k */ {
+                        e = hard.get(j);
+                        hard[j] = tmp;
+                        hard[k] = e;
+                    }
+                    j++;
+                }
+                else {
+                    // there are no backbone literals
+                    hard[k] = tmp;
+                    j++;
+                }
+                i++;
+            }
+        }
+
+        // done with the model. Reset to avoid confusion in debugging
+        mdl.reset();
+
+        // -- grow the set of backbone literals
+        for (;j < hard.size(); ++j) {
+            res = m_ctx->check_sat(j+1, hard.c_ptr());
+            if (res == l_false) {
+                // -- flip non-true literal to be false
+                hard[j] = m.mk_not(hard.get(j));
+            }
+            else if (res == l_true) {
+                // -- get the model for the next iteration of the outer loop
+                m_ctx->get_model(mdl);
+                break;
+            }
+            else if (res == l_undef) {
+                // -- conservatively bail out
+                hard.resize(hard_sz);
+                return l_undef;
+            }
+        }
+    }
+
+    // move sat soft constraints to the output vector
+    for (unsigned k = i; k < j; ++k) {soft.push_back(hard.get(k));}
+    // cleanup hard constraints
+    hard.resize(hard_sz);
+    return l_true;
+}
 
 /// Poor man's maxsat. No guarantees of maximum solution
 /// Runs maxsat loop on m_ctx Returns l_false if hard is unsat,

@@ -71,6 +71,7 @@ private:
                                      expr_ref_vector &soft);
 
     lbool maxsmt(expr_ref_vector &hard, expr_ref_vector &soft);
+    lbool mss(expr_ref_vector &hard, expr_ref_vector &soft);
 
 
 public:
