@@ -125,13 +125,13 @@ void project_plugin::push_back(expr_ref_vector& lits, expr* e) {
 
 
 class mbp::impl {
-    ast_manager&               m;
+    ast_manager& m;
     params_ref                 m_params;
-    th_rewriter                m_rw;
+    th_rewriter m_rw;
     ptr_vector<project_plugin> m_plugins;
-    expr_mark                  m_visited;
-    expr_mark                  m_bool_visited;
-    
+    expr_mark m_visited;
+    expr_mark m_bool_visited;
+
     // parameters
     bool m_reduce_all_selects;
     bool m_native_mbp;
@@ -280,33 +280,33 @@ class mbp::impl {
             }
             else {
                 vars[j++] = var;
+                }
             }
-        }
         if (j == vars.size()) {
             return;
         }
         vars.shrink(j);
-        j = 0;
-        for (unsigned i = 0; i < fmls.size(); ++i) {
+            j = 0;
+            for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get();
             sub(fml, val);
-            m_rw(val);
-            if (!m.is_true(val)) {
+                m_rw(val);
+                if (!m.is_true(val)) {
                 TRACE("qe", tout << mk_pp(fml, m) << " -> " << val << "\n";);
                 fmls[j++] = val;
-            }
-        }
+                    }
+                }
         fmls.shrink(j);
-    }
+            }
 
 
     void subst_vars(model_evaluator& eval, app_ref_vector const& vars, expr_ref& fml) {
         expr_safe_replace sub (m);
         for (app * v : vars) {
             sub.insert(v, eval(v));
-        }
+            }
         sub(fml);
-    }
+        }
 
     struct index_term_finder {
         ast_manager&     m;
@@ -731,7 +731,7 @@ mbp::mbp(ast_manager& m, params_ref const& p) {
 mbp::~mbp() {
     dealloc(m_impl);
 }
-
+        
 void mbp::updt_params(params_ref const& p) {
     m_impl->updt_params(p);
 }
