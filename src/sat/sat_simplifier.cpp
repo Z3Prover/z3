@@ -192,8 +192,6 @@ namespace sat {
             return;
         if (!m_subsumption && !bce_enabled() && !bca_enabled() && !elim_vars_enabled())
             return;
-
-        // solver::scoped_disable_checkpoint _scoped_disable_checkpoint(s);
         
         initialize();
 
@@ -257,7 +255,6 @@ namespace sat {
         TRACE("sat_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
 
         finalize();
-
     }
 
     /**
