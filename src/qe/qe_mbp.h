@@ -52,9 +52,13 @@ namespace qe {
         class impl;
         impl * m_impl;
     public:
-        mbp(ast_manager& m);
+        mbp(ast_manager& m, params_ref const& p = params_ref());
         
         ~mbp();
+
+        void updt_params(params_ref const& p);
+        
+        static void get_param_descrs(param_descrs & r);
         
         /**
            \brief
@@ -80,6 +84,16 @@ namespace qe {
            Maximize objective t under current model for constraints in fmls.
          */
         opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt);
+
+        /**
+           \brief
+           Apply spacer friendly MBP.
+           Use parameters to control behavior.
+           - reduce_all_selects (false) 
+           - native_mbp (false) - to be deprecated
+           - dont_sub (false) 
+        */
+        void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml);
     };
 }
 

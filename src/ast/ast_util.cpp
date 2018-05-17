@@ -307,6 +307,13 @@ void flatten_and(expr* fml, expr_ref_vector& result) {
     flatten_and(result);
 }
 
+void flatten_and(expr_ref& fml) {
+    expr_ref_vector fmls(fml.get_manager());
+    fmls.push_back(fml);
+    flatten_and(fmls);
+    fml = mk_and(fmls);
+}
+
 void flatten_or(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();
     expr* e1, *e2, *e3;

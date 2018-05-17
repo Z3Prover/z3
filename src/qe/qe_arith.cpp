@@ -352,10 +352,7 @@ namespace qe {
                     real_vars.push_back(tids.find(v));
                 }
                 else {
-                    if (i != j) {
-                        vars[j] = v;
-                    }
-                    ++j;
+                    vars[j++] = v;
                 }
             }
             vars.resize(j);

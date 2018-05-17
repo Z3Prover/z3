@@ -479,9 +479,8 @@ namespace spacer {
         th_rewriter rw (m);
         TRACE ("spacer_mbp",
                tout << "Before projection:\n";
-               tout << mk_pp (fml, m) << "\n";
-               tout << "Vars:\n";
-               for (app* v : vars) tout << mk_pp(v, m) << "\n";);
+               tout << fml << "\n";
+               tout << "Vars:\n" << vars;);
 
         {
             // Ensure that top-level AND of fml is flat
@@ -498,47 +497,40 @@ namespace spacer {
         expr_ref bval (m);
 
         while (true) {
-        params_ref p;
-        qe_lite qe(m, p, false);
-        qe (vars, fml);
-        rw (fml);
-        
-        TRACE ("spacer_mbp",
-               tout << "After qe_lite:\n";
-               tout << mk_pp (fml, m) << "\n";
-               tout << "Vars:\n";
-               for (unsigned i = 0; i < vars.size(); ++i) {
-                   tout << mk_pp(vars.get (i), m) << "\n";
-               }
-               );
+            params_ref p;
+            qe_lite qe(m, p, false);
+            qe (vars, fml);
+            rw (fml);
+            
+            TRACE ("spacer_mbp",
+                   tout << "After qe_lite:\n";
+                   tout << mk_pp (fml, m) << "\n";
+                   tout << "Vars:\n" << vars;);
+
         SASSERT (!m.is_false (fml));
 
-        bool has_bool_vars = false;
         
         // sort out vars into bools, arith (int/real), and arrays
-        for (unsigned i = 0; i < vars.size (); i++) {
-            if (m.is_bool (vars.get (i))) {
+        for (app* v : vars) {
+            if (m.is_bool (v)) {
                 // obtain the interpretation of the ith var using model completion
-                VERIFY (M->eval (vars.get (i), bval, true));
-                bool_sub.insert (vars.get (i), bval);
-                has_bool_vars = true;
-            } else if (arr_u.is_array(vars.get(i))) {
-                array_vars.push_back (vars.get (i));
+                VERIFY (M->eval (v, bval, true));
+                bool_sub.insert (v, bval);
+            } else if (arr_u.is_array(v)) {
+                array_vars.push_back (v);
             } else {
-                SASSERT (ari_u.is_int (vars.get (i)) || ari_u.is_real (vars.get (i)));
-                arith_vars.push_back (vars.get (i));
+                SASSERT (ari_u.is_int (v) || ari_u.is_real (v));
+                arith_vars.push_back (v);
             }
         }
         
         // substitute Booleans
-        if (has_bool_vars) {
+        if (!bool_sub.empty()) {
             bool_sub (fml);
             // -- bool_sub is not simplifying
             rw (fml);
             SASSERT (!m.is_false (fml));
-            TRACE ("spacer_mbp",
-                   tout << "Projected Booleans:\n" << mk_pp (fml, m) << "\n";
-                   );
+            TRACE ("spacer_mbp", tout << "Projected Booleans:\n" << fml << "\n"; );
             bool_sub.reset ();
         }
         
@@ -571,40 +563,31 @@ namespace spacer {
 
         // project reals and ints
         if (!arith_vars.empty ()) {
-            TRACE ("spacer_mbp",
-                    tout << "Arith vars:\n";
-                    for (unsigned i = 0; i < arith_vars.size (); ++i) {
-                    tout << mk_pp (arith_vars.get (i), m) << "\n";
-                    }
-                  );
-
+            TRACE ("spacer_mbp", tout << "Arith vars:\n" << arith_vars;);
+            
             // XXX Does not seem to have an effect
             // qe_lite qe(m);
             // qe (arith_vars, fml);
             // TRACE ("spacer_mbp",
             //        tout << "After second qelite: " <<
             //        mk_pp (fml, m) << "\n";);
-
-        if (use_native_mbp) {
-              qe::mbp mbp (m);
-              expr_ref_vector fmls(m);
-              flatten_and (fml, fmls);
-
-              mbp (true, arith_vars, *M.get (), fmls);
-              fml = mk_and (fmls);
-              SASSERT (arith_vars.empty ());
-        } else {
+            
+            if (use_native_mbp) {
+                qe::mbp mbp (m);
+                expr_ref_vector fmls(m);
+                flatten_and (fml, fmls);
+                
+                mbp (true, arith_vars, *M.get (), fmls);
+                fml = mk_and (fmls);
+                SASSERT (arith_vars.empty ());
+            } else {
                 scoped_no_proof _sp (m);
                 qe::arith_project (*M.get (), arith_vars, fml);
             }
-
+            
             TRACE ("spacer_mbp",
-                    tout << "Projected arith vars:\n" << mk_pp (fml, m) << "\n";
-                    tout << "Remaining arith vars:\n";
-                    for (unsigned i = 0; i < arith_vars.size (); i++) {
-                        tout << mk_pp (arith_vars.get (i), m) << "\n";
-                    }
-                  );
+                   tout << "Projected arith vars:\n" << mk_pp (fml, m) << "\n";
+                   tout << "Remaining arith vars:\n" << arith_vars << "\n";);
             SASSERT (!m.is_false (fml));
         }
 
@@ -632,8 +615,9 @@ namespace spacer {
         );
 
         vars.reset ();
-        if (dont_sub && !arith_vars.empty ())
-    { vars.append(arith_vars); }
+        if (dont_sub && !arith_vars.empty ()) { 
+            vars.append(arith_vars); 
+        }
     }
 
 
@@ -713,15 +697,15 @@ void expand_literals(ast_manager &m, expr_ref_vector& conjs)
     }
 
 namespace {
-class implicant_picker {
+    class implicant_picker {
         model_evaluator_util &m_mev;
         ast_manager &m;
         arith_util m_arith;
-
+        
         expr_ref_vector m_todo;
         expr_mark m_visited;
 
-
+        
         void add_literal (expr *e, expr_ref_vector &out)
         {
             SASSERT (m.is_bool (e));
@@ -763,37 +747,37 @@ class implicant_picker {
             out.push_back (res);
         }
 
-    void process_app(app *a, expr_ref_vector &out)
-    {
-        if (m_visited.is_marked(a)) { return; }
+        void process_app(app *a, expr_ref_vector &out)
+        {
+            if (m_visited.is_marked(a)) { return; }
             SASSERT (m.is_bool (a));
             expr_ref v(m);
             m_mev.eval (a, v, false);
-
-        if (!m.is_true(v) && !m.is_false(v)) { return; }
-
+            
+            if (!m.is_true(v) && !m.is_false(v)) { return; }
+            
             expr *na, *f1, *f2, *f3;
-
+            
             if (a->get_family_id() != m.get_basic_family_id())
-        { add_literal(a, out); }
+                { add_literal(a, out); }
             else if (is_uninterp_const(a))
-        { add_literal(a, out); }
+                { add_literal(a, out); }
             else if (m.is_not(a, na) && m.is_not(na, na))
-        { m_todo.push_back(na); }
+                { m_todo.push_back(na); }
             else if (m.is_not(a, na))
-        { m_todo.push_back(na); }
+                { m_todo.push_back(na); }
             else if (m.is_distinct(a)) {
                 if (m.is_false(v))
                     m_todo.push_back
                         (qe::project_plugin::pick_equality(m, *m_mev.get_model(), a));
                 else if (a->get_num_args() == 2)
-            { add_literal(a, out); }
+                    { add_literal(a, out); }
                 else
                     m_todo.push_back(m.mk_distinct_expanded(a->get_num_args(),
                                                             a->get_args()));
-        } else if (m.is_and(a)) {
+            } else if (m.is_and(a)) {
                 if (m.is_true(v))
-            { m_todo.append(a->get_num_args(), a->get_args()); }
+                    { m_todo.append(a->get_num_args(), a->get_args()); }
                 else if (m.is_false(v)) {
                     for (unsigned i = 0, sz = a->get_num_args (); i < sz; ++i) {
                         if (m_mev.is_false(a->get_arg(i))) {
@@ -802,9 +786,9 @@ class implicant_picker {
                         }
                     }
                 }
-        } else if (m.is_or(a)) {
+            } else if (m.is_or(a)) {
                 if (m.is_false(v))
-            { m_todo.append(a->get_num_args(), a->get_args()); }
+                    { m_todo.append(a->get_num_args(), a->get_args()); }
                 else if (m.is_true(v)) {
                     for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
                         if (m_mev.is_true(a->get_arg(i))) {
@@ -813,52 +797,52 @@ class implicant_picker {
                         }
                     }
                 }
-        } else if (m.is_iff(a, f1, f2) || m.is_eq(a, f1, f2) ||
-                     (m.is_true(v) && m.is_not(a, na) && m.is_xor (na, f1, f2))) {
+            } else if (m.is_iff(a, f1, f2) || m.is_eq(a, f1, f2) ||
+                       (m.is_true(v) && m.is_not(a, na) && m.is_xor (na, f1, f2))) {
                 if (!m.are_equal(f1, f2) && !m.are_distinct(f1, f2)) {
                     if (m.is_bool(f1) &&
                         (!is_uninterp_const(f1) || !is_uninterp_const(f2)))
-                { m_todo.append(a->get_num_args(), a->get_args()); }
+                        { m_todo.append(a->get_num_args(), a->get_args()); }
                     else
-                { add_literal(a, out); }
+                        { add_literal(a, out); }
                 }
-        } else if (m.is_ite(a, f1, f2, f3)) {
-            if (m.are_equal(f2, f3)) { m_todo.push_back(f2); }
+            } else if (m.is_ite(a, f1, f2, f3)) {
+                if (m.are_equal(f2, f3)) { m_todo.push_back(f2); }
                 else if (m_mev.is_true (f2) && m_mev.is_true (f3)) {
-                m_todo.push_back(f2);
-                m_todo.push_back(f3);
-            } else if (m_mev.is_false(f2) && m_mev.is_false(f3)) {
-                m_todo.push_back(f2);
-                m_todo.push_back(f3);
-            } else if (m_mev.is_true(f1)) {
-                m_todo.push_back(f1);
-                m_todo.push_back(f2);
-            } else if (m_mev.is_false(f1)) {
-                m_todo.push_back(f1);
-                m_todo.push_back(f3);
+                    m_todo.push_back(f2);
+                    m_todo.push_back(f3);
+                } else if (m_mev.is_false(f2) && m_mev.is_false(f3)) {
+                    m_todo.push_back(f2);
+                    m_todo.push_back(f3);
+                } else if (m_mev.is_true(f1)) {
+                    m_todo.push_back(f1);
+                    m_todo.push_back(f2);
+                } else if (m_mev.is_false(f1)) {
+                    m_todo.push_back(f1);
+                    m_todo.push_back(f3);
                 }
-        } else if (m.is_xor(a, f1, f2))
-        { m_todo.append(a->get_num_args(), a->get_args()); }
+            } else if (m.is_xor(a, f1, f2))
+                { m_todo.append(a->get_num_args(), a->get_args()); }
             else if (m.is_implies(a, f1, f2)) {
                 if (m.is_true (v)) {
-                if (m_mev.is_true(f2)) { m_todo.push_back(f2); }
-                else if (m_mev.is_false(f1)) { m_todo.push_back(f1); }
+                    if (m_mev.is_true(f2)) { m_todo.push_back(f2); }
+                    else if (m_mev.is_false(f1)) { m_todo.push_back(f1); }
                 } else if (m.is_false(v))
-            { m_todo.append(a->get_num_args(), a->get_args()); }
-        } else if (m.is_true(a) || m.is_false(a)) { /* nothing */ }
+                    { m_todo.append(a->get_num_args(), a->get_args()); }
+            } else if (m.is_true(a) || m.is_false(a)) { /* nothing */ }
             else {
                 verbose_stream () << "Unexpected expression: "
                                   << mk_pp(a, m) << "\n";
                 UNREACHABLE();
             }
         }
-
-    void pick_literals(expr *e, expr_ref_vector &out)
-    {
+        
+        void pick_literals(expr *e, expr_ref_vector &out)
+        {
             SASSERT(m_todo.empty());
-        if (m_visited.is_marked(e)) { return; }
+            if (m_visited.is_marked(e)) { return; }
             SASSERT(is_app(e));
-
+            
             m_todo.push_back(e);
             do {
                 app *a = to_app(m_todo.back());
@@ -867,31 +851,31 @@ class implicant_picker {
                 m_visited.mark(a, true);
             } while (!m_todo.empty());
         }
-
-    bool pick_implicant(const expr_ref_vector &in, expr_ref_vector &out)
-    {
+        
+        bool pick_implicant(const expr_ref_vector &in, expr_ref_vector &out)
+        {
             m_visited.reset();
             expr_ref e(m);
             e = mk_and (in);
             bool is_true = m_mev.is_true (e);
-
+            
             for (unsigned i = 0, sz = in.size (); i < sz; ++i) {
                 if (is_true || m_mev.is_true(in.get(i)))
-            { pick_literals(in.get(i), out); }
+                    { pick_literals(in.get(i), out); }
             }
-
+            
             m_visited.reset ();
             return is_true;
         }
-
+        
     public:
         implicant_picker (model_evaluator_util &mev) :
             m_mev (mev), m (m_mev.get_ast_manager ()), m_arith(m), m_todo(m) {}
-
+        
         void operator() (expr_ref_vector &in, expr_ref_vector& out)
         {pick_implicant (in, out);}
     };
-  }
+}
 
   void compute_implicant_literals (model_evaluator_util &mev, expr_ref_vector &formula,
                                    expr_ref_vector &res)
@@ -1144,6 +1128,7 @@ struct adhoc_rewriter_rpp : public default_rewriter_cfg {
         }
 
 };
+
 mk_epp::mk_epp(ast *t, ast_manager &m, unsigned indent,
                unsigned num_vars, char const * var_prefix) :
     mk_pp (t, m, m_epp_params, indent, num_vars, var_prefix), m_epp_expr(m) {
@@ -1189,14 +1174,13 @@ void ground_expr(expr *e, expr_ref &out, app_ref_vector &vars) {
         index_term_finder (ast_manager &mgr, app* v, expr_ref_vector &res) : m(mgr), m_array (m), m_var (v, m), m_res (res) {}
         void operator() (var *n) {}
         void operator() (quantifier *n) {}
-        void operator() (app *n)
-        {
+        void operator() (app *n) {
             expr *e1, *e2;
             if (m_array.is_select (n) && n->get_arg (1) != m_var) {
                 m_res.push_back (n->get_arg (1));
-        } else if (m.is_eq(n, e1, e2)) {
-            if (e1 == m_var) { m_res.push_back(e2); }
-            else if (e2 == m_var) { m_res.push_back(e1); }
+            } else if (m.is_eq(n, e1, e2)) {
+                if (e1 == m_var) { m_res.push_back(e2); }
+                else if (e2 == m_var) { m_res.push_back(e1); }
             }
         }
     };
@@ -1204,29 +1188,29 @@ void ground_expr(expr *e, expr_ref &out, app_ref_vector &vars) {
     bool mbqi_project_var (model_evaluator_util &mev, app* var, expr_ref &fml)
     {
         ast_manager &m = fml.get_manager ();
-
+        
         expr_ref val(m);
         mev.eval (var, val, false);
-
+        
         TRACE ("mbqi_project_verbose",
                tout << "MBQI: var: " << mk_pp (var, m) << "\n"
                << "fml: " << mk_pp (fml, m) << "\n";);
         expr_ref_vector terms (m);
         index_term_finder finder (m, var, terms);
         for_each_expr (finder, fml);
-
-
+        
+        
         TRACE ("mbqi_project_verbose",
                tout << "terms:\n";
                for (unsigned i = 0, e = terms.size (); i < e; ++i)
                    tout << i << ": " << mk_pp (terms.get (i), m) << "\n";
                );
-
-    for (unsigned i = 0, e = terms.size(); i < e; ++i) {
+        
+        for (unsigned i = 0, e = terms.size(); i < e; ++i) {
             expr* term = terms.get (i);
             expr_ref tval (m);
             mev.eval (term, tval, false);
-
+            
             TRACE ("mbqi_project_verbose",
                    tout << "term: " << mk_pp (term, m)
                    << " tval: " << mk_pp (tval, m)

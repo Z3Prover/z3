@@ -150,6 +150,8 @@ expr_ref mk_distinct(expr_ref_vector const& args);
 
 void flatten_and(expr_ref_vector& result);
 
+void flatten_and(expr_ref& fml);
+
 void flatten_and(expr* fml, expr_ref_vector& result);
 
 void flatten_or(expr_ref_vector& result);
