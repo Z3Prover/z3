@@ -173,6 +173,24 @@ proof_ref theory_axiom_reducer::reduce(proof* pr) {
     return proof_ref(res, m);
 }
 
+/* ------------------------------------------------------------------------- */
+/* hypothesis_reducer */
+/* ------------------------------------------------------------------------- */
+
+proof_ref hypothesis_reducer::reduce(proof* pr) {
+    compute_hypsets(pr);
+    collect_units(pr);
+
+    proof_ref res(reduce_core(pr), m);
+    SASSERT(res);
+    reset();
+
+    DEBUG_CODE(proof_checker pc(m);
+               expr_ref_vector side(m);
+               SASSERT(pc.check(res, side)););
+    return res;
+}
+
 void hypothesis_reducer::reset() {
     m_parent_hyps.reset();
     m_active_hyps.reset();
@@ -198,7 +216,7 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
             continue;
         }
 
-        bool dirty = false;
+        unsigned todo_sz = todo.size();
         for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
             SASSERT(m.is_proof(p->get_arg(i)));
             proof *parent = to_app(p->get_arg(i));
@@ -206,10 +224,9 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
             if (!m_active_hyps.contains(parent)) {
                 SASSERT(!m_parent_hyps.contains(parent));
                 todo.push_back(parent);
-                dirty = true;
             }
         }
-        if (dirty) continue;
+        if (todo.size() > todo_sz) continue;
 
         todo.pop_back();
 
@@ -262,21 +279,10 @@ void hypothesis_reducer::collect_units(proof* pr) {
     }
 }
 
-proof_ref hypothesis_reducer::reduce(proof* pr) {
-    compute_hypsets(pr);
-    collect_units(pr);
 
-    proof_ref res(compute_transformed_proof(pr), m);
-    SASSERT(res);
-    reset();
+proof* hypothesis_reducer::reduce_core(proof* pf) {
+    SASSERT(m.is_false(m.get_fact(pf)));
 
-    DEBUG_CODE(proof_checker pc(m);
-               expr_ref_vector side(m);
-               SASSERT(pc.check(res, side)););
-    return res;
-}
-
-proof* hypothesis_reducer::compute_transformed_proof(proof* pf) {
     proof *res = NULL;
 
     ptr_vector<proof> todo;
@@ -284,7 +290,7 @@ proof* hypothesis_reducer::compute_transformed_proof(proof* pf) {
     ptr_buffer<proof> args;
     bool dirty = false;
 
-    while (!todo.empty()) {
+    while (true) {
         proof *p, *tmp, *pp;
         unsigned todo_sz;
 
@@ -311,58 +317,59 @@ proof* hypothesis_reducer::compute_transformed_proof(proof* pf) {
 
         todo.pop_back();
 
-        // transform the proof
+        // transform the current proof node
 
-        // INV: whenever p is visited, active_hyps and parent_hyps
-        // have already been computed for everything in args.
         if (m.is_hypothesis(p)) {
-            // hyp: replace by a corresponding unit
+            // if possible, replace a hypothesis by a unit derivation
             if (m_units.find(m.get_fact(p), tmp)) {
-                // look up the proof of the unit:
-                // if there is a transformed proof use that one
-                // otherwise use the original proof
+                // use already transformed proof of the unit if it is available
                 proof* proof_of_unit;
                 if (!m_cache.find(tmp, proof_of_unit)) {
                     proof_of_unit = tmp;
                 }
 
-                // compute hypsets (have not been computed in general,
-                // since the unit can be anywhere in the proof)
+                // make sure hypsets for the unit are computed
+                // AG: is this needed?
                 compute_hypsets(proof_of_unit);
+                SASSERT(m_parent_hyps.contains(proof_of_unit));
 
                 // if the transformation doesn't create a cycle, perform it
-                SASSERT(m_parent_hyps.contains(proof_of_unit));
                 expr_set* parent_hyps = m_parent_hyps.find(proof_of_unit);
-                if (!parent_hyps->contains(p))
-                    // hypsets have already been computed for proof_of_unit
+                if (!parent_hyps->contains(p)) {
                     res = proof_of_unit;
-                // otherwise don't transform the proof and just use
-                // the hypothesis
-                else
-                    // hypsets have already been computed for p
+                }
+                else {
+                    // -- failed to transform the proof, perhaps bad
+                    // -- choice of the proof of unit
                     res = p;
+                }
             }
-            else
-                // hypsets have already been computed for p
+            else {
+                // -- no unit found to replace the hypothesis
                 res = p;
+            }
         }
-        else if (!dirty)
-            res = p;
+
+        else if (!dirty) {res = p;}
+
         else if (m.is_lemma(p)) {
-            //lemma: reduce the premise; remove reduced consequences
-            //from conclusion
+            // lemma: reduce the premise; remove reduced consequences
+            // from conclusion
             SASSERT(args.size() == 1);
             res = mk_lemma_core(args[0], m.get_fact(p));
+            // -- re-compute hypsets
             compute_hypsets(res);
         }
         else if (m.is_unit_resolution(p)) {
             // unit: reduce untis; reduce the first premise; rebuild
             // unit resolution
             res = mk_unit_resolution_core(args);
+            // -- re-compute hypsets
             compute_hypsets(res);
         }
         else {
             res = mk_proof_core(p, args);
+            // -- re-compute hypsets
             compute_hypsets(res);
         }
 

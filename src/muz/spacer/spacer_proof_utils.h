@@ -76,19 +76,24 @@ private:
     // maps a unit literal to its derivation
     obj_map<expr, proof*> m_units;
 
-    // maps a proof to the set of proofs of active hypotheses
+    // maps a proof node to the set of its  active (i.e., in scope) hypotheses
     obj_map<proof, proof_set*> m_active_hyps;
-    // maps a proof to the hypothesis-fact that are transitive
-    // parents of that proof.  Used for cycle detection and avoidance.
+
+    // maps a proof node to the set of all hypothesis-facts (active or
+    // not) that can reach it. Used for cycle detection and avoidance
+    // during  proof transformation
     obj_map<proof, expr_set*> m_parent_hyps;
 
     void reset();
 
-    // compute active_hyps and parent_hyps for pr
+    // compute active_hyps and parent_hyps for a given proof node and
+    // all its ancestors
     void compute_hypsets(proof* pr);
     // compute m_units
     void collect_units(proof* pr);
-    proof* compute_transformed_proof(proof* pf);
+
+    // -- rewrite proof to reduce number of hypotheses used
+    proof* reduce_core(proof* pf);
 
     proof* mk_lemma_core(proof *pf, expr *fact);
     proof* mk_unit_resolution_core(ptr_buffer<proof>& args);
