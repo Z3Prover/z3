@@ -174,14 +174,15 @@ proof_ref theory_axiom_reducer::reduce(proof* pr) {
 }
 
 void hypothesis_reducer::reset() {
-    m_cache.reset();
-    m_units.reset();
-    m_active_hyps.reset();
     m_parent_hyps.reset();
-    for (auto t : m_pinned_active_hyps) dealloc(t);
-    m_pinned_active_hyps.reset();
+    m_active_hyps.reset();
+    m_units.reset();
+    m_cache.reset();
     for (auto t : m_pinned_parent_hyps) dealloc(t);
     m_pinned_parent_hyps.reset();
+    for (auto t : m_pinned_active_hyps) dealloc(t);
+    m_pinned_active_hyps.reset();
+    m_pinned.reset();
 }
 
 void hypothesis_reducer::compute_hypsets(proof *pr) {
