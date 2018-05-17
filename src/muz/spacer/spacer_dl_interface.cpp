@@ -93,19 +93,14 @@ lbool dl_interface::query(expr * query)
     datalog::rule_set        old_rules(rules0);
     func_decl_ref            query_pred(m);
     rm.mk_query(query, m_ctx.get_rules());
-    expr_ref bg_assertion = m_ctx.get_background_assertion();
 
     check_reset();
 
     TRACE("spacer",
-    if (!m.is_true(bg_assertion)) {
-    tout << "axioms:\n";
-    tout << mk_pp(bg_assertion, m) << "\n";
-    }
-    tout << "query: " << mk_pp(query, m) << "\n";
-         tout << "rules:\n";
-         m_ctx.display_rules(tout);
-         );
+          tout << "query: " << mk_pp(query, m) << "\n";
+          tout << "rules:\n";
+          m_ctx.display_rules(tout);
+        );
 
 
     apply_default_transformation(m_ctx);
@@ -161,7 +156,6 @@ lbool dl_interface::query(expr * query)
     m_context->set_proof_converter(m_ctx.get_proof_converter());
     m_context->set_model_converter(m_ctx.get_model_converter());
     m_context->set_query(query_pred);
-    m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_spacer_rules);
 
     if (m_spacer_rules.get_rules().empty()) {
@@ -255,7 +249,6 @@ lbool dl_interface::query_from_lvl(expr * query, unsigned lvl)
     m_context->set_proof_converter(m_ctx.get_proof_converter());
     m_context->set_model_converter(m_ctx.get_model_converter());
     m_context->set_query(query_pred);
-    m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_spacer_rules);
 
     if (m_spacer_rules.get_rules().empty()) {

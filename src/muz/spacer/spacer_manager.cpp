@@ -168,8 +168,8 @@ void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::
     }
 }
 
-std::vector<std::string> manager::get_state_suffixes()
-{
+
+static std::vector<std::string> state_suffixes() {
     std::vector<std::string> res;
     res.push_back("_n");
     return res;
@@ -177,15 +177,11 @@ std::vector<std::string> manager::get_state_suffixes()
 
 manager::manager(unsigned max_num_contexts, ast_manager& manager) :
     m(manager),
-    m_brwr(m),
-    m_mux(m, get_state_suffixes()),
-    m_background(m.mk_true(), m),
+    m_mux(m, state_suffixes()),
     m_contexts(m, max_num_contexts),
     m_contexts2(m, max_num_contexts),
-    m_contexts3(m, max_num_contexts),
-    m_next_unique_num(0)
-{
-}
+    m_contexts3(m, max_num_contexts)
+{}
 
 
 void manager::add_new_state(func_decl * s)
@@ -195,7 +191,6 @@ void manager::add_new_state(func_decl * s)
 
     SASSERT(o_index(0) == 1); //we assume this in the number of retrieved symbols
     m_mux.create_tuple(s, s->get_arity(), s->get_domain(), s->get_range(), 2, vect);
-    m_o0_preds.push_back(vect[o_index(0)]);
 }
 
 func_decl * manager::get_o_pred(func_decl* s, unsigned idx)
@@ -216,117 +211,6 @@ func_decl * manager::get_n_pred(func_decl* s)
     res = m_mux.try_get_by_prefix(s, n_index());
     SASSERT(res);
     return res;
-}
-
-void manager::mk_model_into_cube(const expr_ref_vector & mdl, expr_ref & res)
-{
-    m_brwr.mk_and(mdl.size(), mdl.c_ptr(), res);
-}
-
-void manager::mk_core_into_cube(const expr_ref_vector & core, expr_ref & res)
-{
-    m_brwr.mk_and(core.size(), core.c_ptr(), res);
-}
-
-void manager::mk_cube_into_lemma(expr * cube, expr_ref & res)
-{
-    m_brwr.mk_not(cube, res);
-}
-
-void manager::mk_lemma_into_cube(expr * lemma, expr_ref & res)
-{
-    m_brwr.mk_not(lemma, res);
-}
-
-expr_ref manager::mk_and(unsigned sz, expr* const* exprs)
-{
-    expr_ref result(m);
-    m_brwr.mk_and(sz, exprs, result);
-    return result;
-}
-
-expr_ref manager::mk_or(unsigned sz, expr* const* exprs)
-{
-    expr_ref result(m);
-    m_brwr.mk_or(sz, exprs, result);
-    return result;
-}
-
-expr_ref manager::mk_not_and(expr_ref_vector const& conjs)
-{
-    expr_ref result(m), e(m);
-    expr_ref_vector es(conjs);
-    flatten_and(es);
-    for (unsigned i = 0; i < es.size(); ++i) {
-        m_brwr.mk_not(es[i].get(), e);
-        es[i] = e;
-    }
-    m_brwr.mk_or(es.size(), es.c_ptr(), result);
-    return result;
-}
-
-void manager::get_or(expr* e, expr_ref_vector& result)
-{
-    result.push_back(e);
-    for (unsigned i = 0; i < result.size();) {
-        e = result[i].get();
-        if (m.is_or(e)) {
-            result.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            result[i] = result.back();
-            result.pop_back();
-        } else {
-            ++i;
-        }
-    }
-}
-
-bool manager::try_get_state_and_value_from_atom(expr * atom0, app *& state, app_ref& value)
-{
-    if (!is_app(atom0)) {
-        return false;
-    }
-    app * atom = to_app(atom0);
-    expr * arg1;
-    expr * arg2;
-    app * candidate_state;
-    app_ref candidate_value(m);
-    if (m.is_not(atom, arg1)) {
-        if (!is_app(arg1)) {
-            return false;
-        }
-        candidate_state = to_app(arg1);
-        candidate_value = m.mk_false();
-    } else if (m.is_eq(atom, arg1, arg2)) {
-        if (!is_app(arg1) || !is_app(arg2)) {
-            return false;
-        }
-        if (!m_mux.is_muxed(to_app(arg1)->get_decl())) {
-            std::swap(arg1, arg2);
-        }
-        candidate_state = to_app(arg1);
-        candidate_value = to_app(arg2);
-    } else {
-        candidate_state = atom;
-        candidate_value = m.mk_true();
-    }
-    if (!m_mux.is_muxed(candidate_state->get_decl())) {
-        return false;
-    }
-    state = candidate_state;
-    value = candidate_value;
-    return true;
-}
-
-bool manager::try_get_state_decl_from_atom(expr * atom, func_decl *& state)
-{
-    app_ref dummy_value_holder(m);
-    app * s;
-    if (try_get_state_and_value_from_atom(atom, s, dummy_value_holder)) {
-        state = s->get_decl();
-        return true;
-    } else {
-        return false;
-    }
 }
 
 /**

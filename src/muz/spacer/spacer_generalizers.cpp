@@ -289,7 +289,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     // }
 
     TRACE("core_array_eq", tout << "new possible core "
-          << mk_pp(pm.mk_and(lits), m) << "\n";);
+          << mk_and(lits) << "\n";);
 
 
     pred_transformer &pt = lemma->get_pob()->pt();

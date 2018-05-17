@@ -312,11 +312,10 @@ expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms)
 {
     expr_ref_vector res(m);
     if (add_axioms) {
-        res.push_back(pm.get_background());
         res.push_back((level == 0)?initial_state():transition());
     }
     m_frames.get_frame_geq_lemmas (level, res);
-    return pm.mk_and(res);
+    return mk_and(res);
 }
 
 bool pred_transformer::propagate_to_next_level (unsigned src_level)
@@ -539,7 +538,7 @@ expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
 
     expr_ref_vector lemmas (m);
     m_frames.get_frame_lemmas (level == -1 ? infty_level() : level, lemmas);
-    if (!lemmas.empty()) { result = pm.mk_and(lemmas); }
+    if (!lemmas.empty()) { result = mk_and(lemmas); }
 
     // replace local constants by bound variables.
     expr_substitution sub(m);
@@ -611,7 +610,7 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
     expr_ref_vector literals (m);
     compute_implicant_literals (mev, summary, literals);
 
-    return get_manager ().mk_and (literals);
+    return mk_and(literals);
 }
 
 
@@ -857,10 +856,10 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
 bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
                                        unsigned& uses_level, unsigned weakness)
 {
-    manager& pm = get_manager();
     expr_ref_vector conj(m), core(m);
     expr_ref states(m);
-    states = m.mk_not(pm.mk_and(state));
+    states = mk_and(state);
+    states = m.mk_not(states);
     mk_assumptions(head(), states, conj);
     prop_solver::scoped_level _sl(m_solver, level);
     prop_solver::scoped_subset_core _sc (m_solver, true);
@@ -972,7 +971,7 @@ void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref&
         transitions.push_back (m.mk_or (pred, m_extend_lit->get_arg (0)));
         if (!is_init [0]) { init_conds.push_back(m.mk_not(pred)); }
 
-        transition = pm.mk_and(transitions);
+        transition = mk_and(transitions);
         break;
     }
     default:
@@ -992,11 +991,11 @@ void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref&
             }
         }
         transitions.push_back(m.mk_or(disj.size(), disj.c_ptr()));
-        transition = pm.mk_and(transitions);
+        transition = mk_and(transitions);
         break;
     }
     // mk init condition
-    init = pm.mk_and (init_conds);
+    init = mk_and (init_conds);
     if (init_conds.empty ()) { // no rule has uninterpreted tail
         m_all_init = true;
     }
@@ -1146,7 +1145,6 @@ void pred_transformer::init_atom(
 
 void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r)
 {
-    r.push_back(pm.get_background());
     r.push_back((lvl == 0)?initial_state():transition());
     for (unsigned i = 0; i < rules().size(); ++i) {
         add_premises(pts, lvl, *rules()[i], r);
@@ -1736,7 +1734,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
 
     // -- update m_trans with the pre-image of m_trans over the must summaries
     summaries.push_back (m_trans);
-    m_trans = get_manager ().mk_and (summaries);
+    m_trans = mk_and (summaries);
     summaries.reset ();
 
     if (!vars.empty()) {
@@ -1765,7 +1763,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
     summaries.push_back (m_trans);
 
     expr_ref post(m);
-    post = get_manager ().mk_and (summaries);
+    post = mk_and (summaries);
     summaries.reset ();
     if (!vars.empty()) {
         timeit _timer2 (is_trace_enabled("spacer_timeit"),
@@ -1827,7 +1825,7 @@ pob *derivation::create_next_child ()
 
     // if not true, bail out, the must summary of m_active is not strong enough
     // this is possible if m_post was weakened for some reason
-    if (!pt.is_must_reachable(pm.mk_and(summaries), &model)) { return nullptr; }
+    if (!pt.is_must_reachable(mk_and(summaries), &model)) { return nullptr; }
 
     model_evaluator_util mev (m);
     mev.set_model (*model);
@@ -1840,7 +1838,7 @@ pob *derivation::create_next_child ()
     u.push_back (rf->get ());
     compute_implicant_literals (mev, u, lits);
     expr_ref v(m);
-    v = pm.mk_and (lits);
+    v = mk_and (lits);
 
     // XXX The summary is not used by anyone after this point
     m_premises[m_active].set_summary (v, true, &(rf->aux_vars ()));
@@ -1860,7 +1858,7 @@ pob *derivation::create_next_child ()
         summaries.reset ();
         summaries.push_back (v);
         summaries.push_back (active_trans);
-        m_trans = pm.mk_and (summaries);
+        m_trans = mk_and (summaries);
 
         // variables to eliminate
         vars.append (rf->aux_vars ().size (), rf->aux_vars ().c_ptr ());
@@ -3184,8 +3182,7 @@ lbool context::expand_node(pob& n)
             n.bump_weakness();
             return expand_node(n);
         }
-        TRACE("spacer", tout << "unknown state: "
-              << mk_pp(m_pm.mk_and(cube), m) << "\n";);
+        TRACE("spacer", tout << "unknown state: " << mk_and(cube) << "\n";);
         throw unknown_exception();
     }
     UNREACHABLE();
@@ -3305,14 +3302,14 @@ reach_fact *context::mk_reach_fact (pob& n, model_evaluator_util &mev,
     bool elim_aux = get_params ().spacer_elim_aux ();
     if (elim_aux) { vars.append(aux_vars.size(), aux_vars.c_ptr()); }
 
-    res = m_pm.mk_and (path_cons);
+    res = mk_and (path_cons);
 
     // -- pick an implicant from the path condition
     if (get_params().spacer_reach_dnf()) {
         expr_ref_vector u(m), lits(m);
         u.push_back (res);
         compute_implicant_literals (mev, u, lits);
-        res = m_pm.mk_and (lits);
+        res = mk_and (lits);
     }
 
 
@@ -3405,7 +3402,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
     n.get_skolems(vars);
 
-    expr_ref phi1 = m_pm.mk_and (Phi);
+    expr_ref phi1 = mk_and (Phi);
     qe_project (m, vars, phi1, mev.get_model (), true,
                 m_use_native_mbp, !m_ground_cti);
     //qe::reduce_array_selects (*mev.get_model (), phi1);
@@ -3413,7 +3410,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
     TRACE ("spacer",
            tout << "Implicant\n";
-           tout << mk_pp (m_pm.mk_and (Phi), m) << "\n";
+           tout << mk_and (Phi) << "\n";
            tout << "Projected Implicant\n" << mk_pp (phi1, m) << "\n";
         );
 
@@ -3615,7 +3612,7 @@ expr_ref context::get_constraints (unsigned level)
     }
 
     if (constraints.empty()) { return expr_ref(m.mk_true(), m); }
-    return m_pm.mk_and (constraints);
+    return mk_and (constraints);
 }
 
 void context::add_constraint (expr *c, unsigned level)

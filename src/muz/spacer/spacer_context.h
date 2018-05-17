@@ -895,8 +895,6 @@ public:
 
     void update_rules(datalog::rule_set& rules);
 
-    void set_axioms(expr* axioms) { m_pm.set_background(axioms); }
-
     unsigned get_num_levels(func_decl* p);
 
     expr_ref get_cover_delta(int level, func_decl* p_orig, func_decl* p);

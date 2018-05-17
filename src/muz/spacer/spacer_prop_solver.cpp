@@ -40,9 +40,9 @@ Revision History:
 
 namespace spacer {
 
-prop_solver::prop_solver(manager& pm, fixedpoint_params const& p, symbol const& name) :
+prop_solver::prop_solver(spacer::manager& pm,
+                         fixedpoint_params const& p, symbol const& name) :
     m(pm.get_manager()),
-    m_pm(pm),
     m_name(name),
     m_ctx(nullptr),
     m_pos_level_atoms(m),
@@ -73,9 +73,6 @@ prop_solver::prop_solver(manager& pm, fixedpoint_params const& p, symbol const& 
                           p.spacer_iuc_print_farkas_stats(),
                           p.spacer_iuc_old_hyp_reducer(),
                           p.spacer_iuc_split_farkas_literals());
-
-    for (unsigned i = 0; i < 2; ++i)
-    { m_contexts[i]->assert_expr(m_pm.get_background()); }
 }
 
 void prop_solver::add_level()

@@ -41,7 +41,6 @@ class prop_solver {
 
 private:
     ast_manager&        m;
-    manager&            m_pm;
     symbol              m_name;
     smt_params*         m_fparams[2];
     solver*             m_solvers[2];
@@ -75,7 +74,8 @@ private:
 
 
 public:
-    prop_solver(spacer::manager& pm, fixedpoint_params const& p, symbol const& name);
+    prop_solver(spacer::manager &manager,
+                fixedpoint_params const& p, symbol const& name);
 
 
     void set_core(expr_ref_vector* core) { m_core = core; }
