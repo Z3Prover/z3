@@ -344,10 +344,7 @@ class solve_eqs_tactic : public tactic {
                 }
                 return false;
             }
-            
-            if (m().is_iff(f))
-                return trivial_solve(to_app(f)->get_arg(0), to_app(f)->get_arg(1), var, def, pr);
-            
+                        
 #if 0
             if (not_bool_eq(f, var, def, pr))
                 return true;

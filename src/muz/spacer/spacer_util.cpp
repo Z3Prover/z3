@@ -403,27 +403,26 @@ namespace spacer {
 
     public:
         test_diff_logic(ast_manager& m): m(m), a(m), bv(m), m_is_dl(true), m_test_for_utvpi(false) {}
-
+        
         void test_for_utvpi() { m_test_for_utvpi = true; }
-
-    void operator()(expr* e)
-    {
+        
+        void operator()(expr* e)  {
             if (!m_is_dl) {
                 return;
             }
             if (a.is_le(e) || a.is_ge(e)) {
                 m_is_dl = test_ineq(e);
-        } else if (m.is_eq(e)) {
+            } else if (m.is_eq(e)) {
                 m_is_dl = test_eq(e);
-        } else if (is_non_arith_or_basic(e)) {
+            } else if (is_non_arith_or_basic(e)) {
                 m_is_dl = false;
-        } else if (is_app(e)) {
+            } else if (is_app(e)) {
                 app* a = to_app(e);
                 for (unsigned i = 0; m_is_dl && i < a->get_num_args(); ++i) {
                     m_is_dl = test_term(a->get_arg(i));
                 }
             }
-
+            
             if (!m_is_dl) {
                 char const* msg = "non-diff: ";
                 if (m_test_for_utvpi) {
@@ -432,12 +431,11 @@ namespace spacer {
                 IF_VERBOSE(1, verbose_stream() << msg << mk_pp(e, m) << "\n";);
             }
         }
-
+        
         bool is_dl() const { return m_is_dl; }
     };
-
-bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls)
-{
+    
+    bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
         test_diff_logic test(m);
         expr_fast_mark1 mark;
         for (unsigned i = 0; i < num_fmls; ++i) {
@@ -445,9 +443,8 @@ bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls)
         }
         return test.is_dl();
     }
-
-bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls)
-{
+    
+    bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
         test_diff_logic test(m);
         test.test_for_utvpi();
         expr_fast_mark1 mark;
@@ -458,14 +455,13 @@ bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls)
     }
 
 
-    void subst_vars (ast_manager& m, app_ref_vector const& vars,
-                model* M, expr_ref& fml)
-{
+    void subst_vars(ast_manager& m, 
+                    app_ref_vector const& vars,
+                    model* M, expr_ref& fml) {
         expr_safe_replace sub (m);
         model_evaluator_util mev (m);
         mev.set_model(*M);
-        for (unsigned i = 0; i < vars.size (); i++) {
-            app* v = vars.get (i);
+        for (app * v : vars) {
             expr_ref val (m);
             VERIFY(mev.eval (v, val, true));
             sub.insert (v, val);
@@ -477,30 +473,23 @@ bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls)
      * eliminate simple equalities using qe_lite
      * then, MBP for Booleans (substitute), reals (based on LW), ints (based on Cooper), and arrays
      */
-void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
+    void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
                      const model_ref& M, bool reduce_all_selects, bool use_native_mbp,
-                bool dont_sub)
-{
+                     bool dont_sub) {
         th_rewriter rw (m);
         TRACE ("spacer_mbp",
-                tout << "Before projection:\n";
-                tout << mk_pp (fml, m) << "\n";
-                tout << "Vars:\n";
-                for (unsigned i = 0; i < vars.size(); ++i) {
-                    tout << mk_pp(vars.get (i), m) << "\n";
-                }
-              );
+               tout << "Before projection:\n";
+               tout << mk_pp (fml, m) << "\n";
+               tout << "Vars:\n";
+               for (app* v : vars) tout << mk_pp(v, m) << "\n";);
 
         {
-          // Ensure that top-level AND of fml is flat
-          expr_ref_vector flat(m);
-          flatten_and (fml, flat);
-          if (flat.size () == 1)
-        { fml = flat.get(0); }
-          else if (flat.size () > 1)
-        { fml = m.mk_and(flat.size(), flat.c_ptr()); }
+            // Ensure that top-level AND of fml is flat
+            expr_ref_vector flat(m);
+            flatten_and (fml, flat);
+            fml = mk_and(flat);
         }
-
+        
         app_ref_vector arith_vars (m);
         app_ref_vector array_vars (m);
         array_util arr_u (m);
@@ -511,77 +500,72 @@ void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
         while (true) {
         params_ref p;
         qe_lite qe(m, p, false);
-            qe (vars, fml);
-            rw (fml);
+        qe (vars, fml);
+        rw (fml);
+        
+        TRACE ("spacer_mbp",
+               tout << "After qe_lite:\n";
+               tout << mk_pp (fml, m) << "\n";
+               tout << "Vars:\n";
+               for (unsigned i = 0; i < vars.size(); ++i) {
+                   tout << mk_pp(vars.get (i), m) << "\n";
+               }
+               );
+        SASSERT (!m.is_false (fml));
 
-            TRACE ("spacer_mbp",
-                    tout << "After qe_lite:\n";
-                    tout << mk_pp (fml, m) << "\n";
-                    tout << "Vars:\n";
-                    for (unsigned i = 0; i < vars.size(); ++i) {
-                        tout << mk_pp(vars.get (i), m) << "\n";
-                    }
-                  );
-            SASSERT (!m.is_false (fml));
-
-            bool has_bool_vars = false;
-
-            // sort out vars into bools, arith (int/real), and arrays
-            for (unsigned i = 0; i < vars.size (); i++) {
-                if (m.is_bool (vars.get (i))) {
-                    // obtain the interpretation of the ith var using model completion
-                    VERIFY (M->eval (vars.get (i), bval, true));
-                    bool_sub.insert (vars.get (i), bval);
-                    has_bool_vars = true;
+        bool has_bool_vars = false;
+        
+        // sort out vars into bools, arith (int/real), and arrays
+        for (unsigned i = 0; i < vars.size (); i++) {
+            if (m.is_bool (vars.get (i))) {
+                // obtain the interpretation of the ith var using model completion
+                VERIFY (M->eval (vars.get (i), bval, true));
+                bool_sub.insert (vars.get (i), bval);
+                has_bool_vars = true;
             } else if (arr_u.is_array(vars.get(i))) {
-                    array_vars.push_back (vars.get (i));
+                array_vars.push_back (vars.get (i));
             } else {
-                    SASSERT (ari_u.is_int (vars.get (i)) || ari_u.is_real (vars.get (i)));
-                    arith_vars.push_back (vars.get (i));
-                }
+                SASSERT (ari_u.is_int (vars.get (i)) || ari_u.is_real (vars.get (i)));
+                arith_vars.push_back (vars.get (i));
             }
-
-            // substitute Booleans
-            if (has_bool_vars) {
-                bool_sub (fml);
-                // -- bool_sub is not simplifying
-                rw (fml);
-                SASSERT (!m.is_false (fml));
-                TRACE ("spacer_mbp",
-                        tout << "Projected Booleans:\n" << mk_pp (fml, m) << "\n";
-                      );
-                bool_sub.reset ();
-            }
-
+        }
+        
+        // substitute Booleans
+        if (has_bool_vars) {
+            bool_sub (fml);
+            // -- bool_sub is not simplifying
+            rw (fml);
+            SASSERT (!m.is_false (fml));
             TRACE ("spacer_mbp",
-                    tout << "Array vars:\n";
-                    for (unsigned i = 0; i < array_vars.size (); ++i) {
-                        tout << mk_pp (array_vars.get (i), m) << "\n";
-                    }
-                  );
-
-            vars.reset ();
-
-            // project arrays
-            {
-                scoped_no_proof _sp (m);
-                // -- local rewriter that is aware of current proof mode
-                th_rewriter srw(m);
-                qe::array_project (*M.get (), array_vars, fml, vars, reduce_all_selects);
-                SASSERT (array_vars.empty ());
-                srw (fml);
-                SASSERT (!m.is_false (fml));
-            }
-
-            TRACE ("spacer_mbp",
-                    tout << "extended model:\n";
-                    model_pp (tout, *M);
-                    tout << "Auxiliary variables of index and value sorts:\n";
-                    for (unsigned i = 0; i < vars.size (); i++) {
-                        tout << mk_pp (vars.get (i), m) << "\n";
-                    }
-                  );
-
+                   tout << "Projected Booleans:\n" << mk_pp (fml, m) << "\n";
+                   );
+            bool_sub.reset ();
+        }
+        
+        TRACE ("spacer_mbp",
+               tout << "Array vars:\n";
+               tout << array_vars;);
+        
+        vars.reset ();
+        
+        // project arrays
+        {
+            scoped_no_proof _sp (m);
+            // -- local rewriter that is aware of current proof mode
+            th_rewriter srw(m);
+            qe::array_project (*M.get (), array_vars, fml, vars, reduce_all_selects);
+            SASSERT (array_vars.empty ());
+            srw (fml);
+            SASSERT (!m.is_false (fml));
+        }
+        
+        TRACE ("spacer_mbp",
+               tout << "extended model:\n";
+               model_pp (tout, *M);
+               tout << "Auxiliary variables of index and value sorts:\n";
+               tout << vars;
+               );
+        
         if (vars.empty()) { break; }
         }
 

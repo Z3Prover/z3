@@ -830,7 +830,7 @@ namespace pdr {
         flatten_and(state(), conjs);
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* e = conjs[i].get(), *e1, *e2;
-            if (m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) {
+            if (m.is_eq(e, e1, e2)) {
                 if (m.is_value(e2)) {
                     model.insert(e1, e2);
                 }

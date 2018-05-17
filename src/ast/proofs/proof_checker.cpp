@@ -12,7 +12,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 
-#define IS_EQUIV(_e_) (m.is_eq(_e_) || m.is_iff(_e_))
+#define IS_EQUIV(_e_) m.is_eq(_e_)
 
 #define SAME_OP(_d1_, _d2_) ((_d1_ == _d2_) || (IS_EQUIV(_d1_) && IS_EQUIV(_d2_)))
 
@@ -1032,7 +1032,7 @@ bool proof_checker::match_and(expr const* e, expr_ref_vector& terms) const {
 }
 
 bool proof_checker::match_iff(expr const* e, expr_ref& t1, expr_ref& t2) const {
-    return match_op(e, OP_IFF, t1, t2);
+    return match_op(e, OP_EQ, t1, t2) && m.is_bool(t1);
 }
 
 bool proof_checker::match_equiv(expr const* e, expr_ref& t1, expr_ref& t2) const {
@@ -1044,7 +1044,7 @@ bool proof_checker::match_implies(expr const* e, expr_ref& t1, expr_ref& t2) con
 }
 
 bool proof_checker::match_eq(expr const* e, expr_ref& t1, expr_ref& t2) const {
-    return match_op(e, OP_EQ, t1, t2) || match_iff(e, t1, t2);
+    return match_op(e, OP_EQ, t1, t2);
 }
 
 bool proof_checker::match_oeq(expr const* e, expr_ref& t1, expr_ref& t2) const {

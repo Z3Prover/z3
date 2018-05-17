@@ -32,7 +32,7 @@ cost_parser::cost_parser(ast_manager & m):
     add_builtin_op("or",      fid, OP_OR);
     add_builtin_op("ite",     fid, OP_ITE);
     add_builtin_op("=",       fid, OP_EQ);
-    add_builtin_op("iff",     fid, OP_IFF);
+    add_builtin_op("iff",     fid, OP_EQ);
     add_builtin_op("xor",     fid, OP_XOR);
 
     fid = m_util.get_family_id();

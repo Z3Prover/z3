@@ -345,7 +345,7 @@ namespace eq {
             var* v;
 
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases
-            if (m.is_eq(e, lhs, rhs) || m.is_iff(e, lhs, rhs)) {
+            if (m.is_eq(e, lhs, rhs)) {
                 // (iff (not VAR) t) (iff t (not VAR)) cases
                 if (!is_variable(lhs) && !is_variable(rhs) && m.is_bool(lhs)) {
                     if (!is_neg_var(m, lhs, v)) {

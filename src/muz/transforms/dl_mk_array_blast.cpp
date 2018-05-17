@@ -42,7 +42,7 @@ namespace datalog {
     }
 
     bool mk_array_blast::is_store_def(expr* e, expr*& x, expr*& y) {
-        if (m.is_iff(e, x, y) || m.is_eq(e, x, y)) {
+        if (m.is_eq(e, x, y)) {
             if (!a.is_store(y)) {
                 std::swap(x,y);
             }

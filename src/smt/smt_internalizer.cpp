@@ -34,9 +34,10 @@ namespace smt {
             switch (to_app(n)->get_decl_kind()) {
             case OP_AND:
             case OP_OR:
-            case OP_IFF:
             case OP_ITE:
                 return true;
+            case OP_EQ:
+                return m.is_bool(to_app(n)->get_arg(0));
             default:
                 return false;
             }
@@ -229,7 +230,7 @@ namespace smt {
                 add_or_rel_watches(to_app(n));
                 break;
             }
-            case OP_IFF: {
+            case OP_EQ: {
                 expr * lhs = to_app(n)->get_arg(0);
                 expr * rhs = to_app(n)->get_arg(1);
                 internalize(lhs, true);
@@ -381,7 +382,7 @@ namespace smt {
             return;
         }
 
-        if (m_manager.is_eq(n))
+        if (m_manager.is_eq(n) && !m_manager.is_iff(n))
             internalize_eq(to_app(n), gate_ctx);
         else if (m_manager.is_distinct(n))
             internalize_distinct(to_app(n), gate_ctx);
@@ -538,9 +539,7 @@ namespace smt {
 
         bool _is_gate  = is_gate(m_manager, n) || m_manager.is_not(n);
         // process args
-        unsigned num   = n->get_num_args();
-        for (unsigned i = 0; i < num; i++) {
-            expr * arg = n->get_arg(i); 
+        for (expr * arg : *n) {
             internalize(arg, _is_gate);
         }
         
@@ -596,8 +595,9 @@ namespace smt {
                 mk_or_cnstr(to_app(n));
                 add_or_rel_watches(to_app(n));
                 break;
-            case OP_IFF:
-                mk_iff_cnstr(to_app(n));
+            case OP_EQ:
+                if (m_manager.is_iff(n))
+                    mk_iff_cnstr(to_app(n));
                 break;
             case OP_ITE:
                 mk_ite_cnstr(to_app(n));
