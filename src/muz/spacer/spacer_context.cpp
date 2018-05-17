@@ -1001,6 +1001,14 @@ void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref&
     }
 }
 
+static bool is_all_non_null(app_ref_vector const& v)
+{
+    for (unsigned i = 0; i < v.size(); ++i) {
+        if (!v[i]) { return false; }
+    }
+    return true;
+}
+
 void pred_transformer::init_rule(
     decl2rel const&      pts,
     datalog::rule const& rule,
@@ -1035,7 +1043,7 @@ void pred_transformer::init_rule(
         fml = mk_and (tail);
 
         ground_free_vars (fml, var_reprs, aux_vars, ut_size == 0);
-        SASSERT(check_filled(var_reprs));
+        SASSERT(is_all_non_null(var_reprs));
 
         expr_ref tmp(m);
         var_subst (m, false)(fml,
@@ -1074,13 +1082,6 @@ void pred_transformer::init_rule(
           tout << "\n";);
 }
 
-bool pred_transformer::check_filled(app_ref_vector const& v) const
-{
-    for (unsigned i = 0; i < v.size(); ++i) {
-        if (!v[i]) { return false; }
-    }
-    return true;
-}
 
 // create constants for free variables in tail.
 void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars,

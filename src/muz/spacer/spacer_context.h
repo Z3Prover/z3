@@ -320,8 +320,6 @@ class pred_transformer {
     void simplify_formulas(tactic& tac, expr_ref_vector& fmls);
 
     // Debugging
-    bool check_filled(app_ref_vector const& v) const;
-
     void add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r);
 
     expr* mk_fresh_reach_case_var ();
