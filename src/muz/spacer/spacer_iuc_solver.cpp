@@ -255,61 +255,58 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
     scoped_watch _t_ (m_iuc_watch);
 
     typedef obj_hashtable<expr> expr_set;
-    expr_set B;
+    expr_set core_lits;
     for (unsigned i = m_first_assumption, sz = m_assumptions.size(); i < sz; ++i) {
         expr *a = m_assumptions.get (i);
         app_ref def(m);
-        if (is_proxy(a, def)) { B.insert(def.get()); }
-        B.insert (a);
+        if (is_proxy(a, def)) { core_lits.insert(def.get()); }
+        core_lits.insert (a);
     }
 
-    if (m_iuc == 0)
-    {
+    if (m_iuc == 0) {
         // ORIGINAL PDR CODE
+        // AG: deprecated
         proof_ref pr(m);
         pr = get_proof ();
 
         farkas_learner learner_old;
         learner_old.set_split_literals(m_split_literals);
 
-        learner_old.get_lemmas (pr, B, core);
+        learner_old.get_lemmas (pr, core_lits, core);
         elim_proxies (core);
         simplify_bounds (core); // XXX potentially redundant
     }
-    else
-    {
+    else {
         // NEW IUC
         proof_ref res(get_proof(), m);
 
         // -- old hypothesis reducer while the new one is broken
-        if (m_old_hyp_reducer)
-        {
-            // preprocess proof in order to get a proof which is
+        if (m_old_hyp_reducer) {
+            // AG: deprecated
+            // pre-process proof in order to get a proof which is
             // better suited for unsat-core-extraction
-            if (m_print_farkas_stats)
-            {
-                iuc_proof iuc_before(m, res.get(), B);
-                verbose_stream() << "\nStats before transformation:";
+            if (m_print_farkas_stats) {
+                iuc_proof iuc_before(m, res.get(), core_lits);
+                verbose_stream() << "\nOld reduce_hypotheses. Before:";
                 iuc_before.dump_farkas_stats();
             }
 
             proof_utils::reduce_hypotheses(res);
             proof_utils::permute_unit_resolution(res);
 
-            if (m_print_farkas_stats)
-            {
-                iuc_proof iuc_after(m, res.get(), B);
-                verbose_stream() << "Stats after transformation:";
+            if (m_print_farkas_stats) {
+                iuc_proof iuc_after(m, res.get(), core_lits);
+                verbose_stream() << "Old reduce_hypothesis. After:";
                 iuc_after.dump_farkas_stats();
             }
         }
-        else // -- new hypothesis reducer
+        // -- new hypothesis reducer
+        else
         {
-            // preprocess proof in order to get a proof which is better suited for unsat-core-extraction
-            if (m_print_farkas_stats)
-            {
-                iuc_proof iuc_before(m, res.get(), B);
-                verbose_stream() << "\nStats before transformation:";
+            // pre-process proof for better iuc extraction
+            if (m_print_farkas_stats) {
+                iuc_proof iuc_before(m, res.get(), core_lits);
+                verbose_stream() << "\n New hypothesis_reducer. Before:";
                 iuc_before.dump_farkas_stats();
             }
 
@@ -321,68 +318,67 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
 
             res = pr2;
 
-            if (m_print_farkas_stats)
-            {
-                iuc_proof iuc_after(m, res.get(), B);
-                verbose_stream() << "Stats after transformation:";
+            if (m_print_farkas_stats) {
+                iuc_proof iuc_after(m, res.get(), core_lits);
+                verbose_stream() << "New hypothesis_reducer. After:";
                 iuc_after.dump_farkas_stats();
             }
         }
 
-        // construct proof object with contains partition information
-        iuc_proof iuc_pf(m, res, B);
+        iuc_proof iuc_pf(m, res, core_lits);
 
-        // configure learner
         unsat_core_learner learner(m, iuc_pf);
 
-        if (m_iuc_arith == 0 || m_iuc_arith > 3)
-        {
-            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma,
-                                                                        learner, m_split_literals,
-                                                                        false /* use constants from A */);
-            learner.register_plugin(plugin_farkas_lemma);
+        // -- register iuc plugins
+        if (m_iuc_arith == 0 || m_iuc_arith == 1) {
+            unsat_core_plugin_farkas_lemma* plugin =
+                alloc(unsat_core_plugin_farkas_lemma,
+                      learner, m_split_literals,
+                      (m_iuc_arith == 1) /* use constants from A */);
+            learner.register_plugin(plugin);
         }
-        else if (m_iuc_arith == 1)
-        {
-            unsat_core_plugin_farkas_lemma* plugin_farkas_lemma = alloc(unsat_core_plugin_farkas_lemma,
-                                                                        learner, m_split_literals,
-                                                                        true /* use constants from A */);
-            learner.register_plugin(plugin_farkas_lemma);
+        else if (m_iuc_arith == 2) {
+            SASSERT(false && "Broken");
+            unsat_core_plugin_farkas_lemma_optimized* plugin =
+                alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m);
+            learner.register_plugin(plugin);
         }
-        else if (m_iuc_arith == 2)
-        {
-            unsat_core_plugin_farkas_lemma_optimized* plugin_farkas_lemma_optimized = alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m);
-            learner.register_plugin(plugin_farkas_lemma_optimized);
+        else if(m_iuc_arith == 3) {
+            unsat_core_plugin_farkas_lemma_bounded* plugin =
+                alloc(unsat_core_plugin_farkas_lemma_bounded, learner, m);
+            learner.register_plugin(plugin);
         }
-        else if(m_iuc_arith == 3)
-        {
-            unsat_core_plugin_farkas_lemma_bounded* plugin_farkas_lemma_bounded = alloc(unsat_core_plugin_farkas_lemma_bounded, learner, m);
-            learner.register_plugin(plugin_farkas_lemma_bounded);
+        else {
+            UNREACHABLE();
         }
 
-        if (m_iuc == 2)
-        {
-            unsat_core_plugin_min_cut* plugin_min_cut = alloc(unsat_core_plugin_min_cut, learner, m);
-            learner.register_plugin(plugin_min_cut);
+        if (m_iuc == 1) {
+            // -- iuc based on the lowest cut in the proof
+            unsat_core_plugin_lemma* plugin =
+                alloc(unsat_core_plugin_lemma, learner);
+            learner.register_plugin(plugin);
         }
-        else
-        {
-            unsat_core_plugin_lemma* plugin_lemma = alloc(unsat_core_plugin_lemma, learner);
-            learner.register_plugin(plugin_lemma);
+        else if (m_iuc == 2) {
+            // -- iuc based on the smallest cut in the proof
+            unsat_core_plugin_min_cut* plugin =
+                alloc(unsat_core_plugin_min_cut, learner, m);
+            learner.register_plugin(plugin);
+        }
+        else {
+            UNREACHABLE();
         }
 
         // compute interpolating unsat core
         learner.compute_unsat_core(core);
 
-        // postprocessing, TODO: elim_proxies should be done inside iuc_proof
         elim_proxies (core);
-        simplify_bounds (core); // XXX potentially redundant
+        // AG: this should be taken care of by minimizing the iuc cut
+        simplify_bounds (core);
     }
 
     IF_VERBOSE(2,
                verbose_stream () << "IUC Core:\n"
-               << mk_pp (mk_and (core), m) << "\n";);
-
+               << mk_and(core) << "\n";);
 }
 
 void iuc_solver::refresh ()
