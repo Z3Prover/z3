@@ -824,14 +824,9 @@ class context {
 
     unsigned get_cex_depth ();
 
-    void dump_json() {
-        if(m_params.spacer_print_json().size()) {
-            std::ofstream of;
-            of.open(m_params.spacer_print_json().bare_str());
-            m_json_marshaller.marshal(of);
-            of.close();
-        }
-    }
+    void dump_json();
+
+    void predecessor_eh();
 
 public:
     /**

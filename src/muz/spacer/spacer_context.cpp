@@ -2981,6 +2981,24 @@ bool context::is_reachable(pob &n)
     return next ? is_reachable(*next) : true;
 }
 
+void context::dump_json()
+{
+    if(m_params.spacer_print_json().size()) {
+        std::ofstream of;
+        of.open(m_params.spacer_print_json().bare_str());
+        m_json_marshaller.marshal(of);
+        of.close();
+    }
+}
+
+void context::predecessor_eh()
+{
+    for (unsigned i = 0; i < m_callbacks.size(); i++) {
+        if(m_callbacks[i]->predecessor())
+            m_callbacks[i]->predecessor_eh();
+    }
+}
+
 //this processes a goal and creates sub-goal
 lbool context::expand_pob(pob& n)
 {
@@ -3040,10 +3058,7 @@ lbool context::expand_pob(pob& n)
                tout << "This pob can be blocked by instantiation\n";);
     }
 
-    for (unsigned i = 0; i < m_callbacks.size(); i++){
-        if(m_callbacks[i]->predecessor())
-            m_callbacks[i]->predecessor_eh();
-    }
+    predecessor_eh();
 
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
                                       reach_pred_used, num_reuse_reach);
@@ -3106,8 +3121,9 @@ lbool context::expand_pob(pob& n)
         return l_undef;
 
     }
+    case l_false:
         // n is unreachable, create new summary facts
-    case l_false: {
+    {
         timeit _timer (is_trace_enabled("spacer_timeit"),
                        "spacer::expand_pob::false",
                        verbose_stream ());
@@ -3133,9 +3149,9 @@ lbool context::expand_pob(pob& n)
             (*m_lemma_generalizers[i])(lemma);
         }
         DEBUG_CODE(
-                   lemma_sanity_checker sanity_checker(*this);
-                   sanity_checker(lemma);
-                   );
+            lemma_sanity_checker sanity_checker(*this);
+            sanity_checker(lemma);
+            );
 
 
         TRACE("spacer", tout << "invariant state: "
