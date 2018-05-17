@@ -744,7 +744,7 @@ class context {
         unsigned m_max_query_lvl;
         unsigned m_max_depth;
         unsigned m_cex_depth;
-        unsigned m_expand_node_undef;
+        unsigned m_expand_pob_undef;
         unsigned m_num_lemmas;
         unsigned m_num_restarts;
         unsigned m_num_lemmas_imported;
@@ -792,7 +792,7 @@ class context {
     bool propagate(unsigned min_prop_lvl, unsigned max_prop_lvl,
                    unsigned full_prop_lvl);
     bool is_reachable(pob &n);
-    lbool expand_node(pob& n);
+    lbool expand_pob(pob &n);
     reach_fact *mk_reach_fact (pob& n, model_evaluator_util &mev,
                                datalog::rule const& r);
     bool create_children(pob& n, datalog::rule const& r,

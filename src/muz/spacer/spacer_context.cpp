@@ -2854,7 +2854,7 @@ bool context::check_reachability ()
 
         node = m_pob_queue.top ();
         SASSERT (node->level () <= m_pob_queue.max_level ());
-        switch (expand_node(*node)) {
+        switch (expand_pob(*node)) {
         case l_true:
             SASSERT (m_pob_queue.top () == node.get ());
             m_pob_queue.pop ();
@@ -2982,23 +2982,23 @@ bool context::is_reachable(pob &n)
 }
 
 //this processes a goal and creates sub-goal
-lbool context::expand_node(pob& n)
+lbool context::expand_pob(pob& n)
 {
     pob::on_expand_event _evt(n);
     TRACE ("spacer",
-           tout << "expand-node: " << n.pt().head()->get_name()
+           tout << "expand-pob: " << n.pt().head()->get_name()
            << " level: " << n.level()
            << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
            << mk_pp(n.post(), m) << "\n";);
 
     STRACE ("spacer.expand-add",
-            tout << "expand-node: " << n.pt().head()->get_name()
+            tout << "expand-pob: " << n.pt().head()->get_name()
             << " level: " << n.level()
             << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
             << mk_epp(n.post(), m) << "\n\n";);
 
     TRACE ("core_array_eq",
-           tout << "expand-node: " << n.pt().head()->get_name()
+           tout << "expand-pob: " << n.pt().head()->get_name()
            << " level: " << n.level()
            << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
            << mk_pp(n.post(), m) << "\n";);
@@ -3109,7 +3109,7 @@ lbool context::expand_node(pob& n)
         // n is unreachable, create new summary facts
     case l_false: {
         timeit _timer (is_trace_enabled("spacer_timeit"),
-                       "spacer::expand_node::false",
+                       "spacer::expand_pob::false",
                        verbose_stream ());
 
         // -- only update expanded level when new lemmas are generated at it.
@@ -3164,7 +3164,7 @@ lbool context::expand_node(pob& n)
         if (n.weakness() < 100 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
             SASSERT(m_weak_abs);
-            m_stats.m_expand_node_undef++;
+            m_stats.m_expand_pob_undef++;
             if (r && r->get_uninterpreted_tail_size() > 0) {
                 model_evaluator_util mev(m);
                 mev.set_model(*model);
@@ -3181,7 +3181,7 @@ lbool context::expand_node(pob& n)
             // -- failed to create a child, bump weakness and repeat
             // -- the recursion is bounded by the levels of weakness supported
             n.bump_weakness();
-            return expand_node(n);
+            return expand_pob(n);
         }
         TRACE("spacer", tout << "unknown state: " << mk_and(cube) << "\n";);
         throw unknown_exception();
@@ -3500,8 +3500,8 @@ void context::collect_statistics(statistics& st) const
     st.update("SPACER inductive level", m_inductive_lvl);
     // -- length of the counterexample
     st.update("SPACER cex depth", m_stats.m_cex_depth);
-    // -- number of times expand_node resulted in undef
-    st.update("SPACER expand node undef", m_stats.m_expand_node_undef);
+    // -- number of times expand_pobresulted in undef
+    st.update("SPACER expand pob undef", m_stats.m_expand_pob_undef);
     // -- number of distinct lemmas constructed
     st.update("SPACER num lemmas", m_stats.m_num_lemmas);
     // -- number of restarts taken
@@ -3730,7 +3730,7 @@ inline bool pob_lt::operator() (const pob *pn1, const pob *pn2) const
 
         /** XXX Identical nodes. This should not happen. However,
          * currently, when propagating reachability, we might call
-         * expand_node() twice on the same node, causing it to generate
+         * expand_pob() twice on the same node, causing it to generate
          * the same proof obligation multiple times */
         return &n1 < &n2;
     }
