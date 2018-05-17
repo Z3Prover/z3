@@ -164,20 +164,12 @@ public:
 
     void transpose_rows(unsigned i, unsigned l) {
         lp_assert(i != l);
-        for (unsigned j = 0; j < column_count(); j++) {
-            auto t = (*this)[i][j];
-            (*this)[i][j] = (*this)[l][j];
-            (*this)[l][j] = t; 
-        }
+        m_row_permutation.transpose_from_right(i, l);
     }
     
     void transpose_columns(unsigned j, unsigned k) {
         lp_assert(j != k);
-        for (unsigned i = 0; i < row_count(); i++) {
-            auto t = (*this)[i][j];
-            (*this)[i][j] = (*this)[i][k];
-            (*this)[i][k] = t; 
-        }
+        m_column_permutation.transpose_from_left(j, k);
     }
     
     general_matrix(){}
