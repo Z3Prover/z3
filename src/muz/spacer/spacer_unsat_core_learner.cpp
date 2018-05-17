@@ -76,7 +76,6 @@ void unsat_core_learner::compute_unsat_core(expr_ref_vector& unsat_core)
 
     // TODO: remove duplicates from unsat core?
 
-    verbose_stream() << std::endl;
     // move all lemmas into vector
     for (expr* const* it = m_unsat_core.begin(); it != m_unsat_core.end(); ++it)
     {
