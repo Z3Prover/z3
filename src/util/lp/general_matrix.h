@@ -17,19 +17,64 @@ Revision History:
 
 
 --*/
+#pragma once
 namespace lp {
-struct general_matrix {
-    typedef mpq coefftype;
-    typedef mpq argtype;
-    vector<vector<mpq>> m_data;
+class general_matrix {
+    // fields
+    permutation_matrix<mpq, mpq>          m_row_permutation;
+    permutation_matrix<mpq, mpq>          m_column_permutation;
+    vector<vector<mpq>>                   m_data;
+
+public:
+    unsigned adjust_row(unsigned row) const{
+        return m_row_permutation[row];
+    }
+
+    void push_row(vector<mpq> & v) {
+        m_data.push_back(v);
+        m_row_permutation.resize(m_data.size());
+        m_column_permutation.resize(v.size());
+    }
+    
+    unsigned adjust_column(unsigned  col) const{
+        return m_column_permutation.apply_reverse(col);
+    }
+
+    unsigned adjust_row_inverse(unsigned row) const{
+        return m_row_permutation.apply_reverse(row);
+    }
+
+    unsigned adjust_column_inverse(unsigned col) const{
+        return m_column_permutation[col];
+    }
+
+    
     unsigned row_count() const { return m_data.size(); }
     unsigned column_count() const { return m_data[0].size(); }
+
+    class ref_row {
+        general_matrix& m_matrix;
+        vector<mpq>& m_row_data;
+    public:
+        ref_row(general_matrix& m, vector<mpq>& row_data) : m_matrix(m), m_row_data(row_data) {}
+        mpq & operator[](unsigned col) { return m_row_data[m_matrix.adjust_column(col)]; }
+    };
+    class ref_row_const {
+        const general_matrix& m_matrix;
+        const vector<mpq>& m_row_data;
+    public:
+        ref_row_const(const general_matrix& m, const vector<mpq>& row_data) : m_matrix(m), m_row_data(row_data) {}
+        const mpq&  operator[](unsigned col) const { return m_row_data[m_matrix.adjust_column(col)]; }
+    };
     
-    const vector<mpq>& operator[](unsigned i) const { return m_data[i]; }
-    vector<mpq>& operator[](unsigned i) { return m_data[i]; }
+    ref_row operator[](unsigned i) { return ref_row(*this, m_data[adjust_row(i)]); }
+    ref_row_const operator[](unsigned i) const { return ref_row_const(*this, m_data[adjust_row(i)]); }
+
     void print(std::ostream & out, unsigned blanks = 0) const {
         print_matrix<mpq>(m_data, out, blanks);
     }
+
+    void clear() { m_data.clear(); }
 
     void print_submatrix(std::ostream & out, unsigned k, unsigned blanks = 0) const {
         general_matrix m(row_count() - k, column_count() - k);
@@ -46,16 +91,12 @@ struct general_matrix {
     }
     general_matrix operator*(const general_matrix & m) const {
         lp_assert(m.row_count() == column_count());
-        general_matrix ret;
-        auto & v = ret.m_data;
+        general_matrix ret(row_count(), m.column_count());
         for (unsigned i = 0; i < row_count(); i ++) {
-            v.push_back(vector<mpq>());
-            v.back().resize(m.column_count());
-            const auto & row = m_data[i];
-            for (unsigned j = 0; j < m.column_count(); j++) {
+             for (unsigned j = 0; j < m.column_count(); j++) {
                 mpq a(0);
                 for (unsigned k = 0; k < column_count(); k++)
-                    a += row[k]*m[k][j];
+                    a += ((*this)[i][k])*m[k][j];
                 ret[i][j] = a;
             }
         }
@@ -140,13 +181,20 @@ struct general_matrix {
     }
     
     general_matrix(){}
-    general_matrix(unsigned n) :m_data(n) {
+    general_matrix(unsigned n) :
+        m_row_permutation(n),
+        m_column_permutation(n),
+        m_data(n)
+    {
         for (auto& v : m_data){
             v.resize(n);
         }
     }
-
-    general_matrix(unsigned m, unsigned n) :m_data(m) {
+    
+    general_matrix(unsigned m, unsigned n) :
+        m_row_permutation(m),
+        m_column_permutation(n),
+        m_data(m) {
         for (auto& v : m_data){
             v.resize(n);
         }

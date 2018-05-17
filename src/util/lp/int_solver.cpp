@@ -637,19 +637,28 @@ lia_move int_solver::gomory_cut() {
 }
 
 
-void int_solver::try_add_term_to_A_for_hnf(unsigned) {
+void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
+    mpq rs;
+    const lar_term* t = m_lar_solver->terms()[i];
+    for (const auto & p : *t) {
+        if (!is_int(p.var()))
+            return; // todo : the mix case!
+    }
+    if (!m_lar_solver->get_equality_for_term_on_corrent_x(i, rs))
+        return;
+    m_hnf_cutter.add_term_to_A_for_hnf(t, rs);
 }
+
 bool int_solver::hnf_matrix_is_empty() const { return true; }
 
 bool int_solver::prepare_matrix_A_for_hnf_cut() {
-    clean_hnf_matrix();
+    m_hnf_cutter.clear();
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
         try_add_term_to_A_for_hnf(i);
+    m_hnf_cutter.print(std::cout);
     return ! hnf_matrix_is_empty();
 }
 
-void int_solver::clean_hnf_matrix() {
-}
 
 lia_move int_solver::make_hnf_cut() {
     if( !prepare_matrix_A_for_hnf_cut())

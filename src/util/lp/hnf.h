@@ -27,21 +27,11 @@ Revision History:
 
 
 --*/
+#pragma once
 #include "util/lp/numeric_pair.h"
 #include "util/ext_gcd.h"
 namespace lp {
 namespace hnf_calc {
-mpq power_of(const mpq & a, unsigned n) {
-    if (n == 0)
-        return one_of_type<mpq>();
-    if (n == 1)
-        return a;
-    unsigned k = n / 2;
-    unsigned r = n - 2 * k;
-    mpq pk = power_of(a, k);
-    
-    return r == 0? pk * pk : pk * pk * a;
-}
 
     // d = u * a + b * b and the sum of abs(u) + abs(v) is minimal, d is positive
 inline
@@ -435,10 +425,7 @@ class hnf {
     }
 
     void prepare_U_and_U_reverse() {
-        auto & v = m_U.m_data;
-        v.resize(m_H.column_count());
-        for (auto & row: v)
-            row.resize(m_H.column_count());
+        m_U = M(m_H.column_count());
         for (unsigned i = 0; i < m_U.column_count(); i++)
             m_U[i][i] = 1;
 

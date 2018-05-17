@@ -607,9 +607,9 @@ public:
         std:: cout << "m_d = " << m_d[j] << std::endl;*/
     }
 
-    bool column_is_free(unsigned j) { return this->m_column_type[j] == free; }
+    bool column_is_free(unsigned j) const { return this->m_column_type[j] == free; }
 
-    bool column_has_upper_bound(unsigned j) {
+    bool column_has_upper_bound(unsigned j) const {
         switch(m_column_types[j]) {
         case column_type::free_column:
         case column_type::lower_bound:
@@ -628,7 +628,7 @@ public:
         return true;
     }
     
-    bool column_has_lower_bound(unsigned j) {
+    bool column_has_lower_bound(unsigned j) const {
         switch(m_column_types[j]) {
         case column_type::free_column:
         case column_type::upper_bound:

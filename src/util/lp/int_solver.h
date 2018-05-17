@@ -24,6 +24,7 @@ Revision History:
 #include "util/lp/lar_term.h"
 #include "util/lp/cut_solver.h"
 #include "util/lp/lar_constraints.h"
+#include "util/lp/hnf_cutter.h"
 
 namespace lp {
 class lar_solver;
@@ -59,6 +60,7 @@ public:
     mpq                 *m_k; // the right side of the cut
     explanation         *m_ex; // the conflict explanation
     bool                *m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
+    hnf_cutter          m_hnf_cutter;
     // methods
     int_solver(lar_solver* lp);
 
@@ -179,8 +181,7 @@ public:
     lia_move hnf_cut();
     lia_move make_hnf_cut();
     bool prepare_matrix_A_for_hnf_cut();
-    void clean_hnf_matrix();
     bool hnf_matrix_is_empty() const;
-    void try_add_term_to_A_for_hnf(unsigned);
+    void try_add_term_to_A_for_hnf(unsigned term_index);
 };
 }
