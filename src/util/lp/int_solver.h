@@ -22,7 +22,7 @@ Revision History:
 #include "util/lp/static_matrix.h"
 #include "util/lp/int_set.h"
 #include "util/lp/lar_term.h"
-#include "util/lp/cut_solver.h"
+#include "util/lp/chase_cut_solver.h"
 #include "util/lp/lar_constraints.h"
 #include "util/lp/hnf_cutter.h"
 

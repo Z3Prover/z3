@@ -5,7 +5,7 @@
 
 #include "util/lp/int_solver.h"
 #include "util/lp/lar_solver.h"
-#include "util/lp/cut_solver.h"
+#include "util/lp/chase_cut_solver.h"
 #include "util/lp/lp_utils.h"
 #include <utility>
 namespace lp {
