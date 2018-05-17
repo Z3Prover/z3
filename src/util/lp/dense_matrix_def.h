@@ -23,7 +23,6 @@ Revision History:
 #include "util/lp/numeric_pair.h"
 #include "util/lp/dense_matrix.h"
 namespace lp {
-template <typename T> void print_vector(const vector<T> & t, std::ostream & out);
 template <typename T, typename X> dense_matrix<T, X>::dense_matrix(unsigned m, unsigned n) : m_m(m), m_n(n), m_values(m * n, numeric_traits<T>::zero()) {
 }
 

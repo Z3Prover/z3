@@ -112,6 +112,8 @@ struct stats {
     unsigned m_cube_success;
     unsigned m_patches;
     unsigned m_patches_success;
+    unsigned m_hnf_cutter_calls;
+    unsigned m_hnf_cuts;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
@@ -141,22 +143,22 @@ private:
     random_gen m_rand;
 
 public:
-    unsigned reps_in_scaler;
+    unsigned       reps_in_scaler;
     // when the absolute value of an element is less than pivot_epsilon
     // in pivoting, we treat it as a zero
-    double pivot_epsilon;
+    double         pivot_epsilon;
     // see Chatal, page 115
-    double positive_price_epsilon;
+    double         positive_price_epsilon;
     // a quatation "if some choice of the entering vairable leads to an eta matrix
     // whose diagonal element in the eta column is less than e2 (entering_diag_epsilon) in magnitude, the this choice is rejected ...
-    double entering_diag_epsilon;
-    int c_partial_pivoting; // this is the constant c from page 410
-    unsigned depth_of_rook_search;
-    bool using_partial_pivoting;
+    double         entering_diag_epsilon;
+    int            c_partial_pivoting; // this is the constant c from page 410
+    unsigned       depth_of_rook_search;
+    bool           using_partial_pivoting;
     // dissertation of Achim Koberstein
     // if Bx - b is different at any component more that refactor_epsilon then we refactor
-    double refactor_tolerance;
-    double pivot_tolerance;
+    double         refactor_tolerance;
+    double         pivot_tolerance;
     double zero_tolerance;
     double drop_tolerance;
     double tolerance_for_artificials;
@@ -175,6 +177,7 @@ public:
     double dual_feasibility_tolerance; // // page 71 of the PhD thesis of Achim Koberstein
     double primal_feasibility_tolerance; // page 71 of the PhD thesis of Achim Koberstein
     double relative_primal_feasibility_tolerance; // page 71 of the PhD thesis of Achim Koberstein
+    bool         hnf_cutter_exit_if_x_is_not_on_bound_or_mixed = true;
 
     bool m_bound_propagation;
     

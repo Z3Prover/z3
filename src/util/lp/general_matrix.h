@@ -50,7 +50,7 @@ public:
 
     
     unsigned row_count() const { return m_data.size(); }
-    unsigned column_count() const { return m_data[0].size(); }
+    unsigned column_count() const { return m_data.size() > 0? m_data[0].size() : 0; }
 
     class ref_row {
         general_matrix& m_matrix;
@@ -70,11 +70,15 @@ public:
     ref_row operator[](unsigned i) { return ref_row(*this, m_data[adjust_row(i)]); }
     ref_row_const operator[](unsigned i) const { return ref_row_const(*this, m_data[adjust_row(i)]); }
 
+#ifdef Z3DEBUG
     void print(std::ostream & out, unsigned blanks = 0) const {
         print_matrix<mpq>(m_data, out, blanks);
     }
-
-    void clear() { m_data.clear(); }
+    void print(std::ostream & out, const char * ss) const {
+        std::string s(ss);
+        out << s;
+        print(out, s.size());
+    }
 
     void print_submatrix(std::ostream & out, unsigned k, unsigned blanks = 0) const {
         general_matrix m(row_count() - k, column_count() - k);
@@ -85,9 +89,29 @@ public:
         print_matrix<mpq>(m.m_data, out, blanks);
     }
 
+#endif
+
+    void clear() { m_data.clear(); }
+
+    bool row_is_initialized_correctly(const vector<mpq>& row) {
+        lp_assert(row.size() == column_count());
+        for (unsigned j = 0; j < row.size(); j ++)
+            lp_assert(is_zero(row[j]));
+        return true;
+    }
+    
+    template <typename T>
+    void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix) {
+        auto & row = m_data[adjust_row(i)];
+        lp_assert(row_is_initialized_correctly(row));
+        for (const auto & p : c) {
+            unsigned j = adjust_column(column_fix(p.var()));
+            row[j] = p.coeff();
+        }
+    }
     
     void copy_column_to_indexed_vector(unsigned entering, indexed_vector<mpq> &w ) const {
-        lp_assert(false); //
+        lp_assert(false); // not implemented
     }
     general_matrix operator*(const general_matrix & m) const {
         lp_assert(m.row_count() == column_count());
@@ -191,5 +215,38 @@ public:
             v.resize(n);
         }
     }
+
+    void shrink_to_rank(const svector<unsigned>& basis_rows) {
+        if (basis_rows.size() == row_count()) return;
+        vector<vector<mpq>> data; // todo : not efficient code
+        for (unsigned i : basis_rows)
+            data.push_back(m_data[i]);
+        m_data = data;
+    }
+
+    // used for debug only
+    general_matrix take_first_n_columns(unsigned n) const {
+        lp_assert(n <= column_count());
+        if (n == column_count())
+            return *this;
+        general_matrix ret(row_count(), n);
+        for (unsigned i = 0; i < row_count(); i++)
+            for (unsigned j = 0; j < n; j++)
+                ret[i][j] = (*this)[i][j];
+        return ret;
+    }
+    inline
+    friend vector<mpq> operator*(const vector<mpq> & f, const general_matrix& a) {
+        vector<mpq> r(a.column_count());
+        for (unsigned j = 0; j < a.column_count(); j ++) {
+            mpq t = zero_of_type<mpq>();
+            for (unsigned i = 0; i < a.row_count(); i++) {
+                t += f[i] * a[i][j];
+            }
+            r[j] = t;
+        }
+        return r;
+    }
 };
+
 }

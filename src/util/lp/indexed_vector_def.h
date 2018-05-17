@@ -23,21 +23,6 @@ Revision History:
 namespace lp {
 
 template <typename T>
-void print_vector(const vector<T> & t, std::ostream & out) {
-    for (unsigned i = 0; i < t.size(); i++)
-        out << t[i] << " ";
-    out << std::endl;
-}
-
-
-template <typename T>
-void print_vector(const buffer<T> & t, std::ostream & out) {
-    for (unsigned i = 0; i < t.size(); i++)
-        out << t[i] << " ";
-    out << std::endl;
-}
-
-template <typename T>
 void print_sparse_vector(const vector<T> & t, std::ostream & out) {
     for (unsigned i = 0; i < t.size(); i++) {
         if (is_zero(t[i]))continue;

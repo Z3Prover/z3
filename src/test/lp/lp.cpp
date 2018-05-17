@@ -3410,6 +3410,8 @@ void test_gomory_cut_1() {
     g.mk_gomory_cut(t,  k, expl, inf_col, row);
 }
 
+void call_hnf(general_matrix & A);
+
 void test_hnf_m_less_than_n() {
 #ifdef Z3DEBUG
     general_matrix A;
@@ -3432,9 +3434,7 @@ void test_hnf_m_less_than_n() {
     v.push_back(mpq(1));
     v.push_back(mpq(5));
     A.push_row(v);
-    unsigned r;
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<general_matrix> h(A, d, r);
+    call_hnf(A);
 #endif
 }
 void test_hnf_m_greater_than_n() {
@@ -3456,9 +3456,7 @@ void test_hnf_m_greater_than_n() {
     v.push_back(mpq(12));
     v.push_back(mpq(55));
     A.push_row(v);
-    unsigned r;
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<general_matrix> h(A, d, r);
+    call_hnf(A);
 #endif
 }
 
@@ -3508,11 +3506,11 @@ void test_determinant() {
         M[0][0] = 3; M[0][1] = -1; M[0][2] = 1;
         M[1][0] = 1; M[1][1] =  0; M[1][2] = 0;
         M[2][0] = 0; M[2][1] =  1; M[2][2] = 4;
-        unsigned r;
+        svector<unsigned> r;
         std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
         mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
         std::cout << "det M = " << d  << std::endl;
-        std::cout << "rank = " << r << std::endl;
+        std::cout << "rank = " << r.size() << std::endl;
     }
     {
         auto M = general_matrix(4, 6);
@@ -3520,11 +3518,11 @@ void test_determinant() {
         M[1][0] = 1; M[1][1] =  0; M[1][2] = 0; M[1][3] = 0; M[1][4] = 2; M[1][5] =   7;
         M[2][0] = 0; M[2][1] =  1; M[2][2] = 4; M[2][3] = 0; M[2][4] = 2; M[2][5] =   8;
         M[3][0] = 6; M[3][1] = -2; M[3][2] = 2; M[3][3] = 2; M[3][4] = 6; M[3][5] =  -2;
-        unsigned r;
+        svector<unsigned> r;
         std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
         mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
         std::cout << "det M = " << d  << std::endl;
-        std::cout << "rank = " << r << std::endl;
+        std::cout << "rank = " << r.size() << std::endl;
     }
 #endif
 }
@@ -3539,11 +3537,11 @@ void fill_general_matrix(general_matrix & M) {
             M[i][j] = mpq(static_cast<int>(my_random() % 13) - 6);
 }
 
-void call_hnf(general_matrix A) {
-    unsigned r;
+void call_hnf(general_matrix& A) {
+    svector<unsigned> r;
     mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r);
-    if (r == A.row_count())
-        hnf<general_matrix> h(A, d, r);
+    A.shrink_to_rank(r);
+    hnf<general_matrix> h(A, d);
 }
 
 
@@ -3559,9 +3557,7 @@ void test_hnf_1_2() {
     v.push_back(mpq(5));
     v.push_back(mpq(26));
     A.push_row(v);
-    unsigned r;
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<general_matrix> h(A, d, r);
+    call_hnf(A);
     std::cout << "test_hnf_1_2 passed" << std::endl;
 }
 void test_hnf_2_2() {
@@ -3575,9 +3571,7 @@ void test_hnf_2_2() {
     v.push_back(mpq(2));
     v.push_back(mpq(11));
     A.push_row(v);
-    unsigned r;
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
-    hnf<general_matrix> h(A, d, r);
+    call_hnf(A);
 
     std::cout << "test_hnf_2_2 passed" << std::endl;
 }
@@ -3676,8 +3670,41 @@ void test_hnf_5_5() {
     std::cout << "test_hnf_5_5 passed" << std::endl;
 }
 
+void test_small_generated_hnf() {
+    std::cout << "test_small_rank_hnf" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
+    A.push_row(v);
+    v.clear();
+    v.push_back(zero_of_type<mpq>());
+    v.push_back(zero_of_type<mpq>());
+    A.push_row(v);
+    call_hnf(A);
+    std::cout << "test_small_rank_hnf passed" << std::endl;
+}
+void test_larger_generated_hnf() {
+    std::cout << "test_larger_generated_rank_hnf" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(zero_of_type<mpq>());
+    v.push_back(zero_of_type<mpq>());
+    v.push_back(zero_of_type<mpq>());
+    A.push_row(v);
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
+    v.push_back(mpq(3));
+    A.push_row(v);
+    call_hnf(A);
+    std::cout << "test_larger_generated_rank_hnf passed" << std::endl;
+}
+
 void test_hnf() {
-    test_determinant();
+    test_larger_generated_hnf();
+    test_small_generated_hnf();
     test_hnf_1_2();
     test_hnf_3_3();
     test_hnf_4_4();

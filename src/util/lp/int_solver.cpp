@@ -272,14 +272,20 @@ void int_solver::gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & po
 bool int_solver::current_solution_is_inf_on_cut() const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = m_t->apply(x);
-    TRACE(
-        "current_solution_is_inf_on_cut", tout << "v = " << v << " k = " << (*m_k) << std::endl;
-        if (v <=(*m_k)) {
-            tout << "v <= k - it should not happen!\n";
-        }
+    mpq sign = !(*m_upper) ? one_of_type<mpq>()  : -one_of_type<mpq>();
+    TRACE("current_solution_is_inf_on_cut",
+        if (is_pos(sign)) {
+                 tout << "v = " << v << " k = " << (*m_k) << std::endl;
+                if (v <=(*m_k)) {
+                    tout << "v <= k - it should not happen!\n";
+                }
+            } else {
+                if (v >= (*m_k)) {
+                    tout << "v > k - it should not happen!\n";
+                }
+            }
           );
-    
-    return v > (*m_k);
+    return v * sign > (*m_k) * sign;
 }
 
 void int_solver::adjust_term_and_k_for_some_ints_case_gomory(mpq &lcm_den) {
@@ -635,33 +641,44 @@ lia_move int_solver::gomory_cut() {
 }
 
 
-void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
+bool int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     mpq rs;
     const lar_term* t = m_lar_solver->terms()[i];
     for (const auto & p : *t) {
         if (!is_int(p.var()))
-            return; // todo : the mix case!
+            return false; // todo : the mix case!
     }
-    if (!m_lar_solver->get_equality_for_term_on_corrent_x(i, rs))
-        return;
-    m_hnf_cutter.add_term_to_A_for_hnf(t, rs);
+    if (m_lar_solver->get_equality_for_term_on_corrent_x(i, rs)) {
+        m_hnf_cutter.add_term(t, rs);
+        return true;
+    } else {
+        return false;
+    }
 }
 
 bool int_solver::hnf_matrix_is_empty() const { return true; }
 
 bool int_solver::prepare_matrix_A_for_hnf_cut() {
     m_hnf_cutter.clear();
-    for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
-        try_add_term_to_A_for_hnf(i);
-    m_hnf_cutter.print(std::cout);
-    return ! hnf_matrix_is_empty();
+    for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
+        bool r = try_add_term_to_A_for_hnf(i);
+        if (!r && settings().hnf_cutter_exit_if_x_is_not_on_bound_or_mixed )
+            return false;
+    }
+    return true;
 }
 
 
 lia_move int_solver::make_hnf_cut() {
-    if( !prepare_matrix_A_for_hnf_cut())
+    if (!prepare_matrix_A_for_hnf_cut()) {
         return lia_move::undef;
-    return lia_move::undef;
+    }
+    settings().st().m_hnf_cutter_calls++;
+    lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper);
+    CTRACE("hnf_cut", r == lia_move::cut, tout<< "cut:"; m_lar_solver->print_term(*m_t, tout); tout << " <= " << *m_k << std::endl;);
+    if (r == lia_move::cut)
+        settings().st().m_hnf_cuts++;
+    return r;
 }
 
 lia_move int_solver::hnf_cut() {
@@ -1009,10 +1026,12 @@ int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
     m_chase_cut_solver([this](unsigned j) {return m_lar_solver->get_column_name(j);},
-                 [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
-                 [this]() {return m_lar_solver->A_r().column_count();},
-                 [this](unsigned j) {return get_value(j);},
-                 settings()) {
+                       [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
+                       [this]() {return m_lar_solver->A_r().column_count();},
+                       [this](unsigned j) {return get_value(j);},
+                       settings()),
+    m_hnf_cutter([this](){ return settings().random_next(); })
+{
     m_lar_solver->set_int_solver(this);
 }
 
