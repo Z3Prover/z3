@@ -60,12 +60,16 @@ prop_solver::prop_solver(manager& pm, fixedpoint_params const& p, symbol const& 
     m_solvers[1] = pm.mk_fresh2();
     m_fparams[1] = &pm.fparams2();
 
-    m_contexts[0] = alloc(spacer::iuc_solver, *(m_solvers[0]), p.spacer_iuc(),
+    m_contexts[0] = alloc(spacer::iuc_solver, *(m_solvers[0]),
+                          p.spacer_iuc(),
                           p.spacer_iuc_arith(),
+                          p.spacer_iuc_print_farkas_stats(),
                           p.spacer_iuc_old_hyp_reducer(),
                           p.spacer_iuc_split_farkas_literals());
-    m_contexts[1] = alloc(spacer::iuc_solver, *(m_solvers[1]), p.spacer_iuc(),
+    m_contexts[1] = alloc(spacer::iuc_solver, *(m_solvers[1]),
+                          p.spacer_iuc(),
                           p.spacer_iuc_arith(),
+                          p.spacer_iuc_print_farkas_stats(),
                           p.spacer_iuc_old_hyp_reducer(),
                           p.spacer_iuc_split_farkas_literals());
 

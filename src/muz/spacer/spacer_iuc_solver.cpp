@@ -284,7 +284,8 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
         // -- old hypothesis reducer while the new one is broken
         if (m_old_hyp_reducer)
         {
-            // preprocess proof in order to get a proof which is better suited for unsat-core-extraction
+            // preprocess proof in order to get a proof which is
+            // better suited for unsat-core-extraction
             if (m_print_farkas_stats)
             {
                 iuc_proof iuc_before(m, res.get(), B);
