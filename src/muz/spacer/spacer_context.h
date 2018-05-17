@@ -53,6 +53,7 @@ typedef obj_map<func_decl, pred_transformer*> decl2rel;
 class pob;
 typedef ref<pob> pob_ref;
 typedef sref_vector<pob> pob_ref_vector;
+typedef sref_buffer<pob> pob_ref_buffer;
 
 class reach_fact;
 typedef ref<reach_fact> reach_fact_ref;
@@ -788,16 +789,18 @@ class context {
 
     // Functions used by search.
     lbool solve_core (unsigned from_lvl = 0);
+    bool is_requeue(pob &n);
     bool check_reachability ();
     bool propagate(unsigned min_prop_lvl, unsigned max_prop_lvl,
                    unsigned full_prop_lvl);
     bool is_reachable(pob &n);
-    lbool expand_pob(pob &n);
+    lbool expand_pob(pob &n, pob_ref_buffer &out);
     reach_fact *mk_reach_fact (pob& n, model_evaluator_util &mev,
                                datalog::rule const& r);
     bool create_children(pob& n, datalog::rule const& r,
                          model_evaluator_util &model,
-                         const vector<bool>& reach_pred_used);
+                         const vector<bool>& reach_pred_used,
+                         pob_ref_buffer &out);
     expr_ref mk_sat_answer();
     expr_ref mk_unsat_answer() const;
 

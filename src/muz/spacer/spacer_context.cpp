@@ -2004,6 +2004,8 @@ void pob_queue::reset()
 }
 
 void pob_queue::push(pob &n) {
+    TRACE("pob_queue",
+          tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
     m_obligations.push (&n);
     n.get_context().new_pob_eh(&n);
 }
@@ -2787,6 +2789,8 @@ bool context::check_reachability ()
 
     pob_ref last_reachable;
 
+    pob_ref_buffer new_pobs;
+
     if (get_params().spacer_reset_obligation_queue()) { m_pob_queue.reset(); }
 
     unsigned initial_size = m_stats.m_num_lemmas;
@@ -2853,40 +2857,44 @@ bool context::check_reachability ()
         }
 
         node = m_pob_queue.top ();
+        m_pob_queue.pop();
+        unsigned old_sz = m_pob_queue.size();
         SASSERT (node->level () <= m_pob_queue.max_level ());
-        switch (expand_pob(*node)) {
+        switch (expand_pob(*node, new_pobs)) {
         case l_true:
-            SASSERT (m_pob_queue.top () == node.get ());
-            m_pob_queue.pop ();
+            SASSERT(m_pob_queue.size() == old_sz);
+            SASSERT(new_pobs.empty());
             last_reachable = node;
             last_reachable->close ();
-            if (m_pob_queue.is_root(*node)) { return true; }
+            if (m_pob_queue.is_root(*node)) {return true;}
             break;
         case l_false:
-            SASSERT (m_pob_queue.top () == node.get ());
-            m_pob_queue.pop ();
+            SASSERT(m_pob_queue.size() == old_sz);
+            for (auto pob : new_pobs) {
+                if (is_requeue(*pob)) {m_pob_queue.push(*pob);}
+            }
 
-            if (node->is_dirty()) { node->clean(); }
-
-            node->inc_level ();
-            if (get_params ().pdr_flexible_trace () &&
-                (node->level () >= m_pob_queue.max_level () ||
-                 m_pob_queue.max_level () - node->level ()
-                 <= get_params ().pdr_flexible_trace_depth ()))
-            { m_pob_queue.push(*node); }
-
-            if (m_pob_queue.is_root(*node)) { return false; }
+            if (m_pob_queue.is_root(*node)) {return false;}
             break;
         case l_undef:
-            // SASSERT (m_pob_queue.top () != node.get ());
+            SASSERT(m_pob_queue.size() == old_sz);
+            for (auto pob : new_pobs) {m_pob_queue.push(*pob);}
             break;
         }
+        new_pobs.reset();
     }
 
     UNREACHABLE();
     return false;
 }
 
+/// returns true if the given pob can be re-scheduled
+bool context::is_requeue(pob &n) {
+    if (!get_params().pdr_flexible_trace()) {return false;}
+    unsigned max_depth = get_params().pdr_flexible_trace_depth();
+    return (n.level() >= m_pob_queue.max_level() ||
+            m_pob_queue.max_level() - n.level() <= max_depth);
+}
 /// check whether node n is concretely reachable
 bool context::is_reachable(pob &n)
 {
@@ -2999,8 +3007,11 @@ void context::predecessor_eh()
     }
 }
 
-//this processes a goal and creates sub-goal
-lbool context::expand_pob(pob& n)
+/// Checks whether the given pob is reachable
+/// returns l_true if reachable, l_false if unreachable
+/// returns l_undef if reachability cannot be decided
+/// out contains new pobs to add to the queue in case the result is l_undef
+lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 {
     pob::on_expand_event _evt(n);
     TRACE ("spacer",
@@ -3049,11 +3060,12 @@ lbool context::expand_pob(pob& n)
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
                     << watch.get_seconds () << "\n";);
-
+        n.inc_level();
+        out.push_back(&n);
         return l_false;
     }
 
-    if (n.pt().is_qblocked(n)) {
+    if (/* XXX noop */ n.pt().is_qblocked(n)) {
         STRACE("spacer.expand-add",
                tout << "This pob can be blocked by instantiation\n";);
     }
@@ -3099,10 +3111,8 @@ lbool context::expand_pob(pob& n)
                     // move derivation over to the next obligation
                     next->set_derivation (deriv.detach());
 
-                    // remove the current node from the queue if it is at the top
-                    if (m_pob_queue.top() == &n) { m_pob_queue.pop(); }
-
-                    m_pob_queue.push (*next);
+                    // this is the new node to add
+                    out.push_back (next);
                 }
             }
 
@@ -3114,7 +3124,9 @@ lbool context::expand_pob(pob& n)
         }
 
         // create a child of n
-        VERIFY(create_children (n, *r, mev, reach_pred_used));
+
+        out.push_back(&n);
+        VERIFY(create_children (n, *r, mev, reach_pred_used, out));
         IF_VERBOSE(1, verbose_stream () << " U "
                    << std::fixed << std::setprecision(2)
                    << watch.get_seconds () << "\n";);
@@ -3165,7 +3177,14 @@ lbool context::expand_pob(pob& n)
         if (v && get_params().spacer_use_lemma_as_cti()) {
             n.new_post (mk_and(lemma->get_cube()));
             n.set_farkas_generalizer (false);
+            // XXX hack while refactoring is in progress
+            n.clean();
         }
+
+        // schedule the node to be placed back in the queue
+        n.inc_level();
+        out.push_back(&n);
+
         CASSERT("spacer", n.level() == 0 || check_invariant(n.level()-1));
 
 
@@ -3187,17 +3206,22 @@ lbool context::expand_pob(pob& n)
                 // do not trust reach_pred_used
                 for (unsigned i = 0, sz = reach_pred_used.size(); i < sz; ++i)
                 { reach_pred_used[i] = false; }
-                has_new_child = create_children(n,*r,mev,reach_pred_used);
+                has_new_child = create_children(n,*r,mev,reach_pred_used, out);
             }
             IF_VERBOSE(1, verbose_stream() << " UNDEF "
                        << std::fixed << std::setprecision(2)
                        << watch.get_seconds () << "\n";);
-            if (has_new_child) { return l_undef; }
+            if (has_new_child) {
+                // ensure that n is placed back in the queue
+                out.push_back(&n);
+                return l_undef;
+            }
 
             // -- failed to create a child, bump weakness and repeat
             // -- the recursion is bounded by the levels of weakness supported
+            SASSERT(out.empty());
             n.bump_weakness();
-            return expand_pob(n);
+            return expand_pob(n, out);
         }
         TRACE("spacer", tout << "unknown state: " << mk_and(cube) << "\n";);
         throw unknown_exception();
@@ -3372,7 +3396,8 @@ reach_fact *context::mk_reach_fact (pob& n, model_evaluator_util &mev,
 */
 bool context::create_children(pob& n, datalog::rule const& r,
                               model_evaluator_util &mev,
-                              const vector<bool> &reach_pred_used)
+                              const vector<bool> &reach_pred_used,
+                              pob_ref_buffer &out)
 {
 
     scoped_watch _w_ (m_create_children_watch);
@@ -3486,7 +3511,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     if (m_weak_abs && (!mev.is_true(T) || !mev.is_true(phi)))
     { kid->reset_derivation(); }
 
-    m_pob_queue.push (*kid);
+    out.push_back(kid);
     m_stats.m_num_queries++;
     return true;
 }
