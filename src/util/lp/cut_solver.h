@@ -35,24 +35,24 @@
 #include "util/lp/indexer_of_constraints.h"
 #include "util/lp/lar_term.h"
 namespace lp {
-class cut_solver; //forward definition
+class chase_cut_solver; //forward definition
 
 struct pp_poly {
-    cut_solver const& s;
+    chase_cut_solver const& s;
     polynomial const& p;
-    pp_poly(cut_solver const& s, polynomial const& p): s(s), p(p) {}
+    pp_poly(chase_cut_solver const& s, polynomial const& p): s(s), p(p) {}
 };
 
 struct pp_constraint {
-    cut_solver const& s;
+    chase_cut_solver const& s;
     constraint const& c;
-    pp_constraint(cut_solver const& s, constraint const& c): s(s), c(c) {}
+    pp_constraint(chase_cut_solver const& s, constraint const& c): s(s), c(c) {}
 };
 
 std::ostream& operator<<(std::ostream& out, pp_poly const& p);
 std::ostream& operator<<(std::ostream& out, pp_constraint const& p);
     
-class cut_solver : public column_namer {
+class chase_cut_solver : public column_namer {
 public:
     enum class lbool { l_false, l_true, l_undef };
     inline std::string lbool_to_string(lbool l) {
@@ -356,7 +356,7 @@ public:
     }
 
 
-    ~cut_solver() {
+    ~chase_cut_solver() {
         for (constraint * c : m_asserts)
             delete c;
         for (constraint * c : m_lemmas_container.m_lemmas)
@@ -386,7 +386,7 @@ public:
     unsigned                                       m_bounded_search_calls;
     unsigned                                       m_number_of_conflicts;
     vector<scope>                                  m_scopes;
-    std::unordered_map<unsigned, unsigned>         m_user_vars_to_cut_solver_vars;
+    std::unordered_map<unsigned, unsigned>         m_user_vars_to_chase_cut_solver_vars;
     std::unordered_set<constraint_index>           m_explanation; // if this collection is not empty we have a conflict 
     // the number of decisions in the current trail
     unsigned                                       m_decision_level;
@@ -846,7 +846,7 @@ public:
     }
 
     bool too_many_propagations_for_var(const var_info& vi) const {
-        return vi.number_of_bound_propagations() > m_settings.m_cut_solver_cycle_on_var * vi.number_of_asserts();
+        return vi.number_of_bound_propagations() > m_settings.m_chase_cut_solver_cycle_on_var * vi.number_of_asserts();
     }
 
     bool new_upper_bound_is_relevant(unsigned j, const mpq & v) const {
@@ -1591,7 +1591,7 @@ public:
 
     unsigned find_unused_index() const {
         for (unsigned j = m_var_infos.size(); ; j++)
-            if (m_user_vars_to_cut_solver_vars.find(j) == m_user_vars_to_cut_solver_vars.end())
+            if (m_user_vars_to_chase_cut_solver_vars.find(j) == m_user_vars_to_chase_cut_solver_vars.end())
                 return j;
         
     }
@@ -1715,7 +1715,7 @@ public:
             m_cancelled = true;
             return true;
         }
-        unsigned bound = m_asserts.size() * 200 /  (1 + m_settings.m_int_cut_solver_period);
+        unsigned bound = m_asserts.size() * 200 /  (1 + m_settings.m_int_chase_cut_solver_period);
         if (m_trail.size()  > bound || m_number_of_conflicts > bound) {
             m_cancelled = true;
             return true;
@@ -1745,7 +1745,7 @@ public:
 
             if (c != nullptr) {
                 m_number_of_conflicts++;
-                TRACE("propagate_and_backjump_step_int", tout << "incostistent_constraint "; trace_print_constraint(tout, c); tout << "m_number_of_conflicts = " << m_number_of_conflicts << std::endl; tout << "cut_solver_calls " << m_settings.st().m_cut_solver_calls << std::endl;);
+                TRACE("propagate_and_backjump_step_int", tout << "incostistent_constraint "; trace_print_constraint(tout, c); tout << "m_number_of_conflicts = " << m_number_of_conflicts << std::endl; tout << "chase_cut_solver_calls " << m_settings.st().m_chase_cut_solver_calls << std::endl;);
                 if (at_base_lvl()) {
                     fill_conflict_explanation(c);
                     return lbool::l_false;
@@ -2223,7 +2223,7 @@ public:
 public:    
     void pop() { pop(1); }
     
-    cut_solver(std::function<std::string (unsigned)> var_name_function,
+    chase_cut_solver(std::function<std::string (unsigned)> var_name_function,
                std::function<void (unsigned, std::ostream &)> print_constraint_function,
                std::function<unsigned ()>                     number_of_variables_function,         
                std::function<const impq &(unsigned)>         var_value_function,         
@@ -2343,7 +2343,7 @@ public:
     bool consistent(const_constr * i) const {
         // an option could be to check that upper(i.poly()) <= 0
         bool ret = value(i->poly()) <= zero_of_type<mpq>();
-        CTRACE("cut_solver_state_inconsistent", !ret,
+        CTRACE("chase_cut_solver_state_inconsistent", !ret,
                tout << "inconsistent constraint " << pp_constraint(*this, *i) << "\n";
                tout << "value = " << value(i->poly()) << '\n';);
         return ret;
@@ -2517,7 +2517,7 @@ public:
         constraint *c = short_lemmas[m_settings.random_next() % n];    
         k = - c->poly().m_a;
         copy_poly_coeffs_to_term(c->poly(), t);
-        TRACE("cut_solver_cuts", trace_print_constraint(tout, *c););
+        TRACE("chase_cut_solver_cuts", trace_print_constraint(tout, *c););
         return true;
     }
 };

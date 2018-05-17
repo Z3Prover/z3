@@ -308,7 +308,7 @@ class theory_lra::imp {
         m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
         m_solver->settings().m_int_gomory_cut_period = ctx().get_fparams().m_arith_branch_cut_ratio;
         m_solver->settings().m_int_cuts_etc_period = ctx().get_fparams().m_arith_branch_cut_ratio;
-        m_solver->settings().m_int_cut_solver_period = std::max(8u, ctx().get_fparams().m_arith_branch_cut_ratio);
+        m_solver->settings().m_int_chase_cut_solver_period = std::max(8u, ctx().get_fparams().m_arith_branch_cut_ratio);
         m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
@@ -2812,10 +2812,10 @@ public:
         st.update("arith-make-feasible", m_solver->settings().st().m_make_feasible);
         st.update("arith-max-columns", m_solver->settings().st().m_max_cols);
         st.update("arith-max-rows", m_solver->settings().st().m_max_rows);
-        st.update("cut-solver-calls", m_solver->settings().st().m_cut_solver_calls);
-        st.update("cut-solver-true", m_solver->settings().st().m_cut_solver_true);
-        st.update("cut-solver-false", m_solver->settings().st().m_cut_solver_false);
-        st.update("cut-solver-undef", m_solver->settings().st().m_cut_solver_undef);
+        st.update("cut-solver-calls", m_solver->settings().st().m_chase_cut_solver_calls);
+        st.update("cut-solver-true", m_solver->settings().st().m_chase_cut_solver_true);
+        st.update("cut-solver-false", m_solver->settings().st().m_chase_cut_solver_false);
+        st.update("cut-solver-undef", m_solver->settings().st().m_chase_cut_solver_undef);
         st.update("gcd-calls", m_solver->settings().st().m_gcd_calls);
         st.update("gcd-conflict", m_solver->settings().st().m_gcd_conflicts);
         st.update("cube-calls", m_solver->settings().st().m_cube_calls);

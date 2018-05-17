@@ -3233,10 +3233,10 @@ void test_integer_domain() {
 
 
 
-void test_resolve_with_tight_constraint(cut_solver& cs,
-                                        lp::cut_solver::polynomial&i ,
+void test_resolve_with_tight_constraint(chase_cut_solver& cs,
+                                        lp::chase_cut_solver::polynomial&i ,
                                         unsigned int j,
-                                        cut_solver::polynomial& ti) {
+                                        chase_cut_solver::polynomial& ti) {
     
     // std::cout << "resolve constraint ";
     // cs.print_polynomial(std::cout, i);
@@ -3244,25 +3244,25 @@ void test_resolve_with_tight_constraint(cut_solver& cs,
     // cs.print_polynomial(std::cout, ti);
     // std::cout << std::endl;
     // bool j_coeff_is_one = ti.coeff(j) == 1;
-    // cut_solver::polynomial result;
+    // chase_cut_solver::polynomial result;
     // cs.resolve(i, j,  j_coeff_is_one, ti);
     // std::cout << "resolve result is ";
     // cs.print_polynomial(std::cout, i);
     // std::cout << std::endl;
 }
 
-typedef cut_solver::monomial mono;
+typedef chase_cut_solver::monomial mono;
 
-void test_resolve(cut_solver& cs, unsigned constraint_index, unsigned i0)  {
+void test_resolve(chase_cut_solver& cs, unsigned constraint_index, unsigned i0)  {
     var_index x = 0;
     var_index y = 1;
     var_index z = 2;
     std::cout << "test_resolve\n";
     
-    cut_solver::polynomial i; i += mono(2, x);i += mono(-3,y);
+    chase_cut_solver::polynomial i; i += mono(2, x);i += mono(-3,y);
     i+= mono(4, z);
     i.m_a = 5;
-    cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
+    chase_cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
     test_resolve_with_tight_constraint(cs, i, x, ti);
     test_resolve_with_tight_constraint(cs, i, y ,ti);
 }

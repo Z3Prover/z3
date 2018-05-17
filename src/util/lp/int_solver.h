@@ -55,7 +55,7 @@ public:
     // fields
     lar_solver *        m_lar_solver;
     unsigned            m_branch_cut_counter;
-    cut_solver          m_cut_solver;
+    chase_cut_solver          m_chase_cut_solver;
     lar_term*           m_t; // the term to return in the cut
     mpq                 *m_k; // the right side of the cut
     explanation         *m_ex; // the conflict explanation
@@ -154,18 +154,18 @@ private:
     unsigned random();
     bool has_inf_int() const;
     lia_move create_branch_on_column(int j);
-    void catch_up_in_adding_constraints_to_cut_solver();
+    void catch_up_in_adding_constraints_to_chase_cut_solver();
 public:
     template <typename T>
-    void fill_cut_solver_vars();
+    void fill_chase_cut_solver_vars();
     template <typename T>
-    void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<cut_solver::monomial>& coeff, T & rs);
+    void get_int_coeffs_from_constraint(const lar_base_constraint* c, vector<chase_cut_solver::monomial>& coeff, T & rs);
     bool is_term(unsigned j) const;
-    void add_constraint_to_cut_solver(unsigned,const lar_base_constraint*);
-    void copy_explanations_from_cut_solver();
+    void add_constraint_to_chase_cut_solver(unsigned,const lar_base_constraint*);
+    void copy_explanations_from_chase_cut_solver();
     void pop(unsigned);
     void push();
-    void copy_values_from_cut_solver();
+    void copy_values_from_chase_cut_solver();
     bool left_branch_is_more_narrow_than_right(unsigned);
     bool find_cube();
     bool tighten_terms_for_cube();
@@ -176,7 +176,7 @@ public:
     void find_feasible_solution();
     int find_inf_int_nbasis_column() const;
     lia_move run_gcd_test();
-    lia_move call_cut_solver();
+    lia_move call_chase_cut_solver();
     lia_move gomory_cut();
     lia_move hnf_cut();
     lia_move make_hnf_cut();
