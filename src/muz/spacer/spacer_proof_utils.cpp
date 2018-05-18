@@ -363,7 +363,7 @@ proof* hypothesis_reducer::reduce_core(proof* pf) {
         else if (m.is_unit_resolution(p)) {
             // unit: reduce untis; reduce the first premise; rebuild
             // unit resolution
-            res = mk_unit_resolution_core(args);
+            res = mk_unit_resolution_core(p, args);
             // -- re-compute hypsets
             compute_hypsets(res);
         }
@@ -420,12 +420,13 @@ proof* hypothesis_reducer::mk_lemma_core(proof* premise, expr *fact) {
     return res;
 }
 
-proof* hypothesis_reducer::mk_unit_resolution_core(ptr_buffer<proof>& args) {
+proof* hypothesis_reducer::mk_unit_resolution_core(proof *ures,
+                                                   ptr_buffer<proof>& args) {
     // if any literal is false, we don't need a unit resolution step
     // This can be the case due to some previous transformations
     for (unsigned i = 1, sz = args.size(); i < sz; ++i) {
         if (m.is_false(m.get_fact(args[i]))) {
-            // XXX just in case
+            // XXX pin just in case
             m_pinned.push_back(args[i]);
             return args[i];
         }
@@ -434,48 +435,58 @@ proof* hypothesis_reducer::mk_unit_resolution_core(ptr_buffer<proof>& args) {
     proof* arg0 = args[0];
     app *fact0 = to_app(m.get_fact(arg0));
 
+
     ptr_buffer<proof> pf_args;
     ptr_buffer<expr> pf_fact;
-
     pf_args.push_back(arg0);
 
-    // check if fact0 can be resolved as a unit
-    // this is required for handling literals with OR
-    for (unsigned j = 1; j < args.size(); ++j) {
-        if (m.is_complement(fact0, m.get_fact(args[j]))) {
-            pf_args.push_back(args[j]);
-            break;
+    // compute literals to be resolved
+    ptr_buffer<expr> lits;
+
+    // fact0 is a literal whenever the original resolution was a
+    // binary resolution to an empty clause
+    if (m.get_num_parents(ures) == 2 && m.is_false(m.get_fact(ures))) {
+        lits.push_back(fact0);
+    }
+    // fact0 is a literal unless it is a dijsunction
+    else if (!m.is_or(fact0)) {
+        lits.push_back(fact0);
+    }
+    // fact0 is a literal only if it appears as a literal in the
+    // original resolution
+    else {
+        lits.reset();
+        app* ures_fact = to_app(m.get_fact(m.get_parent(ures, 0)));
+        for (unsigned i = 0, sz = ures_fact->get_num_args(); i < sz; ++i) {
+            if (ures_fact->get_arg(i) == fact0) {
+                lits.push_back(fact0);
+                break;
+            }
         }
+        if (lits.empty()) {
+            lits.append(fact0->get_num_args(), fact0->get_args());
+        }
+
     }
 
-
-    // if failed to find a resolvent, and the fact is a disjunction,
-    // attempt to resolve each disjunct
-    if (pf_args.size() == 1 && m.is_or(fact0)) {
-        ptr_buffer<expr> cls;
-        for (unsigned i = 0, sz = fact0->get_num_args(); i < sz; ++i)
-            cls.push_back(fact0->get_arg(i));
-
-        // -- find all literals that are resolved on
-        // XXX quadratic implementation
-        for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
-            bool found = false;
-            for (unsigned j = 1; j < args.size(); ++j) {
-                if (m.is_complement(cls.get(i), m.get_fact(args[j]))) {
-                    found = true;
-                    pf_args.push_back(args[j]);
-                    break;
-                }
+    // -- find all literals that are resolved on
+    for (unsigned i = 0, sz = lits.size(); i < sz; ++i) {
+        bool found = false;
+        for (unsigned j = 1; j < args.size(); ++j) {
+            if (m.is_complement(lits.get(i), m.get_fact(args[j]))) {
+                found = true;
+                pf_args.push_back(args[j]);
+                break;
             }
-            if (!found) pf_fact.push_back(cls.get(i));
         }
-        SASSERT(pf_fact.size() + pf_args.size() - 1 == cls.size());
+        if (!found) {pf_fact.push_back(lits.get(i));}
     }
 
     // unit resolution got reduced to noop
     if (pf_args.size() == 1) {
         // XXX pin just in case
         m_pinned.push_back(arg0);
+
         return arg0;
     }
 
@@ -484,6 +495,7 @@ proof* hypothesis_reducer::mk_unit_resolution_core(ptr_buffer<proof>& args) {
     tmp = mk_or(m, pf_fact.size(), pf_fact.c_ptr());
     proof* res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), tmp);
     m_pinned.push_back(res);
+
     return res;
 }
 
