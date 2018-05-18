@@ -3676,8 +3676,45 @@ void test_hnf_5_5() {
     std::cout << "test_hnf_5_5 passed" << std::endl;
 }
 
+void test_small_generated_hnf() {
+    std::cout << "test_small_rank_hnf" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
+    A.push_row(v);
+    v.clear();
+    v.push_back(zero_of_type<mpq>());
+    v.push_back(zero_of_type<mpq>());
+    A.push_row(v);
+    unsigned r;
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r); 
+    hnf<general_matrix> h(A, d, r);
+    std::cout << "W = "; h.W().print(std::cout, 5); std::cout<< std::endl;
+    std::cout << "test_small_rank_hnf passed" << std::endl;
+}
+void test_larger_generated_hnf() {
+    std::cout << "test_larger_generated_rank_hnf" << std::endl;
+    general_matrix A;
+    vector<mpq> v;
+    v.push_back(zero_of_type<mpq>());
+    v.push_back(zero_of_type<mpq>());
+    v.push_back(zero_of_type<mpq>());
+    A.push_row(v);
+    A.push_row(v);
+    v.clear();
+    v.push_back(mpq(5));
+    v.push_back(mpq(26));
+    v.push_back(mpq(3));
+    A.push_row(v);
+    call_hnf(A);
+    std::cout << "test_larger_generated_rank_hnf passed" << std::endl;
+}
+
 void test_hnf() {
     test_determinant();
+    test_small_generated_hnf();
+    test_larger_generated_hnf();
     test_hnf_1_2();
     test_hnf_3_3();
     test_hnf_4_4();

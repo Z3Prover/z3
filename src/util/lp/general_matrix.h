@@ -85,14 +85,19 @@ public:
         print_matrix<mpq>(m.m_data, out, blanks);
     }
 
-    template <typename T>
-    void init_row_from_container(int i, const T & c) {
-        auto & row = m_data[adjust_row(i)];
+    bool row_is_initialized_correctly(const vector<mpq>& row) {
         lp_assert(row.size() == column_count());
         for (unsigned j = 0; j < row.size(); j ++)
             lp_assert(is_zero(row[j]));
+        return true;
+    }
+    
+    template <typename T>
+    void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix) {
+        auto & row = m_data[adjust_row(i)];
+        lp_assert(row_is_initialized_correctly(row));
         for (const auto & p : c) {
-            unsigned j = adjust_column(p.var());
+            unsigned j = adjust_column(column_fix(p.var()));
             row[j] = p.coeff();
         }
     }

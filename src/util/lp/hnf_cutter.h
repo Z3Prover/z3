@@ -30,7 +30,7 @@ class hnf_cutter {
     var_register m_var_register;
     general_matrix m_A;
     vector<const lar_term*> m_terms;
-    vector<mpq> m_rs;
+    vector<mpq> m_rigth_sides;
     unsigned m_row_count;
     unsigned m_column_count;
 public:
@@ -41,10 +41,10 @@ public:
     void add_term(const lar_term* t, const mpq &rs) {
         m_terms.push_back(t);
         for (const auto &p : *t) {
-            m_var_register.register_user_var(p.var());
+            m_var_register.add_var(p.var());
         }
-        m_rs.push_back(rs);
-        if (m_terms.size() <= m_var_register.size()) {
+        m_rigth_sides.push_back(rs);
+        if (m_terms.size() <= m_var_register.size()) { // capture the maximal acceptable sizes
             m_row_count = m_terms.size();
             m_column_count = m_var_register.size();
         }
@@ -55,7 +55,7 @@ public:
     }
 
     void initialize_row(unsigned i) {
-        m_A.init_row_from_container(i, * m_terms[i]);
+        m_A.init_row_from_container(i, * m_terms[i], [this](unsigned j) { return m_var_register.add_var(j);});
     }
 
     void init_matrix_A() {
@@ -72,6 +72,7 @@ public:
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, rank); 
         hnf<general_matrix> h(m_A, d, rank);
         std::cout << "hnf = "; h.W().print(std::cout, 6);
+        //if (rank == 
         return lia_move::undef;
     }
 };

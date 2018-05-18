@@ -391,7 +391,7 @@ class hnf {
 
     void work_on_columns_less_than_i_in_the_triangle(unsigned i) {
         const mpq & mii = m_H[i][i];
-        lp_assert(is_pos(mii));
+        if (is_zero(mii)) return;
         for (unsigned j = 0; j < i; j++) {
             const mpq & mij = m_H[i][j];
             if (!is_pos(mij) && - mij < mii)
@@ -444,7 +444,7 @@ class hnf {
             const mpq & hij = m_H[i][j];
             if (is_pos(hij))
                 return false;
-            if (- hij >= hii)
+            if (!is_zero(hii) && - hij >= hii)
                 return false;
         }
         
@@ -545,9 +545,13 @@ private:
     void fix_row_under_diagonal_W_modulo() {
         mpq d, u, v;
         if (is_zero(m_W[m_i][m_i])) {
-            m_W[m_i][m_i] = m_R;
-            u = one_of_type<mpq>();
-            d = m_R;
+            if (m_i < m_r) {
+                m_W[m_i][m_i] = m_R;
+                u = one_of_type<mpq>();
+                d = m_R;
+            } else {
+                return;
+            }
         } else {
             hnf_calc::extended_gcd_minimal_uv(m_W[m_i][m_i], m_R, d, u, v);
         }
@@ -586,6 +590,8 @@ private:
     void calculate_by_modulo() {
         for (m_i = 0; m_i < m_m; m_i ++) {
             process_row_modulo();
+            if (is_zero(m_W[m_i][m_i]))
+                continue;
             lp_assert(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
             lp_assert(is_int(m_R));
