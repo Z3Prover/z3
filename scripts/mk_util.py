@@ -1932,8 +1932,14 @@ class MLComponent(Component):
             OCAML_FLAGS = ''
             if DEBUG_MODE:
                 OCAML_FLAGS += '-g'
-            OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
-            OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
+
+            if OCAMLFIND:
+                # Load Big_int, which is no longer part of the standard library, via the num package: https://github.com/ocaml/num
+                OCAMLCF = OCAMLFIND + ' ' + 'ocamlc -package num' + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLFIND + ' ' + 'ocamlopt -package num' + ' ' + OCAML_FLAGS
+            else:
+                OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
 
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))

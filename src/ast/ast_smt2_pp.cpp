@@ -912,7 +912,7 @@ class smt2_printer {
                 var_name = mk_smt2_quoted_symbol (*it);
             }
             else {
-              var_name = it->str ();\
+                var_name = it->str ();          
             }
             buf.push_back(mk_seq1<format**,f2f>(m(), fs, fs+1, f2f(), var_name.c_str ()));
         }

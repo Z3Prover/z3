@@ -216,14 +216,27 @@ namespace smt {
             return m_args;
         }
 
-        class args {
+        class const_args {
             enode const& n;
         public:
-            args(enode const& n):n(n) {}
-            args(enode const* n):n(*n) {}
-            enode_vector::const_iterator begin() const { return n.get_args(); }
-            enode_vector::const_iterator end() const { return n.get_args() + n.get_num_args(); }
+            const_args(enode const& n):n(n) {}
+            const_args(enode const* n):n(*n) {}
+            enode_vector::const_iterator begin() const { return n.m_args; }
+            enode_vector::const_iterator end() const { return n.m_args + n.get_num_args(); }
         };
+
+        class args {
+            enode & n;
+        public:
+            args(enode & n):n(n) {}
+            args(enode * n):n(*n) {}
+            enode_vector::iterator begin() const { return n.m_args; }
+            enode_vector::iterator end() const { return n.m_args + n.get_num_args(); }
+        };
+
+        const_args get_const_args() const { return const_args(this); }
+
+        // args get_args() { return args(this); }
 
         // unsigned get_id() const { 
         //    return m_id; 
@@ -294,15 +307,27 @@ namespace smt {
             return m_commutative;
         }
 
-        class parents {
+        class const_parents {
             enode const& n;
         public:
-            parents(enode const& _n):n(_n) {}
-            parents(enode const* _n):n(*_n) {}
+            const_parents(enode const& _n):n(_n) {}
+            const_parents(enode const* _n):n(*_n) {}
             enode_vector::const_iterator begin() const { return n.begin_parents(); }
             enode_vector::const_iterator end() const { return n.end_parents(); }
         };
 
+        class parents {
+            enode& n;
+        public:
+            parents(enode & _n):n(_n) {}
+            parents(enode * _n):n(*_n) {}
+            enode_vector::iterator begin() const { return n.begin_parents(); }
+            enode_vector::iterator end() const { return n.end_parents(); }
+        };
+
+        parents get_parents() { return parents(this); }
+
+        const_parents get_const_parents() const { return const_parents(this); }
 
         unsigned get_num_parents() const {
             return m_parents.size();
