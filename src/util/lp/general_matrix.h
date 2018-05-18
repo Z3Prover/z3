@@ -85,9 +85,20 @@ public:
         print_matrix<mpq>(m.m_data, out, blanks);
     }
 
+    template <typename T>
+    void init_row_from_container(int i, const T & c) {
+        auto & row = m_data[adjust_row(i)];
+        lp_assert(row.size() == column_count());
+        for (unsigned j = 0; j < row.size(); j ++)
+            lp_assert(is_zero(row[j]));
+        for (const auto & p : c) {
+            unsigned j = adjust_column(p.var());
+            row[j] = p.coeff();
+        }
+    }
     
     void copy_column_to_indexed_vector(unsigned entering, indexed_vector<mpq> &w ) const {
-        lp_assert(false); //
+        lp_assert(false); // not implemented
     }
     general_matrix operator*(const general_matrix & m) const {
         lp_assert(m.row_count() == column_count());
@@ -191,5 +202,6 @@ public:
             v.resize(n);
         }
     }
+    
 };
 }

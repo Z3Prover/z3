@@ -646,24 +646,22 @@ void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     }
     if (!m_lar_solver->get_equality_for_term_on_corrent_x(i, rs))
         return;
-    m_hnf_cutter.add_term_to_A_for_hnf(t, rs);
+    m_hnf_cutter.add_term(t, rs);
 }
 
 bool int_solver::hnf_matrix_is_empty() const { return true; }
 
-bool int_solver::prepare_matrix_A_for_hnf_cut() {
+void int_solver::prepare_matrix_A_for_hnf_cut() {
     m_hnf_cutter.clear();
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
         try_add_term_to_A_for_hnf(i);
     m_hnf_cutter.print(std::cout);
-    return ! hnf_matrix_is_empty();
 }
 
 
 lia_move int_solver::make_hnf_cut() {
-    if( !prepare_matrix_A_for_hnf_cut())
-        return lia_move::undef;
-    return lia_move::undef;
+    prepare_matrix_A_for_hnf_cut();
+    return m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper);
 }
 
 lia_move int_solver::hnf_cut() {

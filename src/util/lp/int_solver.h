@@ -25,30 +25,15 @@ Revision History:
 #include "util/lp/chase_cut_solver.h"
 #include "util/lp/lar_constraints.h"
 #include "util/lp/hnf_cutter.h"
+#include "util/lp/lia_move.h"
+#include "util/lp/explanation.h"
 
 namespace lp {
 class lar_solver;
+
 template <typename T, typename X>
 struct lp_constraint;
-enum class lia_move {
-    sat,
-    branch,
-    cut,
-    conflict,
-    continue_with_check,
-    undef,
-    unsat
-};
 
-struct explanation {
-    vector<std::pair<mpq, constraint_index>> m_explanation;
-    void push_justification(constraint_index j, const mpq& v) {
-        m_explanation.push_back(std::make_pair(v, j));
-    }
-    void push_justification(constraint_index j) {
-        m_explanation.push_back(std::make_pair(one_of_type<mpq>(), j));
-    }
-};
 
 class int_solver {
 public:
@@ -180,7 +165,7 @@ public:
     lia_move gomory_cut();
     lia_move hnf_cut();
     lia_move make_hnf_cut();
-    bool prepare_matrix_A_for_hnf_cut();
+    void prepare_matrix_A_for_hnf_cut();
     bool hnf_matrix_is_empty() const;
     void try_add_term_to_A_for_hnf(unsigned term_index);
 };
