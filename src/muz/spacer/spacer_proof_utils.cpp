@@ -432,51 +432,56 @@ proof* hypothesis_reducer::mk_unit_resolution_core(ptr_buffer<proof>& args) {
     }
 
     proof* arg0 = args[0];
+    app *fact0 = to_app(m.get_fact(arg0));
+
     ptr_buffer<proof> pf_args;
+    ptr_buffer<expr> pf_fact;
+
     pf_args.push_back(arg0);
 
-    // BUG: I guess this shouldn't work with quantifiers (since they
-    // are not apps)
-    // AG: who is "I"? What is the bug?
-    app *fact = to_app(m.get_fact(arg0));
-    ptr_buffer<expr> cls;
-    if (m.is_or(fact)) {
-        for (unsigned i = 0, sz = fact->get_num_args(); i < sz; ++i)
-         cls.push_back(fact->get_arg(i));
-    }
-    else
-        cls.push_back(fact);
-
-    // construct the new resolvent
-    ptr_buffer<expr> new_fact;
-    bool found;
-
-    // -- find all literals that are resolved on
-    // XXX quadratic implementation
-    for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
-        found = false;
-        for (unsigned j = 1; j < args.size(); ++j) {
-            if (m.is_complement(cls.get(i), m.get_fact(args[j]))) {
-                found = true;
-                pf_args.push_back(args[j]);
-                break;
-            }
+    // check if fact0 can be resolved as a unit
+    // this is required for handling literals with OR
+    for (unsigned j = 1; j < args.size(); ++j) {
+        if (m.is_complement(fact0, m.get_fact(args[j]))) {
+            pf_args.push_back(args[j]);
+            break;
         }
-        if (!found) new_fact.push_back(cls.get(i));
     }
 
-    SASSERT(new_fact.size() + pf_args.size() - 1 == cls.size());
+
+    // if failed to find a resolvent, and the fact is a disjunction,
+    // attempt to resolve each disjunct
+    if (pf_args.size() == 1 && m.is_or(fact0)) {
+        ptr_buffer<expr> cls;
+        for (unsigned i = 0, sz = fact0->get_num_args(); i < sz; ++i)
+            cls.push_back(fact0->get_arg(i));
+
+        // -- find all literals that are resolved on
+        // XXX quadratic implementation
+        for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
+            bool found = false;
+            for (unsigned j = 1; j < args.size(); ++j) {
+                if (m.is_complement(cls.get(i), m.get_fact(args[j]))) {
+                    found = true;
+                    pf_args.push_back(args[j]);
+                    break;
+                }
+            }
+            if (!found) pf_fact.push_back(cls.get(i));
+        }
+        SASSERT(pf_fact.size() + pf_args.size() - 1 == cls.size());
+    }
 
     // unit resolution got reduced to noop
     if (pf_args.size() == 1) {
-        // XXX just in case
+        // XXX pin just in case
         m_pinned.push_back(arg0);
         return arg0;
     }
 
     // make unit resolution proof step
     expr_ref tmp(m);
-    tmp = mk_or(m, new_fact.size(), new_fact.c_ptr());
+    tmp = mk_or(m, pf_fact.size(), pf_fact.c_ptr());
     proof* res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), tmp);
     m_pinned.push_back(res);
     return res;
