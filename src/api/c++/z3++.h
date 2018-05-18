@@ -2301,12 +2301,12 @@ namespace z3 {
             unsigned h() const { return m_h; }
         };
         optimize(context& c):object(c) { m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt); }
-        optimize(optimize& o):object(c)  {
+        optimize(optimize& o):object(o)  {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
             m_opt = o.m_opt;
         }
         optimize& operator=(optimize const& o) {
-            Z3_optimize_inc_rec(o.ctx(), o.m_opt);
+            Z3_optimize_inc_ref(o.ctx(), o.m_opt);
             Z3_optimize_dec_ref(ctx(), m_opt);
             m_opt = o.m_opt;
             m_ctx = o.m_ctx;
