@@ -1020,14 +1020,14 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
            << mk_pp(fact->get (), m) << "\n";);
 
     // -- avoid duplicates
-    if (fact == nullptr || get_reach_fact(fact->get())) { return; }
+    if (fact == nullptr || get_reach_fact(fact->get())) {return;}
 
     // all initial facts are grouped together
     SASSERT (!fact->is_init () || m_reach_facts.empty () ||
              m_reach_facts.back ()->is_init ());
 
     m_reach_facts.push_back (fact);
-    if (fact->is_init()) { m_rf_init_sz++; }
+    if (fact->is_init()) {m_rf_init_sz++;}
 
 
     // update m_reach_ctx
@@ -1035,9 +1035,9 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
     expr_ref new_var (m);
     expr_ref fml (m);
 
-    if (!m_reach_case_vars.empty()) { last_var = m_reach_case_vars.back(); }
+    if (!m_reach_case_vars.empty()) {last_var = m_reach_case_vars.back();}
     if (fact->is_init () || !ctx.get_params ().spacer_reach_as_init ())
-    { new_var = mk_fresh_reach_case_var(); }
+    {new_var = mk_fresh_reach_case_var();}
     else {
         new_var = extend_initial (fact->get ())->get_arg (0);
         m_reach_case_vars.push_back (new_var);
@@ -1045,10 +1045,8 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
 
     SASSERT (m_reach_facts.size () == m_reach_case_vars.size ());
 
-    if (last_var)
-    { fml = m.mk_or(m.mk_not(last_var), fact->get(), new_var); }
-    else
-    { fml = m.mk_or(fact->get(), new_var); }
+    if (last_var) {fml = m.mk_or(m.mk_not(last_var), fact->get(), new_var);}
+    else {fml = m.mk_or(fact->get(), new_var);}
 
     m_reach_ctx->assert_expr (fml);
     TRACE ("spacer",
@@ -1056,9 +1054,8 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
 
     lemma lem(m, fml, infty_level());
     // update users; reach facts are independent of levels
-    for (unsigned i = 0; i < m_use.size(); ++i) {
-        m_use[i]->add_lemma_from_child (*this, &lem, infty_level ());
-    }
+    for (auto use : m_use)
+    {use->add_lemma_from_child (*this, &lem, infty_level());}
 }
 
 expr_ref pred_transformer::get_reachable()
@@ -1503,13 +1500,12 @@ void pred_transformer::init_reach_facts ()
     expr_ref_vector v(m);
     reach_fact_ref fact;
 
-    rule2expr::iterator it = m_rule2tag.begin (), end = m_rule2tag.end ();
-    for (; it != end; ++it) {
-        const datalog::rule* r = it->m_key;
+    for (auto &entry : m_rule2tag) {
+        const datalog::rule* r = entry.m_key;
         if (r->get_uninterpreted_tail_size() == 0) {
-            fact = alloc (reach_fact, m, *r, m_rule2transition.find (r),
-                          get_aux_vars (*r), true);
-            add_reach_fact (fact.get ());
+            fact = alloc (reach_fact, m, *r, m_rule2transition.find(r),
+                          get_aux_vars(*r), true);
+            add_reach_fact(fact.get ());
         }
     }
 }
@@ -1517,59 +1513,54 @@ void pred_transformer::init_reach_facts ()
 void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref& transition)
 {
     expr_ref_vector transitions(m);
-    ptr_vector<datalog::rule const> tr_rules;
+    ptr_vector<const datalog::rule> tr_rules;
     datalog::rule const* rule;
     expr_ref_vector disj(m), init_conds (m);
     app_ref pred(m);
     vector<bool> is_init;
-    for (unsigned i = 0; i < rules().size(); ++i) {
-        init_rule(pts, *rules()[i], is_init, tr_rules, transitions);
-    }
+    for (auto r : m_rules) {init_rule(pts, *r, is_init, tr_rules, transitions);}
     SASSERT (is_init.size () == transitions.size ());
+
+    std::string name;
     switch(transitions.size()) {
     case 0:
         transition = m.mk_false();
         break;
-    case 1: {
-        std::stringstream name;
+    case 1:
         // create a dummy tag.
-        name << head()->get_name() << "_dummy";
-        pred = m.mk_const(symbol(name.str().c_str()), m.mk_bool_sort());
+        name  = head()->get_name().str() + "_dummy";
+        pred = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
+
         rule = tr_rules[0];
         m_tag2rule.insert(pred, rule);
         m_rule2tag.insert(rule, pred.get());
-        transitions [0] = m.mk_implies (pred, transitions.get (0));
-        transitions.push_back (m.mk_or (pred, m_extend_lit->get_arg (0)));
-        if (!is_init [0]) { init_conds.push_back(m.mk_not(pred)); }
+        transitions[0] = m.mk_implies (pred, transitions.get(0));
+        transitions.push_back (m.mk_or (pred, m_extend_lit->get_arg(0)));
+        if (!is_init[0]) {init_conds.push_back(m.mk_not(pred));}
 
         transition = mk_and(transitions);
         break;
-    }
     default:
-        disj.push_back (m_extend_lit->get_arg (0));
+        disj.push_back (m_extend_lit->get_arg(0));
         for (unsigned i = 0; i < transitions.size(); ++i) {
-            std::stringstream name;
-            name << head()->get_name() << "_tr" << i;
-            pred = m.mk_const(symbol(name.str().c_str()), m.mk_bool_sort());
+            name = head()->get_name().str() + "__tr" + std::to_string(i);
+            pred = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
             rule = tr_rules[i];
             m_tag2rule.insert(pred, rule);
             m_rule2tag.insert(rule, pred);
             disj.push_back(pred);
             transitions[i] = m.mk_implies(pred, transitions[i].get());
             // update init conds
-            if (!is_init[i]) {
-                init_conds.push_back (m.mk_not (pred));
-            }
+            if (!is_init[i]) {init_conds.push_back (m.mk_not (pred));}
         }
         transitions.push_back(m.mk_or(disj.size(), disj.c_ptr()));
         transition = mk_and(transitions);
         break;
     }
     // mk init condition
-    init = mk_and (init_conds);
-    if (init_conds.empty ()) { // no rule has uninterpreted tail
-        m_all_init = true;
-    }
+    init = mk_and(init_conds);
+    // no rule has uninterpreted tail
+    if (init_conds.empty ()) {m_all_init = true;}
 }
 
 static bool is_all_non_null(app_ref_vector const& v)
@@ -1580,109 +1571,100 @@ static bool is_all_non_null(app_ref_vector const& v)
     return true;
 }
 
-void pred_transformer::init_rule(
-    decl2rel const&      pts,
-    datalog::rule const& rule,
-    vector<bool>&     is_init,
-    ptr_vector<datalog::rule const>& rules,
-    expr_ref_vector&     transitions)
-{
+void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
+                                 vector<bool>&  is_init,
+                                 ptr_vector<datalog::rule const>& rules,
+                                 expr_ref_vector& transitions) {
     scoped_watch _t_(m_initialize_watch);
 
     // Predicates that are variable representatives. Other predicates at
     // positions the variables occur are made equivalent with these.
-    expr_ref_vector conj(m);
-    app_ref_vector& var_reprs = *(alloc(app_ref_vector, m));
+    expr_ref_vector side(m);
+    app_ref_vector* var_reprs = alloc(app_ref_vector, m);
+    SASSERT(var_reprs);
     ptr_vector<app> aux_vars;
 
     unsigned ut_size = rule.get_uninterpreted_tail_size();
     unsigned t_size  = rule.get_tail_size();
     SASSERT(ut_size <= t_size);
-    init_atom(pts, rule.get_head(), var_reprs, conj, UINT_MAX);
+    init_atom(pts, rule.get_head(), *var_reprs, side, UINT_MAX);
     for (unsigned i = 0; i < ut_size; ++i) {
         if (rule.is_neg_tail(i)) {
-            throw default_exception("SPACER does not support negated predicates in rule tails");
+            throw default_exception("SPACER does not support "
+                                    "negated predicates in rule tails");
         }
-        init_atom(pts, rule.get_tail(i), var_reprs, conj, i);
+        init_atom(pts, rule.get_tail(i), *var_reprs, side, i);
     }
     // -- substitute free variables
     expr_ref fml(m);
     {
         expr_ref_vector tail(m);
         for (unsigned i = ut_size; i < t_size; ++i)
-        { tail.push_back(rule.get_tail(i)); }
+        {tail.push_back(rule.get_tail(i));}
         fml = mk_and (tail);
 
-        ground_free_vars (fml, var_reprs, aux_vars, ut_size == 0);
-        SASSERT(is_all_non_null(var_reprs));
+        ground_free_vars(fml, *var_reprs, aux_vars, ut_size == 0);
+        SASSERT(is_all_non_null(*var_reprs));
 
         expr_ref tmp(m);
-        var_subst (m, false)(fml,
-                             var_reprs.size (), (expr*const*)var_reprs.c_ptr(), tmp);
-        flatten_and (tmp, conj);
-        fml = mk_and(conj);
-        conj.reset ();
+        var_subst (m, false)(fml, var_reprs->size (),
+                             (expr*const*)var_reprs->c_ptr(), tmp);
+        flatten_and (tmp, side);
+        fml = mk_and(side);
+        side.reset ();
     }
 
+    // rewrite and simplify
     th_rewriter rw(m);
     rw(fml);
-    if (ctx.get_params().spacer_blast_term_ite()) {
-        blast_term_ite (fml);
-        rw(fml);
-    }
+    if (ctx.get_params().spacer_blast_term_ite()) {blast_term_ite(fml); rw(fml);}
     TRACE("spacer", tout << mk_pp(fml, m) << "\n";);
 
     // allow quantifiers in init rule
     SASSERT(ut_size == 0 || is_ground(fml));
-    if (m.is_false(fml)) {
-        // no-op.
-    } else {
+    if (!m.is_false(fml)) {
         is_init.push_back (ut_size == 0);
         transitions.push_back(fml);
-        m.inc_ref(fml);
-        m_rule2transition.insert(&rule, fml.get());
         rules.push_back(&rule);
+
+        m.inc_ref(fml);
+        m_rule2transition.insert(&rule, fml);
     }
-    m_rule2inst.insert(&rule,&var_reprs);
+    // AG: shouldn't this be under the if-statement above?
+    m_rule2inst.insert(&rule, var_reprs);
     m_rule2vars.insert(&rule, aux_vars);
+
     TRACE("spacer",
           tout << rule.get_decl()->get_name() << "\n";
-          for (unsigned i = 0; i < var_reprs.size(); ++i) {
-              tout << mk_pp(var_reprs[i].get(), m) << " ";
-          }
-          tout << "\n";);
+          tout << *var_reprs << "\n";);
 }
 
 
 // create constants for free variables in tail.
 void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars,
-                                        ptr_vector<app>& aux_vars, bool is_init)
-{
+                                        ptr_vector<app>& aux_vars, bool is_init) {
     expr_free_vars fv;
     fv(e);
 
-    while (vars.size() < fv.size()) {
-        vars.push_back(nullptr);
-    }
+    while (vars.size() < fv.size()) {vars.push_back(nullptr);}
+
     for (unsigned i = 0; i < fv.size(); ++i) {
         if (fv[i] && !vars[i].get()) {
-            vars[i] = m.mk_fresh_const("aux", fv[i]);
-            vars[i] = m.mk_const (pm.get_n_pred (vars.get (i)->get_decl ()));
-            aux_vars.push_back(vars[i].get());
+            // AG: is it useful to make names unique across rules?
+            app_ref v(m);
+            v = m.mk_fresh_const("aux", fv[i]);
+            v = m.mk_const (pm.get_n_pred(v->get_decl ()));
+            vars[i] = v;
+            aux_vars.push_back(v);
         }
     }
 
 }
 
 // create names for variables used in relations.
-void pred_transformer::init_atom(
-    decl2rel const& pts,
-    app * atom,
-    app_ref_vector& var_reprs,
-    expr_ref_vector& conj,
-    unsigned tail_idx
-    )
-{
+void pred_transformer::init_atom(decl2rel const &pts, app *atom,
+                                 app_ref_vector &var_reprs,
+                                 expr_ref_vector &side, unsigned tail_idx) {
     unsigned arity = atom->get_num_args();
     func_decl* head = atom->get_decl();
     pred_transformer& pt = *pts.find(head);
@@ -1704,13 +1686,13 @@ void pred_transformer::init_atom(
             }
             expr * repr = var_reprs[var_idx].get();
             if (repr) {
-                conj.push_back(m.mk_eq(rep, repr));
+                side.push_back(m.mk_eq(rep, repr));
             } else {
                 var_reprs[var_idx] = rep;
             }
         } else {
             SASSERT(is_app(arg));
-            conj.push_back(m.mk_eq(rep, arg));
+            side.push_back(m.mk_eq(rep, arg));
         }
     }
 }
@@ -2061,23 +2043,22 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
 {
     scoped_watch _t_(m_init_rules_watch);
     m_context = &rules.get_context();
+
     // Allocate collection of predicate transformers
-    datalog::rule_set::decl2rules::iterator dit = rules.begin_grouped_rules(), dend = rules.end_grouped_rules();
-    decl2rel::obj_map_entry* e;
-    for (; dit != dend; ++dit) {
+    for (auto dit = rules.begin_grouped_rules(),
+             dend = rules.end_grouped_rules(); dit != dend; ++dit) {
         func_decl* pred = dit->m_key;
         TRACE("spacer", tout << mk_pp(pred, m) << "\n";);
         SASSERT(!rels.contains(pred));
-        e = rels.insert_if_not_there2(pred, alloc(pred_transformer, *this,
-                                                  get_manager(), pred));
+        auto *e = rels.insert_if_not_there2(pred, alloc(pred_transformer, *this,
+                                                        get_manager(), pred));
         datalog::rule_vector const& pred_rules = *dit->m_value;
-        for (unsigned i = 0; i < pred_rules.size(); ++i) {
-            e->get_data().m_value->add_rule(pred_rules[i]);
-        }
+        for (auto rule : pred_rules) {e->get_data().m_value->add_rule(rule);}
     }
-    datalog::rule_set::iterator rit = rules.begin(), rend = rules.end();
-    for (; rit != rend; ++rit) {
-        datalog::rule* r = *rit;
+
+    // Allocate predicate transformers for predicates that are used
+    // but don't have rules
+    for (auto *r : rules) {
         pred_transformer* pt;
         unsigned utz = r->get_uninterpreted_tail_size();
         for (unsigned i = 0; i < utz; ++i) {
@@ -2088,32 +2069,28 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
             }
         }
     }
+
     // Initialize use list dependencies
-    decl2rel::iterator it = rels.begin(), end = rels.end();
-    for (; it != end; ++it) {
-        func_decl* pred = it->m_key;
-        pred_transformer* pt = it->m_value, *pt_user;
-        obj_hashtable<func_decl> const& deps = rules.get_dependencies().get_deps(pred);
-        obj_hashtable<func_decl>::iterator itf = deps.begin(), endf = deps.end();
-        for (; itf != endf; ++itf) {
-            TRACE("spacer", tout << mk_pp(pred, m) << " " << mk_pp(*itf, m) << "\n";);
-            pt_user = rels.find(*itf);
+    // for (auto it = rels.begin(), end = rels.end(); it != end; ++it) {
+    for (auto &entry : rels) {
+        func_decl* pred = entry.m_key;
+        pred_transformer* pt = entry.m_value, *pt_user;
+        for (auto dep : rules.get_dependencies().get_deps(pred)) {
+            TRACE("spacer", tout << mk_pp(pred, m) << " " << mk_pp(dep, m) << "\n";);
+            rels.find(dep, pt_user);
             pt_user->add_use(pt);
         }
     }
 
     // Initialize the predicate transformers.
-    it = rels.begin(), end = rels.end();
-    for (; it != end; ++it) {
-        pred_transformer& rel = *it->m_value;
-        rel.initialize(rels);
-        TRACE("spacer", rel.display(tout); );
+    for (auto &entry : rels) {
+        pred_transformer* rel = entry.m_value;
+        rel->initialize(rels);
+        TRACE("spacer", rel->display(tout); );
     }
 
     // initialize reach facts
-    it = rels.begin (), end = rels.end ();
-    for (; it != end; ++it)
-    { it->m_value->init_reach_facts(); }
+    for (auto &entry : rels) {entry.m_value->init_reach_facts();}
 }
 
 void context::update_rules(datalog::rule_set& rules)
@@ -2861,6 +2838,7 @@ bool context::check_reachability ()
         node = m_pob_queue.top ();
         m_pob_queue.pop();
         unsigned old_sz = m_pob_queue.size();
+        (void)old_sz;
         SASSERT (node->level () <= m_pob_queue.max_level ());
         switch (expand_pob(*node, new_pobs)) {
         case l_true:

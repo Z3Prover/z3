@@ -316,7 +316,8 @@ class pred_transformer {
     void init_rules(decl2rel const& pts, expr_ref& init, expr_ref& transition);
     void init_rule(decl2rel const& pts, datalog::rule const& rule, vector<bool>& is_init,
                    ptr_vector<datalog::rule const>& rules, expr_ref_vector& transition);
-    void init_atom(decl2rel const& pts, app * atom, app_ref_vector& var_reprs, expr_ref_vector& conj, unsigned tail_idx);
+    void init_atom(decl2rel const& pts, app * atom, app_ref_vector& var_reprs,
+                   expr_ref_vector& side, unsigned tail_idx);
 
     void simplify_formulas(tactic& tac, expr_ref_vector& fmls);
 
