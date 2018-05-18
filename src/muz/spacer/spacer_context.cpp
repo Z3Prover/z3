@@ -54,6 +54,581 @@ Notes:
 #include "smt/smt_solver.h"
 namespace spacer {
 
+/// pob -- proof obligation
+pob::pob (pob* parent, pred_transformer& pt,
+          unsigned level, unsigned depth, bool add_to_parent):
+    m_ref_count (0),
+    m_parent (parent), m_pt (pt),
+    m_post (m_pt.get_ast_manager ()),
+    m_binding(m_pt.get_ast_manager()),
+    m_new_post (m_pt.get_ast_manager ()),
+    m_level (level), m_depth (depth),
+    m_open (true), m_use_farkas (true), m_weakness(0),
+    m_blocked_lvl(0) {
+    if(add_to_parent && m_parent) {
+        m_parent->add_child(*this);
+    }
+}
+
+
+void pob::set_post(expr* post) {
+    app_ref_vector b(get_ast_manager());
+    set_post(post, b);
+}
+
+void pob::set_post(expr* post, app_ref_vector const &b) {
+    normalize(post, m_post,
+              m_pt.get_context().get_params().spacer_simplify_pob(),
+              m_pt.get_context().get_params().spacer_use_eqclass());
+
+    m_binding.reset();
+    if (b.empty()) return;
+
+    m_binding.append(b);
+
+    std::sort (m_binding.c_ptr(), m_binding.c_ptr() + m_binding.size(), sk_lt_proc());
+
+    // skolemize implicit existential quantifier
+    ast_manager &m = get_ast_manager();
+    app_ref_vector pinned(m);
+
+    expr_safe_replace sub(m);
+    for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
+        expr* e;
+        e = m_binding.get(i);
+        pinned.push_back (mk_zk_const (m, i, get_sort(e)));
+        sub.insert (e, pinned.back());
+    }
+    sub(m_post);
+}
+
+void pob::inherit(pob const &p) {
+    SASSERT(m_parent == p.m_parent);
+    SASSERT(&m_pt == &p.m_pt);
+    SASSERT(m_post == p.m_post);
+    SASSERT(!m_new_post);
+
+    m_binding.reset();
+    m_binding.append(p.m_binding);
+
+    m_level = p.m_level;
+    m_depth = p.m_depth;
+    m_open = p.m_open;
+    m_use_farkas = p.m_use_farkas;
+    m_weakness = p.m_weakness;
+
+    m_derivation = nullptr;
+}
+
+void pob::clean () {
+    if(m_new_post) {
+        m_post = m_new_post;
+        m_new_post.reset();
+    }
+}
+
+void pob::close () {
+    if(!m_open) { return; }
+
+    reset ();
+    m_open = false;
+    for (unsigned i = 0, sz = m_kids.size (); i < sz; ++i)
+    { m_kids [i]->close(); }
+}
+
+void pob::get_skolems(app_ref_vector &v) {
+    for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
+        expr* e;
+        e = m_binding.get(i);
+        v.push_back (mk_zk_const (get_ast_manager(), i, get_sort(e)));
+    }
+}
+
+
+
+// ----------------
+// pob_queue
+
+pob* pob_queue::top ()
+{
+    /// nothing in the queue
+    if (m_obligations.empty()) { return nullptr; }
+    /// top queue element is above max level
+    if (m_obligations.top()->level() > m_max_level) { return nullptr; }
+    /// top queue element is at the max level, but at a higher than base depth
+    if (m_obligations.top ()->level () == m_max_level &&
+        m_obligations.top()->depth() > m_min_depth) { return nullptr; }
+
+    /// there is something good in the queue
+    return m_obligations.top ().get ();
+}
+
+void pob_queue::set_root(pob& root)
+{
+    m_root = &root;
+    m_max_level = root.level ();
+    m_min_depth = root.depth ();
+    reset();
+}
+
+pob_queue::~pob_queue() {}
+
+void pob_queue::reset()
+{
+    while (!m_obligations.empty()) { m_obligations.pop(); }
+    if (m_root) { m_obligations.push(m_root); }
+}
+
+void pob_queue::push(pob &n) {
+    TRACE("pob_queue",
+          tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
+    m_obligations.push (&n);
+    n.get_context().new_pob_eh(&n);
+}
+
+// ----------------
+// derivation
+
+derivation::derivation (pob& parent, datalog::rule const& rule,
+                        expr *trans, app_ref_vector const &evars) :
+    m_parent (parent),
+    m_rule (rule),
+    m_premises (),
+    m_active (0),
+    m_trans (trans, m_parent.get_ast_manager ()),
+    m_evars (evars) {}
+
+
+
+void derivation::add_premise (pred_transformer &pt,
+                              unsigned oidx,
+                              expr* summary,
+                              bool must,
+                              const ptr_vector<app> *aux_vars)
+{m_premises.push_back (premise (pt, oidx, summary, must, aux_vars));}
+
+
+
+pob *derivation::create_first_child (model_evaluator_util &mev)
+{
+    if (m_premises.empty()) { return nullptr; }
+    m_active = 0;
+    return create_next_child(mev);
+}
+
+pob *derivation::create_next_child (model_evaluator_util &mev)
+{
+    timeit _timer (is_trace_enabled("spacer_timeit"),
+                   "spacer::derivation::create_next_child",
+                   verbose_stream ());
+
+    ast_manager &m = get_ast_manager ();
+    expr_ref_vector summaries (m);
+    app_ref_vector vars (m);
+
+    bool use_native_mbp = get_context ().use_native_mbp ();
+    bool ground = get_context ().use_ground_cti ();
+    // -- find first may premise
+    while (m_active < m_premises.size() && m_premises[m_active].is_must()) {
+        summaries.push_back (m_premises[m_active].get_summary ());
+        vars.append (m_premises[m_active].get_ovars ());
+        ++m_active;
+    }
+    if (m_active >= m_premises.size()) { return nullptr; }
+
+    // -- update m_trans with the pre-image of m_trans over the must summaries
+    summaries.push_back (m_trans);
+    m_trans = mk_and (summaries);
+    summaries.reset ();
+
+    if (!vars.empty()) {
+        timeit _timer1 (is_trace_enabled("spacer_timeit"),
+                        "create_next_child::qproject1",
+                        verbose_stream ());
+        qe_project (m, vars, m_trans, mev.get_model (), true, use_native_mbp, !ground);
+        //qe::reduce_array_selects (*mev.get_model (), m_trans);
+        // remember variables that need to be existentially quantified
+        m_evars.append (vars);
+    }
+
+    if (!mev.is_true (m_premises[m_active].get_summary())) {
+        IF_VERBOSE(1, verbose_stream() << "Summary unexpectendly not true\n";);
+        return nullptr;
+    }
+
+
+    // create the post condition by compute post-image over summaries
+    // that precede currently active premise
+    vars.reset ();
+    for (unsigned i = m_active + 1; i < m_premises.size(); ++i) {
+        summaries.push_back (m_premises [i].get_summary ());
+        vars.append (m_premises [i].get_ovars ());
+    }
+    summaries.push_back (m_trans);
+
+    expr_ref post(m);
+    post = mk_and (summaries);
+    summaries.reset ();
+    if (!vars.empty()) {
+        timeit _timer2 (is_trace_enabled("spacer_timeit"),
+                        "create_next_child::qproject2",
+                        verbose_stream ());
+        qe_project (m, vars, post, mev.get_model (), true, use_native_mbp, !ground);
+        //qe::reduce_array_selects (*mev.get_model (), post);
+
+        // remember variables that need to be existentially quantified
+        m_evars.append (vars);
+    }
+
+    get_manager ().formula_o2n (post.get (), post,
+                                m_premises [m_active].get_oidx (), m_evars.empty());
+
+
+    /* The level and depth are taken from the parent, not the sibling.
+       The reasoning is that the sibling has not been checked before,
+       and lower level is a better starting point. */
+    pob *n = m_premises[m_active].pt().mk_pob(&m_parent,
+                                              prev_level (m_parent.level ()),
+                                              m_parent.depth (), post, m_evars);
+
+    IF_VERBOSE (1, verbose_stream ()
+                << "\n\tcreate_child: " << n->pt ().head ()->get_name ()
+                << " (" << n->level () << ", " << n->depth () << ") "
+                << (n->use_farkas_generalizer () ? "FAR " : "SUB ")
+                << n->post ()->get_id ();
+                verbose_stream().flush (););
+    return n;
+}
+
+pob *derivation::create_next_child ()
+{
+    if (m_active + 1 >= m_premises.size()) { return nullptr; }
+
+    bool use_native_mbp = get_context ().use_native_mbp ();
+    bool ground = get_context ().use_ground_cti ();
+
+    // update the summary of the active node to some must summary
+
+    // construct a new model consistent with the must summary of m_active premise
+    pred_transformer &pt = m_premises[m_active].pt ();
+    model_ref model;
+
+    ast_manager &m = get_ast_manager ();
+    manager &pm = get_manager ();
+
+    expr_ref_vector summaries (m);
+
+    for (unsigned i = m_active + 1; i < m_premises.size (); ++i)
+    { summaries.push_back(m_premises [i].get_summary()); }
+
+    // -- orient transition relation towards m_active premise
+    expr_ref active_trans (m);
+    pm.formula_o2n (m_trans, active_trans,
+                    m_premises[m_active].get_oidx (), false);
+    summaries.push_back (active_trans);
+
+    // if not true, bail out, the must summary of m_active is not strong enough
+    // this is possible if m_post was weakened for some reason
+    if (!pt.is_must_reachable(mk_and(summaries), &model)) { return nullptr; }
+
+    model_evaluator_util mev (m);
+    mev.set_model (*model);
+    // find must summary used
+
+    reach_fact *rf = pt.get_used_reach_fact (mev, true);
+
+    // get an implicant of the summary
+    expr_ref_vector u(m), lits (m);
+    u.push_back (rf->get ());
+    compute_implicant_literals (mev, u, lits);
+    expr_ref v(m);
+    v = mk_and (lits);
+
+    // XXX The summary is not used by anyone after this point
+    m_premises[m_active].set_summary (v, true, &(rf->aux_vars ()));
+
+
+    /** HACK: needs a rewrite
+     * compute post over the new must summary this must be done here
+     * because the must summary is currently described over new
+     * variables. However, we store it over old-variables, but we do
+     * not update the model. So we must get rid of all of the
+     * new-variables at this point.
+     */
+    {
+        pred_transformer &pt = m_premises[m_active].pt ();
+        app_ref_vector vars (m);
+
+        summaries.reset ();
+        summaries.push_back (v);
+        summaries.push_back (active_trans);
+        m_trans = mk_and (summaries);
+
+        // variables to eliminate
+        vars.append (rf->aux_vars ().size (), rf->aux_vars ().c_ptr ());
+        for (unsigned i = 0, sz = pt.head ()->get_arity (); i < sz; ++i)
+        { vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); }
+
+        if (!vars.empty ()) {
+            qe_project (m, vars, m_trans, mev.get_model (), true, use_native_mbp,
+                        !ground);
+            // keep track of implicitly quantified variables
+            m_evars.append (vars);
+        }
+    }
+
+    m_active++;
+
+    return create_next_child (mev);
+}
+
+/// derivation::premise
+
+derivation::premise::premise (pred_transformer &pt, unsigned oidx,
+                              expr *summary, bool must,
+                              const ptr_vector<app> *aux_vars) :
+    m_pt (pt), m_oidx (oidx),
+    m_summary (summary, pt.get_ast_manager ()), m_must (must),
+    m_ovars (pt.get_ast_manager ())
+{
+
+    ast_manager &m = m_pt.get_ast_manager ();
+    manager &sm = m_pt.get_manager ();
+
+    unsigned sig_sz = m_pt.head ()->get_arity ();
+    for (unsigned i = 0; i < sig_sz; ++i)
+    { m_ovars.push_back(m.mk_const(sm.o2o(pt.sig(i), 0, m_oidx))); }
+
+    if (aux_vars)
+        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
+        { m_ovars.push_back(m.mk_const(sm.n2o(aux_vars->get(i)->get_decl(), m_oidx))); }
+}
+
+derivation::premise::premise (const derivation::premise &p) :
+    m_pt (p.m_pt), m_oidx (p.m_oidx), m_summary (p.m_summary), m_must (p.m_must),
+    m_ovars (p.m_ovars) {}
+
+/// \brief Updated the summary.
+/// The new summary is over n-variables.
+void derivation::premise::set_summary (expr * summary, bool must,
+                                       const ptr_vector<app> *aux_vars)
+{
+    ast_manager &m = m_pt.get_ast_manager ();
+    manager &sm = m_pt.get_manager ();
+    unsigned sig_sz = m_pt.head ()->get_arity ();
+
+    m_must = must;
+    sm.formula_n2o (summary, m_summary, m_oidx);
+
+    m_ovars.reset ();
+    for (unsigned i = 0; i < sig_sz; ++i)
+    { m_ovars.push_back(m.mk_const(sm.o2o(m_pt.sig(i), 0, m_oidx))); }
+
+    if (aux_vars)
+        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
+            m_ovars.push_back (m.mk_const (sm.n2o (aux_vars->get (i)->get_decl (),
+                                                   m_oidx)));
+}
+
+
+/// Lemma
+
+lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
+    m_ref_count(0), m(manager),
+    m_body(body, m), m_cube(m),
+    m_zks(m), m_bindings(m), m_lvl(lvl),
+    m_pob(nullptr), m_external(false) {
+    SASSERT(m_body);
+    normalize(m_body, m_body);
+}
+
+lemma::lemma(pob_ref const &p) :
+    m_ref_count(0), m(p->get_ast_manager()),
+    m_body(m), m_cube(m),
+    m_zks(m), m_bindings(m), m_lvl(p->level()),
+    m_pob(p), m_external(false) {
+    SASSERT(m_pob);
+    m_pob->get_skolems(m_zks);
+    add_binding(m_pob->get_binding());
+}
+
+lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
+    m_ref_count(0),
+    m(p->get_ast_manager()),
+    m_body(m), m_cube(m),
+    m_zks(m), m_bindings(m), m_lvl(p->level()),
+    m_pob(p), m_external(false)
+{
+    if (m_pob) {
+        m_pob->get_skolems(m_zks);
+        add_binding(m_pob->get_binding());
+    }
+    update_cube(p, cube);
+    set_level(lvl);
+}
+
+void lemma::add_skolem(app *zk, app *b) {
+    SASSERT(m_bindings.size() == m_zks.size());
+    // extend bindings
+    m_bindings.push_back(b);
+    // extend skolems
+    m_zks.push_back(zk);
+}
+
+
+void lemma::mk_expr_core() {
+    if (m_body) {return;}
+
+    if (m_pob) {mk_cube_core();}
+
+    SASSERT(!m_cube.empty());
+    m_body = ::push_not(::mk_and(m_cube));
+    normalize(m_body, m_body);
+
+    if (!m_zks.empty() && has_zk_const(m_body)) {
+            app_ref_vector zks(m);
+            zks.append(m_zks);
+            zks.reverse();
+            expr_abstract(m, 0,
+                          zks.size(), (expr* const*)zks.c_ptr(), m_body,
+                          m_body);
+            ptr_buffer<sort> sorts;
+            svector<symbol> names;
+            for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
+                sorts.push_back(get_sort(zks.get(i)));
+                names.push_back(zks.get(i)->get_decl()->get_name());
+            }
+            m_body = m.mk_quantifier(true, zks.size(),
+                                     sorts.c_ptr(),
+                                     names.c_ptr(),
+                                     m_body, 15, symbol(m_body->get_id()));
+    }
+    SASSERT(m_body);
+}
+void lemma::mk_cube_core() {
+    if (!m_cube.empty()) {return;}
+    expr_ref cube(m);
+    if (m_pob || m_body) {
+        if(m_pob) {cube = m_pob->post();}
+        else if (m_body) {
+            // no quantifiers for now
+            SASSERT(!is_quantifier(m_body));
+            cube = m_body;
+            cube = ::push_not(cube);
+        }
+        flatten_and(cube, m_cube);
+        if (m_cube.empty()) {
+            m_cube.push_back(m.mk_true());
+        }
+        else {
+            std::sort(m_cube.c_ptr(), m_cube.c_ptr() + m_cube.size(), ast_lt_proc());
+        }
+    }
+    else {
+        UNREACHABLE();
+    }
+}
+bool lemma::is_false() {
+    // a lemma is false if
+    // 1. it is defined by a cube, and the cube contains a single literal 'true'
+    // 2. it is defined by a body, and the body is a single literal false
+    // 3. it is defined by a pob, and the pob post is false
+    if (m_cube.size() == 1) {return m.is_true(m_cube.get(0));}
+    else if (m_body) {return m.is_false(m_body);}
+    else if (m_pob) {return m.is_true(m_pob->post());}
+
+    return false;
+}
+expr* lemma::get_expr() {
+    mk_expr_core();
+    return m_body;
+}
+expr_ref_vector const &lemma::get_cube() {
+    mk_cube_core();
+    return m_cube;
+}
+
+void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
+    SASSERT(m_pob);
+    SASSERT(m_pob.get() == p.get());
+    m_cube.reset();
+    m_body.reset();
+    m_cube.append(cube);
+    if (m_cube.empty()) {m_cube.push_back(m.mk_true());}
+
+    // after the cube is updated, if there are no skolems,
+    // convert the lemma to quantifier-free
+    bool is_quant = false;
+    for (unsigned i = 0, sz = cube.size(); !is_quant && i < sz; ++i) {
+        is_quant = has_zk_const(cube.get(i));
+    }
+
+    if (!is_quant) {
+        m_zks.reset();
+        m_bindings.reset();
+    }
+}
+
+bool lemma::has_binding(app_ref_vector const &binding) {
+    unsigned num_decls = m_zks.size();
+
+    SASSERT(binding.size() == num_decls);
+
+    if (num_decls == 0) return true;
+
+    for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
+        unsigned i = 0;
+        for (; i < num_decls; ++i) {
+            if (m_bindings.get(off + i) != binding.get(i)) {
+                break;
+            }
+        }
+        if (i == num_decls) return true;
+    }
+    return false;
+}
+void lemma::add_binding(app_ref_vector const &binding) {
+    if (!has_binding(binding)) {
+        m_bindings.append(binding);
+
+        TRACE("spacer",
+              tout << "new binding: ";
+              for (unsigned i = 0; i < binding.size(); i++)
+                  tout << mk_pp(binding.get(i), m) <<  " ";
+              tout << "\n";);
+    }
+}
+void lemma::instantiate(expr * const * exprs, expr_ref &result, expr *e) {
+    expr *lem = e == nullptr ? get_expr() : e;
+    if (!is_quantifier (lem) || m_bindings.empty()) {return;}
+
+    expr *body = to_quantifier(lem)->get_expr();
+    unsigned num_decls = to_quantifier(lem)->get_num_decls();
+    var_subst vs(m, false);
+    vs(body, num_decls, exprs, result);
+}
+
+void lemma::set_level (unsigned lvl) {
+    if(m_pob){m_pob->blocked_at(lvl);}
+    m_lvl = lvl;
+}
+
+
+void lemma::mk_insts(expr_ref_vector &out, expr* e)
+{
+    expr *lem = e == nullptr ? get_expr() : e;
+    if (!is_quantifier (lem) || m_bindings.empty()) {return;}
+
+    unsigned num_decls = to_quantifier(lem)->get_num_decls();
+    expr_ref inst(m);
+    for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
+        instantiate((expr * const *) m_bindings.c_ptr() + off, inst, e);
+        out.push_back(inst);
+        inst.reset();
+    }
+}
+
+
 // ----------------
 // pred_tansformer
 
@@ -303,9 +878,7 @@ void pred_transformer::remove_predecessors(expr_ref_vector& literals)
 }
 
 void pred_transformer::simplify_formulas()
-{
-    m_frames.simplify_formulas ();
-}
+{m_frames.simplify_formulas ();}
 
 
 expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms)
@@ -528,9 +1101,7 @@ expr_ref pred_transformer::get_reachable()
 }
 
 expr* pred_transformer::get_last_reach_case_var () const
-{
-    return m_reach_case_vars.empty () ? nullptr : m_reach_case_vars.back ();
-}
+{return m_reach_case_vars.empty () ? nullptr : m_reach_case_vars.back ();}
 
 expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
 {
@@ -1168,211 +1739,32 @@ void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, datalog::
 }
 
 void pred_transformer::inherit_properties(pred_transformer& other)
+{m_frames.inherit_frames (other.m_frames);}
+
+app* pred_transformer::extend_initial (expr *e)
 {
-    m_frames.inherit_frames (other.m_frames);
+    // create fresh extend literal
+    app_ref v(m);
+    std::stringstream name;
+    name << m_head->get_name() << "_ext";
+    v = m.mk_fresh_const (name.str ().c_str (),
+                          m.mk_bool_sort ());
+    v = m.mk_const (pm.get_n_pred (v->get_decl ()));
+
+    expr_ref ic(m);
+
+    // -- extend the initial condition
+    ic = m.mk_or (m_extend_lit, e, v);
+    m_solver.assert_expr (ic);
+
+    // -- remember the new extend literal
+    m_extend_lit = m.mk_not (v);
+
+    return m_extend_lit;
 }
 
 
-lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
-    m_ref_count(0), m(manager),
-    m_body(body, m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(lvl),
-    m_pob(nullptr), m_external(false) {
-    SASSERT(m_body);
-    normalize(m_body, m_body);
-}
-
-lemma::lemma(pob_ref const &p) :
-    m_ref_count(0), m(p->get_ast_manager()),
-    m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p), m_external(false) {
-    SASSERT(m_pob);
-    m_pob->get_skolems(m_zks);
-    add_binding(m_pob->get_binding());
-}
-
-lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
-    m_ref_count(0),
-    m(p->get_ast_manager()),
-    m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p), m_external(false)
-{
-    if (m_pob) {
-        m_pob->get_skolems(m_zks);
-        add_binding(m_pob->get_binding());
-    }
-    update_cube(p, cube);
-    set_level(lvl);
-}
-
-void lemma::add_skolem(app *zk, app *b) {
-    SASSERT(m_bindings.size() == m_zks.size());
-    // extend bindings
-    m_bindings.push_back(b);
-    // extend skolems
-    m_zks.push_back(zk);
-}
-
-
-void lemma::mk_expr_core() {
-    if (m_body) return;
-
-    if (m_pob) {
-        mk_cube_core();
-    }
-
-    SASSERT(!m_cube.empty());
-    m_body = ::push_not(::mk_and(m_cube));
-    normalize(m_body, m_body);
-
-    if (!m_zks.empty() && has_zk_const(m_body)) {
-            app_ref_vector zks(m);
-        zks.append(m_zks);
-            zks.reverse();
-            expr_abstract(m, 0,
-                          zks.size(), (expr* const*)zks.c_ptr(), m_body,
-                          m_body);
-            ptr_buffer<sort> sorts;
-            svector<symbol> names;
-            for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
-                sorts.push_back(get_sort(zks.get(i)));
-                names.push_back(zks.get(i)->get_decl()->get_name());
-            }
-            m_body = m.mk_quantifier(true, zks.size(),
-                                     sorts.c_ptr(),
-                                     names.c_ptr(),
-                                 m_body, 15, symbol(m_body->get_id()));
-    }
-    SASSERT(m_body);
-}
-void lemma::mk_cube_core() {
-    if (!m_cube.empty()) {return;}
-    expr_ref cube(m);
-    if (m_pob || m_body) {
-        if(m_pob) {
-            cube = m_pob->post();
-        }
-        else if (m_body) {
-            // no quantifiers for now
-            SASSERT(!is_quantifier(m_body));
-            cube = m_body;
-            cube = ::push_not(cube);
-        }
-        flatten_and(cube, m_cube);
-        if (m_cube.empty()) {
-            m_cube.push_back(m.mk_true());
-        }
-        else {
-            std::sort(m_cube.c_ptr(), m_cube.c_ptr() + m_cube.size(), ast_lt_proc());
-        }
-    }
-    else {
-        UNREACHABLE();
-    }
-}
-bool lemma::is_false() {
-    // a lemma is false if
-    // 1. it is defined by a cube, and the cube contains a single literal 'true'
-    // 2. it is defined by a body, and the body is a single literal false
-    // 3. it is defined by a pob, and the pob post is false
-    if (m_cube.size() == 1) {return m.is_true(m_cube.get(0));}
-    else if (m_body) {return m.is_false(m_body);}
-    else if (m_pob) {return m.is_true(m_pob->post());}
-
-    return false;
-}
-expr* lemma::get_expr() {
-    mk_expr_core();
-    return m_body;
-}
-expr_ref_vector const &lemma::get_cube() {
-    mk_cube_core();
-    return m_cube;
-}
-
-void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
-    SASSERT(m_pob);
-    SASSERT(m_pob.get() == p.get());
-    m_cube.reset();
-    m_body.reset();
-    m_cube.append(cube);
-    if (m_cube.empty()) {m_cube.push_back(m.mk_true());}
-
-    // after the cube is updated, if there are no skolems,
-    // convert the lemma to quantifier-free
-    bool is_quant = false;
-    for (unsigned i = 0, sz = cube.size(); !is_quant && i < sz; ++i) {
-        is_quant = has_zk_const(cube.get(i));
-    }
-
-    if (!is_quant) {
-        m_zks.reset();
-        m_bindings.reset();
-    }
-}
-
-bool lemma::has_binding(app_ref_vector const &binding) {
-    unsigned num_decls = m_zks.size();
-
-    SASSERT(binding.size() == num_decls);
-
-    if (num_decls == 0) return true;
-
-    for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
-        unsigned i = 0;
-        for (; i < num_decls; ++i) {
-            if (m_bindings.get(off + i) != binding.get(i)) {
-                break;
-            }
-        }
-        if (i == num_decls) return true;
-    }
-    return false;
-}
-void lemma::add_binding(app_ref_vector const &binding) {
-    if (!has_binding(binding)) {
-        m_bindings.append(binding);
-
-        TRACE("spacer",
-              tout << "new binding: ";
-              for (unsigned i = 0; i < binding.size(); i++)
-                  tout << mk_pp(binding.get(i), m) <<  " ";
-              tout << "\n";);
-    }
-}
-void lemma::instantiate(expr * const * exprs, expr_ref &result, expr *e) {
-    expr *lem = e == nullptr ? get_expr() : e;
-    if (!is_quantifier (lem) || m_bindings.empty()) {return;}
-
-    expr *body = to_quantifier(lem)->get_expr();
-    unsigned num_decls = to_quantifier(lem)->get_num_decls();
-    var_subst vs(m, false);
-    vs(body, num_decls, exprs, result);
-}
-
-void lemma::set_level (unsigned lvl) {
-    if(m_pob){
-        m_pob->blocked_at(lvl);
-    }
-    m_lvl = lvl;
-}
-
-
-void lemma::mk_insts(expr_ref_vector &out, expr* e)
-{
-    expr *lem = e == nullptr ? get_expr() : e;
-    if (!is_quantifier (lem) || m_bindings.empty()) {return;}
-
-    unsigned num_decls = to_quantifier(lem)->get_num_decls();
-    expr_ref inst(m);
-    for (unsigned off = 0, sz = m_bindings.size(); off < sz; off += num_decls) {
-        instantiate((expr * const *) m_bindings.c_ptr() + off, inst, e);
-        out.push_back(inst);
-        inst.reset();
-    }
-}
+/// pred_transformer::frames
 
 
 bool pred_transformer::frames::add_lemma(lemma *lem)
@@ -1575,6 +1967,8 @@ void pred_transformer::frames::simplify_formulas ()
     }
 }
 
+/// pred_transformer::pobs
+
 pob* pred_transformer::pobs::mk_pob(pob *parent,
                                     unsigned level, unsigned depth,
                                     expr *post, app_ref_vector const &b) {
@@ -1615,400 +2009,8 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
     return n;
 }
 
-app* pred_transformer::extend_initial (expr *e)
-{
-    // create fresh extend literal
-    app_ref v(m);
-    std::stringstream name;
-    name << m_head->get_name() << "_ext";
-    v = m.mk_fresh_const (name.str ().c_str (),
-                          m.mk_bool_sort ());
-    v = m.mk_const (pm.get_n_pred (v->get_decl ()));
 
-    expr_ref ic(m);
 
-    // -- extend the initial condition
-    ic = m.mk_or (m_extend_lit, e, v);
-    m_solver.assert_expr (ic);
-
-    // -- remember the new extend literal
-    m_extend_lit = m.mk_not (v);
-
-    return m_extend_lit;
-}
-
-
-// ----------------
-// derivation
-
-derivation::derivation (pob& parent, datalog::rule const& rule,
-                        expr *trans, app_ref_vector const &evars) :
-    m_parent (parent),
-    m_rule (rule),
-    m_premises (),
-    m_active (0),
-    m_trans (trans, m_parent.get_ast_manager ()),
-    m_evars (evars) {}
-
-derivation::premise::premise (pred_transformer &pt, unsigned oidx,
-                              expr *summary, bool must,
-                              const ptr_vector<app> *aux_vars) :
-    m_pt (pt), m_oidx (oidx),
-    m_summary (summary, pt.get_ast_manager ()), m_must (must),
-    m_ovars (pt.get_ast_manager ())
-{
-
-    ast_manager &m = m_pt.get_ast_manager ();
-    manager &sm = m_pt.get_manager ();
-
-    unsigned sig_sz = m_pt.head ()->get_arity ();
-    for (unsigned i = 0; i < sig_sz; ++i)
-    { m_ovars.push_back(m.mk_const(sm.o2o(pt.sig(i), 0, m_oidx))); }
-
-    if (aux_vars)
-        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
-        { m_ovars.push_back(m.mk_const(sm.n2o(aux_vars->get(i)->get_decl(), m_oidx))); }
-}
-
-derivation::premise::premise (const derivation::premise &p) :
-    m_pt (p.m_pt), m_oidx (p.m_oidx), m_summary (p.m_summary), m_must (p.m_must),
-    m_ovars (p.m_ovars) {}
-
-/// \brief Updated the summary.
-/// The new summary is over n-variables.
-void derivation::premise::set_summary (expr * summary, bool must,
-                                       const ptr_vector<app> *aux_vars)
-{
-    ast_manager &m = m_pt.get_ast_manager ();
-    manager &sm = m_pt.get_manager ();
-    unsigned sig_sz = m_pt.head ()->get_arity ();
-
-    m_must = must;
-    sm.formula_n2o (summary, m_summary, m_oidx);
-
-    m_ovars.reset ();
-    for (unsigned i = 0; i < sig_sz; ++i)
-    { m_ovars.push_back(m.mk_const(sm.o2o(m_pt.sig(i), 0, m_oidx))); }
-
-    if (aux_vars)
-        for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
-            m_ovars.push_back (m.mk_const (sm.n2o (aux_vars->get (i)->get_decl (),
-                                                   m_oidx)));
-}
-
-
-void derivation::add_premise (pred_transformer &pt,
-                              unsigned oidx,
-                              expr* summary,
-                              bool must,
-                              const ptr_vector<app> *aux_vars)
-{m_premises.push_back (premise (pt, oidx, summary, must, aux_vars));}
-
-
-
-pob *derivation::create_first_child (model_evaluator_util &mev)
-{
-    if (m_premises.empty()) { return nullptr; }
-    m_active = 0;
-    return create_next_child(mev);
-}
-
-pob *derivation::create_next_child (model_evaluator_util &mev)
-{
-    timeit _timer (is_trace_enabled("spacer_timeit"),
-                   "spacer::derivation::create_next_child",
-                   verbose_stream ());
-
-    ast_manager &m = get_ast_manager ();
-    expr_ref_vector summaries (m);
-    app_ref_vector vars (m);
-
-    bool use_native_mbp = get_context ().use_native_mbp ();
-    bool ground = get_context ().use_ground_cti ();
-    // -- find first may premise
-    while (m_active < m_premises.size() && m_premises[m_active].is_must()) {
-        summaries.push_back (m_premises[m_active].get_summary ());
-        vars.append (m_premises[m_active].get_ovars ());
-        ++m_active;
-    }
-    if (m_active >= m_premises.size()) { return nullptr; }
-
-    // -- update m_trans with the pre-image of m_trans over the must summaries
-    summaries.push_back (m_trans);
-    m_trans = mk_and (summaries);
-    summaries.reset ();
-
-    if (!vars.empty()) {
-        timeit _timer1 (is_trace_enabled("spacer_timeit"),
-                        "create_next_child::qproject1",
-                        verbose_stream ());
-        qe_project (m, vars, m_trans, mev.get_model (), true, use_native_mbp, !ground);
-        //qe::reduce_array_selects (*mev.get_model (), m_trans);
-        // remember variables that need to be existentially quantified
-        m_evars.append (vars);
-    }
-
-    if (!mev.is_true (m_premises[m_active].get_summary())) {
-        IF_VERBOSE(1, verbose_stream() << "Summary unexpectendly not true\n";);
-        return nullptr;
-    }
-
-
-    // create the post condition by compute post-image over summaries
-    // that precede currently active premise
-    vars.reset ();
-    for (unsigned i = m_active + 1; i < m_premises.size(); ++i) {
-        summaries.push_back (m_premises [i].get_summary ());
-        vars.append (m_premises [i].get_ovars ());
-    }
-    summaries.push_back (m_trans);
-
-    expr_ref post(m);
-    post = mk_and (summaries);
-    summaries.reset ();
-    if (!vars.empty()) {
-        timeit _timer2 (is_trace_enabled("spacer_timeit"),
-                        "create_next_child::qproject2",
-                        verbose_stream ());
-        qe_project (m, vars, post, mev.get_model (), true, use_native_mbp, !ground);
-        //qe::reduce_array_selects (*mev.get_model (), post);
-
-        // remember variables that need to be existentially quantified
-        m_evars.append (vars);
-    }
-
-    get_manager ().formula_o2n (post.get (), post,
-                                m_premises [m_active].get_oidx (), m_evars.empty());
-
-
-    /* The level and depth are taken from the parent, not the sibling.
-       The reasoning is that the sibling has not been checked before,
-       and lower level is a better starting point. */
-    pob *n = m_premises[m_active].pt().mk_pob(&m_parent,
-                                              prev_level (m_parent.level ()),
-                                              m_parent.depth (), post, m_evars);
-
-    IF_VERBOSE (1, verbose_stream ()
-                << "\n\tcreate_child: " << n->pt ().head ()->get_name ()
-                << " (" << n->level () << ", " << n->depth () << ") "
-                << (n->use_farkas_generalizer () ? "FAR " : "SUB ")
-                << n->post ()->get_id ();
-                verbose_stream().flush (););
-    return n;
-}
-
-pob *derivation::create_next_child ()
-{
-    if (m_active + 1 >= m_premises.size()) { return nullptr; }
-
-    bool use_native_mbp = get_context ().use_native_mbp ();
-    bool ground = get_context ().use_ground_cti ();
-
-    // update the summary of the active node to some must summary
-
-    // construct a new model consistent with the must summary of m_active premise
-    pred_transformer &pt = m_premises[m_active].pt ();
-    model_ref model;
-
-    ast_manager &m = get_ast_manager ();
-    manager &pm = get_manager ();
-
-    expr_ref_vector summaries (m);
-
-    for (unsigned i = m_active + 1; i < m_premises.size (); ++i)
-    { summaries.push_back(m_premises [i].get_summary()); }
-
-    // -- orient transition relation towards m_active premise
-    expr_ref active_trans (m);
-    pm.formula_o2n (m_trans, active_trans,
-                    m_premises[m_active].get_oidx (), false);
-    summaries.push_back (active_trans);
-
-    // if not true, bail out, the must summary of m_active is not strong enough
-    // this is possible if m_post was weakened for some reason
-    if (!pt.is_must_reachable(mk_and(summaries), &model)) { return nullptr; }
-
-    model_evaluator_util mev (m);
-    mev.set_model (*model);
-    // find must summary used
-
-    reach_fact *rf = pt.get_used_reach_fact (mev, true);
-
-    // get an implicant of the summary
-    expr_ref_vector u(m), lits (m);
-    u.push_back (rf->get ());
-    compute_implicant_literals (mev, u, lits);
-    expr_ref v(m);
-    v = mk_and (lits);
-
-    // XXX The summary is not used by anyone after this point
-    m_premises[m_active].set_summary (v, true, &(rf->aux_vars ()));
-
-
-    /** HACK: needs a rewrite
-     * compute post over the new must summary this must be done here
-     * because the must summary is currently described over new
-     * variables. However, we store it over old-variables, but we do
-     * not update the model. So we must get rid of all of the
-     * new-variables at this point.
-     */
-    {
-        pred_transformer &pt = m_premises[m_active].pt ();
-        app_ref_vector vars (m);
-
-        summaries.reset ();
-        summaries.push_back (v);
-        summaries.push_back (active_trans);
-        m_trans = mk_and (summaries);
-
-        // variables to eliminate
-        vars.append (rf->aux_vars ().size (), rf->aux_vars ().c_ptr ());
-        for (unsigned i = 0, sz = pt.head ()->get_arity (); i < sz; ++i)
-        { vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); }
-
-        if (!vars.empty ()) {
-            qe_project (m, vars, m_trans, mev.get_model (), true, use_native_mbp,
-                        !ground);
-            // keep track of implicitly quantified variables
-            m_evars.append (vars);
-        }
-    }
-
-    m_active++;
-
-    return create_next_child (mev);
-}
-
-pob::pob (pob* parent, pred_transformer& pt,
-          unsigned level, unsigned depth, bool add_to_parent):
-    m_ref_count (0),
-    m_parent (parent), m_pt (pt),
-    m_post (m_pt.get_ast_manager ()),
-    m_binding(m_pt.get_ast_manager()),
-    m_new_post (m_pt.get_ast_manager ()),
-    m_level (level), m_depth (depth),
-    m_open (true), m_use_farkas (true), m_weakness(0),
-    m_blocked_lvl(0) {
-    if(add_to_parent && m_parent) {
-        m_parent->add_child(*this);
-    }
-}
-
-
-void pob::set_post(expr* post) {
-    app_ref_vector b(get_ast_manager());
-    set_post(post, b);
-}
-
-void pob::set_post(expr* post, app_ref_vector const &b) {
-    normalize(post, m_post,
-              m_pt.get_context().get_params().spacer_simplify_pob(),
-              m_pt.get_context().get_params().spacer_use_eqclass());
-
-    m_binding.reset();
-    if (b.empty()) return;
-
-    m_binding.append(b);
-
-    std::sort (m_binding.c_ptr(), m_binding.c_ptr() + m_binding.size(), sk_lt_proc());
-
-    // skolemize implicit existential quantifier
-    ast_manager &m = get_ast_manager();
-    app_ref_vector pinned(m);
-
-    expr_safe_replace sub(m);
-    for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
-        expr* e;
-        e = m_binding.get(i);
-        pinned.push_back (mk_zk_const (m, i, get_sort(e)));
-        sub.insert (e, pinned.back());
-    }
-    sub(m_post);
-}
-
-void pob::inherit(pob const &p) {
-    SASSERT(m_parent == p.m_parent);
-    SASSERT(&m_pt == &p.m_pt);
-    SASSERT(m_post == p.m_post);
-    SASSERT(!m_new_post);
-
-    m_binding.reset();
-    m_binding.append(p.m_binding);
-
-    m_level = p.m_level;
-    m_depth = p.m_depth;
-    m_open = p.m_open;
-    m_use_farkas = p.m_use_farkas;
-    m_weakness = p.m_weakness;
-
-    m_derivation = nullptr;
-}
-
-void pob::clean () {
-    if(m_new_post) {
-        m_post = m_new_post;
-        m_new_post.reset();
-    }
-}
-
-void pob::close () {
-    if(!m_open) { return; }
-
-    reset ();
-    m_open = false;
-    for (unsigned i = 0, sz = m_kids.size (); i < sz; ++i)
-    { m_kids [i]->close(); }
-}
-
-void pob::get_skolems(app_ref_vector &v) {
-    for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
-        expr* e;
-        e = m_binding.get(i);
-        v.push_back (mk_zk_const (get_ast_manager(), i, get_sort(e)));
-    }
-}
-
-
-
-// ----------------
-// pob_queue
-
-pob* pob_queue::top ()
-{
-    /// nothing in the queue
-    if (m_obligations.empty()) { return nullptr; }
-    /// top queue element is above max level
-    if (m_obligations.top()->level() > m_max_level) { return nullptr; }
-    /// top queue element is at the max level, but at a higher than base depth
-    if (m_obligations.top ()->level () == m_max_level &&
-        m_obligations.top()->depth() > m_min_depth) { return nullptr; }
-
-    /// there is something good in the queue
-    return m_obligations.top ().get ();
-}
-
-void pob_queue::set_root(pob& root)
-{
-    m_root = &root;
-    m_max_level = root.level ();
-    m_min_depth = root.depth ();
-    reset();
-}
-
-pob_queue::~pob_queue() {}
-
-void pob_queue::reset()
-{
-    while (!m_obligations.empty()) { m_obligations.pop(); }
-    if (m_root) { m_obligations.push(m_root); }
-}
-
-void pob_queue::push(pob &n) {
-    TRACE("pob_queue",
-          tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
-    m_obligations.push (&n);
-    n.get_context().new_pob_eh(&n);
-}
 
 // ----------------
 // context
@@ -3715,6 +3717,7 @@ bool context::is_inductive() {
     return false;
 }
 
+/// pob_lt operator
 inline bool pob_lt::operator() (const pob *pn1, const pob *pn2) const
 {
     SASSERT (pn1);
