@@ -65,14 +65,20 @@ public:
             initialize_row(i);
         std::cout << "m_A = "; m_A.print(std::cout, 6);
     }
+
+    void find_h_minus_1_b() {
+    }
     
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         init_matrix_A();
-        unsigned rank;
-        mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, rank); 
-        hnf<general_matrix> h(m_A, d, rank);
+        svector<unsigned> basis_rows;
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
+        if (basis_rows.size() < m_A.row_count())
+            m_A.shrink_to_rank(basis_rows);
+        
+        hnf<general_matrix> h(m_A, d);
         std::cout << "hnf = "; h.W().print(std::cout, 6);
-        //if (rank == 
+        find_h_minus_1_b();
         return lia_move::undef;
     }
 };

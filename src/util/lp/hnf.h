@@ -104,7 +104,7 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
 
 
 
-template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
+template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r, svector<unsigned> & basis_rows) {
     lp_assert(m.row_count() <= m.column_count());
     for (unsigned i = r; i < m.row_count(); i++) {
         for (unsigned j = r; j < m.column_count(); j++) {
@@ -112,6 +112,7 @@ template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
                 if (i != r) {
                     m.transpose_rows(i, r);
                 }
+                basis_rows.push_back(i);
                 if (j != r) {
                     m.transpose_columns(j, r);
                 }
@@ -137,12 +138,12 @@ template <typename M> void pivot_column_non_fractional(M &m, unsigned & r) {
 }
 
 // returns the rank of the matrix
-template <typename M> unsigned to_lower_triangle_non_fractional(M &m) {
+template <typename M> void to_lower_triangle_non_fractional(M &m, svector<unsigned> & basis_rows ) {
     lp_assert(m.row_count() <= m.column_count());
     unsigned i = 0;
     for (; i < m.row_count() - 1; i++) {
-        if (!prepare_pivot_for_lower_triangle(m, i)) {
-            return i;
+        if (!prepare_pivot_for_lower_triangle(m, i, basis_rows)) {
+            return;
         }
         pivot_column_non_fractional(m, i);
     }
@@ -150,10 +151,10 @@ template <typename M> unsigned to_lower_triangle_non_fractional(M &m) {
     // go over the last row and try to find a non-zero in the row to the right of diagonal
     for (unsigned j = i; j < m.column_count(); j++) {
         if (!is_zero(m[i][j])) {
-            return m.row_count();
+            basis_rows.push_back(i);
+            break;
         }
     }
-    return i;
 }
 template <typename M>
 mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
@@ -173,8 +174,8 @@ mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
 }
 
 
-// it returns "r" - the rank of the matrix and the gcd of r-minors
-template <typename M> mpq determinant_of_rectangular_matrix(const M& m, unsigned & r) {
+// it fills "r" - the basic rows of m
+template <typename M> mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows) {
     if (m.column_count() < m.row_count())
         throw "not implemented"; // consider working with the transposed m, or create a "transposed" version if needed
     // The plan is to transform m to the lower triangular form by using non-fractional Gaussian Elimination by columns.
@@ -182,19 +183,18 @@ template <typename M> mpq determinant_of_rectangular_matrix(const M& m, unsigned
     // m[r-1][r-1], m[r-1][r], ..., m[r-1]m[m.column_count() - 1] give the determinants of all minors of rank r.
     // The gcd of these minors is the return value
     auto mc = m;
-    r = to_lower_triangle_non_fractional(mc);
-    if (r == 0)
+    to_lower_triangle_non_fractional(mc, basis_rows);
+    if (basis_rows.size() == 0)
         return one_of_type<mpq>();
-    lp_assert(!is_zero(gcd_of_row_starting_from_diagonal(mc, r - 1)));
-    return gcd_of_row_starting_from_diagonal(mc, r - 1);
+    return gcd_of_row_starting_from_diagonal(mc, basis_rows.size() - 1);
 }
 
 template <typename M> mpq determinant(const M& m) {
     lp_assert(m.row_count() == m.column_count());
     auto mc = m;
-    unsigned r;
-    mpq d = determinant_of_rectangular_matrix(mc, r);
-    return r < m.row_count() ? zero_of_type<mpq>() : d;
+    svector<unsigned> basis_rows;
+    mpq d = determinant_of_rectangular_matrix(mc, basis_rows);
+    return basis_rows.size() < m.row_count() ? zero_of_type<mpq>() : d;
 }
 
 } // end of namespace hnf_calc
@@ -215,7 +215,7 @@ class hnf {
     unsigned     m_m;
     unsigned     m_n;
     mpq          m_d; // it is a positive number and a multiple of gcd of r-minors of m_A_orig, where r is the rank of m_A_orig
-    mpq          m_r; // the rank of m_A
+    //  we suppose that the rank of m_A is equal to row_count(), and that row_count() <= column_count(), that is m_A has the full rank
     unsigned     m_i;
     unsigned     m_j;
     mpq          m_R;
@@ -545,13 +545,9 @@ private:
     void fix_row_under_diagonal_W_modulo() {
         mpq d, u, v;
         if (is_zero(m_W[m_i][m_i])) {
-            if (m_i < m_r) {
-                m_W[m_i][m_i] = m_R;
-                u = one_of_type<mpq>();
-                d = m_R;
-            } else {
-                return;
-            }
+            m_W[m_i][m_i] = m_R;
+            u = one_of_type<mpq>();
+            d = m_R;
         } else {
             hnf_calc::extended_gcd_minimal_uv(m_W[m_i][m_i], m_R, d, u, v);
         }
@@ -590,8 +586,6 @@ private:
     void calculate_by_modulo() {
         for (m_i = 0; m_i < m_m; m_i ++) {
             process_row_modulo();
-            if (is_zero(m_W[m_i][m_i]))
-                continue;
             lp_assert(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
             lp_assert(is_int(m_R));
@@ -600,7 +594,7 @@ private:
     }
     
 public:
-    hnf(M & A, const mpq & d, unsigned r) :
+    hnf(M & A, const mpq & d) :
 #ifdef Z3DEBUG
         m_H(A),
 #endif
@@ -610,12 +604,10 @@ public:
         m_m(A.row_count()),
         m_n(A.column_count()),
         m_d(d),
-        m_r(r),
         m_R(m_d),
         m_half_R(floor(m_R / 2))
     {
-        lp_assert(m_m > 0 && m_n > 0);
-        if (is_zero(m_d))
+        if (m_m == 0 || m_n == 0 || is_zero(m_d))
             return;
 #ifdef Z3DEBUG
         prepare_U_and_U_reverse();

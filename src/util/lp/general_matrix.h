@@ -50,7 +50,7 @@ public:
 
     
     unsigned row_count() const { return m_data.size(); }
-    unsigned column_count() const { return m_data[0].size(); }
+    unsigned column_count() const { return m_data.size() > 0? m_data[0].size() : 0; }
 
     class ref_row {
         general_matrix& m_matrix;
@@ -206,6 +206,14 @@ public:
         for (auto& v : m_data){
             v.resize(n);
         }
+    }
+
+    void shrink_to_rank(const svector<unsigned>& basis_rows) {
+        if (basis_rows.size() == row_count()) return;
+        vector<vector<mpq>> data; // todo : not efficient code
+        for (unsigned i : basis_rows)
+            data.push_back(m_data[i]);
+        m_data = data;
     }
     
 };
