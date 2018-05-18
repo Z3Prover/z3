@@ -627,7 +627,7 @@ public:
 #endif
     }
 
-
+    const M & W() const { return m_W; }
     
 };
 

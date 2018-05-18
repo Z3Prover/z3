@@ -57,13 +57,21 @@ public:
     void initialize_row(unsigned i) {
         m_A.init_row_from_container(i, * m_terms[i]);
     }
-    
-    lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
+
+    void init_matrix_A() {
         m_A = general_matrix(m_row_count, m_column_count); // use the last suitable counts to make the number
         // of rows less than or equal to the number of columns
         for (unsigned i = 0; i < m_row_count; i++)
             initialize_row(i);
         std::cout << "m_A = "; m_A.print(std::cout, 6);
+    }
+    
+    lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
+        init_matrix_A();
+        unsigned rank;
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, rank); 
+        hnf<general_matrix> h(m_A, d, rank);
+        std::cout << "hnf = "; h.W().print(std::cout, 6);
         return lia_move::undef;
     }
 };
