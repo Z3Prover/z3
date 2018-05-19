@@ -431,7 +431,8 @@ struct poly_rewriter<Config>::hoist_cmul_lt {
     hoist_cmul_lt(poly_rewriter<Config> & r):m_r(r) {}
 
     bool operator()(expr * t1, expr * t2) const {
-        expr * pp1, * pp2;
+        expr * pp1 = nullptr;
+        expr * pp2 = nullptr;
         numeral c1, c2;
         bool is_mul1 = m_r.is_mul(t1, c1, pp1);
         bool is_mul2 = m_r.is_mul(t2, c2, pp2);

@@ -1423,9 +1423,9 @@ namespace smt {
         //     len(hd) = i
         //     str.indexof(tl, N, 0)
 
-        expr * H; // "haystack"
-        expr * N; // "needle"
-        expr * i; // start index
+        expr * H = nullptr; // "haystack"
+        expr * N = nullptr; // "needle"
+        expr * i = nullptr; // start index
         u.str.is_index(e, H, N, i);
 
         expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
@@ -6951,8 +6951,8 @@ namespace smt {
         ast_manager & m = get_manager();
 
         expr_ref_vector rhs(m);
-        expr * str;
-        expr * re;
+        expr * str = nullptr;
+        expr * re = nullptr;
         u.str.is_in_re(str_in_re, str, re);
         expr_ref strlen(mk_strlen(str), m);
 
@@ -9929,8 +9929,8 @@ namespace smt {
             bool regex_axiom_add = false;
             for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
                 expr * str_in_re = *it;
-                expr * str;
-                expr * re;
+                expr * str = nullptr;
+                expr * re = nullptr;
                 u.str.is_in_re(str_in_re, str, re);
                 lbool current_assignment = ctx.get_assignment(str_in_re);
                 TRACE("str", tout << "regex term: " << mk_pp(str, m) << " in " << mk_pp(re, m) << " : " << current_assignment << std::endl;);
@@ -9944,7 +9944,7 @@ namespace smt {
 
                         if (regex_term_to_length_constraint.contains(str_in_re)) {
                             // use existing length constraint
-                            expr * top_level_length_constraint;
+                            expr * top_level_length_constraint = nullptr;
                             regex_term_to_length_constraint.find(str_in_re, top_level_length_constraint);
 
                             ptr_vector<expr> extra_length_vars;
@@ -10473,8 +10473,8 @@ namespace smt {
                 // that's consistent with the current length information
                 for (ptr_vector<expr>::iterator term_it = str_in_re_terms.begin();
                         term_it != str_in_re_terms.end(); ++term_it) {
-                    expr * _unused;
-                    expr * re;
+                    expr * _unused = nullptr;
+                    expr * re = nullptr;
                     SASSERT(u.str.is_in_re(*term_it));
                     u.str.is_in_re(*term_it, _unused, re);
 
