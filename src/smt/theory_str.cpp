@@ -6768,7 +6768,7 @@ namespace smt {
         expr * sub2;
         if (u.re.is_to_re(re, sub1)) {
             SASSERT(u.str.is_string(sub1));
-            zstring(str);
+            zstring str;
             u.str.is_string(sub1, str);
             lens.insert(str.length());
         } else if (u.re.is_concat(re, sub1, sub2)) {
