@@ -13,7 +13,10 @@ def calculate(x, n, ctx):
     assert x.ctx == ctx
     assert x.ctx != main_ctx()
 
+    # Parallel creation of z3 object
     condition = And(x < 2, x > n, ctx)
+
+    # Parallel solving
     solver = Solver(ctx=ctx)
     solver.add(condition)
     solver.check()
