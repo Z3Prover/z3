@@ -30,7 +30,7 @@ class hnf_cutter {
     var_register m_var_register;
     general_matrix m_A;
     vector<const lar_term*> m_terms;
-    vector<mpq> m_rigth_sides;
+    vector<mpq> m_right_sides;
     unsigned m_row_count;
     unsigned m_column_count;
 public:
@@ -43,7 +43,7 @@ public:
         for (const auto &p : *t) {
             m_var_register.add_var(p.var());
         }
-        m_rigth_sides.push_back(rs);
+        m_right_sides.push_back(rs);
         if (m_terms.size() <= m_var_register.size()) { // capture the maximal acceptable sizes
             m_row_count = m_terms.size();
             m_column_count = m_var_register.size();
@@ -66,7 +66,25 @@ public:
         std::cout << "m_A = "; m_A.print(std::cout, 6);
     }
 
-    void find_h_minus_1_b() {
+    // todo: as we need only one row i with non integral b[i] need to optimize later
+    void find_h_minus_1_b(const general_matrix& H, vector<mpq> & b) {
+        // the solution will be put into b
+        for (unsigned i = 0; i < H.row_count() ;i++) {
+            for (unsigned j = 0; j < i; j++) {
+                b[i] -= H[i][j]*b[j];
+            }
+            b[i] /= H[i][i];
+            // consider return from here if b[i] is not an integer and return i
+        }
+    }
+
+    vector<mpq> create_b(const svector<unsigned> & basis_rows) {
+        if (basis_rows.size() == m_right_sides.size())
+            return m_right_sides;
+        vector<mpq> b;
+        for (unsigned i : basis_rows)
+            b.push_back(m_right_sides[i]);
+        return b;
     }
     
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
@@ -78,7 +96,11 @@ public:
         
         hnf<general_matrix> h(m_A, d);
         std::cout << "hnf = "; h.W().print(std::cout, 6);
-        find_h_minus_1_b();
+        
+        vector<mpq> b = create_b(basis_rows);
+        vector<mpq> bcopy = b;
+        find_h_minus_1_b(h.W(), b);
+        lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         return lia_move::undef;
     }
 };

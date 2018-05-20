@@ -215,6 +215,18 @@ public:
             data.push_back(m_data[i]);
         m_data = data;
     }
+
+    // used for debug only
+    general_matrix take_first_n_columns(unsigned n) const {
+        lp_assert(n <= column_count());
+        if (n == column_count())
+            return *this;
+        general_matrix ret(row_count(), n);
+        for (unsigned i = 0; i < row_count(); i++)
+            for (unsigned j = 0; j < n; j++)
+                ret[i][j] = (*this)[i][j];
+        return ret;
+    }
     
 };
 }
