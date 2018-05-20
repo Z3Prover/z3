@@ -44,6 +44,7 @@ public:
 
     void operator()(expr * t, expr_ref & r);
     expr_ref operator()(expr* t);
+    expr_ref_vector operator()(expr_ref_vector const& ts);
 
     // exception safe
     bool eval(expr* t, expr_ref& r, bool model_completion = true);
@@ -52,6 +53,11 @@ public:
     bool is_true(expr * t);
     bool is_false(expr * t);
     bool is_true(expr_ref_vector const& ts);
+
+    /**
+     * best effort evaluator of extensional array equality.
+     */
+    expr_ref eval_array_eq(app* e, expr* arg1, expr* arg2);
 
     void cleanup(params_ref const & p = params_ref());
     void reset(params_ref const & p = params_ref());

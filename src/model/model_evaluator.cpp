@@ -53,6 +53,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool                            m_model_completion;
     bool                            m_cache;
     bool                            m_array_equalities;
+    bool                            m_array_as_stores;
 
     evaluator_cfg(ast_manager & m, model_core & md, params_ref const & p):
         m(m),
@@ -87,6 +88,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_model_completion = p.completion();
         m_cache            = p.cache();
         m_array_equalities = p.array_equalities();
+        m_array_as_stores  = p.array_as_stores();
     }
 
     bool evaluate(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -196,20 +198,22 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (evaluate(a->get_decl(), a->get_num_args(), a->get_args(), result)) {
                 return BR_REWRITE1;
             }
+            if (false && m_array_as_stores && m_ar.is_array(result)) {
+                expand_stores(result);
+            }
         }
         CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         return st;
     }
 
-    void expand_value(expr_ref& val) {
+    void expand_stores(expr_ref& val) {
         vector<expr_ref_vector> stores;
         expr_ref else_case(m);
         bool _unused;
         if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, _unused)) {
             sort* srt = m.get_sort(val);
             val = m_ar.mk_const_array(srt, else_case);
-            for (unsigned i = stores.size(); i > 0; ) {
-                --i;
+            for (unsigned i = stores.size(); i-- > 0; ) {
                 expr_ref_vector args(m);
                 args.push_back(val);
                 args.append(stores[i].size(), stores[i].c_ptr());
@@ -287,7 +291,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     bool cache_results() const { return m_cache; }
-
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
         if (a == b) {
@@ -497,9 +500,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
         TRACE("model_evaluator", tout << "else case: " << mk_pp(else_case, m) << "\n";);
         return true;
     }
-
-
-
 };
 
 template class rewriter_tpl<evaluator_cfg>;
@@ -513,10 +513,7 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
         m_cfg(md.get_manager(), md, p) {
         set_cancel_check(false);
     }
-
-    void expand_value (expr_ref &val) {
-        m_cfg.expand_value (val);
-    }
+    void expand_stores(expr_ref &val) {m_cfg.expand_stores(val);}
 };
 
 model_evaluator::model_evaluator(model_core & md, params_ref const & p) {
@@ -571,7 +568,7 @@ void model_evaluator::reset(model_core &model, params_ref const& p) {
 void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
-    m_imp->expand_value(result);
+    m_imp->expand_stores(result);
 }
 
 expr_ref model_evaluator::operator()(expr * t) {
@@ -580,6 +577,13 @@ expr_ref model_evaluator::operator()(expr * t) {
     this->operator()(t, result);
     return result;
 }
+
+expr_ref_vector model_evaluator::operator()(expr_ref_vector const& ts) {
+    expr_ref_vector rs(m());
+    for (expr* t : ts) rs.push_back((*this)(t));
+    return rs;
+}
+
 
 bool model_evaluator::is_true(expr* t) {
     expr_ref tmp(m());
@@ -601,12 +605,12 @@ bool model_evaluator::eval(expr* t, expr_ref& r, bool model_completion) {
     try {
         r = (*this)(t);
         return true;
-    } 
+    }
     catch (model_evaluator_exception &ex) {
         (void)ex;
         TRACE("model_evaluator", tout << ex.msg () << "\n";);
         return false;
-    }    
+    }
 }
 
 bool model_evaluator::eval(expr_ref_vector const& ts, expr_ref& r, bool model_completion) {
@@ -614,6 +618,3 @@ bool model_evaluator::eval(expr_ref_vector const& ts, expr_ref& r, bool model_co
     tmp = mk_and(ts);
     return eval(tmp, r, model_completion);
 }
-
-
-
