@@ -664,8 +664,8 @@ public:
             
             // project arrays
             if (!array_vars.empty()) {
-                NOT_IMPLEMENTED_YET();
-                // qe::array_project (mdl, array_vars, fml, vars, m_reduce_all_selects);
+                qe::array_project_plugin ap(m);
+                ap(mdl, array_vars, fml, vars, m_reduce_all_selects);
                 SASSERT (array_vars.empty ());
                 m_rw (fml);
                 SASSERT (!m.is_false (fml));
