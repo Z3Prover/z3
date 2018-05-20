@@ -198,9 +198,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (evaluate(a->get_decl(), a->get_num_args(), a->get_args(), result)) {
                 return BR_REWRITE1;
             }
-            if (false && m_array_as_stores && m_ar.is_array(result)) {
-                expand_stores(result);
-            }
         }
         CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         return st;
@@ -210,7 +207,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         vector<expr_ref_vector> stores;
         expr_ref else_case(m);
         bool _unused;
-        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, _unused)) {
+        if (m_array_as_stores &&
+            m_ar.is_array(val) &&
+            extract_array_func_interp(val, stores, else_case, _unused)) {
             sort* srt = m.get_sort(val);
             val = m_ar.mk_const_array(srt, else_case);
             for (unsigned i = stores.size(); i-- > 0; ) {
