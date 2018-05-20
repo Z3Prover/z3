@@ -912,7 +912,7 @@ public:
                 if(!add_local_antes(arg, hyps, dk == PR_UNIT_RESOLUTION && i == 0))
                     return false;
             }
-            catch (non_lit_local_ante) {
+            catch (const non_lit_local_ante &) {
                 std::cout << "\n";
                 show_step(proof);
                 show(conc(proof));
@@ -1138,7 +1138,7 @@ public:
             try {
                 res = iproof->make_resolution(pnode,neg,pos);
             }
-            catch (const iz3proof::proof_error){
+            catch (const iz3proof::proof_error &){
                 std::cout << "\nresolution error in theory lemma\n";
                 std::cout << "lits:\n";
                 for(unsigned j = 0; j < lits.size(); j++)
@@ -1212,7 +1212,7 @@ public:
             try {
                 res = iproof->make_resolution(pnode,neg,pos);
             }
-            catch (const iz3proof::proof_error){
+            catch (const iz3proof::proof_error &){
                 std::cout << "\nresolution error in theory lemma\n";
                 std::cout << "lits:\n";
                 for(unsigned j = 0; j < lits.size(); j++)
@@ -1418,7 +1418,7 @@ public:
             try {
                 return iproof->make_resolution(pnode,neg,pos);
             }
-            catch (const iz3proof::proof_error){
+            catch (const iz3proof::proof_error &){
                 std::cout << "resolution error in unit_resolution, position" << position << "\n";
                 show_step(proof);
                 throw invalid_lemma();

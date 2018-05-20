@@ -35,7 +35,7 @@ static void tst1() {
             std::cout << i << ": " << a << "\n";
         }
     }
-    catch (z3_exception & ex) {
+    catch (const z3_exception & ex) {
         std::cout << ex.msg() << "\n";
     }
 }
@@ -432,7 +432,7 @@ static void tst_limits(unsigned prec) {
     m.round_to_plus_inf();
     bool overflow = false;
     try { m.inc(a); }
-    catch (mpff_manager::overflow_exception) { overflow = true; }
+    catch (const mpff_manager::overflow_exception &) { overflow = true; }
     VERIFY(overflow);
     m.set_max(a);
     m.dec(a);
@@ -446,7 +446,7 @@ static void tst_limits(unsigned prec) {
     ENSURE(m.eq(a, b));
     overflow = true;
     try { m.dec(a); }
-    catch (mpff_manager::overflow_exception) { overflow = true; }
+    catch (const mpff_manager::overflow_exception &) { overflow = true; }
     ENSURE(overflow);
     m.round_to_plus_inf();
     m.set_min(a);

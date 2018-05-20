@@ -1522,7 +1522,7 @@ public:
             }
             SASSERT(ref_count(r) >= 1);
         }
-    catch (aig_exception ex) {
+    catch (const aig_exception & ex) {
         dec_ref(r);
         throw ex;
     }
