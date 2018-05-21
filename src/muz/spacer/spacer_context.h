@@ -517,7 +517,7 @@ public:
 
     expr* post() const { return m_post.get (); }
     void set_post(expr *post);
-    void set_post(expr *post, app_ref_vector const &b);
+    void set_post(expr *post, app_ref_vector const &binding);
 
     /// indicate that a new post should be set for the node
     void new_post(expr *post) {if(post != m_post) {m_new_post = post;}}
@@ -648,6 +648,8 @@ public:
     /// premise must be consistent with the transition relation
     pob *create_next_child ();
 
+    /// existentially quantify vars and skolemize the result
+    void exist_skolemize(expr *fml, app_ref_vector &vars, expr_ref &res);
     datalog::rule const& get_rule () const { return m_rule; }
     pob& get_parent () const { return m_parent; }
     ast_manager &get_ast_manager () const {return m_parent.get_ast_manager ();}

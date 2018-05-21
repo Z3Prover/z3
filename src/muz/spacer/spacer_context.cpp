@@ -72,34 +72,17 @@ pob::pob (pob* parent, pred_transformer& pt,
 
 
 void pob::set_post(expr* post) {
-    app_ref_vector b(get_ast_manager());
-    set_post(post, b);
+    app_ref_vector empty_binding(get_ast_manager());
+    set_post(post, empty_binding);
 }
 
-void pob::set_post(expr* post, app_ref_vector const &b) {
+void pob::set_post(expr* post, app_ref_vector const &binding) {
     normalize(post, m_post,
               m_pt.get_context().get_params().spacer_simplify_pob(),
               m_pt.get_context().get_params().spacer_use_eqclass());
 
     m_binding.reset();
-    if (b.empty()) return;
-
-    m_binding.append(b);
-
-    std::sort (m_binding.c_ptr(), m_binding.c_ptr() + m_binding.size(), sk_lt_proc());
-
-    // skolemize implicit existential quantifier
-    ast_manager &m = get_ast_manager();
-    app_ref_vector pinned(m);
-
-    expr_safe_replace sub(m);
-    for (unsigned i = 0, sz = m_binding.size(); i < sz; ++i) {
-        expr* e;
-        e = m_binding.get(i);
-        pinned.push_back (mk_zk_const (m, i, get_sort(e)));
-        sub.insert (e, pinned.back());
-    }
-    sub(m_post);
+    if (!binding.empty()) {m_binding.append(binding);}
 }
 
 void pob::inherit(pob const &p) {
@@ -216,6 +199,25 @@ pob *derivation::create_first_child (model_evaluator_util &mev)
     return create_next_child(mev);
 }
 
+void derivation::exist_skolemize(expr* fml, app_ref_vector &vars, expr_ref &res) {
+    ast_manager &m = get_ast_manager();
+    if (vars.empty()) {res = fml; return;}
+    if (m.is_true(fml) || m.is_false(fml)) {res = fml; return;}
+
+    std::sort (vars.c_ptr(), vars.c_ptr() + vars.size(), sk_lt_proc());
+
+    app_ref_vector pinned(m);
+
+    expr_safe_replace sub(m);
+    for (unsigned i = 0, sz = vars.size(); i < sz; ++i) {
+        expr* e;
+        e = vars.get(i);
+        pinned.push_back (mk_zk_const (m, i, get_sort(e)));
+        sub.insert (e, pinned.back());
+    }
+    sub(fml, res);
+}
+
 pob *derivation::create_next_child (model_evaluator_util &mev)
 {
     timeit _timer (is_trace_enabled("spacer_timeit"),
@@ -280,6 +282,11 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         m_evars.append (vars);
     }
 
+    if (!m_evars.empty()) {
+        // existentially quantify out m_evars from post and skolemize the result
+        exist_skolemize(post.get(), m_evars, post);
+    }
+
     get_manager ().formula_o2n (post.get (), post,
                                 m_premises [m_active].get_oidx (), m_evars.empty());
 
@@ -290,7 +297,6 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
     pob *n = m_premises[m_active].pt().mk_pob(&m_parent,
                                               prev_level (m_parent.level ()),
                                               m_parent.depth (), post, m_evars);
-
     IF_VERBOSE (1, verbose_stream ()
                 << "\n\tcreate_child: " << n->pt ().head ()->get_name ()
                 << " (" << n->level () << ", " << n->depth () << ") "
@@ -895,9 +901,8 @@ bool pred_transformer::propagate_to_next_level (unsigned src_level)
 {return m_frames.propagate_to_next_level (src_level);}
 
 
-/// \brief adds a lema to the solver and to child solvers
-void pred_transformer::add_lemma_core(lemma* lemma,
-                                      bool ground_only)
+/// \brief adds a lemma to the solver and to child solvers
+void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
 {
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
@@ -1859,13 +1864,13 @@ void pred_transformer::frames::simplify_formulas ()
 
     // ensure that the lemmas are sorted
     sort();
-    ast_manager &m = m_pt.get_ast_manager ();
+    ast_manager &m = m_pt.get_ast_manager();
 
-    tactic_ref simplifier = mk_unit_subsumption_tactic (m);
+    tactic_ref simplifier = mk_unit_subsumption_tactic(m);
     lemma_ref_vector new_lemmas;
 
-    unsigned lemmas_size = m_lemmas.size ();
-    goal_ref g (alloc (goal, m, false, false, false));
+    unsigned lemmas_size = m_lemmas.size();
+    goal_ref g(alloc (goal, m, false, false, false));
 
     unsigned j = 0;
     // for every frame + infinity frame
@@ -1933,6 +1938,11 @@ void pred_transformer::frames::simplify_formulas ()
                                          << mk_pp(m_lemmas[n]->get_expr(), m)
                                          << "\n";
                     }
+
+                    verbose_stream() << "Simplified goal is:\n";
+                    for (unsigned k = 0; k < r->size(); ++k)
+                        verbose_stream() << k << ": "
+                                         << mk_pp(r->form(k), m) << "\n";
                 }
                 ENSURE(found);
                 SASSERT(found);
@@ -3013,7 +3023,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     TRACE ("spacer",
            tout << "expand-pob: " << n.pt().head()->get_name()
            << " level: " << n.level()
-           << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
+           << " depth: " << (n.depth () - m_pob_queue.min_depth ())
+           << " fvsz: " << n.get_free_vars_size() << "\n"
            << mk_pp(n.post(), m) << "\n";);
 
     STRACE ("spacer.expand-add",
@@ -3450,6 +3461,8 @@ bool context::create_children(pob& n, datalog::rule const& r,
            tout << "Implicant\n";
            tout << mk_and (Phi) << "\n";
            tout << "Projected Implicant\n" << mk_pp (phi1, m) << "\n";
+           if (!vars.empty())
+               tout << "could not eliminate: " << vars << "\n";
         );
 
     // expand literals. Ideally, we do not want to split aliasing
