@@ -1749,50 +1749,51 @@ app* pred_transformer::extend_initial (expr *e)
 /// pred_transformer::frames
 
 
-bool pred_transformer::frames::add_lemma(lemma *lem)
+bool pred_transformer::frames::add_lemma(lemma *new_lemma)
 {
-    TRACE("spacer", tout << "add-lemma: " << pp_level(lem->level()) << " "
+    TRACE("spacer", tout << "add-lemma: " << pp_level(new_lemma->level()) << " "
           << m_pt.head()->get_name() << " "
-          << mk_pp(lem->get_expr(), m_pt.get_ast_manager()) << "\n";);
+          << mk_pp(new_lemma->get_expr(), m_pt.get_ast_manager()) << "\n";);
 
     for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
-        if (m_lemmas [i]->get_expr() == lem->get_expr()) {
-            m_pt.get_context().new_lemma_eh(m_pt, lem);
+        if (m_lemmas[i]->get_expr() == new_lemma->get_expr()) {
+            m_pt.get_context().new_lemma_eh(m_pt, new_lemma);
             // extend bindings if needed
-            if (!lem->get_bindings().empty()) {
-                m_lemmas [i]->add_binding(lem->get_bindings());
+            if (!new_lemma->get_bindings().empty()) {
+                m_lemmas[i]->add_binding(new_lemma->get_bindings());
             }
             // if the lemma is at a higher level, skip it,
-            // but still assert any new instances
-            if (m_lemmas [i]->level() >= lem->level()) {
+            if (m_lemmas[i]->level() >= new_lemma->level()) {
                 TRACE("spacer", tout << "Already at a higher level: "
-                      << pp_level(m_lemmas [i]->level()) << "\n";);
-                if (!lem->get_bindings().empty()) {
+                      << pp_level(m_lemmas[i]->level()) << "\n";);
+                // but, since the instances might be new, assert the
+                // instances that have been copied into m_lemmas[i]
+                if (!new_lemma->get_bindings().empty()) {
                     m_pt.add_lemma_core(m_lemmas[i], true);
                 }
+                // no new lemma added
                 return false;
             }
 
             // update level of the existing lemma
-            m_lemmas [i]->set_level(lem->level());
+            m_lemmas[i]->set_level(new_lemma->level());
             // assert lemma in the solver
             m_pt.add_lemma_core(m_lemmas[i], false);
             // move the lemma to its new place to maintain sortedness
-            for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas [j + 1], m_lemmas[j]); ++j) {
+            for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
                 m_lemmas.swap (j, j+1);
             }
-
             return true;
         }
     }
 
-    // did not find, create new lemma
-    m_lemmas.push_back(lem);
+    // new_lemma is really new
+    m_lemmas.push_back(new_lemma);
     m_sorted = false;
-    m_pt.add_lemma_core(lem);
+    m_pt.add_lemma_core(new_lemma);
 
-    if (!lem->external()) {
-        m_pt.get_context().new_lemma_eh(m_pt, lem);
+    if (!new_lemma->external()) {
+        m_pt.get_context().new_lemma_eh(m_pt, new_lemma);
     }
     return true;
 }
@@ -2029,10 +2030,7 @@ void context::reset()
 {
     TRACE("spacer", tout << "\n";);
     m_pob_queue.reset();
-    decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-    for (; it != end; ++it) {
-        dealloc(it->m_value);
-    }
+    for (auto &entry: m_rels) {dealloc(entry.m_value);}
     m_rels.reset();
     m_query = nullptr;
     m_last_result = l_undef;
@@ -2093,22 +2091,23 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
     for (auto &entry : rels) {entry.m_value->init_reach_facts();}
 }
 
+void context::inherit_properties(const decl2rel &rels) {
+    for (auto &entry : rels) {
+        pred_transformer *pt = nullptr;
+        if (m_rels.find(entry.m_key, pt)) {
+            entry.m_value->inherit_properties(*pt);
+        }
+    }
+}
 void context::update_rules(datalog::rule_set& rules)
 {
     decl2rel rels;
     init_lemma_generalizers(rules);
     init_rules(rules, rels);
-    decl2rel::iterator it = rels.begin(), end = rels.end();
-    for (; it != end; ++it) {
-        pred_transformer* pt = nullptr;
-        if (m_rels.find(it->m_key, pt)) {
-            it->m_value->inherit_properties(*pt);
-        }
-    }
+    inherit_properties(rels);
     reset();
-    it = rels.begin(), end = rels.end();
-    for (; it != end; ++it) {
-        m_rels.insert(it->m_key, it->m_value);
+    for (auto &entry : rels) {
+        m_rels.insert(entry.m_key, entry.m_value);
     }
 }
 

@@ -812,6 +812,7 @@ class context {
 
     // Initialization
     void init_lemma_generalizers(datalog::rule_set& rules);
+    void inherit_properties(const decl2rel& rels);
 
     bool check_invariant(unsigned lvl);
     bool check_invariant(unsigned lvl, func_decl* fn);
