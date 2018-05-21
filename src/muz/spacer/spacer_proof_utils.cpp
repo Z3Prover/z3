@@ -491,9 +491,10 @@ proof* hypothesis_reducer::mk_unit_resolution_core(proof *ures,
     }
 
     // make unit resolution proof step
-    expr_ref tmp(m);
-    tmp = mk_or(m, pf_fact.size(), pf_fact.c_ptr());
-    proof* res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), tmp);
+    // expr_ref tmp(m);
+    // tmp = mk_or(m, pf_fact.size(), pf_fact.c_ptr());
+    // proof* res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), tmp);
+    proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr());
     m_pinned.push_back(res);
 
     return res;
