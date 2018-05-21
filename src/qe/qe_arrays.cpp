@@ -157,8 +157,8 @@ namespace qe {
 
     static bool is_eq(expr_ref_vector const& xs, expr_ref_vector const& ys) {
         for (unsigned i = 0; i < xs.size(); ++i) if (xs[i] != ys[i]) return false;
-                return true;
-            } 
+        return true;
+    }
 
     static bool is_eq(vector<rational> const& xs, vector<rational> const& ys) {
         for (unsigned i = 0; i < xs.size(); ++i) if (xs[i] != ys[i]) return false;
@@ -631,13 +631,13 @@ namespace qe {
                 m_v = arr_vars.get (i);
                 if (!m_arr_u.is_array (m_v)) {
                     TRACE ("qe",
-                            tout << "not an array variable: " << m_v << "\n";
+                            tout << "not an array variable: " << mk_pp (m_v, m) << "\n";
                           );
                     aux_vars.push_back (m_v);
                     continue;
                 }
                 TRACE ("qe",
-                        tout << "projecting equalities on variable: " << m_v << "\n";
+                        tout << "projecting equalities on variable: " << mk_pp (m_v, m) << "\n";
                       );
 
                 if (project (fml)) {
@@ -653,8 +653,8 @@ namespace qe {
                           );
                 }
                 else {
-                    IF_VERBOSE(2, verbose_stream() << "can't project:" << m_v << "\n";);
-                    TRACE ("qe", tout << "Failed to project: " << m_v << "\n";);
+                    IF_VERBOSE(2, verbose_stream() << "can't project:" << mk_pp(m_v, m) << "\n";);
+                    TRACE ("qe", tout << "Failed to project: " << mk_pp (m_v, m) << "\n";);
                     arr_vars[j++] = m_v;
                 }
             }
@@ -984,9 +984,9 @@ namespace qe {
                     TRACE("qe", tout << "non-arithmetic index sort for Ackerman" << mk_pp(srt, m) << "\n";);
                     // TBD: generalize to also bit-vectors.
                     is_numeric = false;
-                }
+                }                
             }
-
+            
             unsigned start = m_idxs.size (); // append at the end
             for (app * a : sel_terms) {
                 expr_ref_vector idxs(m, arity, a->get_args() + 1);
@@ -1018,13 +1018,13 @@ namespace qe {
             }
 
             if (is_numeric) {
-            // sort reprs by their value and add a chain of strict inequalities
-            compare_idx cmp(*this);
-            std::sort(m_idxs.begin() + start, m_idxs.end(), cmp);
+                // sort reprs by their value and add a chain of strict inequalities
+                compare_idx cmp(*this);
+                std::sort(m_idxs.begin() + start, m_idxs.end(), cmp);                
                 for (unsigned i = start; i + 1 < m_idxs.size(); ++i) {
-                m_idx_lits.push_back (mk_lex_lt(m_idxs[i].idx, m_idxs[i+1].idx));
+                    m_idx_lits.push_back (mk_lex_lt(m_idxs[i].idx, m_idxs[i+1].idx));
+                }
             }
-        }
             else if (arity == 1) {
                 // create distinct constraint.
                 expr_ref_vector xs(m);
@@ -1163,12 +1163,12 @@ namespace qe {
                     return BR_DONE;
                 }
                 return BR_FAILED;
-    }
+            }
 
             lbool compare(expr* x, expr* y) {
                 NOT_IMPLEMENTED_YET();
                 return l_undef;
-    }
+            }
         };
 
         struct indices {
@@ -1181,10 +1181,10 @@ namespace qe {
                 for (unsigned i = 0; i < n; ++i) {
                     VERIFY(model.eval(vars[i], val));
                     m_values.push_back(val);
-    }
+                }
             }
         };
-
+        
         ast_manager& m;
         array_util   a;
         scoped_ptr<contains_app> m_var;
@@ -1194,7 +1194,7 @@ namespace qe {
 
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             return false;
-    }
+        }
 
         void remove_true(expr_ref_vector& lits) {
             for (unsigned i = 0; i < lits.size(); ++i) {
@@ -1214,7 +1214,39 @@ namespace qe {
             for (unsigned j = 0; j < n; ++j) {
                 lits.push_back(m.mk_eq(x.m_vars[j], y.m_vars[j]));
             }
-        }        
+        }
+        
+        bool solve_eq(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+            // find an equality to solve for.
+            expr* s, *t;
+            for (unsigned i = 0; i < lits.size(); ++i) {
+                if (m.is_eq(lits[i].get(), s, t)) {
+                    vector<indices> idxs;
+                    expr_ref save(m), back(m);
+                    save = lits[i].get();
+                    back = lits.back();
+                    lits[i] = back;
+                    lits.pop_back();
+                    unsigned sz = lits.size();
+                    if (contains_x(s) && !contains_x(t) && is_app(s)) {
+                        if (solve(model, to_app(s), t, idxs, vars, lits)) {
+                            return true;
+                        }
+                    }
+                    else if (contains_x(t) && !contains_x(s) && is_app(t)) {
+                        if (solve(model, to_app(t), s, idxs, vars, lits)) {
+                            return true;
+                        }
+                    }
+                    // put back the equality literal.
+                    lits.resize(sz);
+                    lits.push_back(back);
+                    lits[i] = save;
+                }
+                // TBD: not distinct?
+            }
+            return false;
+        }
 
         bool solve(model& model, app* s, expr* t, vector<indices>& idxs, app_ref_vector& vars, expr_ref_vector& lits) {
             SASSERT(contains_x(s));
@@ -1362,7 +1394,7 @@ namespace qe {
                tout << "Remaining array vars:\n" << arr_vars;
                tout << "Aux vars:\n" << aux_vars;
               );
-        
+
         // 2. reduce selects
         array_select_reducer rs (m);
         rs (mdl, arr_vars, fml, reduce_all_selects);
