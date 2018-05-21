@@ -150,7 +150,6 @@ lbool virtual_solver::check_sat_core(unsigned num_assumptions,
         st.update("time", sw.get_seconds());
         st.display_smt2(out);
 
-        out.close();
 
         if (m_factory.fparams().m_dump_recheck) {
             scoped_no_proof _no_proof_(m);
@@ -164,7 +163,13 @@ lbool virtual_solver::check_sat_core(unsigned num_assumptions,
             sw2.stop();
             verbose_stream() << file_name.str() << " :orig "
                              << sw.get_seconds() << " :new " << sw2.get_seconds();
+
+            out << ";; :orig " << sw.get_seconds()
+                << " :new " << sw2.get_seconds() << "\n"
+                << ";; :new is time to solve with fresh smt::kernel\n";
         }
+
+        out.close();
     }
 
 
@@ -195,9 +200,9 @@ void virtual_solver::pop_core(unsigned n) {
         SASSERT(!m_in_delay_scope);
         m_context.pop(n);
         m_pushed = get_scope_level() - n > 0;
-    } 
+    }
     else {
-        m_in_delay_scope = get_scope_level() - n > 0; 
+        m_in_delay_scope = get_scope_level() - n > 0;
     }
 }
 
