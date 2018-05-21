@@ -1720,7 +1720,7 @@ void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, datalog::
     }
 }
 
-void pred_transformer::inherit_properties(pred_transformer& other)
+void pred_transformer::inherit_lemmas(pred_transformer& other)
 {m_frames.inherit_frames (other.m_frames);}
 
 app* pred_transformer::extend_initial (expr *e)
@@ -2091,24 +2091,37 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
     for (auto &entry : rels) {entry.m_value->init_reach_facts();}
 }
 
-void context::inherit_properties(const decl2rel &rels) {
+void context::inherit_lemmas(const decl2rel &rels) {
     for (auto &entry : rels) {
         pred_transformer *pt = nullptr;
         if (m_rels.find(entry.m_key, pt)) {
-            entry.m_value->inherit_properties(*pt);
+            entry.m_value->inherit_lemmas(*pt);
         }
     }
 }
+
 void context::update_rules(datalog::rule_set& rules)
 {
     decl2rel rels;
-    init_lemma_generalizers(rules);
+    // SMT params must be set before any expression is asserted to any
+    // solver
+    init_global_smt_params();
+    // constructs new pred transformers and asserts trans and init
     init_rules(rules, rels);
-    inherit_properties(rels);
+    // inherits lemmas from m_rels into rels
+    inherit_lemmas(rels);
+    // switch context to new rels
+    init(rels);
+    // re-initialize lemma generalizers
+    init_lemma_generalizers();
+}
+
+void context::init(const decl2rel &rels) {
+    // reset context. Current state is all stored in rels
     reset();
-    for (auto &entry : rels) {
-        m_rels.insert(entry.m_key, entry.m_value);
-    }
+    // re-initialize context
+    for (auto &entry : rels)
+    {m_rels.insert(entry.m_key, entry.m_value);}
 }
 
 unsigned context::get_num_levels(func_decl* p)
@@ -2250,9 +2263,8 @@ void context::reset_lemma_generalizers()
     m_lemma_generalizers.reset();
 }
 
-void context::init_lemma_generalizers(datalog::rule_set& rules)
-{
-    reset_lemma_generalizers();
+// initialize global SMT parameters shared by all solvers
+void context::init_global_smt_params() {
     m.toggle_proof_mode(PGM_ENABLED);
     smt_params &fparams = m_pm.fparams ();
     if (!m_params.spacer_eq_prop ()) {
@@ -2281,6 +2293,11 @@ void context::init_lemma_generalizers(datalog::rule_set& rules)
         fparams.m_qi_lazy_threshold = 20;
         fparams.m_ng_lift_ite = LI_FULL;
     }
+
+}
+void context::init_lemma_generalizers()
+{
+    reset_lemma_generalizers();
 
     if (m_params.spacer_q3_use_qgen()) {
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer,

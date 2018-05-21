@@ -428,7 +428,7 @@ public:
 
     void add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r);
 
-    void inherit_properties(pred_transformer& other);
+    void inherit_lemmas(pred_transformer& other);
 
     void ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars,
                           bool is_init);
@@ -811,8 +811,9 @@ class context {
 
 
     // Initialization
-    void init_lemma_generalizers(datalog::rule_set& rules);
-    void inherit_properties(const decl2rel& rels);
+    void init_lemma_generalizers();
+    void inherit_lemmas(const decl2rel& rels);
+    void init_global_smt_params();
 
     bool check_invariant(unsigned lvl);
     bool check_invariant(unsigned lvl, func_decl* fn);
@@ -820,6 +821,9 @@ class context {
     void checkpoint();
 
     void init_rules(datalog::rule_set& rules, decl2rel& transformers);
+
+    // (re)initialize context with new relations
+    void init(const decl2rel &rels);
 
     void simplify_formulas();
 
