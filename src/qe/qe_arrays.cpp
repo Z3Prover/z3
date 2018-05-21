@@ -1214,7 +1214,39 @@ namespace qe {
             for (unsigned j = 0; j < n; ++j) {
                 lits.push_back(m.mk_eq(x.m_vars[j], y.m_vars[j]));
             }
-        }        
+        }
+        
+        bool solve_eq(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+            // find an equality to solve for.
+            expr* s, *t;
+            for (unsigned i = 0; i < lits.size(); ++i) {
+                if (m.is_eq(lits[i].get(), s, t)) {
+                    vector<indices> idxs;
+                    expr_ref save(m), back(m);
+                    save = lits[i].get();
+                    back = lits.back();
+                    lits[i] = back;
+                    lits.pop_back();
+                    unsigned sz = lits.size();
+                    if (contains_x(s) && !contains_x(t) && is_app(s)) {
+                        if (solve(model, to_app(s), t, idxs, vars, lits)) {
+                            return true;
+                        }
+                    }
+                    else if (contains_x(t) && !contains_x(s) && is_app(t)) {
+                        if (solve(model, to_app(t), s, idxs, vars, lits)) {
+                            return true;
+                        }
+                    }
+                    // put back the equality literal.
+                    lits.resize(sz);
+                    lits.push_back(back);
+                    lits[i] = save;
+                }
+                // TBD: not distinct?
+            }
+            return false;
+        }
 
         bool solve(model& model, app* s, expr* t, vector<indices>& idxs, app_ref_vector& vars, expr_ref_vector& lits) {
             SASSERT(contains_x(s));
