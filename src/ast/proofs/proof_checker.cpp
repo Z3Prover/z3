@@ -211,6 +211,8 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
     switch(k) {
     case PR_UNDEF:
         return true;
+    case PR_TRUE:
+        return true;
     case PR_ASSERTED:
         return true;
     case PR_GOAL:
