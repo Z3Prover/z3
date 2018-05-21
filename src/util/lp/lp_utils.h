@@ -22,6 +22,13 @@ Revision History:
 #include "util/lp/numeric_pair.h"
 #include "util/debug.h"
 #include <unordered_map>
+template <typename T, typename C>
+void print_vector(const C & t, std::ostream & out) {
+    for (unsigned i = 0; i < t.size(); i++)
+        out << t[i] << " ";
+    out << std::endl;
+}
+
 template <typename A, typename B>
 bool try_get_value(const std::unordered_map<A,B> & map, const A& key, B & val) {
     const auto it = map.find(key);

@@ -644,9 +644,8 @@ void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
         if (!is_int(p.var()))
             return; // todo : the mix case!
     }
-    if (!m_lar_solver->get_equality_for_term_on_corrent_x(i, rs))
-        return;
-    m_hnf_cutter.add_term(t, rs);
+    if (m_lar_solver->get_equality_for_term_on_corrent_x(i, rs))
+        m_hnf_cutter.add_term(t, rs);
 }
 
 bool int_solver::hnf_matrix_is_empty() const { return true; }
@@ -1009,10 +1008,12 @@ int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
     m_chase_cut_solver([this](unsigned j) {return m_lar_solver->get_column_name(j);},
-                 [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
-                 [this]() {return m_lar_solver->A_r().column_count();},
-                 [this](unsigned j) {return get_value(j);},
-                 settings()) {
+                       [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
+                       [this]() {return m_lar_solver->A_r().column_count();},
+                       [this](unsigned j) {return get_value(j);},
+                       settings()),
+    m_hnf_cutter([this](){ return settings().random_next(); })
+{
     m_lar_solver->set_int_solver(this);
 }
 

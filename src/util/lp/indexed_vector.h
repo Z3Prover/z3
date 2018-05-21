@@ -28,8 +28,6 @@ Revision History:
 #include <unordered_set>
 namespace lp {
 
-template <typename T> void print_vector(const vector<T> & t, std::ostream & out);
-template <typename T> void print_vector(const buffer<T> & t, std::ostream & out);
 template <typename T> void print_sparse_vector(const vector<T> & t, std::ostream & out);
 
 void print_vector_as_doubles(const vector<mpq> & t, std::ostream & out);

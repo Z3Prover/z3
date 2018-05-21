@@ -27,13 +27,16 @@ Revision History:
 
 namespace lp  {
 class hnf_cutter {
-    var_register m_var_register;
-    general_matrix m_A;
-    vector<const lar_term*> m_terms;
-    vector<mpq> m_right_sides;
-    unsigned m_row_count;
-    unsigned m_column_count;
+    var_register               m_var_register;
+    general_matrix             m_A;
+    vector<const lar_term*>    m_terms;
+    vector<mpq>                m_right_sides;
+    unsigned                   m_row_count;
+    unsigned                   m_column_count;
+    std::function<unsigned ()> m_random_next;
 public:
+    hnf_cutter(std::function<unsigned()> random) : m_random_next(random) {}
+
     void clear() {
         m_var_register.clear();
         m_terms.clear();
@@ -86,6 +89,25 @@ public:
             b.push_back(m_right_sides[i]);
         return b;
     }
+
+    int find_cut_row(const vector<mpq> & b) {
+        int ret = -1;
+        int n = 0;
+        for (int i = 0; i < static_cast<int>(b.size()); i++) {
+            if (!is_int(b[i])) {
+                if (n == 0 ) {
+                    lp_assert(ret == -1);
+                    n = 1;
+                    ret = i;
+                } else {
+                    if (m_random_next() % (++n) == 0) {
+                       ret = i;
+                    }
+                }
+            }
+        }
+        return ret;
+    }
     
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         init_matrix_A();
@@ -100,7 +122,14 @@ public:
         vector<mpq> b = create_b(basis_rows);
         vector<mpq> bcopy = b;
         find_h_minus_1_b(h.W(), b);
+        
+        std::cout << "b = "; print_vector<mpq, vector<mpq>>(b ,std::cout);
         lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
+        int cut_row = find_cut_row(b);
+        if (cut_row == -1) {
+            std::cout << "cut row == -1\n";
+            return lia_move::undef;
+        }
         return lia_move::undef;
     }
 };

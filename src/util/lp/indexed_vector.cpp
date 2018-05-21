@@ -42,12 +42,12 @@ template void lp::indexed_vector<double>::print(std::basic_ostream<char,struct s
 template void lp::indexed_vector<lp::numeric_pair<lp::mpq> >::print(std::ostream&);
 #endif
 }
-template void lp::print_vector<double>(vector<double> const&, std::ostream&);
-template void lp::print_vector<unsigned int>(vector<unsigned int> const&, std::ostream&);
-template void lp::print_vector<std::string>(vector<std::string> const&, std::ostream&);
-template void lp::print_vector<lp::numeric_pair<lp::mpq> >(vector<lp::numeric_pair<lp::mpq>> const&, std::ostream&);
+// template void lp::print_vector<double, vectro>(vector<double> const&, std::ostream&);
+// template void lp::print_vector<unsigned int>(vector<unsigned int> const&, std::ostream&);
+// template void lp::print_vector<std::string>(vector<std::string> const&, std::ostream&);
+// template void lp::print_vector<lp::numeric_pair<lp::mpq> >(vector<lp::numeric_pair<lp::mpq>> const&, std::ostream&);
 template void lp::indexed_vector<double>::resize(unsigned int);
-template void lp::print_vector< lp::mpq>(vector< lp::mpq> const &, std::basic_ostream<char, std::char_traits<char> > &);
-template void lp::print_vector<std::pair<lp::mpq, unsigned int> >(vector<std::pair<lp::mpq, unsigned int>> const&, std::ostream&);
+// template void lp::print_vector< lp::mpq>(vector< lp::mpq> const &, std::basic_ostream<char, std::char_traits<char> > &);
+// template void lp::print_vector<std::pair<lp::mpq, unsigned int> >(vector<std::pair<lp::mpq, unsigned int>> const&, std::ostream&);
 template void lp::indexed_vector<lp::numeric_pair<lp::mpq> >::erase_from_index(unsigned int);
 
