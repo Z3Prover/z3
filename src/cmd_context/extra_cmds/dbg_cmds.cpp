@@ -369,7 +369,7 @@ public:
     void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
         m_vars.append(num, ts);
     }
-    void prepare(cmd_context & ctx) override { m_fml = nullptr; m_vars.reset(); }
+    void prepare(cmd_context & ctx) override { m_fml = nullptr; }
     void execute(cmd_context & ctx) override { 
         ast_manager& m = ctx.m();
         app_ref_vector vars(m);
