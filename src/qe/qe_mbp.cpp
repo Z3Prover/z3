@@ -99,6 +99,7 @@ void project_plugin::partition_values(model& model, expr_ref_vector const& vals,
     }
 }
 
+#if 0
 void project_plugin::partition_args(model& model, app_ref_vector const& selects, expr_ref_vector& lits) {
     ast_manager& m = selects.get_manager();
     if (selects.empty()) return;
@@ -111,6 +112,7 @@ void project_plugin::partition_args(model& model, app_ref_vector const& selects,
         project_plugin::partition_values(model, args, lits);
     }
 }
+#endif
 
 void project_plugin::erase(expr_ref_vector& lits, unsigned& i) {
     lits[i] = lits.back();

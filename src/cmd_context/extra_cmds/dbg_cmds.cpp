@@ -30,6 +30,7 @@ Notes:
 #include "ast/used_vars.h"
 #include "ast/rewriter/var_subst.h"
 #include "util/gparams.h"
+#include "qe/qe_mbp.h"
 
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
@@ -352,6 +353,43 @@ public:
     void execute(cmd_context & ctx) override { ctx.display_dimacs(); }
 };
 
+class mbp_cmd : public cmd {
+    expr* m_fml;
+    ptr_vector<expr> m_vars;
+public:
+    mbp_cmd():cmd("mbp") {}
+    char const * get_usage() const override { return "<expr>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform model based projection"; }
+    unsigned get_arity() const override { return 2; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        if (m_fml == nullptr) return CPK_EXPR; 
+        return CPK_EXPR_LIST;
+    }
+    void set_next_arg(cmd_context& ctx, expr * arg) { m_fml = arg; }
+    void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
+        m_vars.append(num, ts);
+    }
+    void prepare(cmd_context & ctx) override { m_fml = nullptr; }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        app_ref_vector vars(m);
+        model_ref mdl;
+        if (!ctx.is_model_available(mdl) || !ctx.get_check_sat_result()) {
+            throw cmd_exception("model is not available");
+        }
+        for (expr* v : m_vars) {
+            if (!is_uninterp_const(v)) {
+                throw cmd_exception("invalid variable argument. Uninterpreted variable expected");
+            }
+            vars.push_back(to_app(v));
+        }
+        qe::mbp mbp(m);
+        expr_ref fml(m_fml, m);
+        mbp.spacer(vars, *mdl.get(), fml);
+        ctx.regular_stream() << fml << "\n";
+    }
+};
+
 
 void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(print_dimacs_cmd));
@@ -377,4 +415,5 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(instantiate_cmd));
     ctx.insert(alloc(instantiate_nested_cmd));
     ctx.insert(alloc(set_next_id));
+    ctx.insert(alloc(mbp_cmd));
 }
