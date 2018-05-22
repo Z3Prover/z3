@@ -1390,9 +1390,9 @@ namespace qe {
         array_project_eqs_util pe (m);
         pe (mdl, arr_vars, fml, aux_vars);
         TRACE ("qe",
-               tout << "Projected array eqs:\n" << fml << "\n";
-               tout << "Remaining array vars:\n" << arr_vars;
-               tout << "Aux vars:\n" << aux_vars;
+               tout << "Projected array eqs: " << fml << "\n";
+               tout << "Remaining array vars: " << arr_vars << "\n";
+               tout << "Aux vars: " << aux_vars << "\n";
               );
 
         // 2. reduce selects
@@ -1406,8 +1406,8 @@ namespace qe {
         ps (mdl, arr_vars, fml, aux_vars);
 
         TRACE ("qe",
-               tout << "Projected array selects:\n" << fml << "\n";
-               tout << "All aux vars:\n" << aux_vars;
+               tout << "Projected array selects: " << fml << "\n";
+               tout << "All aux vars: " << aux_vars << "\n";
               );
     }
 

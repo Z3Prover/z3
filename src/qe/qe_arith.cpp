@@ -299,20 +299,19 @@ namespace qe {
             obj_map<expr, unsigned> tids;
             expr_ref_vector pinned(m);
             unsigned j = 0;
+            TRACE("qe", tout << "fmls: " << fmls << "\n";);
             for (unsigned i = 0; i < fmls.size(); ++i) {
-                expr* fml = fmls[i].get();
+                expr * fml = fmls.get(i);
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
-                    if (i != j) {
-                        fmls[j] = fmls[i].get();
-                    }
-                    ++j;
+                    fmls[j++] = fml;
                 }
                 else {
-                    TRACE("qe", tout << mk_pp(fml, m) << "\n";);
+                    TRACE("qe", tout << "could not linearize: " << mk_pp(fml, m) << "\n";);
                     pinned.push_back(fml);
                 }
             }
-            fmls.resize(j);
+            fmls.shrink(j);
+            TRACE("qe", tout << "linearized: " << fmls << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
@@ -328,13 +327,13 @@ namespace qe {
                 if (is_arith(v) && !tids.contains(v)) {
                     rational r;
                     expr_ref val = eval(v);
-                    a.is_numeral(val, r);
+                    VERIFY(a.is_numeral(val, r));
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
             }
             for (expr* fml : fmls) {
-                fmls_mark.mark(fml);
+                mark_rec(fmls_mark, fml);
             }
             ptr_vector<expr> index2expr;
             for (auto& kv : tids) {
@@ -346,8 +345,7 @@ namespace qe {
             }
             j = 0;
             unsigned_vector real_vars;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                app* v = vars[i].get();
+            for (app* v : vars) {
                 if (is_arith(v) && !fmls_mark.is_marked(v)) {
                     real_vars.push_back(tids.find(v));
                 }
@@ -355,7 +353,7 @@ namespace qe {
                     vars[j++] = v;
                 }
             }
-            vars.resize(j);
+            vars.shrink(j);
             TRACE("qe", tout << "remaining vars: " << vars << "\n"; 
                   for (unsigned v : real_vars) {
                       tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
@@ -391,8 +389,7 @@ namespace qe {
                     CTRACE("qe", !m.is_true(val), tout << "Evaluated unit " << t << " to " << val << "\n";);
                     continue;
                 }
-                for (j = 0; j < r.m_vars.size(); ++j) {
-                    var const& v = r.m_vars[j];
+                for (var const& v : r.m_vars) {
                     t = index2expr[v.m_id];
                     if (!v.m_coeff.is_one()) {
                         t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
@@ -418,11 +415,9 @@ namespace qe {
                     break;
                 }
                 }
-                fmls.push_back(t);
-                                
+                fmls.push_back(t);                                
                 val = eval(t);
                 CTRACE("qe", !m.is_true(val), tout << "Evaluated " << t << " to " << val << "\n";);
-
             }
         }        
 

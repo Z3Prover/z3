@@ -40,8 +40,6 @@ namespace qe {
         virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) { };
 
         static expr_ref pick_equality(ast_manager& m, model& model, expr* t);
-        static void partition_values(model& model, expr_ref_vector const& vals, expr_ref_vector& lits);
-        //static void partition_args(model& model, app_ref_vector const& sels, expr_ref_vector& lits);
         static void erase(expr_ref_vector& lits, unsigned& i);
         static void push_back(expr_ref_vector& lits, expr* lit);
         static void mark_rec(expr_mark& visited, expr* e);
