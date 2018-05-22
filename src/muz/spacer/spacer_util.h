@@ -125,6 +125,9 @@ bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls);
 
 bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls);
 
+void to_mbp_benchmark(std::ostream &out, const expr* fml,
+                      const app_ref_vector &vars);
+
 /**
  * do the following in sequence
  * 1. use qe_lite to cheaply eliminate vars

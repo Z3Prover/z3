@@ -90,33 +90,33 @@ namespace spacer {
         if (!m_model) { return; }
         m_mev = alloc(model_evaluator, *m_model);
     }
-    
+
     bool model_evaluator_util::eval(expr *e, expr_ref &result, bool model_completion) {
         m_mev->set_model_completion (model_completion);
         try {
             m_mev->operator() (e, result);
             return true;
-        } 
+        }
         catch (model_evaluator_exception &ex) {
             (void)ex;
             TRACE("spacer_model_evaluator", tout << ex.msg () << "\n";);
             return false;
         }
     }
-    
+
     bool model_evaluator_util::eval(const expr_ref_vector &v,
                                     expr_ref& res, bool model_completion) {
         expr_ref e(m);
         e = mk_and (v);
         return eval(e, res, model_completion);
     }
-    
-    
+
+
     bool model_evaluator_util::is_true(const expr_ref_vector &v) {
         expr_ref res(m);
         return eval (v, res, false) && m.is_true (res);
     }
-    
+
     bool model_evaluator_util::is_false(expr *x) {
         expr_ref res(m);
         return eval(x, res, false) && m.is_false (res);
@@ -126,7 +126,7 @@ namespace spacer {
         expr_ref res(m);
         return eval(x, res, false) && m.is_true (res);
     }
-    
+
     void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml) {
         ast_manager& m = fml.get_manager();
         expr_ref_vector conjs(m);
@@ -172,16 +172,16 @@ namespace spacer {
                     SASSERT(orig_size <= 1 + conjs.size());
                     if (i + 1 == orig_size) {
                         // no-op.
-                    } 
+                    }
                     else if (orig_size <= conjs.size()) {
                         // no-op
-                    } 
+                    }
                     else {
                         SASSERT(orig_size == 1 + conjs.size());
                         --orig_size;
                         --i;
                     }
-                } 
+                }
                 else {
                     conjs[i] = tmp;
                 }
@@ -199,7 +199,7 @@ namespace spacer {
         ast_manager& m;
     public:
         ite_hoister(ast_manager& m): m(m) {}
-        
+
         br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
             if (m.is_ite(f)) {
                 return BR_FAILED;
@@ -234,7 +234,7 @@ namespace spacer {
         }
         ite_hoister_cfg(ast_manager & m, params_ref const & p):m_r(m) {}
     };
-    
+
     class ite_hoister_star : public rewriter_tpl<ite_hoister_cfg> {
         ite_hoister_cfg m_cfg;
     public:
@@ -242,7 +242,7 @@ namespace spacer {
             rewriter_tpl<ite_hoister_cfg>(m, false, m_cfg),
             m_cfg(m, p) {}
     };
-    
+
     void hoist_non_bool_if(expr_ref& fml) {
         ast_manager& m = fml.get_manager();
         scoped_no_proof _sp(m);
@@ -274,7 +274,7 @@ namespace spacer {
         bool is_arith_expr(expr *e) const {
             return is_app(e) && a.get_family_id() == to_app(e)->get_family_id();
         }
-        
+
         bool is_offset(expr* e) const {
             if (a.is_numeral(e)) {
                 return true;
@@ -358,7 +358,7 @@ namespace spacer {
                 !a.is_mul(lhs) &&
                 !a.is_mul(rhs);
         }
-        
+
         bool test_term(expr* e) const {
             if (m.is_bool(e)) {
                 return true;
@@ -403,9 +403,9 @@ namespace spacer {
 
     public:
         test_diff_logic(ast_manager& m): m(m), a(m), bv(m), m_is_dl(true), m_test_for_utvpi(false) {}
-        
+
         void test_for_utvpi() { m_test_for_utvpi = true; }
-        
+
         void operator()(expr* e)  {
             if (!m_is_dl) {
                 return;
@@ -422,7 +422,7 @@ namespace spacer {
                     m_is_dl = test_term(a->get_arg(i));
                 }
             }
-            
+
             if (!m_is_dl) {
                 char const* msg = "non-diff: ";
                 if (m_test_for_utvpi) {
@@ -431,10 +431,10 @@ namespace spacer {
                 IF_VERBOSE(1, verbose_stream() << msg << mk_pp(e, m) << "\n";);
             }
         }
-        
+
         bool is_dl() const { return m_is_dl; }
     };
-    
+
     bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
         test_diff_logic test(m);
         expr_fast_mark1 mark;
@@ -443,7 +443,7 @@ namespace spacer {
         }
         return test.is_dl();
     }
-    
+
     bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
         test_diff_logic test(m);
         test.test_for_utvpi();
@@ -455,7 +455,7 @@ namespace spacer {
     }
 
 
-    void subst_vars(ast_manager& m, 
+    void subst_vars(ast_manager& m,
                     app_ref_vector const& vars,
                     model* M, expr_ref& fml) {
         expr_safe_replace sub (m);
@@ -469,6 +469,24 @@ namespace spacer {
         sub (fml);
     }
 
+void to_mbp_benchmark(std::ostream &out, expr* fml, const app_ref_vector &vars) {
+    ast_manager &m = vars.m();
+    ast_pp_util pp(m);
+    pp.collect(fml);
+    pp.display_decls(out);
+
+    out << "(define-fun mbp_benchmark_fml () Bool\n  ";
+    out << mk_pp(fml, m) << ")\n\n";
+
+    out << "(push)\n"
+        << "(assert mbp_benchmark_fml)\n"
+        << "(check-sat)\n"
+        << "(mbp mbp_benchmark_fml (";
+    for (auto v : vars) {out << mk_pp(v, m) << " ";}
+    out << "))\n"
+        << "(pop)\n"
+        << "(exit)\n";
+}
     /*
      * eliminate simple equalities using qe_lite
      * then, MBP for Booleans (substitute), reals (based on LW), ints (based on Cooper), and arrays
@@ -488,7 +506,11 @@ namespace spacer {
             flatten_and (fml, flat);
             fml = mk_and(flat);
         }
-        
+
+
+        // uncomment for benchmarks
+        //to_mbp_benchmark(verbose_stream(), fml, vars);
+
         app_ref_vector arith_vars (m);
         app_ref_vector array_vars (m);
         array_util arr_u (m);
@@ -501,7 +523,7 @@ namespace spacer {
         qe_lite qe(m, p, false);
         qe (vars, fml);
         rw (fml);
-        
+
         TRACE ("spacer_mbp",
                tout << "After qe_lite:\n";
                tout << mk_pp (fml, m) << "\n";
@@ -509,7 +531,7 @@ namespace spacer {
 
         SASSERT (!m.is_false (fml));
 
-        
+
         // sort out vars into bools, arith (int/real), and arrays
         for (app* v : vars) {
             if (m.is_bool (v)) {
@@ -523,7 +545,7 @@ namespace spacer {
                 arith_vars.push_back (v);
             }
         }
-        
+
         // substitute Booleans
         if (!bool_sub.empty()) {
             bool_sub (fml);
@@ -533,13 +555,13 @@ namespace spacer {
             TRACE ("spacer_mbp", tout << "Projected Booleans:\n" << fml << "\n"; );
             bool_sub.reset ();
         }
-        
+
         TRACE ("spacer_mbp",
                tout << "Array vars:\n";
                tout << array_vars;);
-        
+
         vars.reset ();
-        
+
         // project arrays
         {
             scoped_no_proof _sp (m);
@@ -550,14 +572,14 @@ namespace spacer {
             srw (fml);
             SASSERT (!m.is_false (fml));
         }
-        
+
         TRACE ("spacer_mbp",
                tout << "extended model:\n";
                model_pp (tout, *M);
                tout << "Auxiliary variables of index and value sorts:\n";
                tout << vars;
                );
-        
+
         if (vars.empty()) { break; }
         }
 
