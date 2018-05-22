@@ -662,9 +662,12 @@ bool int_solver::hnf_matrix_is_empty() const { return true; }
 
 bool int_solver::prepare_matrix_A_for_hnf_cut() {
     m_hnf_cutter.clear();
+    bool problem_is_small = m_lar_solver->terms().size() < 10;
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
         bool r = try_add_term_to_A_for_hnf(i);
-        if (!r && settings().hnf_cutter_exit_if_x_is_not_on_bound_or_mixed)
+        if (problem_is_small)
+            continue;
+        if (!r && settings().hnf_cutter_exit_if_x_is_not_on_bound_or_mixed )
             return false;
     }
     return true;
