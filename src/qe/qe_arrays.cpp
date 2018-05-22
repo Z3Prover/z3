@@ -172,6 +172,17 @@ namespace qe {
         return mk_and(eqs);
     }
 
+    /**
+     *  1. Extract all equalities (store (store .. (store x i1 v1) i2 v2) .. ) = ...
+     *     where x appears and the equalities do not evaluate to false in the current model.
+     *  2. Track them as partial equivalence relations.
+     *  3. Sort them according to nesting depth.
+     *  4. Solve for x by potentially introducing fresh variables. 
+     *     Thus, (store x i v) = y, then 
+     *     x = (store y i w), (select y i) = v, where w is fresh and evaluates to (select x i).     
+     *     Generally, equalities are tracked as x =_idxs y, where x, y are equal up to idxs.
+     */
+
     class array_project_eqs_util {
         ast_manager&                m;
         array_util                  m_arr_u;
@@ -551,9 +562,7 @@ namespace qe {
             svector<std::pair<unsigned, app*> > true_eqs;
 
             find_arr_eqs (fml, eqs);
-            TRACE ("qe",
-                   tout << "array equalities:\n";
-                   for (app * eq : eqs) tout << mk_pp(eq, m) << "\n";); 
+            TRACE ("qe", tout << "array equalities:\n" << eqs << "\n";);
 
             // evaluate eqs in M
             for (app * eq : eqs) {
@@ -625,20 +634,18 @@ namespace qe {
             M = &mdl;
             m_mev = &mev;
 
-            unsigned j = 0;
+            unsigned j = 0;           
             for (unsigned i = 0; i < arr_vars.size (); i++) {
                 reset_v ();
                 m_v = arr_vars.get (i);
                 if (!m_arr_u.is_array (m_v)) {
                     TRACE ("qe",
-                            tout << "not an array variable: " << mk_pp (m_v, m) << "\n";
+                            tout << "not an array variable: " << m_v << "\n";
                           );
                     aux_vars.push_back (m_v);
                     continue;
                 }
-                TRACE ("qe",
-                        tout << "projecting equalities on variable: " << mk_pp (m_v, m) << "\n";
-                      );
+                TRACE ("qe", tout << "projecting equalities on variable: " << m_v << "\n"; );
 
                 if (project (fml)) {
                     mk_result (fml);
@@ -647,14 +654,11 @@ namespace qe {
                     if (!m_subst_term_v || contains_v (m_subst_term_v)) {
                         arr_vars[j++] = m_v;
                     }
-                    TRACE ("qe",
-                            tout << "after projection: \n";
-                            tout << mk_pp (fml, m) << "\n";
-                          );
+                    TRACE ("qe", tout << "after projection: \n" << fml << "\n";);
                 }
                 else {
-                    IF_VERBOSE(2, verbose_stream() << "can't project:" << mk_pp(m_v, m) << "\n";);
-                    TRACE ("qe", tout << "Failed to project: " << mk_pp (m_v, m) << "\n";);
+                    IF_VERBOSE(2, verbose_stream() << "can't project:" << m_v << "\n";);
+                    TRACE ("qe", tout << "Failed to project: " << m_v << "\n";);
                     arr_vars[j++] = m_v;
                 }
             }
@@ -663,6 +667,10 @@ namespace qe {
         }
     };
 
+    /**
+     *  Eliminate (select (store ..) ..) redexes by evaluating indices under model M.
+     *  This does not eliminate variables, but introduces additional constraints on index equalities.
+     */
 
     class array_select_reducer {
         ast_manager&                m;
@@ -787,6 +795,11 @@ namespace qe {
             return true;
         }
 
+        /**
+         * \brief reduce (select (store (store x i1 v1) i2 v2) idx) under model M
+         *        such that the result is v2 if idx = i2 under M, it is v1 if idx = i1, idx != i2 under M, 
+         *        and it is (select x idx) if idx != i1, idx !+ i2 under M.
+         */
         expr* reduce_core (app *a) {
             if (!m_arr_u.is_store (a->get_arg (0))) return a;
             unsigned arity = get_array_arity(m.get_sort(a));
@@ -864,6 +877,17 @@ namespace qe {
         }
     };
 
+    /**
+     * Perform Ackerman reduction on arrays.
+     *  for occurrences (select a i1), (select a i2), ... assuming these are all occurrences.
+     *  - collect i1, i2, i3, into equivalence classes according to M
+     *  - for distinct index classes accumulate constraint i1 < i2 < i3 .. (for arithmetic)
+     *    and generally distinct(i1, i2, i3) for arbitrary index sorts.
+     *  - for equal indices accumulate constraint i1 = i2, i3 = i5, ..
+     *  - introduce variables v1, v2, .., for each equivalence class.
+     *  - replace occurrences of select by v1, v2, ... 
+     *  - update M to evaluate v1, v2, the same as (select a i1) (select a i2)
+     */
 
     class array_project_selects_util {
         typedef obj_map<app, ptr_vector<app>*> sel_map;
@@ -882,9 +906,10 @@ namespace qe {
         ast_manager&                m;
         array_util                  m_arr_u;
         arith_util                  m_ari_u;
+        bv_util                     m_bv_u;
         sel_map                     m_sel_terms;
         // representative indices for eliminating selects
-        vector<idx_val >            m_idxs;
+        vector<idx_val>             m_idxs;
         app_ref_vector              m_sel_consts;
         expr_ref_vector             m_idx_lits;
         model_ref                   M;
@@ -934,7 +959,15 @@ namespace qe {
             vector<rational> rs;
             rational r;
             for (expr* v : vals) {
-                VERIFY (m_ari_u.is_numeral(v, r));
+                if (m_bv_u.is_bv(v)) {
+                    VERIFY (m_bv_u.is_numeral(v, r));
+                }
+                else if (m_ari_u.is_real(v) || m_ari_u.is_int(v)) {
+                    VERIFY (m_ari_u.is_numeral(v, r));
+                }
+                else {
+                    r.reset();
+                }
                 rs.push_back(r);
             }
             return rs;
@@ -955,11 +988,20 @@ namespace qe {
             }
         };
 
+        expr* mk_lt(expr* x, expr* y) {
+            if (m_bv_u.is_bv(x)) {
+                return m.mk_not(m_bv_u.mk_ule(y, x));
+            }
+            else {
+                return m_ari_u.mk_lt(x, y);
+            }
+        }
+
         expr_ref mk_lex_lt(expr_ref_vector const& xs, expr_ref_vector const& ys) {
             SASSERT(xs.size() == ys.size() && !xs.empty());
-            expr_ref result(m_ari_u.mk_lt(xs.back(), ys.back()), m);
+            expr_ref result(mk_lt(xs.back(), ys.back()), m);
             for (unsigned i = xs.size()-1; i-- > 0; ) {
-                result = m.mk_or(m_ari_u.mk_lt(xs[i], ys[i]), 
+                result = m.mk_or(mk_lt(xs[i], ys[i]), 
                                  m.mk_and(m.mk_eq(xs[i], ys[i]), result));
             }
             return result;
@@ -980,9 +1022,8 @@ namespace qe {
             bool is_numeric = true;
             for (unsigned i = 0; i < arity && is_numeric; ++i) {
                 sort* srt = get_array_domain(v_sort, i);
-                if (!m_ari_u.is_real(srt) && !m_ari_u.is_int(srt)) {
-                    TRACE("qe", tout << "non-arithmetic index sort for Ackerman" << mk_pp(srt, m) << "\n";);
-                    // TBD: generalize to also bit-vectors.
+                if (!m_ari_u.is_real(srt) && !m_ari_u.is_int(srt) && !m_bv_u.is_bv_sort(srt)) {
+                    TRACE("qe", tout << "non-numeric index sort for Ackerman" << mk_pp(srt, m) << "\n";);
                     is_numeric = false;
                 }                
             }
@@ -1017,7 +1058,10 @@ namespace qe {
                 }
             }
 
-            if (is_numeric) {
+            if (start + 1 == m_idxs.size()) {
+                // nothing to differentiate.
+            }
+            else if (is_numeric) {
                 // sort reprs by their value and add a chain of strict inequalities
                 compare_idx cmp(*this);
                 std::sort(m_idxs.begin() + start, m_idxs.end(), cmp);                
@@ -1034,8 +1078,26 @@ namespace qe {
                 m_idx_lits.push_back(m.mk_distinct(xs.size(), xs.c_ptr()));
             }
             else {
-                NOT_IMPLEMENTED_YET();
-                // use a tuple.
+                datatype::util dt(m);
+                sort_ref_vector srts(m);
+                ptr_vector<accessor_decl> acc;
+                unsigned i = 0;
+                for (expr * x : m_idxs[0].idx) {
+                    std::stringstream name;
+                    name << "get" << (i++);
+                    acc.push_back(mk_accessor_decl(m, symbol(name.str().c_str()), type_ref(m.get_sort(x))));
+                }
+                constructor_decl* constrs[1] = { mk_constructor_decl(symbol("tuple"), symbol("is-tuple"), acc.size(), acc.c_ptr()) };
+                datatype::def* dts = mk_datatype_decl(dt, symbol("tuple"), 0, nullptr, 1, constrs);
+                VERIFY(dt.get_plugin()->mk_datatypes(1, &dts, 0, nullptr, srts));
+                del_datatype_decl(dts);
+                sort* tuple = srts.get(0);
+                ptr_vector<func_decl> const & decls = *dt.get_datatype_constructors(tuple);
+                expr_ref_vector xs(m);
+                for (unsigned i = start; i < m_idxs.size(); ++i) {
+                    xs.push_back(m.mk_app(decls[0], m_idxs[i].idx.size(), m_idxs[i].idx.c_ptr()));
+                }
+                m_idx_lits.push_back(m.mk_distinct(xs.size(), xs.c_ptr()));
             }
         }
 
@@ -1072,6 +1134,7 @@ namespace qe {
             m (m),
             m_arr_u (m),
             m_ari_u (m),
+            m_bv_u (m),
             m_sel_consts (m),
             m_idx_lits (m),
             m_sub (m)
@@ -1111,65 +1174,6 @@ namespace qe {
 
 
     struct array_project_plugin::imp {
-
-        // rewriter or direct procedure.
-        struct rw_cfg : public default_rewriter_cfg {
-            ast_manager&    m;
-            array_util&     a;
-            expr_ref_vector m_lits;
-            model*          m_model; 
-            imp*            m_imp;
-            
-            rw_cfg(ast_manager& m, array_util& a):
-                m(m), a(a), m_lits(m), m_model(nullptr) {}
-            
-            br_status reduce_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result, proof_ref & pr) {
-                if (a.is_select(f) && a.is_store(args[0])) {                    
-                    expr_ref val1(m), val2(m); 
-                    app* b = to_app(args[0]);
-                    SASSERT(b->get_num_args() == n + 1);
-                    for (unsigned i = 1; i < n; ++i) {
-                        expr* arg1 = args[i];
-                        expr* arg2 = b->get_arg(i);
-                        if (arg1 == arg2) {
-                            val1 = val2 = arg1;
-                        }
-                        else {
-                            VERIFY(m_model->eval(arg1, val1));
-                            VERIFY(m_model->eval(arg2, val2));
-                        }
-                        switch(compare(val1, val2)) {
-                        case l_true:
-                            if (arg1 != arg2) {
-                                m_lits.push_back(m.mk_eq(arg1, arg2));
-                            }
-                            break;
-                        case l_false: {
-                            ptr_vector<expr> new_args;
-                            if (i > 0) {
-                                m_lits.resize(m_lits.size() - i);
-                            }
-                            m_lits.push_back(m.mk_not(m.mk_eq(arg1, arg2)));
-                            new_args.push_back(b->get_arg(0));
-                            new_args.append(n-1, args+1);
-                            result = m.mk_app(f, n, new_args.c_ptr());
-                            return BR_REWRITE1;
-                        }
-                        case l_undef:
-                            return BR_FAILED;
-                        }
-                    }
-                    result = b->get_arg(n);
-                    return BR_DONE;
-                }
-                return BR_FAILED;
-            }
-
-            lbool compare(expr* x, expr* y) {
-                NOT_IMPLEMENTED_YET();
-                return l_undef;
-            }
-        };
 
         struct indices {
             expr_ref_vector m_values;

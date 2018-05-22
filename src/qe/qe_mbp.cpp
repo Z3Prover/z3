@@ -578,7 +578,7 @@ public:
         qe_lite qe(m, m_params, false);
         qe (vars, fml);
         m_rw (fml);            
-        TRACE ("qe", tout << "After qe_lite:\n" << fml << "\n" << "Vars:\n" << vars;);        
+        TRACE ("qe", tout << "After qe_lite:\n" << fml << "\n" << "Vars: " << vars << "\n";);        
         SASSERT (!m.is_false (fml));
     }
 
@@ -590,7 +590,7 @@ public:
     }
 
     void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml) {
-        TRACE ("qe", tout << "Before projection:\n" << fml << "\n" << "Vars:\n" << vars;);
+        TRACE ("qe", tout << "Before projection:\n" << fml << "\n" << "Vars: " << vars << "\n";);
 
         model_evaluator eval(mdl, m_params);        
         eval.set_model_completion(true);
@@ -620,7 +620,7 @@ public:
                 }
             }        
             
-            TRACE ("qe", tout << "Array vars:\n" << array_vars;);
+            TRACE ("qe", tout << "Array vars: " << array_vars << "\n";);
             
             vars.reset ();
             
@@ -636,14 +636,16 @@ public:
             TRACE ("qe",
                    tout << "extended model:\n";
                    model_pp (tout, mdl);
-                   tout << "Auxiliary variables of index and value sorts:\n";
+                   tout << "Vars: ";
                    tout << vars << "\n";
                    );            
             
         }
         // project reals and ints
         if (!arith_vars.empty ()) {
-            TRACE ("qe", tout << "Arith vars: " << arith_vars << "\n";);
+            TRACE ("qe", tout << "Arith vars: " << arith_vars << "\n";
+                   model_pp(tout, mdl);
+                   );
                         
             expr_ref_vector fmls(m);
             flatten_and (fml, fmls);
