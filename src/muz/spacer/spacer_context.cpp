@@ -443,7 +443,7 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(lvl),
-    m_pob(nullptr), m_external(false) {
+    m_pob(nullptr), m_ctp(nullptr), m_external(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -452,7 +452,7 @@ lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p), m_external(false) {
+    m_pob(p), m_ctp(nullptr), m_external(false) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -463,7 +463,7 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()),
-    m_pob(p), m_external(false)
+    m_pob(p), m_ctp(nullptr), m_external(false)
 {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
@@ -687,11 +687,15 @@ void pred_transformer::collect_statistics(statistics& st) const
     // -- number of proof obligations (0 if pobs are not reused)
     st.update("SPACER num pobs", m_pobs.size());
 
+    st.update("SPACER num ctp", m_stats.m_num_ctp);
+    st.update("SPACER num is_invariant", m_stats.m_num_is_invariant);
+
     // -- time in rule initialization
     st.update ("time.spacer.init_rules.pt.init", m_initialize_watch.get_seconds ());
     // -- time is must_reachable()
     st.update ("time.spacer.solve.pt.must_reachable",
                m_must_reachable_watch.get_seconds ());
+    st.update("time.spacer.ctp", m_ctp_watch.get_seconds());
 }
 
 void pred_transformer::reset_statistics()
@@ -701,6 +705,7 @@ void pred_transformer::reset_statistics()
     m_stats.reset();
     m_initialize_watch.reset ();
     m_must_reachable_watch.reset ();
+    m_ctp_watch.reset();
 }
 
 void pred_transformer::init_sig()
@@ -781,20 +786,31 @@ reach_fact *pred_transformer::get_used_origin_reach_fact (model_evaluator_util& 
     return res;
 }
 
-datalog::rule const* pred_transformer::find_rule(model &model,
+const datalog::rule *pred_transformer::find_rule(model &model) {
+    expr_ref val(m);
+
+    for (auto &entry : m_tag2rule) {
+        app *tag = to_app(entry.m_key);
+        if (model.eval(tag->get_decl(), val) && m.is_true(val)) {
+            return entry.m_value;
+        }
+    }
+    return nullptr;
+}
+
+const datalog::rule *pred_transformer::find_rule(model &model,
                                                  bool& is_concrete,
                                                  vector<bool>& reach_pred_used,
                                                  unsigned& num_reuse_reach)
 {
-    typedef obj_map<expr, datalog::rule const*> tag2rule;
     TRACE ("spacer_verbose",
            datalog::rule_manager& rm = ctx.get_datalog_context().get_rule_manager();
-           tag2rule::iterator it = m_tag2rule.begin();
-           tag2rule::iterator end = m_tag2rule.end();
-           for (; it != end; ++it) {
-               expr* pred = it->m_key;
+           for (auto &entry : m_tag2rule) {
+               expr* pred = entry.m_key;
                tout << mk_pp(pred, m) << ":\n";
-               if (it->m_value) { rm.display_smt2(*(it->m_value), tout) << "\n"; }
+               if (entry.m_value) {
+                   rm.display_smt2(*(entry.m_value), tout) << "\n";
+               }
            }
         );
 
@@ -802,33 +818,32 @@ datalog::rule const* pred_transformer::find_rule(model &model,
     // prefer a rule where the model intersects with reach facts of all predecessors;
     // also find how many predecessors' reach facts are true in the model
     expr_ref vl(m);
-    datalog::rule const* r = ((datalog::rule*)nullptr);
-    tag2rule::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
-    for (; it != end; ++it) {
-        expr* tag = it->m_key;
+    const datalog::rule *r = ((datalog::rule*)nullptr);
+    for (auto &entry : m_tag2rule) {
+        expr* tag = entry.m_key;
         if (model.eval(to_app(tag)->get_decl(), vl) && m.is_true(vl)) {
-            r = it->m_value;
+            r = entry.m_value;
             is_concrete = true;
             num_reuse_reach = 0;
-            reach_pred_used.reset ();
-            unsigned tail_sz = r->get_uninterpreted_tail_size ();
+            reach_pred_used.reset();
+            unsigned tail_sz = r->get_uninterpreted_tail_size();
             for (unsigned i = 0; i < tail_sz; i++) {
                 bool used = false;
                 func_decl* d = r->get_tail(i)->get_decl();
-                pred_transformer const& pt = ctx.get_pred_transformer (d);
-                if (!pt.has_reach_facts()) { is_concrete = false; }
+                const pred_transformer &pt = ctx.get_pred_transformer(d);
+                if (!pt.has_reach_facts()) {is_concrete = false;}
                 else {
                     expr_ref v(m);
-                    pm.formula_n2o (pt.get_last_reach_case_var (), v, i);
-                    model.eval (to_app (v.get ())->get_decl (), vl);
+                    pm.formula_n2o(pt.get_last_reach_case_var (), v, i);
+                    model.eval(to_app (v.get ())->get_decl (), vl);
                     used = m.is_false (vl);
                     is_concrete = is_concrete && used;
                 }
 
                 reach_pred_used.push_back (used);
-                if (used) { num_reuse_reach++; }
+                if (used) {num_reuse_reach++;}
             }
-            if (is_concrete) { break; }
+            if (is_concrete) {break;}
         }
     }
     // SASSERT (r);
@@ -1268,30 +1283,21 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     post.push_back (n.post ());
 
     // populate reach_assumps
-
-    // XXX eager_reach_check must always be
-    // XXX enabled. Otherwise, we can get into an infinite loop in
-    // XXX which a model is consistent with a must-summary, but the
-    // XXX appropriate assumption is not set correctly by the model.
-    // XXX Original code handled reachability-events differently.
-    if (/* ctx.get_params ().eager_reach_check () && */
-        n.level () > 0 && !m_all_init) {
-        obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin (),
-            end = m_tag2rule.end ();
-        for (; it != end; ++it) {
-            datalog::rule const* r = it->m_value;
-            if (!r) { continue; }
+    if (n.level () > 0 && !m_all_init) {
+        for (auto &entry : m_tag2rule) {
+            datalog::rule const* r = entry.m_value;
+            if (!r) {continue;}
             find_predecessors(*r, m_predicates);
-            if (m_predicates.empty()) { continue; }
+            if (m_predicates.empty()) {continue;}
             for (unsigned i = 0; i < m_predicates.size(); i++) {
                 const pred_transformer &pt =
-                    ctx.get_pred_transformer (m_predicates [i]);
+                    ctx.get_pred_transformer(m_predicates[i]);
                 if (pt.has_reach_facts()) {
                     expr_ref a(m);
-                    pm.formula_n2o (pt.get_last_reach_case_var (), a, i);
-                    reach_assumps.push_back (m.mk_not (a));
+                    pm.formula_n2o(pt.get_last_reach_case_var (), a, i);
+                    reach_assumps.push_back(m.mk_not (a));
                 } else if (ctx.get_params().spacer_init_reach_facts()) {
-                    reach_assumps.push_back (m.mk_not (it->m_key));
+                    reach_assumps.push_back(m.mk_not (entry.m_key));
                     break;
                 }
             }
@@ -1325,7 +1331,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     if (is_sat == l_true || is_sat == l_undef) {
         if (core) { core->reset(); }
         if (model) {
-            r = find_rule (**model, is_concrete, reach_pred_used, num_reuse_reach);
+            r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
             TRACE ("spacer", tout << "reachable "
                    << "is_concrete " << is_concrete << " rused: ";
                    for (unsigned i = 0, sz = reach_pred_used.size (); i < sz; ++i)
@@ -1352,11 +1358,47 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     return l_undef;
 }
 
+/// returns true if lemma is blocked by an existing model
+bool pred_transformer::is_ctp_blocked(lemma *lem) {
+    if (!ctx.get_params().spacer_ctp()) {return false;}
+
+    if (!lem->has_ctp()) {return false;}
+    scoped_watch _t_(m_ctp_watch);
+
+    model_ref &ctp = lem->get_ctp();
+
+    // -- find rule of the ctp
+    const datalog::rule *r;
+    r = find_rule(*ctp);
+    if (r == nullptr) {return false;}
+
+    // -- find predicates along the rule
+    find_predecessors(*r, m_predicates);
+
+    // check if any lemmas block the model
+    for (unsigned i = 0, sz = m_predicates.size(); i < sz; ++i) {
+        pred_transformer &pt = ctx.get_pred_transformer(m_predicates[i]);
+        expr_ref lemmas(m), val(m);
+        lemmas = pt.get_formulas(lem->level(), false);
+        pm.formula_n2o(lemmas.get(), lemmas, i);
+        if (ctp->eval(lemmas, val) && m.is_false(val)) {return true;}
+    }
+
+    return false;
+}
+
 bool pred_transformer::is_invariant(unsigned level, lemma* lem,
-                                    unsigned& solver_level, expr_ref_vector* core)
+                                    unsigned& solver_level,
+                                    expr_ref_vector* core)
 {
-    expr_ref lemma(m);
-    lemma = lem->get_expr();
+    m_stats.m_num_is_invariant++;
+    if (is_ctp_blocked(lem)) {
+        m_stats.m_num_ctp++;
+        return false;
+    }
+
+    expr_ref lemma_expr(m);
+    lemma_expr = lem->get_expr();
 
     expr_ref_vector conj(m), aux(m);
     expr_ref gnd_lemma(m);
@@ -1364,28 +1406,36 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
 
     if (!get_context().use_qlemmas() && !lem->is_ground()) {
         app_ref_vector tmp(m);
-        ground_expr(to_quantifier(lemma)->get_expr (), gnd_lemma, tmp);
-        lemma = gnd_lemma.get();
+        ground_expr(to_quantifier(lemma_expr)->get_expr (), gnd_lemma, tmp);
+        lemma_expr = gnd_lemma.get();
     }
 
-    conj.push_back(mk_not(m, lemma));
+    conj.push_back(mk_not(m, lemma_expr));
     flatten_and (conj);
 
     prop_solver::scoped_level _sl(m_solver, level);
     prop_solver::scoped_subset_core _sc (m_solver, true);
     prop_solver::scoped_weakness _sw (m_solver, 1,
                                       ctx.weak_abs() ? lem->weakness() : UINT_MAX);
+    model_ref mdl;
     m_solver.set_core(core);
-    m_solver.set_model(nullptr);
+    m_solver.set_model(&mdl);
     expr * bg = m_extend_lit.get ();
     lbool r = m_solver.check_assumptions (conj, aux, 1, &bg, 1);
     if (r == l_false) {
         solver_level = m_solver.uses_level ();
+        lem->reset_ctp();
         CTRACE ("spacer", level < m_solver.uses_level (),
                 tout << "Checking at level " << level
                 << " but only using " << m_solver.uses_level () << "\n";);
         SASSERT (level <= solver_level);
     }
+    else if (r == l_true) {
+        // optionally remove unused symbols from the model
+        lem->set_ctp(mdl);
+    }
+    else {lem->reset_ctp();}
+
     return r == l_false;
 }
 
@@ -1795,9 +1845,7 @@ bool pred_transformer::frames::propagate_to_next_level (unsigned level)
     m_pt.ensure_level (tgt_level);
 
     for (unsigned i = 0, sz = m_lemmas.size(); i < sz && m_lemmas [i]->level() <= level;) {
-        if (m_lemmas [i]->level () < level)
-        {++i; continue;}
-
+        if (m_lemmas [i]->level () < level) {++i; continue;}
 
         unsigned solver_level;
         if (m_pt.is_invariant(tgt_level, m_lemmas.get(i), solver_level)) {

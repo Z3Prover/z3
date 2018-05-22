@@ -116,6 +116,7 @@ class lemma {
     app_ref_vector m_bindings;
     unsigned m_lvl;
     pob_ref m_pob;
+    model_ref m_ctp; // counter-example to pushing
     bool m_external;
 
     void mk_expr_core();
@@ -127,6 +128,12 @@ public:
 //    lemma(const lemma &other) = delete;
 
     ast_manager &get_ast_manager() {return m;}
+
+    model_ref& get_ctp() {return m_ctp;}
+    bool has_ctp() {return !is_inductive() && m_ctp;}
+    void set_ctp(model_ref &v) {m_ctp = v;}
+    void reset_ctp() {m_ctp.reset();}
+
     expr *get_expr();
     bool is_false();
     expr_ref_vector const &get_cube();
@@ -141,6 +148,7 @@ public:
     inline void set_external(bool ext){m_external = ext;}
     inline bool external() { return m_external;}
 
+    bool is_inductive() const {return is_infty_level(m_lvl);}
     unsigned level () const {return m_lvl;}
     void set_level (unsigned lvl);
     app_ref_vector& get_bindings() {return m_bindings;}
@@ -151,12 +159,11 @@ public:
     bool is_ground () {return !is_quantifier (get_expr());}
 
     void inc_ref () {++m_ref_count;}
-    void dec_ref ()
-        {
-            SASSERT (m_ref_count > 0);
-            --m_ref_count;
-            if(m_ref_count == 0) { dealloc(this); }
-        }
+    void dec_ref () {
+        SASSERT (m_ref_count > 0);
+        --m_ref_count;
+        if(m_ref_count == 0) {dealloc(this);}
+    }
 };
 
 struct lemma_lt_proc : public std::binary_function<lemma*, lemma *, bool> {
@@ -180,6 +187,8 @@ class pred_transformer {
     struct stats {
         unsigned m_num_propagations;
         unsigned m_num_invariants;
+        unsigned m_num_ctp;
+        unsigned m_num_is_invariant;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };
@@ -293,7 +302,7 @@ class pred_transformer {
     stats                        m_stats;
     stopwatch                    m_initialize_watch;
     stopwatch                    m_must_reachable_watch;
-
+    stopwatch                    m_ctp_watch;
 
 
     /// Auxiliary variables to represent different disjunctive
@@ -367,7 +376,9 @@ public:
                                 unsigned level, unsigned oidx, bool must,
                                 const ptr_vector<app> **aux);
 
-    datalog::rule const* find_rule(model &mev, bool& is_concrete,
+    bool is_ctp_blocked(lemma *lem);
+    const datalog::rule *find_rule(model &mdl);
+    const datalog::rule *find_rule(model &mev, bool& is_concrete,
                                    vector<bool>& reach_pred_used,
                                    unsigned& num_reuse_reach);
     expr* get_transition(datalog::rule const& r) { return m_rule2transition.find(&r); }
@@ -403,7 +414,8 @@ public:
                        vector<bool>& reach_pred_used,
                        unsigned& num_reuse_reach);
     bool is_invariant(unsigned level, lemma* lem,
-                      unsigned& solver_level, expr_ref_vector* core = nullptr);
+                      unsigned& solver_level,
+                      expr_ref_vector* core = nullptr);
 
     bool is_invariant(unsigned level, expr* lem,
                       unsigned& solver_level, expr_ref_vector* core = nullptr) {
