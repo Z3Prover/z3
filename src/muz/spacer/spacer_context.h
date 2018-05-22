@@ -206,38 +206,37 @@ class pred_transformer {
 
 
         void get_frame_lemmas (unsigned level, expr_ref_vector &out) {
-            for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
-                if(m_lemmas[i]->level() == level) {
-                    out.push_back(m_lemmas[i]->get_expr());
+            for (auto &lemma : m_lemmas) {
+                if (lemma->level() == level) {
+                    out.push_back(lemma->get_expr());
                 }
+            }
         }
         void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out) {
-            for (unsigned i = 0, sz = m_lemmas.size (); i < sz; ++i)
-                if(m_lemmas [i]->level() >= level) {
-                    out.push_back(m_lemmas[i]->get_expr());
+            for (auto &lemma : m_lemmas) {
+                if(lemma->level() >= level) {
+                    out.push_back(lemma->get_expr());
                 }
+            }
         }
-
 
         unsigned size () const {return m_size;}
         unsigned lemma_size () const {return m_lemmas.size ();}
         void add_frame () {m_size++;}
         void inherit_frames (frames &other) {
-            for (unsigned i = 0, sz = other.m_lemmas.size (); i < sz; ++i) {
-                lemma_ref lem = alloc(lemma, m_pt.get_ast_manager(),
-                                      other.m_lemmas[i]->get_expr (),
-                                      other.m_lemmas[i]->level());
-                lem->add_binding(other.m_lemmas[i]->get_bindings());
-                add_lemma(lem.get());
+            for (auto &other_lemma : other.m_lemmas) {
+                lemma_ref new_lemma = alloc(lemma, m_pt.get_ast_manager(),
+                                            other_lemma->get_expr(),
+                                            other_lemma->level());
+                new_lemma->add_binding(other_lemma->get_bindings());
+                add_lemma(new_lemma.get());
             }
             m_sorted = false;
         }
 
-        bool add_lemma (lemma *lem);
+        bool add_lemma (lemma *new_lemma);
         void propagate_to_infinity (unsigned level);
         bool propagate_to_next_level (unsigned level);
-
-
     };
 
     /**
