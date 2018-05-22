@@ -2082,7 +2082,7 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
     // for (auto it = rels.begin(), end = rels.end(); it != end; ++it) {
     for (auto &entry : rels) {
         func_decl* pred = entry.m_key;
-        pred_transformer* pt = entry.m_value, *pt_user;
+        pred_transformer* pt = entry.m_value, *pt_user = nullptr;
         for (auto dep : rules.get_dependencies().get_deps(pred)) {
             TRACE("spacer", tout << mk_pp(pred, m) << " " << mk_pp(dep, m) << "\n";);
             rels.find(dep, pt_user);
