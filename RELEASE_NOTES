@@ -1,5 +1,22 @@
 RELEASE NOTES
 
+Version 4.7.1
+=============
+
+- New requirements:
+  - uses stdbool and stdint as part of z3.h
+
+- New features:
+  - none
+
+- Removed features:
+  - none
+
+- Notes:
+   This is a minor release prior to a set of planned major updates.
+   It uses minor version 7 to indicate that the use of stdbool and
+   stdint are breaking changes to consumers of the C-based API.
+
 Version 4.6.0
 =============
 
