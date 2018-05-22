@@ -658,16 +658,8 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_extend_lit = m.mk_not (m.mk_const (pm.get_n_pred (v->get_decl ())));
 }
 
-pred_transformer::~pred_transformer()
-{
-    rule2inst::iterator it2 = m_rule2inst.begin(), end2 = m_rule2inst.end();
-    for (; it2 != end2; ++it2) {
-        dealloc(it2->m_value);
-    }
-    rule2expr::iterator it3 = m_rule2transition.begin(), end3 = m_rule2transition.end();
-    for (; it3 != end3; ++it3) {
-        m.dec_ref(it3->m_value);
-    }
+pred_transformer::~pred_transformer() {
+    for (auto &entry : m_rule2transition) {m.dec_ref(entry.m_value);}
 }
 
 std::ostream& pred_transformer::display(std::ostream& out) const
@@ -1556,20 +1548,19 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
     // Predicates that are variable representatives. Other predicates at
     // positions the variables occur are made equivalent with these.
     expr_ref_vector side(m);
-    app_ref_vector* var_reprs = alloc(app_ref_vector, m);
-    SASSERT(var_reprs);
+    app_ref_vector var_reprs(m);
     ptr_vector<app> aux_vars;
 
     unsigned ut_size = rule.get_uninterpreted_tail_size();
     unsigned t_size  = rule.get_tail_size();
     SASSERT(ut_size <= t_size);
-    init_atom(pts, rule.get_head(), *var_reprs, side, UINT_MAX);
+    init_atom(pts, rule.get_head(), var_reprs, side, UINT_MAX);
     for (unsigned i = 0; i < ut_size; ++i) {
         if (rule.is_neg_tail(i)) {
             throw default_exception("SPACER does not support "
                                     "negated predicates in rule tails");
         }
-        init_atom(pts, rule.get_tail(i), *var_reprs, side, i);
+        init_atom(pts, rule.get_tail(i), var_reprs, side, i);
     }
     // -- substitute free variables
     expr_ref fml(m);
@@ -1579,12 +1570,12 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
         {tail.push_back(rule.get_tail(i));}
         fml = mk_and (tail);
 
-        ground_free_vars(fml, *var_reprs, aux_vars, ut_size == 0);
-        SASSERT(is_all_non_null(*var_reprs));
+        ground_free_vars(fml, var_reprs, aux_vars, ut_size == 0);
+        SASSERT(is_all_non_null(var_reprs));
 
         expr_ref tmp(m);
-        var_subst (m, false)(fml, var_reprs->size (),
-                             (expr*const*)var_reprs->c_ptr(), tmp);
+        var_subst(m, false)(fml, var_reprs.size (),
+                            (expr*const*)var_reprs.c_ptr(), tmp);
         flatten_and (tmp, side);
         fml = mk_and(side);
         side.reset ();
@@ -1607,12 +1598,11 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
         m_rule2transition.insert(&rule, fml);
     }
     // AG: shouldn't this be under the if-statement above?
-    m_rule2inst.insert(&rule, var_reprs);
     m_rule2vars.insert(&rule, aux_vars);
 
     TRACE("spacer",
           tout << rule.get_decl()->get_name() << "\n";
-          tout << *var_reprs << "\n";);
+          tout << var_reprs << "\n";);
 }
 
 
