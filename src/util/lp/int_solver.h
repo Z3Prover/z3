@@ -165,8 +165,8 @@ public:
     lia_move gomory_cut();
     lia_move hnf_cut();
     lia_move make_hnf_cut();
-    void prepare_matrix_A_for_hnf_cut();
+    bool prepare_matrix_A_for_hnf_cut();
     bool hnf_matrix_is_empty() const;
-    void try_add_term_to_A_for_hnf(unsigned term_index);
+    bool try_add_term_to_A_for_hnf(unsigned term_index);
 };
 }
