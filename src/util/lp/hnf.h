@@ -204,7 +204,7 @@ class hnf {
     // fields
 
 #ifdef Z3DEBUG
-    M &          m_H;
+    M            m_H;
     M            m_U;
     M            m_U_reverse;
 #endif

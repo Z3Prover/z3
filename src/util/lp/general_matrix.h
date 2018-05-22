@@ -73,6 +73,11 @@ public:
     void print(std::ostream & out, unsigned blanks = 0) const {
         print_matrix<mpq>(m_data, out, blanks);
     }
+    void print(std::ostream & out, const char * ss) const {
+        std::string s(ss);
+        out << s;
+        print(out, s.size());
+    }
 
     void clear() { m_data.clear(); }
 
@@ -227,6 +232,18 @@ public:
                 ret[i][j] = (*this)[i][j];
         return ret;
     }
-    
+    inline
+    friend vector<mpq> operator*(const vector<mpq> & f, const general_matrix& a) {
+        vector<mpq> r(a.column_count());
+        for (unsigned j = 0; j < a.column_count(); j ++) {
+            mpq t = zero_of_type<mpq>();
+            for (unsigned i = 0; i < a.row_count(); i++) {
+                t += f[i] * a[i][j];
+            }
+            r[j] = t;
+        }
+        return r;
+    }
 };
+
 }

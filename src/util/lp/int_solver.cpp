@@ -660,7 +660,12 @@ void int_solver::prepare_matrix_A_for_hnf_cut() {
 
 lia_move int_solver::make_hnf_cut() {
     prepare_matrix_A_for_hnf_cut();
-    return m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper);
+    lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper);
+    if (r == lia_move::cut) {
+        TRACE("hnf_cut", tout<< "cut:"; m_lar_solver->print_term(*m_t, tout); tout << " <= " << *m_k << std::endl;);
+        std::cout << "cut = "; m_lar_solver->print_term(*m_t, std::cout); std::cout << " <= " << *m_k << std::endl;
+    }
+    return r;
 }
 
 lia_move int_solver::hnf_cut() {

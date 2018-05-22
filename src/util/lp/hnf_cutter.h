@@ -40,6 +40,7 @@ public:
     void clear() {
         m_var_register.clear();
         m_terms.clear();
+        m_row_count = m_column_count = 0;
     }
     void add_term(const lar_term* t, const mpq &rs) {
         m_terms.push_back(t);
@@ -90,7 +91,7 @@ public:
         return b;
     }
 
-    int find_cut_row(const vector<mpq> & b) {
+    int find_cut_row_index(const vector<mpq> & b) {
         int ret = -1;
         int n = 0;
         for (int i = 0; i < static_cast<int>(b.size()); i++) {
@@ -108,6 +109,39 @@ public:
         }
         return ret;
     }
+
+
+    // fills e_i*H_minus_1
+    void get_ei_H_minus_1(unsigned i, const general_matrix& H, vector<mpq> & row) {
+        // we solve x = ei * H_min_1
+        // or x * H = ei
+        unsigned m = H.row_count();
+        for (unsigned k = i + 1; k < m; k++) {
+            row[k] = zero_of_type<mpq>();
+        }
+        row[i] = one_of_type<mpq>() / H[i][i];
+        for(int k = i - 1; k >= 0; k--) {
+            mpq t = zero_of_type<mpq>();
+            for (unsigned l = k + 1; l <= i; l++) {
+                t += H[l][k]*row[l];
+            }
+            row[k] = -t / H[k][k]; 
+        }
+
+        // test region
+        vector<mpq> ei(H.row_count(), zero_of_type<mpq>());
+        ei[i] = one_of_type<mpq>();
+        lp_assert(ei == row * H);
+        // end test region
+        
+    }
+
+    void fill_term(const vector<mpq> & row, lar_term& t) {
+        for (unsigned j = 0; j < row.size(); j++) {
+            if (!is_zero(row[j]))
+                t.add_monomial(row[j], m_var_register.local_var_to_user_var(j));
+        }
+    }
     
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         init_matrix_A();
@@ -117,6 +151,7 @@ public:
             m_A.shrink_to_rank(basis_rows);
         
         hnf<general_matrix> h(m_A, d);
+        general_matrix A_orig = m_A;
         std::cout << "hnf = "; h.W().print(std::cout, 6);
         
         vector<mpq> b = create_b(basis_rows);
@@ -125,12 +160,33 @@ public:
         
         std::cout << "b = "; print_vector<mpq, vector<mpq>>(b ,std::cout);
         lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
-        int cut_row = find_cut_row(b);
+        int cut_row = find_cut_row_index(b);
         if (cut_row == -1) {
             std::cout << "cut row == -1\n";
             return lia_move::undef;
         }
-        return lia_move::undef;
+        std::cout << "cut_row = " << cut_row << std::endl;
+
+        m_A.print(std::cout, "getting cut_row m_A=");
+        // test region
+        general_matrix U(m_A.column_count());
+        vector<mpq> rt(m_A.column_count());
+        for (unsigned i = 0; i < U.row_count(); i++) {
+            get_ei_H_minus_1(i, h.W(), rt);
+            vector<mpq> ft = rt * A_orig;
+            for (unsigned j = 0; j < ft.size(); j++)
+                U[i][j] = ft[j];
+        }
+        std::cout << "U reverse = "; U.print(std::cout, 12); std::cout << std::endl;
+        // end test region
+        
+        vector<mpq> row(m_A.column_count());
+        get_ei_H_minus_1(cut_row, h.W(), row);
+        vector<mpq> f = row * m_A;
+
+        fill_term(f, t);
+        k = floor(b[cut_row]);
+        return lia_move::cut;
     }
 };
 }
