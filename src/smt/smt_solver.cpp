@@ -118,6 +118,20 @@ namespace smt {
             m_core_extend_nonlocal_patterns = smth.core_extend_nonlocal_patterns();
         }
 
+        params_ref m_params_save;
+        smt_params m_smt_params_save;
+
+        void push_params() override {
+            m_params_save.reset();
+            m_params_save.copy(solver::get_params());
+            m_smt_params_save = m_smt_params;
+        }
+
+        void pop_params() override {
+            m_smt_params = m_smt_params_save;
+            solver::reset_params(m_params_save);
+        }
+
         void collect_param_descrs(param_descrs & r) override {
             m_context.collect_param_descrs(r);
         }

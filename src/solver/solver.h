@@ -61,6 +61,11 @@ public:
     virtual void updt_params(params_ref const & p);
 
     /**
+       \brief reset parameters.
+    */
+    virtual void reset_params(params_ref const& p);
+
+    /**
        \brief Retrieve set of parameters set on solver.
      */
     virtual params_ref const& get_params() const { return m_params; }
@@ -70,6 +75,17 @@ public:
        parameters available in this solver.
     */
     virtual void collect_param_descrs(param_descrs & r);
+
+    /**
+       \brief Push a parameter state. It is restored upon pop.
+       Only a single scope of push is supported.
+    */
+    virtual void push_params() {}
+
+    /**
+       \brief Pop a parameter state. \sa push_params.
+    */
+    virtual void pop_params() {}
     
     /**
        \brief Enable/Disable model generation for this solver object.
