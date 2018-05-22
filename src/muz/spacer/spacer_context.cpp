@@ -854,35 +854,6 @@ void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func
     }
 }
 
-void pred_transformer::find_predecessors(vector<std::pair<func_decl*, unsigned> >& preds) const
-{
-    preds.reset();
-    obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
-    for (; it != end; it++) {
-        datalog::rule const& r = *it->m_value;
-        unsigned tail_sz = r.get_uninterpreted_tail_size();
-        for (unsigned ti = 0; ti < tail_sz; ti++) {
-            preds.push_back(std::make_pair (r.get_tail(ti)->get_decl(), ti));
-        }
-    }
-}
-
-
-void pred_transformer::remove_predecessors(expr_ref_vector& literals)
-{
-    // remove tags
-    for (unsigned i = 0; i < literals.size(); ) {
-        expr* l = literals[i].get();
-        m.is_not(l, l);
-        if (m_tag2rule.contains(l)) {
-            literals[i] = literals.back();
-            literals.pop_back();
-        } else {
-            ++i;
-        }
-    }
-}
-
 void pred_transformer::simplify_formulas()
 {m_frames.simplify_formulas ();}
 

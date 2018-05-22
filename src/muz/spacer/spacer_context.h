@@ -370,9 +370,7 @@ public:
                                  unsigned level, unsigned oidx, bool must,
                                  const ptr_vector<app> **aux);
 
-    void remove_predecessors(expr_ref_vector& literals);
     void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
-    void find_predecessors(vector<std::pair<func_decl*, unsigned> >& predicates) const;
     datalog::rule const* find_rule(model &mev, bool& is_concrete,
                                    vector<bool>& reach_pred_used,
                                    unsigned& num_reuse_reach);
