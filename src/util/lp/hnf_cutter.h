@@ -63,11 +63,11 @@ public:
     }
 
     void init_matrix_A() {
-        m_A = general_matrix(m_row_count, m_column_count); // use the last suitable counts to make the number
+        m_A = general_matrix(m_row_count, m_column_count);
+        // use the last suitable counts to make the number
         // of rows less than or equal to the number of columns
         for (unsigned i = 0; i < m_row_count; i++)
             initialize_row(i);
-        std::cout << "m_A = "; m_A.print(std::cout, 6);
     }
 
     // todo: as we need only one row i with non integral b[i] need to optimize later
@@ -131,7 +131,9 @@ public:
         // test region
         vector<mpq> ei(H.row_count(), zero_of_type<mpq>());
         ei[i] = one_of_type<mpq>();
-        lp_assert(ei == row * H);
+        vector<mpq> pr = row * H;
+        pr.shrink(ei.size());
+        lp_assert(ei == pr);
         // end test region
         
     }
@@ -151,24 +153,19 @@ public:
             m_A.shrink_to_rank(basis_rows);
         
         hnf<general_matrix> h(m_A, d);
-        general_matrix A_orig = m_A;
-        std::cout << "hnf = "; h.W().print(std::cout, 6);
+        //  general_matrix A_orig = m_A;
         
         vector<mpq> b = create_b(basis_rows);
         vector<mpq> bcopy = b;
         find_h_minus_1_b(h.W(), b);
         
-        std::cout << "b = "; print_vector<mpq, vector<mpq>>(b ,std::cout);
         lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         int cut_row = find_cut_row_index(b);
         if (cut_row == -1) {
-            std::cout << "cut row == -1\n";
             return lia_move::undef;
         }
-        std::cout << "cut_row = " << cut_row << std::endl;
-
-        m_A.print(std::cout, "getting cut_row m_A=");
         // test region
+        /*
         general_matrix U(m_A.column_count());
         vector<mpq> rt(m_A.column_count());
         for (unsigned i = 0; i < U.row_count(); i++) {
@@ -178,6 +175,7 @@ public:
                 U[i][j] = ft[j];
         }
         std::cout << "U reverse = "; U.print(std::cout, 12); std::cout << std::endl;
+        */
         // end test region
         
         vector<mpq> row(m_A.column_count());
@@ -186,6 +184,7 @@ public:
 
         fill_term(f, t);
         k = floor(b[cut_row]);
+        upper = true;
         return lia_move::cut;
     }
 };

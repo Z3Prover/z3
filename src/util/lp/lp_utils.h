@@ -22,10 +22,10 @@ Revision History:
 #include "util/lp/numeric_pair.h"
 #include "util/debug.h"
 #include <unordered_map>
-template <typename T, typename C>
+template <typename C>
 void print_vector(const C & t, std::ostream & out) {
-    for (unsigned i = 0; i < t.size(); i++)
-        out << t[i] << " ";
+    for (const auto & p : t)
+        out << p << " ";
     out << std::endl;
 }
 

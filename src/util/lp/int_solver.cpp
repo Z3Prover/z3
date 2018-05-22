@@ -273,14 +273,20 @@ void int_solver::gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & po
 bool int_solver::current_solution_is_inf_on_cut() const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = m_t->apply(x);
-    TRACE(
-        "current_solution_is_inf_on_cut", tout << "v = " << v << " k = " << (*m_k) << std::endl;
-        if (v <=(*m_k)) {
-            tout << "v <= k - it should not happen!\n";
-        }
+    mpq sign = !(*m_upper) ? one_of_type<mpq>()  : -one_of_type<mpq>();
+    TRACE("current_solution_is_inf_on_cut",
+        if (is_pos(sign)) {
+                 tout << "v = " << v << " k = " << (*m_k) << std::endl;
+                if (v <=(*m_k)) {
+                    tout << "v <= k - it should not happen!\n";
+                }
+            } else {
+                if (v >= (*m_k)) {
+                    tout << "v > k - it should not happen!\n";
+                }
+            }
           );
-    
-    return v > (*m_k);
+    return v * sign > (*m_k) * sign;
 }
 
 void int_solver::adjust_term_and_k_for_some_ints_case_gomory(mpq &lcm_den) {
@@ -654,17 +660,16 @@ void int_solver::prepare_matrix_A_for_hnf_cut() {
     m_hnf_cutter.clear();
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++)
         try_add_term_to_A_for_hnf(i);
-    m_hnf_cutter.print(std::cout);
 }
 
 
 lia_move int_solver::make_hnf_cut() {
+    settings().st().m_hnf_cutter_calls++;
     prepare_matrix_A_for_hnf_cut();
     lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper);
-    if (r == lia_move::cut) {
-        TRACE("hnf_cut", tout<< "cut:"; m_lar_solver->print_term(*m_t, tout); tout << " <= " << *m_k << std::endl;);
-        std::cout << "cut = "; m_lar_solver->print_term(*m_t, std::cout); std::cout << " <= " << *m_k << std::endl;
-    }
+    CTRACE("hnf_cut", r == lia_move::cut, tout<< "cut:"; m_lar_solver->print_term(*m_t, tout); tout << " <= " << *m_k << std::endl;);
+    if (r == lia_move::cut)
+        settings().st().m_hnf_cuts++;
     return r;
 }
 

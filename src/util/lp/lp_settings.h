@@ -112,6 +112,8 @@ struct stats {
     unsigned m_cube_success;
     unsigned m_patches;
     unsigned m_patches_success;
+    unsigned m_hnf_cutter_calls;
+    unsigned m_hnf_cuts;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };

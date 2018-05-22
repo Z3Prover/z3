@@ -70,6 +70,7 @@ public:
     ref_row operator[](unsigned i) { return ref_row(*this, m_data[adjust_row(i)]); }
     ref_row_const operator[](unsigned i) const { return ref_row_const(*this, m_data[adjust_row(i)]); }
 
+#ifdef Z3DEBUG
     void print(std::ostream & out, unsigned blanks = 0) const {
         print_matrix<mpq>(m_data, out, blanks);
     }
@@ -79,8 +80,6 @@ public:
         print(out, s.size());
     }
 
-    void clear() { m_data.clear(); }
-
     void print_submatrix(std::ostream & out, unsigned k, unsigned blanks = 0) const {
         general_matrix m(row_count() - k, column_count() - k);
         for (unsigned i = k; i < row_count(); i++) {
@@ -89,6 +88,10 @@ public:
         }
         print_matrix<mpq>(m.m_data, out, blanks);
     }
+
+#endif
+
+    void clear() { m_data.clear(); }
 
     bool row_is_initialized_correctly(const vector<mpq>& row) {
         lp_assert(row.size() == column_count());

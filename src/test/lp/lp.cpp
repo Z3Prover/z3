@@ -3081,7 +3081,7 @@ void test_rationals() {
         x.push_back(mpq(my_random()%100, 1 + my_random()%100 )); 
 
     std::cout << "x = ";
-    print_vector<numeric_pair<mpq>, vector<numeric_pair<mpq>>>(x, std::cout);
+    print_vector(x, std::cout);
     
     unsigned k = 1000000;
     numeric_pair<mpq> r=zero_of_type<numeric_pair<mpq>>();

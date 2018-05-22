@@ -103,7 +103,7 @@ void indexed_vector<T>::print(std::ostream & out) {
         out << m_index[i] << " ";
     }
     out << std::endl;
-    print_vector<T, vector<T>>(m_data, out);
+    print_vector(m_data, out);
 }
 #endif
 

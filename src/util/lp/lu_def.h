@@ -256,7 +256,7 @@ void lu< M>::print(indexed_vector<T> & w, const vector<unsigned>& basis) {
     }
     LP_OUT(m_settings, "writing lu dump to " << dump_file_name << std::endl);
     print_matrix_compact(f);
-    print_vector<unsigned, vector<unsigned>>(basis, f);
+    print_vector(basis, f);
     print_indexed_vector(w, f);
     f.close();
 }

@@ -2822,6 +2822,8 @@ public:
         st.update("cube-success", m_solver->settings().st().m_cube_success);
         st.update("arith-patches", m_solver->settings().st().m_patches);
         st.update("arith-patches-success", m_solver->settings().st().m_patches_success);
+        st.update("arith-hnf-calls", m_solver->settings().st().m_hnf_cutter_calls);
+        st.update("arith-hnf-cuts", m_solver->settings().st().m_hnf_cuts);
     }        
 };
     
