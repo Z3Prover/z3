@@ -77,42 +77,6 @@ expr_ref project_plugin::pick_equality(ast_manager& m, model& model, expr* t) {
     return expr_ref(nullptr, m);
 }
 
-void project_plugin::partition_values(model& model, expr_ref_vector const& vals, expr_ref_vector& lits) {
-    ast_manager& m = vals.get_manager();
-    expr_ref val(m);
-    expr_ref_vector trail(m), reps(m);
-    obj_map<expr, expr*> roots;
-    for (unsigned i = 0; i < vals.size(); ++i) {
-        expr* v = vals[i], *root;
-        VERIFY (model.eval(v, val));
-        if (roots.find(val, root)) {
-            lits.push_back(m.mk_eq(v, root));
-        }
-        else {
-            roots.insert(val, v);
-            trail.push_back(val);
-            reps.push_back(v);
-        }
-    }
-    if (reps.size() > 1) {                
-        lits.push_back(mk_distinct(reps));
-    }
-}
-
-#if 0
-void project_plugin::partition_args(model& model, app_ref_vector const& selects, expr_ref_vector& lits) {
-    ast_manager& m = selects.get_manager();
-    if (selects.empty()) return;
-    unsigned num_args = selects[0]->get_decl()->get_arity();
-    for (unsigned j = 1; j < num_args; ++j) {
-        expr_ref_vector args(m);            
-        for (unsigned i = 0; i < selects.size(); ++i) {
-            args.push_back(selects[i]->get_arg(j));
-        }
-        project_plugin::partition_values(model, args, lits);
-    }
-}
-#endif
 
 void project_plugin::erase(expr_ref_vector& lits, unsigned& i) {
     lits[i] = lits.back();
@@ -127,16 +91,15 @@ void project_plugin::push_back(expr_ref_vector& lits, expr* e) {
 
 
 class mbp::impl {
-    ast_manager& m;
+    ast_manager&               m;
     params_ref                 m_params;
-    th_rewriter m_rw;
+    th_rewriter                m_rw;
     ptr_vector<project_plugin> m_plugins;
-    expr_mark m_visited;
-    expr_mark m_bool_visited;
-
+    expr_mark                  m_visited;
+    expr_mark                  m_bool_visited;
+    
     // parameters
     bool m_reduce_all_selects;
-    bool m_native_mbp;
     bool m_dont_sub;
 
     void add_plugin(project_plugin* p) {
@@ -282,33 +245,33 @@ class mbp::impl {
             }
             else {
                 vars[j++] = var;
-                }
             }
+        }
         if (j == vars.size()) {
             return;
         }
         vars.shrink(j);
-            j = 0;
-            for (unsigned i = 0; i < fmls.size(); ++i) {
+        j = 0;
+        for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get();
             sub(fml, val);
-                m_rw(val);
-                if (!m.is_true(val)) {
+            m_rw(val);
+            if (!m.is_true(val)) {
                 TRACE("qe", tout << mk_pp(fml, m) << " -> " << val << "\n";);
                 fmls[j++] = val;
-                    }
-                }
-        fmls.shrink(j);
             }
+        }
+        fmls.shrink(j);
+    }
 
 
     void subst_vars(model_evaluator& eval, app_ref_vector const& vars, expr_ref& fml) {
         expr_safe_replace sub (m);
         for (app * v : vars) {
             sub.insert(v, eval(v));
-            }
-        sub(fml);
         }
+        sub(fml);
+    }
 
     struct index_term_finder {
         ast_manager&     m;
@@ -324,8 +287,7 @@ class mbp::impl {
         void operator() (app *n) {
             expr *e1, *e2;
             if (m_array.is_select (n)) {
-                for (unsigned i = 1; i < n->get_num_args(); ++i) {
-                    expr * arg = n->get_arg(i);
+                for (expr * arg : *n) {
                     if (m.get_sort(arg) == m.get_sort(m_var) && arg != m_var) 
                         m_res.push_back (arg);
                 } 
@@ -378,8 +340,7 @@ class mbp::impl {
         // -- evaluate to initialize eval cache
         (void) eval (fml);
         unsigned j = 0;
-        for (unsigned i = 0; i < vars.size (); ++i) {
-            app* v = vars.get(i);
+        for (app * v : vars) {
             if (!project_var (eval, v, fml)) {
                 vars[j++] = v;
             }
@@ -388,7 +349,6 @@ class mbp::impl {
     }
 
 public:
-
 
     opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
         arith_project_plugin arith(m);
@@ -530,7 +490,6 @@ public:
     void updt_params(params_ref const& p) {
         m_params.append(p);
         m_reduce_all_selects = m_params.get_bool("reduce_all_selects", false);
-        m_native_mbp = m_params.get_bool("native_mbp", false);
         m_dont_sub   = m_params.get_bool("dont_sub", false);
     }
 
@@ -549,6 +508,7 @@ public:
 
     bool validate_model(model& model, expr_ref_vector const& fmls) {
         expr_ref val(m);
+        model_evaluator eval(model);
         for (expr * f : fmls) {
             VERIFY(model.eval(f, val) && m.is_true(val)); 
         }
@@ -677,26 +637,19 @@ public:
                    tout << "extended model:\n";
                    model_pp (tout, mdl);
                    tout << "Auxiliary variables of index and value sorts:\n";
-                   tout << vars;
+                   tout << vars << "\n";
                    );            
             
         }
         // project reals and ints
         if (!arith_vars.empty ()) {
-            TRACE ("qe", tout << "Arith vars:\n" << arith_vars;);
+            TRACE ("qe", tout << "Arith vars: " << arith_vars << "\n";);
                         
-            if (m_native_mbp) {
             expr_ref_vector fmls(m);
             flatten_and (fml, fmls);
             
             (*this)(true, arith_vars, mdl, fmls);
             fml = mk_and (fmls);
-                SASSERT (arith_vars.empty ());
-            } 
-            else {
-                NOT_IMPLEMENTED_YET();
-                // qe::arith_project (mdl, arith_vars, fml);
-            }
                         
             TRACE ("qe",
                    tout << "Projected arith vars:\n" << fml << "\n";
@@ -733,14 +686,13 @@ mbp::mbp(ast_manager& m, params_ref const& p) {
 mbp::~mbp() {
     dealloc(m_impl);
 }
-        
+
 void mbp::updt_params(params_ref const& p) {
     m_impl->updt_params(p);
 }
        
 void mbp::get_param_descrs(param_descrs & r) {
     r.insert("reduce_all_selects", CPK_BOOL, "(default: false) reduce selects");
-    r.insert("native_mbp", CPK_BOOL, "(default: false) switch between native and spacer tailored mbp");
     r.insert("dont_sub", CPK_BOOL, "(default: false) disable substitution of values for free variables");
 }
         

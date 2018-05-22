@@ -415,7 +415,7 @@ namespace qe {
                     break;
                 }
                 }
-                fmls.push_back(t);                                
+                fmls.push_back(t);
                 val = eval(t);
                 CTRACE("qe", !m.is_true(val), tout << "Evaluated " << t << " to " << val << "\n";);
             }
