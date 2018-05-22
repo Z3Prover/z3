@@ -631,13 +631,13 @@ namespace qe {
                 m_v = arr_vars.get (i);
                 if (!m_arr_u.is_array (m_v)) {
                     TRACE ("qe",
-                            tout << "not an array variable: " << m_v << "\n";
+                            tout << "not an array variable: " << mk_pp (m_v, m) << "\n";
                           );
                     aux_vars.push_back (m_v);
                     continue;
                 }
                 TRACE ("qe",
-                        tout << "projecting equalities on variable: " << m_v << "\n";
+                        tout << "projecting equalities on variable: " << mk_pp (m_v, m) << "\n";
                       );
 
                 if (project (fml)) {
@@ -653,8 +653,8 @@ namespace qe {
                           );
                 }
                 else {
-                    IF_VERBOSE(2, verbose_stream() << "can't project:" << m_v << "\n";);
-                    TRACE ("qe", tout << "Failed to project: " << m_v << "\n";);
+                    IF_VERBOSE(2, verbose_stream() << "can't project:" << mk_pp(m_v, m) << "\n";);
+                    TRACE ("qe", tout << "Failed to project: " << mk_pp (m_v, m) << "\n";);
                     arr_vars[j++] = m_v;
                 }
             }
