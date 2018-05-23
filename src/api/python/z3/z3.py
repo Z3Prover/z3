@@ -1415,6 +1415,17 @@ def is_or(a):
     """
     return is_app_of(a, Z3_OP_OR)
 
+def is_implies(a):
+    """Return `True` if `a` is a Z3 implication expression.
+
+    >>> p, q = Bools('p q')
+    >>> is_implies(Implies(p, q))
+    True
+    >>> is_implies(And(p, q))
+    False
+    """
+    return is_app_of(a, Z3_OP_IMPLIES)
+
 def is_not(a):
     """Return `True` if `a` is a Z3 not expression.
 
@@ -5032,12 +5043,45 @@ class Goal(Z3PPObject):
         """
         self.assert_exprs(*args)
 
+    def convert_model(self, model):
+        """Retrieve model from a satisfiable goal
+        >>> a, b = Ints('a b')
+        >>> g = Goal()
+        >>> g.add(Or(a == 0, a == 1), Or(b == 0, b == 1), a > b)
+        >>> t = Then(Tactic('split-clause'), Tactic('solve-eqs'))
+        >>> r = t(g)
+        >>> r[0]
+        [Or(b == 0, b == 1), Not(0 <= b)]
+        >>> r[1]
+        [Or(b == 0, b == 1), Not(1 <= b)]
+        >>> # Remark: the subgoal r[0] is unsatisfiable
+        >>> # Creating a solver for solving the second subgoal
+        >>> s = Solver()
+        >>> s.add(r[1])
+        >>> s.check()
+        sat
+        >>> s.model()
+        [b = 0]
+        >>> # Model s.model() does not assign a value to `a`
+        >>> # It is a model for subgoal `r[1]`, but not for goal `g`
+        >>> # The method convert_model creates a model for `g` from a model for `r[1]`.
+        >>> r[1].convert_model(s.model())
+        [b = 0, a = 1]
+        """
+        if __debug__:
+            _z3_assert(isinstance(model, ModelRef), "Z3 Model expected")
+        return ModelRef(Z3_goal_convert_model(self.ctx.ref(), self.goal, model.model), self.ctx)
+
     def __repr__(self):
         return obj_to_string(self)
 
     def sexpr(self):
         """Return a textual representation of the s-expression representing the goal."""
         return Z3_goal_to_string(self.ctx.ref(), self.goal)
+
+    def dimacs(self):
+        """Return a textual representation of the goal in DIMACS format."""
+        return Z3_goal_to_dimacs_string(self.ctx.ref(), self.goal)
 
     def translate(self, target):
         """Copy goal `self` to context `target`.
@@ -6095,6 +6139,7 @@ class Solver(Z3PPObject):
     def __init__(self, solver=None, ctx=None):
         assert solver is None or ctx is not None
         self.ctx    = _get_ctx(ctx)
+        self.backtrack_level = 4000000000
         self.solver = None
         if solver is None:
             self.solver = Z3_mk_solver(self.ctx.ref())
@@ -6401,10 +6446,37 @@ class Solver(Z3PPObject):
         except Z3Exception as e:
             _handle_parse_error(e, self.ctx)        
     
+    def cube(self, vars = None):
+        """Get set of cubes"""
+        self.cube_vs = AstVector(None, self.ctx)
+        if vars is not None:
+           for v in vars:
+               self.cube_vs.push(v)
+        while True:
+            lvl = self.backtrack_level
+            self.backtrack_level = 4000000000
+            r = AstVector(Z3_solver_cube(self.ctx.ref(), self.solver, self.cube_vs.vector, lvl), self.ctx)            
+            if (len(r) == 1 and is_false(r[0])):
+                return            
+            yield r         
+            if (len(r) == 0):                
+                return
+
+    def cube_vars(self):
+        return self.cube_vs
+
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""
         return _to_expr_ref(Z3_solver_get_proof(self.ctx.ref(), self.solver), self.ctx)
 
+    def from_file(self, filename):
+        """Parse assertions from a file"""
+        Z3_solver_from_file(self.ctx.ref(), self.solver, filename)
+
+    def from_string(self, s):
+        """Parse assertions from a string"""
+        Z3_solver_from_string(self.ctx.ref(), self.solver, s)
+        
     def assertions(self):
         """Return an AST vector containing all added constraints.
 
@@ -6418,6 +6490,11 @@ class Solver(Z3PPObject):
         [a > 0, a < 10]
         """
         return AstVector(Z3_solver_get_assertions(self.ctx.ref(), self.solver), self.ctx)
+
+    def units(self):
+        """Return an AST vector containing all currently inferred units.
+        """
+        return AstVector(Z3_solver_get_units(self.ctx.ref(), self.solver), self.ctx)
 
     def statistics(self):
         """Return statistics for the last `check()`.
@@ -7187,36 +7264,6 @@ class ApplyResult(Z3PPObject):
         """Return a textual representation of the s-expression representing the set of subgoals in `self`."""
         return Z3_apply_result_to_string(self.ctx.ref(), self.result)
 
-    def convert_model(self, model, idx=0):
-        """Convert a model for a subgoal into a model for the original goal.
-
-        >>> a, b = Ints('a b')
-        >>> g = Goal()
-        >>> g.add(Or(a == 0, a == 1), Or(b == 0, b == 1), a > b)
-        >>> t = Then(Tactic('split-clause'), Tactic('solve-eqs'))
-        >>> r = t(g)
-        >>> r[0]
-        [Or(b == 0, b == 1), Not(0 <= b)]
-        >>> r[1]
-        [Or(b == 0, b == 1), Not(1 <= b)]
-        >>> # Remark: the subgoal r[0] is unsatisfiable
-        >>> # Creating a solver for solving the second subgoal
-        >>> s = Solver()
-        >>> s.add(r[1])
-        >>> s.check()
-        sat
-        >>> s.model()
-        [b = 0]
-        >>> # Model s.model() does not assign a value to `a`
-        >>> # It is a model for subgoal `r[1]`, but not for goal `g`
-        >>> # The method convert_model creates a model for `g` from a model for `r[1]`.
-        >>> r.convert_model(s.model(), 1)
-        [b = 0, a = 1]
-        """
-        if __debug__:
-            _z3_assert(idx < len(self), "index out of bounds")
-            _z3_assert(isinstance(model, ModelRef), "Z3 Model expected")
-        return ModelRef(Z3_apply_result_convert_model(self.ctx.ref(), self.result, idx, model.model), self.ctx)
 
     def as_expr(self):
         """Return a Z3 expression consisting of all subgoals.
@@ -8193,19 +8240,19 @@ def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     the symbol table used for the SMT 2.0 parser.
 
     >>> parse_smt2_string('(declare-const x Int) (assert (> x 0)) (assert (< x 10))')
-    And(x > 0, x < 10)
+    [x > 0, x < 10]
     >>> x, y = Ints('x y')
     >>> f = Function('f', IntSort(), IntSort())
     >>> parse_smt2_string('(assert (> (+ foo (g bar)) 0))', decls={ 'foo' : x, 'bar' : y, 'g' : f})
-    x + f(y) > 0
+    [x + f(y) > 0]
     >>> parse_smt2_string('(declare-const a U) (assert (> a 0))', sorts={ 'U' : IntSort() })
-    a > 0
+    [a > 0]
     """
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
     try: 
-        return _to_expr_ref(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+        return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
     except Z3Exception as e:
         _handle_parse_error(e, ctx)
 
@@ -8217,8 +8264,8 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-    try: 
-        return _to_expr_ref(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
+    try:
+        return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
     except Z3Exception as e:
         _handle_parse_error(e, ctx)
 

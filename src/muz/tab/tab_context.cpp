@@ -1602,7 +1602,7 @@ namespace datalog {
 
             pc.invert();
             prs.push_back(m.mk_asserted(root));
-            pc(m, 1, prs.c_ptr(), pr);
+            pr = pc(m, 1, prs.c_ptr());
             return pr;
         }
 

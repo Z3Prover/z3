@@ -59,19 +59,17 @@ public:
         sls_params::collect_param_descrs(r);
     }
     
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());        
-        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+        result.reset();
         
         TRACE("sls", g->display(tout););
         tactic_report report("sls", *g);
         
+        model_converter_ref mc;
         m_engine->operator()(g, mc);
-
+        g->add(mc.get());
         g->inc_depth();
         result.push_back(g.get());
         TRACE("sls", g->display(tout););

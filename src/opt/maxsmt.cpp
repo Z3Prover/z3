@@ -105,7 +105,7 @@ namespace opt {
 
     app* maxsmt_solver_base::mk_fresh_bool(char const* name) {
         app* result = m.mk_fresh_const(name, m.mk_bool_sort());
-        m_c.fm().insert(result->get_decl());
+        m_c.fm().hide(result);
         return result;
     }
 
@@ -266,7 +266,7 @@ namespace opt {
             }
         }
 
-        IF_VERBOSE(1, verbose_stream() << "is-sat: " << is_sat << "\n";
+        IF_VERBOSE(5, verbose_stream() << "is-sat: " << is_sat << "\n";
                    if (is_sat == l_true) {
                        verbose_stream() << "Satisfying soft constraints\n";
                        display_answer(verbose_stream());
@@ -353,12 +353,26 @@ namespace opt {
         m_upper += w;
     }
 
+    struct cmp_first {
+        bool operator()(std::pair<unsigned, rational> const& x, std::pair<unsigned, rational> const& y) const {
+            return x.first < y.first;
+        }
+    };
+
     void maxsmt::display_answer(std::ostream& out) const {
-        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
-            expr* e = m_soft_constraints[i];
+        vector<std::pair<unsigned, rational>> sorted_weights;
+        unsigned n = m_weights.size();
+        for (unsigned i = 0; i < n; ++i) {
+            sorted_weights.push_back(std::make_pair(i, m_weights[i]));
+        }
+        std::sort(sorted_weights.begin(), sorted_weights.end(), cmp_first());
+        sorted_weights.reverse();
+        for (unsigned i = 0; i < n; ++i) {
+            unsigned idx = sorted_weights[i].first;
+            expr* e = m_soft_constraints[idx];
             bool is_not = m.is_not(e, e);
-            out << m_weights[i] << ": " << mk_pp(e, m)
-                << ((is_not != get_assignment(i))?" |-> true ":" |-> false ")
+            out << m_weights[idx] << ": " << mk_pp(e, m)
+                << ((is_not != get_assignment(idx))?" |-> true ":" |-> false ")
                 << "\n";
             
         }

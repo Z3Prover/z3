@@ -24,11 +24,12 @@ Revision History:
 #include<limits.h>
 #include "util/memory_manager.h"
 #include "util/hash.h"
+#include "util/vector.h"
 
 #define DEFAULT_HASHTABLE_INITIAL_CAPACITY 8
 #define SMALL_TABLE_CAPACITY               64
 
-// #define HASHTABLE_STATISTICS
+//  #define HASHTABLE_STATISTICS
 
 #ifdef HASHTABLE_STATISTICS
 #define HS_CODE(CODE) { CODE }
@@ -375,8 +376,7 @@ public:
     } ((void) 0)
 
     void insert(data && e) {
-        if ((m_size + m_num_deleted) << 2 > (m_capacity * 3)) {
-            // if ((m_size + m_num_deleted) * 2 > (m_capacity)) {
+        if (((m_size + m_num_deleted) << 2) > (m_capacity * 3)) {
             expand_table();
         }
         unsigned hash     = get_hash(e);
@@ -488,7 +488,9 @@ public:
         else if (curr->is_free()) {                                             \
             return 0;                                                           \
         }                                                                       \
-        HS_CODE(const_cast<core_hashtable*>(this)->m_st_collision++;);          \
+        else {                                                                  \
+            HS_CODE(const_cast<core_hashtable*>(this)->m_st_collision++;);      \
+        }                                                                       \
     } ((void) 0)
 
     entry * find_core(data const & e) const {
@@ -652,7 +654,33 @@ public:
     unsigned long long get_num_collision() const { return 0; }
 #endif
 
-    
+#define COLL_LOOP_BODY() {                                              \
+    if (curr->is_used()) {                                          \
+        if (curr->get_hash() == hash && equals(curr->get_data(), e)) return; \
+        collisions.push_back(curr->get_data());                         \
+        continue;                                                       \
+    }                                                                   \
+    else if (curr->is_free()) {                                         \
+        continue;                                                       \
+    }                                                                   \
+    collisions.push_back(curr->get_data());                             \
+    } ((void) 0);    
+
+    void get_collisions(data const& e, vector<data>& collisions) {        
+        unsigned hash = get_hash(e);
+        unsigned mask = m_capacity - 1;
+        unsigned idx  = hash & mask;
+        entry * begin = m_table + idx;
+        entry * end   = m_table + m_capacity;
+        entry * curr  = begin;
+        for (; curr != end; ++curr) {
+            COLL_LOOP_BODY();
+        }
+        for (curr = m_table; curr != begin; ++curr) {
+            COLL_LOOP_BODY();
+        }
+
+    }
 };
 
 template<typename T, typename HashProc, typename EqProc>

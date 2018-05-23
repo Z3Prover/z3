@@ -30,8 +30,7 @@ public:
 
     ~lackr_model_converter_lazy() override { }
 
-    void operator()(model_ref & md, unsigned goal_idx) override {
-        SASSERT(goal_idx == 0);
+    void operator()(model_ref & md) override {
         SASSERT(md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));
         SASSERT(model_constructor.get());
         model * new_model = alloc(model, m);
@@ -39,15 +38,18 @@ public:
         model_constructor->make_model(md);
     }
 
-    void operator()(model_ref & md) override {
-        operator()(md, 0);
-    }
+    void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
     //void display(std::ostream & out);
 
     model_converter * translate(ast_translation & translator) override {
         NOT_IMPLEMENTED_YET();
     }
+
+    void display(std::ostream & out) override {
+        out << "(lackr-model-converter)\n";
+    }
+
 protected:
     ast_manager&                       m;
     const lackr_model_constructor_ref  model_constructor;

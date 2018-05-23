@@ -56,16 +56,14 @@ public:
     }
 
     void execute(cmd_context & ctx) override {
-        if (!ctx.is_model_available())
+        model_ref md;
+        if (!ctx.is_model_available(md))
             throw cmd_exception("model is not available");
         if (!m_target)
             throw cmd_exception("no arguments passed to eval");
-        model_ref md;
         unsigned index = m_params.get_uint("model_index", 0);
-        check_sat_result * last_result = ctx.get_check_sat_result();
-        SASSERT(last_result);
         if (index == 0 || !ctx.get_opt()) {
-            last_result->get_model(md);
+            // already have model.
         }
         else {
             ctx.get_opt()->get_box_model(md, index);

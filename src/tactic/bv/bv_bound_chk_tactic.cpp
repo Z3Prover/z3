@@ -135,12 +135,8 @@ class bv_bound_chk_tactic : public tactic {
     bv_bound_chk_stats          m_stats;
 public:
     bv_bound_chk_tactic(ast_manager & m, params_ref const & p);
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override;
     ~bv_bound_chk_tactic() override;
-    void operator()(goal_ref const & g,
-        goal_ref_buffer & result,
-        model_converter_ref & mc,
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) override;
     tactic * translate(ast_manager & m) override;
     void updt_params(params_ref const & p) override;
     void cleanup() override;
@@ -197,16 +193,12 @@ bv_bound_chk_tactic::~bv_bound_chk_tactic() {
     dealloc(m_imp);
 }
 
-void bv_bound_chk_tactic::operator()(goal_ref const & g,
-        goal_ref_buffer & result,
-        model_converter_ref & mc,
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+void bv_bound_chk_tactic::operator()(goal_ref const & g, goal_ref_buffer & result) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-bound-chk", g);
     fail_if_unsat_core_generation("bv-bound-chk", g);
     TRACE("bv-bound-chk", g->display(tout << "before:"); tout << std::endl;);
-    mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+    result.reset();
     m_imp->operator()(g);
     g->inc_depth();
     result.push_back(g.get());

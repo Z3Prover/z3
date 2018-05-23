@@ -100,16 +100,13 @@ public:
     }
 
     void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+                    goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
         m_rw = &r;
-        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+        result.reset();
         tactic_report report("distribute-forall", *g);
 
         expr_ref   new_curr(m);

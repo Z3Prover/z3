@@ -20,33 +20,34 @@ Notes:
 #define PROOF_CONVERTER_H_
 
 #include "ast/ast.h"
-#include "tactic/converter.h"
 #include "util/ref.h"
+#include "tactic/converter.h"
+class goal;
 
 class proof_converter : public converter {
 public:
     ~proof_converter() override { }
-    virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) = 0;
+    virtual proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) = 0;
     virtual proof_converter * translate(ast_translation & translator) = 0;
 };
 
 typedef ref<proof_converter> proof_converter_ref;
+typedef sref_vector<proof_converter> proof_converter_ref_vector;
+typedef sref_buffer<proof_converter> proof_converter_ref_buffer;
+
 
 proof_converter * concat(proof_converter * pc1, proof_converter * pc2);
 
 /**
-   \brief \c pc1 is the proof converter for a sequence of subgoals of size \c num.
-   Given an i in [0, num), pc2s[i] is the proof converter for subgoal i,
-   and num_subgoals[i] is the number of subgoals of subgoals[i].
-*/
-proof_converter * concat(proof_converter * pc1, unsigned num, proof_converter * const * pc2s, unsigned * num_subgoals);
+   \brief create a proof converter that takes a set of subgoals and converts their proofs to a proof of 
+   the goal they were derived from.
+ */
+proof_converter * concat(proof_converter *pc1, unsigned n, goal* const* goals);
 
 proof_converter * proof2proof_converter(ast_manager & m, proof * pr);
 
-typedef sref_vector<proof_converter> proof_converter_ref_vector;
-typedef sref_buffer<proof_converter> proof_converter_ref_buffer;
-
-void apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_buffer & pc2s, proof_ref & result);
 void apply(ast_manager & m, proof_converter * pc, proof_ref & pr);
+
+proof_ref apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_buffer & pc2s);
 
 #endif

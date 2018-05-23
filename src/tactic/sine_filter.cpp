@@ -18,11 +18,9 @@ Revision History:
 
 #include "tactic/sine_filter.h"
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
 #include "util/obj_pair_hashtable.h"
@@ -38,23 +36,17 @@ public:
     sine_tactic(ast_manager& m, params_ref const& p):
         m(m), m_params(p) {}
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(sine_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
 
-    virtual void operator()(goal_ref const & g,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0; pc = 0; core = 0;
-
+    void operator()(goal_ref const & g, goal_ref_buffer& result) override {
         TRACE("sine", g->display(tout););
         TRACE("sine", tout << g->size(););
         ptr_vector<expr> new_forms;
@@ -69,11 +61,9 @@ public:
         result.push_back(g.get());
         TRACE("sine", result[0]->display(tout););
         SASSERT(g->is_well_sorted());
-        filter_model_converter * fmc = alloc(filter_model_converter, m);
-        mc = fmc;
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
 private:

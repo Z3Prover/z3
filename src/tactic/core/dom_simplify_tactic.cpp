@@ -183,19 +183,11 @@ tactic * dom_simplify_tactic::translate(ast_manager & m) {
     return alloc(dom_simplify_tactic, m, m_simplifier->translate(m), m_params);
 }
 
-void dom_simplify_tactic::operator()(
-    goal_ref const & in,
-    goal_ref_buffer & result,
-    model_converter_ref & mc,
-    proof_converter_ref & pc,
-    expr_dependency_ref & core) {
-    mc = nullptr; pc = nullptr; core = nullptr;
-
+void dom_simplify_tactic::operator()(goal_ref const & in, goal_ref_buffer & result) {
     tactic_report report("dom-simplify", *in.get());
     simplify_goal(*(in.get()));
     in->inc_depth();
     result.push_back(in.get());
-
 }
 
 void dom_simplify_tactic::cleanup() {

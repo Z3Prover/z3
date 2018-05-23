@@ -31,10 +31,12 @@ Revision History:
 #include "ast/dl_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/ast_smt_pp.h"
 #include "util/smt2_util.h"
 
 class smt2_pp_environment {
 protected:
+    mutable smt_renaming m_renaming;
     format_ns::format * mk_neg(format_ns::format * f) const;
     format_ns::format * mk_float(rational const & val) const;
     bool is_indexed_fdecl(func_decl * f) const;
@@ -61,7 +63,7 @@ public:
     virtual format_ns::format * pp_string_literal(app * t);
     virtual format_ns::format * pp_sort(sort * s);
     virtual format_ns::format * pp_fdecl_ref(func_decl * f);
-    format_ns::format * pp_fdecl_name(symbol const & fname, unsigned & len) const;
+    format_ns::format * pp_fdecl_name(symbol const & fname, unsigned & len, bool is_skolem) const;
     format_ns::format * pp_fdecl_name(func_decl * f, unsigned & len) const;
 };
 
@@ -95,12 +97,14 @@ void mk_smt2_format(expr * n, smt2_pp_environment & env, params_ref const & p,
                     unsigned num_vars, char const * var_prefix,
                     format_ns::format_ref & r, sbuffer<symbol> & var_names);
 void mk_smt2_format(sort * s, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r);
-void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r);
+void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r, char const* cmd);
 
 std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, 
                            unsigned num_vars = 0, char const * var_prefix = nullptr);
 std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
-std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "declare-fun");
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "define-fun");
+std::ostream & ast_smt2_pp(std::ostream & out, symbol const& s, bool is_skolem, smt2_pp_environment & env, params_ref const& p = params_ref());
 
 /**
    \brief Internal wrapper (for debugging purposes only)

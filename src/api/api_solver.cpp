@@ -31,15 +31,20 @@ Revision History:
 #include "api/api_stats.h"
 #include "api/api_ast_vector.h"
 #include "solver/tactic2solver.h"
-#include "solver/smt_logics.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "util/file_path.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
+#include "solver/smt_logics.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "sat/dimacs.h"
 #include "sat/sat_solver.h"
 #include "sat/tactic/goal2sat.h"
+
 
 extern "C" {
 
@@ -128,6 +133,15 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
+    void Z3_API Z3_solver_import_model_converter(Z3_context c, Z3_solver src, Z3_solver dst) {
+        Z3_TRY;
+        LOG_Z3_solver_import_model_converter(c, src, dst);
+        model_converter_ref mc = to_solver_ref(src)->get_model_converter();
+        to_solver_ref(dst)->set_model_converter(mc.get());
+        Z3_CATCH;
+    }
+
     void solver_from_stream(Z3_context c, Z3_solver s, std::istream& is) {
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
         ctx->set_ignore_check(true);
@@ -146,7 +160,7 @@ extern "C" {
         for (; it != end; ++it) {
             to_solver_ref(s)->assert_expr(*it);
         }
-        // to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
+        to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
     }
 
     void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string c_str) {
@@ -168,10 +182,10 @@ extern "C" {
         }
         else if (ext && std::string("dimacs") == ext) {
             ast_manager& m = to_solver_ref(s)->get_manager();
-            sat::solver solver(to_solver_ref(s)->get_params(), m.limit(), nullptr);
+            sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
             parse_dimacs(is, solver);
             sat2goal s2g;
-            model_converter_ref mc;
+            ref<sat2goal::mc> mc;
             atom2bool_var a2b(m);
             goal g(m);            
             s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
@@ -322,6 +336,7 @@ extern "C" {
         to_solver_ref(s)->assert_expr(to_expr(a), to_expr(p));
         Z3_CATCH;
     }
+
     
     Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s) {
         Z3_TRY;
@@ -336,6 +351,22 @@ extern "C" {
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(nullptr);
+    }
+
+
+    Z3_ast_vector Z3_API Z3_solver_get_units(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_get_units(c, s);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector fmls = to_solver_ref(s)->get_units(mk_c(c)->m());
+        for (expr* f : fmls) {
+            v->m_ast_vector.push_back(f);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(0);
     }
 
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
@@ -553,5 +584,49 @@ extern "C" {
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);        
     }
+
+    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, Z3_ast_vector vs, unsigned cutoff) {
+        Z3_TRY;
+        LOG_Z3_solver_cube(c, s, vs, cutoff);
+        ast_manager& m = mk_c(c)->m();
+        expr_ref_vector result(m), vars(m);
+        for (ast* a : to_ast_vector_ref(vs)) {
+            if (!is_expr(a)) {
+                SET_ERROR_CODE(Z3_INVALID_USAGE);
+            }
+            else {
+                vars.push_back(to_expr(a));
+            }
+        }
+        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        api::context::set_interruptable si(*(mk_c(c)), eh);
+        {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            try {
+                result.append(to_solver_ref(s)->cube(vars, cutoff));
+            }
+            catch (z3_exception & ex) {
+                mk_c(c)->handle_exception(ex);
+                return 0;
+            }
+        }
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        for (expr* e : result) {
+            v->m_ast_vector.push_back(e);
+        }
+        to_ast_vector_ref(vs).reset();
+        for (expr* a : vars) {
+            to_ast_vector_ref(vs).push_back(a);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(0);        
+    }
+
 
 };

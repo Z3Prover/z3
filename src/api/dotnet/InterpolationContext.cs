@@ -133,19 +133,16 @@ namespace Microsoft.Z3
         /// well documented.</remarks>
         public int ReadInterpolationProblem(string filename, out Expr[] cnsts, out uint[] parents, out string error, out Expr[] theory)
         {
-            uint num = 0, num_theory = 0;
-            IntPtr[] n_cnsts;
-            IntPtr[] n_theory;
+            uint num = 0;
             IntPtr n_err_str;
-            int r = Native.Z3_read_interpolation_problem(nCtx, ref num, out n_cnsts, out parents, filename, out n_err_str, ref num_theory, out n_theory);
+            ASTVector _cnsts = new ASTVector(this);
+            ASTVector _theory = new ASTVector(this);
+
+            int r = Native.Z3_read_interpolation_problem(nCtx, _cnsts.NativeObject, ref num, out parents, filename, out n_err_str, _theory.NativeObject);
             error = Marshal.PtrToStringAnsi(n_err_str);
-            cnsts = new Expr[num];
+            cnsts = _cnsts.ToExprArray();
             parents = new uint[num];
-            theory = new Expr[num_theory];
-            for (int i = 0; i < num; i++)
-                cnsts[i] = Expr.Create(this, n_cnsts[i]);
-            for (int i = 0; i < num_theory; i++)
-                theory[i] = Expr.Create(this, n_theory[i]);
+            theory = _theory.ToExprArray();
             return r;
         }
 

@@ -58,9 +58,8 @@ class horn_subsume_model_converter : public model_converter {
 
 public:
 
- horn_subsume_model_converter(ast_manager& m): 
-    m(m), m_funcs(m), m_bodies(m), m_rewrite(m),
-        m_delay_head(m), m_delay_body(m) {}
+    horn_subsume_model_converter(ast_manager& m): 
+        m(m), m_funcs(m), m_bodies(m), m_rewrite(m), m_delay_head(m), m_delay_body(m) {}
 
     bool mk_horn(expr* clause, func_decl_ref& pred, expr_ref& body);
 
@@ -74,9 +73,15 @@ public:
     
     void operator()(model_ref& _m) override;
 
+    void operator()(expr_ref& fml) override;
+
     model_converter * translate(ast_translation & translator) override;
 
     ast_manager& get_manager() { return m; }
+
+    void display(std::ostream & out) override {}
+
+    void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
 };
 

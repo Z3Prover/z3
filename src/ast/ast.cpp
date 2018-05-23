@@ -1348,6 +1348,10 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     copy_families_plugins(src);
 }
 
+void ast_manager::update_fresh_id(ast_manager const& m) {
+    m_fresh_id = std::max(m_fresh_id, m.m_fresh_id);
+}
+
 void ast_manager::init() {
     m_int_real_coercions = true;
     m_debug_ref_count = false;
@@ -1506,7 +1510,7 @@ void ast_manager::compress_ids() {
         else
             n->m_id = m_expr_id_gen.mk();
         asts.push_back(n);
-    }
+    }    
     m_ast_table.finalize();
     for (ast* a : asts) 
         m_ast_table.insert(a);
@@ -2221,9 +2225,10 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
     }
     else {
         string_buffer<64> buffer;
-        buffer << prefix;
         if (prefix == symbol::null)
             buffer << "sk";
+        else
+            buffer << prefix;
         buffer << "!";
         if (suffix != symbol::null)
             buffer << suffix << "!";

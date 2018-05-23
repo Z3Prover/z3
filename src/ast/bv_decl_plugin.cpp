@@ -717,7 +717,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("rotate_left",OP_ROTATE_LEFT));
     op_names.push_back(builtin_name("rotate_right",OP_ROTATE_RIGHT));
 
-    if (logic == symbol::null || logic == symbol("ALL")) {
+    if (logic == symbol::null || logic == symbol("ALL") || logic == "QF_FD") {
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noovfl",OP_BSMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noudfl",OP_BSMUL_NO_UDFL));

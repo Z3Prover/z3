@@ -166,7 +166,9 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
-        get_opt(ctx, m_opt).display_assignment(ctx.regular_stream());        
+        if (!ctx.ignore_check()) {
+            get_opt(ctx, m_opt).display_assignment(ctx.regular_stream());        
+        }
     }
 };
 

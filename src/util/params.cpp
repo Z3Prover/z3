@@ -323,7 +323,6 @@ class params {
     typedef std::pair<symbol, value> entry;
     svector<entry> m_entries;
     unsigned       m_ref_count;
-    
     void del_value(entry & e);
     void del_values();
 
@@ -346,7 +345,6 @@ public:
     void reset();
     void reset(symbol const & k);
     void reset(char const * k);
-
 
     void validate(param_descrs const & p) {
         svector<params::entry>::iterator it  = m_entries.begin();  

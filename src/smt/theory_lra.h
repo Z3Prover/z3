@@ -86,12 +86,10 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
 
         // optimization
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val);
         inf_eps value(theory_var) override;
         inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
         theory_var add_objective(app* term) override;
-        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val);
-
-
     };
 
 }

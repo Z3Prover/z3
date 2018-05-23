@@ -30,7 +30,7 @@ Notes:
 #include "smt/params/smt_params.h"
 #include "smt/smt_types.h"
 #include "smt/theory_opt.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace opt {
 
@@ -70,7 +70,7 @@ namespace opt {
         smt_params          m_params;
         smt::kernel         m_context;
         ast_manager&        m;
-        filter_model_converter& m_fm;
+        generic_model_converter& m_fm;
         progress_callback * m_callback;
         symbol              m_logic;
         model_ref           m_model;
@@ -85,19 +85,19 @@ namespace opt {
         bool                m_first;
         bool                m_was_unknown;
     public:
-        opt_solver(ast_manager & m, params_ref const & p, filter_model_converter& fm);
+        opt_solver(ast_manager & m, params_ref const & p, generic_model_converter& fm);
         ~opt_solver() override;
 
         solver* translate(ast_manager& m, params_ref const& p) override;
         void updt_params(params_ref const& p) override;
         void collect_param_descrs(param_descrs & r) override;
         void collect_statistics(statistics & st) const override;
-        void assert_expr(expr * t) override;
+        void assert_expr_core(expr * t) override;
         void push_core() override;
         void pop_core(unsigned n) override;
         lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
         void get_unsat_core(ptr_vector<expr> & r) override;
-        void get_model(model_ref & _m) override;
+        void get_model_core(model_ref & _m) override;
         proof * get_proof() override;
         std::string reason_unknown() const override;
         void set_reason_unknown(char const* msg) override;
@@ -108,6 +108,8 @@ namespace opt {
         ast_manager& get_manager() const override { return m; }
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override;
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override;
+        expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
+
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);
@@ -116,7 +118,7 @@ namespace opt {
         void maximize_objectives(expr_ref_vector& blockers);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
-        model* get_model(unsigned obj_index) { return m_models[obj_index]; }
+        model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }
         bool objective_is_model_valid(unsigned obj_index) const {
             return m_valid_objectives[obj_index];
         }

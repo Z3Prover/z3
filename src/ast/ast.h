@@ -628,6 +628,9 @@ public:
     sort * const * get_domain() const { return m_domain; }
     sort * get_range() const { return m_range; }
     unsigned get_size() const { return get_obj_size(m_arity); }
+    sort * const * begin() const { return get_domain(); }
+    sort * const * end() const { return get_domain() + get_arity(); }
+
 };
 
 // -----------------------------------
@@ -1450,6 +1453,8 @@ public:
     typedef expr_dependency_array_manager::ref expr_dependency_array;
 
     void show_id_gen();
+
+    void update_fresh_id(ast_manager const& other);
 
 protected:
     reslimit                  m_limit;

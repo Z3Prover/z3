@@ -23,7 +23,7 @@ Notes:
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 class card2bv_tactic : public tactic {
     ast_manager &              m;
@@ -47,18 +47,16 @@ public:
         m_params = p;
     }
 
-    void collect_param_descrs(param_descrs & r) override {
+    void collect_param_descrs(param_descrs & r) override {  
+        r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints for solver");        
     }
 
     
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
-        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+        result.reset();
         tactic_report report("card2bv", *g);
         th_rewriter rw1(m, m_params);
         pb2bv_rewriter rw2(m, m_params);
@@ -88,11 +86,9 @@ public:
         
         func_decl_ref_vector const& fns = rw2.fresh_constants();
         if (!fns.empty()) {
-            filter_model_converter* filter = alloc(filter_model_converter, m);
-            for (unsigned i = 0; i < fns.size(); ++i) {
-                filter->insert(fns[i]);
-            }
-            mc = filter;
+            generic_model_converter* filter = alloc(generic_model_converter, m, "card2bv");
+            for (func_decl* f : fns) filter->hide(f);
+            g->add(filter);
         }
 
         g->inc_depth();

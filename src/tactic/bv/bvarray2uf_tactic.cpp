@@ -20,8 +20,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
 #include "tactic/bv/bvarray2uf_tactic.h"
@@ -54,24 +53,21 @@ class bvarray2uf_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core)
+                        goal_ref_buffer & result)
         {
             SASSERT(g->is_well_sorted());
             tactic_report report("bvarray2uf", *g);
-            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+            result.reset();
             fail_if_unsat_core_generation("bvarray2uf", g);
 
             TRACE("bvarray2uf", tout << "Before: " << std::endl; g->display(tout); );
             m_produce_models = g->models_enabled();
+            model_converter_ref mc;
 
             if (m_produce_models) {
-                extension_model_converter * emc = alloc(extension_model_converter, m_manager);
-                filter_model_converter * fmc = alloc(filter_model_converter, m_manager);
-                mc = concat(emc, fmc);
-                m_rw.set_mcs(emc, fmc);
+                generic_model_converter * fmc = alloc(generic_model_converter, m_manager, "bvarray2uf");
+                mc = fmc;
+                m_rw.set_mcs(fmc);
             }
 
 
@@ -95,6 +91,7 @@ class bvarray2uf_tactic : public tactic {
                 g->assert_expr(m_rw.m_cfg.extra_assertions[i].get());
 
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("bvarray2uf", tout << "After: " << std::endl; g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -131,11 +128,8 @@ public:
     }
 
     void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
 
     void cleanup() override {

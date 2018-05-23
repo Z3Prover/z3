@@ -24,6 +24,7 @@ Notes:
 #include "util/params.h"
 
 class solver;
+class model_converter;
 
 class solver_factory {
 public:
@@ -44,7 +45,9 @@ public:
 */
 class solver : public check_sat_result {
     params_ref m_params;
+    bool       m_enforce_model_conversion;
 public:
+    solver(): m_enforce_model_conversion(false) {}
     ~solver() override {}
 
     /**
@@ -55,18 +58,18 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) { m_params.copy(p); }
+    virtual void updt_params(params_ref const & p);
 
     /**
        \brief Retrieve set of parameters set on solver.
      */
-    virtual params_ref const& get_params() { return m_params; }
+    virtual params_ref const& get_params() const { return m_params; }
 
     /**
        \brief Store in \c r a description of the configuration
        parameters available in this solver.
     */
-    virtual void collect_param_descrs(param_descrs & r) {}
+    virtual void collect_param_descrs(param_descrs & r);
     
     /**
        \brief Enable/Disable model generation for this solver object.
@@ -79,14 +82,16 @@ public:
     /**
        \brief Add a new formula to the assertion stack.
     */
-    virtual void assert_expr(expr * t) = 0;
+    void assert_expr(expr* f);
+
+    virtual void assert_expr_core(expr * t) = 0;
 
     void assert_expr(expr_ref_vector const& ts) { 
-        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+        for (expr* e : ts) assert_expr(e);
     }
 
     void assert_expr(ptr_vector<expr> const& ts) { 
-        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+        for (expr* e : ts) assert_expr(e);
     }
 
     /**
@@ -94,7 +99,10 @@ public:
        The propositional variable \c a is used to track the use of \c t in a proof
        of unsatisfiability.
     */
-    virtual void assert_expr(expr * t, expr * a) = 0;
+
+    void assert_expr(expr * t, expr* a);
+
+    virtual void assert_expr_core2(expr * t, expr * a) = 0;
 
     /**
        \brief Create a backtracking point.
@@ -179,9 +187,26 @@ public:
     virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
 
     /**
+       \brief extract a lookahead candidates for branching.
+    */
+
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
+
+    /**
        \brief Display the content of this solver.
     */
     virtual std::ostream& display(std::ostream & out, unsigned n = 0, expr* const* assumptions = nullptr) const;
+
+    /**
+       \brief expose model converter when solver produces partially reduced set of assertions.
+     */
+
+    virtual model_converter_ref get_model_converter() const { return m_mc0; }
+
+    /**
+       \brief extract units from solver.
+    */
+    expr_ref_vector get_units(ast_manager& m);
 
     class scoped_push {
         solver& s;
@@ -191,13 +216,17 @@ public:
         ~scoped_push() { if (!m_nopop) s.pop(1); }
         void disable_pop() { m_nopop = true; }
     };
+
  
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
 
+
     bool is_literal(ast_manager& m, expr* e);
 
 };
+
+typedef ref<solver> solver_ref;
 
 #endif

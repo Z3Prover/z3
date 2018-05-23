@@ -21,8 +21,7 @@ Notes:
 #include "solver/solver_na2as.h"
 #include "tactic/tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
-#include "tactic/filter_model_converter.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_pp.h"
 #include "model/model_smt2_pp.h"
 #include "tactic/arith/bound_manager.h"
@@ -72,11 +71,25 @@ public:
         }
     }
 
-    solver* translate(ast_manager& m, params_ref const& p) override {
-        return alloc(bounded_int2bv_solver, m, p, m_solver->translate(m, p));
+    solver* translate(ast_manager& dst_m, params_ref const& p) override {
+        flush_assertions();
+        bounded_int2bv_solver* result = alloc(bounded_int2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
+        ast_translation tr(m, dst_m);
+        for (auto& kv : m_int2bv) result->m_int2bv.insert(tr(kv.m_key), tr(kv.m_value));        
+        for (auto& kv : m_bv2int) result->m_bv2int.insert(tr(kv.m_key), tr(kv.m_value));
+        for (auto& kv : m_bv2offset) result->m_bv2offset.insert(tr(kv.m_key), kv.m_value);
+        for (func_decl* f : m_bv_fns) result->m_bv_fns.push_back(tr(f));
+        for (func_decl* f : m_int_fns) result->m_int_fns.push_back(tr(f));
+        for (bound_manager* b : m_bounds) result->m_bounds.push_back(b->translate(dst_m));
+        model_converter_ref mc = external_model_converter();
+        if (mc) {
+            ast_translation tr(m, dst_m);
+            result->set_model_converter(mc->translate(tr));
+        }
+        return result;
     }
 
-    void assert_expr(expr * t) override {
+    void assert_expr_core(expr * t) override {
         unsigned i = m_assertions.size();
         m_assertions.push_back(t);
         while (i < m_assertions.size()) {
@@ -136,18 +149,45 @@ public:
     void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
     void collect_statistics(statistics & st) const override { m_solver->collect_statistics(st); }
     void get_unsat_core(ptr_vector<expr> & r) override { m_solver->get_unsat_core(r); }
-    void get_model(model_ref & mdl) override {
+    void get_model_core(model_ref & mdl) override {
         m_solver->get_model(mdl);
         if (mdl) {
-            extend_model(mdl);
-            filter_model(mdl);
+            model_converter_ref mc = local_model_converter();
+            if (mc) (*mc)(mdl);
         }
+    }
+    model_converter* external_model_converter() const {
+        return concat(mc0(), local_model_converter());
+    }
+    model_converter* local_model_converter() const {
+        if (m_int2bv.empty() && m_bv_fns.empty()) return nullptr;
+        generic_model_converter* mc = alloc(generic_model_converter, m, "bounded_int2bv");
+        for (func_decl* f : m_bv_fns) 
+            mc->hide(f);
+        for (auto const& kv : m_int2bv) {
+            rational offset;
+            VERIFY (m_bv2offset.find(kv.m_value, offset));
+            expr_ref value(m_bv.mk_bv2int(m.mk_const(kv.m_value)), m);
+            if (!offset.is_zero()) {
+                value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
+            }
+            TRACE("int2bv", tout << mk_pp(kv.m_key, m) << " " << value << "\n";);
+            mc->add(kv.m_key, value);
+        }
+        return mc;
+    }
+
+    model_converter_ref get_model_converter() const override { 
+        model_converter_ref mc = external_model_converter();
+        mc = concat(mc.get(), m_solver->get_model_converter().get());
+        return mc;
     }
     proof * get_proof() override { return m_solver->get_proof(); }
     std::string reason_unknown() const override { return m_solver->reason_unknown(); }
     void set_reason_unknown(char const* msg) override { m_solver->set_reason_unknown(msg); }
     void get_labels(svector<symbol> & r) override { m_solver->get_labels(r); }
     ast_manager& get_manager() const override { return m;  }
+    expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { flush_assertions(); return m_solver->cube(vars, backtrack_level); }
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { return m_solver->find_mutexes(vars, mutexes); }
     lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override {
         flush_assertions();
@@ -184,37 +224,9 @@ public:
             }
         }
         return r;
-
     }
 
 private:
-
-    void filter_model(model_ref& mdl) const {
-        if (m_bv_fns.empty()) {
-            return;
-        }
-        filter_model_converter filter(m);
-        for (unsigned i = 0; i < m_bv_fns.size(); ++i) {
-            filter.insert(m_bv_fns[i].get());
-        }
-        filter(mdl, 0);
-    }
-
-    void extend_model(model_ref& mdl) {
-        extension_model_converter ext(m);
-        obj_map<func_decl, func_decl*>::iterator it = m_int2bv.begin(), end = m_int2bv.end();
-        for (; it != end; ++it) {
-            rational offset;
-            VERIFY (m_bv2offset.find(it->m_value, offset));
-            expr_ref value(m_bv.mk_bv2int(m.mk_const(it->m_value)), m);
-            if (!offset.is_zero()) {
-                value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
-            }
-            TRACE("int2bv", tout << mk_pp(it->m_key, m) << " " << value << "\n";);
-            ext.insert(it->m_key, value);
-        }
-        ext(mdl, 0);
-    }
 
     void accumulate_sub(expr_safe_replace& sub) const {
         for (unsigned i = 0; i < m_bounds.size(); ++i) {
@@ -292,8 +304,8 @@ private:
     void flush_assertions() const {
         if (m_assertions.empty()) return;
         bound_manager& bm = *m_bounds.back();
-        for (unsigned i = 0; i < m_assertions.size(); ++i) {
-            bm(m_assertions[i].get());
+        for (expr* a : m_assertions) {
+            bm(a);
         }
         TRACE("int2bv", bm.display(tout););
         expr_safe_replace sub(m);
@@ -304,8 +316,8 @@ private:
             m_solver->assert_expr(m_assertions);
         }
         else {
-            for (unsigned i = 0; i < m_assertions.size(); ++i) {
-                sub(m_assertions[i].get(), fml1);
+            for (expr* a : m_assertions) {
+                sub(a, fml1);
                 m_rewriter(fml1, fml2, proof);
                 if (m.canceled()) {
                     m_rewriter.reset();

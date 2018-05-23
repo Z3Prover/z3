@@ -207,18 +207,17 @@ extern "C" {
        where each value is represented using the common symbols between
        the formulas in the subtree and the remainder of the formulas.
 
-       def_API('Z3_read_interpolation_problem', INT, (_in(CONTEXT), _out(UINT), _out_managed_array(1, AST), _out_managed_array(1, UINT), _in(STRING), _out(STRING), _out(UINT), _out_managed_array(6, AST)))
+       def_API('Z3_read_interpolation_problem', INT, (_in(CONTEXT), _in(AST_VECTOR), _out(UINT), _out_managed_array(2, UINT), _in(STRING), _out(STRING), _in(AST_VECTOR)))
 
        */
 
     int Z3_API Z3_read_interpolation_problem(Z3_context ctx,
-                                             unsigned *num,
-                                             Z3_ast *cnsts[],
-                                             unsigned *parents[],
+                                             Z3_ast_vector cnsts,
+                                             unsigned* num,
+                                             unsigned* parents[],
                                              Z3_string filename,
                                              Z3_string_ptr error,
-                                             unsigned *num_theory,
-                                             Z3_ast *theory[]);
+                                             Z3_ast_vector theory);
 
 
 

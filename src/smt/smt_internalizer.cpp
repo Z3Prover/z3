@@ -1345,6 +1345,7 @@ namespace smt {
                     cls->swap_lits(1, w2_idx);
                     TRACE("mk_th_lemma", display_clause(tout, cls); tout << "\n";);
                 }
+                // display_clause(std::cout, cls); std::cout << "\n";
                 m_lemmas.push_back(cls);
                 add_watch_literal(cls, 0);
                 add_watch_literal(cls, 1);

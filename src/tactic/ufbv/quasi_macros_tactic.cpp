@@ -17,9 +17,9 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/macros/quasi_macros.h"
 #include "tactic/ufbv/quasi_macros_tactic.h"
 
@@ -36,12 +36,8 @@ class quasi_macros_tactic : public tactic {
 
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("quasi-macros", *g);
 
             bool produce_proofs = g->proofs_enabled();
@@ -81,15 +77,14 @@ class quasi_macros_tactic : public tactic {
                                produce_proofs ? proofs.get(i) : nullptr,
                                produce_unsat_cores ? deps.get(i) : nullptr);
 
-            extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
+            generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager(), "quasi_macros");
             unsigned num = mm.get_num_macros();
             for (unsigned i = 0; i < num; i++) {
                 expr_ref f_interp(mm.get_manager());
                 func_decl * f = mm.get_macro_interpretation(i, f_interp);
-                evmc->insert(f, f_interp);
+                evmc->add(f, f_interp);
             }
-            mc = evmc;
-
+            g->add(evmc);
             g->inc_depth();
             result.push_back(g.get());
             TRACE("quasi-macros", g->display(tout););
@@ -129,11 +124,8 @@ public:
     }
 
     void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
 
     void cleanup() override {

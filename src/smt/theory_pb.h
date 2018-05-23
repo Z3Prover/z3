@@ -23,6 +23,7 @@ Notes:
 #include "smt/smt_theory.h"
 #include "ast/pb_decl_plugin.h"
 #include "smt/smt_clause.h"
+#include "smt/smt_b_justification.h"
 #include "smt/params/theory_pb_params.h"
 #include "math/simplex/simplex.h"
 
@@ -37,10 +38,10 @@ namespace smt {
         class  negate_ineq;
         class  remove_var;
         class  undo_bound;
+
+        class  card_justification;
+
         typedef rational numeral;
-        typedef simplex::simplex<simplex::mpz_ext> simplex;
-        typedef simplex::row row;
-        typedef simplex::row_iterator row_iterator;
         typedef unsynch_mpq_inf_manager eps_manager;
         typedef _scoped_numeral<eps_manager> scoped_eps_numeral;
 
@@ -181,27 +182,88 @@ namespace smt {
 
         };
 
-        struct row_info {
-            unsigned     m_slack;   // slack variable in simplex tableau
-            numeral      m_bound;   // bound
-            arg_t        m_rep;     // representative
-            row_info(theory_var slack, numeral const& b, arg_t const& r):
-                m_slack(slack), m_bound(b), m_rep(r) {}
-            row_info(): m_slack(0) {}
+        // cardinality constraint args >= bound
+        // unit propagation on cardinality constraints is valid if the literals
+        // from k() up to size are false.
+        // In this case the literals 0..k()-1 need to be true. 
+        // The literals in position 0..k() are watched.
+        // whenever they are assigned to false, then find a literal among
+        // k() + 1.. sz() to swap with.
+        // If none are available, then perform unit propagation.
+        // 
+        class card {
+            literal         m_lit;      // literal repesenting predicate
+            literal_vector  m_args;
+            unsigned        m_bound;
+            unsigned        m_num_propagations;
+            unsigned        m_all_propagations;
+            unsigned        m_compilation_threshold;
+            lbool           m_compiled;
+            bool            m_aux;
+            
+        public:
+            card(literal l, unsigned bound, bool is_aux):
+                m_lit(l),
+                m_bound(bound),
+                m_num_propagations(0),
+                m_all_propagations(0),
+                m_compilation_threshold(0),
+                m_compiled(l_false),
+                m_aux(is_aux)
+            {
+                SASSERT(bound > 0);
+            }            
+            
+            literal lit() const { return m_lit; }
+            literal lit(unsigned i) const { return m_args[i]; }
+            unsigned k() const { return m_bound; }
+            unsigned size() const { return m_args.size(); }
+            unsigned all_propagations() const { return m_all_propagations; }
+            unsigned num_propagations() const { return m_num_propagations; }
+            void add_arg(literal l);
+        
+            void init_watch(theory_pb& th, bool is_true);
+
+            lbool assign(theory_pb& th, literal lit);
+        
+            void negate();
+
+            app_ref to_expr(theory_pb& th);
+
+            void inc_propagations(theory_pb& th);
+
+            void reset_propagations() { m_all_propagations += m_num_propagations; m_num_propagations = 0; }
+
+            bool is_aux() const { return m_aux; }
+
+        private:
+
+            bool validate_conflict(theory_pb& th);
+            
+            bool validate_assign(theory_pb& th, literal_vector const& lits, literal l);
+
+            void set_conflict(theory_pb& th, literal l);
         };
 
-        typedef ptr_vector<ineq> watch_list;
+        typedef ptr_vector<card> card_watch;
+        typedef ptr_vector<ineq> ineq_watch;
         typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
 
+
         struct var_info {
-            watch_list* m_lit_watch[2];
-            watch_list* m_var_watch;
-            ineq*       m_ineq;
+            ineq_watch*  m_lit_watch[2];
+            ineq_watch*  m_var_watch;
+            ineq*        m_ineq;
+
+            card_watch*  m_lit_cwatch[2];
+            card*        m_card;
             
-            var_info(): m_var_watch(nullptr), m_ineq(nullptr)
+            var_info(): m_var_watch(0), m_ineq(0), m_card(0)
             {
                 m_lit_watch[0] = nullptr;
                 m_lit_watch[1] = nullptr;
+                m_lit_cwatch[0] = nullptr;
+                m_lit_cwatch[1] = nullptr;
             }
 
             void reset() {
@@ -209,38 +271,39 @@ namespace smt {
                 dealloc(m_lit_watch[1]);
                 dealloc(m_var_watch);
                 dealloc(m_ineq);
+                dealloc(m_lit_cwatch[0]);
+                dealloc(m_lit_cwatch[1]);
+                dealloc(m_card);
             }
         };
-
 
         theory_pb_params         m_params;        
 
         svector<var_info>        m_var_infos; 
-        arg_map                  m_ineq_rep;       // Simplex: representative inequality
-        u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
-        uint_set                 m_vars;           // Simplex: 0-1 variables.
-        simplex                  m_simplex;        // Simplex: tableau
-        literal_vector           m_explain_lower;  // Simplex: explanations for lower bounds
-        literal_vector           m_explain_upper;  // Simplex: explanations for upper bounds
-        unsynch_mpq_inf_manager  m_mpq_inf_mgr;    // Simplex: manage inf_mpq numerals
         mutable unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
-        pb_util                  m_util;
+        pb_util                  pb;
         stats                    m_stats;
         ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
         unsigned                 m_conflict_frequency;
         bool                     m_learn_complements;
         bool                     m_enable_compilation;
-        bool                     m_enable_simplex;
         rational                 m_max_compiled_coeff;
+
+        bool                     m_cardinality_lemma;
+        unsigned                 m_restart_lim;
+        unsigned                 m_restart_inc;
+        uint_set                 m_occs;
 
         // internalize_atom:
         literal compile_arg(expr* arg);
-        void add_watch(ineq& c, unsigned index);
-        void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
         void init_watch(bool_var v);
+        
+        // general purpose pb constraints
+        void add_watch(ineq& c, unsigned index);
+        void del_watch(ineq_watch& watch, unsigned index, ineq& c, unsigned ineq_index);
         void init_watch_literal(ineq& c);
         void init_watch_var(ineq& c);
         void clear_watch(ineq& c);
@@ -249,14 +312,35 @@ namespace smt {
         void unwatch_literal(literal w, ineq* c);
         void unwatch_var(bool_var v, ineq* c);
         void remove(ptr_vector<ineq>& ineqs, ineq* c);
-        bool assign_watch_ge(bool_var v, bool is_true, watch_list& watch, unsigned index);
+
+        bool assign_watch_ge(bool_var v, bool is_true, ineq_watch& watch, unsigned index);
         void assign_watch(bool_var v, bool is_true, ineq& c);
         void assign_ineq(ineq& c, bool is_true);
         void assign_eq(ineq& c, bool is_true);
 
+        // cardinality constraints
+        // these are cheaper to handle than general purpose PB constraints
+        // and in the common case PB constraints with small coefficients can
+        // be handled using cardinality constraints.
+
+        unsigned_vector          m_card_trail;
+        unsigned_vector          m_card_lim;       
+        bool is_cardinality_constraint(app * atom);
+        bool internalize_card(app * atom, bool gate_ctx);
+        void card2conjunction(card const& c);
+        void card2disjunction(card const& c);
+
+        void watch_literal(literal lit, card* c);
+        void unwatch_literal(literal w, card* c);
+        void add_clause(card& c, literal_vector const& lits);
+        void add_assign(card& c, literal l);
+        void remove(ptr_vector<card>& cards, card* c);
+        void clear_watch(card& c); 
+        bool gc();
+        std::ostream& display(std::ostream& out, card const& c, bool values = false) const;
+
+
         // simplex:
-        literal set_explain(literal_vector& explains, unsigned var, literal expl);
-        bool update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound);
         bool check_feasible();
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
@@ -284,31 +368,58 @@ namespace smt {
         // Conflict resolution, cutting plane derivation.
         // 
         unsigned          m_num_marks;
+        literal_vector    m_resolved;
         unsigned          m_conflict_lvl;
-        arg_t             m_lemma;
-        literal_vector    m_ineq_literals;
-        svector<bool_var> m_marked;
 
-        // bool_var |-> index into m_lemma
-        unsigned_vector   m_conseq_index;
-        static const unsigned null_index;
-        bool is_marked(bool_var v) const;
-        void set_mark(bool_var v, unsigned idx);
-        void unset_mark(bool_var v);
-        void unset_marks();
+        // Conflict PB constraints
+        svector<int>      m_coeffs;
+        svector<bool_var> m_active_vars;
+        int               m_bound;
+        literal_vector    m_antecedents;
+        tracked_uint_set  m_active_var_set;
+        expr_ref_vector   m_antecedent_exprs;
+        svector<bool>     m_antecedent_signs;
+        expr_ref_vector   m_cardinality_exprs;
+        svector<bool>     m_cardinality_signs;
 
-        bool resolve_conflict(ineq& c);
-        void process_antecedent(literal l, numeral coeff);
-        void process_ineq(ineq& c, literal conseq, numeral coeff);
-        void remove_from_lemma(unsigned idx);
+        void normalize_active_coeffs();
+        void inc_coeff(literal l, int offset);
+        int get_coeff(bool_var v) const;
+        int get_abs_coeff(bool_var v) const;       
+        int arg_max(int& coeff); 
+
+        literal_vector& get_literals() { m_literals.reset(); return m_literals; }
+
+        vector<svector<bool_var> > m_coeff2args;
+        unsigned_vector m_active_coeffs;
+        bool init_arg_max();
+        void reset_arg_max();
+
+        void reset_coeffs();
+        void add_cardinality_lemma();
+        literal get_asserting_literal(literal conseq);
+
+        bool resolve_conflict(card& c, literal_vector const& conflict_clause);
+        void process_antecedent(literal l, int offset);
+        void process_card(card& c, int offset);
+        void cut();
         bool is_proof_justification(justification const& j) const;
+
 
         void hoist_maximal_values();
 
+        bool validate_lemma();
         void validate_final_check();
         void validate_final_check(ineq& c);
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
+        bool validate_unit_propagation(card const& c);
+        bool validate_antecedents(literal_vector const& lits);
+        bool validate_implies(app_ref& A, app_ref& B);
+        app_ref active2expr();
+        app_ref literal2expr(literal lit);
+        app_ref card2expr(card& c) { return c.to_expr(*this); }
+        app_ref justification2expr(b_justification& js, literal conseq);
 
         bool proofs_enabled() const { return get_manager().proofs_enabled(); }
         justification* justify(literal l1, literal l2);
@@ -337,7 +448,8 @@ namespace smt {
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
         void init_model(model_generator & m) override;
         bool include_func_interp(func_decl* f) override { return false; }
-
+        bool can_propagate() override;
+        void propagate() override; 
         static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };
 };

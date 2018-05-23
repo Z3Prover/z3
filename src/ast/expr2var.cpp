@@ -58,11 +58,9 @@ void expr2var::display(std::ostream & out) const {
 }
 
 void expr2var::mk_inv(expr_ref_vector & var2expr) const {
-    obj_map<expr, var>::iterator it  = m_mapping.begin();
-    obj_map<expr, var>::iterator end = m_mapping.end();
-    for (; it != end; ++it) {
-        expr * t = it->m_key;
-        var x = it->m_value;
+    for (auto & kv : m_mapping) {
+        expr * t = kv.m_key;
+        var x = kv.m_value;
         if (x >= var2expr.size())
             var2expr.resize(x+1, nullptr);
         var2expr.set(x, t);

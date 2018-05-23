@@ -25,7 +25,7 @@ Revision History:
 #include "ast/rewriter/expr_replacer.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/transforms/dl_mk_slice.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "muz/transforms/dl_transforms.h"
 #include "muz/base/fixedpoint_params.hpp"
 #include "ast/ast_util.h"
@@ -177,12 +177,8 @@ class horn_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("horn", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -229,18 +225,22 @@ class horn_tactic : public tactic {
                 }
                 queries.reset();
                 queries.push_back(q);
-                filter_model_converter* mc1 = alloc(filter_model_converter, m);
-                mc1->insert(to_app(q)->get_decl());
-                mc = mc1;
+                generic_model_converter* mc1 = alloc(generic_model_converter, m, "horn");
+                mc1->hide(q);
+                g->add(mc1);
             }
             SASSERT(queries.size() == 1);
             q = queries[0].get();
+            proof_converter_ref pc = g->pc();
+            model_converter_ref mc;
             if (m_is_simplify) {
                 simplify(q, g, result, mc, pc);
             }
             else {
                 verify(q, g, result, mc, pc);
             }
+            g->set(pc.get());
+            g->set(mc.get());
         }
 
         void verify(expr* q, 
@@ -383,12 +383,9 @@ public:
         m_imp->collect_param_descrs(r);
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
     void collect_statistics(statistics & st) const override {

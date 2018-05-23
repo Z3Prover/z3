@@ -334,6 +334,7 @@ void asserted_formulas::find_macros_core() {
     reduce_and_solve();
 }
 
+
 void asserted_formulas::apply_quasi_macros() {
     TRACE("before_quasi_macros", display(tout););
     vector<justified_expr> new_fmls;
@@ -419,7 +420,7 @@ void asserted_formulas::simplify_fmls::operator()() {
 
 
 void asserted_formulas::reduce_and_solve() {
-    IF_IVERBOSE(10, verbose_stream() << "(smt.reducing)\n";);
+    IF_VERBOSE(10, verbose_stream() << "(smt.reducing)\n";);
     flush_cache(); // collect garbage
     m_reduce_asserted_formulas();
 }
@@ -525,6 +526,7 @@ void asserted_formulas::update_substitution(expr* n, proof* pr) {
     }
 }
 
+
 /**
    \brief implement a Knuth-Bendix ordering on expressions.
 */
@@ -629,6 +631,7 @@ unsigned asserted_formulas::get_total_size() const {
         r += get_num_exprs(j.get_fml(), visited);
     return r;
 }
+
 
 #ifdef Z3DEBUG
 void pp(asserted_formulas & f) {

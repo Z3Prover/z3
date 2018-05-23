@@ -26,7 +26,7 @@ Notes:
 #include "util/trace.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/expr_substitution.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/arith/pb2bv_model_converter.h"
 #include "tactic/arith/pb2bv_tactic.h"
 #include "ast/ast_pp.h"
@@ -886,16 +886,13 @@ private:
         }
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             TRACE("pb2bv", g->display(tout););
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+            result.reset();
             tactic_report report("pb2bv", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -949,17 +946,17 @@ private:
                 g->update(idx, new_exprs[idx].get(), nullptr, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
 
             if (m_produce_models) {
-                filter_model_converter * mc1 = alloc(filter_model_converter, m);
-                obj_map<func_decl, expr*>::iterator it  = m_const2bit.begin();
-                obj_map<func_decl, expr*>::iterator end = m_const2bit.end();
-                for (; it != end; ++it)
-                    mc1->insert(to_app(it->m_value)->get_decl());
+                model_converter_ref mc;
+                generic_model_converter * mc1 = alloc(generic_model_converter, m, "pb2bv");
+                for (auto const& kv : m_const2bit) 
+                    mc1->hide(kv.m_value);
                 // store temp int constants in the filter
                 unsigned num_temps = m_temporary_ints.size();
                 for (unsigned i = 0; i < num_temps; i++)
-                    mc1->insert(to_app(m_temporary_ints.get(i))->get_decl());
+                    mc1->hide(m_temporary_ints.get(i));
                 pb2bv_model_converter * mc2 = alloc(pb2bv_model_converter, m, m_const2bit, m_bm);
-                mc = concat(mc1, mc2);                
+                mc = concat(mc1, mc2); 
+                g->add(mc.get());
             }
 
             g->inc_depth();
@@ -1000,12 +997,9 @@ public:
         m_imp->collect_param_descrs(r);
     }
 
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
     void cleanup() override {

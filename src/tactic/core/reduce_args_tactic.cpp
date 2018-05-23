@@ -22,8 +22,7 @@ Notes:
 #include "ast/has_free_vars.h"
 #include "util/map.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 /**
    \brief Reduce the number of arguments in function applications.
@@ -74,7 +73,7 @@ public:
 
     ~reduce_args_tactic() override;
     
-    void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override;
     void cleanup() override;
 };
 
@@ -394,13 +393,10 @@ struct reduce_args_tactic::imp {
         ptr_buffer<expr> new_args;
         var_ref_vector   new_vars(m_manager);
         ptr_buffer<expr> new_eqs;
-        extension_model_converter * e_mc = alloc(extension_model_converter, m_manager);
-        filter_model_converter * f_mc    = alloc(filter_model_converter, m_manager);
-        decl2arg2func_map::iterator it   = decl2arg2funcs.begin();
-        decl2arg2func_map::iterator end  = decl2arg2funcs.end();
-        for (; it != end; ++it) {
-            func_decl * f  = it->m_key;
-            arg2func * map = it->m_value;
+        generic_model_converter * f_mc    = alloc(generic_model_converter, m_manager, "reduce_args");
+        for (auto const& kv : decl2arg2funcs) {
+            func_decl * f  = kv.m_key;
+            arg2func * map = kv.m_value;
             expr * def     = nullptr;
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
@@ -416,7 +412,7 @@ struct reduce_args_tactic::imp {
             for (; it2 != end2; ++it2) {
                 app * t = it2->m_key;
                 func_decl * new_def = it2->m_value;
-                f_mc->insert(new_def);
+                f_mc->hide(new_def);
                 SASSERT(new_def->get_arity() == new_args.size());
                 app * new_t = m_manager.mk_app(new_def, new_args.size(), new_args.c_ptr());
                 if (def == nullptr) {
@@ -438,12 +434,12 @@ struct reduce_args_tactic::imp {
                 }
             }
             SASSERT(def);
-            e_mc->insert(f, def);
+            f_mc->add(f, def);
         }
-        return concat(f_mc, e_mc);
+        return f_mc;
     }
 
-    void operator()(goal & g, model_converter_ref & mc) {
+    void operator()(goal & g) {
         if (g.inconsistent())
             return;
         TRACE("reduce_args", g.display(tout););
@@ -472,9 +468,9 @@ struct reduce_args_tactic::imp {
         report_tactic_progress(":reduced-funcs", decl2args.size());
 
         if (g.models_enabled())
-            mc = mk_mc(decl2args, ctx.m_decl2arg2funcs);
+            g.add(mk_mc(decl2args, ctx.m_decl2arg2funcs));
 
-        TRACE("reduce_args", g.display(tout); if (mc) mc->display(tout););
+        TRACE("reduce_args", g.display(tout); if (g.mc()) g.mc()->display(tout););
     }
 };
 
@@ -487,15 +483,12 @@ reduce_args_tactic::~reduce_args_tactic() {
 }
 
 void reduce_args_tactic::operator()(goal_ref const & g, 
-                                    goal_ref_buffer & result, 
-                                    model_converter_ref & mc, 
-                                    proof_converter_ref & pc,
-                                    expr_dependency_ref & core) {
+                                    goal_ref_buffer & result) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("reduce-args", g);
     fail_if_unsat_core_generation("reduce-args", g);
-    mc = nullptr; pc = nullptr; core = nullptr; result.reset();
-    m_imp->operator()(*(g.get()), mc);
+    result.reset();
+    m_imp->operator()(*(g.get()));
     g->inc_depth();
     result.push_back(g.get());
     SASSERT(g->is_well_sorted());

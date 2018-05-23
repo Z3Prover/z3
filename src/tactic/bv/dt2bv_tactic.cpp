@@ -21,12 +21,10 @@ Revision History:
 
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/enum2bv_rewriter.h"
@@ -117,12 +115,7 @@ public:
     void collect_param_descrs(param_descrs & r) override {
     }
 
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        mc = nullptr; pc = nullptr; core = nullptr;
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         bool produce_proofs = g->proofs_enabled();
         tactic_report report("dt2bv", *g);
         unsigned   size = g->size();
@@ -131,13 +124,10 @@ public:
         for (unsigned i = 0; i < size; ++i) {
             quick_for_each_expr(proc, visited, g->form(i));
         }
-        obj_hashtable<sort>::iterator it = m_non_fd_sorts.begin(), end = m_non_fd_sorts.end();
-        for (; it != end; ++it) {
-            m_fd_sorts.remove(*it);
-        }
+        for (sort* s : m_non_fd_sorts) 
+            m_fd_sorts.remove(s);
         if (!m_fd_sorts.empty()) {
-            ref<extension_model_converter> ext = alloc(extension_model_converter, m);
-            ref<filter_model_converter> filter = alloc(filter_model_converter, m);
+            ref<generic_model_converter> filter = alloc(generic_model_converter, m, "dt2bv");
             enum2bv_rewriter rw(m, m_params);
             rw.set_is_fd(&m_is_fd);            
             expr_ref   new_curr(m);
@@ -152,23 +142,14 @@ public:
             }
             expr_ref_vector bounds(m);
             rw.flush_side_constraints(bounds);
-            for (unsigned i = 0; i < bounds.size(); ++i) {
-                g->assert_expr(bounds[i].get());
-            }
-            {
-                obj_map<func_decl, func_decl*>::iterator it = rw.enum2bv().begin(), end = rw.enum2bv().end();
-                for (; it != end; ++it) {
-                    filter->insert(it->m_value);
-                }
-            }
-            {
-                obj_map<func_decl, expr*>::iterator it = rw.enum2def().begin(), end = rw.enum2def().end();
-                for (; it != end; ++it) {
-                    ext->insert(it->m_key, it->m_value);
-                }
-            }
+            for (expr* b : bounds) 
+                g->assert_expr(b);
+            for (auto const& kv : rw.enum2bv()) 
+                filter->hide(kv.m_value);
+            for (auto const& kv : rw.enum2def()) 
+                filter->add(kv.m_key, kv.m_value);
             
-            mc = concat(filter.get(), ext.get());
+            g->add(filter.get());
             report_tactic_progress(":fd-num-translated", rw.num_translated());
         }
         g->inc_depth();

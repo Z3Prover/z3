@@ -39,6 +39,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_timeout = p.timeout();
     m_rlimit  = p.rlimit();
     m_max_conflicts = p.max_conflicts();
+    m_restart_max   = p.restart_max();
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();

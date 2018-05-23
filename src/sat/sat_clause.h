@@ -19,10 +19,11 @@ Revision History:
 #ifndef SAT_CLAUSE_H_
 #define SAT_CLAUSE_H_
 
-#include "sat/sat_types.h"
 #include "util/small_object_allocator.h"
 #include "util/id_gen.h"
 #include "util/map.h"
+#include "sat/sat_types.h"
+#include "sat/sat_allocator.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
@@ -32,6 +33,10 @@ Revision History:
 namespace sat {
 
     class clause_allocator;
+
+    class clause;
+
+    std::ostream & operator<<(std::ostream & out, clause const & c);
 
     class clause {
         friend class clause_allocator;
@@ -57,11 +62,12 @@ namespace sat {
     public:
         unsigned id() const { return m_id; }
         unsigned size() const { return m_size; }
+        unsigned capacity() const { return m_capacity; }
         literal & operator[](unsigned idx) { SASSERT(idx < m_size); return m_lits[idx]; }
         literal const & operator[](unsigned idx) const { SASSERT(idx < m_size); return m_lits[idx]; }
         bool is_learned() const { return m_learned; }
-        void unset_learned() { SASSERT(is_learned()); m_learned = false; }
-        void shrink(unsigned num_lits) { SASSERT(num_lits <= m_size); if (num_lits < m_size) { m_size = num_lits; mark_strengthened(); } }
+        void set_learned(bool l) { SASSERT(is_learned() != l); m_learned = l; }
+        void shrink(unsigned num_lits);
         bool strengthened() const { return m_strengthened; }
         void mark_strengthened() { m_strengthened = true; update_approx(); }
         void unmark_strengthened() { m_strengthened = false; }
@@ -73,6 +79,8 @@ namespace sat {
         bool check_approx() const; // for debugging
         literal * begin() { return m_lits; }
         literal * end() { return m_lits + m_size; }
+        literal const * begin() const { return m_lits; }
+        literal const * end() const { return m_lits + m_size; }
         bool contains(literal l) const;
         bool contains(bool_var v) const;
         bool satisfied_by(model const & m) const;
@@ -90,12 +98,13 @@ namespace sat {
         unsigned glue() const { return m_glue; }
         void set_psm(unsigned psm) { m_psm = psm > 255 ? 255 : psm; }
         unsigned psm() const { return m_psm; }
+        clause_offset get_new_offset() const;
+        void set_new_offset(clause_offset off); 
 
         bool on_reinit_stack() const { return m_reinit_stack; }
         void set_reinit_stack(bool f) { m_reinit_stack = f; }
     };
 
-    std::ostream & operator<<(std::ostream & out, clause const & c);
     std::ostream & operator<<(std::ostream & out, clause_vector const & cs);
 
     class bin_clause {
@@ -127,24 +136,16 @@ namespace sat {
        \brief Simple clause allocator that allows uint (32bit integers) to be used to reference clauses (even in 64bit machines).
     */
     class clause_allocator {
-        small_object_allocator m_allocator;
-        id_gen                 m_id_gen;
-#if defined(_AMD64_)
-        unsigned get_segment(clause const* cls);
-        static const unsigned  c_cls_alignment = 3;
-        static const unsigned  c_last_segment  = (1ull << c_cls_alignment) - 1ull;
-        static const size_t    c_alignment_mask = (1ull << c_cls_alignment) - 1ull;
-        unsigned               m_num_segments;
-        size_t                 m_segments[c_last_segment];
-#if defined(Z3DEBUG)
-        u_map<clause const*>   m_last_seg_id2cls;
-#endif
-#endif
+        sat_allocator    m_allocator;
+        id_gen           m_id_gen;
     public:
         clause_allocator();
+        void          finalize();
+        size_t        get_allocation_size() const { return m_allocator.get_allocation_size(); }
         clause *      get_clause(clause_offset cls_off) const;
         clause_offset get_offset(clause const * ptr) const;
         clause *      mk_clause(unsigned num_lits, literal const * lits, bool learned);
+        clause *      copy_clause(clause const& other);
         void          del_clause(clause * cls);
     };
 
@@ -160,8 +161,18 @@ namespace sat {
         };
         unsigned m_l2_idx;
     public:
-        clause_wrapper(literal l1, literal l2):m_l1_idx(l1.to_uint()), m_l2_idx(l2.to_uint()) {}
-        clause_wrapper(clause & c):m_cls(&c), m_l2_idx(null_literal.to_uint()) {}
+        explicit clause_wrapper(literal l1, literal l2):m_l1_idx(l1.to_uint()), m_l2_idx(l2.to_uint()) {}
+        explicit clause_wrapper(clause & c):m_cls(&c), m_l2_idx(null_literal.to_uint()) {}
+        clause_wrapper& operator=(clause_wrapper const& other) {
+            if (other.is_binary()) {
+                m_l1_idx = other.m_l1_idx;
+            }
+            else {
+                m_cls = other.m_cls;
+            }
+            m_l2_idx = other.m_l2_idx;
+            return *this;
+        }
 
         bool is_binary() const { return m_l2_idx != null_literal.to_uint(); }
         unsigned size() const { return is_binary() ? 2 : m_cls->size(); }
@@ -176,6 +187,7 @@ namespace sat {
         bool contains(literal l) const;
         bool contains(bool_var v) const;
         clause * get_clause() const { SASSERT(!is_binary()); return m_cls; }
+        bool was_removed() const { return !is_binary() && get_clause()->was_removed(); }
     };
 
     typedef svector<clause_wrapper> clause_wrapper_vector;

@@ -16,19 +16,21 @@ Author:
 Notes:
 
 --*/
-#include "tactic/tactic.h"
-#include "tactic/tactical.h"
+#include "util/lp/lp_params.hpp"
+#include "ast/rewriter/rewriter_types.h"
+#include "ast/ast_util.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "smt/params/smt_params_helper.hpp"
-#include "util/lp/lp_params.hpp"
-#include "ast/rewriter/rewriter_types.h"
-#include "tactic/filter_model_converter.h"
-#include "ast/ast_util.h"
-#include "solver/solver2tactic.h"
 #include "smt/smt_solver.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/generic_model_converter.h"
+#include "solver/solver2tactic.h"
 #include "solver/solver.h"
 #include "solver/mus.h"
+#include "solver/parallel_tactic.h"
+#include "solver/parallel_params.hpp"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -145,13 +147,9 @@ public:
 
 
     void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+                    goal_ref_buffer & result) override {
         try {
             IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
-            mc = nullptr; pc = nullptr; core = nullptr;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
@@ -169,7 +167,7 @@ public:
             expr_ref_vector clauses(m);
             expr2expr_map               bool2dep;
             ptr_vector<expr>            assumptions;
-            ref<filter_model_converter> fmc;
+            ref<generic_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
                 TRACE("mus", in->display_with_dependencies(tout);
@@ -220,9 +218,13 @@ public:
                     model_ref md;
                     m_ctx->get_model(md);
                     buffer<symbol> r;
-                    m_ctx->get_relevant_labels(nullptr, r);
-                    mc = model_and_labels2model_converter(md.get(), r);
+                    m_ctx->get_relevant_labels(0, r);
+                    labels_vec rv;
+                    rv.append(r.size(), r.c_ptr());
+                    model_converter_ref mc;
+                    mc = model_and_labels2model_converter(md.get(), rv);
                     mc = concat(fmc.get(), mc.get());
+                    in->add(mc.get());
                 }
                 return;
             }
@@ -269,8 +271,10 @@ public:
                             model_ref md;
                             m_ctx->get_model(md);
                             buffer<symbol> r;
-                            m_ctx->get_relevant_labels(nullptr, r);
-                            mc = model_and_labels2model_converter(md.get(), r);
+                            m_ctx->get_relevant_labels(0, r);
+                            labels_vec rv;
+                            rv.append(r.size(), r.c_ptr());
+                            in->add(model_and_labels2model_converter(md.get(), rv));
                         }
                         return;
                     default:
@@ -299,3 +303,18 @@ tactic * mk_smt_tactic_using(bool auto_config, params_ref const & _p) {
     return using_params(r, p);
 }
 
+tactic * mk_psmt_tactic(ast_manager& m, params_ref const& p, symbol const& logic) {
+    parallel_params pp(p);
+    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p);
+}
+
+tactic * mk_psmt_tactic_using(ast_manager& m, bool auto_config, params_ref const& _p, symbol const& logic) {
+    parallel_params pp(_p);
+    params_ref p = _p;
+    p.set_bool("auto_config", auto_config);
+    return using_params(pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p), p);
+}
+
+tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
+    return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
+}

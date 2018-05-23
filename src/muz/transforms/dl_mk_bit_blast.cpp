@@ -22,7 +22,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "muz/transforms/dl_mk_interp_tail_simplifier.h"
 #include "muz/base/fixedpoint_params.hpp"
 #include "ast/scoped_proof.h"
@@ -62,6 +62,10 @@ namespace datalog {
         model_converter * translate(ast_translation & translator) override {
             return alloc(bit_blast_model_converter, m);
         }
+
+        void get_units(obj_map<expr, bool>& units)  override {}
+
+        void display(std::ostream& out) override { out << "(bit-blast-model-converter)\n"; }
 
         void operator()(model_ref & model) override {
             for (unsigned i = 0; i < m_new_funcs.size(); ++i) {
@@ -297,12 +301,12 @@ namespace datalog {
             }
             
             if (m_context.get_model_converter()) {               
-                filter_model_converter* fmc = alloc(filter_model_converter, m);
+                generic_model_converter* fmc = alloc(generic_model_converter, m, "dl_mk_bit_blast");
                 bit_blast_model_converter* bvmc = alloc(bit_blast_model_converter, m);
                 func_decl_ref_vector const& old_funcs = m_rewriter.m_cfg.old_funcs();
                 func_decl_ref_vector const& new_funcs = m_rewriter.m_cfg.new_funcs();
                 for (unsigned i = 0; i < old_funcs.size(); ++i) {
-                    fmc->insert(new_funcs[i]);
+                    fmc->hide(new_funcs[i]);
                     bvmc->insert(old_funcs[i], new_funcs[i]);
                 }
                 m_context.add_model_converter(concat(bvmc, fmc));

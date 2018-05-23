@@ -55,7 +55,7 @@ static void init_vars(sat::solver& s) {
 static void check_coherence(sat::solver& s1, trail_t& t) {
     params_ref p;
     reslimit rlim;
-    sat::solver s2(p, rlim, nullptr);
+    sat::solver s2(p, rlim);
     init_vars(s2);
     sat::literal_vector cls;
     for (unsigned i = 0; i < t.size(); ++i) {
@@ -81,7 +81,7 @@ void tst_sat_user_scope() {
     trail_t trail;
     params_ref p;
     reslimit rlim;
-    sat::solver s(p, rlim, nullptr);  // incremental solver
+    sat::solver s(p, rlim);  // incremental solver
     init_vars(s);
     while (true) {
         for (unsigned i = 0; i < s_num_frames; ++i) {

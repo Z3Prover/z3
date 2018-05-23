@@ -23,11 +23,8 @@ struct arith_bounds_tactic : public tactic {
     ast_manager& get_manager() { return m; }
 
 
-    void operator()(/* in */  goal_ref const & in,
-                    /* out */ goal_ref_buffer & result,
-                    /* out */ model_converter_ref & mc,
-                    /* out */ proof_converter_ref & pc,
-                    /* out */ expr_dependency_ref & core) override {
+    void operator()(/* in */  goal_ref const & in, 
+                    /* out */ goal_ref_buffer & result) override {        
         bounds_arith_subsumption(in, result);
     }
     

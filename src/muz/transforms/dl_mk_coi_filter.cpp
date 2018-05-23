@@ -21,6 +21,7 @@ Author:
 #include "muz/dataflow/dataflow.h"
 #include "muz/dataflow/reachability.h"
 #include "ast/ast_pp.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_util.h"
 #include "tactic/extension_model_converter.h"
 
@@ -101,14 +102,14 @@ namespace datalog {
         
         // set to false each unreached predicate 
         if (res && m_context.get_model_converter()) {
-            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
             for (auto const& kv : engine) {
                 if (!kv.m_value.is_reachable()) {
-                    mc0->insert(kv.m_key, m.mk_false());
+                    mc0->add(kv.m_key, m.mk_false());
                 }
             }
             for (func_decl* f : unreachable) {
-                mc0->insert(f, m.mk_false());
+                mc0->add(f, m.mk_false());
             }
             m_context.add_model_converter(mc0);
         }
@@ -137,7 +138,7 @@ namespace datalog {
             res = nullptr;
         }
         if (res && m_context.get_model_converter()) {
-            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
             for (func_decl* f : pruned_preds) {
                 const rule_vector& rules = source.get_predicate_rules(f);
                 expr_ref_vector fmls(m);
@@ -152,7 +153,9 @@ namespace datalog {
                     }
                     fmls.push_back(mk_and(conj));
                 }
-                mc0->insert(f, mk_or(fmls));
+                expr_ref fml(m);
+                fml = m.mk_or(fmls.size(), fmls.c_ptr());
+                mc0->add(f, fml);
             }
             m_context.add_model_converter(mc0);
         }

@@ -36,6 +36,7 @@ class bv1_blaster_tactic : public tactic {
         ast_manager &                      m_manager;
         bv_util                            m_util;
         obj_map<func_decl, expr*>          m_const2bits;
+        ptr_vector<func_decl>              m_newbits;
         expr_ref_vector                    m_saved;
         expr_ref                           m_bit1;
         expr_ref                           m_bit0;
@@ -107,6 +108,7 @@ class bv1_blaster_tactic : public tactic {
             ptr_buffer<expr> bits;
             for (unsigned i = 0; i < bv_size; i++) {
                 bits.push_back(m().mk_fresh_const(nullptr, b));
+                m_newbits.push_back(to_app(bits.back())->get_decl());
             }
             r = butil().mk_concat(bits.size(), bits.c_ptr());
             m_saved.push_back(r);
@@ -379,11 +381,7 @@ class bv1_blaster_tactic : public tactic {
         
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = nullptr; pc = nullptr; core = nullptr;
+                        goal_ref_buffer & result) {
             
             if (!is_target(*g))
                 throw tactic_exception("bv1 blaster cannot be applied to goal");
@@ -409,7 +407,7 @@ class bv1_blaster_tactic : public tactic {
             }
             
             if (g->models_enabled())
-                mc = mk_bv1_blaster_model_converter(m(), m_rw.cfg().m_const2bits);
+                g->add(mk_bv1_blaster_model_converter(m(), m_rw.cfg().m_const2bits, m_rw.cfg().m_newbits));
             g->inc_depth();
             result.push_back(g.get());
             m_rw.cfg().cleanup();
@@ -454,12 +452,9 @@ public:
        It also does not support quantifiers.
        Return a model_converter that converts any model for the updated set into a model for the old set.
     */
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(g, result, mc, pc, core);
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(g, result);
     }
     
     void cleanup() override {

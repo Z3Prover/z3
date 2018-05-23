@@ -528,7 +528,7 @@ expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
         md->register_decl(m_head, fi);
     }
     model_converter_ref mc = ctx.get_model_converter();
-    apply(mc, md, 0);
+    apply(mc, md);
     if (p_orig->get_arity() == 0) {
         result = md->get_const_interp(p_orig);
     } else {
@@ -1367,9 +1367,6 @@ void pred_transformer::frames::simplify_formulas ()
         // normalize level
         unsigned level = i < m_size ? i : infty_level ();
 
-        model_converter_ref mc;
-        proof_converter_ref pc;
-        expr_dependency_ref core(m);
         goal_ref_buffer result;
 
         // simplify lemmas of the current level
@@ -1395,7 +1392,7 @@ void pred_transformer::frames::simplify_formulas ()
         }
 
         // more than one lemma at current level. simplify.
-        (*simplifier)(g, result, mc, pc, core);
+        (*simplifier)(g, result);
         SASSERT(result.size () == 1);
         goal *r = result[0];
 
@@ -2063,8 +2060,8 @@ bool context::validate()
         expr_ref_vector refs(m);
         expr_ref tmp(m);
         model_ref model;
-        vector<relation_info> rs;
         model_converter_ref mc;
+        vector<relation_info> rs;
         get_level_property(m_inductive_lvl, refs, rs);
         inductive_property ex(m, mc, rs);
         ex.to_model(model);

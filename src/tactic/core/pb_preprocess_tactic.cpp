@@ -33,54 +33,12 @@ Notes:
 --*/
 #include "tactic/core/pb_preprocess_tactic.h"
 #include "tactic/tactical.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/for_each_expr.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_pp.h"
-
-class pb_preproc_model_converter : public model_converter {
-    ast_manager& m;
-    pb_util      pb;
-    expr_ref_vector                  m_refs;
-    svector<std::pair<app*, expr*> > m_const;
-
-public:
-    pb_preproc_model_converter(ast_manager& m):m(m), pb(m), m_refs(m) {}
-
-    void operator()(model_ref & mdl, unsigned goal_idx) override {
-        SASSERT(goal_idx == 0);
-        for (unsigned i = 0; i < m_const.size(); ++i) {
-            mdl->register_decl(m_const[i].first->get_decl(), m_const[i].second);
-        }
-    }
-
-    void set_value(expr* e, bool p) {
-        while (m.is_not(e, e)) {
-            p = !p;
-        }
-        SASSERT(is_app(e));
-        set_value_p(to_app(e), p?m.mk_true():m.mk_false());        
-    }
-
-    model_converter * translate(ast_translation & translator) override {
-        pb_preproc_model_converter* mc = alloc(pb_preproc_model_converter, translator.to());
-        for (unsigned i = 0; i < m_const.size(); ++i) {
-            mc->set_value_p(translator(m_const[i].first), translator(m_const[i].second));
-        }
-        return mc;
-    }
-
-private:
-    void set_value_p(app* e, expr* v) {
-        SASSERT(e->get_num_args() == 0);  
-        SASSERT(is_uninterp_const(e));
-        m_const.push_back(std::make_pair(e, v));
-        m_refs.push_back(e);
-        m_refs.push_back(v);
-    }
-
-};
 
 class pb_preprocess_tactic : public tactic {
     struct rec { unsigned_vector pos, neg; rec() { } };
@@ -114,23 +72,30 @@ class pb_preprocess_tactic : public tactic {
         for (unsigned i = 0; i < m_other.size(); ++i) {
             out << "ot " << m_other[i] << ": " << mk_pp(g->form(m_other[i]), m) << "\n";
         }
-                
-        var_map::iterator it  = m_vars.begin();
-        var_map::iterator end = m_vars.end();
-        for (; it != end; ++it) {
-            app* e = it->m_key;
-            unsigned_vector const& pos = it->m_value.pos;
-            unsigned_vector const& neg = it->m_value.neg;
+         
+        for (auto const& kv : m_vars) {
+            app* e = kv.m_key;
+            unsigned_vector const& pos = kv.m_value.pos;
+            unsigned_vector const& neg = kv.m_value.neg;
             out << mk_pp(e, m) << ": ";
-            for (unsigned i = 0; i < pos.size(); ++i) {
-                out << "p: " << pos[i] << " ";
+            for (unsigned p : pos) {
+                out << "p: " << p << " ";
             }
-            for (unsigned i = 0; i < neg.size(); ++i) {
-                out << "n: " << neg[i] << " ";
+            for (unsigned n : neg) {
+                out << "n: " << n << " ";
             }
             out << "\n";
         }
     }
+
+    void set_value(generic_model_converter& mc, expr* e, bool p) {
+        while (m.is_not(e, e)) {
+            p = !p;
+        }
+        SASSERT(is_app(e));
+        mc.add(to_app(e), p?m.mk_true():m.mk_false());        
+    }
+
 
 public:
     pb_preprocess_tactic(ast_manager& m, params_ref const& p = params_ref()): 
@@ -142,20 +107,17 @@ public:
         return alloc(pb_preprocess_tactic, m);
     }
     
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(
+        goal_ref const & g, 
+        goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
-        pc = nullptr; core = nullptr;
 
         if (g->proofs_enabled()) {
             throw tactic_exception("pb-preprocess does not support proofs");
         }
 
-        pb_preproc_model_converter* pp = alloc(pb_preproc_model_converter, m);
-        mc = pp;
+        generic_model_converter* pp = alloc(generic_model_converter, m, "pb-preprocess");
+        g->add(pp);
 
         g->inc_depth();        
         result.push_back(g.get());       
@@ -163,7 +125,7 @@ public:
         // decompose(g);
     }
 
-    bool simplify(goal_ref const& g, pb_preproc_model_converter& mc) {
+    bool simplify(goal_ref const& g, generic_model_converter& mc) {
         reset();
         normalize(g);
         if (g->inconsistent()) {
@@ -201,11 +163,11 @@ public:
             TRACE("pb", tout << mk_pp(e, m) << " " << r.pos.size() << " " << r.neg.size() << "\n";);
             if (r.pos.empty()) {                
                 replace(r.neg, e, m.mk_false(), g);
-                mc.set_value(e, false);
+                set_value(mc, e, false);
             }
             else if (r.neg.empty()) {
                 replace(r.pos, e, m.mk_true(), g);
-                mc.set_value(e, true);
+                set_value(mc, e, true);
             }
             if (g->inconsistent()) return false;
             ++it;
@@ -507,7 +469,7 @@ private:
 
     // Implement very special case of resolution.
     
-    void resolve(pb_preproc_model_converter& mc, unsigned idx1, 
+    void resolve(generic_model_converter& mc, unsigned idx1, 
                  unsigned_vector const& positions, app* e, bool pos, goal_ref const& g) {
         if (positions.size() != 1) return;
         unsigned idx2 = positions[0];
@@ -556,7 +518,7 @@ private:
             else {
                 args2[j] = m.mk_true();
             }
-            mc.set_value(arg, j != min_index);
+            set_value(mc, arg, j != min_index);
         }
         
         tmp1 = pb.mk_ge(args2.size(), coeffs2.c_ptr(), args2.c_ptr(), k2);

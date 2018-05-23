@@ -228,8 +228,8 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
     params_ref p = gparams::get_module("sat");
     p.set_bool("produce_models", true);
     reslimit limit;
-    sat::solver solver(p, limit, nullptr);
-    sat::solver solver2(p, limit, nullptr);
+    sat::solver solver(p, limit);
+    sat::solver solver2(p, limit);
     g_solver = &solver;
 
     if (file_name) {

@@ -34,8 +34,8 @@ public:
     solver_na2as(ast_manager & m);
     ~solver_na2as() override;
 
-    void assert_expr(expr * t, expr * a) override;
-    void assert_expr(expr * t) override = 0;
+    void assert_expr_core2(expr * t, expr * a) override;
+    // virtual void assert_expr_core(expr * t) = 0;
     
     // Subclasses of solver_na2as should redefine the following *_core methods instead of these ones.
     lbool check_sat(unsigned num_assumptions, expr * const * assumptions) override;

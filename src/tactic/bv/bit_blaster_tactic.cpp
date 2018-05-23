@@ -51,11 +51,7 @@ class bit_blaster_tactic : public tactic {
         
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = nullptr; pc = nullptr; core = nullptr;
+                        goal_ref_buffer & result) {
             bool proofs_enabled = g->proofs_enabled();
 
             if (proofs_enabled && m_blast_quant)
@@ -66,6 +62,7 @@ class bit_blaster_tactic : public tactic {
             TRACE("before_bit_blaster", g->display(tout););
             m_num_steps = 0;
             
+            m_rewriter->start_rewrite();
             expr_ref   new_curr(m());
             proof_ref  new_pr(m());
             unsigned size = g->size();
@@ -81,19 +78,21 @@ class bit_blaster_tactic : public tactic {
                     new_pr     = m().mk_modus_ponens(pr, new_pr);
                 }
                 if (curr != new_curr) {
-                    change = true;
-                    TRACE("bit_blaster", tout << mk_pp(curr, m()) << " -> " << mk_pp(new_curr, m()) << "\n";);
+                    change = true;                    
+                    TRACE("bit_blaster", tout << mk_pp(curr, m()) << " -> " << new_curr << "\n";);
                     g->update(idx, new_curr, new_pr, g->dep(idx));
                 }
             }
             
-            if (change && g->models_enabled())  
-                mc = mk_bit_blaster_model_converter(m(), m_rewriter->const2bits());
-            else
-                mc = nullptr;
+            if (change && g->models_enabled()) {
+                obj_map<func_decl, expr*> const2bits;
+                ptr_vector<func_decl> newbits;
+                m_rewriter->end_rewrite(const2bits, newbits);
+                g->add(mk_bit_blaster_model_converter(m(), const2bits, newbits));
+            }
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("after_bit_blaster", g->display(tout); if (mc) mc->display(tout); tout << "\n";);
+            TRACE("after_bit_blaster", g->display(tout); if (g->mc()) g->mc()->display(tout); tout << "\n";);
             m_rewriter->cleanup();
         }
         
@@ -134,13 +133,10 @@ public:
         r.insert("blast_full", CPK_BOOL, "(default: false) bit-blast any term with bit-vector sort, this option will make E-matching ineffective in any pattern containing bit-vector terms.");
     }
      
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
         try {
-            (*m_imp)(g, result, mc, pc, core);
+            (*m_imp)(g, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());
@@ -157,6 +153,7 @@ public:
         return m_imp->get_num_steps();
     }
 
+
 };
 
 
@@ -167,3 +164,4 @@ tactic * mk_bit_blaster_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_bit_blaster_tactic(ast_manager & m, bit_blaster_rewriter* rw, params_ref const & p) {
     return clean(alloc(bit_blaster_tactic, m, rw, p));
 }
+

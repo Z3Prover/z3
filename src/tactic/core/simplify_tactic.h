@@ -31,15 +31,13 @@ public:
     ~simplify_tactic() override;
 
     void updt_params(params_ref const & p) override;
+
     static void get_param_descrs(param_descrs & r);
+    
     void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override;
-
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override;
+    
     void cleanup() override;
 
     unsigned get_num_steps() const;

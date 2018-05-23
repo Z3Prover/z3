@@ -47,16 +47,13 @@ class fpa2bv_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             m_proofs_enabled      = g->proofs_enabled();
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
 
-            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+            result.reset();
             tactic_report report("fpa2bv", *g);
             m_rw.reset();
 
@@ -100,7 +97,7 @@ class fpa2bv_tactic : public tactic {
             }
 
             if (g->models_enabled())
-                mc = mk_fpa2bv_model_converter(m, m_conv);
+                g->add(mk_fpa2bv_model_converter(m, m_conv));
 
             g->inc_depth();
             result.push_back(g.get());
@@ -110,7 +107,7 @@ class fpa2bv_tactic : public tactic {
 
             SASSERT(g->is_well_sorted());
             TRACE("fpa2bv", tout << "AFTER: " << std::endl; g->display(tout);
-                            if (mc) mc->display(tout); tout << std::endl; );
+                  if (g->mc()) g->mc()->display(tout); tout << std::endl; );
         }
     };
 
@@ -140,12 +137,9 @@ public:
     }
 
     void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+                    goal_ref_buffer & result) override {
         try {
-            (*m_imp)(in, result, mc, pc, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

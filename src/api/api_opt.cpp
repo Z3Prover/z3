@@ -17,8 +17,8 @@ Revision History:
 --*/
 #include<iostream>
 #include "util/cancel_eh.h"
-#include "util/file_path.h"
 #include "util/scoped_timer.h"
+#include "util/file_path.h"
 #include "parsers/smt2/smt2parser.h"
 #include "opt/opt_context.h"
 #include "opt/opt_cmds.h"
@@ -30,6 +30,7 @@ Revision History:
 #include "api/api_util.h"
 #include "api/api_model.h"
 #include "api/api_ast_vector.h"
+
 
 extern "C" {
 
@@ -143,6 +144,12 @@ extern "C" {
                     mk_c(c)->handle_exception(ex);
                 }
                 r = l_undef;
+                if (ex.msg() == std::string("canceled") && mk_c(c)->m().canceled()) {
+                    to_optimize_ptr(o)->set_reason_unknown(ex.msg());
+                }
+                else {
+                    mk_c(c)->handle_exception(ex);
+                }
             }
             // to_optimize_ref(d).cleanup();
         }
@@ -296,6 +303,11 @@ extern "C" {
         if (ext && std::string("wcnf") == ext) {
             unsigned_vector h;
             parse_wcnf(*to_optimize_ptr(opt), s, h);
+            return;
+        }
+        if (ext && std::string("lp") == ext) {
+            unsigned_vector h;
+            parse_lp(*to_optimize_ptr(opt), s, h);
             return;
         }
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &m);

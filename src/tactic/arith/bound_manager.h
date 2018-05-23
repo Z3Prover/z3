@@ -47,6 +47,8 @@ public:
     bound_manager(ast_manager & m);
     ~bound_manager();
     
+    bound_manager* translate(ast_manager& dst_m);
+
     ast_manager & m() const { return m_util.get_manager(); }
     
     void operator()(goal const & g);

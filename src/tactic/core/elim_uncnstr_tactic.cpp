@@ -17,8 +17,7 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -34,7 +33,7 @@ class elim_uncnstr_tactic : public tactic {
     struct imp {
         // unconstrained vars collector
 
-        typedef extension_model_converter mc;
+        typedef generic_model_converter mc;
 
         struct rw_cfg : public default_rewriter_cfg {
             bool                   m_produce_proofs;
@@ -99,6 +98,7 @@ class elim_uncnstr_tactic : public tactic {
                 TRACE("elim_uncnstr_bug", tout << "eliminating:\n" << mk_ismt2_pp(t, m()) << "\n";);
                 TRACE("elim_uncnstr_bug_ll", tout << "eliminating:\n" << mk_bounded_pp(t, m()) << "\n";);
                 m_fresh_vars.push_back(v);
+                if (m_mc) m_mc->hide(v);
                 m_cache_domain.push_back(t);
                 m_cache.insert(t, v);
                 return true;
@@ -120,7 +120,7 @@ class elim_uncnstr_tactic : public tactic {
                 SASSERT(uncnstr(v));
                 SASSERT(to_app(v)->get_num_args() == 0);
                 if (m_mc)
-                    m_mc->insert(to_app(v)->get_decl(), def);
+                    m_mc->add(to_app(v)->get_decl(), def);
             }
             
             void add_defs(unsigned num, expr * const * args, expr * u, expr * identity) {
@@ -805,26 +805,19 @@ class elim_uncnstr_tactic : public tactic {
         ast_manager & m() { return m_manager; }
         
         void init_mc(bool produce_models) {
-            if (!produce_models) {
-                m_mc = nullptr;
-                return;
+            m_mc = nullptr;
+            if (produce_models) {
+                m_mc = alloc(mc, m(), "elim_uncstr");
             }
-            m_mc = alloc(mc, m());
         }
         
         void init_rw(bool produce_proofs) {
             m_rw = alloc(rw, m(), produce_proofs, m_vars, m_mc.get(), m_max_memory, m_max_steps);            
         }
 
-        void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
-            mc = nullptr; pc = nullptr; core = nullptr;
-            bool produce_models = g->models_enabled();
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             bool produce_proofs = g->proofs_enabled();
-
+            
             TRACE("elim_uncnstr_bug", g->display(tout););
             tactic_report report("elim-uncnstr-vars", *g);
             m_vars.reset();
@@ -837,14 +830,9 @@ class elim_uncnstr_tactic : public tactic {
             }
             bool modified = true;
             TRACE("elim_uncnstr", tout << "unconstrained variables...\n";
-                  obj_hashtable<expr>::iterator it  = m_vars.begin();
-                  obj_hashtable<expr>::iterator end = m_vars.end();
-                  for (; it != end; ++it) {
-                      expr * v = *it;
-                      tout << mk_ismt2_pp(v, m()) << " ";
-                  }
+                  for (expr * v : m_vars) tout << mk_ismt2_pp(v, m()) << " "; 
                   tout << "\n";);
-            init_mc(produce_models);
+            init_mc(g->models_enabled());
             init_rw(produce_proofs);
             
             expr_ref   new_f(m());
@@ -866,25 +854,15 @@ class elim_uncnstr_tactic : public tactic {
                     g->update(idx, new_f, new_pr, g->dep(idx));
                 }
                 if (!modified) {
-                    if (round == 0) {
-                        mc   = nullptr;
+                    if (round == 0) {                        
                     }
                     else {
-                        app_ref_vector & fresh_vars = m_rw->cfg().m_fresh_vars;
-                        m_num_elim_apps = fresh_vars.size();
-                        if (produce_models && !fresh_vars.empty()) {
-                            filter_model_converter * fmc = alloc(filter_model_converter, m());
-                            for (unsigned i = 0; i < fresh_vars.size(); i++)
-                                fmc->insert(fresh_vars.get(i)->get_decl());
-                            mc = concat(fmc, m_mc.get());
-                        }
-                        else {
-                            mc = nullptr;
-                        }
+                        m_num_elim_apps = m_rw->cfg().m_fresh_vars.size();
+                        g->add(m_mc.get());                        
                     }
+                    TRACE("elim_uncnstr", if (m_mc) m_mc->display(tout); else tout << "no mc\n";);
                     m_mc = nullptr;
-                    m_rw  = nullptr;
-                    TRACE("elim_uncnstr", if (mc) mc->display(tout););
+                    m_rw = nullptr;                    
                     result.push_back(g.get());
                     g->inc_depth();
                     return;
@@ -904,13 +882,13 @@ class elim_uncnstr_tactic : public tactic {
                     idx = 0;
             }
         }
-        
+            
     };
     
     imp *      m_imp;
     params_ref m_params;
 public:
-    elim_uncnstr_tactic(ast_manager & m, params_ref const & p):
+   elim_uncnstr_tactic(ast_manager & m, params_ref const & p):
         m_params(p) {
         m_imp = alloc(imp, m, p);
     }
@@ -933,12 +911,9 @@ public:
         insert_max_steps(r);
     }
 
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(g, result, mc, pc, core);
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(g, result);
         report_tactic_progress(":num-elim-apps", get_num_elim_apps());
     }
     

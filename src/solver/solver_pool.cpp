@@ -49,7 +49,7 @@ public:
         m_in_delayed_scope(false),
         m_dump_counter(0) {
         if (is_virtual()) {
-            solver_na2as::assert_expr(m.mk_true(), pred);
+            solver_na2as::assert_expr_core2(m.mk_true(), pred);
         }
     }
 
@@ -190,7 +190,7 @@ public:
         }
     }
     
-    void assert_expr(expr * e) override {
+    void assert_expr_core(expr * e) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         if (m.is_true(e)) return; 
         if (m_in_delayed_scope) {
@@ -211,7 +211,7 @@ public:
         }
     }   
 
-    void get_model(model_ref & _m) override { m_base->get_model(_m); }
+    void get_model_core(model_ref & _m) override { m_base->get_model_core(_m); }
 
     expr * get_assumption(unsigned idx) const override {
         return solver_na2as::get_assumption(idx + is_virtual());
@@ -222,6 +222,8 @@ public:
     void get_labels(svector<symbol> & r) override { return m_base->get_labels(r); }
     void set_progress_callback(progress_callback * callback) override { m_base->set_progress_callback(callback); }
 
+    expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override { return expr_ref_vector(m); }
+    
     ast_manager& get_manager() const override { return m_base->get_manager(); }
 
     void refresh(solver* new_base) {

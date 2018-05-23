@@ -23,6 +23,7 @@ Revision History:
 #include "ast/format.h"
 #include "ast/ast_translation.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 
 ast_translation::~ast_translation() {
     reset_cache();
@@ -47,9 +48,10 @@ void ast_translation::reset_cache() {
 void ast_translation::cache(ast * s, ast * t) {
     SASSERT(!m_cache.contains(s));
     if (s->get_ref_count() > 1) {
-        m_cache.insert(s, t);
         m_from_manager.inc_ref(s);
         m_to_manager.inc_ref(t);
+        m_cache.insert(s, t);
+        ++m_insert_count;
     }
 }
 
@@ -75,10 +77,16 @@ void ast_translation::push_frame(ast * n) {
 }
 
 bool ast_translation::visit(ast * n) {        
-    ast * r;
-    if (n->get_ref_count() > 1 && m_cache.find(n, r)) {
-        m_result_stack.push_back(r);
-        return true;
+    if (n->get_ref_count() > 1) {
+        ast * r;
+        if (m_cache.find(n, r)) {
+            m_result_stack.push_back(r);
+            ++m_hit_count;
+            return true;
+        }
+        else {
+            ++m_miss_count;
+        }
     }
     push_frame(n);
     return false;
@@ -160,7 +168,7 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
         new_fi.set_chainable(fi->is_chainable());
         new_fi.set_pairwise(fi->is_pairwise());
         new_fi.set_injective(fi->is_injective());
-        new_fi.set_skolem(fi->is_skolem()); 
+/// TBD        new_fi.set_skolem(fi->is_skolem()); 
         new_fi.set_idempotent(fi->is_idempotent());
 
         new_f = m_to_manager.mk_func_decl(f->get_name(),
@@ -187,20 +195,32 @@ ast * ast_translation::process(ast const * _n) {
     SASSERT(m_frame_stack.empty());
     SASSERT(m_extra_children_stack.empty());
     
+    ++m_num_process;
+    if (m_num_process > (1 << 14)) {
+        reset_cache();
+        m_num_process = 0;
+    }
     if (!visit(const_cast<ast*>(_n))) {
         while (!m_frame_stack.empty()) {
         loop:
+            ++m_loop_count;
             frame & fr = m_frame_stack.back();
             ast * n = fr.m_n;
             ast * r;         
             TRACE("ast_translation", tout << mk_ll_pp(n, m_from_manager, false) << "\n";);
-            if (fr.m_idx == 0 && n->get_ref_count() > 1 && m_cache.find(n, r)) {
-                SASSERT(m_result_stack.size() == fr.m_rpos);
-                m_result_stack.push_back(r);
-                m_extra_children_stack.shrink(fr.m_cpos);
-                m_frame_stack.pop_back();
-                TRACE("ast_translation", tout << "hit\n";);
-                continue;
+            if (fr.m_idx == 0 && n->get_ref_count() > 1) {
+                if (m_cache.find(n, r)) {
+                    SASSERT(m_result_stack.size() == fr.m_rpos);
+                    m_result_stack.push_back(r);
+                    m_extra_children_stack.shrink(fr.m_cpos);
+                    m_frame_stack.pop_back();
+                    TRACE("ast_translation", tout << "hit\n";);
+                    m_hit_count++;
+                    continue;
+                }
+                else {
+                    m_miss_count++;
+                }
             }
             switch (n->get_kind()) {
             case AST_VAR: {
@@ -227,7 +247,7 @@ ast * ast_translation::process(ast const * _n) {
                 while (fr.m_idx <= num) {
                     expr * arg = to_app(n)->get_arg(fr.m_idx - 1);
                     fr.m_idx++;
-                    if (!visit(arg))
+                    if (!visit(arg)) 
                         goto loop;
                 }
                 func_decl * new_f   = to_func_decl(m_result_stack[fr.m_rpos]);

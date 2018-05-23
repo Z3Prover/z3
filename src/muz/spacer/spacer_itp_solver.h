@@ -104,19 +104,13 @@ public:
 
     /* solver interface */
 
-    solver* translate(ast_manager &m, params_ref const &p) override
-    {return m_solver.translate(m, p);}
-    void updt_params(params_ref const &p) override
-    {m_solver.updt_params(p);}
-    void collect_param_descrs(param_descrs &r) override
-    {m_solver.collect_param_descrs(r);}
-    void set_produce_models(bool f) override
-    {m_solver.set_produce_models(f);}
-    void assert_expr(expr *t) override
-    {m_solver.assert_expr(t);}
-
-    void assert_expr(expr *t, expr *a) override
-    {NOT_IMPLEMENTED_YET();}
+    solver* translate(ast_manager &m, params_ref const &p) override  { return m_solver.translate(m, p);}
+    void updt_params(params_ref const &p) override   { m_solver.updt_params(p);}
+    void collect_param_descrs(param_descrs &r) override  { m_solver.collect_param_descrs(r);}
+    void set_produce_models(bool f) override  { m_solver.set_produce_models(f);}
+    void assert_expr_core(expr *t) override  { m_solver.assert_expr(t);}
+    void assert_expr_core2(expr *t, expr *a) override   { NOT_IMPLEMENTED_YET();}
+    expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
 
     void push() override;
     void pop(unsigned n) override;
@@ -141,8 +135,9 @@ public:
 
     void collect_statistics(statistics &st) const override ;
     virtual void reset_statistics();
+
     void get_unsat_core(ptr_vector<expr> &r) override;
-    void get_model(model_ref &m) override {m_solver.get_model(m);}
+    void get_model_core(model_ref &m) override {m_solver.get_model(m);}
     proof *get_proof() override {return m_solver.get_proof();}
     std::string reason_unknown() const override
     {return m_solver.reason_unknown();}

@@ -421,13 +421,15 @@ public:
         return r;
     }
 
+    // unfortunately, params_ref is not thread safe
+    // so better create a local copy of the parameters.
     params_ref get_module(symbol const & module_name) {
         params_ref result;
         params_ref * ps = nullptr;
         #pragma omp critical (gparams)
         {
             if (m_module_params.find(module_name, ps)) {
-                result = *ps;
+                result.copy(*ps);
             }
         }
         return result;

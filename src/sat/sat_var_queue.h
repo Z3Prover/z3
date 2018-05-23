@@ -39,6 +39,15 @@ namespace sat {
                 m_queue.decreased(v);
         }
 
+        void activity_changed_eh(bool_var v, bool up) {
+            if (m_queue.contains(v)) {
+                if (up) 
+                    m_queue.decreased(v);
+                else 
+                    m_queue.increased(v);
+            }
+        }
+
         void mk_var_eh(bool_var v) {
             m_queue.reserve(v+1);
             m_queue.insert(v);
@@ -61,6 +70,10 @@ namespace sat {
         bool empty() const { return m_queue.empty(); }
 
         bool_var next_var() { SASSERT(!empty()); return m_queue.erase_min(); }
+
+        bool_var min_var() { SASSERT(!empty()); return m_queue.min_value(); }
+
+        bool more_active(bool_var v1, bool_var v2) const { return m_queue.less_than(v1, v2); }
     };
 };
 

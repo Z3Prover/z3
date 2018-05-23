@@ -129,12 +129,8 @@ class nlsat_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("nlsat", *g);
             
             if (g->is_decided()) {
@@ -166,9 +162,11 @@ class nlsat_tactic : public tactic {
                 if (!contains_unsupported(b2a, x2t)) {
                     // If mk_model is false it means that the model produced by nlsat 
                     // assigns noninteger values to integer variables
+                    model_converter_ref mc;
                     if (mk_model(*g.get(), b2a, x2t, mc)) {
                         // result goal is trivially SAT
                         g->reset(); 
+                        g->add(mc.get());
                     }
                 }
             }
@@ -177,8 +175,8 @@ class nlsat_tactic : public tactic {
                 if (g->unsat_core_enabled()) {
                     vector<nlsat::assumption, false> assumptions;
                     m_solver.get_core(assumptions);
-                    for (unsigned i = 0; i < assumptions.size(); ++i) {
-                        expr_dependency* d = static_cast<expr_dependency*>(assumptions[i]);
+                    for (nlsat::assumption a : assumptions) {
+                        expr_dependency* d = static_cast<expr_dependency*>(a);
                         lcore = m.mk_join(lcore, d);
                     }
                 }
@@ -232,15 +230,12 @@ public:
         algebraic_numbers::manager::collect_param_descrs(r);
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
             imp local_imp(in->m(), m_params);
             scoped_set_imp setter(*this, local_imp);
-            local_imp(in, result, mc, pc, core);
+            local_imp(in, result);
         }
         catch (z3_error & ex) {
             throw ex;

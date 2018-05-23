@@ -710,7 +710,7 @@ bool pattern_inference_cfg::reduce_quantifier(
 
     result = new_q;
 
-    IF_IVERBOSE(10,
+    IF_VERBOSE(10,
         verbose_stream() << "(smt.inferred-patterns :qid " << q->get_qid() << "\n";
         for (unsigned i = 0; i < new_patterns.size(); i++)
             verbose_stream() << "  " << mk_ismt2_pp(new_patterns[i], m, 2) << "\n";

@@ -36,7 +36,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
 #include "util/nat_set.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace lra_lp {
     enum bound_kind { lower_t, upper_t };
@@ -2417,7 +2417,7 @@ namespace smt {
             }
         }
 
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val) {
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val) {
             rational r = val.get_rational();
             bool is_strict =  val.get_infinitesimal().is_pos();
             app_ref b(m);
@@ -2429,7 +2429,7 @@ namespace smt {
                 b = a.mk_ge(mk_obj(v), a.mk_numeral(r, is_int));
             }
             if (!ctx().b_internalized(b)) {
-                fm.insert(b->get_decl());
+                fm.hide(b);
                 bool_var bv = ctx().mk_bool_var(b);
                 ctx().set_var_theory(bv, get_id());
                 // ctx().set_enode_flag(bv, true);
@@ -2620,7 +2620,7 @@ namespace smt {
     theory_var theory_lra::add_objective(app* term) {
         return m_imp->add_objective(term);
     }
-    expr_ref theory_lra::mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val) {
+    expr_ref theory_lra::mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val) {
         return m_imp->mk_ge(fm, v, val);
     }
 

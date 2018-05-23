@@ -50,7 +50,7 @@ virtual_solver::virtual_solver(virtual_solver_factory &factory,
     // -- change m_context, but will add m_pred to
     // -- the private field solver_na2as::m_assumptions
     if (m_virtual)
-    { solver_na2as::assert_expr(m.mk_true(), m_pred); }
+    { solver_na2as::assert_expr_core2(m.mk_true(), m_pred); }
 }
 
 virtual_solver::~virtual_solver()
@@ -210,7 +210,7 @@ void virtual_solver::get_unsat_core(ptr_vector<expr> &r)
     }
 }
 
-void virtual_solver::assert_expr(expr *e)
+void virtual_solver::assert_expr_core(expr *e)
 {
     SASSERT(!m_pushed || get_scope_level() > 0);
     if (m.is_true(e)) { return; }
@@ -266,16 +266,10 @@ solver* virtual_solver::translate(ast_manager& m, params_ref const& p)
     UNREACHABLE();
     return nullptr;
 }
-void virtual_solver::updt_params(params_ref const &p)
-{ m_factory.updt_params(p); }
-void virtual_solver::collect_param_descrs(param_descrs &r)
-{ m_factory.collect_param_descrs(r); }
-void virtual_solver::set_produce_models(bool f)
-{ m_factory.set_produce_models(f); }
-bool virtual_solver::get_produce_models()
-{return m_factory.get_produce_models(); }
-smt_params &virtual_solver::fparams()
-{return m_factory.fparams();}
+void virtual_solver::updt_params(params_ref const &p) { m_factory.updt_params(p); }
+void virtual_solver::collect_param_descrs(param_descrs &r) { m_factory.collect_param_descrs(r); }
+void virtual_solver::set_produce_models(bool f) { m_factory.set_produce_models(f); }
+smt_params &virtual_solver::fparams() {return m_factory.fparams();}
 
 void virtual_solver::to_smt2_benchmark(std::ostream &out,
                                        smt::kernel &context,

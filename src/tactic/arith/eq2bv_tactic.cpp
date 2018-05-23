@@ -107,12 +107,20 @@ class eq2bv_tactic : public tactic {
         
         model_converter* translate(ast_translation & translator) override {
             bvmc* v = alloc(bvmc);
-            obj_map<func_decl, func_decl*>::iterator it = m_map.begin(), end = m_map.end();
-            for (; it != end; ++it) {
-                v->m_map.insert(translator(it->m_key), translator(it->m_value));
+            for (auto const& kv : m_map) {
+                v->m_map.insert(translator(kv.m_key), translator(kv.m_value));
             }
             return v;
         }
+
+        void display(std::ostream & out) override {
+            for (auto const& kv : m_map) {
+                out << "(model-set " << kv.m_key->get_name() << " " << kv.m_value->get_name() << ")\n";
+            }
+        }
+
+        void get_units(obj_map<expr, bool>& units) override { units.reset(); }
+
     };
 
 public:
@@ -143,13 +151,8 @@ public:
     void updt_params(params_ref const & p) override {
     }
     
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
-        mc = nullptr; pc = nullptr; core = nullptr;
         m_trail.reset();
         m_fd.reset();
         m_max.reset();
@@ -205,7 +208,7 @@ public:
             }
         }        
         g->inc_depth();
-        mc = mc1.get();
+        g->add(mc1.get());
         result.push_back(g.get());
         TRACE("pb", g->display(tout););
         SASSERT(g->is_well_sorted());        

@@ -22,7 +22,6 @@ Notes:
 #include "ast/ast.h"
 #include "util/params.h"
 #include "solver/solver.h"
-#include "tactic/filter_model_converter.h"
 #include "util/statistics.h"
 #include "smt/smt_context.h"
 #include "smt/smt_theory.h"

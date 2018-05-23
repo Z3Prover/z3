@@ -176,31 +176,25 @@ public class InterpolationContext extends Context
     /// Remarks: For more information on interpolation please refer
     /// too the function Z3_read_interpolation_problem in the C/C++ API, which is 
     /// well documented.
-    public ReadInterpolationProblemResult ReadInterpolationProblem(String filename, Expr[] cnsts, int[] parents, String error, Expr[] theory)
+    public ReadInterpolationProblemResult ReadInterpolationProblem(String filename)
     {
-        ReadInterpolationProblemResult res = new ReadInterpolationProblemResult();
-        
-        Native.IntPtr n_num = new Native.IntPtr();
-        Native.IntPtr n_num_theory = new Native.IntPtr();
-        Native.ObjArrayPtr n_cnsts = new Native.ObjArrayPtr();
-        Native.UIntArrayPtr n_parents = new Native.UIntArrayPtr();
-        Native.ObjArrayPtr n_theory = new Native.ObjArrayPtr();
-        Native.StringPtr n_err_str = new Native.StringPtr();
-        res.return_value = Native.readInterpolationProblem(nCtx(), n_num, n_cnsts, n_parents, filename, n_err_str, n_num_theory, n_theory);
-        int num = n_num.value;
-        int num_theory = n_num_theory.value;
-        res.error = n_err_str.value;
-        res.cnsts = new Expr[num];
-        res.parents = new int[num];
-        theory = new Expr[num_theory];
-        for (int i = 0; i < num; i++)
-        {
-            res.cnsts[i] = Expr.create(this, n_cnsts.value[i]);
-            res.parents[i] = n_parents.value[i];
-        }
-        for (int i = 0; i < num_theory; i++)
-            res.theory[i] = Expr.create(this, n_theory.value[i]);
-        return res;
+        ReadInterpolationProblemResult res = new ReadInterpolationProblemResult();        
+	Native.UIntArrayPtr n_parents = new Native.UIntArrayPtr();        
+	ASTVector _cnsts = new ASTVector(this);
+	ASTVector _theory = new ASTVector(this);
+	Native.StringPtr n_err_str = new Native.StringPtr();
+	Native.IntPtr n_num = new Native.IntPtr();
+	res.return_value = Native.readInterpolationProblem(nCtx(), _cnsts.getNativeObject(), n_num, 
+							   n_parents, filename, n_err_str, _theory.getNativeObject());
+	res.error = n_err_str.value;
+	res.theory = _theory.ToExprArray();
+	res.cnsts = _cnsts.ToExprArray();
+	int num = n_num.value;
+	res.parents = new int[num];
+	for (int i = 0; i < num; i++) {
+	    res.parents[i] = n_parents.value[i];
+	}
+	return res;
     }
     
     ///  

@@ -506,10 +506,11 @@ extern "C" {
     static std::string read_msg;
     static std::vector<Z3_ast> read_theory;
 
-    static bool iZ3_parse(Z3_context ctx, const char *filename, const char **error, svector<Z3_ast> &assertions){
+    static Z3_ast_vector iZ3_parse(Z3_context ctx, const char *filename, const char ** error){
+        return nullptr;
+#if 0
         read_error.clear();
         try {
-            std::string foo(filename);
             Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, nullptr, nullptr, 0, nullptr, nullptr);
             Z3_app app = Z3_to_app(ctx, assrts);
             int nconjs = Z3_get_app_num_args(ctx, app);
@@ -521,47 +522,42 @@ extern "C" {
             read_error << "SMTLIB parse error: " << Z3_get_parser_error(ctx);
             read_msg = read_error.str();
             *error = read_msg.c_str();
-            return false;
+            return nullptr;
         }
         Z3_set_error_handler(ctx, nullptr);
-        return true;
+        return nullptr;
+#endif
     }
 
 
-    int Z3_read_interpolation_problem(Z3_context ctx, unsigned *_num, Z3_ast *cnsts[], unsigned *parents[], const char *filename, Z3_string_ptr error, unsigned *ret_num_theory, Z3_ast *theory[]){
+    int Z3_read_interpolation_problem(Z3_context ctx, Z3_ast_vector cnsts, unsigned* _num, unsigned* parents[], const char *filename, Z3_string_ptr error, Z3_ast_vector theory){
 
         hash_map<std::string, std::string> file_params;
         get_file_params(filename, file_params);
 
         unsigned num_theory = 0;
-        if (file_params.find("THEORY") != file_params.end())
+        if (file_params.find("THEORY") != file_params.end()) {
             num_theory = atoi(file_params["THEORY"].c_str());
+        }
 
-        svector<Z3_ast> assertions;
-        if (!iZ3_parse(ctx, filename, error, assertions))
+        Z3_ast_vector assertions = iZ3_parse(ctx, filename, error);
+        if (assertions == 0)
             return false;
 
-        if (num_theory > assertions.size())
-            num_theory = assertions.size();
-        unsigned num = assertions.size() - num_theory;
+        if (num_theory > Z3_ast_vector_size(ctx, assertions))
+            num_theory = Z3_ast_vector_size(ctx, assertions);
+        unsigned num = Z3_ast_vector_size(ctx, assertions) - num_theory;
 
-        read_cnsts.resize(num);
         read_parents.resize(num);
-        read_theory.resize(num_theory);
 
-        for (unsigned j = 0; j < num_theory; j++)
-            read_theory[j] = assertions[j];
+        for (unsigned j = 0; theory && j < num_theory; j++)
+            Z3_ast_vector_push(ctx, theory, Z3_ast_vector_get(ctx, assertions, j));
+        
         for (unsigned j = 0; j < num; j++)
-            read_cnsts[j] = assertions[j + num_theory];
-
-        if (ret_num_theory)
-            *ret_num_theory = num_theory;
-        if (theory)
-            *theory = &read_theory[0];
-
+            Z3_ast_vector_push(ctx, cnsts, Z3_ast_vector_get(ctx, assertions, j + num_theory));
+        
         if (!parents){
-            *_num = num;
-            *cnsts = &read_cnsts[0];
+            Z3_ast_vector_dec_ref(ctx, assertions);
             return true;
         }
 
@@ -571,7 +567,7 @@ extern "C" {
         hash_map<Z3_ast, int> pred_map;
 
         for (unsigned j = 0; j < num; j++){
-            Z3_ast lhs = nullptr, rhs = read_cnsts[j];
+            Z3_ast lhs = nullptr, rhs = Z3_ast_vector_get(ctx, cnsts, j);
 
             if (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, rhs))) == Z3_OP_IMPLIES){
                 Z3_app app1 = Z3_to_app(ctx, rhs);
@@ -612,7 +608,7 @@ extern "C" {
                         read_error << "formula " << j + 1 << ": should be (implies {children} fmla parent)";
                         goto fail;
                     }
-                    read_cnsts[j] = lhs;
+                    Z3_ast_vector_set(ctx, cnsts, j, lhs);
                     Z3_ast name = rhs;
                     if (pred_map.find(name) != pred_map.end()){
                         read_error << "formula " << j + 1 << ": duplicate symbol";
@@ -631,11 +627,12 @@ extern "C" {
             }
 
         *_num = num;
-        *cnsts = &read_cnsts[0];
         *parents = &read_parents[0];
+        Z3_ast_vector_dec_ref(ctx, assertions);
         return true;
 
     fail:
+        Z3_ast_vector_dec_ref(ctx, assertions);
         read_msg = read_error.str();
         *error = read_msg.c_str();
         return false;

@@ -77,49 +77,50 @@ void display_usage() {
 void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& test_all) {
     int i = 1;
     while (i < argc) {
-    char * arg = argv[i], *eq_pos = nullptr;
-
-    if (arg[0] == '-' || arg[0] == '/') {
-        char * opt_name = arg + 1;
-        char * opt_arg  = nullptr;
-        char * colon    = strchr(arg, ':');
-        if (colon) {
-        opt_arg = colon + 1;
-        *colon  = 0;
-        }
-        if (strcmp(opt_name, "h") == 0 ||
+	char * arg = argv[i];    
+        char * eq_pos = 0;
+        
+        if (arg[0] == '-' || arg[0] == '/') {
+            char * opt_name = arg + 1;
+            char * opt_arg  = 0;
+            char * colon    = strchr(arg, ':');
+            if (colon) {
+                opt_arg = colon + 1;
+                *colon  = 0;
+            }
+            if (strcmp(opt_name, "h") == 0 ||
                 strcmp(opt_name, "?") == 0) {
-        display_usage();
+                display_usage();
                 do_display_usage = true;
                 return;
-        }
-        else if (strcmp(opt_name, "v") == 0) {
-        if (!opt_arg)
-            error("option argument (/v:level) is missing.");
-        long lvl = strtol(opt_arg, nullptr, 10);
-        set_verbosity_level(lvl);
-        }
-        else if (strcmp(opt_name, "w") == 0) {
+            }
+            else if (strcmp(opt_name, "v") == 0) {
+                if (!opt_arg)
+                    error("option argument (/v:level) is missing.");
+                long lvl = strtol(opt_arg, 0, 10);
+                set_verbosity_level(lvl);
+            }
+            else if (strcmp(opt_name, "w") == 0) {
                 enable_warning_messages(true);
-        }
-        else if (strcmp(opt_name, "a") == 0) {
+            }
+            else if (strcmp(opt_name, "a") == 0) {
                 test_all = true;
-        }
+            }
 #ifdef _TRACE
-        else if (strcmp(opt_name, "tr") == 0) {
-        if (!opt_arg)
-            error("option argument (/tr:tag) is missing.");
-        enable_trace(opt_arg);
-        }
+            else if (strcmp(opt_name, "tr") == 0) {
+                if (!opt_arg)
+                    error("option argument (/tr:tag) is missing.");
+                enable_trace(opt_arg);
+            }
 #endif
 #ifdef Z3DEBUG
-        else if (strcmp(opt_name, "dbg") == 0) {
-        if (!opt_arg)
-            error("option argument (/dbg:tag) is missing.");
-        enable_debug(opt_arg);
-        }
+            else if (strcmp(opt_name, "dbg") == 0) {
+                if (!opt_arg)
+                    error("option argument (/dbg:tag) is missing.");
+                enable_debug(opt_arg);
+            }
 #endif
-    }
+        }
         else if (arg[0] != '"' && (eq_pos = strchr(arg, '='))) {
             char * key   = arg;
             *eq_pos      = 0;
@@ -241,10 +242,12 @@ int main(int argc, char ** argv) {
     TST_ARGV(ddnf);
     TST(ddnf1);
     TST(model_evaluator);
-    TST_ARGV(lp);
     TST(get_consequences);
     TST(pb2bv);
+    TST_ARGV(sat_lookahead);
+    TST_ARGV(sat_local_search);
     TST_ARGV(cnf_backbones);
+    TST(bdd);
     //TST_ARGV(hs);
 }
 

@@ -31,6 +31,7 @@ public:
     ~pb2bv_rewriter();
 
     void updt_params(params_ref const & p);
+    void collect_param_descrs(param_descrs& r) const;
     ast_manager & m() const;
     unsigned get_num_steps() const;
     void cleanup();

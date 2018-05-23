@@ -16,6 +16,7 @@ add_executable(test-z3
   arith_rewriter.cpp
   arith_simplifier_plugin.cpp
   ast.cpp
+  bdd.cpp
   bit_blaster.cpp
   bits.cpp
   bit_vector.cpp
@@ -92,6 +93,8 @@ add_executable(test-z3
   rational.cpp
   rcf.cpp
   region.cpp
+  sat_local_search.cpp
+  sat_lookahead.cpp
   sat_user_scope.cpp
   simple_parser.cpp
   simplex.cpp
@@ -116,7 +119,6 @@ add_executable(test-z3
   upolynomial.cpp
   var_subst.cpp
   vector.cpp
-  lp.cpp
   ${z3_test_extra_object_files}
 )
 z3_add_install_tactic_rule(${z3_test_deps})

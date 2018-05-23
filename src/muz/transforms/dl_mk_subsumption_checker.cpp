@@ -25,7 +25,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
 #include "muz/base/fixedpoint_params.hpp"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 
 namespace datalog {
@@ -241,9 +241,9 @@ namespace datalog {
         }
         tgt.inherit_predicates(orig);
         if (!m_total_relations.empty() && m_context.get_model_converter()) {
-            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl-subsumption");
             for (func_decl* p : m_total_relations) {
-                mc0->insert(p, m.mk_true());
+                mc0->add(p, m.mk_true());
             }
             m_context.add_model_converter(mc0);
         }

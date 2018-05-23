@@ -1338,7 +1338,7 @@ expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_eps const& val) {
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val) {
+expr_ref theory_diff_logic<Ext>::mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val) {
     return mk_ineq(v, val, false);
 }
 

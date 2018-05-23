@@ -69,12 +69,8 @@ public:
 
     void reset_statistics() override { m_num_steps = 0; }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        mc = nullptr; pc = nullptr; core = nullptr;
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         reduce(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());

@@ -77,10 +77,11 @@ public:
         return solver_na2as::get_assumption(idx);
     }
 
+
     void get_unsat_core(ptr_vector<expr> &r) override;
-    void assert_expr(expr *e) override;
+    void assert_expr_core(expr *e) override;
     void collect_statistics(statistics &st) const override {}
-    void get_model(model_ref &m) override {m_context.get_model(m);}
+    void get_model_core(model_ref &m) override {m_context.get_model(m);}
     proof* get_proof() override;
     std::string reason_unknown() const override
     {return m_context.last_failure_as_string();}
@@ -89,11 +90,10 @@ public:
     ast_manager& get_manager() const override {return m;}
     void get_labels(svector<symbol> &r) override;
     void set_produce_models(bool f) override;
-    virtual bool get_produce_models();
-    virtual smt_params &fparams();
-    virtual void reset();
-    void set_progress_callback(progress_callback *callback) override
-    {UNREACHABLE();}
+    smt_params &fparams();
+    void reset();
+    expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
+    void set_progress_callback(progress_callback *callback) override {UNREACHABLE();}
 
     solver *translate(ast_manager &m, params_ref const &p) override;
 
