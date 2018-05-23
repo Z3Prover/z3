@@ -34,6 +34,16 @@ bool is_smt2_quoted_symbol(char const * s) {
     if ('0' <= s[0] && s[0] <= '9')
         return true;
     unsigned len = static_cast<unsigned>(strlen(s));
+    if (len >= 2 && s[0] == '|' && s[len-1] == '|') {
+        for (unsigned i = 1; i + 1 < len; i++) {
+            if (s[i] == '\\' && i + 2 < len && (s[i+1] == '\\' || s[i+1] == '|')) {
+                i++;
+            }
+            else if (s[i] == '\\' || s[i] == '|') 
+                return true;
+        }
+        return false;
+    }
     for (unsigned i = 0; i < len; i++)
         if (!is_smt2_simple_symbol_char(s[i]))
             return true;

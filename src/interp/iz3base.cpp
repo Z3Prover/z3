@@ -281,7 +281,7 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
         _proof = cook(proof);
     }
     else if(vars.size()) {
-        model_ref(_m);
+        model_ref _m;
         s.get_model(_m);
         if (!_m.get()) {
             SASSERT(l_undef == res);

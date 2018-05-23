@@ -31,6 +31,7 @@ Revision History:
 #include "smt/params/theory_arith_params.h"
 #include "smt/arith_eq_adapter.h"
 #include "smt/proto_model/numeral_factory.h"
+#include "smt/smt_context.h"
 #include "util/obj_pair_hashtable.h"
 #include "smt/old_interval.h"
 #include "math/grobner/grobner.h"

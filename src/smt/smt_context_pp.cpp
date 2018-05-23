@@ -341,10 +341,7 @@ namespace smt {
     }
 
     void context::display_parent_eqs(std::ostream & out, enode * n) const {
-        enode_vector::iterator it  = n->begin_parents();
-        enode_vector::iterator end = n->end_parents();
-        for (; it != end; ++it) {
-            enode * parent = *it;
+        for (enode* parent : n->get_parents()) {
             if (parent->is_eq())
                 display_eq_detail(out, parent);
         }

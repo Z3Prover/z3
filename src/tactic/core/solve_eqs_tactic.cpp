@@ -264,8 +264,8 @@ class solve_eqs_tactic : public tactic {
         bool solve_arith_core(app * lhs, expr * rhs, expr * eq, app_ref & var, expr_ref & def, proof_ref & pr) {
             SASSERT(m_a_util.is_add(lhs));
             bool is_int  = m_a_util.is_int(lhs);
-            expr * a; 
-            expr * v;
+            expr * a = nullptr; 
+            expr * v = nullptr;
             rational a_val;
             unsigned num = lhs->get_num_args();
             unsigned i;
