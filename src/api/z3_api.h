@@ -83,14 +83,14 @@ typedef const char * Z3_string;
 typedef Z3_string * Z3_string_ptr;
 
 /**
-   \brief True value. It is just an alias for \c 1.
+   \brief True value. It is just an alias for \c true.
 */
-#define Z3_TRUE  1
+#define Z3_TRUE  true
 
 /**
-   \brief False value. It is just an alias for \c 0.
+   \brief False value. It is just an alias for \c false.
 */
-#define Z3_FALSE 0
+#define Z3_FALSE false
 
 /**
    \brief Lifted Boolean type: \c false, \c undefined, \c true.
