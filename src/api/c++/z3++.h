@@ -187,7 +187,7 @@ namespace z3 {
            \brief The C++ API uses by defaults exceptions on errors. 
            For applications that don't work well with exceptions (there should be only few)
            you have the ability to turn off exceptions. The tradeoffs are that applications
-           have to very careful about using check_error() after calls that may result in an
+           have to be very careful about using check_error() after calls that may result in an
            erroneous state.
          */
         void set_enable_exceptions(bool f) { m_enable_exceptions = f; }
