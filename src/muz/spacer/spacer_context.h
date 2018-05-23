@@ -185,10 +185,11 @@ struct lemma_lt_proc : public std::binary_function<lemma*, lemma *, bool> {
 class pred_transformer {
 
     struct stats {
-        unsigned m_num_propagations;
-        unsigned m_num_invariants;
-        unsigned m_num_ctp;
-        unsigned m_num_is_invariant;
+        unsigned m_num_propagations; // num of times lemma is pushed higher
+        unsigned m_num_invariants; // num of infty lemmas found
+        unsigned m_num_ctp_blocked; // num of time ctp blocked lemma pushing
+        unsigned m_num_is_invariant; // num of times lemmas are pushed
+        unsigned m_num_lemma_level_jump; // lemma learned at higher level than expected
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };

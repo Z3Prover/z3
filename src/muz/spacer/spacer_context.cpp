@@ -687,8 +687,9 @@ void pred_transformer::collect_statistics(statistics& st) const
     // -- number of proof obligations (0 if pobs are not reused)
     st.update("SPACER num pobs", m_pobs.size());
 
-    st.update("SPACER num ctp", m_stats.m_num_ctp);
+    st.update("SPACER num ctp blocked", m_stats.m_num_ctp_blocked);
     st.update("SPACER num is_invariant", m_stats.m_num_is_invariant);
+    st.update("SPACER num lemma jumped", m_stats.m_num_lemma_level_jump);
 
     // -- time in rule initialization
     st.update ("time.spacer.init_rules.pt.init", m_initialize_watch.get_seconds ());
@@ -1375,16 +1376,18 @@ bool pred_transformer::is_ctp_blocked(lemma *lem) {
     // -- find predicates along the rule
     find_predecessors(*r, m_predicates);
 
-    // check if any lemmas block the model
+    // check if any lemma blocks the ctp model
     for (unsigned i = 0, sz = m_predicates.size(); i < sz; ++i) {
         pred_transformer &pt = ctx.get_pred_transformer(m_predicates[i]);
         expr_ref lemmas(m), val(m);
         lemmas = pt.get_formulas(lem->level(), false);
         pm.formula_n2o(lemmas.get(), lemmas, i);
-        if (ctp->eval(lemmas, val) && m.is_false(val)) {return true;}
+        if (ctp->eval(lemmas, val) && m.is_false(val)) {return false;}
     }
 
-    return false;
+    // lem is blocked by ctp since none of the lemmas at the previous
+    // level block ctp
+    return true;
 }
 
 bool pred_transformer::is_invariant(unsigned level, lemma* lem,
@@ -1393,7 +1396,7 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
 {
     m_stats.m_num_is_invariant++;
     if (is_ctp_blocked(lem)) {
-        m_stats.m_num_ctp++;
+        m_stats.m_num_ctp_blocked++;
         return false;
     }
 
@@ -1418,21 +1421,21 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
     prop_solver::scoped_weakness _sw (m_solver, 1,
                                       ctx.weak_abs() ? lem->weakness() : UINT_MAX);
     model_ref mdl;
+    model_ref *mdl_ref_ptr = nullptr;
+    if (ctx.get_params().spacer_ctp()) {mdl_ref_ptr = &mdl;}
     m_solver.set_core(core);
-    m_solver.set_model(&mdl);
+    m_solver.set_model(mdl_ref_ptr);
     expr * bg = m_extend_lit.get ();
     lbool r = m_solver.check_assumptions (conj, aux, 1, &bg, 1);
     if (r == l_false) {
         solver_level = m_solver.uses_level ();
         lem->reset_ctp();
-        CTRACE ("spacer", level < m_solver.uses_level (),
-                tout << "Checking at level " << level
-                << " but only using " << m_solver.uses_level () << "\n";);
+        if (level < m_solver.uses_level()) {m_stats.m_num_lemma_level_jump++;}
         SASSERT (level <= solver_level);
     }
     else if (r == l_true) {
         // optionally remove unused symbols from the model
-        lem->set_ctp(mdl);
+        if (mdl_ref_ptr) {lem->set_ctp(*mdl_ref_ptr);}
     }
     else {lem->reset_ctp();}
 
