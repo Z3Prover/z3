@@ -3241,9 +3241,10 @@ namespace sat {
 
     bool_var solver::max_var(clause_vector& clauses, bool_var v) {
         for (clause* cp : clauses) 
-            for (literal l : *cp) 
-                if (l.var() > v) 
-                    v = l.var();
+            for (auto it = cp->begin(), end = cp->end(); it != end; ++it) {
+                if (it->var() > v) 
+                    v = it->var();
+            }
         return v;
     }
 
