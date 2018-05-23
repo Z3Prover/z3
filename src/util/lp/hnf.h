@@ -20,7 +20,6 @@ $1$ at $i$-th position. Then we need to find the row vector $e_iU^{-1}=t$. Notic
 We find  $e_iH^{-1} = f$ by solving $e_i = fH$ and then $fA$ gives us $t$.
 
 Author:
-    Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
 
 Revision History:
@@ -104,15 +103,13 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
 
 
 
-template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r, svector<unsigned> & basis_rows) {
-    lp_assert(m.row_count() <= m.column_count());
+template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
     for (unsigned i = r; i < m.row_count(); i++) {
         for (unsigned j = r; j < m.column_count(); j++) {
             if (!is_zero(m[i][j])) {
                 if (i != r) {
                     m.transpose_rows(i, r);
                 }
-                basis_rows.push_back(i);
                 if (j != r) {
                     m.transpose_columns(j, r);
                 }
@@ -123,7 +120,8 @@ template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r, sv
     return false;
 }
 
-template <typename M> void pivot_column_non_fractional(M &m, unsigned & r) {
+template <typename M> void pivot_column_non_fractional(M &m, unsigned r) {
+    lp_assert(!is_zero(m[r][r]));
     lp_assert(m.row_count() <= m.column_count());
     for (unsigned j = r + 1; j < m.column_count(); j++) {
         for (unsigned i = r + 1; i  < m.row_count(); i++) {
@@ -134,37 +132,36 @@ template <typename M> void pivot_column_non_fractional(M &m, unsigned & r) {
             lp_assert(is_int(m[i][j]));
         }
     }
-        
+    // debug
+    for (unsigned k = r + 1; k < m.row_count(); k++) {
+        m[k][r] = zero_of_type<mpq>();
+    }
+    
 }
 
 // returns the rank of the matrix
-template <typename M> void to_lower_triangle_non_fractional(M &m, svector<unsigned> & basis_rows ) {
+template <typename M> unsigned to_lower_triangle_non_fractional(M &m) {
     lp_assert(m.row_count() <= m.column_count());
     unsigned i = 0;
-    for (; i < m.row_count() - 1; i++) {
-        if (!prepare_pivot_for_lower_triangle(m, i, basis_rows)) {
-            return;
+    for (; i < m.row_count(); i++) {
+        if (!prepare_pivot_for_lower_triangle(m, i)) {
+            return i;
         }
         pivot_column_non_fractional(m, i);
     }
-    lp_assert(i == m.row_count() - 1);
-    // go over the last row and try to find a non-zero in the row to the right of diagonal
-    for (unsigned j = i; j < m.column_count(); j++) {
-        if (!is_zero(m[i][j])) {
-            basis_rows.push_back(i);
-            break;
-        }
-    }
+    lp_assert(i == m.row_count());
+    return i; 
 }
 template <typename M>
 mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
     mpq g = zero_of_type<mpq>();
     unsigned j = i;
-    for (; j < m.column_count() && is_zero(j); j++) {
+    for (; j < m.column_count() && is_zero(g); j++) {
         const auto & t = m[i][j];
         if (!is_zero(t))
-            g = t;
+            g = abs(t);
     }
+    lp_assert(!is_zero(g));
     for (; j < m.column_count(); j++) {
         const auto & t = m[i][j];
         if (!is_zero(t))
@@ -183,10 +180,15 @@ template <typename M> mpq determinant_of_rectangular_matrix(const M& m, svector<
     // m[r-1][r-1], m[r-1][r], ..., m[r-1]m[m.column_count() - 1] give the determinants of all minors of rank r.
     // The gcd of these minors is the return value
     auto mc = m;
-    to_lower_triangle_non_fractional(mc, basis_rows);
-    if (basis_rows.size() == 0)
+    unsigned rank = to_lower_triangle_non_fractional(mc);
+    if (rank == 0)
         return one_of_type<mpq>();
-    return gcd_of_row_starting_from_diagonal(mc, basis_rows.size() - 1);
+
+    for (unsigned i = 0; i < rank; i++) {
+        basis_rows.push_back(mc.adjust_row(i));
+    }
+    TRACE("hnf_calc", tout << "basis_rows = "; print_vector(basis_rows, tout); mc.print(tout, "mc = "););
+    return gcd_of_row_starting_from_diagonal(mc, rank - 1);
 }
 
 template <typename M> mpq determinant(const M& m) {
@@ -499,9 +501,7 @@ private:
             m_W[k][j] -= u * m_W[k][m_i];
             //  m_W[k][j] = mod_R_balanced(m_W[k][j]);
         }
-    }
-
-    
+    }    
 
     bool is_unit_matrix(const M& u) const {
         unsigned m = u.row_count();
@@ -597,8 +597,8 @@ public:
     hnf(M & A, const mpq & d) :
 #ifdef Z3DEBUG
         m_H(A),
-#endif
         m_A_orig(A),
+#endif
         m_W(A),
         m_buffer(std::max(A.row_count(), A.column_count())),
         m_m(A.row_count()),

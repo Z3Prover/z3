@@ -133,54 +133,77 @@ private:
     };
 
     default_lp_resource_limit m_default_resource_limit;
-    lp_resource_limit* m_resource_limit;
+    lp_resource_limit*        m_resource_limit;
     // used for debug output
-    std::ostream* m_debug_out;
+    std::ostream*             m_debug_out;
     // used for messages, for example, the computation progress messages
-    std::ostream* m_message_out;
+    std::ostream*             m_message_out;
 
-    stats  m_stats;
-    random_gen m_rand;
+    stats                     m_stats;
+    random_gen                m_rand;
 
 public:
-    unsigned       reps_in_scaler;
+    unsigned      reps_in_scaler;
     // when the absolute value of an element is less than pivot_epsilon
     // in pivoting, we treat it as a zero
-    double         pivot_epsilon;
+    double        pivot_epsilon;
     // see Chatal, page 115
-    double         positive_price_epsilon;
+    double        positive_price_epsilon;
     // a quatation "if some choice of the entering vairable leads to an eta matrix
     // whose diagonal element in the eta column is less than e2 (entering_diag_epsilon) in magnitude, the this choice is rejected ...
-    double         entering_diag_epsilon;
-    int            c_partial_pivoting; // this is the constant c from page 410
-    unsigned       depth_of_rook_search;
-    bool           using_partial_pivoting;
+    double        entering_diag_epsilon;
+    int           c_partial_pivoting; // this is the constant c from page 410
+    unsigned      depth_of_rook_search;
+    bool          using_partial_pivoting;
     // dissertation of Achim Koberstein
     // if Bx - b is different at any component more that refactor_epsilon then we refactor
-    double         refactor_tolerance;
-    double         pivot_tolerance;
-    double zero_tolerance;
-    double drop_tolerance;
-    double tolerance_for_artificials;
-    double can_be_taken_to_basis_tolerance;
+    double       refactor_tolerance;
+    double       pivot_tolerance;
+    double       zero_tolerance;
+    double       drop_tolerance;
+    double       tolerance_for_artificials;
+    double       can_be_taken_to_basis_tolerance;
 
-    unsigned percent_of_entering_to_check; // we try to find a profitable column in a percentage of the columns
-    bool use_scaling;
-    double scaling_maximum;
-    double scaling_minimum;
-    double harris_feasibility_tolerance; // page 179 of Istvan Maros
-    double ignore_epsilon_of_harris;
-    unsigned max_number_of_iterations_with_no_improvements;
-    unsigned max_total_number_of_iterations;
-    double time_limit; // the maximum time limit of the total run time in seconds
+    unsigned     percent_of_entering_to_check; // we try to find a profitable column in a percentage of the columns
+    bool         use_scaling;
+    double       scaling_maximum;
+    double       scaling_minimum;
+    double       harris_feasibility_tolerance; // page 179 of Istvan Maros
+    double       ignore_epsilon_of_harris;
+    unsigned     max_number_of_iterations_with_no_improvements;
+    unsigned     max_total_number_of_iterations;
+    double       time_limit; // the maximum time limit of the total run time in seconds
     // dual section
-    double dual_feasibility_tolerance; // // page 71 of the PhD thesis of Achim Koberstein
-    double primal_feasibility_tolerance; // page 71 of the PhD thesis of Achim Koberstein
-    double relative_primal_feasibility_tolerance; // page 71 of the PhD thesis of Achim Koberstein
-    bool         hnf_cutter_exit_if_x_is_not_on_bound_or_mixed = true;
-
-    bool m_bound_propagation;
+    double       dual_feasibility_tolerance; // // page 71 of the PhD thesis of Achim Koberstein
+    double       primal_feasibility_tolerance; // page 71 of the PhD thesis of Achim Koberstein
+    double       relative_primal_feasibility_tolerance; // page 71 of the PhD thesis of Achim Koberstein
+    // end of dual section
+    bool                   m_bound_propagation;
+    bool                   presolve_with_double_solver_for_lar;
+    simplex_strategy_enum  m_simplex_strategy;
     
+    int              report_frequency;
+    bool             print_statistics;
+    unsigned         column_norms_update_frequency;
+    bool             scale_with_ratio;
+    double           density_threshold;
+    bool             use_breakpoints_in_feasibility_search;
+    unsigned         max_row_length_for_bound_propagation;
+    bool             backup_costs;
+    unsigned         column_number_threshold_for_using_lu_in_lar_solver;
+    unsigned         m_int_gomory_cut_period;
+    unsigned         m_int_chase_cut_solver_period;
+    unsigned         m_int_find_cube_period;
+    unsigned         m_hnf_cut_period;
+    bool             m_int_run_gcd_test;
+    unsigned         m_chase_cut_solver_cycle_on_var;
+    bool             m_int_pivot_fixed_vars_from_basis;
+    bool             m_int_patch_only_integer_values;
+    unsigned         limit_on_rows_for_hnf_cutter;
+
+    unsigned random_next() { return m_rand(); }
+    void set_random_seed(unsigned s) { m_rand.set_seed(s); }
+
     bool bound_progation() const {
         return m_bound_propagation;
     }
@@ -237,12 +260,12 @@ public:
                     m_int_gomory_cut_period(4),
                     m_int_chase_cut_solver_period(8),
                     m_int_find_cube_period(4),
-                    m_int_cuts_etc_period(4),
                     m_hnf_cut_period(4),
                     m_int_run_gcd_test(true),
                     m_chase_cut_solver_cycle_on_var(10),
                     m_int_pivot_fixed_vars_from_basis(false),
-                    m_int_patch_only_integer_values(true)
+                    m_int_patch_only_integer_values(true),
+                    limit_on_rows_for_hnf_cutter(100)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -312,8 +335,6 @@ public:
         return is_eps_small_general<T>(t, tolerance_for_artificials);
     }
     // the method of lar solver to use
-    bool presolve_with_double_solver_for_lar;
-    simplex_strategy_enum m_simplex_strategy;
     simplex_strategy_enum simplex_strategy() const {
         return m_simplex_strategy;
     }
@@ -335,29 +356,9 @@ public:
         return m_simplex_strategy == simplex_strategy_enum::tableau_rows;
     }
     
-    int report_frequency;
-    bool print_statistics;
-    unsigned column_norms_update_frequency;
-    bool scale_with_ratio;
-    double density_threshold; // need to tune it up, todo
 #ifdef Z3DEBUG
     static unsigned ddd; // used for debugging    
 #endif
-    bool use_breakpoints_in_feasibility_search;
-    unsigned random_next() { return m_rand(); }
-    void set_random_seed(unsigned s) { m_rand.set_seed(s); }
-    unsigned         max_row_length_for_bound_propagation;
-    bool             backup_costs;
-    unsigned         column_number_threshold_for_using_lu_in_lar_solver;
-    unsigned         m_int_gomory_cut_period;
-    unsigned         m_int_chase_cut_solver_period;
-    unsigned         m_int_find_cube_period;
-    unsigned         m_int_cuts_etc_period;
-    unsigned         m_hnf_cut_period;
-    bool             m_int_run_gcd_test;
-    unsigned         m_chase_cut_solver_cycle_on_var;
-    bool             m_int_pivot_fixed_vars_from_basis;
-    bool             m_int_patch_only_integer_values;
 }; // end of lp_settings class
 
 

@@ -18,6 +18,7 @@ Revision History:
 
 --*/
 #pragma once
+#include <functional>
 namespace lp {
 class general_matrix {
     // fields
@@ -72,12 +73,18 @@ public:
 
 #ifdef Z3DEBUG
     void print(std::ostream & out, unsigned blanks = 0) const {
-        print_matrix<mpq>(m_data, out, blanks);
+        unsigned m = row_count();
+        unsigned n = column_count();
+        general_matrix g(m, n);
+        for (unsigned i = 0; i < m; i++)
+            for (unsigned j = 0; j < n; j++)
+                g[i][j] = (*this)[i][j];
+        print_matrix<mpq>(g.m_data, out, blanks);
     }
     void print(std::ostream & out, const char * ss) const {
         std::string s(ss);
         out << s;
-        print(out, s.size());
+        print(out, static_cast<unsigned>(s.size()));
     }
 
     void print_submatrix(std::ostream & out, unsigned k, unsigned blanks = 0) const {

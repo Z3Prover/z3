@@ -730,11 +730,11 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
-        if (AS_LRA == m_params.m_arith_mode) {
-            setup_r_arith();
+        if (AS_OLD_ARITH == m_params.m_arith_mode) {
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
         }
         else {
-            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+            setup_r_arith();
         }
     }
 
@@ -747,7 +747,7 @@ namespace smt {
         case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
             break;
-        case AS_LRA:
+        case AS_NEW_ARITH:
             setup_r_arith();
             break;
         default:
@@ -811,12 +811,15 @@ namespace smt {
         case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
             break;
-        case AS_LRA:
-            setup_r_arith();
+        case AS_OLD_ARITH:
+            if (m_params.m_arith_int_only && int_only)
+                m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+            else
+                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         default:
             if (m_params.m_arith_int_only && int_only)
-                m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+                setup_i_arith();
             else
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;

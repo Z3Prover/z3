@@ -331,7 +331,6 @@ void lar_solver::push() {
     m_term_count.push();
     m_constraint_count = m_constraints.size();
     m_constraint_count.push();
-    m_int_solver->push();
 }
 
 void lar_solver::clean_popped_elements(unsigned n, int_set& set) {
@@ -396,7 +395,6 @@ void lar_solver::pop(unsigned k) {
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
     m_status = m_mpq_lar_core_solver.m_r_solver.current_x_is_feasible()? lp_status::OPTIMAL: lp_status::UNKNOWN;
-    m_int_solver->pop(k);
 }
     
 vector<constraint_index> lar_solver::get_all_constraint_indices() const {
@@ -1476,17 +1474,9 @@ bool lar_solver::strategy_is_undecided() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::undecided;
 }
 
-void lar_solver::catch_up_in_updating_int_solver() {
-    for (unsigned i = 0; i < constraints().size(); i++) {
-        m_int_solver->add_constraint_to_chase_cut_solver(i, constraints()[i]);
-    }
-}
-
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     if (is_int)
         m_has_int_var = true;
-    if (is_int && !has_int_var())
-        catch_up_in_updating_int_solver();
         
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
     var_index i;
@@ -2217,9 +2207,10 @@ void lar_solver::round_to_integer_solution() {
     }
 }
 
-bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & rs) const {
+bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & rs, bool & has_bounds) const {
     unsigned tj = term_index + m_terms_start_index;
     auto it = m_ext_vars_to_columns.find(tj);
+    has_bounds = false;
     if (it == m_ext_vars_to_columns.end())
         return false;
     unsigned j = it->second.internal_j();
@@ -2227,6 +2218,7 @@ bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & r
     impq term_val;
     bool term_val_ready = false;
     if (slv.column_has_upper_bound(j)) {
+        has_bounds = true;
         const impq & b = slv.m_upper_bounds[j];
         lp_assert(is_zero(b.y) && is_int(b.x));
         term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
@@ -2237,6 +2229,7 @@ bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & r
         }
     }
     if (slv.column_has_lower_bound(j)) {
+        has_bounds = true;
         if (!term_val_ready)
             term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
         const impq & b = slv.m_lower_bounds[j];
@@ -2247,7 +2240,7 @@ bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & r
             return true;
         }
     }
-    return false;    
+    return false;
 }
 
 

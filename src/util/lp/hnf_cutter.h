@@ -11,7 +11,6 @@ Abstract:
 
 Author:
     Lev Nachmanson (levnach)
-    Nikolaj Bjorner (nbjorner)
 
 Revision History:
 
@@ -33,13 +32,21 @@ class hnf_cutter {
     vector<mpq>                m_right_sides;
     unsigned                   m_row_count;
     unsigned                   m_column_count;
-    std::function<unsigned ()> m_random_next;
+    lp_settings &              m_settings;
 public:
-    hnf_cutter(std::function<unsigned()> random) : m_random_next(random) {}
+    hnf_cutter(lp_settings & settings) : m_row_count(0), m_column_count(0), m_settings(settings) {}
 
+    unsigned row_count() const {
+        return m_row_count;
+    }
+
+    const vector<const lar_term*>& terms() const { return m_terms; }
+    const vector<mpq> & right_sides() const { return m_right_sides; }
     void clear() {
+        // m_A will be filled from scratch in init_matrix_A
         m_var_register.clear();
         m_terms.clear();
+        m_right_sides.clear();
         m_row_count = m_column_count = 0;
     }
     void add_term(const lar_term* t, const mpq &rs) {
@@ -95,15 +102,14 @@ public:
         int ret = -1;
         int n = 0;
         for (int i = 0; i < static_cast<int>(b.size()); i++) {
-            if (!is_int(b[i])) {
-                if (n == 0 ) {
-                    lp_assert(ret == -1);
-                    n = 1;
+            if (is_int(b[i])) continue;
+            if (n == 0 ) {
+                lp_assert(ret == -1);
+                n = 1;
+                ret = i;
+            } else {
+                if (m_settings.random_next() % (++n) == 0) {
                     ret = i;
-                } else {
-                    if (m_random_next() % (++n) == 0) {
-                       ret = i;
-                    }
                 }
             }
         }
@@ -144,11 +150,28 @@ public:
                 t.add_monomial(row[j], m_var_register.local_var_to_user_var(j));
         }
     }
-    
-    lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
+#ifdef Z3DEBUG
+    vector<mpq> transform_to_local_columns(const vector<impq> & x) const {
+        vector<mpq> ret;
+        lp_assert(m_column_count <= m_var_register.size());
+        for (unsigned j = 0; j < m_column_count;j++) {
+            lp_assert(is_zero(x[m_var_register.local_var_to_user_var(j)].y));
+            ret.push_back(x[m_var_register.local_var_to_user_var(j)].x);
+        }
+        return ret;
+    }
+#endif
+    lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper
+                        #ifdef Z3DEBUG
+                        ,
+                        const vector<mpq> & x0
+                        #endif
+                        ) {
         init_matrix_A();
         svector<unsigned> basis_rows;
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
+        if (m_settings.get_cancel_flag())
+            return lia_move::undef;
         if (basis_rows.size() < m_A.row_count())
             m_A.shrink_to_rank(basis_rows);
         
@@ -156,10 +179,10 @@ public:
         //  general_matrix A_orig = m_A;
         
         vector<mpq> b = create_b(basis_rows);
-        vector<mpq> bcopy = b;
+        lp_assert(m_A * x0 == b);
+        // vector<mpq> bcopy = b;
         find_h_minus_1_b(h.W(), b);
-        
-        lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
+        // lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         int cut_row = find_cut_row_index(b);
         if (cut_row == -1) {
             return lia_move::undef;
@@ -181,7 +204,6 @@ public:
         vector<mpq> row(m_A.column_count());
         get_ei_H_minus_1(cut_row, h.W(), row);
         vector<mpq> f = row * m_A;
-
         fill_term(f, t);
         k = floor(b[cut_row]);
         upper = true;
