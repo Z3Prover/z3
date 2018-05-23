@@ -2248,7 +2248,7 @@ bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & r
             return true;
         }
     }
-    return false;    
+    return false;
 }
 
 

@@ -653,9 +653,9 @@ bool int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     if (m_lar_solver->get_equality_for_term_on_corrent_x(i, rs)) {
         m_hnf_cutter.add_term(t, rs);
         return true;
-    } else {
-        return false;
     }
+
+    return false;
 }
 
 bool int_solver::hnf_matrix_is_empty() const { return true; }
@@ -663,9 +663,7 @@ bool int_solver::hnf_matrix_is_empty() const { return true; }
 bool int_solver::prepare_matrix_A_for_hnf_cut() {
     m_hnf_cutter.clear();
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
-        bool r = try_add_term_to_A_for_hnf(i);
-        if (!r && settings().hnf_cutter_exit_if_x_is_not_on_bound_or_mixed )
-            return false;
+        try_add_term_to_A_for_hnf(i);
     }
     return true;
 }
@@ -1032,7 +1030,7 @@ int_solver::int_solver(lar_solver* lar_slv) :
                        [this]() {return m_lar_solver->A_r().column_count();},
                        [this](unsigned j) {return get_value(j);},
                        settings()),
-    m_hnf_cutter([this](){ return settings().random_next(); })
+    m_hnf_cutter(settings())
 {
     m_lar_solver->set_int_solver(this);
 }

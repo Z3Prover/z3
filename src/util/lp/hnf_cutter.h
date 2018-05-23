@@ -33,9 +33,9 @@ class hnf_cutter {
     vector<mpq>                m_right_sides;
     unsigned                   m_row_count;
     unsigned                   m_column_count;
-    std::function<unsigned ()> m_random_next;
+    lp_settings &              m_settings;
 public:
-    hnf_cutter(std::function<unsigned()> random) : m_random_next(random) {}
+    hnf_cutter(lp_settings & settings) : m_settings(settings) {}
 
     void clear() {
         m_var_register.clear();
@@ -101,7 +101,7 @@ public:
                     n = 1;
                     ret = i;
                 } else {
-                    if (m_random_next() % (++n) == 0) {
+                    if (m_settings.random_next() % (++n) == 0) {
                        ret = i;
                     }
                 }
@@ -147,8 +147,12 @@ public:
     
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         init_matrix_A();
+        if (m_A.row_count() > m_settings.limit_on_rows_for_hnf_cutter)
+            return lia_move::undef;
         svector<unsigned> basis_rows;
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
+        if (m_settings.get_cancel_flag())
+            return lia_move::undef;
         if (basis_rows.size() < m_A.row_count())
             m_A.shrink_to_rank(basis_rows);
         
