@@ -1310,7 +1310,7 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
         TRACE("subpaving_relevant_bound", tout << "new bound is relevant\n";);
         return true;
     }
-    catch (typename C::exception) {
+    catch (const typename C::exception &) {
         // arithmetic module failed.
         set_arith_failed();
         return false;
@@ -1722,7 +1722,7 @@ void context_t<C>::propagate(node * n, bound * b) {
                 }
             }
         }
-        catch (typename C::exception) {
+        catch (const typename C::exception &) {
             // arithmetic module failed, ignore constraint
             set_arith_failed();
         }

@@ -246,7 +246,7 @@ unsigned read_datalog(char const * file) {
             false);
 
     }
-    catch (out_of_memory_error) {
+    catch (const out_of_memory_error &) {
         std::cout << "\n\nOUT OF MEMORY!\n\n";        
         display_statistics(
             std::cout,
