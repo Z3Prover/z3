@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-   multi-solver view of a single smt::kernel
+   multi-solver view of a single solver
 
 Author:
 
@@ -28,13 +28,14 @@ Notes:
 
 #include "ast/scoped_proof.h"
 
+#include "smt/smt_kernel.h"
+
 namespace spacer {
-virtual_solver::virtual_solver(virtual_solver_factory &factory,
-                               smt::kernel &context, app* pred) :
-    solver_na2as(context.m()),
+virtual_solver::virtual_solver(virtual_solver_factory &factory, app* pred) :
+    solver_na2as(factory.get_manager()),
     m_factory(factory),
-    m(context.m()),
-    m_context(context),
+    m(factory.get_manager()),
+    m_context(factory.get_base_solver()),
     m_pred(pred, m),
     m_virtual(!m.is_true(pred)),
     m_assertions(m),
@@ -42,7 +43,7 @@ virtual_solver::virtual_solver(virtual_solver_factory &factory,
     m_flat(m),
     m_pushed(false),
     m_in_delay_scope(false),
-    m_dump_benchmarks(factory.fparams().m_dump_benchmarks),
+    m_dump_benchmarks(false /*factory.fparams().m_dump_benchmarks*/),
     m_dump_counter(0),
     m_proof(m)
 {
@@ -114,7 +115,7 @@ lbool virtual_solver::check_sat_core(unsigned num_assumptions,
         out << "(exit)\n";
         out.close();
     }
-    lbool res = m_context.check(num_assumptions, assumptions);
+    lbool res = m_context.check_sat(num_assumptions, assumptions);
     sw.stop();
     if (res == l_true) {
         m_factory.m_check_sat_watch.add(sw);
@@ -125,8 +126,8 @@ lbool virtual_solver::check_sat_core(unsigned num_assumptions,
     }
     set_status(res);
 
-    if (m_dump_benchmarks &&
-            sw.get_seconds() >= m_factory.fparams().m_dump_min_time) {
+    if (false /*m_dump_benchmarks &&
+                sw.get_seconds() >= m_factory.fparams().m_dump_min_time*/) {
         std::stringstream file_name;
         file_name << "virt_solver";
         if (m_virtual) { file_name << "_" << m_pred->get_decl()->get_name(); }
@@ -151,13 +152,13 @@ lbool virtual_solver::check_sat_core(unsigned num_assumptions,
         st.display_smt2(out);
 
 
-        if (m_factory.fparams().m_dump_recheck) {
+        if (false /* m_factory.fparams().m_dump_recheck */) {
             scoped_no_proof _no_proof_(m);
             smt_params p;
             stopwatch sw2;
             smt::kernel kernel(m, p);
-            for (unsigned i = 0, sz = m_context.size(); i < sz; ++i)
-                { kernel.assert_expr(m_context.get_formula(i)); }
+            for (unsigned i = 0, sz = m_context.get_num_assertions(); i < sz; ++i)
+                { kernel.assert_expr(m_context.get_assertion(i)); }
             sw2.start();
             kernel.check(num_assumptions, assumptions);
             sw2.stop();
@@ -208,10 +209,12 @@ void virtual_solver::pop_core(unsigned n) {
 
 void virtual_solver::get_unsat_core(ptr_vector<expr> &r)
 {
-    for (unsigned i = 0, sz = m_context.get_unsat_core_size(); i < sz; ++i) {
-        expr *core = m_context.get_unsat_core_expr(i);
-        if (is_aux_predicate(core)) { continue; }
-        r.push_back(core);
+    ptr_vector<expr> core;
+    m_context.get_unsat_core(core);
+
+    for (unsigned i = 0, sz = core.size(); i < sz; ++i) {
+        if (is_aux_predicate(core.get(i))) { continue; }
+        r.push_back(core.get(i));
     }
 }
 
@@ -244,40 +247,25 @@ void virtual_solver::internalize_assertions()
         m_context.assert_expr(f);
     }
 }
-void virtual_solver::refresh()
-{
-    SASSERT(!m_pushed);
-    m_head = 0;
-}
-
-void virtual_solver::reset()
-{
-    SASSERT(!m_pushed);
-    m_head = 0;
-    m_assertions.reset();
-    m_factory.refresh();
-}
 
 void virtual_solver::get_labels(svector<symbol> &r)
-{
-    r.reset();
-    buffer<symbol> tmp;
-    m_context.get_relevant_labels(nullptr, tmp);
-    r.append(tmp.size(), tmp.c_ptr());
-}
+{m_context.get_labels(r);}
 
 solver* virtual_solver::translate(ast_manager& m, params_ref const& p)
 {
     UNREACHABLE();
     return nullptr;
 }
-void virtual_solver::updt_params(params_ref const &p) { m_factory.updt_params(p); }
-void virtual_solver::collect_param_descrs(param_descrs &r) { m_factory.collect_param_descrs(r); }
-void virtual_solver::set_produce_models(bool f) { m_factory.set_produce_models(f); }
-smt_params &virtual_solver::fparams() {return m_factory.fparams();}
+void virtual_solver::updt_params(params_ref const &p) {m_context.updt_params(p);}
+void virtual_solver::reset_params(params_ref const &p) {m_context.reset_params(p);}
+const params_ref &virtual_solver::get_params() const {return m_context.get_params();}
+void virtual_solver::push_params(){m_context.push_params();}
+void virtual_solver::pop_params(){m_context.pop_params();}
+void virtual_solver::collect_param_descrs(param_descrs &r) { m_context.collect_param_descrs(r); }
+void virtual_solver::set_produce_models(bool f) { m_context.set_produce_models(f); }
 
 void virtual_solver::to_smt2_benchmark(std::ostream &out,
-                                       smt::kernel &context,
+                                       solver &context,
                                        unsigned num_assumptions,
                                        expr * const * assumptions,
                                        char const * name,
@@ -288,11 +276,8 @@ void virtual_solver::to_smt2_benchmark(std::ostream &out,
     ast_pp_util pp(m);
     expr_ref_vector asserts(m);
 
-
-    for (unsigned i = 0, sz = context.size(); i < sz; ++i) {
-        asserts.push_back(context.get_formula(i));
-        pp.collect(asserts.back());
-    }
+    context.get_assertions(asserts);
+    pp.collect(asserts);
     pp.collect(num_assumptions, assumptions);
     pp.display_decls(out);
     pp.display_asserts(out, asserts);
@@ -303,11 +288,8 @@ void virtual_solver::to_smt2_benchmark(std::ostream &out,
 }
 
 
-virtual_solver_factory::virtual_solver_factory(ast_manager &mgr, smt_params &fparams) :
-    m_fparams(fparams), m(mgr), m_context(m, m_fparams)
-{
-    m_stats.reset();
-}
+virtual_solver_factory::virtual_solver_factory(solver &base) :
+    m(base.get_manager()), m_context(base) {m_stats.reset();}
 
 virtual_solver* virtual_solver_factory::mk_solver()
 {
@@ -316,7 +298,7 @@ virtual_solver* virtual_solver_factory::mk_solver()
     app_ref pred(m);
     pred = m.mk_const(symbol(name.str().c_str()), m.mk_bool_sort());
     SASSERT(m_context.get_scope_level() == 0);
-    m_solvers.push_back(alloc(virtual_solver, *this, m_context, pred));
+    m_solvers.push_back(alloc(virtual_solver, *this, pred));
     return m_solvers.back();
 }
 
@@ -333,7 +315,6 @@ void virtual_solver_factory::collect_statistics(statistics &st) const
 }
 void virtual_solver_factory::reset_statistics()
 {
-    m_context.reset_statistics();
     m_stats.reset();
     m_check_sat_watch.reset();
     m_check_undef_watch.reset();
@@ -341,17 +322,10 @@ void virtual_solver_factory::reset_statistics()
     m_proof_watch.reset();
 }
 
-void virtual_solver_factory::refresh()
-{
-    m_context.reset();
-    for (unsigned i = 0, e = m_solvers.size(); i < e; ++i)
-    { m_solvers [i]->refresh(); }
-}
-
 virtual_solver_factory::~virtual_solver_factory()
 {
     for (unsigned i = 0, e = m_solvers.size(); i < e; ++i)
-    { dealloc(m_solvers [i]); }
+    { dealloc(m_solvers[i]); }
 }
 
 

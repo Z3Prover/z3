@@ -56,10 +56,7 @@ prop_solver::prop_solver(spacer::manager& pm,
 {
 
     m_solvers[0] = pm.mk_fresh();
-    m_fparams[0] = &pm.fparams();
-
     m_solvers[1] = pm.mk_fresh2();
-    m_fparams[1] = &pm.fparams2();
 
     m_contexts[0] = alloc(spacer::iuc_solver, *(m_solvers[0]),
                           p.spacer_iuc(),
@@ -293,8 +290,12 @@ lbool prop_solver::internal_check_assumptions(
 {
     // XXX Turn model generation if m_model != 0
     SASSERT(m_ctx);
-    SASSERT(m_ctx_fparams);
-    flet<bool> _model(m_ctx_fparams->m_model, m_model != nullptr);
+
+    params_ref p;
+    if (m_model != nullptr) {
+        p.set_bool("produce_models", true);
+        m_ctx->updt_params(p);
+    }
 
     if (m_in_level) { assert_level_atoms(m_current_level); }
     lbool result = maxsmt(hard_atoms, soft_atoms);
@@ -333,6 +334,12 @@ lbool prop_solver::internal_check_assumptions(
         // manually undo proxies because maxsmt() call above manually adds proxies
         m_ctx->undo_proxies(*m_core);
     }
+
+    if (m_model != nullptr) {
+        p.set_bool("produce_models", false);
+        m_ctx->updt_params(p);
+    }
+
     return result;
 }
 
@@ -350,7 +357,6 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
     flatten_and(hard);
 
     m_ctx = m_contexts [solver_id == 0 ? 0 : 0 /* 1 */].get();
-    m_ctx_fparams = m_fparams [solver_id == 0 ? 0 : 0 /* 1 */];
 
     // can be disabled if use_push_bg == true
     // solver::scoped_push _s_(*m_ctx);

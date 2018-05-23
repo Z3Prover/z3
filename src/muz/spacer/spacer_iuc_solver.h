@@ -106,7 +106,11 @@ public:
     /* solver interface */
 
     solver* translate(ast_manager &m, params_ref const &p) override  { return m_solver.translate(m, p);}
-    void updt_params(params_ref const &p) override   { m_solver.updt_params(p);}
+    void updt_params(params_ref const &p) override   {m_solver.updt_params(p);}
+    void reset_params(params_ref const &p) override  {m_solver.reset_params(p);}
+    const params_ref &get_params() const override {return m_solver.get_params();}
+    void push_params() override {m_solver.push_params();}
+    void pop_params() override {m_solver.pop_params();}
     void collect_param_descrs(param_descrs &r) override  { m_solver.collect_param_descrs(r);}
     void set_produce_models(bool f) override  { m_solver.set_produce_models(f);}
     void assert_expr_core(expr *t) override  { m_solver.assert_expr(t);}

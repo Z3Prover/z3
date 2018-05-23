@@ -37,9 +37,10 @@ class smt_context_manager {
         void reset() { memset(this, 0, sizeof(*this)); }
     };
 
-    smt_params               m_fparams;
     ast_manager&             m;
+    params_ref               m_params;
     unsigned                 m_max_num_contexts;
+    sref_vector<solver> m_base_solvers;
     ptr_vector<virtual_solver_factory> m_solvers;
     unsigned                 m_num_contexts;
 
@@ -58,8 +59,8 @@ public:
     void collect_statistics(statistics& st) const;
     void reset_statistics();
 
-    void updt_params(params_ref const &p) { m_fparams.updt_params(p); }
-    smt_params& fparams() {return m_fparams;}
+    void updt_params(params_ref const &p);
+
 
 };
 

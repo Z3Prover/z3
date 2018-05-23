@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-   multi-solver view of a single smt::kernel
+   multi-solver view of a single solver
 
 Author:
 
@@ -21,7 +21,6 @@ Notes:
 #include"ast/ast.h"
 #include"util/params.h"
 #include"solver/solver_na2as.h"
-#include"smt/smt_kernel.h"
 #include"smt/params/smt_params.h"
 #include"util/stopwatch.h"
 namespace spacer {
@@ -33,7 +32,7 @@ class virtual_solver : public solver_na2as {
 private:
     virtual_solver_factory &m_factory;
     ast_manager &m;
-    smt::kernel &m_context;
+    solver &m_context;
     app_ref m_pred;
 
     bool m_virtual;
@@ -49,20 +48,18 @@ private:
 
     proof_ref m_proof;
 
-    virtual_solver(virtual_solver_factory &factory, smt::kernel &context, app* pred);
+    virtual_solver(virtual_solver_factory &factory, app* pred);
 
     bool is_aux_predicate(expr *p);
     void internalize_assertions();
     void to_smt2_benchmark(std::ostream &out,
-                           smt::kernel &context,
+                           solver &context,
                            unsigned num_assumptions,
                            expr * const * assumptions,
                            char const * name = "benchmarks",
                            symbol const &logic = symbol::null,
                            char const * status = "unknown",
                            char const * attributes = "");
-
-    void refresh();
 
 public:
     ~virtual_solver() override;
@@ -84,21 +81,24 @@ public:
     void get_model_core(model_ref &m) override {m_context.get_model(m);}
     proof* get_proof() override;
     std::string reason_unknown() const override
-    {return m_context.last_failure_as_string();}
+    {return m_context.reason_unknown();}
     void set_reason_unknown(char const *msg) override
     {m_context.set_reason_unknown(msg);}
     ast_manager& get_manager() const override {return m;}
     void get_labels(svector<symbol> &r) override;
     void set_produce_models(bool f) override;
     smt_params &fparams();
-    void reset();
     expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
     void set_progress_callback(progress_callback *callback) override {UNREACHABLE();}
 
     solver *translate(ast_manager &m, params_ref const &p) override;
 
     void updt_params(params_ref const &p) override;
+    void reset_params(params_ref const& p) override;
+    params_ref const& get_params() const override;
     void collect_param_descrs(param_descrs &r) override;
+    void push_params() override;
+    void pop_params() override;
 
 
 protected:
@@ -107,13 +107,12 @@ protected:
     void pop_core(unsigned n) override;
 };
 
-/// multi-solver abstraction on top of a single smt::kernel
+/// multi-solver abstraction on top of a single solver
 class virtual_solver_factory {
     friend class virtual_solver;
 private:
-    smt_params  &m_fparams;
     ast_manager &m;
-    smt::kernel m_context;
+    solver &m_context;
     /// solvers managed by this factory
     ptr_vector<virtual_solver> m_solvers;
 
@@ -132,20 +131,17 @@ private:
     stopwatch m_proof_watch;
 
 
-    void refresh();
-
-    smt_params &fparams() { return m_fparams; }
+    solver &get_base_solver() {return m_context;}
+    ast_manager &get_manager() {return m;}
 
 public:
-    virtual_solver_factory(ast_manager &mgr, smt_params &fparams);
+    virtual_solver_factory(solver &base);
     virtual ~virtual_solver_factory();
     virtual_solver* mk_solver();
     void collect_statistics(statistics &st) const;
     void reset_statistics();
-    void updt_params(params_ref const &p) { m_fparams.updt_params(p); }
-    void collect_param_descrs(param_descrs &r) { /* empty */ }
-    void set_produce_models(bool f) { m_fparams.m_model = f; }
-    bool get_produce_models() { return m_fparams.m_model; }
+    void updt_params(params_ref const &p) {m_context.updt_params(p);}
+    void collect_param_descrs(param_descrs &r) {m_context.collect_param_descrs(r);}
 };
 
 }

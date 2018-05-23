@@ -155,11 +155,13 @@ public:
     // three different solvers with three different sets of parameters
     // different solvers are used for different types of queries in spacer
     solver* mk_fresh() {return m_contexts.mk_fresh();}
-    smt_params& fparams() { return m_contexts.fparams(); }
+    void updt_params(const params_ref &p) {m_contexts.updt_params(p);}
+
     solver* mk_fresh2() {return m_contexts2.mk_fresh();}
-    smt_params &fparams2() { return m_contexts2.fparams(); }
+    void updt_params2(const params_ref &p) {m_contexts2.updt_params(p);}
+
     solver* mk_fresh3() {return m_contexts3.mk_fresh();}
-    smt_params &fparams3() {return m_contexts3.fparams();}
+    void updt_params3(const params_ref &p) {m_contexts3.updt_params(p);}
 
 
 

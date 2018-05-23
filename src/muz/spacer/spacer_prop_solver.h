@@ -42,11 +42,9 @@ class prop_solver {
 private:
     ast_manager&        m;
     symbol              m_name;
-    smt_params*         m_fparams[2];
     solver*             m_solvers[2];
     scoped_ptr<iuc_solver>  m_contexts[2];
     iuc_solver *            m_ctx;
-    smt_params *            m_ctx_fparams;
     decl_vector         m_level_preds;
     app_ref_vector      m_pos_level_atoms;  // atoms used to identify level
     app_ref_vector      m_neg_level_atoms;  //
@@ -138,25 +136,20 @@ public:
     };
 
     class scoped_weakness {
-
-        smt_params &m_params;
-        bool m_arith_ignore_int;
-        bool m_array_weak;
     public:
-        scoped_weakness(prop_solver &ps, unsigned solver_id, unsigned weakness) :
-            m_params(*ps.m_fparams[solver_id == 0 ? 0 : 0 /*1*/]) {
-            // save current values
-            m_arith_ignore_int = m_params.m_arith_ignore_int;
-            m_array_weak = m_params.m_array_weak;
+        solver *sol;
+        scoped_weakness(prop_solver &ps, unsigned solver_id, unsigned weakness)
+            : sol(nullptr) {
+            sol = ps.m_solvers[solver_id == 0 ? 0 :  0 /* 1 */];
+            if (!sol) return;
+            sol->push_params();
 
-            // set values based on weakness score
-            m_params.m_arith_ignore_int = weakness < 1;
-            m_params.m_array_weak = weakness < 2;
+            params_ref p;
+            p.set_bool("arith.ignore_int", weakness < 1);
+            p.set_bool("array.weak",  weakness < 2);
+            sol->updt_params(p);
         }
-        ~scoped_weakness() {
-            m_params.m_arith_ignore_int = m_arith_ignore_int;
-            m_params.m_array_weak = m_array_weak;
-        }
+        ~scoped_weakness() {if (sol) {sol->pop_params();}}
     };
 };
 }
