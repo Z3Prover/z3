@@ -39,13 +39,8 @@ Notes:
 #include "solver/solver2tactic.h"
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
-#include "tactic/portfolio/fd_solver.h"
 #include "solver/parallel_tactic.h"
 #include "solver/parallel_params.hpp"
-#include "smt/tactic/smt_tactic.h"
-#include "smt/smt_solver.h"
-#include "sat/sat_solver/inc_sat_solver.h"
-#include "sat/tactic/sat_tactic.h"
 
 class parallel_tactic : public tactic {
 
