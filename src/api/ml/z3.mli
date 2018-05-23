@@ -2362,7 +2362,7 @@ sig
 
   (** Indicates whether the term is a proof by condensed transitivity of a relation
 
-      Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+      Condensed transitivity proof.
       It combines several symmetry and transitivity proofs.
       Example:
       T1: (R a b)
@@ -2443,14 +2443,11 @@ sig
   (** Indicates whether the term is a proof by rewriting
 
       A proof for rewriting an expression t into an expression s.
-      This proof object is used if the parameter PROOF_MODE is 1.
       This proof object can have n antecedents.
       The antecedents are proofs for equalities used as substitution rules.
-      The object is also used in a few cases if the parameter PROOF_MODE is 2.
-      The cases are:
+      The object is also used in a few cases. The cases are:
       - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
       - When converting bit-vectors to Booleans (BIT2BOOL=true)
-      - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true) *)
   val is_rewrite_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pulling quantifiers out.
