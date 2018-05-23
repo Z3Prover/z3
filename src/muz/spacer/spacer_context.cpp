@@ -2256,9 +2256,10 @@ bool context::validate()
                     fv.reverse ();
                     tmp = m.mk_exists(fv.size(), fv.c_ptr(), names.c_ptr(), tmp);
                 }
-                smt::kernel solver(m, m_pm.fparams2());
-                solver.assert_expr(tmp);
-                lbool res = solver.check();
+                ref<solver> sol =
+                    mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+                sol->assert_expr(tmp);
+                lbool res = sol->check_sat(0, nullptr);
                 if (res != l_false) {
                     msg << "rule validation failed when checking: "
                         << mk_pp(tmp, m);
@@ -2648,7 +2649,8 @@ expr_ref context::get_ground_sat_answer()
     { cex.push_back(m.mk_const(preds[0])); }
 
     // smt context to obtain local cexes
-    scoped_ptr<smt::kernel> cex_ctx = alloc (smt::kernel, m, m_pm.fparams2 ());
+    ref<solver> cex_ctx =
+        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
     model_evaluator_util mev (m);
 
     // preorder traversal of the query derivation tree
@@ -2689,7 +2691,7 @@ expr_ref context::get_ground_sat_answer()
         }
         cex_ctx->assert_expr (pt->transition ());
         cex_ctx->assert_expr (pt->rule2tag (r));
-        lbool res = cex_ctx->check ();
+        lbool res = cex_ctx->check_sat(0, nullptr);
         CTRACE("cex", res == l_false,
                tout << "Cex fact: " << mk_pp(cex_fact, m) << "\n";
                for (unsigned i = 0; i < u_tail_sz; i++)
@@ -3624,10 +3626,9 @@ void context::reset_statistics()
 
 bool context::check_invariant(unsigned lvl)
 {
-    decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-    for (; it != end; ++it) {
+    for (auto &entry : m_rels) {
         checkpoint();
-        if (!check_invariant(lvl, it->m_key)) {
+        if (!check_invariant(lvl, entry.m_key)) {
             return false;
         }
     }
@@ -3636,7 +3637,7 @@ bool context::check_invariant(unsigned lvl)
 
 bool context::check_invariant(unsigned lvl, func_decl* fn)
 {
-    smt::kernel ctx(m, m_pm.fparams2());
+    ref<solver> ctx = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
     pred_transformer& pt = *m_rels.find(fn);
     expr_ref_vector conj(m);
     expr_ref inv = pt.get_formulas(next_level(lvl), false);
@@ -3644,9 +3645,10 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     pt.add_premises(m_rels, lvl, conj);
     conj.push_back(m.mk_not(inv));
     expr_ref fml(m.mk_and(conj.size(), conj.c_ptr()), m);
-    ctx.assert_expr(fml);
-    lbool result = ctx.check();
-    TRACE("spacer", tout << "Check invariant level: " << lvl << " " << result << "\n" << mk_pp(fml, m) << "\n";);
+    ctx->assert_expr(fml);
+    lbool result = ctx->check_sat(0, nullptr);
+    TRACE("spacer", tout << "Check invariant level: " << lvl << " " << result
+          << "\n" << mk_pp(fml, m) << "\n";);
     return result == l_false;
 }
 

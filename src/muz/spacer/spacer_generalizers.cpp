@@ -29,7 +29,7 @@ Revision History:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/substitution/matcher.h"
 #include "ast/expr_functors.h"
-
+#include "smt/smt_solver.h"
 
 namespace spacer {
 void lemma_sanity_checker::operator()(lemma_ref &lemma) {
@@ -249,17 +249,17 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
         { eqs.push_back(m.mk_eq(m.mk_const(vsymbs.get(i)),
                                 m.mk_const(vsymbs.get(j)))); }
 
-    smt::kernel solver(m, m_ctx.get_manager().fparams2());
+    ref<solver> sol = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
     expr_ref_vector lits(m);
     for (unsigned i = 0, core_sz = core.size(); i < core_sz; ++i) {
         SASSERT(lits.size() == i);
-        solver.push();
-        solver.assert_expr(core.get(i));
+        sol->push();
+        sol->assert_expr(core.get(i));
         for (unsigned j = 0, eqs_sz = eqs.size(); j < eqs_sz; ++j) {
-            solver.push();
-            solver.assert_expr(eqs.get(j));
-            lbool res = solver.check();
-            solver.pop(1);
+            sol->push();
+            sol->assert_expr(eqs.get(j));
+            lbool res = sol->check_sat(0, nullptr);
+            sol->pop(1);
 
             if (res == l_false) {
                 TRACE("core_array_eq",
@@ -269,7 +269,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
                 break;
             }
         }
-        solver.pop(1);
+        sol->pop(1);
         if (lits.size() == i) { lits.push_back(core.get(i)); }
     }
 
