@@ -1392,8 +1392,8 @@ namespace smt {
         ast_manager& m;
         theory_pb&   th;
         pb_util      pb;
-        typedef smt::literal literal;
-        typedef smt::literal_vector literal_vector;
+        typedef smt::literal pliteral;
+        typedef smt::literal_vector pliteral_vector;
       
         psort_expr(context& c, theory_pb& th):
             ctx(c), 

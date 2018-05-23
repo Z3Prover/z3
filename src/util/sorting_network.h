@@ -141,8 +141,8 @@ Notes:
     // Described in Abio et.al. CP 2013.
     template<class psort_expr>
     class psort_nw {
-        typedef typename psort_expr::literal literal;
-        typedef typename psort_expr::literal_vector literal_vector;
+        typedef typename psort_expr::pliteral literal;
+        typedef typename psort_expr::pliteral_vector literal_vector;
         sorting_network_config m_cfg;
 
         class vc {

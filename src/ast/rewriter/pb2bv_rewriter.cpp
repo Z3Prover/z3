@@ -43,8 +43,8 @@ struct pb2bv_rewriter::imp {
     unsigned                  m_compile_card;
 
     struct card2bv_rewriter {               
-        typedef expr* literal;
-        typedef ptr_vector<expr> literal_vector;
+        typedef expr* pliteral;
+        typedef ptr_vector<expr> pliteral_vector;
         psort_nw<card2bv_rewriter> m_sort;
         ast_manager& m;
         imp&         m_imp;
@@ -861,25 +861,25 @@ struct pb2bv_rewriter::imp {
         }
    
         // definitions used for sorting network
-        literal mk_false() { return m.mk_false(); }
-        literal mk_true() { return m.mk_true(); }
-        literal mk_max(literal a, literal b) { return trail(m.mk_or(a, b)); }
-        literal mk_min(literal a, literal b) { return trail(m.mk_and(a, b)); }
-        literal mk_not(literal a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
+        pliteral mk_false() { return m.mk_false(); }
+        pliteral mk_true() { return m.mk_true(); }
+        pliteral mk_max(pliteral a, pliteral b) { return trail(m.mk_or(a, b)); }
+        pliteral mk_min(pliteral a, pliteral b) { return trail(m.mk_and(a, b)); }
+        pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
 
-        std::ostream& pp(std::ostream& out, literal lit) {  return out << mk_ismt2_pp(lit, m);  }
+        std::ostream& pp(std::ostream& out, pliteral lit) {  return out << mk_ismt2_pp(lit, m);  }
         
-        literal trail(literal l) {
+        pliteral trail(pliteral l) {
             m_trail.push_back(l);
             return l;
         }
-        literal fresh(char const* n) {                      
+        pliteral fresh(char const* n) {                      
             expr_ref fr(m.mk_fresh_const(n, m.mk_bool_sort()), m);
             m_imp.m_fresh.push_back(to_app(fr)->get_decl());
             return trail(fr);
         }
         
-        void mk_clause(unsigned n, literal const* lits) {
+        void mk_clause(unsigned n, pliteral const* lits) {
             m_imp.m_lemmas.push_back(::mk_or(m, n, lits));
         }        
 

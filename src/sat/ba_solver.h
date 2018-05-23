@@ -242,23 +242,23 @@ namespace sat {
         unsigned_vector   m_pb_undef;
 
         struct ba_sort {
-            typedef typename sat::literal literal;
-            typedef typename sat::literal_vector literal_vector;
+            typedef sat::literal pliteral;
+            typedef sat::literal_vector pliteral_vector;
 
             ba_solver& s;
-            literal m_true;
-            literal_vector m_lits;
+            pliteral m_true;
+            pliteral_vector m_lits;
             
 
             ba_sort(ba_solver& s): s(s), m_true(null_literal) {}
-            literal mk_false();
-            literal mk_true();
-            literal mk_not(literal l);
-            literal fresh(char const*);
-            literal mk_max(literal l1, literal l2);
-            literal mk_min(literal l1, literal l2);
+            pliteral mk_false();
+            pliteral mk_true();
+            pliteral mk_not(pliteral l);
+            pliteral fresh(char const*);
+            pliteral mk_max(pliteral l1, pliteral l2);
+            pliteral mk_min(pliteral l1, pliteral l2);
             void    mk_clause(unsigned n, literal const* lits);
-            std::ostream& pp(std::ostream& out, literal l) const;
+            std::ostream& pp(std::ostream& out, pliteral l) const;
         };
         ba_sort           m_ba;
         psort_nw<ba_sort> m_sort;

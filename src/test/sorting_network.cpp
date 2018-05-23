@@ -152,30 +152,30 @@ struct ast_ext2 {
     expr_ref_vector m_clauses;
     expr_ref_vector m_trail;
     ast_ext2(ast_manager& m):m(m), m_clauses(m), m_trail(m) {}
-    typedef expr* literal;
-    typedef ptr_vector<expr> literal_vector;
+    typedef expr* pliteral;
+    typedef ptr_vector<expr> pliteral_vector;
 
     expr* trail(expr* e) {
         m_trail.push_back(e);
         return e;
     }
 
-    literal mk_false() { return m.mk_false(); }
-    literal mk_true() { return m.mk_true(); }
-    literal mk_max(literal a, literal b) {
+    pliteral mk_false() { return m.mk_false(); }
+    pliteral mk_true() { return m.mk_true(); }
+    pliteral mk_max(pliteral a, pliteral b) {
         return trail(m.mk_or(a, b));
     }
-    literal mk_min(literal a, literal b) { return trail(m.mk_and(a, b)); }
-    literal mk_not(literal a) { if (m.is_not(a,a)) return a;
+    pliteral mk_min(pliteral a, pliteral b) { return trail(m.mk_and(a, b)); }
+    pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a;
         return trail(m.mk_not(a));
     }
-    std::ostream& pp(std::ostream& out, literal lit) {
+    std::ostream& pp(std::ostream& out, pliteral lit) {
         return out << mk_pp(lit, m);
     }
-    literal fresh(char const* n) {
+    pliteral fresh(char const* n) {
         return trail(m.mk_fresh_const(n, m.mk_bool_sort()));
     }
-    void mk_clause(unsigned n, literal const* lits) {
+    void mk_clause(unsigned n, pliteral const* lits) {
         m_clauses.push_back(mk_or(m, n, lits));
     }
 };

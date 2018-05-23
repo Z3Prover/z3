@@ -34,8 +34,8 @@ namespace pb {
 
     class card2bv_rewriter {
     public:
-        typedef expr* literal;
-        typedef ptr_vector<expr> literal_vector;
+        typedef expr* pliteral;
+        typedef ptr_vector<expr> pliteral_vector;
     private:
         ast_manager& m;
         arith_util   au;
@@ -54,7 +54,7 @@ namespace pb {
         bool is_and(func_decl* f);
         bool is_atmost1(func_decl* f, unsigned sz, expr * const* args, expr_ref& result);
         expr_ref mk_atmost1(unsigned sz, expr * const* args);
-        void mk_at_most_1_small(bool last, unsigned n, literal const* xs, expr_ref_vector& result, expr_ref_vector& ors);
+        void mk_at_most_1_small(bool last, unsigned n, pliteral const* xs, expr_ref_vector& result, expr_ref_vector& ors);
 
     public:
         card2bv_rewriter(ast_manager& m);
@@ -62,15 +62,15 @@ namespace pb {
         void mk_assert(func_decl * f, unsigned sz, expr * const* args, expr_ref & result, expr_ref_vector& lemmas);
 
         // definitions used for sorting network
-        literal mk_false() { return m.mk_false(); }
-        literal mk_true() { return m.mk_true(); }
-        literal mk_max(literal a, literal b) { return trail(m.mk_or(a, b)); }
-        literal mk_min(literal a, literal b) { return trail(m.mk_and(a, b)); }
-        literal mk_not(literal a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
-        std::ostream& pp(std::ostream& out, literal lit);
-        literal fresh();
-        literal trail(literal l);
-        void mk_clause(unsigned n, literal const* lits);
+        pliteral mk_false() { return m.mk_false(); }
+        pliteral mk_true() { return m.mk_true(); }
+        pliteral mk_max(pliteral a, pliteral b) { return trail(m.mk_or(a, b)); }
+        pliteral mk_min(pliteral a, pliteral b) { return trail(m.mk_and(a, b)); }
+        pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
+        std::ostream& pp(std::ostream& out, pliteral lit);
+        pliteral fresh();
+        pliteral trail(pliteral l);
+        void mk_clause(unsigned n, pliteral const* lits);
         
     };
 
