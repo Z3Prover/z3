@@ -182,27 +182,6 @@ namespace opt {
         void get_hard_constraints(expr_ref_vector& hard);
         expr_ref get_objective(unsigned i);
 
-#if 0
-        virtual void push();
-        virtual void pop(unsigned n);
-        virtual bool empty() { return m_scoped_state.m_objectives.empty(); }
-        virtual void set_hard_constraints(ptr_vector<expr> & hard);
-        virtual lbool optimize();
-        virtual void set_model(model_ref& _m) { m_model = _m; }
-        virtual void get_model_core(model_ref& _m);
-        virtual void get_box_model(model_ref& _m, unsigned index);
-        virtual void fix_model(model_ref& _m);
-        virtual void collect_statistics(statistics& stats) const;
-        virtual proof* get_proof() { return 0; }
-        virtual void get_labels(svector<symbol> & r);
-        virtual void get_unsat_core(ptr_vector<expr> & r);
-        virtual std::string reason_unknown() const;
-        virtual void set_reason_unknown(char const* msg) { m_unknown = msg; }
-
-        virtual void display_assignment(std::ostream& out);
-        virtual bool is_pareto() { return m_pareto.get() != 0; }
-        virtual void set_logic(symbol const& s) { m_logic = s; }
-#endif
         void push() override;
         void pop(unsigned n) override;
         bool empty() override { return m_scoped_state.m_objectives.empty(); }
@@ -244,16 +223,6 @@ namespace opt {
         expr_ref mk_ge(unsigned i, model_ref& model) override;
         expr_ref mk_le(unsigned i, model_ref& model) override;
 
-#if 0
-        virtual smt::context& smt_context() { return m_opt_solver->get_context(); }
-        virtual bool sat_enabled() const { return 0 != m_sat_solver.get(); }
-        virtual solver& get_solver();
-        virtual ast_manager& get_manager() const { return this->m; }
-        virtual params_ref& params() { return m_params; }
-        virtual void enable_sls(bool force);
-        virtual symbol const& maxsat_engine() const { return m_maxsat_engine; }
-        virtual void get_base_model(model_ref& _m);
-#endif
         generic_model_converter& fm() override { return *m_fm; }
         smt::context& smt_context() override { return m_opt_solver->get_context(); }
         bool sat_enabled() const override { return nullptr != m_sat_solver.get(); }

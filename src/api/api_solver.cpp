@@ -152,7 +152,7 @@ extern "C" {
             return;
         }
 
-        bool initialized = to_solver(s)->m_solver.get() != 0;
+        bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
         ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();

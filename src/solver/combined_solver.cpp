@@ -207,7 +207,7 @@ public:
         }
         catch (z3_exception& ex) {
             if (get_manager().canceled()) {
-                set_reason_unknown(Z3_CANCELED_MSG);
+                throw;
             }
             else {
                 set_reason_unknown(ex.msg());

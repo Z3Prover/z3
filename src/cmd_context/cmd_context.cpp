@@ -1525,7 +1525,12 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             throw ex;
         }
         catch (z3_exception & ex) {
-            m_solver->set_reason_unknown(ex.msg());
+            if (m().canceled()) {
+                m_solver->set_reason_unknown(eh);
+            }
+            else {
+                m_solver->set_reason_unknown(ex.msg());
+            }
             r = l_undef;
         }
         m_solver->set_status(r);

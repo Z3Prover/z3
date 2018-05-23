@@ -619,7 +619,7 @@ public:
             try {
                 ctx.regular_stream() << gparams::get_value(opt) << std::endl;
             }
-            catch (const gparams::exception & ex) {
+            catch (const gparams::exception &) {
                 ctx.print_unsupported(opt, m_line, m_pos);
             }
         }
