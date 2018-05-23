@@ -2761,7 +2761,7 @@ namespace sat {
         while (!m_lemma_min_stack.empty()) {
             bool_var var       = m_lemma_min_stack.back();
             m_lemma_min_stack.pop_back();
-            justification js   = m_justification[var];
+            justification const& js   = m_justification[var];
             switch(js.get_kind()) {
             case justification::NONE:
                 // it is a decision variable from a previous scope level
