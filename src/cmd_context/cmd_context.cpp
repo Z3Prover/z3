@@ -1520,6 +1520,9 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_rlimit _rlimit(m().limit(), rlimit);
         try {
             r = m_solver->check_sat(num_assumptions, assumptions);
+            if (r == l_undef && m().canceled()) {
+                m_solver->set_reason_unknown(eh);
+            }
         }
         catch (z3_error & ex) {
             throw ex;
