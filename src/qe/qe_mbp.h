@@ -88,7 +88,6 @@ namespace qe {
            Apply spacer friendly MBP.
            Use parameters to control behavior.
            - reduce_all_selects (false) 
-           - native_mbp (false) - to be deprecated
            - dont_sub (false) 
         */
         void spacer(app_ref_vector& vars, model& mdl, expr_ref& fml);
