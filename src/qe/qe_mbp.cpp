@@ -64,8 +64,8 @@ expr_ref project_plugin::pick_equality(ast_manager& m, model& model, expr* t) {
     expr_ref_vector vals(m);
     obj_map<expr, expr*> val2expr;
     app* alit = to_app(t);
-    for (unsigned i = 0; i < alit->get_num_args(); ++i) {
-        expr* e1 = alit->get_arg(i), *e2;
+    for (expr * e1 : *alit) {
+        expr *e2;
         VERIFY(model.eval(e1, val));
         if (val2expr.find(val, e2)) {
             return expr_ref(m.mk_eq(e1, e2), m);
@@ -91,13 +91,13 @@ void project_plugin::push_back(expr_ref_vector& lits, expr* e) {
 
 
 class mbp::impl {
-    ast_manager&               m;
+    ast_manager& m;
     params_ref                 m_params;
-    th_rewriter                m_rw;
+    th_rewriter m_rw;
     ptr_vector<project_plugin> m_plugins;
-    expr_mark                  m_visited;
-    expr_mark                  m_bool_visited;
-    
+    expr_mark m_visited;
+    expr_mark m_bool_visited;
+
     // parameters
     bool m_reduce_all_selects;
     bool m_dont_sub;
@@ -140,12 +140,9 @@ class mbp::impl {
         }
         if (reduced) {
             unsigned j = 0;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                if (!is_rem.is_marked(vars[i].get())) {
-                    if (i != j) {
-                        vars[j] = vars[i].get();
-                    }
-                    ++j;
+            for (app* v : vars) {
+                if (!is_rem.is_marked(v)) {
+                    vars[j++] = v;
                 }
             }
             vars.shrink(j);
@@ -172,20 +169,13 @@ class mbp::impl {
     void filter_variables(model& model, app_ref_vector& vars, expr_ref_vector& lits, expr_ref_vector& unused_lits) {
         expr_mark lit_visited;
         project_plugin::mark_rec(lit_visited, lits);
-
         unsigned j = 0;
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            app* var = vars[i].get();
+        for (app* var : vars) {
             if (lit_visited.is_marked(var)) {
-                if (i != j) {
-                    vars[j] = vars[i].get();
+                vars[j++] = var;
                 }
-                ++j;
             }
-        }
-        if (vars.size() != j) {
-            vars.resize(j);
-        }
+        vars.shrink(j);
     }
 
     bool extract_bools(model_evaluator& eval, expr_ref_vector& fmls, expr* fml) {
@@ -245,33 +235,33 @@ class mbp::impl {
             }
             else {
                 vars[j++] = var;
+                }
             }
-        }
         if (j == vars.size()) {
             return;
         }
         vars.shrink(j);
-        j = 0;
-        for (unsigned i = 0; i < fmls.size(); ++i) {
+            j = 0;
+            for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get();
             sub(fml, val);
-            m_rw(val);
-            if (!m.is_true(val)) {
+                m_rw(val);
+                if (!m.is_true(val)) {
                 TRACE("qe", tout << mk_pp(fml, m) << " -> " << val << "\n";);
                 fmls[j++] = val;
-            }
-        }
+                    }
+                }
         fmls.shrink(j);
-    }
+            }
 
 
     void subst_vars(model_evaluator& eval, app_ref_vector const& vars, expr_ref& fml) {
         expr_safe_replace sub (m);
         for (app * v : vars) {
             sub.insert(v, eval(v));
-        }
+            }
         sub(fml);
-    }
+        }
 
     struct index_term_finder {
         ast_manager&     m;
@@ -594,7 +584,7 @@ public:
 
         model_evaluator eval(mdl, m_params);        
         eval.set_model_completion(true);
-        app_ref_vector arith_vars (m);
+        app_ref_vector other_vars (m);
         app_ref_vector array_vars (m);
         array_util arr_u (m);
         arith_util ari_u (m);
@@ -612,11 +602,8 @@ public:
                 if (arr_u.is_array(v)) {
                     array_vars.push_back (v);
                 } 
-                else if (ari_u.is_int (v) || ari_u.is_real (v)) {
-                    arith_vars.push_back (v);
-                }
                 else {
-                    NOT_IMPLEMENTED_YET();
+                    other_vars.push_back (v);
                 }
             }        
             
@@ -636,46 +623,44 @@ public:
             TRACE ("qe",
                    tout << "extended model:\n";
                    model_pp (tout, mdl);
-                   tout << "Vars: ";
-                   tout << vars << "\n";
+                   tout << "Vars: " << vars << "\n";
                    );            
             
         }
-        // project reals and ints
-        if (!arith_vars.empty ()) {
-            TRACE ("qe", tout << "Arith vars: " << arith_vars << "\n";
-                   model_pp(tout, mdl);
-                   );
+        // project reals, ints and other variables.
+        if (!other_vars.empty ()) {
+            TRACE ("qe", tout << "Other vars: " << other_vars << "\n";
+                   model_pp(tout, mdl););
                         
             expr_ref_vector fmls(m);
             flatten_and (fml, fmls);
             
-            (*this)(true, arith_vars, mdl, fmls);
+            (*this)(false, other_vars, mdl, fmls);
             fml = mk_and (fmls);
                         
             TRACE ("qe",
-                   tout << "Projected arith vars:\n" << fml << "\n";
-                   tout << "Remaining arith vars:\n" << arith_vars << "\n";);
+                   tout << "Projected other vars:\n" << fml << "\n";
+                   tout << "Remaining other vars:\n" << other_vars << "\n";);
             SASSERT (!m.is_false (fml));
         }
         
-        if (!arith_vars.empty ()) {
-            project_vars (mdl, arith_vars, fml);
+        if (!other_vars.empty ()) {
+            project_vars (mdl, other_vars, fml);
         }
         
-        // substitute any remaining arith vars
-        if (!m_dont_sub && !arith_vars.empty ()) {
-            subst_vars (eval, arith_vars, fml);
-            TRACE ("qe", tout << "After substituting remaining arith vars:\n" << fml << "\n";);
+        // substitute any remaining other vars
+        if (!m_dont_sub && !other_vars.empty ()) {
+            subst_vars (eval, other_vars, fml);
+            TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             // an extra round of simplification because subst_vars is not simplifying
             m_rw(fml);
-            arith_vars.reset();
+            other_vars.reset();
         }
         
         SASSERT(eval.is_true(fml));
                 
         vars.reset ();
-        vars.append(arith_vars);
+        vars.append(other_vars);
     }    
     
 };
@@ -688,7 +673,7 @@ mbp::mbp(ast_manager& m, params_ref const& p) {
 mbp::~mbp() {
     dealloc(m_impl);
 }
-
+        
 void mbp::updt_params(params_ref const& p) {
     m_impl->updt_params(p);
 }

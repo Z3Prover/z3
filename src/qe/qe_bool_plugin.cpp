@@ -93,10 +93,8 @@ namespace qe {
 
         bool solve_units(conj_enum& conjs, expr* _fml) {
             expr_ref fml(_fml, m);
-            conj_enum::iterator it = conjs.begin(), end = conjs.end();
             unsigned idx;
-            for (; it != end; ++it) {
-                expr* e = *it;
+            for (expr * e : conjs) {
                 if (!is_app(e)) {
                     continue;
                 }
@@ -138,13 +136,11 @@ namespace qe {
                 return false;
             }
             else if (p && !n) {
-                atom_set::iterator it = m_ctx.pos_atoms().begin(), end = m_ctx.pos_atoms().end();
-                for (; it != end; ++it) {
-                    if (x != *it && contains_x(*it)) return false;
+                for (expr* y : m_ctx.pos_atoms()) {
+                    if (x != y && contains_x(y)) return false;
                 }
-                it = m_ctx.neg_atoms().begin(), end = m_ctx.neg_atoms().end();
-                for (; it != end; ++it) {
-                    if (contains_x(*it)) return false;
+                for (expr* y : m_ctx.neg_atoms()) {
+                    if (contains_x(y)) return false;
                 }
                 // only occurrences of 'x' must be in positive atoms
                 def = m.mk_true();
@@ -152,13 +148,11 @@ namespace qe {
                 return true;
             }
             else if (!p && n) {
-                atom_set::iterator it = m_ctx.pos_atoms().begin(), end = m_ctx.pos_atoms().end();
-                for (; it != end; ++it) {
-                    if (contains_x(*it)) return false;
+                for (expr* y : m_ctx.pos_atoms()) {
+                    if (contains_x(y)) return false;
                 }
-                it = m_ctx.neg_atoms().begin(), end = m_ctx.neg_atoms().end();
-                for (; it != end; ++it) {
-                    if (x != *it && contains_x(*it)) return false;
+                for (expr* y : m_ctx.neg_atoms()) {
+                    if (x != y && contains_x(y)) return false;
                 }
                 def = m.mk_false();
                 m_replace.apply_substitution(x, def, fml);
