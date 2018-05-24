@@ -579,6 +579,6 @@ public:
     unsigned column_count() const { return A_r().column_count(); }
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
     const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
-    bool get_equality_for_term_on_corrent_x(unsigned i, mpq &rs) const;
+    bool get_equality_for_term_on_corrent_x(unsigned i, mpq &rs, bool & has_bounds) const;
 };
 }

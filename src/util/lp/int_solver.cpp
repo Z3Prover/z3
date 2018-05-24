@@ -650,27 +650,28 @@ bool int_solver::try_add_term_to_A_for_hnf(unsigned i) {
         if (!is_int(p.var()))
             return false; // todo : the mix case!
     }
-    if (m_lar_solver->get_equality_for_term_on_corrent_x(i, rs)) {
+    bool has_bounds;
+    if (m_lar_solver->get_equality_for_term_on_corrent_x(i, rs, has_bounds)) {
         m_hnf_cutter.add_term(t, rs);
         return true;
     }
-
-    return false;
+    return !has_bounds;
 }
 
 bool int_solver::hnf_matrix_is_empty() const { return true; }
 
-bool int_solver::prepare_matrix_A_for_hnf_cut() {
+bool int_solver::init_terms_for_hnf_cut() {
     m_hnf_cutter.clear();
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
-        try_add_term_to_A_for_hnf(i);
+        if (!try_add_term_to_A_for_hnf(i))
+            return false;
     }
     return m_hnf_cutter.row_count() < settings().limit_on_rows_for_hnf_cutter;
 }
 
 
 lia_move int_solver::make_hnf_cut() {
-    if (!prepare_matrix_A_for_hnf_cut()) {
+    if (!init_terms_for_hnf_cut()) {
         return lia_move::undef;
     }
     settings().st().m_hnf_cutter_calls++;
