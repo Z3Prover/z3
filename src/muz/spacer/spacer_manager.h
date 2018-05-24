@@ -79,9 +79,6 @@ class manager {
     // manager of multiplexed names
     sym_mux               m_mux;
 
-    ref<solver> m_pool0_base;
-    ref<solver> m_pool1_base;
-    ref<solver> m_pool2_base;
     // three solver pools for different queries
     scoped_ptr<solver_pool> m_pool0;
     scoped_ptr<solver_pool> m_pool1;
