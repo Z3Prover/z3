@@ -66,6 +66,8 @@ public:
     solver* mk_solver();
 
     void reset_solver(solver* s);
+    void updt_params(const params_ref &p);
+
 };
 
 

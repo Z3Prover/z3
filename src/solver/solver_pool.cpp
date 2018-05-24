@@ -65,6 +65,9 @@ public:
 
     solver* translate(ast_manager& m, params_ref const& p) override { UNREACHABLE(); return nullptr; }
     void updt_params(params_ref const& p) override { solver::updt_params(p); m_base->updt_params(p); }
+    void push_params() override {m_base->push_params();}
+    void pop_params() override {m_base->pop_params();}
+
     void collect_param_descrs(param_descrs & r) override { m_base->collect_param_descrs(r); }
     void collect_statistics(statistics & st) const override { m_base->collect_statistics(st); }
     unsigned get_num_assertions() const override { return m_base->get_num_assertions(); }
@@ -280,6 +283,10 @@ ptr_vector<solver> solver_pool::get_base_solvers() const {
     return solvers;
 }
 
+void solver_pool::updt_params(const params_ref &p) {
+    ptr_vector<solver> solvers = get_base_solvers();
+    for (solver *s : solvers) s->updt_params(p);
+}
 void solver_pool::collect_statistics(statistics &st) const {
     ptr_vector<solver> solvers = get_base_solvers();
     for (solver* s : solvers) s->collect_statistics(st);        
