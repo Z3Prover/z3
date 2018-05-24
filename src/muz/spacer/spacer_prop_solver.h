@@ -30,7 +30,6 @@ Revision History:
 #include "util/util.h"
 #include "util/vector.h"
 #include "muz/spacer/spacer_manager.h"
-#include "muz/spacer/spacer_smt_context_manager.h"
 #include "muz/spacer/spacer_iuc_solver.h"
 
 struct fixedpoint_params;
