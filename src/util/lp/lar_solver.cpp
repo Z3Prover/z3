@@ -2222,7 +2222,7 @@ bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & r
     unsigned tj = term_index + m_terms_start_index;
     auto it = m_ext_vars_to_columns.find(tj);
     if (it == m_ext_vars_to_columns.end())
-        return false;
+        return true;
     unsigned j = it->second.internal_j();
     auto & slv = m_mpq_lar_core_solver.m_r_solver;
     impq term_val;
