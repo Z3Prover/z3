@@ -665,7 +665,7 @@ bool int_solver::prepare_matrix_A_for_hnf_cut() {
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
         try_add_term_to_A_for_hnf(i);
     }
-    return true;
+    return m_hnf_cutter.row_count() < settings().limit_on_rows_for_hnf_cutter;
 }
 
 

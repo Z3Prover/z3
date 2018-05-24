@@ -37,6 +37,10 @@ class hnf_cutter {
 public:
     hnf_cutter(lp_settings & settings) : m_settings(settings) {}
 
+    unsigned row_count() const {
+        return m_row_count;
+    }
+    
     void clear() {
         m_var_register.clear();
         m_terms.clear();
@@ -147,8 +151,6 @@ public:
     
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper) {
         init_matrix_A();
-        if (m_A.row_count() > m_settings.limit_on_rows_for_hnf_cutter)
-            return lia_move::undef;
         svector<unsigned> basis_rows;
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
         if (m_settings.get_cancel_flag())

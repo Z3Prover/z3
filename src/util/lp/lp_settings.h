@@ -200,7 +200,7 @@ public:
     unsigned         m_chase_cut_solver_cycle_on_var;
     bool             m_int_pivot_fixed_vars_from_basis;
     bool             m_int_patch_only_integer_values;
-    unsigned               limit_on_rows_for_hnf_cutter;
+    unsigned         limit_on_rows_for_hnf_cutter;
 
     unsigned random_next() { return m_rand(); }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
