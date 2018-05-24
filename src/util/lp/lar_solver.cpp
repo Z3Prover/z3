@@ -2227,6 +2227,7 @@ bool lar_solver::get_equality_for_term_on_corrent_x(unsigned term_index, mpq & r
     auto & slv = m_mpq_lar_core_solver.m_r_solver;
     impq term_val;
     bool term_val_ready = false;
+    has_bounds = false;
     if (slv.column_has_upper_bound(j)) {
         has_bounds = true;
         const impq & b = slv.m_upper_bounds[j];
