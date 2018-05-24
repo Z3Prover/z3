@@ -2340,6 +2340,8 @@ void context::init_global_smt_params() {
 
     m_pm.updt_params(p);
 }
+    m_pm.updt_params2(p);
+    m_pm.updt_params3(p);
 void context::init_lemma_generalizers()
 {
     reset_lemma_generalizers();
