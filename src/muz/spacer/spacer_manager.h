@@ -34,9 +34,9 @@ Revision History:
 #include "muz/spacer/spacer_util.h"
 #include "muz/spacer/spacer_sym_mux.h"
 #include "muz/spacer/spacer_farkas_learner.h"
-#include "muz/spacer/spacer_smt_context_manager.h"
 #include "muz/base/dl_rule.h"
-
+#include "solver/solver.h"
+#include "solver/solver_pool.h"
 namespace smt {class context;}
 
 namespace spacer {
@@ -78,10 +78,13 @@ class manager {
     // manager of multiplexed names
     sym_mux               m_mux;
 
+    ref<solver> m_pool0_base;
+    ref<solver> m_pool1_base;
+    ref<solver> m_pool2_base;
     // three solver pools for different queries
-    spacer::smt_context_manager   m_contexts;
-    spacer::smt_context_manager   m_contexts2;
-    spacer::smt_context_manager   m_contexts3;
+    scoped_ptr<solver_pool> m_pool0;
+    scoped_ptr<solver_pool> m_pool1;
+    scoped_ptr<solver_pool> m_pool2;
 
     unsigned n_index() const { return 0; }
     unsigned o_index(unsigned i) const { return i + 1; }
@@ -154,27 +157,25 @@ public:
 
     // three different solvers with three different sets of parameters
     // different solvers are used for different types of queries in spacer
-    solver* mk_fresh() {return m_contexts.mk_fresh();}
-    void updt_params(const params_ref &p) {m_contexts.updt_params(p);}
+    solver* mk_solver0() {return m_pool0->mk_solver();}
+    void updt_params0(const params_ref &p) {m_pool0->updt_params(p);}
 
-    solver* mk_fresh2() {return m_contexts2.mk_fresh();}
-    void updt_params2(const params_ref &p) {m_contexts2.updt_params(p);}
+    solver* mk_solver1() {return m_pool1->mk_solver();}
+    void updt_params1(const params_ref &p) {m_pool1->updt_params(p);}
 
-    solver* mk_fresh3() {return m_contexts3.mk_fresh();}
-    void updt_params3(const params_ref &p) {m_contexts3.updt_params(p);}
-
-
+    solver* mk_solver2() {return m_pool2->mk_solver();}
+    void updt_params2(const params_ref &p) {m_pool2->updt_params(p);}
 
     void collect_statistics(statistics& st) const {
-        m_contexts.collect_statistics(st);
-        m_contexts2.collect_statistics(st);
-        m_contexts3.collect_statistics(st);
+        m_pool0->collect_statistics(st);
+        m_pool1->collect_statistics(st);
+        m_pool2->collect_statistics(st);
     }
 
     void reset_statistics() {
-        m_contexts.reset_statistics();
-        m_contexts2.reset_statistics();
-        m_contexts3.reset_statistics();
+        m_pool0->reset_statistics();
+        m_pool1->reset_statistics();
+        m_pool2->reset_statistics();
     }
 };
 

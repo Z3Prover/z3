@@ -642,7 +642,7 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     pm(pm), m(pm.get_manager()),
     ctx(ctx), m_head(head, m),
     m_sig(m), m_solver(pm, ctx.get_params(), head->get_name()),
-    m_reach_ctx (pm.mk_fresh3 ()),
+    m_reach_ctx (pm.mk_solver2()),
     m_pobs(*this),
     m_frames(*this),
     m_reach_facts(), m_rf_init_sz(0),
@@ -2320,9 +2320,9 @@ void context::init_global_smt_params() {
         // fparams.m_pi_use_database = true;
     }
 
-    m_pm.updt_params(p);
+    m_pm.updt_params0(p);
+    m_pm.updt_params1(p);
     m_pm.updt_params2(p);
-    m_pm.updt_params3(p);
 }
 void context::init_lemma_generalizers()
 {

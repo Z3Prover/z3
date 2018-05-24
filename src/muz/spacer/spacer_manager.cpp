@@ -30,6 +30,7 @@ Revision History:
 #include "model/model_smt2_pp.h"
 #include "tactic/model_converter.h"
 
+#include "smt/smt_solver.h"
 namespace spacer {
 
 class collect_decls_proc {
@@ -176,12 +177,16 @@ static std::vector<std::string> state_suffixes() {
 }
 
 manager::manager(unsigned max_num_contexts, ast_manager& manager) :
-    m(manager),
-    m_mux(m, state_suffixes()),
-    m_contexts(m, max_num_contexts),
-    m_contexts2(m, max_num_contexts),
-    m_contexts3(m, max_num_contexts)
-{}
+    m(manager), m_mux(m, state_suffixes()) {
+
+    m_pool0_base = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    m_pool1_base = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    m_pool2_base = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+
+    m_pool0 = alloc(solver_pool, m_pool0_base.get(), max_num_contexts);
+    m_pool1 = alloc(solver_pool, m_pool1_base.get(), max_num_contexts);
+    m_pool2 = alloc(solver_pool, m_pool2_base.get(), max_num_contexts);
+}
 
 
 void manager::add_new_state(func_decl * s)
