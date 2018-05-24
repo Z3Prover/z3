@@ -12,7 +12,6 @@ set(Z3_API_HEADER_FILES_TO_SCAN
   z3_rcf.h
   z3_fixedpoint.h
   z3_optimization.h
-  z3_interp.h
   z3_fpa.h
   z3_spacer.h
 )
@@ -63,7 +62,6 @@ add_subdirectory(sat/tactic)
 add_subdirectory(tactic/arith)
 add_subdirectory(nlsat/tactic)
 add_subdirectory(ackermannization)
-add_subdirectory(interp)
 add_subdirectory(cmd_context)
 add_subdirectory(cmd_context/extra_cmds)
 add_subdirectory(parsers/smt2)
@@ -79,7 +77,6 @@ add_subdirectory(tactic/bv)
 add_subdirectory(smt/tactic)
 add_subdirectory(tactic/sls)
 add_subdirectory(qe)
-add_subdirectory(duality)
 add_subdirectory(muz/base)
 add_subdirectory(muz/dataflow)
 add_subdirectory(muz/transforms)
@@ -89,7 +86,6 @@ add_subdirectory(muz/clp)
 add_subdirectory(muz/tab)
 add_subdirectory(muz/bmc)
 add_subdirectory(muz/ddnf)
-add_subdirectory(muz/duality)
 add_subdirectory(muz/spacer)
 add_subdirectory(muz/fp)
 add_subdirectory(tactic/ufbv)
@@ -159,7 +155,6 @@ set (libz3_public_headers
   z3_fpa.h
   z3.h
   c++/z3++.h
-  z3_interp.h
   z3_macros.h
   z3_optimization.h
   z3_polynomial.h

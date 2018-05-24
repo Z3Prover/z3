@@ -35,7 +35,7 @@ Version 4.7.1
 =============
 
 - New requirements:
-  - uses stdbool and stdint as part of z3.h
+  - uses stdbool and stdint as part of z3.
 
 - New features:
   - none

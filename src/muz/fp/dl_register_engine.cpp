@@ -23,7 +23,6 @@ Revision History:
 #include "muz/rel/rel_context.h"
 #include "muz/pdr/pdr_dl_interface.h"
 #include "muz/ddnf/ddnf.h"
-#include "muz/duality/duality_dl_interface.h"
 #include "muz/spacer/spacer_dl_interface.h"
 
 namespace datalog {
@@ -45,8 +44,6 @@ namespace datalog {
             return alloc(tab, *m_ctx);
         case CLP_ENGINE:
             return alloc(clp, *m_ctx);
-        case DUALITY_ENGINE:
-            return alloc(Duality::dl_interface, *m_ctx);
         case DDNF_ENGINE:
             return alloc(ddnf, *m_ctx);
         case LAST_ENGINE:

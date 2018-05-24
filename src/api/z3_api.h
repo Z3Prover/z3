@@ -212,8 +212,6 @@ typedef enum
    - Z3_OP_OEQ Binary equivalence modulo namings. This binary predicate is used in proof terms.
         It captures equisatisfiability and equivalence modulo renamings.
 
-   - Z3_OP_INTERP Marks a sub-formula for interpolation.
-
    - Z3_OP_ANUM Arithmetic numeral.
 
    - Z3_OP_AGNUM Arithmetic algebraic numeral. Algebraic numbers are used to represent irrational numbers in Z3.
@@ -991,7 +989,6 @@ typedef enum {
     Z3_OP_NOT,
     Z3_OP_IMPLIES,
     Z3_OP_OEQ,
-    Z3_OP_INTERP,
 
     // Arithmetic
     Z3_OP_ANUM = 0x200,
