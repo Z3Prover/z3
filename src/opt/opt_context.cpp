@@ -319,8 +319,7 @@ namespace opt {
                 is_sat = execute_box();
             }
             else {
-                m_pareto1 = (pri == symbol("pareto"));
-                is_sat = execute(m_objectives[0], true, false);
+                is_sat = execute_lex();
             }
         }
         }
@@ -425,7 +424,10 @@ namespace opt {
             objective const& o = m_objectives[i];
             bool is_last = i + 1 == sz;            
             r = execute(o, i + 1 < sz, sc && !is_last && o.m_type != O_MAXSMT);
-            if (r == l_true && !get_lower_as_num(i).is_finite()) {
+            if (r == l_true && o.m_type == O_MINIMIZE && !get_lower_as_num(i).is_finite()) {
+                return r;
+            }
+            if (r == l_true && o.m_type == O_MAXIMIZE && !get_upper_as_num(i).is_finite()) {
                 return r;
             }
             if (r == l_true && i + 1 < sz) {
