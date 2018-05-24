@@ -40,7 +40,6 @@ void qi_params::updt_params(params_ref const & _p) {
 #define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
 
 void qi_params::display(std::ostream & out) const {
-    DISPLAY_PARAM(m_qi_ematching);
     DISPLAY_PARAM(m_qi_cost);
     DISPLAY_PARAM(m_qi_new_gen);
     DISPLAY_PARAM(m_qi_eager_threshold);
