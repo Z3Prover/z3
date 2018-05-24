@@ -2290,19 +2290,12 @@ void context::reset_lemma_generalizers()
 void context::init_global_smt_params() {
     m.toggle_proof_mode(PGM_ENABLED);
     params_ref p;
-    if (!m_params.spacer_eq_prop ()) {
-        // arith_propagation_mode
+    if (!m_params.spacer_eq_prop()) {
         p.set_uint("arith.propagation_mode", BP_NONE);
-        // fparams.m_arith_bound_prop = BP_NONE;
-        // NOT AVAILABLE
-        // fparams.m_arith_auto_config_simplex = true;
-        // arith_propagate_eqs
-        // fparams.m_arith_propagate_eqs = false;
+        p.set_bool("arith.auto_config_simplex", true);
         p.set_bool("arith.propagate_eqs", false);
-        // NOT AVAILABLE
-        // fparams.m_arith_eager_eq_axioms = false;
+        p.set_bool("arith.eager_eq_axioms", false);
     }
-    // fparams.m_random_seed = m_params.spacer_random_seed ();
     p.set_uint("random_seed", m_params.spacer_random_seed());
 
     // fparams.m_dump_benchmarks = m_params.spacer_vs_dump_benchmarks();
@@ -2310,33 +2303,21 @@ void context::init_global_smt_params() {
     // fparams.m_dump_recheck = m_params.spacer_vs_recheck();
 
     // mbqi
-    // fparams.m_mbqi = m_params.spacer_mbqi();
     p.set_bool("mbqi", m_params.spacer_mbqi());
 
     if (!m_params.spacer_ground_cti()) {
-        // fparams.m_pi_use_database = true; // you don't need this
-        // phase_selection
-        // fparams.m_phase_selection = PS_CACHING_CONSERVATIVE2;
         p.set_uint("phase_selection", PS_CACHING_CONSERVATIVE2);
-        // restart_strategy
-        // fparams.m_restart_strategy = RS_GEOMETRIC;
         p.set_uint("restart_strategy", RS_GEOMETRIC);
-        // restart factor
-        // fparams.m_restart_factor = 1.5;
         p.set_double("restart_factor", 1.5);
-        // probably not needed in our use case
-        // fparams.m_eliminate_bounds = true;
-        // NONE
-        // fparams.m_qi_quick_checker = MC_UNSAT; //
         p.set_uint("qi.quick_checker", MC_UNSAT);
-        // qi_eager_threshold
-        // fparams.m_qi_eager_threshold = 10;
         p.set_double("qi.eager_threshold", 10.0);
-        // qi_lazy_threshold
-        // fparams.m_qi_lazy_threshold = 20;
         p.set_double("qi.lazy_threshold", 20.0);
-        // useless
+
+        // options that we used to set, but are not user visible and
+        // possibly not very useful
         // fparams.m_ng_lift_ite = LI_FULL;
+        // fparams.m_eliminate_bounds = true;
+        // fparams.m_pi_use_database = true;
     }
 
     m_pm.updt_params(p);
