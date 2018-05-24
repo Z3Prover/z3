@@ -38,6 +38,15 @@ namespace smt {
         }
     };
 
+    /**
+       \brief Indicates whether the proof for membership in an equivalence class is already logged.
+    */
+    enum logged_status {
+        NOT_LOGGED,
+        BEING_LOGGED,
+        LOGGED
+    };
+
     /** \ brief Use sparse maps in SMT solver.
 
     Define this to use hash maps rather than vectors over ast
@@ -105,7 +114,7 @@ namespace smt {
         enode_vector        m_parents;          //!< Parent enodes of the equivalence class.
         theory_var_list     m_th_var_list;      //!< List of theories that 'care' about this enode.
         trans_justification m_trans;            //!< A justification for the enode being equal to its root.
-        bool                m_proof_is_logged;  //!< Indicates that the proof for the enode being equal to its root is in the log.
+        logged_status       m_proof_logged_status;  //!< Indicates that the proof for the enode being equal to its root is in the log.
         signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
         approx_set          m_lbls;
         approx_set          m_plbls;

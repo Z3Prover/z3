@@ -104,24 +104,38 @@ namespace smt {
             return m_plugin->is_shared(n);
         }
 
-        inline void log_transitive_justification(std::ostream & log, enode *en) {
+        void log_transitive_justification(std::ostream & log, enode *en) {
             enode *root = en->get_root();
             for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
-                if (!it->m_proof_is_logged) {
-                    it->m_proof_is_logged = true;
+                if (it->m_proof_logged_status == smt::logged_status::NOT_LOGGED) {
+                    it->m_proof_logged_status = smt::logged_status::BEING_LOGGED;
                     print_justification(log, it);
+                    it->m_proof_logged_status = smt::logged_status::LOGGED;
+                } else if (it->m_proof_logged_status != smt::logged_status::BEING_LOGGED && it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
+
+                    // When the justification of an argument changes m_proof_logged_status is not reset => We need to check if the proofs of all arguments are logged.
+                    it->m_proof_logged_status = smt::logged_status::BEING_LOGGED;
+                    const unsigned num_args = it->get_num_args();
+                    enode *target = it->get_trans_justification().m_target;
+
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        log_transitive_justification(log, it->get_arg(i));
+                        log_transitive_justification(log, target->get_arg(i));
+                    }
+                    it->m_proof_logged_status = smt::logged_status::LOGGED;
                 }
             }
-            if (!root->m_proof_is_logged) {
-                root->m_proof_is_logged = true;
+            if (root->m_proof_logged_status == smt::logged_status::NOT_LOGGED) {
                 log << "[eq-expl] #" << root->get_owner_id() << " root\n";
+                root->m_proof_logged_status = smt::logged_status::LOGGED;
             }
         }
 
-        inline void print_justification(std::ostream & out, enode *en) {
+        void print_justification(std::ostream & out, enode *en) {
             smt::literal lit;
             unsigned num_args;
             enode *target = en->get_trans_justification().m_target;
+            theory_id th_id;
 
             switch (en->get_trans_justification().m_justification.get_kind()) {
             case smt::eq_justification::kind::EQUATION:
@@ -142,15 +156,27 @@ namespace smt {
                     }
 
                     out << "[eq-expl] #" << en->get_owner_id() << " cg";
-                    for (unsigned i = 0; i < num_args; i++) {
+                    for (unsigned i = 0; i < num_args; ++i) {
                         out << " (#" << en->get_arg(i)->get_owner_id() << " #" << target->get_arg(i)->get_owner_id() << ")";
                     }
                     out << " ; #" << target->get_owner_id() << "\n";
                     
                     break;
+                } else {
+                    out << "[eq-expl] #" << en->get_owner_id() << " nyi ; #" << target->get_owner_id() << "\n";
+                    break;
                 }
+            case smt::eq_justification::kind::JUSTIFICATION:
+                th_id = en->get_trans_justification().m_justification.get_justification()->get_from_theory();
+                if (th_id != null_theory_id) {
+                    symbol const theory = m().get_family_name(th_id);
+                    out << "[eq-expl] #" << en->get_owner_id() << " th:" << theory.str() << " ; #" << target->get_owner_id() << "\n";
+                } else {
+                    out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";    
+                }
+                break;
             default:
-                out << "[eq-expl] #" << en->get_owner_id() << " nyi ; #" << target->get_owner_id() << "\n";
+                out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
                 break;
             }
         }
