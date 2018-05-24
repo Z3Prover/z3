@@ -28,8 +28,10 @@ Version 4.8.0
      as lemmas (redundant) and are garbage collected if their glue level is high.
 
 - Removed features:
+  - interpolation API
+  - duality engine for constrained Horn clauses.
   - long deprecated API functions have been removed from z3_api.h
-
+  
 
 Version 4.7.1
 =============
