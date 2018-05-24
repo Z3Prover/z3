@@ -2292,7 +2292,7 @@ void context::init_global_smt_params() {
     params_ref p;
     if (!m_params.spacer_eq_prop ()) {
         // arith_propagation_mode
-        p.set_uint("arith.propagation_mode", 0);
+        p.set_uint("arith.propagation_mode", BP_NONE);
         // fparams.m_arith_bound_prop = BP_NONE;
         // NOT AVAILABLE
         // fparams.m_arith_auto_config_simplex = true;
@@ -2317,10 +2317,10 @@ void context::init_global_smt_params() {
         // fparams.m_pi_use_database = true; // you don't need this
         // phase_selection
         // fparams.m_phase_selection = PS_CACHING_CONSERVATIVE2;
-        p.set_uint("phase_selection", 4);
+        p.set_uint("phase_selection", PS_CACHING_CONSERVATIVE2);
         // restart_strategy
         // fparams.m_restart_strategy = RS_GEOMETRIC;
-        p.set_uint("restart_strategy", 0);
+        p.set_uint("restart_strategy", RS_GEOMETRIC);
         // restart factor
         // fparams.m_restart_factor = 1.5;
         p.set_double("restart_factor", 1.5);
@@ -2328,6 +2328,7 @@ void context::init_global_smt_params() {
         // fparams.m_eliminate_bounds = true;
         // NONE
         // fparams.m_qi_quick_checker = MC_UNSAT; //
+        p.set_uint("qi.quick_checker", MC_UNSAT);
         // qi_eager_threshold
         // fparams.m_qi_eager_threshold = 10;
         p.set_double("qi.eager_threshold", 10.0);
@@ -2339,9 +2340,9 @@ void context::init_global_smt_params() {
     }
 
     m_pm.updt_params(p);
-}
     m_pm.updt_params2(p);
     m_pm.updt_params3(p);
+}
 void context::init_lemma_generalizers()
 {
     reset_lemma_generalizers();
