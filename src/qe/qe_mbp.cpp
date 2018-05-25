@@ -471,6 +471,7 @@ public:
         add_plugin(alloc(arith_project_plugin, m));
         add_plugin(alloc(datatype_project_plugin, m));
         add_plugin(alloc(array_project_plugin, m));
+        updt_params(p);
     }
 
     ~impl() {
