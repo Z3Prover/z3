@@ -802,8 +802,9 @@ namespace qe {
          */
         expr* reduce_core (app *a) {
             if (!m_arr_u.is_store (a->get_arg (0))) return a;
-            unsigned arity = get_array_arity(m.get_sort(a));
-            expr* array = a->get_arg (0);
+			expr* array = a->get_arg(0);			
+            unsigned arity = get_array_arity(m.get_sort(array));
+           
             expr* const* js = a->get_args() + 1;
 
             while (m_arr_u.is_store (array)) {
