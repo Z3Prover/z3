@@ -522,6 +522,9 @@ namespace opt {
                 if (mdl->eval(obj.m_terms[i], val, true) && m.is_true(val)) {
                     k += obj.m_weights[i];
                 }
+                else {
+                    TRACE("opt", tout << val << "\n";);
+                }
             }
             if (is_ge) {
                 result = pb.mk_ge(sz, coeffs.c_ptr(), terms.c_ptr(), k);

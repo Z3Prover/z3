@@ -48,7 +48,6 @@ z3_add_component(api
     api_datatype.cpp
     api_fpa.cpp
     api_goal.cpp
-    api_interp.cpp
     api_log.cpp
     api_model.cpp
     api_numeral.cpp
@@ -67,7 +66,6 @@ z3_add_component(api
     z3_replayer.cpp
     ${full_path_generated_files}
   COMPONENT_DEPENDENCIES
-    interp
     opt
     portfolio
     realclosure

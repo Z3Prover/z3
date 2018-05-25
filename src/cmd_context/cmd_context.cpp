@@ -46,7 +46,6 @@ Notes:
 #include "tactic/generic_model_converter.h"
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
-#include "cmd_context/interpolant_cmds.h"
 #include "cmd_context/cmd_context.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
@@ -484,7 +483,6 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     install_basic_cmds(*this);
     install_ext_basic_cmds(*this);
     install_core_tactic_cmds(*this);
-    install_interpolant_cmds(*this);
     SASSERT(m != 0 || !has_manager());
     if (m_main_ctx) {
         set_verbose_stream(diagnostic_stream());

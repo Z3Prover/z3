@@ -611,7 +611,6 @@ namespace smt {
             case OP_XOR:
                 UNREACHABLE();
             case OP_OEQ:
-            case OP_INTERP:            
                 UNREACHABLE();
             default:
                 break;

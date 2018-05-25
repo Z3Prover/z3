@@ -646,7 +646,6 @@ basic_decl_plugin::basic_decl_plugin():
     m_iff_decl(nullptr),
     m_xor_decl(nullptr),
     m_not_decl(nullptr),
-    m_interp_decl(nullptr),
     m_implies_decl(nullptr),
 
     m_proof_sort(nullptr),
@@ -865,7 +864,6 @@ void basic_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_iff_decl     = mk_bool_op_decl("iff", OP_IFF, 2, false, true, false, false, true);
     m_xor_decl     = mk_bool_op_decl("xor", OP_XOR, 2, true, true);
     m_not_decl     = mk_bool_op_decl("not", OP_NOT, 1);
-    m_interp_decl  = mk_bool_op_decl("interp", OP_INTERP, 1);
     m_implies_decl = mk_implies_decl();
 
     m_proof_sort = m->mk_sort(symbol("Proof"), sort_info(id, PROOF_SORT));
@@ -890,7 +888,6 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("or", OP_OR));
     op_names.push_back(builtin_name("xor", OP_XOR));
     op_names.push_back(builtin_name("not", OP_NOT));
-    op_names.push_back(builtin_name("interp", OP_INTERP));
     op_names.push_back(builtin_name("=>", OP_IMPLIES));
     if (logic == symbol::null) {
         // user friendly aliases
@@ -902,7 +899,6 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
         op_names.push_back(builtin_name("||", OP_OR));
         op_names.push_back(builtin_name("equals", OP_EQ));
         op_names.push_back(builtin_name("equiv", OP_IFF));
-        op_names.push_back(builtin_name("@@", OP_INTERP));
     }
 }
 
@@ -923,7 +919,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_and_decl);
     DEC_REF(m_or_decl);
     DEC_REF(m_not_decl);
-    DEC_REF(m_interp_decl);
     DEC_REF(m_iff_decl);
     DEC_REF(m_xor_decl);
     DEC_REF(m_implies_decl);
@@ -1056,7 +1051,6 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
-    case OP_INTERP:  return m_interp_decl;
     case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
@@ -1099,7 +1093,6 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
-    case OP_INTERP:  return m_interp_decl;
     case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
