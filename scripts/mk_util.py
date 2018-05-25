@@ -2460,7 +2460,7 @@ def mk_config():
         check_ar()
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
-        SLIBEXTRAFLAGS = ''
+        SLIBEXTRAFLAGS = '-Wl,-soname,libz3.so'
         EXE_EXT = ''
         LIB_EXT = '.a'
         if GPROF:
