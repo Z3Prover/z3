@@ -20,6 +20,7 @@ Notes:
 
 #include "opt/opt_pareto.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "model/model_smt2_pp.h"
 
 namespace opt {
@@ -66,8 +67,8 @@ namespace opt {
             fmls.push_back(cb.mk_ge(i, m_model));
             gt.push_back(cb.mk_gt(i, m_model));
         }
-        fmls.push_back(m.mk_or(gt.size(), gt.c_ptr()));
-        fml = m.mk_and(fmls.size(), fmls.c_ptr());
+        fmls.push_back(mk_or(gt));
+        fml = mk_and(fmls);
         IF_VERBOSE(10, verbose_stream() << "dominates: " << fml << "\n";);
         TRACE("opt", tout << fml << "\n"; model_smt2_pp(tout, m, *m_model, 0););
         m_solver->assert_expr(fml);        
@@ -80,7 +81,7 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             le.push_back(cb.mk_le(i, m_model));
         }
-        fml = m.mk_not(m.mk_and(le.size(), le.c_ptr()));
+        fml = m.mk_not(mk_and(le));
         IF_VERBOSE(10, verbose_stream() << "not dominated by: " << fml << "\n";);
         TRACE("opt", tout << fml << "\n";);
         m_solver->assert_expr(fml);        

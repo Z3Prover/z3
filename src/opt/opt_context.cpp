@@ -497,7 +497,7 @@ namespace opt {
         case O_MINIMIZE:
             is_ge = !is_ge;
         case O_MAXIMIZE:
-            if (mdl->eval(obj.m_term, val) && is_numeral(val, k)) {
+            if (mdl->eval(obj.m_term, val, true) && is_numeral(val, k)) {
                 if (is_ge) {
                     result = mk_ge(obj.m_term, val);
                 }
@@ -517,8 +517,11 @@ namespace opt {
             for (unsigned i = 0; i < sz; ++i) {
                 terms.push_back(obj.m_terms[i]);
                 coeffs.push_back(obj.m_weights[i]);
-                if (mdl->eval(obj.m_terms[i], val) && m.is_true(val)) {
+                if (mdl->eval(obj.m_terms[i], val, true) && m.is_true(val)) {
                     k += obj.m_weights[i];
+                }
+                else {
+                    TRACE("opt", tout << val << "\n";);
                 }
             }
             if (is_ge) {
@@ -1044,7 +1047,7 @@ namespace opt {
         model_ref mdl = md->copy();
         fix_model(mdl);
 
-        if (!mdl->eval(term, val)) {
+        if (!mdl->eval(term, val, true)) {
             TRACE("opt", tout << "Term does not evaluate " << term << "\n";);
             return false;
         }

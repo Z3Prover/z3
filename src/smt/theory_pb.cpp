@@ -2007,7 +2007,7 @@ namespace smt {
         if (m_bound > static_cast<int>(m_active_vars.size())) {
             return;
         }           
-        if (m_bound == m_active_vars.size()) {
+        if (m_bound == static_cast<int>(m_active_vars.size())) {
             return;
         }
 
