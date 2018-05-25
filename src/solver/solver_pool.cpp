@@ -284,6 +284,7 @@ ptr_vector<solver> solver_pool::get_base_solvers() const {
 }
 
 void solver_pool::updt_params(const params_ref &p) {
+    m_base_solver->updt_params(p);
     ptr_vector<solver> solvers = get_base_solvers();
     for (solver *s : solvers) s->updt_params(p);
 }
