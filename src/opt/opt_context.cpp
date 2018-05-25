@@ -128,6 +128,7 @@ namespace opt {
         m_optsmt(m),
         m_scoped_state(m),
         m_fm(alloc(generic_model_converter, m, "opt")),
+        m_model_fixed(false),
         m_objective_refs(m),
         m_enable_sat(false),
         m_is_clausal(false),
@@ -339,15 +340,17 @@ namespace opt {
     }
 
     void context::fix_model(model_ref& mdl) {
-        if (mdl) {
+        if (mdl && !m_model_fixed) {
             (*m_fm)(mdl);
             apply(m_model_converter, mdl);
+            m_model_fixed = true;
         }
     }
 
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
+        TRACE("opt", model_smt2_pp(tout, m, *mdl.get(), 0););        
     }
 
     void context::get_box_model(model_ref& mdl, unsigned index) {
@@ -441,11 +444,13 @@ namespace opt {
     lbool context::execute_box() {
         if (m_box_index < m_box_models.size()) {
             m_model = m_box_models[m_box_index];
+            m_model_fixed = false;
             ++m_box_index;           
             return l_true;
         }
         if (m_box_index < m_objectives.size()) {
             m_model = nullptr;
+            m_model_fixed = false;
             ++m_box_index;
             return l_undef;
         }
@@ -470,6 +475,7 @@ namespace opt {
         }
         if (r == l_true && m_box_models.size() > 0) {
             m_model = m_box_models[0];
+            m_model_fixed = false;
         }
         return r;
     }
@@ -557,8 +563,10 @@ namespace opt {
     void context::yield() {
         SASSERT (m_pareto);
         m_pareto->get_model(m_model, m_labels);
+        m_model_fixed = false;
         update_bound(true);
         update_bound(false);
+        TRACE("opt", model_smt2_pp(tout, m, *m_model.get(), 0););
     }
 
     lbool context::execute_pareto() {        
@@ -1191,7 +1199,7 @@ namespace opt {
             rational r;
             switch(obj.m_type) {
             case O_MINIMIZE: {
-                bool evaluated = m_model->eval(obj.m_term, val);
+                bool evaluated = m_model->eval(obj.m_term, val, true);
                 TRACE("opt", tout << obj.m_term << " " << val << " " << evaluated << " " << is_numeral(val, r) << "\n";);
                 if (evaluated && is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
@@ -1206,7 +1214,7 @@ namespace opt {
                 break;
             }
             case O_MAXIMIZE: {
-                bool evaluated = m_model->eval(obj.m_term, val);
+                bool evaluated = m_model->eval(obj.m_term, val, true);
                 TRACE("opt", tout << obj.m_term << " " << val << "\n";);
                 if (evaluated && is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
@@ -1223,7 +1231,7 @@ namespace opt {
             case O_MAXSMT: {
                 bool ok = true;
                 for (unsigned j = 0; ok && j < obj.m_terms.size(); ++j) {
-                    bool evaluated = m_model->eval(obj.m_terms[j], val);
+                    bool evaluated = m_model->eval(obj.m_terms[j], val, true);
                     TRACE("opt", tout << mk_pp(obj.m_terms[j], m) << " " << val << "\n";);
                     if (evaluated) {
                         if (!m.is_true(val)) {
@@ -1238,11 +1246,11 @@ namespace opt {
                     maxsmt& ms = *m_maxsmts.find(obj.m_id);
                     if (is_lower) {
                         ms.update_upper(r);
-                        TRACE("opt", tout << r << " " << ms.get_upper() << "\n";);                        
+                        TRACE("opt", tout << "update upper from " << r << " to " << ms.get_upper() << "\n";);                        
                     }
                     else {
                         ms.update_lower(r);
-                        TRACE("opt", tout << r << " " << ms.get_lower() << "\n";);                        
+                        TRACE("opt", tout << "update lower from " << r << " to " << ms.get_lower() << "\n";);                        
                     }
                 }
                 break;
@@ -1402,6 +1410,7 @@ namespace opt {
         m_pareto = nullptr;
         m_box_index = UINT_MAX;
         m_model.reset();
+        m_model_fixed = false;
     }
 
     void context::set_pareto(pareto_base* p) {
