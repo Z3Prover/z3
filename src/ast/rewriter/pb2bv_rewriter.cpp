@@ -726,9 +726,9 @@ struct pb2bv_rewriter::imp {
             }
         }
 
-        bool mk_app(expr* e, expr_ref& r) {
+        bool mk_app(bool full, expr* e, expr_ref& r) {
             app* a;
-            return (is_app(e) && (a = to_app(e), mk_app(false, a->get_decl(), a->get_num_args(), a->get_args(), r)));
+            return (is_app(e) && (a = to_app(e), mk_app(full, a->get_decl(), a->get_num_args(), a->get_args(), r)));
         }
 
         bool is_pb(expr* x, expr* y) {
@@ -844,6 +844,8 @@ struct pb2bv_rewriter::imp {
             else {
                 result = mk_bv(f, sz, args);
             }
+            TRACE("pb", tout << "full: " << full << " " << expr_ref(m.mk_app(f, sz, args), m) << " " << result << "\n";
+                  );
             return true;
         }
 
@@ -915,9 +917,9 @@ struct pb2bv_rewriter::imp {
         void keep_cardinality_constraints(bool f) { m_cfg.keep_cardinality_constraints(f); }
         void set_pb_solver(symbol const& s) { m_cfg.set_pb_solver(s); }
         void set_at_most1(sorting_network_encoding e) { m_cfg.set_at_most1(e); }
-        void rewrite(expr* e, expr_ref& r, proof_ref& p) {
+        void rewrite(bool full, expr* e, expr_ref& r, proof_ref& p) {
             expr_ref ee(e, m());
-            if (m_cfg.m_r.mk_app(e, r)) {
+            if (m_cfg.m_r.mk_app(full, e, r)) {
                 ee = r;
                 // mp proof?
             }
@@ -980,9 +982,9 @@ struct pb2bv_rewriter::imp {
 
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }
     void cleanup() { m_rw.cleanup(); }
-    void operator()(expr * e, expr_ref & result, proof_ref & result_proof) {
+    void operator()(bool full, expr * e, expr_ref & result, proof_ref & result_proof) {
         // m_rw(e, result, result_proof);
-        m_rw.rewrite(e, result, result_proof);
+        m_rw.rewrite(full, e, result, result_proof);
     }
     void push() {
         m_fresh_lim.push_back(m_fresh.size());
@@ -1023,7 +1025,7 @@ ast_manager & pb2bv_rewriter::m() const { return m_imp->m; }
 unsigned pb2bv_rewriter::get_num_steps() const { return m_imp->get_num_steps(); }
 void pb2bv_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }
 func_decl_ref_vector const& pb2bv_rewriter::fresh_constants() const { return m_imp->m_fresh; }
-void pb2bv_rewriter::operator()(expr * e, expr_ref & result, proof_ref & result_proof) { (*m_imp)(e, result, result_proof); }
+void pb2bv_rewriter::operator()(bool full, expr * e, expr_ref & result, proof_ref & result_proof) { (*m_imp)(full, e, result, result_proof); }
 void pb2bv_rewriter::push() { m_imp->push(); }
 void pb2bv_rewriter::pop(unsigned num_scopes) { m_imp->pop(num_scopes); }
 void pb2bv_rewriter::flush_side_constraints(expr_ref_vector& side_constraints) { m_imp->flush_side_constraints(side_constraints); } 

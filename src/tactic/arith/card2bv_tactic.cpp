@@ -71,7 +71,7 @@ public:
         for (unsigned idx = 0; !g->inconsistent() && idx < g->size(); idx++) {
             rw1(g->form(idx), new_f1, new_pr1);
             TRACE("card2bv", tout << "Rewriting " << mk_ismt2_pp(new_f1.get(), m) << std::endl;);
-            rw2(new_f1, new_f2, new_pr2);
+            rw2(false, new_f1, new_f2, new_pr2);
             if (m.proofs_enabled()) {
                 new_pr1  = m.mk_modus_ponens(g->pr(idx), new_pr1);
                 new_pr1  = m.mk_modus_ponens(new_pr1, new_pr2);

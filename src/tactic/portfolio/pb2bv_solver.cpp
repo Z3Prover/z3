@@ -147,7 +147,7 @@ private:
         expr_ref_vector fmls(m);
         for (expr* a : m_assertions) {
             m_th_rewriter(a, fml1, proof);
-            m_rewriter(fml1, fml, proof);
+            m_rewriter(false, fml1, fml, proof);
             m_solver->assert_expr(fml);
         }
         m_rewriter.flush_side_constraints(fmls);
