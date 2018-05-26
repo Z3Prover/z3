@@ -55,7 +55,7 @@ namespace smt2 {
         dictionary<int>      m_sort_id2param_idx;
         dictionary<int>      m_dt_name2idx;
         dictionary<unsigned> m_dt_name2arity;
-        svector<symbol>      m_dt_names;
+        vector<symbol>      m_dt_names;
 
         scoped_ptr<psort_ref_vector>      m_psort_stack;
         scoped_ptr<sort_ref_vector>       m_sort_stack;
@@ -63,7 +63,7 @@ namespace smt2 {
         unsigned                          m_num_expr_frames;
         scoped_ptr<expr_ref_vector>       m_pattern_stack;
         scoped_ptr<expr_ref_vector>       m_nopattern_stack;
-        svector<symbol>                   m_symbol_stack;
+        vector<symbol>                   m_symbol_stack;
         vector<parameter>                 m_param_stack;
         scoped_ptr<sexpr_ref_vector>      m_sexpr_stack;
 
@@ -270,7 +270,7 @@ namespace smt2 {
             return *(m_nopattern_stack.get());
         }
 
-        svector<symbol> & symbol_stack() {
+        vector<symbol> & symbol_stack() {
             return m_symbol_stack;
         }
 
@@ -1477,7 +1477,7 @@ namespace smt2 {
         
         void parse_match_pattern(sort * srt) {
             symbol C;
-            svector<symbol> vars;
+            vector<symbol> vars;
             expr_ref_vector args(m());
             
             if (curr_is_identifier()) {
@@ -2317,7 +2317,7 @@ namespace smt2 {
             next();
 
             expr_ref_vector binding(m());
-            svector<symbol> ids;
+            vector<symbol> ids;
             func_decl_ref f(m());
             parse_rec_fun_decl(f, binding, ids);
             m_ctx.insert(f);
@@ -2335,7 +2335,7 @@ namespace smt2 {
             next();
             func_decl_ref_vector decls(m());
             vector<expr_ref_vector> bindings;
-            vector<svector<symbol> > ids;
+            vector<vector<symbol> > ids;
             expr_ref_vector bodies(m());
             parse_rec_fun_decls(decls, bindings, ids);
             for (unsigned i = 0; i < decls.size(); ++i) {
@@ -2348,12 +2348,12 @@ namespace smt2 {
             next();
         }
 
-        void parse_rec_fun_decls(func_decl_ref_vector& decls, vector<expr_ref_vector>& bindings, vector<svector<symbol> >& ids) {
+        void parse_rec_fun_decls(func_decl_ref_vector& decls, vector<expr_ref_vector>& bindings, vector<vector<symbol> >& ids) {
             check_lparen("invalid recursive function definition, '(' expected");
             next();
             while (!curr_is_rparen()) {
                 expr_ref_vector binding(m());
-                svector<symbol> id;
+                vector<symbol> id;
                 func_decl_ref f(m());
 
                 check_lparen("invalid recursive function definition, '(' expected");
@@ -2370,7 +2370,7 @@ namespace smt2 {
             next();
         }
 
-        recfun::promise_def parse_rec_fun_decl(func_decl_ref& f, expr_ref_vector& bindings, svector<symbol>& ids) {
+        recfun::promise_def parse_rec_fun_decl(func_decl_ref& f, expr_ref_vector& bindings, vector<symbol>& ids) {
             SASSERT(m_num_bindings == 0);
             check_identifier("invalid function/constant definition, symbol expected");
             symbol id = curr_id();
@@ -2393,7 +2393,7 @@ namespace smt2 {
             return pdef;
         }
 
-        void parse_rec_fun_bodies(func_decl_ref_vector const& decls, vector<expr_ref_vector> const& bindings, vector<svector<symbol> >const & ids) {
+        void parse_rec_fun_bodies(func_decl_ref_vector const& decls, vector<expr_ref_vector> const& bindings, vector<vector<symbol> >const & ids) {
             unsigned i = 0;
             check_lparen("invalid recursive function definition, '(' expected");
             next();
@@ -2409,7 +2409,7 @@ namespace smt2 {
             next();
         }
 
-        void parse_rec_fun_body(func_decl* f, expr_ref_vector const& bindings, svector<symbol> const& ids) {
+        void parse_rec_fun_body(func_decl* f, expr_ref_vector const& bindings, vector<symbol> const& ids) {
             SASSERT(m_num_bindings == 0);
             expr_ref body(m());
             unsigned sym_spos  = symbol_stack().size();

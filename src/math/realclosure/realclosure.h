@@ -51,7 +51,7 @@ namespace realclosure {
         manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = nullptr);
         ~manager();
         typedef num                             numeral;
-        typedef svector<numeral>                numeral_vector;
+        typedef vector<numeral>                numeral_vector;
         typedef _scoped_numeral<manager>        scoped_numeral;
         typedef _scoped_numeral_vector<manager> scoped_numeral_vector;
 

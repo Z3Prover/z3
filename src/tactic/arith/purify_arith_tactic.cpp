@@ -193,7 +193,7 @@ struct purify_arith_proc {
         expr_ref_vector      m_pinned;
         expr_ref_vector      m_new_cnstrs;
         proof_ref_vector     m_new_cnstr_prs;
-        svector<div_def>     m_divs;
+        vector<div_def>      m_divs;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
         expr_ref_vector      m_new_vars;

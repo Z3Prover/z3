@@ -27,8 +27,8 @@ class linear_eq_solver {
     typedef typename numeral_manager::numeral numeral;
     numeral_manager &         m;
     unsigned                  n; // number of variables
-    vector<svector<numeral> > A;
-    svector<numeral>          b;
+    vector<vector<numeral> > A;
+    vector<numeral>          b;
 public:
     linear_eq_solver(numeral_manager & _m):m(_m), n(0) { SASSERT(m.field()); }
     ~linear_eq_solver() { flush(); }
@@ -37,7 +37,7 @@ public:
         SASSERT(b.size() == A.size());
         unsigned sz = A.size();
         for (unsigned i = 0; i < sz; i++) {
-            svector<numeral> & as = A[i];
+            vector<numeral> & as = A[i];
             m.del(b[i]);
             SASSERT(as.size() == n);
             for (unsigned j = 0; j < n; j++) 
@@ -53,8 +53,8 @@ public:
             flush();
             n = _n;
             for (unsigned i = 0; i < n; i++) {
-                A.push_back(svector<numeral>());
-                svector<numeral> & as = A.back();
+                A.push_back(vector<numeral>());
+                vector<numeral> & as = A.back();
                 for (unsigned j = 0; j < n; j++) {
                     as.push_back(numeral());
                 }
@@ -65,7 +65,7 @@ public:
 
     void reset() {
         for (unsigned i = 0; i < n; i++) {
-            svector<numeral> & A_i = A[i];
+            vector<numeral> & A_i = A[i];
             for (unsigned j = 0; j < n; j++) {
                 m.set(A_i[j], 0);
             }
@@ -77,7 +77,7 @@ public:
     void add(unsigned i, numeral const * _as, numeral const & _b) {
         SASSERT(i < n);
         m.set(b[i], _b);
-        svector<numeral> & A_i = A[i];
+        vector<numeral> & A_i = A[i];
         for (unsigned j = 0; j < n; j++) {
             m.set(A_i[j], _as[j]);
         }
@@ -97,7 +97,7 @@ public:
             if (i == n)
                 return false; // matrix is singular
             A[k].swap(A[i]); // swap rows
-            svector<numeral> & A_k = A[k];
+            vector<numeral> & A_k = A[k];
             numeral & A_k_k = A_k[k];
             SASSERT(!m.is_zero(A_k_k));
             // normalize row
@@ -109,7 +109,7 @@ public:
             DEBUG_CODE({ for (unsigned i = 0; i < k; i++) { SASSERT(m.is_zero(A_k[i])); } });
             // for all rows below pivot
             for (unsigned i = k+1; i < n; i++) {
-                svector<numeral> & A_i = A[i];
+                vector<numeral> & A_i = A[i];
                 numeral & A_i_k = A_i[k];
                 for (unsigned j = k+1; j < n; j++) {
                     m.submul(A_i[j], A_i_k, A_k[j], A_i[j]);

@@ -20,7 +20,7 @@ namespace nlarith {
     typedef app_ref_vector poly;
     enum comp { LE, LT, EQ, NE};
     typedef vector<poly> polys;
-    typedef svector<comp> comps;
+    typedef vector<comp> comps;
 
     class util::literal_set {
         app_ref         m_inf;
@@ -29,7 +29,7 @@ namespace nlarith {
 
         app_ref_vector  m_lits;
         vector<poly>    m_polys;
-        svector<comp>   m_comps;
+        vector<comp>   m_comps;
 
     public:
         literal_set(ast_manager& m) : m_inf(m), m_sup(m), m_x(nullptr), m_lits(m) {}
@@ -37,7 +37,7 @@ namespace nlarith {
 
         app_ref_vector& lits() { return m_lits; }
         vector<poly>& polys() { return m_polys; }
-        svector<comp>& comps() { return m_comps; }
+        vector<comp>& comps() { return m_comps; }
 
         poly const& get_poly(unsigned i) const { return m_polys[i]; }
         // Note: comp comp(unsigned i) is not valid C++.
@@ -1611,13 +1611,13 @@ namespace nlarith {
         class simple_branch : public util::branch {
             app_ref m_cnstr;
             app_ref_vector m_atoms;
-            svector<util::atom_update> m_updates;
+            vector<util::atom_update> m_updates;
         public:
             simple_branch(ast_manager& m, app* cnstr):
               m_cnstr(cnstr, m), m_atoms(m) {}
             ~simple_branch() override {}
             app* get_constraint() override { return m_cnstr.get(); }
-            void get_updates(ptr_vector<app>& atoms, svector<util::atom_update>& updates) override {
+            void get_updates(ptr_vector<app>& atoms, vector<util::atom_update>& updates) override {
                 for (unsigned i = 0; i < m_atoms.size(); ++i) {
                     atoms.push_back(m_atoms[i].get());
                     updates.push_back(m_updates[i]);
@@ -1941,7 +1941,7 @@ namespace nlarith {
         // Sign matrix algorithm (Cohen-Hormander)
     public:
         enum sign { Negative, Zero, NonZero, Positive, Unknown };
-        typedef svector<sign> sign_vector;
+        typedef vector<sign> sign_vector;
         typedef vector<sign_vector> sign_matrix;
         void mk_sign_matrix(vector<poly> const& polys, sign_matrix& result) {
 

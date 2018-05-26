@@ -44,7 +44,7 @@ namespace sat {
     class model_converter {
         
     public:
-        typedef svector<std::pair<unsigned, literal>> elim_stackv;
+        typedef vector<std::pair<unsigned, literal>> elim_stackv;
 
 
         class elim_stack {
@@ -90,7 +90,7 @@ namespace sat {
     private:
         vector<entry>          m_entries;           // entries accumulated during SAT search
         unsigned               m_exposed_lim;       // last entry that was exposed to model converter.
-        svector<bool>          m_mark;              // literals that are used in asserted clauses.
+        vector<bool>           m_mark;              // literals that are used in asserted clauses.
         solver const*          m_solver;
         elim_stackv            m_elim_stack;
 

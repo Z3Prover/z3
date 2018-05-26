@@ -125,7 +125,7 @@ namespace smt {
         ast_manager &           m_manager;
         region &                m_region;
         obj_map<expr, unsigned> m_already_found; // expression to the max. depth it was reached.
-        svector<entry>          m_todo;
+        vector<entry>          m_todo;
         approx_nat              m_case_split_factor;
         void reset();
         

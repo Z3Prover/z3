@@ -47,7 +47,7 @@ namespace smt {
     /**
        \brief return the complement of variables that are currently assigned.
     */
-    void theory_wmaxsat::get_assignment(svector<bool>& result) {
+    void theory_wmaxsat::get_assignment(vector<bool>& result) {
         result.reset();
         
         if (!m_found_optimal) {
@@ -165,7 +165,7 @@ namespace smt {
             scoped_mpz w(m_mpz);
             w = m_zweights[tv];
             ctx.push_trail(numeral_trail(m_zcost, m_old_values));
-            ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
+            ctx.push_trail(push_back_vector<context, vector<theory_var> >(m_costs));
             ctx.push_trail(value_trail<context, bool>(m_assigned[tv]));
             m_zcost += w;
             TRACE("opt", tout << "Assign v" << tv << " weight: " << w << " cost: " << m_zcost << " " << mk_pp(m_vars[m_bool2var[v]].get(), get_manager()) << "\n";);
@@ -235,7 +235,7 @@ namespace smt {
         ast_manager& m = get_manager();
         expr_ref_vector disj(m);
         compare_cost compare_cost(*this);
-        svector<theory_var> costs(m_costs);
+        vector<theory_var> costs(m_costs);
         std::sort(costs.begin(), costs.end(), compare_cost);
         scoped_mpz weight(m_mpz);
         m_mpz.reset(weight);
@@ -276,7 +276,7 @@ namespace smt {
         context& ctx = get_context();
         literal_vector lits;
         compare_cost compare_cost(*this);
-        svector<theory_var> costs(m_costs);
+        vector<theory_var> costs(m_costs);
         std::sort(costs.begin(), costs.end(), compare_cost);
         
         scoped_mpz weight(m_mpz);

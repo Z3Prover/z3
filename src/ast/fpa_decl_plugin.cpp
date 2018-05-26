@@ -790,7 +790,7 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     }
 }
 
-void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void fpa_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     // These are the operators from the final draft of the SMT FloatingPoint standard
     op_names.push_back(builtin_name("+oo", OP_FPA_PLUS_INF));
     op_names.push_back(builtin_name("-oo", OP_FPA_MINUS_INF));
@@ -849,7 +849,7 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("fp.to_ieee_bv", OP_FPA_TO_IEEE_BV));
 }
 
-void fpa_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+void fpa_decl_plugin::get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name("FloatingPoint", FLOATING_POINT_SORT));
     sort_names.push_back(builtin_name("RoundingMode", ROUNDING_MODE_SORT));
 

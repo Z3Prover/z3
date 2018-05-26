@@ -547,7 +547,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     }
 }
 
-void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
+void arith_decl_plugin::get_sort_names(vector<builtin_name>& sort_names, symbol const & logic) {
     if (logic == "NRA" ||
         logic == "QF_NRA" ||
         logic == "QF_UFNRA") {
@@ -561,7 +561,7 @@ void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol
     }
 }
 
-void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
+void arith_decl_plugin::get_op_names(vector<builtin_name>& op_names, symbol const & logic) {
     op_names.push_back(builtin_name("<=",OP_LE));
     op_names.push_back(builtin_name(">=",OP_GE));
     op_names.push_back(builtin_name("<",OP_LT));

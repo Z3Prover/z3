@@ -272,7 +272,7 @@ namespace datalog {
         expr* fml, unsigned_vector const& removed_cols) {
         expr_ref fml1(m);
         ptr_vector<sort> bound;
-        svector<symbol> names;
+        vector<symbol> names;
         expr_ref_vector vars(m);
         unsigned rm_cnt = removed_cols.size();
         for (unsigned i = 0, j = 0, k = 0; i < sig.size(); ++i) {
@@ -736,7 +736,7 @@ namespace datalog {
         negf = mk_and(m, eqs.size(), eqs.c_ptr());
         ptr_vector<sort> rev_sig2(sig2.size(), sig2.c_ptr());
         rev_sig2.reverse();
-        svector<symbol> names;
+        vector<symbol> names;
         for (unsigned i = 0; i < sig2.size(); ++i) {
             names.push_back(symbol(i));
         }

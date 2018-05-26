@@ -241,7 +241,7 @@ namespace datatype {
 
         void plugin::inherit(decl_plugin* other_p, ast_translation& tr) {
             plugin* p = dynamic_cast<plugin*>(other_p);
-            svector<symbol> names;
+            vector<symbol> names;
             ptr_vector<def> new_defs;            
             SASSERT(p);
             for (auto& kv : p->m_defs) {
@@ -583,7 +583,7 @@ namespace datatype {
             return true;
         }
         
-        void plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+        void plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
             op_names.push_back(builtin_name("is", OP_DT_IS));
             if (logic == symbol::null || logic == symbol("ALL")) {
                 op_names.push_back(builtin_name("update-field", OP_DT_UPDATE_FIELD));
@@ -750,12 +750,12 @@ namespace datatype {
         return m_plugin->is_declared(s);
     }
     
-    void util::compute_datatype_size_functions(svector<symbol> const& names) {
+    void util::compute_datatype_size_functions(vector<symbol> const& names) {
         map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
         map<symbol, param_size::size*, symbol_hash_proc, symbol_eq_proc> szs;
 
         TRACE("datatype", for (auto const& s : names) tout << s << " "; tout << "\n";);
-        svector<symbol> todo(names);
+        vector<symbol> todo(names);
         status st;
         while (!todo.empty()) {
             symbol s = todo.back();
@@ -1202,7 +1202,7 @@ namespace datatype {
     }
 
     void util::get_defs(sort* s0, ptr_vector<def>& defs) {
-        svector<symbol> mark;
+        vector<symbol> mark;
         ptr_buffer<sort> todo;
         todo.push_back(s0);
         mark.push_back(s0->get_name());
@@ -1309,7 +1309,7 @@ namespace datatype {
         return sort_ref(s, m);
     }
 
-    sort_ref util::mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs) {
+    sort_ref util::mk_tuple_datatype(vector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs) {
         ptr_vector<accessor_decl> accd;
         for (auto const& e : elems) {
             type_ref t(e.second);

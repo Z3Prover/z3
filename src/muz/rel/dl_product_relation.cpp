@@ -208,9 +208,9 @@ namespace datalog {
         ptr_vector<relation_join_fn> m_joins;
         ptr_vector<relation_base> m_full;
         unsigned_vector           m_offset1;
-        svector<kind_t>           m_kind1;
+        vector<kind_t>           m_kind1;
         unsigned_vector           m_offset2;
-        svector<kind_t>           m_kind2;
+        vector<kind_t>           m_kind2;
 
         const relation_base & get_nonsieve_relation(const relation_base & r) {
             relation_plugin & rp = r.get_plugin();
@@ -890,7 +890,7 @@ namespace datalog {
 
     class product_relation_plugin::filter_interpreted_fn : public relation_mutator_fn {
         ptr_vector<relation_mutator_fn> m_mutators;
-        svector<std::pair<unsigned, unsigned> > m_attach;
+        vector<std::pair<unsigned, unsigned> > m_attach;
     public:
 
         filter_interpreted_fn(product_relation const& r, app* cond) {            

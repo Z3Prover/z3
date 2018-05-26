@@ -420,9 +420,9 @@ namespace datalog {
     };
 
     template<class T>
-    struct svector_hash_proc { 
-        unsigned operator()(const svector<typename T::data> & cont) const {
-            return svector_hash<T>()(cont);
+    struct vector_hash_proc { 
+        unsigned operator()(const vector<typename T::data> & cont) const {
+            return vector_hash<T>()(cont);
         } 
     };
 

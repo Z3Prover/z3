@@ -129,7 +129,7 @@ namespace nlarith {
         public:
             virtual ~branch() {}
             virtual app* get_constraint() = 0;
-            virtual void get_updates(ptr_vector<app>& atoms, svector<atom_update>& updates) = 0;
+            virtual void get_updates(ptr_vector<app>& atoms, vector<atom_update>& updates) = 0;
         };
 
         /**

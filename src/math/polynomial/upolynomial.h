@@ -46,7 +46,7 @@ namespace upolynomial {
     typedef mpzzp_manager                           numeral_manager;
     typedef mpzzp_manager                           zp_numeral_manager;
     typedef unsynch_mpz_manager                     z_numeral_manager;
-    typedef svector<numeral>                        numeral_vector;
+    typedef vector<numeral>                        numeral_vector;
     
     class core_manager {
     public:
@@ -59,7 +59,7 @@ namespace upolynomial {
         class factors {
         private:
             vector<numeral_vector> m_factors;
-            svector<unsigned>      m_degrees;
+            vector<unsigned>      m_degrees;
             core_manager &         m_upm;
             numeral                m_constant;
             unsigned               m_total_factors;
@@ -498,7 +498,7 @@ namespace upolynomial {
     typedef z_manager::factors  factors;
     typedef zp_manager::factors zp_factors;
     
-    typedef svector<numeral> numeral_vector;
+    typedef vector<numeral> numeral_vector;
 
     class scoped_numeral_vector : public _scoped_numeral_vector<numeral_manager> {
     public:
@@ -556,10 +556,10 @@ namespace upolynomial {
 
         int sign_of(numeral const & c);
         struct drs_frame;
-        void pop_top_frame(numeral_vector & p_stack, svector<drs_frame> & frame_stack);
-        void push_child_frames(unsigned sz, numeral const * p, numeral_vector & p_stack, svector<drs_frame> & frame_stack);
-        void add_isolating_interval(svector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & lowers, mpbq_vector & uppers);
-        void add_root(svector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & roots);
+        void pop_top_frame(numeral_vector & p_stack, vector<drs_frame> & frame_stack);
+        void push_child_frames(unsigned sz, numeral const * p, numeral_vector & p_stack, vector<drs_frame> & frame_stack);
+        void add_isolating_interval(vector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & lowers, mpbq_vector & uppers);
+        void add_root(vector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & roots);
         void drs_isolate_0_1_roots(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq_vector & roots, mpbq_vector & lowers, mpbq_vector & uppers);
         void drs_isolate_roots(unsigned sz, numeral * p, numeral & U, mpbq_manager & bqm, mpbq_vector & roots, mpbq_vector & lowers, mpbq_vector & uppers);
         void drs_isolate_roots(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq_vector & roots, mpbq_vector & lowers, mpbq_vector & uppers);

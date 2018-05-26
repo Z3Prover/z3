@@ -76,7 +76,7 @@ private:
     cache             m_cache;
     ptr_vector<entry> m_entries;
     unsigned_vector   m_scopes;
-    svector<decl_kind>    m_kinds; //!< kinds to be processed
+    vector<decl_kind>    m_kinds; //!< kinds to be processed
 
     bool contains(func_decl * f, expr * arg1, expr * arg2);
     void insert(func_decl * f, expr * arg1, expr * arg2);

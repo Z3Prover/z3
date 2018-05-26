@@ -174,7 +174,7 @@ namespace datalog {
 
         bool translate_hyper_res(proof* p) {
             dl_decl_util util(m);
-            svector<std::pair<unsigned, unsigned> > positions;
+            vector<std::pair<unsigned, unsigned> > positions;
             expr_ref concl(m), slice_concl(m);
             proof_ref_vector premises0(m);
             vector<expr_ref_vector> substs, substs0;

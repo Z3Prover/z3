@@ -24,7 +24,7 @@ class cmd_context;
 
 struct dl_collected_cmds {
     expr_ref_vector m_rules;
-    svector<symbol> m_names;
+    vector<symbol> m_names;
     expr_ref_vector m_queries;
     func_decl_ref_vector m_rels;
     dl_collected_cmds(ast_manager& m) : m_rules(m), m_queries(m), m_rels(m) {}    

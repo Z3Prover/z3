@@ -44,7 +44,7 @@ class substitution_tree {
 
     struct node {
         bool   m_leaf;
-        svector<subst>   m_subst;
+        vector<subst>   m_subst;
         node *           m_next_sibling;
         union {
             node *           m_first_child;
@@ -64,8 +64,8 @@ class substitution_tree {
     unsigned          m_next_reg;
     bit_vector        m_used_regs;
     unsigned_vector   m_todo;
-    svector<subst>    m_compatible;
-    svector<subst>    m_incompatible;
+    vector<subst>    m_compatible;
+    vector<subst>    m_incompatible;
     
     // Execution time fields
     substitution *    m_subst;
@@ -74,31 +74,31 @@ class substitution_tree {
     unsigned          m_st_offset;
     unsigned          m_reg_offset;
     typedef std::pair<expr_offset, expr_offset> entry;
-    svector<entry>    m_visit_todo;
+    vector<entry>    m_visit_todo;
 
     unsigned next_reg();
-    void push(svector<subst> & sv, subst const & s);
+    void push(vector<subst> & sv, subst const & s);
     expr * get_reg_value(unsigned ridx);
     void set_reg_value(unsigned ridx, expr * e);
     void erase_reg_from_todo(unsigned ridx);
 
-    void linearize(svector<subst> & result);
+    void linearize(vector<subst> & result);
     void process_args(app * in, app * out);
     void reset_registers(unsigned old_size);
-    unsigned get_compatibility_measure(svector<subst> const & sv);
+    unsigned get_compatibility_measure(vector<subst> const & sv);
     node * find_best_child(node * r);
     void reset_compiler();
     node * mk_node_for(expr * new_expr);
     void mark_used_reg(unsigned ridx);
-    void mark_used_regs(svector<subst> const & sv);
+    void mark_used_regs(vector<subst> const & sv);
 
-    bool is_fully_compatible(svector<subst> const & sv);
+    bool is_fully_compatible(vector<subst> const & sv);
     bool find_fully_compatible_child(node * r, node * & prev, node * & child);
     static bool at_least_3_children(node * r);
     void delete_node(node * n);
 
     void display(std::ostream & out, subst const & s) const;
-    void display(std::ostream & out, svector<subst> const & sv) const;
+    void display(std::ostream & out, vector<subst> const & sv) const;
     void display(std::ostream & out, node * n, unsigned delta) const;
 
     enum st_visit_mode {
@@ -117,7 +117,7 @@ class substitution_tree {
     template<substitution_tree::st_visit_mode Mode>
     bool visit_vars(expr * e, st_visitor & st);
     template<st_visit_mode Mode>
-    bool visit(svector<subst> const & s);
+    bool visit(vector<subst> const & s);
     template<st_visit_mode Mode>
     bool visit(expr * e, st_visitor & st, node * r);
     template<st_visit_mode Mode>

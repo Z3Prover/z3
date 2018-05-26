@@ -77,7 +77,7 @@ class hnf::imp {
     proof_ref_vector      m_proofs;
     expr_ref_vector       m_refs;
     symbol                m_name;
-    svector<symbol>       m_names;
+    vector<symbol>       m_names;
     ptr_vector<sort>      m_sorts;
     quantifier_hoister    m_qh;
     obj_map<expr, app*>   m_memoize_disj;

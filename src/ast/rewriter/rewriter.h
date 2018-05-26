@@ -52,7 +52,7 @@ protected:
     typedef act_cache          cache;
     ptr_vector<cache>          m_cache_stack;
     cache *                    m_cache; // current cache.
-    svector<frame>             m_frame_stack;
+    vector<frame>             m_frame_stack;
     expr_ref_vector            m_result_stack;
 
     // proof generation goodness ----
@@ -68,7 +68,7 @@ protected:
         unsigned m_old_num_qvars;
         scope(expr * r, unsigned n):m_old_root(r), m_old_num_qvars(n) {}
     };
-    svector<scope>             m_scopes;
+    vector<scope>              m_scopes;
 
     // Return true if the rewriting result of the given expression must be cached.
     bool must_cache(expr * t) const {
@@ -224,8 +224,8 @@ protected:
     proof_ref                  m_pr2;
     unsigned_vector            m_shifts;
 
-    svector<frame> & frame_stack() { return this->m_frame_stack; }
-    svector<frame> const & frame_stack() const { return this->m_frame_stack; }
+    vector<frame> & frame_stack() { return this->m_frame_stack; }
+    vector<frame> const & frame_stack() const { return this->m_frame_stack; }
     expr_ref_vector & result_stack() { return this->m_result_stack; }
     expr_ref_vector const & result_stack() const { return this->m_result_stack; }
     proof_ref_vector & result_pr_stack() { return this->m_result_pr_stack; }

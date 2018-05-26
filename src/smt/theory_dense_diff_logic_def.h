@@ -438,7 +438,7 @@ namespace smt {
         TRACE("ddl", tout << "get_antecedents, source: #" << get_enode(source)->get_owner_id() << ", target: #" << get_enode(target)->get_owner_id() << "\n";);
         CTRACE("ddl", !is_connected(source, target), display(tout););
         SASSERT(is_connected(source, target));
-        svector<var_pair> & todo = m_tmp_pairs;
+        vector<var_pair> & todo = m_tmp_pairs;
         todo.reset();
 
         if (source != target)
@@ -931,7 +931,7 @@ namespace smt {
                 break;
             }
         }
-        svector<unsigned> vars;
+        vector<unsigned> vars;
         scoped_mpq_vector coeffs(mgr);
         coeffs.push_back(mpq(1));
         coeffs.push_back(mpq(-1));

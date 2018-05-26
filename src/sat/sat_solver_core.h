@@ -107,7 +107,7 @@ namespace sat {
 
         // collect binary clauses
         typedef std::pair<literal, literal> bin_clause;
-        virtual void collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only) const = 0;
+        virtual void collect_bin_clauses(vector<bin_clause> & r, bool learned, bool learned_only) const = 0;
 
         // collect statistics from sat solver
         virtual void collect_statistics(statistics & st) const {}

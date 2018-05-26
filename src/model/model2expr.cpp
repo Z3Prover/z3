@@ -138,7 +138,7 @@ void model2expr(model& md, expr_ref& result) {
         }
         ptr_vector<sort> sorts;
         expr_ref_vector  rev_vars(m);
-        svector<symbol>  names;
+        vector<symbol>  names;
         unsigned sz = f->get_arity();
         for (unsigned j = 0; j < sz; ++j) {
             sorts.push_back(f->get_domain(j));

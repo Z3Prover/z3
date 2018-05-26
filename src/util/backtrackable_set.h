@@ -35,8 +35,8 @@ class backtrackable_set : private EV {
     enum trail_kind { DEL, INS };
     typedef std::pair<trail_kind, T> trail_obj;
     Set                m_set;
-    svector<trail_obj> m_trail;
-    svector<unsigned>  m_scopes;
+    vector<trail_obj> m_trail;
+    vector<unsigned>  m_scopes;
 
 public:
     typedef typename Set::iterator iterator;

@@ -62,7 +62,7 @@ class asserted_formulas {
         unsigned                m_formulas_lim;
         bool                    m_inconsistent_old;
     };
-    svector<scope>              m_scopes;
+    vector<scope>              m_scopes;
     obj_map<expr, unsigned>     m_expr2depth;
 
     class simplify_fmls {

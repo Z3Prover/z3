@@ -1781,8 +1781,8 @@ namespace smt {
 
     void context::rescale_bool_var_activity() {
         TRACE("case_split", tout << "rescale\n";);        
-        svector<double>::iterator it  = m_activity.begin();
-        svector<double>::iterator end = m_activity.end();
+        vector<double>::iterator it  = m_activity.begin();
+        vector<double>::iterator end = m_activity.end();
         for (; it != end; ++it)
             *it *= INV_ACTIVITY_LIMIT;
         m_bvar_inc *= INV_ACTIVITY_LIMIT;
@@ -3923,7 +3923,7 @@ namespace smt {
 
 #ifdef Z3DEBUG
             expr_ref_vector expr_lits(m_manager);
-            svector<bool>   expr_signs;
+            vector<bool>   expr_signs;
             for (unsigned i = 0; i < num_lits; i++) {
                 literal l = lits[i];
                 if (get_assignment(l) != l_false) {

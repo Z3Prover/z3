@@ -33,7 +33,7 @@ class ast_translation {
     };
     ast_manager &       m_from_manager;
     ast_manager &       m_to_manager;
-    svector<frame>      m_frame_stack;
+    vector<frame>      m_frame_stack;
     ptr_vector<ast>     m_extra_children_stack; // for sort and func_decl, since they have nested AST in their parameters
     ptr_vector<ast>     m_result_stack; 
     obj_map<ast, ast*>  m_cache;

@@ -29,7 +29,7 @@ public:
     typedef unsigned               var;
     typedef unsigned               justification;
     typedef unsynch_mpq_manager    numeral_manager;
-    typedef svector<justification> justification_vector;
+    typedef vector<justification> justification_vector;
     static const justification     null_justification = UINT_MAX;
     
     /**

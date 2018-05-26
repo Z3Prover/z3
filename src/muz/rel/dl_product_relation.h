@@ -27,7 +27,7 @@ namespace datalog {
 
     class product_relation;
 
-    struct rel_spec : public svector<family_id> {        
+    struct rel_spec : public vector<family_id> {        
         bool well_formed() const { return true; }
     };
 
@@ -48,7 +48,7 @@ namespace datalog {
             unsigned operator()(data x) const { return static_cast<unsigned>(x); }
         };
 
-        rel_spec_store<rel_spec, svector_hash<fid_hash> > m_spec_store;
+        rel_spec_store<rel_spec, vector_hash<fid_hash> > m_spec_store;
 
         family_id get_relation_kind(const product_relation & r);
 

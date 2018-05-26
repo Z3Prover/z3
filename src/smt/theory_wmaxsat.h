@@ -39,26 +39,26 @@ namespace smt {
         vector<rational>         m_rweights;    // weights of theory variables.
         scoped_mpz_vector        m_zweights;
         scoped_mpz_vector        m_old_values;
-        svector<theory_var>      m_costs;       // set of asserted theory variables
+        vector<theory_var>      m_costs;       // set of asserted theory variables
         unsigned                 m_max_unassigned_index; // index of literal that is not yet assigned and has maximal weight.
-        svector<theory_var>      m_sorted_vars; // set of all theory variables, sorted by cost
-        svector<theory_var>      m_cost_save;   // set of asserted theory variables
+        vector<theory_var>      m_sorted_vars; // set of all theory variables, sorted by cost
+        vector<theory_var>      m_cost_save;   // set of asserted theory variables
         rational                 m_rmin_cost;   // current maximal cost assignment.
         scoped_mpz               m_zcost;       // current sum of asserted costs
         scoped_mpz               m_zmin_cost;   // current maximal cost assignment.
         bool                     m_found_optimal; 
         u_map<theory_var>        m_bool2var;    // bool_var -> theory_var
-        svector<bool_var>        m_var2bool;    // theory_var -> bool_var
+        vector<bool_var>        m_var2bool;    // theory_var -> bool_var
         bool                     m_propagate;
         bool                     m_can_propagate;
         bool                     m_normalize; 
         rational                 m_den;         // lcm of denominators for rational weights.
-        svector<bool>            m_assigned, m_enabled;
+        vector<bool>            m_assigned, m_enabled;
         stats                    m_stats;
     public:
         theory_wmaxsat(ast_manager& m, generic_model_converter& mc);
         ~theory_wmaxsat() override;
-        void get_assignment(svector<bool>& result);
+        void get_assignment(vector<bool>& result);
         expr* assert_weighted(expr* fml, rational const& w);
         void  disable_var(expr* var);
         bool_var register_var(app* var, bool attach);

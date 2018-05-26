@@ -36,7 +36,7 @@ namespace sat {
             unsigned        m_size;
             unsigned        m_tail;
             unsigned_vector m_heads;
-            svector<bool>   m_at_end;
+            vector<bool>   m_at_end;
             void next(unsigned& index);
             unsigned get_owner(unsigned index) const { return m_vectors[index]; }
             unsigned get_length(unsigned index) const { return m_vectors[index+1]; }
@@ -68,7 +68,7 @@ namespace sat {
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
         bool               m_consumer_ready;
-        svector<double>    m_priorities;
+        vector<double>     m_priorities;
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;

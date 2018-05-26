@@ -164,11 +164,11 @@ public:
   check_sat_tactic_result(ast_manager & m) : simple_check_sat_result(m) {
   }
 
-  void get_labels(svector<symbol> & r) override {
+  void get_labels(vector<symbol> & r) override {
     r.append(labels);
   }
 
-  virtual void add_labels(svector<symbol> & r) {
+  virtual void add_labels(vector<symbol> & r) {
     labels.append(r);
   }
 };

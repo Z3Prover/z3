@@ -74,7 +74,7 @@ namespace datalog {
         proof_ref pr1(m);
         proof_ref_vector premises1(m), premises2(m), premises(m);
         expr_ref conclusion1(m), conclusion2(m), conclusion(m);
-        svector<std::pair<unsigned, unsigned> > positions1, positions2, positions;
+        vector<std::pair<unsigned, unsigned> > positions1, positions2, positions;
         vector<expr_ref_vector> substs1, substs2, substs;
         
         if (m.is_hyper_resolve(pr, premises1, conclusion1, positions1, substs1) &&
@@ -153,7 +153,7 @@ namespace datalog {
             proof* p = rules[j];
             proof_ref_vector premises(m);
             expr_ref conclusion(m);
-            svector<std::pair<unsigned, unsigned> >  positions;
+            vector<std::pair<unsigned, unsigned> >  positions;
             vector<expr_ref_vector> substs;
 
             expr* tmp;
@@ -211,7 +211,7 @@ namespace datalog {
             visited.mark(p, true);
             proof_ref_vector premises(m);
             expr_ref conclusion(m);
-            svector<std::pair<unsigned, unsigned> >  positions;
+            vector<std::pair<unsigned, unsigned> >  positions;
             vector<expr_ref_vector> substs;
             if (m.is_hyper_resolve(p, premises, conclusion, positions, substs)) {               
                 expr_ref_vector const& sub = substs[0];

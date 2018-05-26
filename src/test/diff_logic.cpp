@@ -86,7 +86,7 @@ static void tst2() {
     ENSURE(!g.is_feasible());
     TRACE("diff_logic", g.display(tout););
     struct proc {
-        svector<bool> found;
+        vector<bool> found;
         proc():
             found(7, false) {
         }
@@ -142,7 +142,7 @@ static void tst3() {
     int e38 = g.add_edge(3, 8, rational(3), smt::literal(38));
     std::cout << "Edge: " << e38 << "\n";
 
-    svector<edge_id> subsumed;
+    vector<edge_id> subsumed;
     g.find_subsumed(xy, subsumed);
 
     for (unsigned i = 0; i < subsumed.size(); ++i) {

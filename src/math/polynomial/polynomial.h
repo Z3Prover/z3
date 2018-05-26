@@ -41,7 +41,7 @@ namespace algebraic_numbers {
 namespace polynomial {
     typedef unsigned var;
     const var null_var = UINT_MAX;
-    typedef svector<var> var_vector;
+    typedef vector<var> var_vector;
     class monomial;
 
     int lex_compare(monomial const * m1, monomial const * m2);
@@ -113,7 +113,7 @@ namespace polynomial {
     public:
         typedef unsynch_mpz_manager                     numeral_manager;
         typedef numeral_manager::numeral                numeral;
-        typedef svector<numeral>                        numeral_vector;
+        typedef vector<numeral>                        numeral_vector;
         typedef _scoped_numeral<numeral_manager>        scoped_numeral;
         typedef _scoped_numeral_vector<numeral_manager> scoped_numeral_vector;
         
@@ -122,7 +122,7 @@ namespace polynomial {
         */
         class factors {
             vector<polynomial *>       m_factors;
-            svector<unsigned>          m_degrees;
+            vector<unsigned>          m_degrees;
             manager &                  m_manager;
             numeral                    m_constant;
             unsigned                   m_total_factors;
@@ -881,7 +881,7 @@ namespace polynomial {
         /**
            \brief obtain the sign of the polynomial given sign of variables.
         */
-        lbool sign(polynomial const* p, svector<lbool> const& sign_of_vars);
+        lbool sign(polynomial const* p, vector<lbool> const& sign_of_vars);
  
         /**
            \brief Return true if p is always positive for any assignment of its variables.

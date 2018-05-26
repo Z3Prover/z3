@@ -164,7 +164,7 @@ class theory_lra::imp {
     struct internalize_state {
         expr_ref_vector     m_terms;                     
         vector<rational>    m_coeffs;
-        svector<theory_var> m_vars;
+        vector<theory_var>  m_vars;
         rational            m_offset;
         ptr_vector<expr>    m_terms_to_internalize;
         internalize_state(ast_manager& m): m_terms(m) {}
@@ -196,7 +196,7 @@ class theory_lra::imp {
         ~scoped_internalize_state() { --m_imp.m_internalize_head; }
         expr_ref_vector&     terms() { return m_st.m_terms; }                     
         vector<rational>&    coeffs() { return m_st.m_coeffs; }
-        svector<theory_var>& vars() { return m_st.m_vars; }
+        vector<theory_var>&  vars() { return m_st.m_vars; }
         rational&            offset() { return m_st.m_offset; }
         ptr_vector<expr>&    terms_to_internalize() { return m_st.m_terms_to_internalize; }            
         void push(expr* e, rational c) { m_st.m_terms.push_back(e); m_st.m_coeffs.push_back(c); }
@@ -211,9 +211,9 @@ class theory_lra::imp {
        
     typedef vector<std::pair<rational, lp::var_index>> var_coeffs;
 
-    svector<lp::var_index> m_theory_var2var_index;   // translate from theory variables to lar vars
-    svector<theory_var>      m_var_index2theory_var;   // reverse map from lp_solver variables to theory variables  
-    svector<theory_var>      m_term_index2theory_var;   // reverse map from lp_solver variables to theory variables  
+    vector<lp::var_index> m_theory_var2var_index;   // translate from theory variables to lar vars
+    vector<theory_var>      m_var_index2theory_var;   // reverse map from lp_solver variables to theory variables  
+    vector<theory_var>      m_term_index2theory_var;   // reverse map from lp_solver variables to theory variables  
     var_coeffs               m_left_side;              // constraint left side
     mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model
     lp::var_index m_one_var;
@@ -227,12 +227,12 @@ class theory_lra::imp {
         definition_source,
         null_source
     };
-    svector<constraint_source>                    m_constraint_sources;
-    svector<literal>                              m_inequalities;    // asserted rows corresponding to inequality literals.
-    svector<enode_pair>                           m_equalities;      // asserted rows corresponding to equalities.
-    svector<theory_var>                           m_definitions;     // asserted rows corresponding to definitions
+    vector<constraint_source>                    m_constraint_sources;
+    vector<literal>                              m_inequalities;    // asserted rows corresponding to inequality literals.
+    vector<enode_pair>                           m_equalities;      // asserted rows corresponding to equalities.
+    vector<theory_var>                           m_definitions;     // asserted rows corresponding to definitions
 
-    svector<delayed_atom>  m_asserted_atoms;        
+    vector<delayed_atom>  m_asserted_atoms;        
     expr*                  m_not_handled;
     ptr_vector<app>        m_underspecified;
     ptr_vector<expr>       m_idiv_terms;
@@ -246,9 +246,9 @@ class theory_lra::imp {
     unsigned_vector        m_bounds_trail;
     unsigned               m_asserted_qhead;
 
-    svector<unsigned>       m_to_check;    // rows that should be checked for theory propagation
+    vector<unsigned>       m_to_check;    // rows that should be checked for theory propagation
 
-    svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
+    vector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
     unsigned                                          m_assume_eq_head;
 
     unsigned               m_num_conflicts;
@@ -287,7 +287,7 @@ class theory_lra::imp {
     int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
 
 
-    svector<scope>         m_scopes;
+    vector<scope>         m_scopes;
     lp_api::stats          m_stats;
     arith_factory*         m_factory;       
     scoped_ptr<lp::lar_solver> m_solver;
@@ -406,7 +406,7 @@ class theory_lra::imp {
         
     void linearize(scoped_internalize_state& st) { 
         expr_ref_vector & terms = st.terms();
-        svector<theory_var>& vars = st.vars();
+        vector<theory_var>& vars = st.vars();
         vector<rational>& coeffs = st.coeffs();
         rational& offset = st.offset();
         rational r;
@@ -537,7 +537,7 @@ class theory_lra::imp {
         r = rational::one();
         rational r1;
         v = mk_var(t);
-        svector<lp::var_index> vars;
+        vector<lp::var_index> vars;
         ptr_buffer<expr> todo;
         todo.push_back(t);
         while (!todo.empty()) {
@@ -657,7 +657,7 @@ class theory_lra::imp {
         
     void init_left_side(scoped_internalize_state& st) {
         SASSERT(all_zeros(m_columns));
-        svector<theory_var> const& vars = st.vars();
+        vector<theory_var> const& vars = st.vars();
         vector<rational> const& coeffs = st.coeffs();
         for (unsigned i = 0; i < vars.size(); ++i) {
             theory_var var = vars[i];
@@ -1424,7 +1424,7 @@ public:
     }
 
     bool assume_eqs() {        
-        svector<lp::var_index> vars;
+        vector<lp::var_index> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
             if (th.is_relevant_and_shared(get_enode(v))) { 
@@ -2571,7 +2571,7 @@ public:
         ++m_stats.m_bounds_propagations;
     }
 
-    svector<lp::var_index> m_todo_vars;
+    vector<lp::var_index> m_todo_vars;
 
     void add_use_lists(lp_api::bound* b) {
         theory_var v = b->get_var();
@@ -2982,7 +2982,7 @@ public:
  
     vector<std::pair<rational, lp::constraint_index>> m_explanation;
     literal_vector      m_core;
-    svector<enode_pair> m_eqs;
+    vector<enode_pair> m_eqs;
     vector<parameter>   m_params;
 
     // lp::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is

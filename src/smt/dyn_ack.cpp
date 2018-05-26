@@ -115,8 +115,8 @@ namespace smt {
     }
 
     void dyn_ack_manager::reset_app_pairs() {
-        svector<app_pair>::iterator it  = m_app_pairs.begin();
-        svector<app_pair>::iterator end = m_app_pairs.end();
+        vector<app_pair>::iterator it  = m_app_pairs.begin();
+        vector<app_pair>::iterator end = m_app_pairs.end();
         for (; it != end; ++it) {
             app_pair & p = *it;
             m_manager.dec_ref(p.first);
@@ -239,9 +239,9 @@ namespace smt {
         unsigned num_deleted = 0;
         m_to_instantiate.reset();
         m_qhead = 0;
-        svector<app_pair>::iterator it  = m_app_pairs.begin();
-        svector<app_pair>::iterator end = m_app_pairs.end();
-        svector<app_pair>::iterator it2 = it;
+        vector<app_pair>::iterator it  = m_app_pairs.begin();
+        vector<app_pair>::iterator end = m_app_pairs.end();
+        vector<app_pair>::iterator it2 = it;
         for (; it != end; ++it) {
             app_pair & p = *it;
             if (m_instantiated.contains(p)) {
@@ -392,8 +392,8 @@ namespace smt {
     }
 
     void dyn_ack_manager::reset_app_triples() {
-        svector<app_triple>::iterator it  = m_triple.m_apps.begin();
-        svector<app_triple>::iterator end = m_triple.m_apps.end();
+        vector<app_triple>::iterator it  = m_triple.m_apps.begin();
+        vector<app_triple>::iterator end = m_triple.m_apps.end();
         for (; it != end; ++it) {
             app_triple & p = *it;
             m_manager.dec_ref(p.first);
@@ -461,9 +461,9 @@ namespace smt {
         unsigned num_deleted = 0;
         m_triple.m_to_instantiate.reset();
         m_triple.m_qhead = 0;
-        svector<app_triple>::iterator it  = m_triple.m_apps.begin();
-        svector<app_triple>::iterator end = m_triple.m_apps.end();
-        svector<app_triple>::iterator it2 = it;
+        vector<app_triple>::iterator it  = m_triple.m_apps.begin();
+        vector<app_triple>::iterator end = m_triple.m_apps.end();
+        vector<app_triple>::iterator it2 = it;
         for (; it != end; ++it) {
             app_triple & p = *it;
             if (m_triple.m_instantiated.contains(p)) {

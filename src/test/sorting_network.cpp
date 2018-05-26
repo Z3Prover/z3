@@ -18,8 +18,8 @@ Copyright (c) 2015 Microsoft Corporation
 struct ast_ext {
     ast_manager& m;
     ast_ext(ast_manager& m):m(m) {}
-    typedef expr* T;
-    typedef expr_ref_vector vector;
+    using T = expr*;
+    using vector_type = expr_ref_vector;
     T mk_ite(T a, T b, T c) {
         return m.mk_ite(a, b, c);
     }
@@ -39,8 +39,8 @@ struct ast_ext {
 
 struct unsigned_ext {
     unsigned_ext() {}
-    typedef unsigned T;
-    typedef svector<unsigned> vector;
+    using T = unsigned;
+    using vector_type = vector<T>;
     T mk_ite(T a, T b, T c) {
         return (a==1)?b:c;
     }
@@ -53,14 +53,14 @@ struct unsigned_ext {
 };
 
 
-static void is_sorted(svector<unsigned> const& v) {
+static void is_sorted(vector<unsigned> const& v) {
     for (unsigned i = 0; i + 1 < v.size(); ++i) {
         ENSURE(v[i] <= v[i+1]);
     }
 }
 
 static void test_sorting1() {
-    svector<unsigned> in, out;
+    vector<unsigned> in, out;
     unsigned_ext uext;
     sorting_network<unsigned_ext> sn(uext);
 
@@ -81,7 +81,7 @@ static void test_sorting1() {
 }
 
 static void test_sorting2() {
-    svector<unsigned> in, out;
+    vector<unsigned> in, out;
     unsigned_ext uext;
     sorting_network<unsigned_ext> sn(uext);
 
@@ -102,9 +102,9 @@ static void test_sorting2() {
     std::cout << "\n";
 }
 
-static void test_sorting4_r(unsigned i, svector<unsigned>& in) {
+static void test_sorting4_r(unsigned i, vector<unsigned>& in) {
     if (i == in.size()) {
-        svector<unsigned> out;
+        vector<unsigned> out;
         unsigned_ext uext;
         sorting_network<unsigned_ext> sn(uext);
         sn(in, out);
@@ -120,7 +120,7 @@ static void test_sorting4_r(unsigned i, svector<unsigned>& in) {
 }
 
 static void test_sorting4() {
-    svector<unsigned> in;
+    vector<unsigned> in;
     in.resize(5);
     test_sorting4_r(0, in);
     in.resize(8);

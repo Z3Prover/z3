@@ -77,12 +77,12 @@ namespace sat {
         config           m_config;
         reslimit         m_limit;
         clause_allocator m_alloc;
-        svector<clause_info> m_clauses;
-        literal_vector       m_assumptions;        
-        svector<var_info>    m_vars;        // var -> info
-        svector<double>      m_probs;       // var -> probability of flipping
-        svector<double>      m_scores;      // reward -> score
-        model                m_model;       // var -> best assignment
+        vector<clause_info> m_clauses;
+        literal_vector      m_assumptions;        
+        vector<var_info>    m_vars;        // var -> info
+        vector<double>      m_probs;       // var -> probability of flipping
+        vector<double>      m_scores;      // reward -> score
+        model               m_model;       // var -> best assignment
         
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;

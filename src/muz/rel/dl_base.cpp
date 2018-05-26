@@ -181,7 +181,7 @@ namespace datalog {
         unsigned first_func_ofs = second_ofs + s2_first_func;
         unsigned second_func_ofs = second_ofs + s1.functional_columns();
 
-        svector<unsigned> remaining_in_equivalence_class;
+        vector<unsigned> remaining_in_equivalence_class;
         remaining_in_equivalence_class.resize(join_sig_sz, 0);
         bool merging_rows_can_happen = false;
 

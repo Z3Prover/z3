@@ -211,8 +211,8 @@ namespace spacer_qe {
         expr_ref_vector  m_terms;
         vector<rational> m_coeffs;
         vector<rational> m_divs;
-        svector<bool>    m_strict;
-        svector<bool>    m_eq;
+        vector<bool>    m_strict;
+        vector<bool>    m_eq;
         scoped_ptr<contains_app> m_var;
 
         bool is_linear(rational const& mul, expr* t, rational& c, expr_ref_vector& ts) {

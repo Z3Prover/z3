@@ -34,7 +34,7 @@ unsigned substitution_tree::next_reg() {
     }
 }
 
-inline void substitution_tree::push(svector<subst> & sv, subst const & s) {
+inline void substitution_tree::push(vector<subst> & sv, subst const & s) {
     sv.push_back(s);
     m_manager.inc_ref(s.first);
     m_manager.inc_ref(s.second);
@@ -68,7 +68,7 @@ inline void substitution_tree::erase_reg_from_todo(unsigned ridx) {
      result:
      #3 -> (f #5); #4 -> b; #5 -> (g #6); #6 -> a
 */
-void substitution_tree::linearize(svector<subst> & result) {
+void substitution_tree::linearize(vector<subst> & result) {
     ptr_buffer<expr> new_args;
     for (unsigned i = 0; i < m_todo.size(); i++) {
         unsigned ireg_idx = m_todo[i];
@@ -134,11 +134,11 @@ void substitution_tree::reset_registers(unsigned old_size) {
 /**
    \brief Return a measure on how compatible sv and the expressions to be processed are.
 */
-unsigned substitution_tree::get_compatibility_measure(svector<subst> const & sv) {
+unsigned substitution_tree::get_compatibility_measure(vector<subst> const & sv) {
     unsigned old_size = m_todo.size();
     unsigned measure  = 0;
-    svector<subst>::const_iterator it  = sv.begin();
-    svector<subst>::const_iterator end = sv.end();
+    vector<subst>::const_iterator it  = sv.begin();
+    vector<subst>::const_iterator end = sv.end();
     for (; it != end; ++it) {
         subst const & s = *it;
         unsigned ireg = s.first->get_idx();
@@ -227,9 +227,9 @@ void substitution_tree::mark_used_reg(unsigned ridx) {
 /**
    \brief Mark (m_used_regs) all registers used in \c sv.
 */
-void substitution_tree::mark_used_regs(svector<subst> const & sv) {
-    svector<subst>::const_iterator it  = sv.begin();
-    svector<subst>::const_iterator end = sv.end();
+void substitution_tree::mark_used_regs(vector<subst> const & sv) {
+    vector<subst>::const_iterator it  = sv.begin();
+    vector<subst>::const_iterator end = sv.end();
     for (; it != end; ++it) {
         subst const & s = *it;
         mark_used_reg(s.first->get_idx());
@@ -292,10 +292,10 @@ void substitution_tree::insert(app * new_expr) {
     while (true) {
         m_compatible.reset();
         m_incompatible.reset();
-        svector<subst> & sv = r->m_subst;
+        vector<subst> & sv = r->m_subst;
         // separate sv in the set of compatible & incompatible instructions
-        svector<subst>::iterator it  = sv.begin();
-        svector<subst>::iterator end = sv.end();
+        vector<subst>::iterator it  = sv.begin();
+        vector<subst>::iterator end = sv.end();
         for (; it != end; ++it) {
             subst & s = *it;
             unsigned ireg = s.first->get_idx();
@@ -382,10 +382,10 @@ void substitution_tree::insert(app * new_expr) {
 /**
    \brief Return true if sv is fully compatible with the expressions in the registers in m_todo.
 */
-bool substitution_tree::is_fully_compatible(svector<subst> const & sv) {
+bool substitution_tree::is_fully_compatible(vector<subst> const & sv) {
     unsigned old_size = m_todo.size();
-    svector<subst>::const_iterator it  = sv.begin();
-    svector<subst>::const_iterator end = sv.end();
+    vector<subst>::const_iterator it  = sv.begin();
+    vector<subst>::const_iterator end = sv.end();
     for (; it != end; ++it) {
         subst const & s = *it;
         unsigned ireg = s.first->get_idx();
@@ -466,9 +466,9 @@ void substitution_tree::erase(app * e) {
     node * prev   = nullptr;
 
     while (true) {
-        svector<subst> & sv = r->m_subst;
-        svector<subst>::iterator it  = sv.begin();
-        svector<subst>::iterator end = sv.end();
+        vector<subst> & sv = r->m_subst;
+        vector<subst>::iterator it  = sv.begin();
+        vector<subst>::iterator end = sv.end();
         for (; it != end; ++it) {
             subst & s     = *it;
             unsigned ireg = s.first->get_idx();
@@ -541,8 +541,8 @@ void substitution_tree::delete_node(node * n) {
     while (!todo.empty()) {
         node * n = todo.back();
         todo.pop_back();
-        svector<subst>::iterator it2  = n->m_subst.begin();
-        svector<subst>::iterator end2 = n->m_subst.end();
+        vector<subst>::iterator it2  = n->m_subst.begin();
+        vector<subst>::iterator end2 = n->m_subst.end();
         for (; it2 != end2; ++it2) {
             m_manager.dec_ref(it2->first);
             m_manager.dec_ref(it2->second);
@@ -591,9 +591,9 @@ void substitution_tree::display(std::ostream & out, subst const & s) const {
     }
 }
 
-void substitution_tree::display(std::ostream & out, svector<subst> const & sv) const {
-    svector<subst>::const_iterator it  = sv.begin();
-    svector<subst>::const_iterator end = sv.end();
+void substitution_tree::display(std::ostream & out, vector<subst> const & sv) const {
+    vector<subst>::const_iterator it  = sv.begin();
+    vector<subst>::const_iterator end = sv.end();
     for (bool first = true; it != end; ++it, first = false) {
         subst const & s = *it;
         if (!first) 
@@ -675,7 +675,7 @@ bool substitution_tree::bind_var(var * v, unsigned offset, expr_offset const & p
 
 template<substitution_tree::st_visit_mode Mode>
 bool substitution_tree::unify_match(expr_offset p1, expr_offset p2) {
-    svector<entry> & todo = m_visit_todo;
+    vector<entry> & todo = m_visit_todo;
     todo.reset();
     todo.push_back(entry(p1, p2));
     while (!todo.empty()) {
@@ -756,9 +756,9 @@ bool substitution_tree::visit_vars(expr * e, st_visitor & st) {
 }
 
 template<substitution_tree::st_visit_mode Mode>
-bool substitution_tree::visit(svector<subst> const & sv) {
-    svector<subst>::const_iterator it  = sv.begin();
-    svector<subst>::const_iterator end = sv.end();
+bool substitution_tree::visit(vector<subst> const & sv) {
+    vector<subst>::const_iterator it  = sv.begin();
+    vector<subst>::const_iterator end = sv.end();
     for (; it != end; ++it) {
         subst const & s = *it;
         TRACE("st", tout << "processing subst:\n"; display(tout, s); tout << "\n";);

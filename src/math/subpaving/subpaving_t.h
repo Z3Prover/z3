@@ -463,7 +463,7 @@ public:
     */
     bool is_definition(var x) const { return m_defs[x] != 0; }
     
-    typedef svector<watched> watch_list;
+    typedef vector<watched> watch_list;
     typedef _scoped_numeral_vector<numeral_manager> scoped_numeral_vector;
 
 private:
@@ -476,7 +476,7 @@ private:
     interval_manager          m_im;
     scoped_numeral_vector     m_num_buffer;
 
-    svector<bool>             m_is_int;
+    vector<bool>             m_is_int;
     ptr_vector<definition>    m_defs;
     vector<watch_list>        m_wlist;
 
@@ -503,7 +503,7 @@ private:
     scoped_ptr<var_selector>  m_var_selector;
     scoped_ptr<node_splitter> m_node_splitter;
     
-    svector<power>            m_pws;
+    vector<power>            m_pws;
 
     // Configuration
     numeral                   m_epsilon;         //!< If upper - lower < epsilon, then new bound is not propagated.

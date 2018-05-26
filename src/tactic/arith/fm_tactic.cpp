@@ -37,7 +37,7 @@ class fm_tactic : public tactic {
     typedef unsigned        var;
     typedef int             bvar;
     typedef int             literal;
-    typedef svector<var>    var_vector;
+    typedef vector<var>    var_vector;
 
     struct fm_model_converter : public model_converter {
         ast_manager &         m;
@@ -1161,7 +1161,7 @@ class fm_tactic : public tactic {
         };
 
         void sort_candidates(var_vector & xs) {
-            svector<x_cost> x_cost_vector;
+            vector<x_cost> x_cost_vector;
             unsigned num = num_vars();
             for (var x = 0; x < num; x++) {
                 if (!is_forbidden(x)) {
@@ -1171,14 +1171,14 @@ class fm_tactic : public tactic {
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
             TRACE("fm", 
-                  svector<x_cost>::iterator it2  = x_cost_vector.begin();
-                  svector<x_cost>::iterator end2 = x_cost_vector.end();
+                  vector<x_cost>::iterator it2  = x_cost_vector.begin();
+                  vector<x_cost>::iterator end2 = x_cost_vector.end();
                   for (; it2 != end2; ++it2) {
                       tout << "(" << mk_ismt2_pp(m_var2expr.get(it2->first), m) << " " << it2->second << ") ";
                   }
                   tout << "\n";);
-            svector<x_cost>::iterator it2  = x_cost_vector.begin();
-            svector<x_cost>::iterator end2 = x_cost_vector.end();
+            vector<x_cost>::iterator it2  = x_cost_vector.begin();
+            vector<x_cost>::iterator end2 = x_cost_vector.end();
             for (; it2 != end2; ++it2) {
                 xs.push_back(it2->first);
             }
@@ -1288,7 +1288,7 @@ class fm_tactic : public tactic {
         
         var_vector       new_xs;
         vector<rational> new_as;
-        svector<literal> new_lits;
+        vector<literal> new_lits;
         
         constraint * resolve(constraint const & l, constraint const & u, var x) {
             m_counter += l.m_num_vars + u.m_num_vars + l.m_num_lits + u.m_num_lits;

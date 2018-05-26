@@ -55,7 +55,7 @@ namespace datalog {
             expr_ref q(m);
             expr_ref_vector args(m);
             sort_ref_vector sorts(m);
-            svector<symbol> names;
+            vector<symbol> names;
             func_decl* r = rels[0];
             for (unsigned i = 0; i < r->get_arity(); ++i) {
                 args.push_back(m.mk_var(i, r->get_domain(i)));

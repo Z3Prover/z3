@@ -1231,7 +1231,7 @@ namespace datalog {
     */
     class relation_manager::auxiliary_table_filter_fn {
         table_fact m_row;
-        svector<table_element> m_to_remove;
+        vector<table_element> m_to_remove;
     public:
         virtual ~auxiliary_table_filter_fn() {}
         virtual bool should_remove(const table_fact & f) const = 0;

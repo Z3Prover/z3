@@ -628,10 +628,10 @@ namespace datalog {
         return result;
     }
 
-    void dl_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+    void dl_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     }
 
-    void dl_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+    void dl_decl_plugin::get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) {
 
     }
 

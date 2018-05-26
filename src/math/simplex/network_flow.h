@@ -76,13 +76,13 @@ namespace smt {
         class pivot_rule_impl {
         protected:
             graph & m_graph;
-            svector<edge_state> & m_states;
+            vector<edge_state> & m_states;
             vector<numeral> &     m_potentials;
             edge_id &             m_enter_id;
             bool edge_in_tree(edge_id id) const { return m_states[id] == BASIS; }
         public: 
             pivot_rule_impl(graph & g, vector<numeral> & potentials, 
-                            svector<edge_state> & states, edge_id & enter_id) 
+                            vector<edge_state> & states, edge_id & enter_id) 
                 : m_graph(g),
                   m_potentials(potentials),
                   m_states(states),
@@ -97,7 +97,7 @@ namespace smt {
             edge_id m_next_edge;
         public:
             first_eligible_pivot(graph & g, vector<numeral> & potentials, 
-                                 svector<edge_state> & states, edge_id & enter_id) : 
+                                 vector<edge_state> & states, edge_id & enter_id) : 
                 pivot_rule_impl(g, potentials, states, enter_id),
                 m_next_edge(0) {
             }
@@ -108,7 +108,7 @@ namespace smt {
         class best_eligible_pivot : public pivot_rule_impl {
         public:
             best_eligible_pivot(graph & g, vector<numeral> & potentials, 
-                                 svector<edge_state> & states, edge_id & enter_id) : 
+                                 vector<edge_state> & states, edge_id & enter_id) : 
                 pivot_rule_impl(g, potentials, states, enter_id) {
             }
             virtual pivot_rule rule() const { return BEST_ELIGIBLE; }
@@ -118,7 +118,7 @@ namespace smt {
         class candidate_list_pivot : public pivot_rule_impl {
         private:
             edge_id m_next_edge;
-            svector<edge_id> m_candidates;
+            vector<edge_id> m_candidates;
             unsigned m_num_candidates;
             unsigned m_minor_step;
             unsigned m_current_length;
@@ -127,7 +127,7 @@ namespace smt {
 
         public:
             candidate_list_pivot(graph & g, vector<numeral> & potentials, 
-                                 svector<edge_state> & states, edge_id & enter_id) : 
+                                 vector<edge_state> & states, edge_id & enter_id) : 
                 pivot_rule_impl(g, potentials, states, enter_id),
                 m_next_edge(0),
                 m_minor_step(0),
@@ -149,7 +149,7 @@ namespace smt {
                                              // Duals of flows which are convenient to compute dual solutions 
                                              // become solutions to Dual simplex.
         vector<numeral>      m_flows;        // edges + nodes |-> assignment Basic feasible flows
-        svector<edge_state>  m_states;
+        vector<edge_state>   m_states;
         unsigned             m_step;
         edge_id              m_enter_id;
         edge_id              m_leave_id;

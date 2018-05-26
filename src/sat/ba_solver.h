@@ -167,7 +167,7 @@ namespace sat {
             wliteral       m_wlits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
-            pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
+            pb(unsigned id, literal lit, vector<wliteral> const& wlits, unsigned k);
             literal lit() const { return m_lit; }
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
             wliteral& operator[](unsigned i) { return m_wlits[i]; }
@@ -212,7 +212,7 @@ namespace sat {
     protected:
 
         struct ineq {
-            svector<wliteral> m_wlits;
+            vector<wliteral> m_wlits;
             uint64_t          m_k;
             ineq(): m_k(0) {}
             unsigned size() const { return m_wlits.size(); }
@@ -243,8 +243,8 @@ namespace sat {
         // conflict resolution
         unsigned          m_num_marks;
         unsigned          m_conflict_lvl;
-        svector<int64_t>  m_coeffs;
-        svector<bool_var> m_active_vars;
+        vector<int64_t>  m_coeffs;
+        vector<bool_var> m_active_vars;
         unsigned          m_bound;
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
@@ -287,17 +287,17 @@ namespace sat {
 
         // simplification routines
 
-        svector<unsigned>             m_visited;
+        vector<unsigned>             m_visited;
         unsigned                      m_visited_ts;
-        vector<svector<constraint*>>    m_cnstr_use_list;
+        vector<vector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
         bool                      m_simplify_change;
         bool                      m_clause_removed;
         bool                      m_constraint_removed;
         literal_vector            m_roots;
-        svector<bool>             m_root_vars;
+        vector<bool>             m_root_vars;
         unsigned_vector           m_weights;
-        svector<wliteral>         m_wlits;
+        vector<wliteral>         m_wlits;
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, bool& self);
         bool subsumed(card& c1, literal l1, literal l2);
@@ -406,9 +406,9 @@ namespace sat {
             clause_filter(unsigned f, clause* cp):
                 m_filter(f), m_clause(cp) {}
         };
-        typedef svector<bool> bool_vector;
+        typedef vector<bool> bool_vector;
         unsigned                m_max_xor_size;
-        vector<svector<clause_filter>>   m_clause_filters;      // index of clauses.
+        vector<vector<clause_filter>>   m_clause_filters;      // index of clauses.
         unsigned                m_barbet_combination;  // bit-mask of parities that have been found
         vector<bool_vector>     m_barbet_parity;       // lookup parity for clauses
         clause_vector           m_barbet_clauses_to_remove;    // remove clauses that become xors
@@ -494,7 +494,7 @@ namespace sat {
             else m_solver->set_conflict(j, l); 
         }
         inline config const& get_config() const { return m_lookahead ? m_lookahead->get_config() : m_solver->get_config(); }
-        inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { if (m_solver) m_solver->m_drat.add(c, premises); }
+        inline void drat_add(literal_vector const& c, vector<drat::premise> const& premises) { if (m_solver) m_solver->m_drat.add(c, premises); }
 
 
         mutable bool m_overflow;
@@ -545,7 +545,7 @@ namespace sat {
         constraint* active2constraint();
         constraint* active2card();
         void active2wlits();
-        void active2wlits(svector<wliteral>& wlits);
+        void active2wlits(vector<wliteral>& wlits);
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
         void constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
@@ -558,7 +558,7 @@ namespace sat {
         void display_lit(std::ostream& out, literal l, unsigned sz, bool values) const;
 
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
-        constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
+        constraint* add_pb_ge(literal l, vector<wliteral> const& wlits, unsigned k, bool learned);
         constraint* add_xr(literal_vector const& lits, bool learned);
         literal     add_xor_def(literal_vector& lits, bool learned = false);
         bool        all_distinct(literal_vector const& lits);
@@ -575,7 +575,7 @@ namespace sat {
         void set_lookahead(lookahead* l) override { m_lookahead = l; }
         void set_unit_walk(unit_walk* u) override { m_unit_walk = u; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
-        void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
+        void    add_pb_ge(bool_var v, vector<wliteral> const& wlits, unsigned k);
         void    add_xr(literal_vector const& lits);
 
         bool propagate(literal l, ext_constraint_idx idx) override;

@@ -42,17 +42,17 @@ namespace sat {
             watched_clause(clause* c, literal l1, literal l2):
                 m_clause(c), m_l1(l1), m_l2(l2) {}
         };
-        svector<watched_clause>   m_watched_clauses;
-        typedef svector<unsigned> watch;
+        vector<watched_clause>   m_watched_clauses;
+        typedef vector<unsigned> watch;
         solver& s;
         clause_allocator        m_alloc;
         std::ostream*           m_out;
         std::ostream*           m_bout;
         ptr_vector<clause>      m_proof;
-        svector<status>         m_status;
+        vector<status>         m_status;
         literal_vector          m_units;
         vector<watch>           m_watches;
-        svector<lbool>          m_assignment;
+        vector<lbool>          m_assignment;
         bool                    m_inconsistent;
         bool                    m_check_unsat, m_check_sat, m_check;
 
@@ -90,7 +90,7 @@ namespace sat {
         void add(literal l, bool learned);
         void add(literal l1, literal l2, bool learned);
         void add(clause& c, bool learned);
-        void add(literal_vector const& c, svector<premise> const& premises);
+        void add(literal_vector const& c, vector<premise> const& premises);
         void add(literal_vector const& c); // add learned clause
 
         bool is_cleaned(clause& c) const;        

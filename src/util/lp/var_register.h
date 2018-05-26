@@ -30,7 +30,7 @@ public:
 };
 
 class var_register {
-    svector<ext_var_info> m_local_to_external;
+    vector<ext_var_info> m_local_to_external;
     std::unordered_map<unsigned, unsigned> m_external_to_local;
 public:
     unsigned add_var(unsigned user_var) {
@@ -46,8 +46,8 @@ public:
         return m_external_to_local[user_var] = size() - 1;
     }
 
-    svector<unsigned> vars() const {
-        svector<unsigned> ret;
+    vector<unsigned> vars() const {
+        vector<unsigned> ret;
         for (const auto& p : m_local_to_external) {
             ret.push_back(p.external_j());
         }

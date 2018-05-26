@@ -220,7 +220,7 @@ public:
         }
     }
 
-    void shrink_to_rank(const svector<unsigned>& basis_rows) {
+    void shrink_to_rank(const vector<unsigned>& basis_rows) {
         if (basis_rows.size() == row_count()) return;
         vector<vector<mpq>> data; // todo : not efficient code
         for (unsigned i : basis_rows)

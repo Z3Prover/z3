@@ -36,7 +36,7 @@ static void add_ineq(opt::model_based_opt& mbo,
 
 static void add_random_ineq(opt::model_based_opt& mbo,
                             random_gen& r,
-                            svector<int>  const& values,
+                            vector<int>  const& values,
                             unsigned max_vars,
                             unsigned max_coeff) {
     unsigned num_vars = values.size();
@@ -86,7 +86,7 @@ static void add_random_ineq(opt::model_based_opt& mbo,
                         
 static void check_random_ineqs(random_gen& r, unsigned num_vars, unsigned max_value, unsigned num_ineqs, unsigned max_vars, unsigned max_coeff) {
     opt::model_based_opt mbo;
-    svector<int> values;
+    vector<int> values;
     for (unsigned i = 0; i < num_vars; ++i) {
         values.push_back(r(max_value + 1));
         mbo.add_var(rational(values.back()));

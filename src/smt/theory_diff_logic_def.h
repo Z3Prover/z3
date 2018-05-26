@@ -386,7 +386,7 @@ void theory_diff_logic<Ext>::del_atoms(unsigned old_size) {
 
 
 template<typename Ext>
-bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, svector<bool>& signs) {
+bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, vector<bool>& signs) {
     for (unsigned i = 0; i < terms.size(); ++i) {
         app* n = terms[i].get();
         if (m_util.is_add(n)) {
@@ -1134,7 +1134,7 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
     }
     S.set_lower(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
     S.set_upper(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
-    svector<unsigned> vars;
+    vector<unsigned> vars;
     scoped_mpq_vector coeffs(mgr);
     coeffs.push_back(mpq(1));
     coeffs.push_back(mpq(-1));

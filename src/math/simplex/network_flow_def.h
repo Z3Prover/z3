@@ -168,7 +168,7 @@ namespace smt {
         m_states.fill(LOWER);
 
         // Create artificial edges from/to root node to/from other nodes and initialize the spanning tree
-        svector<edge_id> tree;
+        vector<edge_id> tree;
         for (unsigned i = 0; i < num_nodes; ++i) {
             bool is_forward = !m_balances[i].is_neg();
             m_states[num_edges + i] = BASIS;
@@ -208,7 +208,7 @@ namespace smt {
         }
         SASSERT(m_tree->in_subtree_t2(start));
         TRACE("network_flow", tout << "update_potentials of T_" << start << " with change = " << change << "...\n";);
-        svector<node> descendants;
+        vector<node> descendants;
         m_tree->get_descendants(start, descendants);
         SASSERT(descendants.size() >= 1);
         for (unsigned i = 0; i < descendants.size(); ++i) {
@@ -223,8 +223,8 @@ namespace smt {
         m_flows[m_enter_id] += *m_delta;
         node src = m_graph.get_source(m_enter_id);
         node tgt = m_graph.get_target(m_enter_id); 
-        svector<edge_id> path;
-        svector<bool> against;
+        vector<edge_id> path;
+        vector<bool> against;
         m_tree->get_path(src, tgt, path, against);
         SASSERT(path.size() >= 1);
         for (unsigned i = 0; i < path.size(); ++i) {
@@ -240,8 +240,8 @@ namespace smt {
         node tgt = m_graph.get_target(m_enter_id); 
         m_delta.set_invalid();
         edge_id leave_id = null_edge_id;
-        svector<edge_id> path;
-        svector<bool> against;
+        vector<edge_id> path;
+        vector<bool> against;
         m_tree->get_path(src, tgt, path, against);
         SASSERT(path.size() >= 1);
         for (unsigned i = 0; i < path.size(); ++i) {

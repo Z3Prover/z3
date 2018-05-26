@@ -294,7 +294,7 @@ namespace datalog {
                         sub[j] = m.mk_var(j, m.get_sort(sub[j].get()));
                     }
                 }
-                svector<std::pair<unsigned, unsigned> > positions;
+                vector<std::pair<unsigned, unsigned> > positions;
                 vector<expr_ref_vector> substs;
                 expr_ref fml(m), concl(m);
 
@@ -526,7 +526,7 @@ namespace datalog {
                 sub[j] = (*md)(sub[j].get());
             }
 
-            svector<std::pair<unsigned, unsigned> > positions;
+            vector<std::pair<unsigned, unsigned> > positions;
             vector<expr_ref_vector> substs;
             var_subst vs(m, false);
 
@@ -623,7 +623,7 @@ namespace datalog {
 
         expr_ref bind_vars(expr* e, expr* pat) {
             ptr_vector<sort> sorts;
-            svector<symbol> names;
+            vector<symbol> names;
             expr_ref_vector binding(m), patterns(m);
             expr_ref tmp(m), head(m);
             expr_free_vars vars;
@@ -1035,7 +1035,7 @@ namespace datalog {
             ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
             for (unsigned i = 0; i < cnstrs.size(); ++i) {
                 if (trace->get_decl() == cnstrs[i]) {
-                    svector<std::pair<unsigned, unsigned> > positions;
+                    vector<std::pair<unsigned, unsigned> > positions;
                     scoped_proof _sc(m);
                     proof_ref_vector prs(m);
                     expr_ref_vector sub(m);
@@ -1218,7 +1218,7 @@ namespace datalog {
                         sub[j] = m.mk_var(j, m.get_sort(sub[j].get()));
                     }
                 }
-                svector<std::pair<unsigned, unsigned> > positions;
+                vector<std::pair<unsigned, unsigned> > positions;
                 vector<expr_ref_vector> substs;
                 expr_ref fml(m), concl(m);
 

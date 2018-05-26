@@ -71,7 +71,7 @@ void mpff_manager::allocate(mpff & n) {
 
 void mpff_manager::to_buffer(unsigned idx, mpff const & n) const {
     SASSERT(idx < MPFF_NUM_BUFFERS);
-    svector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
+    vector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
     unsigned * s = sig(n);
     for (unsigned i = 0; i < m_precision; i++)
         b[i] = s[i];
@@ -79,7 +79,7 @@ void mpff_manager::to_buffer(unsigned idx, mpff const & n) const {
 
 void mpff_manager::to_buffer_ext(unsigned idx, mpff const & n) const {
     SASSERT(idx < MPFF_NUM_BUFFERS);
-    svector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
+    vector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
     unsigned * s = sig(n);
     unsigned j = m_precision;
     for (unsigned i = 0; i < m_precision; i++, j++) {
@@ -90,7 +90,7 @@ void mpff_manager::to_buffer_ext(unsigned idx, mpff const & n) const {
 
 void mpff_manager::to_buffer_shifting(unsigned idx, mpff const & n) const {
     SASSERT(idx < MPFF_NUM_BUFFERS);
-    svector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
+    vector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
     unsigned * s = sig(n);
     unsigned j   = m_precision;
     for (unsigned i = 0; i < m_precision; i++, j++) {
@@ -337,7 +337,7 @@ void mpff_manager::set_core(mpff & n, mpz_manager<SYNCH> & m, mpz const & v) {
     }
     else {
         allocate_if_needed(n);
-        svector<unsigned> & w = m_set_buffer;
+        vector<unsigned> & w = m_set_buffer;
         n.m_sign = m.decompose(v, w);
         while (w.size() < m_precision) {
             w.push_back(0);
@@ -1184,7 +1184,7 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
     if (is_neg(n))
         out << "-";
     to_buffer_ext(0, n);
-    svector<unsigned> & u_buffer = const_cast<mpff_manager*>(this)->m_buffers[0];
+    vector<unsigned> & u_buffer = const_cast<mpff_manager*>(this)->m_buffers[0];
     int num_trailing_zeros = ntz(m_precision, u_buffer.c_ptr());
     int shift = 0;
     int64_t exp = n.m_exponent; // use int64_t to avoid -INT_MIN == INT_MIN issue
@@ -1332,7 +1332,7 @@ void mpff_manager::display_smt2(std::ostream & out, mpff const & n, bool decimal
     if (is_neg(n))
         out << "(- ";
     to_buffer_ext(0, n);
-    svector<unsigned> & u_buffer = const_cast<mpff_manager*>(this)->m_buffers[0];
+    vector<unsigned> & u_buffer = const_cast<mpff_manager*>(this)->m_buffers[0];
     int num_trailing_zeros = ntz(m_precision, u_buffer.c_ptr());
     int shift = 0;
     int64_t exp = n.m_exponent;

@@ -637,7 +637,7 @@ namespace datalog {
         //do topological sorting
 
         //degres of components (number of inter-component edges ending up in the component)
-        svector<unsigned> in_degrees;
+        vector<unsigned> in_degrees;
         in_degrees.resize(m_components.size());
 
         //init in_degrees

@@ -48,7 +48,7 @@ class line_reader {
     static const unsigned s_expansion_step = 1024;
 
     FILE * m_file;
-    svector<char> m_data;
+    vector<char> m_data;
     bool m_eof;
     bool m_eof_behind_buffer;
     unsigned m_next_index;
@@ -724,7 +724,7 @@ protected:
 
     dtoken parse_body(app* head) {
         app_ref_vector body(m_manager);
-        svector<bool> polarity_vect;
+        vector<bool> polarity_vect;
         dtoken tok = m_lexer->next_token();
         while (tok != TK_ERROR && tok != TK_EOS) {            
             if (tok == TK_PERIOD) {
@@ -841,7 +841,7 @@ protected:
     dtoken parse_pred(dtoken tok, symbol const& s, app_ref& pred, bool & is_predicate_declaration) {
 
         expr_ref_vector args(m_manager);        
-        svector<symbol> arg_names;
+        vector<symbol> arg_names;
         func_decl* f = m_context.try_get_predicate_decl(s);
         tok = parse_args(tok, f, args, arg_names);
         is_predicate_declaration = f==nullptr;
@@ -878,7 +878,7 @@ protected:
        \brief Parse predicate arguments. If \c f==0, they are arguments of a predicate declaration.
        If parsing a declaration, argument names are pushed to the \c arg_names vector.
     */
-    dtoken parse_args(dtoken tok, func_decl* f, expr_ref_vector& args, svector<symbol> & arg_names) {
+    dtoken parse_args(dtoken tok, func_decl* f, expr_ref_vector& args, vector<symbol> & arg_names) {
         if (tok != TK_LP) {
             return tok;
         }
@@ -1171,7 +1171,7 @@ protected:
 // -----------------------------------
 
 class wpa_parser_impl : public wpa_parser, dparser {
-    typedef svector<uint64_t> uint64_vector;
+    typedef vector<uint64_t> uint64_vector;
     typedef hashtable<uint64_t, uint64_hash, default_eq<uint64_t> > uint64_set;
     typedef map<uint64_t, symbol, uint64_hash, default_eq<uint64_t> > num2sym;
     typedef map<symbol, uint64_set*, symbol_hash_proc, symbol_eq_proc> sym2nums;

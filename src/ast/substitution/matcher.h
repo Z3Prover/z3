@@ -32,7 +32,7 @@ class matcher {
 
     substitution *        m_subst;
     // cache                 m_cache;
-    svector<expr_pair>    m_todo;
+    vector<expr_pair>    m_todo;
 
     void reset();
 

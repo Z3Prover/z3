@@ -110,8 +110,8 @@ public:
                              unsigned arity, sort * const * domain, sort * range) override;	
     bool is_value(app * e) const override;
     bool is_unique_value(app * e) const override { return is_value(e); }
-    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
-    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
+    void get_op_names(vector<builtin_name> & op_names, symbol const & logic) override;
+    void get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) override;
     expr * get_some_value(sort * s) override;
     sort * mk_job_sort() const { return m_job_sort; }
     sort * mk_resource_sort() const { return m_resource_sort; }
@@ -147,11 +147,11 @@ public:
     bool is_job2resource(expr* e, unsigned& j);
     bool is_resource(expr* e, unsigned& r);
     bool is_makespan(expr* e, unsigned& r);
-    bool is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, unsigned& cap_time, uint64_t& start, uint64_t& end, svector<symbol>& properites);
-    bool is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& finite_capacity_end, svector<symbol>& properites); 
+    bool is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, unsigned& cap_time, uint64_t& start, uint64_t& end, vector<symbol>& properites);
+    bool is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& finite_capacity_end, vector<symbol>& properites); 
     bool is_set_preemptable(expr* e, expr *& job);
     bool is_model(expr* e) const { return is_app_of(e, m_fid, OP_JS_MODEL); }
-    bool is_js_properties(expr* e, svector<symbol>& properties);
+    bool is_js_properties(expr* e, vector<symbol>& properties);
     bool is_job_goal(expr* e, js_job_goal& goal, unsigned& level, expr*& job);
     bool is_objective(expr* e, js_optimization_objective& objective);
 

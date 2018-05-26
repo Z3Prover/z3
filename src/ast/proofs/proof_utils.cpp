@@ -930,7 +930,7 @@ private:
     proof* push(proof* p, expr_ref_vector const& sub) {
         proof_ref_vector premises(m);
         expr_ref conclusion(m);
-        svector<std::pair<unsigned, unsigned> >  positions;
+        vector<std::pair<unsigned, unsigned> >  positions;
         vector<expr_ref_vector> substs;
 
         if (m.is_hyper_resolve(p, premises, conclusion, positions, substs)) {

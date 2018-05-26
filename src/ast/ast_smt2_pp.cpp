@@ -461,7 +461,7 @@ class smt2_printer {
     expr2alias *                          m_expr2alias; // expr -> position @ m_aliased_exprs, m_aliased_pps, m_aliased_lvls_names.
     ptr_vector<expr>                      m_aliased_exprs;
     format_ref_vector                     m_aliased_pps;
-    svector<std::pair<unsigned, symbol> > m_aliased_lvls_names;
+    vector<std::pair<unsigned, symbol> > m_aliased_lvls_names;
     unsigned                              m_next_alias_idx;
     struct scope {
         unsigned m_aliased_exprs_lim;
@@ -469,8 +469,8 @@ class smt2_printer {
         expr *   m_old_root;
         scope(unsigned lim, unsigned idx, expr * r):m_aliased_exprs_lim(lim), m_old_next_alias_idx(idx), m_old_root(r) {}
     };
-    svector<scope>                        m_scopes;     // size of m_aliased_exprs, m_aliased_pps, m_aliased_lvls_names.
-    svector<symbol>                       m_var_names;
+    vector<scope>                        m_scopes;     // size of m_aliased_exprs, m_aliased_pps, m_aliased_lvls_names.
+    vector<symbol>                       m_var_names;
     typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
     symbol_set                            m_var_names_set;
 
@@ -482,7 +482,7 @@ class smt2_printer {
         frame(expr * c, unsigned i, unsigned s, bool use_alias):m_curr(c), m_idx(i), m_spos(s), m_use_alias(use_alias) {}
     };
 
-    svector<frame>                        m_frame_stack;
+    vector<frame>                        m_frame_stack;
     format_ref_vector                     m_format_stack;
     struct info {
         unsigned m_lvl;
@@ -490,7 +490,7 @@ class smt2_printer {
         unsigned m_depth;
         info(unsigned l, unsigned w, unsigned d):m_lvl(l), m_weight(w), m_depth(d) {}
     };
-    svector<info>                         m_info_stack;
+    vector<info>                         m_info_stack;
 
     string_buffer<> m_next_name_buffer;
 

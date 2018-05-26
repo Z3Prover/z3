@@ -491,7 +491,7 @@ private:
             }
         }
         SASSERT(weights.size() == num_keys());
-        svector<key_info> infos;
+        vector<key_info> infos;
         unsigned sz = 0;
         bool is_sorted = true;
         for (unsigned i = 0; i < weights.size(); ++i) {

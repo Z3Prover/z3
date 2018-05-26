@@ -644,10 +644,10 @@ namespace datalog {
         relation_signature sig;
         rmgr.from_predicate(e_decl, sig);
 
-        svector<bool> inner_sieve(sz-1, true);
+        vector<bool> inner_sieve(sz-1, true);
         inner_sieve.push_back(false);
 
-        svector<bool> expl_sieve(sz-1, false);
+        vector<bool> expl_sieve(sz-1, false);
         expl_sieve.push_back(true);
 
         sieve_relation_plugin & sieve_plugin = sieve_relation_plugin::get_plugin(rmgr);
@@ -715,7 +715,7 @@ namespace datalog {
         app_ref e_head(get_e_lit(r->get_head(), head_var), m_manager);
 
         app_ref_vector e_tail(m_manager);
-        svector<bool> neg_flags;
+        vector<bool> neg_flags;
         unsigned pos_tail_sz = r->get_positive_tail_size();
         for (unsigned i=0; i<pos_tail_sz; i++) {
             unsigned e_var = next_var++;

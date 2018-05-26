@@ -82,7 +82,7 @@ class tseitin_cnf_tactic : public tactic {
         typedef generic_model_converter mc;
         
         ast_manager &              m;
-        svector<frame>             m_frame_stack;
+        vector<frame>             m_frame_stack;
         obj_map<app, app*>         m_cache;
         expr_ref_vector            m_cache_domain;
         goal_shared_occs           m_occs;

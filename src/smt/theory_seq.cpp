@@ -157,7 +157,7 @@ bool theory_seq::solution_map::is_root(expr* e) const {
 // e1 -> .... -> e3
 
 // e1 -> ... x, e2 -> ... x
-void theory_seq::solution_map::find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds) {
+void theory_seq::solution_map::find_rec(expr* e, vector<std::pair<expr*, dependency*> >& finds) {
     dependency* d = nullptr;
     std::pair<expr*, dependency*> value(e, d);
     do {
@@ -2243,7 +2243,7 @@ bool theory_seq::linearize(dependency* dep, enode_pair_vector& eqs, literal_vect
     context & ctx = get_context();    
     DEBUG_CODE(for (literal lit : lits) SASSERT(ctx.get_assignment(lit) == l_true); );
     bool asserted = true;
-    svector<assumption> assumptions;
+    vector<assumption> assumptions;
     const_cast<dependency_manager&>(m_dm).linearize(dep, assumptions);
     for (assumption const& a : assumptions) {
         if (a.lit != null_literal) {
@@ -3952,9 +3952,9 @@ class theory_seq::seq_value_proc : public model_value_proc {
     enum source_t { unit_source, int_source, string_source };
     theory_seq&                     th;
     sort*                           m_sort;
-    svector<model_value_dependency> m_dependencies;
+    vector<model_value_dependency> m_dependencies;
     ptr_vector<expr>                m_strings;
-    svector<source_t>               m_source;
+    vector<source_t>               m_source;
 public:
     seq_value_proc(theory_seq& th, sort* s): th(th), m_sort(s) {
     }
@@ -3975,7 +3975,7 @@ public:
         result.append(m_dependencies.size(), m_dependencies.c_ptr());
     }
 
-    void add_buffer(svector<unsigned>& buffer, zstring const& zs) {
+    void add_buffer(vector<unsigned>& buffer, zstring const& zs) {
         for (unsigned i = 0; i < zs.length(); ++i) {
             buffer.push_back(zs[i]);
         }

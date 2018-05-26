@@ -54,7 +54,7 @@ namespace algebraic_numbers {
         static bool precise() { return true; }
         static bool field() { return true; }
         typedef anum numeral;
-        typedef svector<numeral> numeral_vector;
+        typedef vector<numeral> numeral_vector;
         typedef _scoped_numeral<manager> scoped_numeral;
         typedef _scoped_numeral_vector<manager> scoped_numeral_vector;
 
@@ -173,7 +173,7 @@ namespace algebraic_numbers {
         /**
            \brief Isolate the roots of the given polynomial, and compute its sign between them.
         */
-        void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<int> & signs);
+        void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, vector<int> & signs);
 
         /**
            \brief Store in r the i-th root of p.
@@ -306,7 +306,7 @@ namespace algebraic_numbers {
         */
         int eval_sign_at(polynomial_ref const & p, polynomial::var2anum const & x2v);
 
-        void get_polynomial(numeral const & a, svector<mpz> & r);
+        void get_polynomial(numeral const & a, vector<mpz> & r);
         
         // Procedures for getting lower and upper bounds for irrational numbers
         void get_lower(numeral const & a, mpbq & l);

@@ -79,7 +79,7 @@ namespace smt {
     //
     // ------------------------------------
     class label_hasher {
-        svector<signed char>             m_lbl2hash;        // cache: lbl_id -> hash
+        vector<signed char>             m_lbl2hash;        // cache: lbl_id -> hash
 
         void mk_lbl_hash(unsigned lbl_id) {
             unsigned a = 17;
@@ -795,7 +795,7 @@ namespace smt {
         code_tree *             m_tree;
         unsigned                m_num_choices;
         bool                    m_is_tmp_tree;
-        svector<bool>           m_mp_already_processed;
+        vector<bool>           m_mp_already_processed;
         obj_map<expr, unsigned> m_matched_exprs;
 
         struct pcheck_checked {
@@ -808,7 +808,7 @@ namespace smt {
                        CHECK_SET,
                        CHECK_SINGLETON } check_mark;
 
-        svector<check_mark>     m_mark;
+        vector<check_mark>     m_mark;
         unsigned_vector         m_to_reset;
         ptr_vector<instruction> m_compatible;
         ptr_vector<instruction> m_incompatible;
@@ -1824,7 +1824,7 @@ namespace smt {
         };
     };
 
-    typedef svector<backtrack_point> backtrack_stack;
+    typedef vector<backtrack_point> backtrack_stack;
 
     class interpreter {
         context &           m_context;
@@ -3075,14 +3075,14 @@ namespace smt {
         ptr_vector<func_decl>       m_tmp_trees_to_delete;
         ptr_vector<code_tree>       m_to_match;
         typedef std::pair<quantifier *, app *> qp_pair;
-        svector<qp_pair>            m_new_patterns; // recently added patterns
+        vector<qp_pair>            m_new_patterns; // recently added patterns
 
         // m_is_plbl[f] is true, then when f(c_1, ..., c_n) becomes relevant,
         //  for each c_i. c_i->get_root()->lbls().insert(lbl_hash(f))
-        svector<bool>               m_is_plbl;
+        vector<bool>               m_is_plbl;
         // m_is_clbl[f] is true, then when n=f(c_1, ..., c_n) becomes relevant,
         //  n->get_root()->lbls().insert(lbl_hash(f))
-        svector<bool>               m_is_clbl;    // children labels
+        vector<bool>               m_is_clbl;    // children labels
 
         // auxiliary field used to update data-structures...
         typedef ptr_vector<func_decl> func_decls;

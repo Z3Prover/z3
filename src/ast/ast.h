@@ -209,7 +209,7 @@ void display_parameters(std::ostream & out, unsigned n, parameter const * p);
 class family_manager {
     family_id               m_next_id;
     symbol_table<family_id> m_families;
-    svector<symbol>         m_names;
+    vector<symbol>         m_names;
 public:
     family_manager():m_next_id(0) {}
 
@@ -227,9 +227,9 @@ public:
 
     bool has_family(symbol const & s) const;
 
-    void get_dom(svector<symbol>& dom) const { m_families.get_dom(dom); }
+    void get_dom(vector<symbol>& dom) const { m_families.get_dom(dom); }
 
-    void get_range(svector<family_id> & range) const { m_families.get_range(range); }
+    void get_range(vector<family_id> & range) const { m_families.get_range(range); }
 
     symbol const & get_name(family_id fid) const { return fid >= 0 && fid < static_cast<int>(m_names.size()) ? m_names[fid] : symbol::null; }
 
@@ -1069,9 +1069,9 @@ public:
 
     virtual bool are_distinct(app * a, app * b) const { return a != b && is_unique_value(a) && is_unique_value(b); }
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic = symbol()) {}
+    virtual void get_op_names(vector<builtin_name> & op_names, symbol const & logic = symbol()) {}
 
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic = symbol()) {}
+    virtual void get_sort_names(vector<builtin_name> & sort_names, symbol const & logic = symbol()) {}
 
     virtual expr * get_some_value(sort * s) { return nullptr; }
 
@@ -1216,9 +1216,9 @@ public:
     func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned num_args, expr * const * args, sort * range) override;
 
-    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    void get_op_names(vector<builtin_name> & op_names, symbol const & logic) override;
 
-    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
+    void get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) override;
 
     bool is_value(app* a) const override;
 
@@ -1350,7 +1350,7 @@ public:
 // -----------------------------------
 
 class user_sort_plugin : public decl_plugin {
-    svector<symbol> m_sort_names;
+    vector<symbol> m_sort_names;
     dictionary<int> m_name2decl_kind;
 public:
     user_sort_plugin() {}
@@ -1631,9 +1631,9 @@ public:
 
     bool has_plugin(symbol const & s) const { return m_family_manager.has_family(s) && has_plugin(m_family_manager.get_family_id(s)); }
 
-    void get_dom(svector<symbol> & dom) const { m_family_manager.get_dom(dom); }
+    void get_dom(vector<symbol> & dom) const { m_family_manager.get_dom(dom); }
 
-    void get_range(svector<family_id> & range) const { m_family_manager.get_range(range); }
+    void get_range(vector<family_id> & range) const { m_family_manager.get_range(range); }
 
     family_id get_basic_family_id() const { return m_basic_family_id; }
 
@@ -2217,7 +2217,7 @@ public:
     bool is_proof(expr const * n) const { return is_app(n) && to_app(n)->get_decl()->get_range() == m_proof_sort; }
 
     proof* mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
-                            svector<std::pair<unsigned, unsigned> > const& positions,
+                            vector<std::pair<unsigned, unsigned> > const& positions,
                             vector<ref_vector<expr, ast_manager> > const& substs);
 
 
@@ -2245,7 +2245,7 @@ public:
     bool is_hyper_resolve(proof* p,
                           ref_vector<proof, ast_manager>& premises,
                           obj_ref<expr, ast_manager>& conclusion,
-                          svector<std::pair<unsigned, unsigned> > & positions,
+                          vector<std::pair<unsigned, unsigned> > & positions,
                           vector<ref_vector<expr, ast_manager> >& substs);
 
 

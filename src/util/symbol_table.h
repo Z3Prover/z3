@@ -193,7 +193,7 @@ public:
         }
     }
 
-    void get_dom(svector<symbol>& dom) const {
+    void get_dom(vector<symbol>& dom) const {
         for (auto kv : m_sym_table) {
             dom.push_back(kv.m_key);
         }

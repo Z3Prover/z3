@@ -498,7 +498,7 @@ static void tst9() {
     nlsat::explain& ex    = s.get_explain();
     int num_lo = 4;
     int num_hi = 5;
-    svector<nlsat::var> los, his;
+    vector<nlsat::var> los, his;
     for (int i = 0; i < num_lo; ++i) {
         los.push_back(s.mk_var(false));
         scoped_anum num(am);

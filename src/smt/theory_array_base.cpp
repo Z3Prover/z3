@@ -369,7 +369,7 @@ namespace smt {
         expr_ref f2 = instantiate_lambda(e2);
         args1.push_back(f1);
         args2.push_back(f2);
-        svector<symbol> names;
+        vector<symbol> names;
         sort_ref_vector sorts(m);
         for (unsigned i = 0; i < dimension; i++) {
             sort * srt = get_array_domain(s, i);
@@ -853,7 +853,7 @@ namespace smt {
         unsigned                        m_dim; //!< number of dimensions;
         app *                           m_else;
         bool                            m_unspecified_else;
-        svector<model_value_dependency> m_dependencies;
+        vector<model_value_dependency> m_dependencies;
 
     public:
         array_value_proc(family_id fid, sort * s, extra_fresh_value * v):

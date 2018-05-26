@@ -31,7 +31,7 @@ namespace smt {
     
     class theory_jobscheduler : public theory {
     public:
-        typedef svector<symbol> properties;
+        typedef vector<symbol> properties;
     protected:
 
         struct job_resource {
@@ -105,7 +105,7 @@ namespace smt {
             unsigned m_bound_jobs_lim;
             unsigned m_bound_qhead;
         };
-        svector<scope> m_scopes;
+        vector<scope> m_scopes;
         
     protected:
 

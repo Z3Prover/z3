@@ -79,7 +79,7 @@ namespace smt {
            whenever x and y contain complementary bits. However, this is too expensive
            when the bit is the true_literal or false_literal. The number of disequalities
            is too big. To avoid this problem, each equivalence class has a set
-           of its true_literal and false_literal bits in the form of svector<zero_one_bit>.
+           of its true_literal and false_literal bits in the form of vector<zero_one_bit>.
            
            Before merging two classes we just check if the merge is valid by traversing these
            vectors.
@@ -92,7 +92,7 @@ namespace smt {
                 m_owner(v), m_idx(idx), m_is_true(is_true) {}
         };
 
-        typedef svector<zero_one_bit> zero_one_bits;
+        typedef vector<zero_one_bit> zero_one_bits;
 
 #ifdef SPARSE_MAP
         typedef u_map<atom *>    bool_var2atom;
@@ -113,10 +113,10 @@ namespace smt {
         th_trail_stack           m_trail_stack;
         th_union_find            m_find;
         vector<literal_vector>   m_bits;     // per var, the bits of a given variable.
-        svector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
+        vector<unsigned>        m_wpos;     // per var, watch position for fixed variable detection. 
         vector<zero_one_bits>    m_zero_one_bits; // per var, see comment in the struct zero_one_bit
         bool_var2atom            m_bool_var2atom;
-        typedef svector<theory_var> vars;
+        typedef vector<theory_var> vars;
 
         typedef std::pair<numeral, unsigned> value_sort_pair;
         typedef pair_hash<obj_hash<numeral>, unsigned_hash> value_sort_pair_hash;
@@ -126,13 +126,13 @@ namespace smt {
         
         unsigned char            m_eq_activity[256];
         unsigned char            m_diseq_activity[256];
-        svector<std::pair<theory_var, theory_var>> m_replay_diseq;
+        vector<std::pair<theory_var, theory_var>> m_replay_diseq;
         vector<vector<std::pair<theory_var, theory_var>>> m_diseq_watch;
-        svector<bool_var> m_diseq_watch_trail;
+        vector<bool_var> m_diseq_watch_trail;
         unsigned_vector   m_diseq_watch_lim;
 
         literal_vector           m_tmp_literals;
-        svector<var_pos>         m_prop_queue;
+        vector<var_pos>         m_prop_queue;
         bool                     m_approximates_large_bvs;
 
         theory_var find(theory_var v) const { return m_find.find(v); }
@@ -238,7 +238,7 @@ namespace smt {
         final_check_status final_check_eh() override;
         void reset_eh() override;
         bool include_func_interp(func_decl* f) override;
-        svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
+        vector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
         bool can_propagate() override { return !m_replay_diseq.empty(); }
         void propagate() override;

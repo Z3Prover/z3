@@ -947,13 +947,13 @@ void basic_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_undef_decl = mk_compressed_proof_decl("undef", PR_UNDEF, 0);
 }
 
-void basic_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+void basic_decl_plugin::get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) {
     if (logic == symbol::null)
         sort_names.push_back(builtin_name("bool", BOOL_SORT));
     sort_names.push_back(builtin_name("Bool", BOOL_SORT));
 }
 
-void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void basic_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     op_names.push_back(builtin_name("true", OP_TRUE));
     op_names.push_back(builtin_name("false", OP_FALSE));
     op_names.push_back(builtin_name("=", OP_EQ));
@@ -3095,7 +3095,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         app const * cls   = to_app(f1);
         unsigned num_args = cls->get_num_args();
 #ifdef Z3DEBUG
-        svector<bool> found;
+        vector<bool> found;
 #endif
         for (unsigned i = 0; i < num_args; i++) {
             bool found_complement = false;
@@ -3351,7 +3351,7 @@ proof * ast_manager::mk_th_lemma(
 }
 
 proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
-                                     svector<std::pair<unsigned, unsigned> > const& positions,
+                                     vector<std::pair<unsigned, unsigned> > const& positions,
                                      vector<expr_ref_vector> const& substs) {
     ptr_vector<expr> fmls;
     SASSERT(positions.size() + 1 == substs.size());
@@ -3393,7 +3393,7 @@ bool ast_manager::is_hyper_resolve(
     proof* p,
     proof_ref_vector& premises,
     expr_ref& conclusion,
-    svector<std::pair<unsigned, unsigned> > & positions,
+    vector<std::pair<unsigned, unsigned> > & positions,
     vector<expr_ref_vector> & substs) {
     if (!is_hyper_resolve(p)) {
         return false;

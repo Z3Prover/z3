@@ -88,7 +88,7 @@ namespace smt {
             unsigned                           m_quantifiers_lim;
         };
         
-        svector<scope>                         m_scopes;
+        vector<scope>                         m_scopes;
         
         expr_ref_vector                        m_new_constraints; // new constraints for fresh constants created by the model finder
 

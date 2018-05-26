@@ -24,7 +24,7 @@ Revision History:
 
 class nat_set {
     unsigned          m_curr_timestamp;
-    svector<unsigned> m_timestamps;
+    vector<unsigned> m_timestamps;
 
 public:
     nat_set(unsigned s = 0):
@@ -73,8 +73,8 @@ public:
     }
 
     bool empty() const {
-        svector<unsigned>::const_iterator it  = m_timestamps.begin();
-        svector<unsigned>::const_iterator end = m_timestamps.end();
+        vector<unsigned>::const_iterator it  = m_timestamps.begin();
+        vector<unsigned>::const_iterator end = m_timestamps.end();
         for (; it != end; ++it) {
             if (*it > m_curr_timestamp) {
                 return false;

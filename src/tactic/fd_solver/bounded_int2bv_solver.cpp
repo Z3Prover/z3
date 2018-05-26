@@ -191,7 +191,7 @@ public:
     proof * get_proof() override { return m_solver->get_proof(); }
     std::string reason_unknown() const override { return m_solver->reason_unknown(); }
     void set_reason_unknown(char const* msg) override { m_solver->set_reason_unknown(msg); }
-    void get_labels(svector<symbol> & r) override { m_solver->get_labels(r); }
+    void get_labels(vector<symbol> & r) override { m_solver->get_labels(r); }
     ast_manager& get_manager() const override { return m;  }
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { flush_assertions(); return m_solver->cube(vars, backtrack_level); }
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { return m_solver->find_mutexes(vars, mutexes); }

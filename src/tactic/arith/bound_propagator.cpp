@@ -807,7 +807,7 @@ void bound_propagator::explain(var x, bound * b, unsigned ts, assumption_vector 
         ex.push_back(b->m_assumption);
         return;
     }
-    svector<var_bound> & todo = const_cast<bound_propagator*>(this)->m_todo;
+    vector<var_bound> & todo = const_cast<bound_propagator*>(this)->m_todo;
     todo.reset();
     unsigned qhead = 0;
     todo.push_back(var_bound(x, b));

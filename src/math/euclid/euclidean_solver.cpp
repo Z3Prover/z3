@@ -26,13 +26,13 @@ struct euclidean_solver::imp {
     typedef unsynch_mpq_manager                  numeral_manager;
     typedef numeral_buffer<mpz, numeral_manager> mpz_buffer;
     typedef numeral_buffer<mpq, numeral_manager> mpq_buffer;
-    typedef svector<justification>               justification_vector;
+    typedef vector<justification>               justification_vector;
     static const justification                   null_justification = UINT_MAX;
 #define null_var    UINT_MAX
 #define null_eq_idx UINT_MAX
-    typedef svector<var>                         var_vector;
-    typedef svector<mpz>                         mpz_vector;
-    typedef svector<mpq>                         mpq_vector;
+    typedef vector<var>                         var_vector;
+    typedef vector<mpz>                         mpz_vector;
+    typedef vector<mpq>                         mpq_vector;
 
     struct elim_order_lt {
         unsigned_vector & m_solved;
@@ -94,7 +94,7 @@ struct euclidean_solver::imp {
     };
     
     typedef ptr_vector<equation>   equations;
-    typedef svector<unsigned>      occs;
+    typedef vector<unsigned>      occs;
 
     numeral_manager *  m_manager;
     bool               m_owns_m;
@@ -102,7 +102,7 @@ struct euclidean_solver::imp {
     equations          m_equations;
     equations          m_solution;
     
-    svector<bool>      m_parameter;
+    vector<bool>      m_parameter;
     unsigned_vector    m_solved; // null_eq_idx if var is not solved, otherwise the position in m_solution
     vector<occs>       m_occs; // occurrences of the variable in m_equations.
     
@@ -133,7 +133,7 @@ struct euclidean_solver::imp {
     bool solved(var x) const { return m_solved[x] != null_eq_idx; }
 
     template<typename Numeral>
-    void sort_core(svector<Numeral> & as, unsigned_vector & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
+    void sort_core(vector<Numeral> & as, unsigned_vector & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
         std::sort(xs.begin(), xs.end());
         unsigned num = as.size();
         for (unsigned i = 0; i < num; i++) {
@@ -142,7 +142,7 @@ struct euclidean_solver::imp {
     }
     
     template<typename Numeral>
-    void sort(svector<Numeral> & as, unsigned_vector & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
+    void sort(vector<Numeral> & as, unsigned_vector & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
         unsigned num = as.size();
         for (unsigned i = 0; i < num; i++) {
             m().set(buffer[xs[i]], as[i]);
@@ -171,7 +171,7 @@ struct euclidean_solver::imp {
     }
 
     template<typename Numeral>
-    void div(svector<Numeral> & as, mpz const & g) {
+    void div(vector<Numeral> & as, mpz const & g) {
         unsigned n = as.size();
         for (unsigned i = 0; i < n; i++)
             m().div(as[i], g, as[i]);
@@ -289,7 +289,7 @@ struct euclidean_solver::imp {
     }
 
     template<typename Numeral>
-    void del_nums(svector<Numeral> & as) {
+    void del_nums(vector<Numeral> & as) {
         unsigned sz = as.size();
         for (unsigned i = 0; i < sz; i++)
             m().del(as[i]);
@@ -344,8 +344,8 @@ struct euclidean_solver::imp {
 
     */
     template<typename Numeral, bool UpdateOcc, bool UpdateQueue>
-    void addmul(svector<Numeral> const & as1, var_vector const & xs1,
-                mpz const & k, svector<Numeral> const & as2, var_vector const & xs2,
+    void addmul(vector<Numeral> const & as1, var_vector const & xs1,
+                mpz const & k, vector<Numeral> const & as2, var_vector const & xs2,
                 numeral_buffer<Numeral, numeral_manager> & new_as, var_vector & new_xs,
                 unsigned eq_idx = null_eq_idx, var except_var = null_var) {
         Numeral new_a;
@@ -571,7 +571,7 @@ struct euclidean_solver::imp {
     }
 
     template<typename Numeral>
-    void neg_coeffs(svector<Numeral> & as) {
+    void neg_coeffs(vector<Numeral> & as) {
         unsigned sz = as.size();
         for (unsigned i = 0; i < sz; i++) {
             m().neg(as[i]);

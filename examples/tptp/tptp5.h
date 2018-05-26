@@ -13,7 +13,7 @@ class TreeNode;
 #if 0
 class named_formulas {
     expr_ref_vector m_fmls;
-    svector<symbol> m_names;
+    vector<symbol> m_names;
     bool m_has_conjecture;
     unsigned m_conjecture_index;
 public:

@@ -71,7 +71,7 @@ void pp(std::ostream & out, format * f, ast_manager & m, params_ref const & _p) 
     unsigned len;
     unsigned i;
     int space_left;
-    svector<std::pair<format *, unsigned> > todo;
+    vector<std::pair<format *, unsigned> > todo;
     todo.push_back(std::make_pair(f, 0));
     app_ref  space(mk_string(m, " "), fm(m));
     while (!todo.empty()) {

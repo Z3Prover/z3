@@ -642,7 +642,7 @@ namespace datalog {
         typedef map<relation_signature, family_id2spec *, r_hash, r_eq> sig2spec_store;
 
         relation_plugin &  m_parent;
-        svector<family_id> m_allocated_kinds;
+        vector<family_id> m_allocated_kinds;
         sig2store          m_kind_assignment;
         sig2spec_store     m_kind_specs;
 

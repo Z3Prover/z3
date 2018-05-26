@@ -110,7 +110,7 @@ class expr_pattern_match {
     ast_manager &                 m_manager;
     quantifier_ref_vector         m_precompiled;
     unsigned_vector               m_first_instrs;
-    svector<instr>                m_instrs;
+    vector<instr>                m_instrs;
     ptr_vector<expr>              m_regs;
     ptr_vector<var>               m_bound_dom;
     ptr_vector<var>               m_bound_rng;

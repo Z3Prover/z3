@@ -593,7 +593,7 @@ cmd_context::check_sat_state cmd_context::cs_state() const {
 }
 
 void cmd_context::register_builtin_sorts(decl_plugin * p) {
-    svector<builtin_name> names;
+    vector<builtin_name> names;
     p->get_sort_names(names, m_logic);
     family_id fid = p->get_family_id();
     for (builtin_name const& n : names) {
@@ -603,7 +603,7 @@ void cmd_context::register_builtin_sorts(decl_plugin * p) {
 }
 
 void cmd_context::register_builtin_ops(decl_plugin * p) {
-    svector<builtin_name> names;
+    vector<builtin_name> names;
     p->get_op_names(names, m_logic);
     family_id fid = p->get_family_id();
     for (builtin_name const& n : names) {
@@ -627,7 +627,7 @@ void cmd_context::register_plugin(symbol const & name, decl_plugin * p, bool ins
     }
 }
 
-void cmd_context::load_plugin(symbol const & name, bool install, svector<family_id>& fids) {
+void cmd_context::load_plugin(symbol const & name, bool install, vector<family_id>& fids) {
     family_id id = m_manager->get_family_id(name);
     decl_plugin* p = m_manager->get_plugin(id);
     if (install && p && fids.contains(id)) {
@@ -694,7 +694,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         // the manager was created by an external module
         // we register all plugins available in the manager.
         // unless the logic specifies otherwise.
-        svector<family_id> fids;
+        vector<family_id> fids;
         m_manager->get_range(fids);
         load_plugin(symbol("arith"),    logic_has_arith(), fids);
         load_plugin(symbol("bv"),       logic_has_bv(), fids);
@@ -902,7 +902,7 @@ recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int a
 }
 
 // insert a recursive function as a regular quantified axiom
-void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& binding, svector<symbol> const &ids, expr* e) {
+void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& binding, vector<symbol> const &ids, expr* e) {
     expr_ref eq(m());
     app_ref lhs(m());
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
@@ -925,7 +925,7 @@ void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& b
 }
 
 
-void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* rhs) {
+void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, vector<symbol> const& ids, expr* rhs) {
 
     if (gparams::get_value("smt.recfun.native") != "true") {
         // just use an axiom
@@ -1396,8 +1396,8 @@ void cmd_context::push(unsigned n) {
 
 void cmd_context::restore_func_decls(unsigned old_sz) {
     SASSERT(old_sz <= m_func_decls_stack.size());
-    svector<sf_pair>::iterator it  = m_func_decls_stack.begin() + old_sz;
-    svector<sf_pair>::iterator end = m_func_decls_stack.end();
+    vector<sf_pair>::iterator it  = m_func_decls_stack.begin() + old_sz;
+    vector<sf_pair>::iterator end = m_func_decls_stack.end();
     for (; it != end; ++it) {
         sf_pair const & p = *it;
         erase_func_decl_core(p.first, p.second);
@@ -1416,8 +1416,8 @@ void cmd_context::restore_psort_inst(unsigned old_sz) {
 
 void cmd_context::restore_psort_decls(unsigned old_sz) {
     SASSERT(old_sz <= m_psort_decls_stack.size());
-    svector<symbol>::iterator it  = m_psort_decls_stack.begin() + old_sz;
-    svector<symbol>::iterator end = m_psort_decls_stack.end();
+    vector<symbol>::iterator it  = m_psort_decls_stack.begin() + old_sz;
+    vector<symbol>::iterator end = m_psort_decls_stack.end();
     for (; it != end; ++it) {
         symbol const & s = *it;
         psort_decl * d = nullptr;
@@ -1430,8 +1430,8 @@ void cmd_context::restore_psort_decls(unsigned old_sz) {
 
 void cmd_context::restore_macros(unsigned old_sz) {
     SASSERT(old_sz <= m_macros_stack.size());
-    svector<symbol>::iterator it  = m_macros_stack.begin() + old_sz;
-    svector<symbol>::iterator end = m_macros_stack.end();
+    vector<symbol>::iterator it  = m_macros_stack.begin() + old_sz;
+    vector<symbol>::iterator end = m_macros_stack.end();
     for (; it != end; ++it) {
         symbol const & s = *it;
         erase_macro(s);
@@ -2056,7 +2056,7 @@ void cmd_context::slow_progress_sample() {
     regular_stream() << "(progress\n";
     m_solver->collect_statistics(st);
     st.display_smt2(regular_stream());
-    svector<symbol> labels;
+    vector<symbol> labels;
     m_solver->get_labels(labels);
     regular_stream() << "(labels";
     for (symbol const& s : labels) {

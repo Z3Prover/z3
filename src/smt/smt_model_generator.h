@@ -198,12 +198,12 @@ namespace smt {
         void register_macros();
 
         bool visit_children(source const & src, ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, 
-                            source2color & colors, obj_hashtable<sort> & already_traversed, svector<source> & todo);
+                            source2color & colors, obj_hashtable<sort> & already_traversed, vector<source> & todo);
 
         void process_source(source const & src, ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, 
-                            source2color & colors, obj_hashtable<sort> & already_traversed, svector<source> & todo, svector<source> & sorted_sources);
+                            source2color & colors, obj_hashtable<sort> & already_traversed, vector<source> & todo, vector<source> & sorted_sources);
 
-        void top_sort_sources(ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, svector<source> & sorted_sources);
+        void top_sort_sources(ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, vector<source> & sorted_sources);
 
     public:
         model_generator(ast_manager & m);

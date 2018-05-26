@@ -424,8 +424,8 @@ struct aig_manager::imp {
             frame(app * t, unsigned spos):m_t(t), m_idx(0), m_spos(spos) {}
         };
         imp &                  m;
-        svector<frame>         m_frame_stack;
-        svector<aig_lit>       m_result_stack;
+        vector<frame>         m_frame_stack;
+        vector<aig_lit>       m_result_stack;
         obj_map<expr, aig_lit> m_cache;
         
         expr2aig(imp & _m):m(_m) {}
@@ -750,7 +750,7 @@ struct aig_manager::imp {
             frame(aig * n, kind k):m_node(n), m_kind(k), m_first(true) {}
         };
         expr_ref_vector m_cache;
-        svector<frame>  m_frame_stack;
+        vector<frame>  m_frame_stack;
 
         aig2expr(imp & _m):m(_m), ast_mng(m.m()), m_cache(ast_mng) {}
         
@@ -1027,9 +1027,9 @@ struct aig_manager::imp {
             frame(aig * n):m_node(n), m_idx(0) {}
         };
         imp &             m;
-        svector<frame>    m_frame_stack;
-        svector<aig_lit>  m_result_stack;
-        svector<aig_lit>  m_cache;
+        vector<frame>    m_frame_stack;
+        vector<aig_lit>  m_result_stack;
+        vector<aig_lit>  m_cache;
         ptr_vector<aig>   m_saved;
 
         max_sharing_proc(imp & _m):m(_m) {}

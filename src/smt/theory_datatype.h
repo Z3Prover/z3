@@ -80,7 +80,7 @@ namespace smt {
         ptr_vector<enode>     m_to_unmark2;
         enode_pair_vector     m_used_eqs; // conflict, if any
         parent_tbl            m_parent; // parent explanation for occurs_check
-        svector<stack_entry>  m_stack; // stack for DFS for occurs_check
+        vector<stack_entry>  m_stack; // stack for DFS for occurs_check
 
         void oc_mark_on_stack(enode * n);
         bool oc_on_stack(enode * n) const { return n->get_root()->is_marked(); }

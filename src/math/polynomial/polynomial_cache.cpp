@@ -91,7 +91,7 @@ namespace polynomial {
         psc_chain_cache          m_psc_chain_cache;
         factor_cache             m_factor_cache;
         polynomial_ref_vector    m_cached_polys;
-        svector<char>            m_in_cache;
+        vector<char>            m_in_cache;
         small_object_allocator & m_allocator;
 
         imp(manager & _m):m(_m), m_poly_table(poly_hash_proc(m), poly_eq_proc(m)), m_cached_polys(m), m_allocator(m.allocator()) {

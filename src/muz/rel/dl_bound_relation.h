@@ -117,7 +117,7 @@ namespace datalog {
 
     class bound_relation : public vector_relation<uint_set2, bound_relation_helper> {
         friend class bound_relation_plugin;
-        svector<std::pair<unsigned, bool> > m_todo;        
+        vector<std::pair<unsigned, bool> > m_todo;        
 
     public:
         bound_relation(bound_relation_plugin& p, relation_signature const& s, bool is_empty);

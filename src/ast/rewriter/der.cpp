@@ -228,7 +228,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
         return;
 
     typedef std::pair<expr *, unsigned> frame;
-    svector<frame> todo;
+    vector<frame> todo;
 
     expr_fast_mark1 visiting;
     expr_fast_mark2 done;

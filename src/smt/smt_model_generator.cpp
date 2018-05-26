@@ -157,7 +157,7 @@ namespace smt {
         colors.insert(s, c);
     }
     
-    static void visit_child(source const & s, source2color & colors, svector<source> & todo, bool & visited) {
+    static void visit_child(source const & s, source2color & colors, vector<source> & todo, bool & visited) {
         if (get_color(colors, s) == White) {
             todo.push_back(s);
             visited = false;
@@ -169,7 +169,7 @@ namespace smt {
                                          obj_map<enode, model_value_proc *> const & root2proc, 
                                          source2color & colors, 
                                          obj_hashtable<sort> & already_traversed, 
-                                         svector<source> & todo) {
+                                         vector<source> & todo) {
 
         if (src.is_fresh_value()) {
             // there is an implicit dependency between a fresh value stub of 
@@ -216,8 +216,8 @@ namespace smt {
                                          obj_map<enode, model_value_proc *> const & root2proc, 
                                          source2color & colors, 
                                          obj_hashtable<sort> & already_traversed, 
-                                         svector<source> & todo,
-                                         svector<source> & sorted_sources) {
+                                         vector<source> & todo,
+                                         vector<source> & sorted_sources) {
         TRACE("mg_top_sort", tout << "process source, is_fresh: " << src.is_fresh_value() << " ";
               tout << src << ", todo.size(): " << todo.size() << "\n";);
         int color     = get_color(colors, src);
@@ -256,9 +256,9 @@ namespace smt {
     */
     void model_generator::top_sort_sources(ptr_vector<enode> const & roots, 
                                            obj_map<enode, model_value_proc *> const & root2proc, 
-                                           svector<source> & sorted_sources) {
+                                           vector<source> & sorted_sources) {
         
-        svector<source>     todo;
+        vector<source>     todo;
         source2color        colors;
         // The following 'set' of sorts is used to avoid traversing roots looking for enodes of sort S.
         // That is, a sort S is in already_traversed, if all enodes of sort S in roots were already traversed.
@@ -289,7 +289,7 @@ namespace smt {
         obj_map<enode, model_value_proc *> root2proc;
         ptr_vector<enode> roots;
         ptr_vector<model_value_proc> procs;
-        svector<source> sources;
+        vector<source> sources;
         buffer<model_value_dependency> dependencies;
         ptr_vector<expr> dependency_values;
         mk_value_procs(root2proc, roots, procs);

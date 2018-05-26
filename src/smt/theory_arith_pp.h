@@ -65,8 +65,8 @@ namespace smt {
         if (m_nl_monomials.empty())
             return;
         out << "non linear monomials:\n";
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
+        vector<theory_var>::const_iterator it  = m_nl_monomials.begin();
+        vector<theory_var>::const_iterator end = m_nl_monomials.end();
         for (; it != end; ++it)
             display_var(out, *it);
     }

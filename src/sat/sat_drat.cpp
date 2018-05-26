@@ -364,7 +364,7 @@ namespace sat {
                     IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
                 }
             }
-            svector<sat::solver::bin_clause> bin;
+            vector<sat::solver::bin_clause> bin;
             s.collect_bin_clauses(bin, true);
             for (auto & b : bin) {
                 bool found = false;
@@ -676,7 +676,7 @@ namespace sat {
             append(*cl, get_status(learned));
         }
     }
-    void drat::add(literal_vector const& lits, svector<premise> const& premises) {
+    void drat::add(literal_vector const& lits, vector<premise> const& premises) {
         if (m_check) {
             switch (lits.size()) {
             case 0: add(); break;

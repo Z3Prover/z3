@@ -68,7 +68,7 @@ namespace smt {
         unsigned sz = ctx.m_bool_var2expr.size();
         bool_var best_v = null_bool_var;
         double best_score = -1;
-        svector<bool_var> vars;
+        vector<bool_var> vars;
         for (bool_var v = 0; v < static_cast<bool_var>(sz); ++v) {
             expr* b = ctx.bool_var2expr(v);
             if (b && ctx.get_assignment(v) == l_undef) {

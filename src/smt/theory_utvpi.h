@@ -58,7 +58,7 @@ namespace smt {
         
         typedef typename Ext::numeral numeral;
         typedef theory_var th_var;
-        typedef svector<th_var> th_var_vector;
+        typedef vector<th_var> th_var_vector;
         typedef vector<std::pair<th_var, rational> >  coeffs;
 
         class assignment_trail;
@@ -86,7 +86,7 @@ namespace smt {
             int get_neg() const { return m_neg; }
             std::ostream& display(theory_utvpi const& th, std::ostream& out) const;
         };
-        typedef svector<atom> atoms;
+        typedef vector<atom> atoms;
         
         struct scope {
             unsigned   m_atoms_lim;
@@ -146,7 +146,7 @@ namespace smt {
         unsigned_vector         m_asserted_atoms;   // set of asserted atoms
         unsigned                m_asserted_qhead;   
         u_map<unsigned>         m_bool_var2atom;
-        svector<scope>          m_scopes;
+        vector<scope>          m_scopes;
 
         double                  m_agility;
         bool                    m_lia;

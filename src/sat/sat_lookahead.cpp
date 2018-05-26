@@ -599,12 +599,12 @@ namespace sat {
 
     void lookahead::ensure_H(unsigned level) {
         while (m_H.size() <= level) {
-            m_H.push_back(svector<double>());
+            m_H.push_back(vector<double>());
             m_H.back().resize(m_num_vars * 2, 0);
         }
     }
 
-    void lookahead::h_scores(svector<double>& h, svector<double>& hp) {
+    void lookahead::h_scores(vector<double>& h, vector<double>& hp) {
         double sum = 0;
         for (bool_var x : m_freevars) {
             literal l(x, false);
@@ -624,7 +624,7 @@ namespace sat {
         }
     }
 
-    double lookahead::l_score(literal l, svector<double> const& h, double factor, double sqfactor, double afactor) {
+    double lookahead::l_score(literal l, vector<double> const& h, double factor, double sqfactor, double afactor) {
         double sum = 0, tsum = 0;
         for (literal lit : m_binary[l.index()]) {
             if (is_undef(lit)) sum += h[lit.index()]; 
@@ -975,8 +975,8 @@ namespace sat {
         m_binary.push_back(literal_vector());
         m_watches.push_back(watch_list());
         m_watches.push_back(watch_list());
-        m_ternary.push_back(svector<binary>());
-        m_ternary.push_back(svector<binary>());
+        m_ternary.push_back(vector<binary>());
+        m_ternary.push_back(vector<binary>());
         m_ternary_count.push_back(0);
         m_ternary_count.push_back(0);
         m_nary.push_back(ptr_vector<nary>());
@@ -2084,7 +2084,7 @@ namespace sat {
         }
     }
 
-    bool lookahead::backtrack(literal_vector& trail, svector<bool> & is_decision) {
+    bool lookahead::backtrack(literal_vector& trail, vector<bool> & is_decision) {
         m_cube_state.m_backtracks++;
         while (inconsistent()) {
             if (trail.empty()) return false;
@@ -2466,7 +2466,7 @@ namespace sat {
 
         big big(m_s.m_rand);
         big.init(m_s, true);
-        svector<std::pair<literal, literal>> candidates;
+        vector<std::pair<literal, literal>> candidates;
 
         unsigned_vector bin_size(num_lits);
         for (unsigned idx : m_binary_trail) {

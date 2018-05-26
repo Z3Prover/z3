@@ -415,7 +415,7 @@ namespace qe {
         expr_ref_vector  m_trail;          // trail for generated terms
         expr_ref_vector  m_args; 
         ptr_vector<expr> m_todo;           // stack of formulas to visit
-        svector<bool>    m_pols;           // stack of polarities
+        vector<bool>    m_pols;           // stack of polarities
         bool_rewriter    m_rewriter;
         
     public:
@@ -2451,7 +2451,7 @@ namespace qe {
         expr_ref tmp(m);
         expr_abstract(m, 0, num_bound, (expr*const*)vars, fml, tmp);
         ptr_vector<sort> sorts;
-        svector<symbol> names;
+        vector<symbol> names;
         for (unsigned i = 0; i < num_bound; ++i) {
             sorts.push_back(vars[i]->get_decl()->get_range());
             names.push_back(vars[i]->get_decl()->get_name());
@@ -2618,7 +2618,7 @@ namespace qe {
             expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), result, result);
             TRACE("qe", tout << "abstracted" << mk_pp(result, m) << "\n";);
             ptr_vector<sort> sorts;
-            svector<symbol> names;
+            vector<symbol> names;
             for (unsigned i = 0; i < vars.size(); ++i) {
                 sorts.push_back(vars[i]->get_decl()->get_range());
                 names.push_back(vars[i]->get_decl()->get_name());

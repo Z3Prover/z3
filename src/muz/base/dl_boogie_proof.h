@@ -54,7 +54,7 @@ define-fun) when Boogie supports this.
 namespace datalog {
     class boogie_proof {
         typedef vector<std::pair<symbol,expr*> > subst;
-        typedef svector<symbol> labels;
+        typedef vector<symbol> labels;
         typedef unsigned_vector  refs;
         struct step {
             symbol m_rule_name;

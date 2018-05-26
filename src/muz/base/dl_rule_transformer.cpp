@@ -132,7 +132,7 @@ namespace datalog {
     //
     //------------------------------
 
-    void rule_transformer::plugin::remove_duplicate_tails(app_ref_vector& tail, svector<bool>& tail_neg)
+    void rule_transformer::plugin::remove_duplicate_tails(app_ref_vector& tail, vector<bool>& tail_neg)
     {
         //one set for positive and one for negative
         obj_hashtable<app> tail_apps[2];

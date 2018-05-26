@@ -71,5 +71,5 @@ std::string simple_check_sat_result::reason_unknown() const {
     return m_unknown; 
 }
 
-void simple_check_sat_result::get_labels(svector<symbol> & r) {
+void simple_check_sat_result::get_labels(vector<symbol> & r) {
 }

@@ -30,7 +30,7 @@ class hnf_cutter {
     general_matrix             m_A;
     vector<const lar_term*>    m_terms;
     vector<bool>               m_terms_upper;
-    svector<constraint_index>  m_constraints_for_explanation;
+    vector<constraint_index>  m_constraints_for_explanation;
     vector<mpq>                m_right_sides;
     lp_settings &              m_settings;
     mpq                        m_abs_max;
@@ -47,7 +47,7 @@ public:
     }
 
     const vector<const lar_term*>& terms() const { return m_terms; }
-    const svector<unsigned>& constraints_for_explanation() const {
+    const vector<unsigned>& constraints_for_explanation() const {
         return m_constraints_for_explanation;
     }
     const vector<mpq> & right_sides() const { return m_right_sides; }
@@ -106,7 +106,7 @@ public:
         }
     }
 
-    vector<mpq> create_b(const svector<unsigned> & basis_rows) {
+    vector<mpq> create_b(const vector<unsigned> & basis_rows) {
         if (basis_rows.size() == m_right_sides.size())
             return m_right_sides;
         vector<mpq> b;
@@ -176,8 +176,8 @@ public:
         return ret;
     }
 #endif
-    void shrink_explanation(const svector<unsigned>& basis_rows) {
-        svector<unsigned> new_expl;
+    void shrink_explanation(const vector<unsigned>& basis_rows) {
+        vector<unsigned> new_expl;
         for (unsigned i : basis_rows) {
             new_expl.push_back(m_constraints_for_explanation[i]);
         }
@@ -191,7 +191,7 @@ public:
         (void)x0;
 
         init_matrix_A();
-        svector<unsigned> basis_rows;
+        vector<unsigned> basis_rows;
         mpq big_number = m_abs_max.expt(3);
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows, big_number);
         
@@ -233,6 +233,6 @@ public:
         return lia_move::cut;
     }
 
-    svector<unsigned> vars() const { return m_var_register.vars(); }
+    vector<unsigned> vars() const { return m_var_register.vars(); }
 };
 }

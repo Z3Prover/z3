@@ -37,7 +37,7 @@ class sem_matcher {
     arith_util m_arith;
     expr_ref_vector m_pinned;
     substitution *        m_subst;
-    svector<expr_pair>    m_todo;
+    vector<expr_pair>     m_todo;
 
     void reset();
 

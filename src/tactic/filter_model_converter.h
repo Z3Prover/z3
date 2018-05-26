@@ -32,7 +32,7 @@ public:
     
     void operator()(model_ref & md, unsigned goal_idx) override;
 
-    virtual void operator()(svector<symbol> & labels, unsigned goal_idx);
+    virtual void operator()(vector<symbol> & labels, unsigned goal_idx);
     
     void operator()(model_ref & md) override { operator()(md, 0); } // TODO: delete
 

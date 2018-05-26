@@ -175,7 +175,7 @@ namespace sat {
 
         struct cube_state {
             bool           m_first;
-            svector<bool>  m_is_decision;
+            vector<bool>  m_is_decision;
             literal_vector m_cube;
             double         m_freevars_threshold;
             double         m_psat_threshold;
@@ -211,7 +211,7 @@ namespace sat {
 
         // specialized clause managemet uses ternary clauses and dedicated clause data-structure.
         // this replaces m_clauses below
-        vector<svector<binary>> m_ternary;        // lit |-> vector of ternary clauses
+        vector<vector<binary>> m_ternary;        // lit |-> vector of ternary clauses
         unsigned_vector         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
 
         small_object_allocator    m_allocator;
@@ -225,21 +225,21 @@ namespace sat {
         unsigned_vector        m_qhead_lim;
         bool                   m_inconsistent;
         unsigned_vector        m_bstamp;        // literal: timestamp for binary implication
-        vector<svector<double> >  m_H;           // literal: fitness score
-        svector<double>*        m_heur;          // current fitness 
-        svector<double>         m_rating;        // var:     pre-selection rating
+        vector<vector<double> >  m_H;           // literal: fitness score
+        vector<double>*        m_heur;          // current fitness 
+        vector<double>         m_rating;        // var:     pre-selection rating
         unsigned               m_bstamp_id;     // unique id for binary implication.
         unsigned               m_istamp_id;     // unique id for managing double lookaheads
         unsigned_vector        m_stamp;         // var: timestamp with truth value        
         unsigned               m_level;         // current level, = 2 * m_trail_lim.size() 
         const unsigned         c_fixed_truth = UINT_MAX - 1;
         vector<watch_list>     m_watches;       // literal: watch structure
-        svector<lit_info>      m_lits;          // literal: attributes.
+        vector<lit_info>      m_lits;          // literal: attributes.
         double                 m_lookahead_reward; // metric associated with current lookahead1 literal.
         literal_vector         m_wstack;        // windofall stack that is populated in lookahead1 mode
         unsigned               m_last_prefix_length;
         uint64_t                 m_prefix;        // where we are in search tree
-        svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
+        vector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
         unsigned               m_rating_throttle; // throttle to recompute rating
         indexed_uint_set       m_freevars;
         unsigned               m_init_freevars;
@@ -349,7 +349,7 @@ namespace sat {
             double    m_rating;
             candidate(bool_var v, double r): m_var(v), m_rating(r) {}
         };
-        svector<candidate> m_candidates;
+        vector<candidate> m_candidates;
         uint_set           m_select_lookahead_vars;
 
         double get_rating(bool_var v) const { return m_rating[v]; }
@@ -367,14 +367,14 @@ namespace sat {
         bool missed_conflict() const;
         void init_pre_selection(unsigned level);
         void ensure_H(unsigned level);
-        void h_scores(svector<double>& h, svector<double>& hp);
+        void h_scores(vector<double>& h, vector<double>& hp);
         void heule_schur_scores();
         double heule_schur_score(literal l);
         void heule_unit_scores();
         double heule_unit_score(literal l);
         void march_cu_scores();
         double march_cu_score(literal l);
-        double l_score(literal l, svector<double> const& h, double factor, double sqfactor, double afactor);
+        double l_score(literal l, vector<double> const& h, double factor, double sqfactor, double afactor);
 
         // ------------------------------------       
         // Implication graph
@@ -462,7 +462,7 @@ namespace sat {
             unsigned m_offset;
             literal_offset(literal l): m_lit(l), m_offset(0) {}
         };
-        svector<literal_offset> m_lookahead;
+        vector<literal_offset> m_lookahead;
         void set_offset(unsigned idx, unsigned offset) { m_lookahead[idx].m_offset = offset; }
         void set_lookahead(literal l) { m_lookahead.push_back(literal_offset(l)); }
         void construct_lookahead_table();
@@ -540,7 +540,7 @@ namespace sat {
         void assign(literal l);
         void propagated(literal l);
         bool backtrack(literal_vector& trail);
-        bool backtrack(literal_vector& trail, svector<bool> & is_decision);
+        bool backtrack(literal_vector& trail, vector<bool> & is_decision);
         lbool search();
         void init_model();
         std::ostream& display_binary(std::ostream& out) const;

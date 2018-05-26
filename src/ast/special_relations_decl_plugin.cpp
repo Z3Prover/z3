@@ -59,7 +59,7 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
     return m_manager->mk_func_decl(name, arity, domain, range, info);
 }
 
-void special_relations_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void special_relations_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     if (logic == symbol::null) {
         op_names.push_back(builtin_name(m_po.bare_str(), OP_SPECIAL_RELATION_PO));
         op_names.push_back(builtin_name(m_lo.bare_str(), OP_SPECIAL_RELATION_LO));

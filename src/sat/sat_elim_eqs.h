@@ -31,7 +31,7 @@ namespace sat {
             bool learned;
             bin(literal l1, literal l2, bool learned): l1(l1), l2(l2), learned(learned) {}
         };
-        svector<bin> m_new_bin;
+        vector<bin> m_new_bin;
         solver & m_solver;
         tmp_clause* m_to_delete;
         void drat_delete_clause();

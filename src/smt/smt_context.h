@@ -135,7 +135,7 @@ namespace smt {
             new_eq(enode * lhs, enode * rhs, eq_justification const & js):
                 m_lhs(lhs), m_rhs(rhs), m_justification(js) {}
         };
-        svector<new_eq>             m_eq_propagation_queue;
+        vector<new_eq>             m_eq_propagation_queue;
         struct new_th_eq {
             theory_id  m_th_id;
             theory_var m_lhs;
@@ -143,12 +143,12 @@ namespace smt {
             new_th_eq():m_th_id(null_theory_id), m_lhs(null_theory_var), m_rhs(null_theory_var) {}
             new_th_eq(theory_id id, theory_var l, theory_var r):m_th_id(id), m_lhs(l), m_rhs(r) {}
         };
-        svector<new_th_eq>          m_th_eq_propagation_queue;
-        svector<new_th_eq>          m_th_diseq_propagation_queue;
+        vector<new_th_eq>          m_th_eq_propagation_queue;
+        vector<new_th_eq>          m_th_diseq_propagation_queue;
 #ifdef Z3DEBUG
-        svector<new_th_eq>          m_propagated_th_eqs;
-        svector<new_th_eq>          m_propagated_th_diseqs;
-        svector<enode_pair>         m_diseq_vector;
+        vector<new_th_eq>          m_propagated_th_eqs;
+        vector<new_th_eq>          m_propagated_th_diseqs;
+        vector<enode_pair>         m_diseq_vector;
 #endif
         enode *                     m_is_diseq_tmp; // auxiliary enode used to find congruent equality atoms.
 
@@ -161,7 +161,7 @@ namespace smt {
         //
         // -----------------------------------
 #if USE_BOOL_VAR_VECTOR
-        svector<bool_var>           m_expr2bool_var;         // expr id -> bool_var
+        vector<bool_var>           m_expr2bool_var;         // expr id -> bool_var
 #else
         u_map<bool_var>             m_expr2bool_var;
 #endif
@@ -169,13 +169,13 @@ namespace smt {
         signed_char_vector          m_assignment;  //!< mapping literal id -> assignment lbool
         vector<watch_list>          m_watches;     //!< per literal
         vector<clause_set>          m_lit_occs;    //!< index for backward subsumption
-        svector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
-        svector<double>             m_activity;
+        vector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
+        vector<double>             m_activity;
         clause_vector               m_aux_clauses;
         clause_vector               m_lemmas;
         vector<clause_vector>       m_clauses_to_reinit;
         expr_ref_vector             m_units_to_reassert;
-        svector<char>               m_units_to_reassert_sign;
+        vector<char>               m_units_to_reassert_sign;
         literal_vector              m_assigned_literals;
         typedef std::pair<clause*, literal_vector> tmp_clause;
         vector<tmp_clause>          m_tmp_clauses;
@@ -414,7 +414,7 @@ namespace smt {
             return m_searching;
         }
 
-        svector<double> const & get_activity_vector() const {
+        vector<double> const & get_activity_vector() const {
             return m_activity;
         }
 
@@ -642,8 +642,8 @@ namespace smt {
             unsigned                m_inconsistent;
         };
 
-        svector<scope>              m_scopes;
-        svector<base_scope>         m_base_scopes;
+        vector<scope>              m_scopes;
+        vector<base_scope>         m_base_scopes;
 
         void push_scope();
 
@@ -750,11 +750,11 @@ namespace smt {
 
         typedef std::pair<expr *, bool> expr_bool_pair;
 
-        void ts_visit_child(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo, bool & visited);
+        void ts_visit_child(expr * n, bool gate_ctx, vector<int> & tcolors, vector<int> & fcolors, vector<expr_bool_pair> & todo, bool & visited);
 
-        bool ts_visit_children(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo);
+        bool ts_visit_children(expr * n, bool gate_ctx, vector<int> & tcolors, vector<int> & fcolors, vector<expr_bool_pair> & todo);
 
-        void top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs);
+        void top_sort_expr(expr * n, vector<expr_bool_pair> & sorted_exprs);
 
         void assert_default(expr * n, proof * pr);
 
@@ -1205,7 +1205,7 @@ namespace smt {
 
         bool is_relevant_core(expr * n) const { return m_relevancy_propagator->is_relevant(n); }
 
-        svector<bool>  m_relevant_conflict_literals;
+        vector<bool>  m_relevant_conflict_literals;
         void record_relevancy(unsigned n, literal const* lits);
         void restore_relevancy(unsigned n, literal const* lits);
 

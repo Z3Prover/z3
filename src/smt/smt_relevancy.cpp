@@ -142,12 +142,12 @@ namespace smt {
             kind get_kind() const { return m_kind; }
             expr * get_node() const { return m_node; }
         };
-        svector<eh_trail>              m_trail;
+        vector<eh_trail>              m_trail;
         struct scope {
             unsigned m_relevant_exprs_lim;
             unsigned m_trail_lim;
         };
-        svector<scope>                 m_scopes;
+        vector<scope>                 m_scopes;
         bool                           m_propagating;
 
         relevancy_propagator_imp(context & ctx):

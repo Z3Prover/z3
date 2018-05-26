@@ -33,7 +33,7 @@ struct ast_pp_dot_st {
     unsigned                m_next_id;
     expr2id                 m_id_map;
     obj_hashtable<const expr>     m_printed;
-    svector<const expr *>   m_to_print;
+    vector<const expr *>   m_to_print;
     bool                    m_first;
 
     ast_pp_dot_st(const ast_pp_dot * pp, std::ostream & out) :

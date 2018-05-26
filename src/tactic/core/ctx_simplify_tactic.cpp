@@ -153,7 +153,7 @@ struct ctx_simplify_tactic::imp {
     ast_manager &               m;
     simplifier*                 m_simp;
     small_object_allocator      m_allocator;
-    svector<cache_cell>         m_cache;
+    vector<cache_cell>         m_cache;
     vector<ptr_vector<expr> >   m_cache_undo;
     unsigned                    m_depth;
     unsigned                    m_num_steps;

@@ -51,7 +51,7 @@ namespace smt {
         cost_parser                   m_parser;
         cost_evaluator                m_evaluator;
         cached_var_subst              m_subst;
-        svector<float>                m_vals;
+        vector<float>                m_vals;
         double                        m_eager_cost_threshold;
         struct entry {
             fingerprint * m_qb;
@@ -60,8 +60,8 @@ namespace smt {
             unsigned      m_instantiated:1;
             entry(fingerprint * f, float c, unsigned g):m_qb(f), m_cost(c), m_generation(g), m_instantiated(false) {}
         };
-        svector<entry>                m_new_entries;
-        svector<entry>                m_delayed_entries;
+        vector<entry>                m_new_entries;
+        vector<entry>                m_delayed_entries;
         expr_ref_vector               m_instances;
         unsigned_vector               m_instantiated_trail;
         struct scope {
@@ -69,7 +69,7 @@ namespace smt {
             unsigned   m_instances_lim;
             unsigned   m_instantiated_trail_lim;
         };
-        svector<scope>                m_scopes;
+        vector<scope>                m_scopes;
 
         void init_parser_vars();
         quantifier_stat * set_values(quantifier * q, app * pat, unsigned generation, unsigned min_top_generation, unsigned max_top_generation, float cost);

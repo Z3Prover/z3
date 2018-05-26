@@ -99,7 +99,7 @@ namespace simplex {
         unsigned                    m_max_iterations;
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
-        svector<var_t>              m_row2base;
+        vector<var_t>              m_row2base;
         bool                        m_bland;
         unsigned                    m_blands_rule_threshold;
         random_gen                  m_random;

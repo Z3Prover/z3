@@ -191,7 +191,7 @@ namespace sat {
         bool was_removed() const { return !is_binary() && get_clause()->was_removed(); }
     };
 
-    typedef svector<clause_wrapper> clause_wrapper_vector;
+    typedef vector<clause_wrapper> clause_wrapper_vector;
 
     std::ostream & operator<<(std::ostream & out, clause_wrapper const & c);
 

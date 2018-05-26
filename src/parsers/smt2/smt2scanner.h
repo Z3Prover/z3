@@ -48,12 +48,12 @@ namespace smt2 {
         char               m_buffer[SCANNER_BUFFER_SIZE];
         unsigned           m_bpos;
         unsigned           m_bend;
-        svector<char>      m_string;
+        vector<char>      m_string;
         std::istream&      m_stream;
         
         bool               m_cache_input;
-        svector<char>      m_cache;
-        svector<char>      m_cache_result;
+        vector<char>      m_cache;
+        vector<char>      m_cache_result;
         
         bool               m_smtlib2_compliant;
         

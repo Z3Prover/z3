@@ -790,7 +790,7 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
 };
 
 struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
-    svector<unsigned> m_indices;
+    vector<unsigned> m_indices;
 
     indexed_sort_info(pdecl_manager & m, psort_decl * d, unsigned n, unsigned const * s):
         sort_info(m, d),

@@ -48,7 +48,7 @@ void tst_substitution()
 
     expr_ref q(m), body(m);
     sort_ref_vector sorts(m);
-    svector<symbol> names;
+    vector<symbol> names;
     sorts.push_back(m.mk_bool_sort());
     names.push_back(symbol("dude"));
     body = m.mk_and(m.mk_eq(v1,v2), m.mk_eq(v3,v4));

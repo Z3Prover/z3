@@ -83,7 +83,7 @@ extern "C" {
             }
         }
         sort* const* ts = reinterpret_cast<sort * const*>(sorts);
-        svector<symbol> names;
+        vector<symbol> names;
         for (unsigned i = 0; i < num_decls; ++i) {
             names.push_back(to_symbol(decl_names[i]));
         }
@@ -159,7 +159,7 @@ extern "C" {
         }
 
         sort* const* ts = reinterpret_cast<sort * const*>(types);
-        svector<symbol> names;
+        vector<symbol> names;
         for (unsigned i = 0; i < num_decls; ++i) {
             names.push_back(to_symbol(decl_names[i]));
         }
@@ -181,7 +181,7 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
 
-        svector<symbol>  _names;
+        vector<symbol>   _names;
         ptr_vector<sort> _vars;
         ptr_vector<expr> _args;
         for (unsigned i = 0; i < num_decls; ++i) {
@@ -216,8 +216,8 @@ extern "C" {
         LOG_Z3_mk_quantifier_const_ex(c, is_forall, weight, quantifier_id, skolem_id, num_bound, bound, num_patterns, patterns,
                                       num_no_patterns, no_patterns, body);
         RESET_ERROR_CODE();
-        svector<Z3_symbol> names;
-        svector<Z3_sort> types;
+        vector<Z3_symbol> names;
+        vector<Z3_sort> types;
         ptr_vector<expr> bound_asts;
         if (num_patterns > 0 && num_no_patterns > 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE, nullptr);
@@ -243,7 +243,7 @@ extern "C" {
             }
         }
         // Abstract patterns
-        svector<Z3_pattern> _patterns;
+        vector<Z3_pattern> _patterns;
         expr_ref_vector pinned(mk_c(c)->m());
         for (unsigned i = 0; i < num_patterns; ++i) {
             expr_ref result(mk_c(c)->m());
@@ -255,7 +255,7 @@ extern "C" {
             SASSERT(mk_c(c)->m().is_pattern(result.get()));
             _patterns.push_back(of_pattern(result.get()));
         }
-        svector<Z3_ast> _no_patterns;
+        vector<Z3_ast> _no_patterns;
         for (unsigned i = 0; i < num_no_patterns; ++i) {
             expr_ref result(mk_c(c)->m());
             if (!is_app(to_expr(no_patterns[i]))) {

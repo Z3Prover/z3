@@ -120,7 +120,7 @@ namespace sat {
             m_root[i]   = to_literal(i);
             m_parent[i] = to_literal(i);            
         }
-        svector<pframe> todo;
+        vector<pframe> todo;
         // retrieve literals that have no predecessors
         for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
             literal u(to_literal(l_idx));

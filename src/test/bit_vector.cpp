@@ -23,7 +23,7 @@ Revision History:
 
 static void tst1() {
     bit_vector     v1;
-    svector<bool> v2;
+    vector<bool> v2;
     unsigned n = rand()%10000;
     for (unsigned i = 0; i < n; i++) {
         int op = rand()%6;

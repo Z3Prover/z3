@@ -235,7 +235,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
 
     // set moves
     u2_map<T*> conds;
-    svector<unsigned_pair> keys;
+    vector<unsigned_pair> keys;
     moves_t new_moves;
 
     for (unsigned i = 0; i < a.num_states(); ++i) {
@@ -374,7 +374,7 @@ template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_product(automaton_t& a, automaton_t& b) {
     u2_map<unsigned> pair2id;
     unsigned_pair init_pair(a.init(), b.init());
-    svector<unsigned_pair> todo;
+    vector<unsigned_pair> todo;
     todo.push_back(init_pair);
     pair2id.insert(init_pair, 0);
     moves_t mvs;
@@ -437,7 +437,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         inv[mv.dst()].push_back(move_t(m, mv.dst(), mv.src(), mv.t())); 
     }
     
-    svector<bool> back_reachable(n, false);
+    vector<bool> back_reachable(n, false);
     for (unsigned i = 0; i < final.size(); ++i) {
         back_reachable[final[i]] = true;
     }

@@ -382,7 +382,7 @@ class hilbert_basis::passive {
         }
     };
     hilbert_basis&      hb;
-    svector<offset_t>   m_passive;
+    vector<offset_t>   m_passive;
     unsigned_vector     m_free_list;
     passive*            m_this;
     lt                  m_lt;
@@ -494,13 +494,13 @@ class hilbert_basis::passive2 {
         }
     };
     hilbert_basis&      hb;
-    svector<offset_t>   m_pos_sos;
-    svector<offset_t>   m_neg_sos;
+    vector<offset_t>   m_pos_sos;
+    vector<offset_t>   m_neg_sos;
     vector<numeral>     m_pos_sos_sum;
     vector<numeral>     m_neg_sos_sum;
     vector<numeral>     m_sum_abs;
     unsigned_vector     m_psos;
-    svector<offset_t>   m_pas;
+    vector<offset_t>   m_pas;
     vector<numeral>     m_weight;
     unsigned_vector     m_free_list;
     passive2*           m_this;
@@ -525,7 +525,7 @@ public:
         m_this = this;
     }
 
-    void init(svector<offset_t> const& I) {
+    void init(vector<offset_t> const& I) {
         for (unsigned i = 0; i < I.size(); ++i) {
             numeral const& w = hb.vec(I[i]).weight();
             if (w.is_pos()) {
@@ -628,7 +628,7 @@ public:
 private:
     void next_resolvable(bool is_positive, unsigned v) {
         offset_t pas = m_pas[v];
-        svector<offset_t> const& soss = is_positive?m_neg_sos:m_pos_sos;
+        vector<offset_t> const& soss = is_positive?m_neg_sos:m_pos_sos;
         while (m_psos[v] < soss.size()) {
             unsigned psos = m_psos[v];
             offset_t sos = soss[psos];

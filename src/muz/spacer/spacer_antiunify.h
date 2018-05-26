@@ -37,9 +37,9 @@ class anti_unifier
     ast_manager &m;
     expr_ref_vector m_pinned;
 
-    svector<expr_pair> m_todo;
+    vector<expr_pair> m_todo;
     cache_ty m_cache;
-    svector<expr_pair> m_subs;
+    vector<expr_pair> m_subs;
 
 public:
     anti_unifier(ast_manager& m);

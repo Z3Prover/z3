@@ -589,7 +589,7 @@ namespace opt {
         return m_upper[i];
     }
 
-    void optsmt::get_model(model_ref& mdl, svector<symbol> & labels) {        
+    void optsmt::get_model(model_ref& mdl, vector<symbol> & labels) {        
         mdl = m_model.get();
         labels = m_labels;
     }

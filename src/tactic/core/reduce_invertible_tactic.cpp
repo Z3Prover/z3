@@ -134,7 +134,7 @@ private:
           return m_p == 1 ? nullptr : (expr*)m_p;
         }
     };
-    svector<parents> m_parents;
+    vector<parents> m_parents;
     struct parent_collector {
         reduce_invertible_tactic& c;
         parent_collector(reduce_invertible_tactic& c):c(c) {}

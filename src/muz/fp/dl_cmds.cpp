@@ -107,7 +107,7 @@ struct dl_context {
             m_collected_cmds->m_rules.push_back(rl);
             m_collected_cmds->m_names.push_back(name);
             m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_rules));
-            m_trail.push(push_back_vector<dl_context, svector<symbol> >(m_collected_cmds->m_names));
+            m_trail.push(push_back_vector<dl_context, vector<symbol> >(m_collected_cmds->m_names));
         }
         else {
         m_context->add_rule(rule, name, bound);
@@ -374,7 +374,7 @@ class dl_declare_rel_cmd : public cmd {
     mutable unsigned m_query_arg_idx;
     symbol           m_rel_name;
     ptr_vector<sort> m_domain;
-    svector<symbol>  m_kinds;
+    vector<symbol>  m_kinds;
 
 
 public:

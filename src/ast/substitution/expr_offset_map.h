@@ -32,7 +32,7 @@ class expr_offset_map {
         unsigned m_timestamp;
         data():m_timestamp(0) {}
     };
-    vector<svector<data> > m_map;
+    vector<vector<data> > m_map;
     unsigned               m_timestamp;
 public:
     expr_offset_map():
@@ -41,7 +41,7 @@ public:
     bool contains(expr_offset const & n) const {
         unsigned off = n.get_offset();
         if (off < m_map.size()) {
-            svector<data> const & v = m_map[off];
+            vector<data> const & v = m_map[off];
             unsigned id             = n.get_expr()->get_id();
             if (id < v.size()) 
                 return v[id].m_timestamp == m_timestamp;
@@ -52,7 +52,7 @@ public:
     bool find(expr_offset const & n, T & r) const {
         unsigned off = n.get_offset();
         if (off < m_map.size()) {
-            svector<data> const & v = m_map[off];
+            vector<data> const & v = m_map[off];
             unsigned id             = n.get_expr()->get_id();
             if (id < v.size() && v[id].m_timestamp == m_timestamp) {
                 r = v[id].m_data;
@@ -65,8 +65,8 @@ public:
     void insert(expr_offset const & n, T const & r) {
         unsigned off = n.get_offset();
         if (off >= m_map.size())
-            m_map.resize(off+1, svector<data>());
-        svector<data> & v = m_map[off];
+            m_map.resize(off+1, vector<data>());
+        vector<data> & v = m_map[off];
         unsigned id       = n.get_expr()->get_id();
         if (id >= v.size())
             v.resize(id+1);
@@ -77,12 +77,12 @@ public:
     void reset() {
         m_timestamp++;
         if (m_timestamp == UINT_MAX) {
-            typename vector<svector<data> >::iterator it  = m_map.begin();
-            typename vector<svector<data> >::iterator end = m_map.end();
+            typename vector<vector<data> >::iterator it  = m_map.begin();
+            typename vector<vector<data> >::iterator end = m_map.end();
             for (; it != end; ++it) {
-                svector<data> & v = *it;
-                typename svector<data>::iterator it2  = v.begin();
-                typename svector<data>::iterator end2 = v.end();
+                vector<data> & v = *it;
+                typename vector<data>::iterator it2  = v.begin();
+                typename vector<data>::iterator end2 = v.end();
                 for (; it2 != end2; ++it2)
                     it2->m_timestamp = 0;
             }

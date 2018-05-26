@@ -30,7 +30,7 @@ class reslimit {
     bool            m_suspend;
     uint64_t        m_count;
     uint64_t        m_limit;
-    svector<uint64_t> m_limits;
+    vector<uint64_t> m_limits;
     ptr_vector<reslimit> m_children;
 
     void set_cancel(unsigned f);

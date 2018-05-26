@@ -31,7 +31,7 @@ class hoist_rewriter {
     obj_hashtable<expr>             m_preds1, m_preds2;
     basic_union_find                m_uf1, m_uf2, m_uf0;
     ptr_vector<expr>                m_es;
-    svector<std::pair<expr*,expr*>> m_eqs;
+    vector<std::pair<expr*,expr*>> m_eqs;
     u_map<expr*>                    m_roots;
     obj_map<expr, unsigned> m_expr2var;
     ptr_vector<expr>        m_var2expr;

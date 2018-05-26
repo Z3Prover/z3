@@ -34,7 +34,7 @@ class act_cache {
     };
     typedef cmap<entry_t, expr*, entry_hash, default_eq<entry_t> > map;
     map                  m_table;
-    svector<entry_t>     m_queue; // recently created queue
+    vector<entry_t>      m_queue; // recently created queue
     unsigned             m_qhead;
     unsigned             m_unused;
     unsigned             m_max_unused;

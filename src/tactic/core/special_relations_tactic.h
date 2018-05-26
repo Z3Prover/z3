@@ -29,7 +29,7 @@ class special_relations_tactic : public tactic {
     ast_manager& m;
     params_ref m_params;
     expr_pattern_match m_pm;
-    svector<sr_property> m_properties;
+    vector<sr_property> m_properties;
     
     struct sp_axioms {
         unsigned_vector m_goal_indices;

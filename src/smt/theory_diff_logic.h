@@ -175,13 +175,13 @@ namespace smt {
         ptr_vector<eq_prop_info>       m_eq_prop_infos;
 
         app_ref_vector                 m_terms;
-        svector<bool>                  m_signs;
+        vector<bool>                  m_signs;
 
         ptr_vector<atom>               m_atoms;
         ptr_vector<atom>               m_asserted_atoms;   // set of asserted atoms
         unsigned                       m_asserted_qhead;   
         bool_var2atom                  m_bool_var2atom;
-        svector<scope>                 m_scopes;
+        vector<scope>                 m_scopes;
 
         unsigned                       m_num_core_conflicts;
         unsigned                       m_num_propagation_calls;
@@ -338,7 +338,7 @@ namespace smt {
 
         virtual void new_diseq_eh(theory_var v1, theory_var v2, justification& j);
 
-        bool decompose_linear(app_ref_vector& args, svector<bool>& signs);
+        bool decompose_linear(app_ref_vector& args, vector<bool>& signs);
 
         bool is_sign(expr* n, bool& sign);
 

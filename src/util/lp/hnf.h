@@ -184,7 +184,7 @@ mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
 // The gcd of these minors is the return value.
  
 template <typename M> 
-mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows, const mpq& big_number) {
+mpq determinant_of_rectangular_matrix(const M& m, vector<unsigned> & basis_rows, const mpq& big_number) {
     auto m_copy = m;
     bool overflow = false;
     unsigned rank = to_lower_triangle_non_fractional(m_copy, overflow, big_number);

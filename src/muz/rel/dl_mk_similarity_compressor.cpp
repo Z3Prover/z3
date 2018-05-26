@@ -171,7 +171,7 @@ namespace datalog {
         }
     };
 
-    typedef svector<const_info> info_vector;
+    typedef vector<const_info> info_vector;
 
     static void collect_const_indexes(app * t, int tail_index, info_vector & res) {
         unsigned n = t->get_num_args();
@@ -373,7 +373,7 @@ namespace datalog {
 
         app * new_head = r->get_head();
         ptr_vector<app> new_tail;
-        svector<bool> new_negs;
+        vector<bool> new_negs;
         unsigned tail_sz = r->get_tail_size();
         for (unsigned i=0; i<tail_sz; i++) {
             new_tail.push_back(r->get_tail(i));

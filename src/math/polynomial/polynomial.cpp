@@ -773,7 +773,7 @@ namespace polynomial {
         tmp_monomial             m_tmp1;
         tmp_monomial             m_tmp2;
         tmp_monomial             m_tmp3;
-        svector<power>           m_powers_tmp;
+        vector<power>           m_powers_tmp;
     public:
         monomial_manager(small_object_allocator * a = nullptr) {
             m_ref_count = 0;
@@ -1271,7 +1271,7 @@ namespace polynomial {
             SASSERT(sz == num_vars());
             DEBUG_CODE({
                 // check whether xs is really a permutation
-                svector<bool> found;
+                vector<bool> found;
                 found.resize(num_vars(), false);
                 for (unsigned i = 0; i < sz; i++) {
                     SASSERT(xs[i] < num_vars());
@@ -2968,7 +2968,7 @@ namespace polynomial {
             };
             imp &                pm;
             var                  m_x;
-            svector<entry>       m_entries;
+            vector<entry>       m_entries;
             unsigned_vector      m_powers;
             ptr_vector<monomial> m_orig_monomials;
             unsigned             m_max_powers; // maximal number of powers associated with an entry
@@ -3180,7 +3180,7 @@ namespace polynomial {
             }
         };
 
-        svector<bool>  m_found_vars;
+        vector<bool>  m_found_vars;
         void vars(polynomial const * p, var_vector & xs) {
             xs.reset();
             m_found_vars.reserve(num_vars(), false);
@@ -6096,7 +6096,7 @@ namespace polynomial {
                   });
         }
 
-        lbool sign(monomial* m, numeral const& c, svector<lbool> const& sign_of_vars) {
+        lbool sign(monomial* m, numeral const& c, vector<lbool> const& sign_of_vars) {
             unsigned sz = size(m);
             lbool sign1 = m_manager.is_pos(c) ? l_true : l_false;
             for (unsigned i = 0; i < sz; ++i) {
@@ -6112,7 +6112,7 @@ namespace polynomial {
             return sign1;
         }
 
-        lbool sign(polynomial const * p, svector<lbool> const& sign_of_vars) {
+        lbool sign(polynomial const * p, vector<lbool> const& sign_of_vars) {
             unsigned sz = size(p);
             if (sz == 0) return l_undef;
             lbool sign1 = sign(p->m(0), p->a(0), sign_of_vars);
@@ -7331,7 +7331,7 @@ namespace polynomial {
         m_imp->psc_chain(p, q, x, S);
     }
     
-    lbool manager::sign(polynomial const * p, svector<lbool> const& sign_of_vars) {
+    lbool manager::sign(polynomial const * p, vector<lbool> const& sign_of_vars) {
         return m_imp->sign(p, sign_of_vars);
     }
 

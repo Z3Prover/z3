@@ -25,9 +25,9 @@ Notes:
 
 class statistics {
     typedef std::pair<char const *, unsigned> key_val_pair;
-    svector<key_val_pair>   m_stats;
+    vector<key_val_pair>   m_stats;
     typedef std::pair<char const *, double> key_d_val_pair;
-    svector<key_d_val_pair> m_d_stats;
+    vector<key_d_val_pair> m_d_stats;
 public:
     void copy(statistics const & st);
     void reset();

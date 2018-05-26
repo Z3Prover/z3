@@ -36,7 +36,7 @@ namespace smt {
     const bool_var true_bool_var  = 0;
     const bool_var first_bool_var = 1;
     
-    typedef svector<bool_var> bool_var_vector;
+    typedef vector<bool_var> bool_var_vector;
 
     typedef family_id theory_id;
     const theory_id null_theory_id = null_family_id;
@@ -46,7 +46,7 @@ namespace smt {
     class enode;
     typedef ptr_vector<enode> enode_vector;
     typedef std::pair<enode *, enode *> enode_pair;
-    typedef svector<enode_pair> enode_pair_vector;
+    typedef vector<enode_pair> enode_pair_vector;
 
     class context;
 

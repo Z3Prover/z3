@@ -175,7 +175,7 @@ namespace opt {
         bool                         m_pp_neat;
         symbol                       m_maxsat_engine;
         symbol                       m_logic;
-        svector<symbol>              m_labels;
+        vector<symbol>              m_labels;
         std::string                  m_unknown;
     public:
         context(ast_manager& m);
@@ -200,7 +200,7 @@ namespace opt {
         void fix_model(model_ref& _m) override;
         void collect_statistics(statistics& stats) const override;
         proof* get_proof() override { return nullptr; }
-        void get_labels(svector<symbol> & r) override;
+        void get_labels(vector<symbol> & r) override;
         void get_unsat_core(expr_ref_vector & r) override;
         std::string reason_unknown() const override;
         void set_reason_unknown(char const* msg) override { m_unknown = msg; }

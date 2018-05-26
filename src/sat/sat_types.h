@@ -45,7 +45,7 @@ namespace sat {
     */
     typedef unsigned bool_var;
 
-    typedef svector<bool_var> bool_var_vector;
+    typedef vector<bool_var> bool_var_vector;
 
     const bool_var null_bool_var  = UINT_MAX >> 1;
 
@@ -111,7 +111,7 @@ namespace sat {
 
     inline std::ostream & operator<<(std::ostream & out, literal l) { if (l == null_literal) out << "null"; else out << (l.sign() ? "-" : "") << l.var(); return out; }
 
-    typedef svector<literal> literal_vector;
+    typedef vector<literal> literal_vector;
     typedef std::pair<literal, literal> literal_pair;
 
     typedef size_t clause_offset;
@@ -140,7 +140,7 @@ namespace sat {
 
     typedef default_exception sat_param_exception;
 
-    typedef svector<lbool> model;
+    typedef vector<lbool> model;
 
     inline void negate(literal_vector& ls) { for (unsigned i = 0; i < ls.size(); ++i) ls[i].neg(); }
     inline lbool value_at(bool_var v, model const & m) { return m[v]; }

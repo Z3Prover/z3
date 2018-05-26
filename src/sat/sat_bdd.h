@@ -108,20 +108,20 @@ namespace sat {
 
         typedef ptr_hashtable<op_entry, hash_entry, eq_entry> op_table;
 
-        svector<bdd_node>          m_nodes;
+        vector<bdd_node>          m_nodes;
         op_table                   m_op_cache;
         node_table                 m_node_table;
         unsigned_vector            m_apply_const;
-        svector<BDD>               m_bdd_stack;
+        vector<BDD>               m_bdd_stack;
         op_entry*                  m_spare_entry;
-        svector<BDD>               m_var2bdd;
+        vector<BDD>               m_var2bdd;
         unsigned_vector            m_var2level, m_level2var;
         unsigned_vector            m_free_nodes;
         small_object_allocator     m_alloc;
-        mutable svector<unsigned>  m_mark;
+        mutable vector<unsigned>  m_mark;
         mutable unsigned           m_mark_level;
-        mutable svector<double>    m_count;
-        mutable svector<BDD>       m_todo;
+        mutable vector<double>    m_count;
+        mutable vector<BDD>       m_todo;
         bool                       m_disable_gc;
         bool                       m_is_new_node;
         unsigned                   m_max_num_bdd_nodes;

@@ -628,7 +628,7 @@ class solve_eqs_tactic : public tactic {
             expr_fast_mark2 done;
             
             typedef std::pair<expr *, unsigned> frame;
-            svector<frame> todo;
+            vector<frame> todo;
             unsigned num = 0;
             for (app* v : m_vars) {
                 checkpoint();

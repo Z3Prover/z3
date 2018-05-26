@@ -70,7 +70,7 @@ public:
     proof * get_proof() override;
     std::string reason_unknown() const override;
     void set_reason_unknown(char const* msg) override;
-    void get_labels(svector<symbol> & r) override {}
+    void get_labels(vector<symbol> & r) override {}
 
     void set_progress_callback(progress_callback * callback) override {}
 

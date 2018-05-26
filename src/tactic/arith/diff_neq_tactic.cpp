@@ -34,16 +34,16 @@ class diff_neq_tactic : public tactic {
         expr_ref_vector     m_var2expr;
         obj_map<expr, var>  m_expr2var;
         
-        svector<int>        m_lower;
-        svector<int>        m_upper;
+        vector<int>        m_lower;
+        vector<int>        m_upper;
         struct diseq {
             var m_y;
             int m_k;
             diseq(var y, int k):m_y(y), m_k(k) {}
         };
-        typedef svector<diseq> diseqs;
+        typedef vector<diseq> diseqs;
         vector<diseqs>      m_var_diseqs;
-        typedef svector<int> decision_stack;
+        typedef vector<int> decision_stack;
         decision_stack       m_stack;
         
         bool                m_produce_models;
@@ -202,7 +202,7 @@ class diff_neq_tactic : public tactic {
             }
         }
         
-        svector<bool>  m_forbidden;
+        vector<bool>  m_forbidden;
         
         // make sure m_forbidden.size() > max upper bound
         void init_forbidden() {

@@ -70,7 +70,7 @@ class inc_sat_solver : public solver {
     mutable obj_hashtable<func_decl>  m_inserted_const2bits;
     mutable ref<sat2goal::mc>   m_sat_mc;
     mutable model_converter_ref m_cached_mc;
-    svector<double>     m_weights;
+    vector<double>     m_weights;
     std::string         m_unknown;
     // access formulas after they have been pre-processed and handled by the sat solver.
     // this allows to access the internal state of the SAT solver and carry on partial results.
@@ -152,7 +152,7 @@ public:
         }
         VERIFY(l_true == internalize_formulas());
         VERIFY(l_true == internalize_assumptions(sz, asms.c_ptr(), dep2asm));
-        svector<unsigned> nweights;
+        vector<unsigned> nweights;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             nweights.push_back((unsigned) m_weights[i]);
         }
@@ -472,7 +472,7 @@ public:
         m_unknown = msg;
     }
 
-    void get_labels(svector<symbol> & r) override {
+    void get_labels(vector<symbol> & r) override {
     }
 
     unsigned get_num_assertions() const override {

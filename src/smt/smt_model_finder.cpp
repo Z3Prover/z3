@@ -1889,7 +1889,7 @@ namespace smt {
             obj_hashtable<expr>  m_pos_cache;
             obj_hashtable<expr>  m_neg_cache;
             typedef std::pair<expr *, polarity> entry;
-            svector<entry>       m_ftodo;
+            vector<entry>       m_ftodo;
             ptr_vector<expr>     m_ttodo;
 
             void insert_qinfo(qinfo * qi) {

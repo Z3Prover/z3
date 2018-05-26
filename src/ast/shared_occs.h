@@ -55,7 +55,7 @@ class shared_occs {
     bool                m_visit_patterns;
     expr_ref_vector     m_shared;
     typedef std::pair<expr*, unsigned> frame;
-    svector<frame>      m_stack;
+    vector<frame>      m_stack;
     bool process(expr * t, shared_occs_mark & visited);
     void insert(expr * t);
 public:

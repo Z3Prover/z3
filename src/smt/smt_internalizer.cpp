@@ -49,15 +49,15 @@ namespace smt {
 #define Grey  1
 #define Black 2
 
-    static int get_color(svector<int> & tcolors, svector<int> & fcolors, expr * n, bool gate_ctx) {
-        svector<int> & colors = gate_ctx ? tcolors : fcolors;
+    static int get_color(vector<int> & tcolors, vector<int> & fcolors, expr * n, bool gate_ctx) {
+        vector<int> & colors = gate_ctx ? tcolors : fcolors;
         if (colors.size() > n->get_id()) 
             return colors[n->get_id()];
         return White;
     }
 
-    static void set_color(svector<int> & tcolors, svector<int> & fcolors, expr * n, bool gate_ctx, int color) {
-       svector<int> & colors = gate_ctx ? tcolors : fcolors;
+    static void set_color(vector<int> & tcolors, vector<int> & fcolors, expr * n, bool gate_ctx, int color) {
+       vector<int> & colors = gate_ctx ? tcolors : fcolors;
        if (colors.size() <= n->get_id()) {
            colors.resize(n->get_id()+1, White);
        }
@@ -99,14 +99,14 @@ namespace smt {
         }
     }
 
-    void context::ts_visit_child(expr * n, bool gate_ctx, svector<int> & tcolors, svector< int> & fcolors, svector<expr_bool_pair> & todo, bool & visited) {
+    void context::ts_visit_child(expr * n, bool gate_ctx, vector<int> & tcolors, vector< int> & fcolors, vector<expr_bool_pair> & todo, bool & visited) {
         if (get_color(tcolors, fcolors, n, gate_ctx) == White) {
             todo.push_back(expr_bool_pair(n, gate_ctx));
             visited = false;
         }
     }
 
-    bool context::ts_visit_children(expr * n, bool gate_ctx, svector<int> & tcolors, svector<int> & fcolors, svector<expr_bool_pair> & todo) {
+    bool context::ts_visit_children(expr * n, bool gate_ctx, vector<int> & tcolors, vector<int> & fcolors, vector<expr_bool_pair> & todo) {
         if (is_quantifier(n))
             return true;
         SASSERT(is_app(n));
@@ -153,10 +153,10 @@ namespace smt {
         return visited;
     }
 
-    void context::top_sort_expr(expr * n, svector<expr_bool_pair> & sorted_exprs) {
-        svector<expr_bool_pair> todo;
-        svector<int>      tcolors;
-        svector<int>      fcolors;
+    void context::top_sort_expr(expr * n, vector<expr_bool_pair> & sorted_exprs) {
+        vector<expr_bool_pair> todo;
+        vector<int>      tcolors;
+        vector<int>      fcolors;
         todo.push_back(expr_bool_pair(n, true));
         while (!todo.empty()) {
             expr_bool_pair & p = todo.back();
@@ -202,7 +202,7 @@ namespace smt {
             // a caveat is that theory internalizers do rely on recursive descent so
             // internalization over these follows top-down
             TRACE("deep_internalize", tout << "expression is deep: #" << n->get_id() << "\n" << mk_ll_pp(n, m_manager););
-            svector<expr_bool_pair> sorted_exprs;
+            vector<expr_bool_pair> sorted_exprs;
             top_sort_expr(n, sorted_exprs);
             TRACE("deep_internalize", for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
             for (auto & kv : sorted_exprs) {

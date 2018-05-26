@@ -88,13 +88,13 @@ class hilbert_basis {
 
     reslimit&          m_limit;
     vector<num_vector> m_ineqs;      // set of asserted inequalities
-    svector<bool>      m_iseq;       // inequalities that are equalities
+    vector<bool>      m_iseq;       // inequalities that are equalities
     num_vector         m_store;      // store of vectors
-    svector<offset_t>  m_basis;      // vector of current basis
-    svector<offset_t>  m_free_list;  // free list of unused storage
-    svector<offset_t>  m_active;     // active set
-    svector<offset_t>  m_sos;        // set of support
-    svector<offset_t>  m_zero;       // zeros
+    vector<offset_t>  m_basis;      // vector of current basis
+    vector<offset_t>  m_free_list;  // free list of unused storage
+    vector<offset_t>  m_active;     // active set
+    vector<offset_t>  m_sos;        // set of support
+    vector<offset_t>  m_zero;       // zeros
     passive*           m_passive;    // passive set
     passive2*          m_passive2;   // passive set
     stats              m_stats;

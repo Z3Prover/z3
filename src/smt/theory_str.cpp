@@ -9911,7 +9911,7 @@ namespace smt {
                 regex_automaton_under_assumptions assumption;
                 if (regex_automaton_assumptions.contains(re) &&
                         !regex_automaton_assumptions[re].empty()){
-                    for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
+                    for (vector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
                             it != regex_automaton_assumptions[re].end(); ++it) {
                         regex_automaton_under_assumptions autA = *it;
                         rational assumed_upper_bound, assumed_lower_bound;
@@ -10059,7 +10059,7 @@ namespace smt {
                         regex_automata.push_back(aut);
                         regex_automaton_under_assumptions new_aut(re, aut, true);
                         if (!regex_automaton_assumptions.contains(re)) {
-                            regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                            regex_automaton_assumptions.insert(re, vector<regex_automaton_under_assumptions>());
                         }
                         regex_automaton_assumptions[re].push_back(new_aut);
                         TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
@@ -10115,7 +10115,7 @@ namespace smt {
                     bool need_assumption = true;
                     regex_automaton_under_assumptions last_assumption;
                     rational last_ub = rational::minus_one();
-                    for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
+                    for (vector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
                             it != regex_automaton_assumptions[re].end(); ++it) {
                         regex_automaton_under_assumptions autA = *it;
                         if ((current_assignment == l_true && autA.get_polarity() == false)
@@ -10197,7 +10197,7 @@ namespace smt {
                         regex_automata.push_back(aut);
                         regex_automaton_under_assumptions new_aut(re, aut, true);
                         if (!regex_automaton_assumptions.contains(re)) {
-                            regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                            regex_automaton_assumptions.insert(re, vector<regex_automaton_under_assumptions>());
                         }
                         regex_automaton_assumptions[re].push_back(new_aut);
                         TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
@@ -10234,7 +10234,7 @@ namespace smt {
                         bool need_assumption = true;
                         regex_automaton_under_assumptions last_assumption;
                         rational last_lb = rational::zero(); // the default
-                        for (svector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
+                        for (vector<regex_automaton_under_assumptions>::iterator it = regex_automaton_assumptions[re].begin();
                                 it != regex_automaton_assumptions[re].end(); ++it) {
                             regex_automaton_under_assumptions autA = *it;
                             if ((current_assignment == l_true && autA.get_polarity() == false)
@@ -10318,7 +10318,7 @@ namespace smt {
                             regex_automata.push_back(aut);
                             regex_automaton_under_assumptions new_aut(re, aut, true);
                             if (!regex_automaton_assumptions.contains(re)) {
-                                regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                                regex_automaton_assumptions.insert(re, vector<regex_automaton_under_assumptions>());
                             }
                             regex_automaton_assumptions[re].push_back(new_aut);
                             TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
@@ -10351,7 +10351,7 @@ namespace smt {
                             regex_automata.push_back(aut);
                             regex_automaton_under_assumptions new_aut(re, aut, true);
                             if (!regex_automaton_assumptions.contains(re)) {
-                                regex_automaton_assumptions.insert(re, svector<regex_automaton_under_assumptions>());
+                                regex_automaton_assumptions.insert(re, vector<regex_automaton_under_assumptions>());
                             }
                             regex_automaton_assumptions[re].push_back(new_aut);
                             TRACE("str", tout << "add new automaton for " << mk_pp(re, m) << ": no assumptions" << std::endl;);
@@ -10374,10 +10374,10 @@ namespace smt {
             expr * str = it->m_key;
             ptr_vector<expr> str_in_re_terms = it->m_value;
 
-            svector<regex_automaton_under_assumptions> intersect_constraints;
+            vector<regex_automaton_under_assumptions> intersect_constraints;
             // we may find empty intersection before checking every constraint;
             // this vector keeps track of which ones actually take part in intersection
-            svector<regex_automaton_under_assumptions> used_intersect_constraints;
+            vector<regex_automaton_under_assumptions> used_intersect_constraints;
 
             // choose an automaton/assumption for each assigned (str.in.re)
             // that's consistent with the current length information
@@ -10397,7 +10397,7 @@ namespace smt {
 
                 if (regex_automaton_assumptions.contains(re) &&
                                                 !regex_automaton_assumptions[re].empty()){
-                    for (svector<regex_automaton_under_assumptions>::iterator aut_it = regex_automaton_assumptions[re].begin();
+                    for (vector<regex_automaton_under_assumptions>::iterator aut_it = regex_automaton_assumptions[re].begin();
                                                        aut_it != regex_automaton_assumptions[re].end(); ++aut_it) {
                         regex_automaton_under_assumptions aut = *aut_it;
                         rational aut_ub;
@@ -10442,7 +10442,7 @@ namespace smt {
 
             eautomaton * aut_inter = nullptr;
             CTRACE("str", !intersect_constraints.empty(), tout << "check intersection of automata constraints for " << mk_pp(str, m) << std::endl;);
-            for (svector<regex_automaton_under_assumptions>::iterator aut_it = intersect_constraints.begin();
+            for (vector<regex_automaton_under_assumptions>::iterator aut_it = intersect_constraints.begin();
                     aut_it != intersect_constraints.end(); ++aut_it) {
                 regex_automaton_under_assumptions aut = *aut_it;
                 if (aut_inter == nullptr) {
@@ -10502,7 +10502,7 @@ namespace smt {
 
             expr_ref_vector conflict_terms(m);
             expr_ref conflict_lhs(m);
-            for (svector<regex_automaton_under_assumptions>::iterator aut_it = used_intersect_constraints.begin();
+            for (vector<regex_automaton_under_assumptions>::iterator aut_it = used_intersect_constraints.begin();
                     aut_it != used_intersect_constraints.end(); ++aut_it) {
                 regex_automaton_under_assumptions aut = *aut_it;
                 expr * str_in_re_term(u.re.mk_in_re(str, aut.get_regex_term()));
@@ -10989,7 +10989,7 @@ namespace smt {
         return ss.str();
     }
 
-    void theory_str::print_value_tester_list(svector<std::pair<int, expr*> > & testerList) {
+    void theory_str::print_value_tester_list(vector<std::pair<int, expr*> > & testerList) {
         TRACE("str",
               int ss = testerList.size();
               tout << "valueTesterList = {";
@@ -11205,7 +11205,7 @@ namespace smt {
             expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
             valueTester_fvar_map.insert(val_indicator, freeVar);
             if (!fvar_valueTester_map.contains(freeVar)) {
-                fvar_valueTester_map.insert(freeVar, std::map<int, svector<std::pair<int, expr*> > >());
+                fvar_valueTester_map.insert(freeVar, std::map<int, vector<std::pair<int, expr*> > >());
             }
             fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, val_indicator));
             print_value_tester_list(fvar_valueTester_map[freeVar][len]);

@@ -35,7 +35,7 @@ namespace sat {
     };
 
 
-    typedef svector<ext_constraint_idx> ext_constraint_list;
+    typedef vector<ext_constraint_idx> ext_constraint_list;
 
     class ext_use_list {
         vector<ext_constraint_list> m_use_list;

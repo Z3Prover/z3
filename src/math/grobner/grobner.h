@@ -108,7 +108,7 @@ protected:
         unsigned m_equations_to_unfreeze_lim;
         unsigned m_equations_to_delete_lim;
     };
-    svector<scope>          m_scopes;
+    vector<scope>          m_scopes;
     ptr_vector<monomial>    m_tmp_monomials;
     ptr_vector<monomial>    m_del_monomials;
     ptr_vector<expr>        m_tmp_vars1;

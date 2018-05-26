@@ -44,7 +44,7 @@ class smaller_pattern {
     typedef std::pair<expr *, expr *> expr_pair;
     typedef obj_pair_hashtable<expr, expr> cache;
 
-    svector<expr_pair> m_todo;
+    vector<expr_pair> m_todo;
     cache              m_cache;
     void save(expr * p1, expr * p2);
     bool process(expr * p1, expr * p2);
@@ -65,7 +65,7 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
     pattern_inference_params & m_params;
     family_id                  m_bfid;
     family_id                  m_afid;
-    svector<family_id>         m_forbidden;
+    vector<family_id>         m_forbidden;
     obj_hashtable<func_decl>   m_preferred;        
     smaller_pattern            m_le;
     unsigned                   m_num_bindings;
@@ -143,7 +143,7 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
         typedef map<entry, info *, obj_hash<entry>, default_eq<entry> > cache;
         cache                    m_cache;
         ptr_vector<info>         m_info;
-        svector<entry>           m_todo;
+        vector<entry>           m_todo;
 
         void visit(expr * n, unsigned delta, bool & visited);
         bool visit_children(expr * n, unsigned delta);

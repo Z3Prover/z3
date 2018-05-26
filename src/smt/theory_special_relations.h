@@ -98,7 +98,7 @@ namespace smt {
             func_decl*             m_decl;
             atoms                  m_asserted_atoms;   // set of asserted atoms
             unsigned               m_asserted_qhead;
-            svector<scope>         m_scopes;
+            vector<scope>         m_scopes;
             graph                  m_graph;
             union_find_default_ctx m_ufctx;
             union_find_t           m_uf;

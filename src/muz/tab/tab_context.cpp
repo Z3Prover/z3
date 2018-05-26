@@ -39,7 +39,7 @@ namespace tb {
     class matcher {
         typedef std::pair<expr *, expr *> expr_pair;
         ast_manager&          m;
-        svector<expr_pair>    m_todo;
+        vector<expr_pair>    m_todo;
         datatype_util         m_dt;
 
         lbool is_eq(expr* _s, expr* _t) {
@@ -236,7 +236,7 @@ namespace tb {
                 body = m.mk_implies(body, m_head);
             }
             ptr_vector<sort> vars;
-            svector<symbol> names;
+            vector<symbol> names;
             get_free_vars(vars);
             mk_fresh_name fresh;
             fresh.add(body);
@@ -728,7 +728,7 @@ namespace tb {
             FIRST_SELECT,
             VAR_USE_SELECT
         };
-        typedef svector<double>                   double_vector;
+        typedef vector<double>                   double_vector;
         typedef obj_map<func_decl, double_vector> score_map;
         typedef obj_map<app, double>              pred_map;
         ast_manager&       m;
@@ -1621,7 +1621,7 @@ namespace datalog {
             unsigned idx = r1.get_predicate_index();
             expr_ref fml = res.to_formula();
             vector<expr_ref_vector> substs;
-            svector<std::pair<unsigned, unsigned> > positions;
+            vector<std::pair<unsigned, unsigned> > positions;
             substs.push_back(s1);
             substs.push_back(s2);
             scoped_proof _sc(m);

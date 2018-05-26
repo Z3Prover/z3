@@ -50,7 +50,7 @@ public:
     func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                              unsigned arity, sort * const * domain, sort * range) override;
 
-    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    void get_op_names(vector<builtin_name> & op_names, symbol const & logic) override;
     
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { return nullptr; }
 };

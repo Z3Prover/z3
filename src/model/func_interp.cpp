@@ -376,7 +376,7 @@ expr* func_interp::get_array_interp_core(func_decl * f) const {
         r = get_interp();
         if (!r) return r;
         sort_ref_vector vars(m_manager);
-        svector<symbol> var_names;
+        vector<symbol> var_names;
         for (unsigned i = 0; i < m_arity; ++i) {
             var_names.push_back(symbol(i));
             vars.push_back(domain.get(m_arity - i - 1));

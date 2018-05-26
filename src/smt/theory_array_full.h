@@ -37,7 +37,7 @@ namespace smt {
 
         ast2ast_trailmap<sort,app> m_sort2epsilon;
         obj_pair_map<expr,expr,bool> m_eqs;
-        svector<literal>             m_eqsv;
+        vector<literal>              m_eqsv;
         
         static unsigned const m_default_map_fingerprint = UINT_MAX - 112;
         static unsigned const m_default_store_fingerprint = UINT_MAX - 113;

@@ -172,7 +172,7 @@ namespace datalog {
            If \c src is \c execution_context::void_register, it is assumed to be a full relation
            with empty signature.
         */
-        void make_assembling_code(rule* compiled_rule, func_decl* head_pred, reg_idx src, const svector<assembling_column_info> & acis0,
+        void make_assembling_code(rule* compiled_rule, func_decl* head_pred, reg_idx src, const vector<assembling_column_info> & acis0,
             reg_idx & result, bool & dealloc, instruction_block & acc);
 
         void make_dealloc_non_void(reg_idx r, instruction_block & acc);

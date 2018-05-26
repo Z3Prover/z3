@@ -32,7 +32,7 @@ namespace sat {
         };
 #endif
         class var_priority {
-            svector<bool_var> m_vars;
+            vector<bool_var> m_vars;
             unsigned_vector   m_lim;
             unsigned          m_head;
         public:
@@ -55,8 +55,8 @@ namespace sat {
         solver&           s;
         local_search      m_ls;
         random_gen        m_rand;
-        svector<bool>     m_phase;
-        svector<ema>      m_phase_tf;
+        vector<bool>      m_phase;
+        vector<ema>       m_phase_tf;
         var_priority      m_priorities;
         unsigned          m_luby_index;
         unsigned          m_restart_threshold;

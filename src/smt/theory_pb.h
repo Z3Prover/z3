@@ -268,7 +268,7 @@ namespace smt {
 
         theory_pb_params         m_params;        
 
-        svector<var_info>        m_var_infos; 
+        vector<var_info>        m_var_infos; 
         mutable unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
@@ -349,15 +349,15 @@ namespace smt {
         unsigned          m_conflict_lvl;
 
         // Conflict PB constraints
-        svector<int>      m_coeffs;
-        svector<bool_var> m_active_vars;
+        vector<int>      m_coeffs;
+        vector<bool_var> m_active_vars;
         int               m_bound;
         literal_vector    m_antecedents;
         tracked_uint_set  m_active_var_set;
         expr_ref_vector   m_antecedent_exprs;
-        svector<bool>     m_antecedent_signs;
+        vector<bool>     m_antecedent_signs;
         expr_ref_vector   m_cardinality_exprs;
-        svector<bool>     m_cardinality_signs;
+        vector<bool>     m_cardinality_signs;
 
         void normalize_active_coeffs();
         void inc_coeff(literal l, int offset);
@@ -367,7 +367,7 @@ namespace smt {
 
         literal_vector& get_literals() { m_literals.reset(); return m_literals; }
 
-        vector<svector<bool_var> > m_coeff2args;
+        vector<vector<bool_var> > m_coeff2args;
         unsigned_vector m_active_coeffs;
         bool init_arg_max();
         void reset_arg_max();

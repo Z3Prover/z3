@@ -134,7 +134,7 @@ namespace simplex {
        \brief Fill the map var -> pos/idx
     */
     template<typename Ext>
-    inline void sparse_matrix<Ext>::_row::save_var_pos(svector<int> & result_map, unsigned_vector& idxs) const {
+    inline void sparse_matrix<Ext>::_row::save_var_pos(vector<int> & result_map, unsigned_vector& idxs) const {
         typename vector<_row_entry>::const_iterator it  = m_entries.begin();
         typename vector<_row_entry>::const_iterator end = m_entries.end();
         unsigned idx = 0;
@@ -226,8 +226,8 @@ namespace simplex {
     template<typename Ext>
     const typename sparse_matrix<Ext>::col_entry * 
     sparse_matrix<Ext>::column::get_first_col_entry() const {
-        typename svector<col_entry>::const_iterator it  = m_entries.begin();
-        typename svector<col_entry>::const_iterator end = m_entries.end();
+        typename vector<col_entry>::const_iterator it  = m_entries.begin();
+        typename vector<col_entry>::const_iterator end = m_entries.end();
         for (; it != end; ++it) {
             if (!it->is_dead()) {
                 return it;

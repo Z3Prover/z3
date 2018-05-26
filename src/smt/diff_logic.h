@@ -191,11 +191,11 @@ class dl_graph {
         }
     };
 
-    svector<scope>          m_trail_stack;
+    vector<scope>          m_trail_stack;
 
     // forward reachability
     vector<numeral>         m_gamma;    // per var
-    svector<char>           m_mark;     // per var
+    vector<char>           m_mark;     // per var
     edge_id_vector          m_parent;   // per var
     dl_var_vector           m_visited; 
     typedef heap<dl_var_lt<Ext> > var_heap;
@@ -206,7 +206,7 @@ class dl_graph {
     edge_id_vector          m_enabled_edges;
 
     // SCC for cheap equality propagation --
-    svector<char>           m_unfinished_set; // per var
+    vector<char>           m_unfinished_set; // per var
     int_vector              m_dfs_time;       // per var
     dl_var_vector           m_roots;     
     dl_var_vector           m_unfinished;
@@ -215,7 +215,7 @@ class dl_graph {
     // -------------------------------------
 
     // activity vector for edges.
-    svector<unsigned>       m_activity;
+    vector<unsigned>       m_activity;
 
 
     bool check_invariant() const {
@@ -567,8 +567,8 @@ public:
         ++num_conflicts;
         SASSERT(!is_feasible(m_edges[m_last_enabled_edge]));
         vector<numeral>  potentials;
-        svector<edge_id> edges;
-        svector<dl_var>  nodes;
+        vector<edge_id> edges;
+        vector<dl_var>  nodes;
         edge_id last_id = m_last_enabled_edge;
         edge const& last_e = m_edges[last_id];
         numeral potential(0);
@@ -661,7 +661,7 @@ public:
 
     bool reachable(dl_var start, uint_set const& target, uint_set& visited, dl_var& dst) {
         visited.reset();
-        svector<dl_var> nodes;
+        vector<dl_var> nodes;
         nodes.push_back(start);
         for (unsigned i = 0; i < nodes.size(); ++i) {
             dl_var n = nodes[i];
@@ -682,10 +682,10 @@ public:
     }
 
 private:
-    svector<int> m_freq_hybrid;
+    vector<int> m_freq_hybrid;
     int m_total_count = 0;
     int m_run_counter = -1;
-    svector<int> m_hybrid_visited, m_hybrid_parent;
+    vector<int> m_hybrid_visited, m_hybrid_parent;
 
     bool is_connected(numeral const& gamma, bool zero_edge, edge const& e, unsigned timestamp) const {
         return (gamma.is_zero() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp;
@@ -774,7 +774,7 @@ public:
     // 
 
     template<typename Functor>
-    void prune_edges(svector<edge_id>& edges, Functor & f) {
+    void prune_edges(vector<edge_id>& edges, Functor & f) {
         unsigned max_activity = 0;
         edge_id e_id;
         for (unsigned i = 0; i < edges.size(); ++i) {
@@ -790,7 +790,7 @@ public:
     }
 
     template<typename Functor>
-    void prune_edges_min1(svector<edge_id>& edges, Functor & f) {
+    void prune_edges_min1(vector<edge_id>& edges, Functor & f) {
         unsigned min_activity = ~0;
         unsigned idx = 0;
         for (unsigned i = 0; i + 1 < edges.size(); ++i) {
@@ -808,7 +808,7 @@ public:
     }
 
     template<typename Functor>
-    void prune_edges_min2(svector<edge_id>& edges, Functor & f) {
+    void prune_edges_min2(vector<edge_id>& edges, Functor & f) {
         unsigned min1 = ~0, min2 = ~0, max = 0;
         unsigned idx1 = 0, idx2 = 0, max_idx = 0;
         dl_var src, dst;
@@ -1047,7 +1047,7 @@ public:
         return m_edges;
     }
 
-    void get_neighbours_undirected(dl_var current, svector<dl_var> & neighbours) {
+    void get_neighbours_undirected(dl_var current, vector<dl_var> & neighbours) {
         neighbours.reset();
         edge_id_vector & out_edges = m_out_edges[current];
         for (edge_id e_id : out_edges) {
@@ -1065,18 +1065,18 @@ public:
         }
     }
 
-    void dfs_undirected(dl_var start, svector<dl_var> & threads) {
+    void dfs_undirected(dl_var start, vector<dl_var> & threads) {
         threads.reset();
         threads.resize(get_num_nodes());
         uint_set discovered, explored;
-        svector<dl_var> nodes;
+        vector<dl_var> nodes;
         discovered.insert(start);
         nodes.push_back(start);
         dl_var prev = start;
         while(!nodes.empty()) {
             dl_var current = nodes.back();
             SASSERT(discovered.contains(current) && !explored.contains(current));
-            svector<dl_var> neighbours;
+            vector<dl_var> neighbours;
             get_neighbours_undirected(current, neighbours);
             SASSERT(!neighbours.empty());
             bool found = false;
@@ -1104,7 +1104,7 @@ public:
         threads[prev] = start;
     }
 
-    void bfs_undirected(dl_var start, svector<dl_var> & parents, svector<dl_var> & depths) {
+    void bfs_undirected(dl_var start, vector<dl_var> & parents, vector<dl_var> & depths) {
         parents.reset();
         parents.resize(get_num_nodes());
         parents[start] = -1;
@@ -1118,7 +1118,7 @@ public:
             dl_var current = nodes.back();
             nodes.pop_back();
             SASSERT(visited.contains(current));
-            svector<dl_var> neighbours;
+            vector<dl_var> neighbours;
             get_neighbours_undirected(current, neighbours);
             SASSERT(!neighbours.empty());
             for (unsigned i = 0; i < neighbours.size(); ++i) {
@@ -1300,7 +1300,7 @@ private:
         return true;
     }
 
-    bool check_path(vector<numeral>& potentials, svector<dl_var>& nodes, svector<edge_id>& edges) {
+    bool check_path(vector<numeral>& potentials, vector<dl_var>& nodes, vector<edge_id>& edges) {
         // Debug:
         numeral potential0;
         for (unsigned i = 0; i < edges.size(); ++i) {
@@ -1362,8 +1362,8 @@ public:
 
     template<typename Functor>
     bool find_shortest_path_aux(dl_var source, dl_var target, unsigned timestamp, Functor & f, bool zero_edge) {
-        svector<bfs_elem> bfs_todo;
-        svector<bool>     bfs_mark;
+        vector<bfs_elem> bfs_todo;
+        vector<bool>     bfs_mark;
         bfs_mark.resize(m_assignment.size(), false);
         
         bfs_todo.push_back(bfs_elem(source, -1, null_edge_id));
@@ -1649,7 +1649,7 @@ private:
         SASSERT(marks_are_clear());
     }
 
-    void find_subsumed(edge_id bridge_edge, dfs_state& src, dfs_state& tgt, svector<edge_id>& subsumed) {
+    void find_subsumed(edge_id bridge_edge, dfs_state& src, dfs_state& tgt, vector<edge_id>& subsumed) {
         edge const& e0 = m_edges[bridge_edge];
         dl_var a = e0.get_source();
         dl_var b = e0.get_target();
@@ -1686,7 +1686,7 @@ private:
     }
 
 public:
-    void find_subsumed(edge_id id, svector<edge_id>& subsumed) {
+    void find_subsumed(edge_id id, vector<edge_id>& subsumed) {
         fix_sizes();
         find_relevant<true>(m_fw, id);        
         find_relevant<false>(m_bw, id);
@@ -1704,7 +1704,7 @@ public:
     }
 
     // Find edges that are directly subsumed by id.
-    void find_subsumed1(edge_id id, svector<edge_id>& subsumed) {
+    void find_subsumed1(edge_id id, vector<edge_id>& subsumed) {
         edge const& e1 = m_edges[id];
         dl_var src = e1.get_source();
         dl_var dst = e1.get_target();
@@ -1748,7 +1748,7 @@ public:
     // . src' - id' -> dst
     // . src - id' -> dst'
     //
-    void find_subsumed2(edge_id id, svector<edge_id>& subsumed) {
+    void find_subsumed2(edge_id id, vector<edge_id>& subsumed) {
         edge const& e1 = m_edges[id];
         dl_var src = e1.get_source();
         dl_var dst = e1.get_target();

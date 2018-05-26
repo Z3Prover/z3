@@ -40,7 +40,7 @@ namespace sat {
         watched * m_end;
         frame(unsigned lidx, watched * it, watched * end, unsigned sidx = 0):m_lidx(lidx), m_succ_idx(sidx), m_first(true), m_it(it), m_end(end) {}
     };
-    typedef svector<frame> frames;
+    typedef vector<frame> frames;
 
     struct scc::report {
         scc &     m_scc;
@@ -79,7 +79,7 @@ namespace sat {
         unsigned_vector index;
         unsigned_vector lowlink;
         unsigned_vector s;
-        svector<char>   in_s;
+        vector<char>   in_s;
         unsigned num_lits = m_solver.num_vars() * 2;
         index.resize(num_lits, UINT_MAX);
         lowlink.resize(num_lits, UINT_MAX);
@@ -87,7 +87,7 @@ namespace sat {
         literal_vector roots, lits;
         roots.resize(m_solver.num_vars(), null_literal);
         unsigned next_index = 0;
-        svector<frame>   frames;
+        vector<frame>   frames;
         bool_var_vector  to_elim;
         
         for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
