@@ -520,7 +520,7 @@ namespace spacer {
             if (m.is_hypothesis(p)) {
                 // create active_hyps-set for step p
                 proof_ptr_vector* active_hyps = alloc(proof_ptr_vector);
-                m_pinned_active_hyps.insert(active_hyps);
+                m_pinned_active_hyps.push_back(active_hyps);
                 m_active_hyps.insert(p, active_hyps);
                 active_hyps->push_back(p);
                 m_open_mark.mark(p);

@@ -343,11 +343,11 @@ namespace {
                         return false;
                     if (old == intr)
                         return true;
-                    m_scopes.insert(undo_bound(t1, old, false));
+                    m_scopes.push_back(undo_bound(t1, old, false));
                     old = intr;
                 } else {
                     m_bound.insert(t1, b);
-                    m_scopes.insert(undo_bound(t1, interval(), true));
+                    m_scopes.push_back(undo_bound(t1, interval(), true));
                 }
             }
             return true;

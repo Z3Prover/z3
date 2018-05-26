@@ -142,7 +142,7 @@ namespace datalog {
         for (auto const& kv : *this) {
             func_decl * pred = kv.m_key;
             if (!allowed.contains(pred)) {
-                to_remove.insert(pred);
+                to_remove.push_back(pred);
                 continue;
             }
             item_set& itms = *kv.get_value();

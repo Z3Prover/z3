@@ -345,7 +345,7 @@ namespace datalog {
                 }
                 SASSERT(index_entry);
                 //here we insert the offset of the fact in m_data vector into the indexer
-                index_entry->insert(ofs);
+                index_entry->push_back(ofs);
             }
 
             m_first_nonindexed = t.m_data.after_last_offset();

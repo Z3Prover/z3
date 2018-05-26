@@ -48,7 +48,7 @@ tbv* tbv_manager::allocate() {
         if (s_debug_alloc) {
             TRACE("doc", tout << allocated_tbvs.size() << " " << r << "\n";);
         }
-        allocated_tbvs.insert(r);
+        allocated_tbvs.push_back(r);
         );
     return r;
 }

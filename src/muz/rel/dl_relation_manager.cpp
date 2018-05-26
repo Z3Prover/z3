@@ -129,7 +129,7 @@ namespace datalog {
         for (auto const& kv : m_relations) {
             func_decl* pred = kv.m_key;
             if (!preds.contains(pred)) {
-                to_remove.insert(pred);
+                to_remove.push_back(pred);
             }
         }
 

@@ -849,7 +849,6 @@ public:
             resize(new_size);
         }
     }
-    void insert(value_type const& element) { push_back(element); }
 
     void reserve(size_type new_size, value_type const& new_value) {
         if(new_size > size()) {

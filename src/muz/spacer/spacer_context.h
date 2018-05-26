@@ -452,7 +452,7 @@ public:
     void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
 
     void add_rule(datalog::rule* r) {m_rules.push_back(r);}
-    void add_use(pred_transformer* pt) {if (!m_use.contains(pt)) {m_use.insert(pt);}}
+    void add_use(pred_transformer* pt) { if(!m_use.contains(pt)) { m_use.push_back(pt); } }
     void initialize(decl2rel const& pts);
 
     func_decl* head() const {return m_head;}

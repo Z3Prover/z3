@@ -281,7 +281,7 @@ namespace smt {
 
         if (opt_EagerStringConstantLengthAssertions && u.str.is_string(term)) {
             TRACE("str", tout << "eagerly asserting length of string term " << mk_pp(term, m) << std::endl;);
-            m_basicstr_axiom_todo.insert(e);
+            m_basicstr_axiom_todo.push_back(e);
         }
         return true;
     }
@@ -2244,7 +2244,7 @@ namespace smt {
 
             enode_vector current_parents;
             for (enode_vector::const_iterator parent_it = n_eq_enode->begin_parents(); parent_it != n_eq_enode->end_parents(); parent_it++) {
-                current_parents.insert(*parent_it);
+                current_parents.push_back(*parent_it);
             }
 
             for (enode_vector::iterator parent_it = current_parents.begin(); parent_it != current_parents.end(); ++parent_it) {
@@ -8600,7 +8600,7 @@ namespace smt {
                 // dealloc(aCut);
             }
             if (val.empty()) {
-                cutvarmap_removes.insert(varItor->m_key);
+                cutvarmap_removes.push_back(varItor->m_key);
             }
             varItor++;
         }
@@ -11770,7 +11770,7 @@ namespace smt {
                 ctx.force_phase(l);
             }
 
-            case_split_literals.insert(mk_eq(freeVarLen, mk_int(i), false));
+            case_split_literals.push_back(mk_eq(freeVarLen, mk_int(i), false));
 
             expr_ref and_expr(ctx.mk_eq_atom(orList.get(orList.size() - 1), m.mk_eq(freeVarLen, mk_int(i))), m);
             andList.push_back(and_expr);
