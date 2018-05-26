@@ -1973,12 +1973,12 @@ cmd_context::pp_env & cmd_context::get_pp_env() const {
     return *(m_pp_env.get());
 }
 
-void cmd_context::pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const {
+void cmd_context::pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, buffer<symbol> & var_names) const {
     mk_smt2_format(n, get_pp_env(), params_ref(), num_vars, var_prefix, r, var_names);
 }
 
 void cmd_context::pp(expr * n, format_ns::format_ref & r) const {
-    sbuffer<symbol> buf;
+    buffer<symbol> buf;
     pp(n, 0, nullptr, r, buf);
 }
 
@@ -1994,7 +1994,7 @@ void cmd_context::display(std::ostream & out, sort * s, unsigned indent) const {
     ::pp(out, f.get(), m());
 }
 
-void cmd_context::display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const {
+void cmd_context::display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, buffer<symbol> & var_names) const {
     format_ns::format_ref f(format_ns::fm(m()));
     pp(n, num_vars, var_prefix, f, var_names);
     if (indent > 0)
@@ -2003,7 +2003,7 @@ void cmd_context::display(std::ostream & out, expr * n, unsigned indent, unsigne
 }
 
 void cmd_context::display(std::ostream & out, expr * n, unsigned indent) const {
-    sbuffer<symbol> buf;
+    buffer<symbol> buf;
     display(out, n, indent, 0, nullptr, buf);
 }
 

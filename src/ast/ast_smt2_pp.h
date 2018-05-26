@@ -95,7 +95,7 @@ public:
 
 void mk_smt2_format(expr * n, smt2_pp_environment & env, params_ref const & p, 
                     unsigned num_vars, char const * var_prefix,
-                    format_ns::format_ref & r, sbuffer<symbol> & var_names);
+                    format_ns::format_ref & r, buffer<symbol> & var_names);
 void mk_smt2_format(sort * s, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r);
 void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r, char const* cmd);
 

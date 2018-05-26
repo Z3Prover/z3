@@ -36,13 +36,13 @@ public:
     void pp(sort * s, format_ns::format_ref & r) const override { mk_smt2_format(s, env(), params_ref(), r); }
     void pp(func_decl * f, format_ns::format_ref & r) const override { mk_smt2_format(f, env(), params_ref(), r, "declare-fun"); }
     void pp(expr * n, format_ns::format_ref & r) const override {
-        sbuffer<symbol> buf;
+        buffer<symbol> buf;
         mk_smt2_format(n, env(), params_ref(), 0, nullptr, r, buf);
     }
-    void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const override {
+    void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, buffer<symbol> & var_names) const override {
         mk_smt2_format(n, env(), params_ref(), num_vars, var_prefix, r, var_names);
     }
-    void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const override {
+    void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, buffer<symbol> & var_names) const override {
         NOT_IMPLEMENTED_YET();
     }
 

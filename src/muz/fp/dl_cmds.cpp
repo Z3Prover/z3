@@ -342,7 +342,7 @@ private:
             datalog::context& dlctx = m_dl_ctx->dlctx();
             ast_manager& m = ctx.m();
             expr_ref query_result(dlctx.get_answer_as_formula(), m);
-            sbuffer<symbol> var_names;
+            buffer<symbol> var_names;
             unsigned num_decls = 0;
             if (is_quantifier(m_target)) {
                 num_decls = to_quantifier(m_target)->get_num_decls();

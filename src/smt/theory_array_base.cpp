@@ -414,7 +414,7 @@ namespace smt {
     }
 
 #if 0
-    void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
+    void theory_array_base::collect_shared_vars(buffer<theory_var> & result) {
         TRACE("array_shared", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
         ptr_buffer<enode> to_unmark;
@@ -436,7 +436,7 @@ namespace smt {
         unmark_enodes(to_unmark.size(), to_unmark.c_ptr());
     }
 #else
-    void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
+    void theory_array_base::collect_shared_vars(buffer<theory_var> & result) {
         TRACE("array_shared", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
         ptr_buffer<enode> to_unmark;
@@ -468,17 +468,17 @@ namespace smt {
     unsigned theory_array_base::mk_interface_eqs() {
         context & ctx   = get_context();
         ast_manager & m = get_manager();
-        sbuffer<theory_var> roots;
+        buffer<theory_var> roots;
         collect_shared_vars(roots);
         unsigned result = 0;
-        sbuffer<theory_var>::iterator it1  = roots.begin();
-        sbuffer<theory_var>::iterator end1 = roots.end();
+        buffer<theory_var>::iterator it1  = roots.begin();
+        buffer<theory_var>::iterator end1 = roots.end();
         for (; it1 != end1; ++it1) {
             TRACE("array_bug", tout << "mk_interface_eqs: processing: v" << *it1 << "\n";);
             theory_var  v1 = *it1;
             enode *     n1 = get_enode(v1);
             sort *      s1 = m.get_sort(n1->get_owner());
-            sbuffer<theory_var>::iterator it2 = it1;
+            buffer<theory_var>::iterator it2 = it1;
             ++it2;
             for (; it2 != end1; ++it2) {
                 theory_var v2 = *it2;

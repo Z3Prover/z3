@@ -22,8 +22,8 @@ Revision History:
 #include "util/buffer.h"
 
 template<typename Manager, unsigned INITIAL_SIZE = 16>
-class _scoped_numeral_buffer : public sbuffer<typename Manager::numeral, INITIAL_SIZE> {
-    typedef sbuffer<typename Manager::numeral, INITIAL_SIZE> super;
+class _scoped_numeral_buffer : public buffer<typename Manager::numeral, INITIAL_SIZE> {
+    typedef buffer<typename Manager::numeral, INITIAL_SIZE> super;
     Manager & m_manager;
     _scoped_numeral_buffer(_scoped_numeral_buffer const & v);
 public:

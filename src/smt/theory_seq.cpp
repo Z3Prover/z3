@@ -3852,9 +3852,9 @@ public:
         result.append(m_dependencies.size(), m_dependencies.c_ptr());
     }
 
-    void add_buffer(svector<unsigned>& sbuffer, zstring const& zs) {
+    void add_buffer(svector<unsigned>& buffer, zstring const& zs) {
         for (unsigned i = 0; i < zs.length(); ++i) {
-            sbuffer.push_back(zs[i]);
+            buffer.push_back(zs[i]);
         }
     }
 
@@ -3866,13 +3866,13 @@ public:
         bool is_string = th.m_util.is_string(m_sort);
         expr_ref result(th.m);
         if (is_string) {
-            unsigned_vector sbuffer;
+            unsigned_vector buffer;
             unsigned ch;
             for (source_t src : m_source) {
                 switch (src) {
                 case unit_source: {
                     VERIFY(th.m_util.is_const_char(values[j++], ch));
-                    sbuffer.push_back(ch);
+                    buffer.push_back(ch);
                     break;
                 }
                 case string_source: {
@@ -3880,7 +3880,7 @@ public:
                     expr_ref tmp = th.canonize(m_strings[k], deps);
                     zstring zs;
                     if (th.m_util.str.is_string(tmp, zs)) {
-                        add_buffer(sbuffer, zs);
+                        add_buffer(buffer, zs);
                     }
                     else {
                         TRACE("seq", tout << "Not a string: " << tmp << "\n";);
@@ -3900,13 +3900,13 @@ public:
                         strm << val;
                     }
                     zstring zs(strm.str().c_str());
-                    add_buffer(sbuffer, zs);
+                    add_buffer(buffer, zs);
                     break;
                 }
                 }
-                // TRACE("seq", tout << src << " " << sbuffer << "\n";);
+                // TRACE("seq", tout << src << " " << buffer << "\n";);
             }
-            result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.c_ptr()));
+            result = th.m_util.str.mk_string(zstring(buffer.size(), buffer.c_ptr()));
         }
         else {
             for (source_t src : m_source) {

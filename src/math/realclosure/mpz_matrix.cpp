@@ -357,7 +357,7 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
     scoped_mpz t1(nm()), t2(nm());
     scoped_mpz a_ik_prime(nm()), a_kk_prime(nm()), lcm_a_kk_a_ik(nm());
     set(A, _A);
-    sbuffer<unsigned, 128> rows;
+    buffer<unsigned, 128> rows;
     rows.resize(A.m(), 0);
     for (unsigned i = 0; i < A.m(); i++)
         rows[i] = i;

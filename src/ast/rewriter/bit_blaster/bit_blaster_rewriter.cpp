@@ -636,7 +636,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         unsigned old_sz    = curr_sz - num_decls;
         string_buffer<> name_buffer;
         ptr_buffer<sort> new_decl_sorts;
-        sbuffer<symbol>  new_decl_names;
+        buffer<symbol>  new_decl_names;
         for (unsigned i = 0; i < num_decls; i++) {
             symbol const & n = old_q->get_decl_name(i);
             sort * s         = old_q->get_decl_sort(i);

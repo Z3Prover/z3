@@ -3204,9 +3204,9 @@ namespace polynomial {
                 m_found_vars[xs[i]] = false;
         }
 
-        typedef sbuffer<power, 32>    power_buffer;
-        typedef sbuffer<unsigned, 32> unsigned_buffer;
-        typedef sbuffer<var, 32>      var_buffer;
+        typedef buffer<power, 32>    power_buffer;
+        typedef buffer<unsigned, 32> unsigned_buffer;
+        typedef buffer<var, 32>      var_buffer;
 
         /**
            Store in pws the variables occurring in p and their (minimal or maximal) degrees.
@@ -3480,8 +3480,8 @@ namespace polynomial {
             //      - found monomial m*x^k then iccp_powers[k]+=2;
             //   If after traversing p, there is a k s.t. iccp_powers[k] == 1, we know c == 1
             // We store iccp_powers the powers of x occurring in p.
-            sbuffer<unsigned, 128> iccp_filter;
-            sbuffer<unsigned, 128> iccp_powers;
+            buffer<unsigned, 128> iccp_filter;
+            buffer<unsigned, 128> iccp_powers;
             iccp_filter.resize(d+1, 0);
             iccp_powers.reset();
             for (unsigned j = 0; j <= d; j++)
@@ -4668,7 +4668,7 @@ namespace polynomial {
             return m_cheap_som_buffer.mk();
         }
 
-        void push_power(sbuffer<power> & pws, var x, unsigned d) {
+        void push_power(buffer<power> & pws, var x, unsigned d) {
             if (d > 0)
                 pws.push_back(power(x, d));
         }
@@ -4682,7 +4682,7 @@ namespace polynomial {
             var x       = max_var(p);
             unsigned n  = degree(p, x);
             unsigned sz = p->size();
-            sbuffer<power> pws;
+            buffer<power> pws;
             for (unsigned i = 0; i < sz; i++) {
                 unsigned   k = p->m(i)->degree_of(x);
                 pws.reset();

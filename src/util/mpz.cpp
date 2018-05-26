@@ -1175,7 +1175,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
     }
     if (i != sz) {
         // array has big numbers
-        sbuffer<unsigned, 1024> p;
+        buffer<unsigned, 1024> p;
         for (i = 0; i < sz; i++)
             p.push_back(i);
         sz_lt lt(*this, as);
@@ -1689,17 +1689,17 @@ void mpz_manager<SYNCH>::display(std::ostream & out, mpz const & a) const {
         if (a.m_val < 0)
             out << "-";
         if (sizeof(digit_t) == 4) {
-            sbuffer<char, 1024> buffer(11*size(a), 0);
+            buffer<char, 1024> buffer(11*size(a), 0);
             out << m_mpn_manager.to_string(digits(a), size(a), buffer.begin(), buffer.size());
         }
         else {
-            sbuffer<char, 1024> buffer(21*size(a), 0);
+            buffer<char, 1024> buffer(21*size(a), 0);
             out << m_mpn_manager.to_string(digits(a), size(a), buffer.begin(), buffer.size());
         }
 #else
         // GMP version
         size_t sz = mpz_sizeinbase(*a.m_ptr, 10) + 2;
-        sbuffer<char, 1024> buffer(sz, 0);
+        buffer<char, 1024> buffer(sz, 0);
         mpz_get_str(buffer.c_ptr(), 10, *a.m_ptr);
         out << buffer.c_ptr();
 #endif

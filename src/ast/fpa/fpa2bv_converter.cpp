@@ -238,7 +238,7 @@ expr_ref fpa2bv_converter::extra_quantify(expr * e)
     unsigned nv;
 
     ptr_buffer<sort> new_decl_sorts;
-    sbuffer<symbol> new_decl_names;
+    buffer<symbol> new_decl_names;
     expr_ref_buffer subst_map(m);
 
     uv(e);

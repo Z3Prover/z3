@@ -1001,7 +1001,7 @@ namespace smt {
                 unsigned short num_args = first_app->get_num_args();
                 if (IS_CGR_SUPPORT && all_args_are_bound_vars(first_app)) {
                     // use IS_CGR instead of BIND
-                    sbuffer<unsigned> iregs;
+                    buffer<unsigned> iregs;
                     for (unsigned i = 0; i < num_args; i++) {
                         expr * arg = to_app(first_app)->get_arg(i);
                         SASSERT(is_var(arg));
@@ -1073,7 +1073,7 @@ namespace smt {
                 return oreg;
             }
 
-            sbuffer<unsigned> iregs;
+            buffer<unsigned> iregs;
             unsigned num_args = n->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = n->get_arg(i);

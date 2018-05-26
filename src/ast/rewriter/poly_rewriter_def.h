@@ -330,9 +330,9 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
 
     SASSERT(m_som && num_add > 0);
 
-    sbuffer<unsigned> szs;
-    sbuffer<unsigned> it;
-    sbuffer<expr **> sums;
+    buffer<unsigned> szs;
+    buffer<unsigned> it;
+    buffer<expr **> sums;
     for (unsigned i = 0; i < num_args; i ++) {
         it.push_back(0);
         expr * arg  = args[i];

@@ -94,7 +94,7 @@ struct goal2nlsat::imp {
     }
 
     nlsat::bool_var factor_atom(polynomial::polynomial * p, nlsat::atom::kind k) {
-        sbuffer<bool> is_even;
+        buffer<bool> is_even;
         ptr_buffer<polynomial::polynomial> ps;
         polynomial::factors fs(m_pm);
         m_pm.factor(p, fs, m_fparams);
@@ -243,7 +243,7 @@ struct goal2nlsat::imp {
             num_lits = 1;
             lits = &f;
         }
-        sbuffer<nlsat::literal> ls;
+        buffer<nlsat::literal> ls;
         for (unsigned i = 0; i < num_lits; i++) {
             ls.push_back(process_literal(lits[i]));
         }

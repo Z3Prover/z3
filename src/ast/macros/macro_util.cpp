@@ -141,7 +141,7 @@ bool macro_util::is_macro_head(expr * n, unsigned num_decls) const {
         !to_app(n)->get_decl()->is_associative() &&
         to_app(n)->get_family_id() == null_family_id &&
         to_app(n)->get_num_args() == num_decls) {
-        sbuffer<int> var2pos;
+        buffer<int> var2pos;
         var2pos.resize(num_decls, -1);
         for (unsigned i = 0; i < num_decls; i++) {
             expr * c = to_app(n)->get_arg(i);
@@ -374,7 +374,7 @@ bool macro_util::is_quasi_macro_head(expr * n, unsigned num_decls) const {
         to_app(n)->get_family_id() == null_family_id &&
         to_app(n)->get_num_args() >= num_decls) {
         unsigned num_args = to_app(n)->get_num_args();
-        sbuffer<bool> found_vars;
+        buffer<bool> found_vars;
         found_vars.resize(num_decls, false);
         unsigned num_found_vars = 0;
         for (unsigned i = 0; i < num_args; i++) {
@@ -404,7 +404,7 @@ bool macro_util::is_quasi_macro_head(expr * n, unsigned num_decls) const {
 */
 void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decls, app_ref & head, expr_ref & cond) const {
     unsigned num_args = qhead->get_num_args();
-    sbuffer<bool> found_vars;
+    buffer<bool> found_vars;
     found_vars.resize(num_decls, false);
     ptr_buffer<expr> new_args;
     ptr_buffer<expr> new_conds;
@@ -565,7 +565,7 @@ bool is_hint_atom(expr * lhs, expr * rhs) {
 void hint_to_macro_head(ast_manager & m, app * head, unsigned & num_decls, app_ref & new_head) {
     unsigned num_args = head->get_num_args();
     ptr_buffer<expr> new_args;
-    sbuffer<bool> found_vars;
+    buffer<bool> found_vars;
     found_vars.resize(num_decls, false);
     unsigned next_var_idx = num_decls;
     for (unsigned i = 0; i < num_args; i++) {

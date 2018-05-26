@@ -400,7 +400,7 @@ namespace nlsat {
             SASSERT(m_atoms[b] != 0);
             if (m_atoms[b]->is_ineq_atom()) {
                 polynomial_ref_buffer ps(m_pm);
-                sbuffer<bool>         is_even;
+                buffer<bool>         is_even;
                 polynomial_ref p(m_pm);
                 ineq_atom * a  = to_ineq_atom(m_atoms[b]);
                 int atom_sign = 1;
@@ -1086,7 +1086,7 @@ namespace nlsat {
             int  atom_sign = 1;
             bool modified_lit = false;
             polynomial_ref_buffer new_factors(m_pm);
-            sbuffer<bool>         new_factors_even;
+            buffer<bool>         new_factors_even;
             polynomial_ref        new_factor(m_pm);
             for (unsigned s = 0; s < num_factors; s++) {
                 poly * f = _a->p(s);

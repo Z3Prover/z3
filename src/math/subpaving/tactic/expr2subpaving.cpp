@@ -194,7 +194,7 @@ struct expr2subpaving::imp {
         }
         scoped_mpz n_arg(qm());
         scoped_mpz d_arg(qm());
-        sbuffer<subpaving::power> pws;
+        buffer<subpaving::power> pws;
         for (unsigned i = 0; i < sz; i++) {
             expr * arg = margs[i];
             unsigned k;
@@ -219,7 +219,7 @@ struct expr2subpaving::imp {
     }
 
     typedef _scoped_numeral_buffer<unsynch_mpz_manager> mpz_buffer;
-    typedef sbuffer<subpaving::var> var_buffer;
+    typedef buffer<subpaving::var> var_buffer;
 
     subpaving::var process_add(app * t, unsigned depth, mpz & n, mpz & d) {
         unsigned num_args = t->get_num_args();

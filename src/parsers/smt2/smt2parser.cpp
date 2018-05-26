@@ -625,7 +625,7 @@ namespace smt2 {
             psort_decl * d = m_ctx.find_psort_decl(id);
             if (d == nullptr)
                 unknown_sort(id);
-            sbuffer<unsigned> args;
+            buffer<unsigned> args;
             while (!curr_is_rparen()) {
                 check_int("invalid indexed sort, integer or ')' expected");
                 unsigned u = curr_unsigned();
@@ -2738,7 +2738,7 @@ namespace smt2 {
             else {
                 check_lparen_next("invalid function declaration reference, symbol or '(' expected");
                 symbol id;
-                sbuffer<unsigned> indices;
+                buffer<unsigned> indices;
                 if (curr_is_identifier()) {
                     id = curr_id();
                     next();
