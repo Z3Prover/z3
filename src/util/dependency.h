@@ -194,7 +194,7 @@ public:
         return false;
     }
 
-    void linearize(dependency * d, vector<value, false> & vs) {
+    void linearize(dependency * d, vector<value> & vs) {
         if (d) {
             m_todo.reset();
             d->mark();
@@ -301,7 +301,7 @@ public:
         return m_dep_manager.contains(d, v); 
     }
 
-    void linearize(dependency * d, vector<value, false> & vs) {
+    void linearize(dependency * d, vector<value> & vs) {
         return m_dep_manager.linearize(d, vs);
     }    
     

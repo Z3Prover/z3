@@ -2904,7 +2904,7 @@ namespace smt {
                 }
             }
             DEBUG_CODE(m_trees[lbl_id]->get_patterns().push_back(mp);
-                       m_trail_stack.push(push_back_trail<mam_impl, app*, false>(m_trees[lbl_id]->get_patterns())););
+                       m_trail_stack.push(push_back_trail<mam_impl, app*>(m_trees[lbl_id]->get_patterns())););
             TRACE("trigger_bug", tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););
         }
 

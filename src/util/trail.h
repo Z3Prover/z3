@@ -87,16 +87,16 @@ public:
     }
 };
 
-template<typename Ctx, typename T, bool CallDestructors=true>
+template<typename Ctx, typename T>
 class restore_size_trail : public trail<Ctx> {
-    vector<T, CallDestructors> & m_vector;
+    vector<T> & m_vector;
     unsigned                     m_old_size;
 public:
-    restore_size_trail(vector<T, CallDestructors> & v, unsigned sz):
+    restore_size_trail(vector<T> & v, unsigned sz):
         m_vector(v),
         m_old_size(sz) {
     }
-    restore_size_trail(vector<T, CallDestructors> & v):
+    restore_size_trail(vector<T> & v):
         m_vector(v),
         m_old_size(v.size()) {
     }
@@ -107,13 +107,13 @@ public:
     }
 };
 
-template<typename Ctx, typename T, bool CallDestructors=true>
+template<typename Ctx, typename T>
 class vector_value_trail : public trail<Ctx> {
-    vector<T, CallDestructors> & m_vector;
+    vector<T> & m_vector;
     unsigned                     m_idx;
     T                            m_old_value;
 public:
-    vector_value_trail(vector<T, CallDestructors> & v, unsigned idx):
+    vector_value_trail(vector<T> & v, unsigned idx):
         m_vector(v),
         m_idx(idx),
         m_old_value(v[idx]) {
@@ -192,12 +192,12 @@ public:
     }
 };
 
-template<typename Ctx, typename T, bool CallDestructors=true>
+template<typename Ctx, typename T>
 class pop_back_trail : public trail<Ctx> {
-    vector<T, CallDestructors> & m_vector;
+    vector<T> & m_vector;
     T m_value;
 public:
-    pop_back_trail(vector<T, CallDestructors> & v):
+    pop_back_trail(vector<T> & v):
     m_vector(v),
     m_value(m_vector.back()) {
     }
@@ -207,14 +207,14 @@ public:
     }
 };
 
-template<typename Ctx, typename T, bool CallDestructors=true>
+template<typename Ctx, typename T>
 class pop_back2_trail : public trail<Ctx> {
-    vector<T, CallDestructors> & m_vector;
-    typedef vector<vector<T, CallDestructors>, true> vector_t;
+    vector<T> & m_vector;
+    typedef vector<vector<T>> vector_t;
     unsigned m_index;
     T m_value;
 public:
-    pop_back2_trail(vector<T, CallDestructors> & v, unsigned index):
+    pop_back2_trail(vector<T> & v, unsigned index):
     m_vector(v),
     m_index(index),
     m_value(m_vector[index].back()) {
@@ -227,11 +227,11 @@ public:
 
 
 
-template<typename Ctx, typename T, bool CallDestructors=true>
+template<typename Ctx, typename T>
 class push_back_trail : public trail<Ctx> {
-    vector<T, CallDestructors> & m_vector;
+    vector<T> & m_vector;
 public:
-    push_back_trail(vector<T, CallDestructors> & v):
+    push_back_trail(vector<T> & v):
         m_vector(v) {
     }
 
@@ -240,9 +240,9 @@ public:
     }
 };
 
-template<typename Ctx, typename T, bool CallDestructors=true>
+template<typename Ctx, typename T>
 class push_back2_trail : public trail<Ctx> {
-    typedef vector<vector<T, CallDestructors>, true> vector_t;
+    typedef vector<vector<T>> vector_t;
     vector_t & m_vector;
     unsigned   m_index;
 public:

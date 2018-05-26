@@ -114,7 +114,7 @@ namespace datalog {
     public:
         typedef size_t store_offset;
     private:
-        typedef svector<char, size_t> storage;
+        typedef vector<char, std::size_t> storage;
 
         class offset_hash_proc {
             storage & m_storage;

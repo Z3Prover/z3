@@ -179,7 +179,7 @@ class nlsat_tactic : public tactic {
             else {
                 expr_dependency* lcore = nullptr;
                 if (g->unsat_core_enabled()) {
-                    vector<nlsat::assumption, false> assumptions;
+                    vector<nlsat::assumption> assumptions;
                     m_solver.get_core(assumptions);
                     for (nlsat::assumption a : assumptions) {
                         expr_dependency* d = static_cast<expr_dependency*>(a);

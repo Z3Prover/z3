@@ -22,12 +22,12 @@ Revision History:
 #include "ast/ast.h"
 #include "util/obj_hashtable.h"
 
-template<typename T, typename Visitor, bool IgnorePatterns=false, bool CallDestructors=true>
+template<typename T, typename Visitor, bool IgnorePatterns=false>
 class recurse_expr : public Visitor {
-    obj_map<expr, T>                          m_cache;
-    ptr_vector<expr>                          m_todo;
-    vector<T, CallDestructors>                m_results1;
-    vector<T, CallDestructors>                m_results2;
+    obj_map<expr, T>         m_cache;
+    ptr_vector<expr>         m_todo;
+    vector<T>                m_results1;
+    vector<T>                m_results2;
 
     bool is_cached(expr * n) const { T c; return m_cache.find(n, c); }
     T get_cached(expr * n) const { return m_cache.find(n); }

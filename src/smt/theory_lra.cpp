@@ -750,7 +750,7 @@ class theory_lra::imp {
 
     void updt_unassigned_bounds(theory_var v, int inc) {
         TRACE("arith", tout << "v" << v << " " << m_unassigned_bounds[v] << " += " << inc << "\n";);
-        ctx().push_trail(vector_value_trail<smt::context, unsigned, false>(m_unassigned_bounds, v));
+        ctx().push_trail(vector_value_trail<smt::context, unsigned>(m_unassigned_bounds, v));
         m_unassigned_bounds[v] += inc;            
     }
        
@@ -1475,7 +1475,7 @@ public:
         }
             
         if (result) {
-            ctx().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+                ctx().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>>(m_assume_eq_candidates, old_sz));
         }
 
         return delayed_assume_eqs();

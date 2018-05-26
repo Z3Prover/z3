@@ -2230,7 +2230,7 @@ namespace smt {
         }
 
         if (result)
-            get_context().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>, false>(m_assume_eq_candidates, old_sz));
+            get_context().push_trail(restore_size_trail<context, std::pair<theory_var, theory_var>>(m_assume_eq_candidates, old_sz));
         return delayed_assume_eqs();
         // return this->assume_eqs(m_var_value_table);
     }

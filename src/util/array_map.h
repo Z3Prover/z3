@@ -30,7 +30,7 @@ Revision History:
    - void del_eh(Key const & k, Data const & d);
    - unsigned to_int(Key const & k);
 */
-template<typename Key, typename Data, typename Plugin, bool CallDestructors=true>
+template<typename Key, typename Data, typename Plugin>
 class array_map {
     
     struct entry {
@@ -44,7 +44,7 @@ class array_map {
     unsigned                 m_garbage;
     unsigned                 m_non_garbage;
     static const unsigned    m_gc_threshold = 10000;
-    vector<optional<entry>, CallDestructors > m_map;
+    vector<optional<entry>>  m_map;
     Plugin                   m_plugin;
 
     bool is_current(optional<entry> const& e) const {

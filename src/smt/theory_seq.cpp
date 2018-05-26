@@ -4790,7 +4790,7 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     for (unsigned i = 0; i < m_s_in_re.size(); ++i) {
         auto const& entry = m_s_in_re[i];
         if (entry.m_active && get_root(entry.m_s) == get_root(s) && entry.m_re != re) {
-            m_trail_stack.push(vector_value_trail<theory_seq, s_in_re, true>(m_s_in_re, i));
+            m_trail_stack.push(vector_value_trail<theory_seq, s_in_re>(m_s_in_re, i));
             m_s_in_re[i].m_active = false;
             IF_VERBOSE(11, verbose_stream() << "intersect " << re << " " << mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";);
             re = m_util.re.mk_inter(entry.m_re, re);

@@ -93,7 +93,7 @@ namespace nra {
             m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
             m_zero = alloc(scoped_anum, am());
             m_lp2nl.reset();
-            vector<nlsat::assumption, false> core;
+            vector<nlsat::assumption> core;
 
             // add linear inequalities from lra_solver
             for (unsigned i = 0; i < s.constraint_count(); ++i) {
