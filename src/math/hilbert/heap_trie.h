@@ -91,7 +91,7 @@ class heap_trie {
         unsigned num_leaves() const override { return this->ref_count()>0?1:0; }
     };
 
-    typedef buffer<std::pair<Key,node*>, true, 2> children_t;
+    typedef buffer<std::pair<Key,node*>, 2> children_t;
 
     // lean trie node
     class trie : public node {

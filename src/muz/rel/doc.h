@@ -32,8 +32,8 @@ class doc;
 template<typename M, typename T> class union_bvec;
 typedef union_find<> subset_ints;
 typedef union_bvec<tbv_manager, tbv> utbv;
-typedef buffer<tbv*,false,8> tbv_vector;
-typedef buffer<doc*,false,8> doc_vector;
+typedef buffer<tbv*,8> tbv_vector;
+typedef buffer<doc*,8> doc_vector;
 
 class doc_manager {
     tbv_manager m;
@@ -109,7 +109,7 @@ private:
 // union of tbv*, union of doc*
 template<typename M, typename T>
 class union_bvec { 
-    buffer<T*, false, 8> m_elems; // TBD: reuse allocator of M
+    buffer<T*, 8> m_elems; // TBD: reuse allocator of M
 
     enum fix_bit_result_t {
         e_row_removed, // = 1

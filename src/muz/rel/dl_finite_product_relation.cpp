@@ -2067,7 +2067,7 @@ namespace datalog {
         }
 
         if(!m_live_rel_collection_project) {
-            buffer<unsigned, false> removed_cols;
+            buffer<unsigned> removed_cols;
             removed_cols.resize(table_data_col_cnt);
             for(unsigned i=0; i<table_data_col_cnt; i++) {
                 removed_cols[i] = i;

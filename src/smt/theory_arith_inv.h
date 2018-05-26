@@ -72,7 +72,7 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::wf_row(unsigned r_id) const {
-        buffer<bool,false,1024> already_found;
+        buffer<bool,1024> already_found;
         already_found.resize(get_num_vars(), false);
         row const & r = m_rows[r_id];
         if (r.m_base_var != null_theory_var) {
