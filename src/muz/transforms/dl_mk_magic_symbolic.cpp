@@ -82,8 +82,8 @@ namespace datalog {
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz  = r.get_tail_size();
-            tail.reset();
-            neg.reset();
+            tail.clear();
+            neg.clear();
             for (unsigned j = utsz; j < tsz; ++j) {
                 tail.push_back(r.get_tail(j));
                 neg.push_back(false);

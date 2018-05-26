@@ -131,7 +131,7 @@ namespace datalog {
         }
 
         void translate_proof(proof_ref& pr) {
-            m_todo.reset();
+            m_todo.clear();
             m_new_proof.reset();
             m_todo.push_back(pr);
             while (!m_todo.empty()) {
@@ -615,10 +615,10 @@ namespace datalog {
     }
 
     void mk_slice::init_vars(rule& r) {
-        m_input.reset();
-        m_output.reset();
-        m_var_is_sliceable.reset();
-        m_solved_vars.reset();
+        m_input.clear();
+        m_output.clear();
+        m_var_is_sliceable.clear();
+        m_solved_vars.clear();
         init_vars(r.get_head(), true, false);
         for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
             init_vars(r.get_tail(j), false, r.is_neg_tail(j));
@@ -708,12 +708,12 @@ namespace datalog {
     }
 
     void mk_slice::reset() {
-        m_input.reset();
-        m_output.reset();
-        m_var_is_sliceable.reset();
-        m_solved_vars.reset();
+        m_input.clear();
+        m_output.clear();
+        m_var_is_sliceable.clear();
+        m_solved_vars.clear();
         m_predicates.reset();
-        m_pinned.reset();
+        m_pinned.clear();
     }
         
     void mk_slice::declare_predicates(rule_set const& src, rule_set& dst) {
@@ -722,7 +722,7 @@ namespace datalog {
         bool has_output = false;
         func_decl* f;
         for (; it != end; ++it) {
-            domain.reset();
+            domain.clear();
             func_decl* p = it->m_key;
             bit_vector const& bv = it->m_value;
             for (unsigned i = 0; i < bv.size(); ++i) {
@@ -790,7 +790,7 @@ namespace datalog {
             }
             expr_ref_vector conjs = get_tail_conjs(r);
             
-            m_solved_vars.reset();
+            m_solved_vars.clear();
 
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* e = conjs[i].get();

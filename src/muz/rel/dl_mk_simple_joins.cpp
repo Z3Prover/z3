@@ -546,7 +546,7 @@ namespace datalog {
                     if (!non_local_vars.subset_of(tr_vars)) {                        
                         expr_ref_vector normalizer2 = get_normalizer(rt2, rt1);
                         TRACE("dl", tout << normalizer << "\nnorm\n" << normalizer2 << "\n";);
-                        denormalizer.reset();
+                        denormalizer.clear();
                         reverse_renaming(m, normalizer2, denormalizer);
                         new_transf = m_var_subst(t_new, denormalizer.size(), denormalizer.c_ptr());
                         SASSERT(non_local_vars.subset_of(rm.collect_vars(new_transf)));

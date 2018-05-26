@@ -393,7 +393,7 @@ expr * ufbv_rewriter::rewrite(expr * n) {
             a = to_app(actual);
             if (rewrite_visit_children(a)) {
                 func_decl * f = a->get_decl();
-                m_new_args.reset();
+                m_new_args.clear();
                 unsigned num_args = a->get_num_args();
                 bool all_untouched=true;
                 for (unsigned i = 0 ; i < num_args ; i++ ) {
@@ -787,7 +787,7 @@ struct match_args_aux_proc {
 
 bool ufbv_rewriter::match_subst::match_args(app * lhs, expr * const * args) {
     m_cache.reset();
-    m_todo.reset();
+    m_todo.clear();
 
     // fill todo-list, and perform quick success/failure tests
     m_all_args_eq = true;
@@ -917,7 +917,7 @@ bool ufbv_rewriter::match_subst::operator()(app * lhs, expr * rhs, expr * const 
 
 bool ufbv_rewriter::match_subst::operator()(expr * t, expr * i) {
     m_cache.reset();
-    m_todo.reset();
+    m_todo.clear();
     if (is_var(t))
         return true;
     if (is_app(t) && is_app(i) && to_app(t)->get_decl() == to_app(i)->get_decl() && to_app(t)->get_num_args() == to_app(i)->get_num_args()) {

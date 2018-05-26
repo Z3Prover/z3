@@ -33,12 +33,12 @@ class used_vars {
 public:
     
     void operator()(expr * n) {
-        m_found_vars.reset();
+        m_found_vars.clear();
         process(n, 0);
     }
 
     void reset() {
-        m_found_vars.reset();
+        m_found_vars.clear();
     }
 
     void process(expr * n) {

@@ -1152,7 +1152,7 @@ namespace datalog {
                 bool tgt_is_first, vector<store_offset> & res) {
             SASSERT(res.empty());
 
-            m_intersection_content.reset();
+            m_intersection_content.clear();
 
             unsigned joined_col_cnt = m_cols1.size();
             unsigned t1_entry_size = t1.m_data.entry_size();

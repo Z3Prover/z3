@@ -68,7 +68,7 @@ public:
         scoped_ptr<solver> uffree_solver = setup_sat();
         lackr imp(m, m_p, m_st, flas, uffree_solver.get());
         const lbool o = imp.operator()();
-        flas.reset();
+        flas.clear();
         // report result
         goal_ref resg(alloc(goal, *g, true));
         if (o == l_false) resg->assert_expr(m.mk_false());

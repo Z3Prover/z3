@@ -586,7 +586,7 @@ bool array_recognizers::is_store_ext(expr* _e, expr_ref& a, expr_ref_vector& arg
         app* e = to_app(_e);
         a = e->get_arg(0);
         unsigned sz = e->get_num_args();
-        args.reset();
+        args.clear();
         for (unsigned i = 1; i < sz-1; ++i) {
             args.push_back(e->get_arg(i));
         }

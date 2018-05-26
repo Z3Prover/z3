@@ -32,8 +32,8 @@ class max_cliques : public T {
     unsigned_vector         m_todo;
 
     void get_reachable(unsigned p, uint_set const& goal, uint_set& reachable) {
-        m_seen1.reset();
-        m_todo.reset();
+        m_seen1.clear();
+        m_todo.clear();
         m_todo.push_back(p);
         for (unsigned i = 0; i < m_todo.size(); ++i) {
             p = m_todo[i];
@@ -111,7 +111,7 @@ public:
         }
 
         while (!vars.empty()) {
-            clique.reset();
+            clique.clear();
             bool turn = false;
             m_reachable[turn] = vars;
             while (!m_reachable[turn].empty()) {
@@ -122,7 +122,7 @@ public:
                 if (m_reachable[turn].empty()) {
                     break;
                 }
-                m_reachable[!turn].reset();
+                m_reachable[!turn].clear();
                 get_reachable(p, m_reachable[turn], m_reachable[!turn]);
                 turn = !turn;
             }

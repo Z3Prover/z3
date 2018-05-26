@@ -157,7 +157,7 @@ namespace datalog {
             }
             app* ap = to_app(e);
             bool valid = true;
-            args.reset();
+            args.clear();
             for (unsigned i = 0; i < ap->get_num_args(); ++i) {
                 expr* arg;
                 if (cache.find(ap->get_arg(i), arg)) {
@@ -191,7 +191,7 @@ namespace datalog {
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* e = conjs[i].get();
             if (is_select_eq_var(e, s, v)) {
-                args.reset();
+                args.clear();
                 for (unsigned j = 0; j < s->get_num_args(); ++j) {
                     args.push_back(cache.find(s->get_arg(j)));
                 }

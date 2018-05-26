@@ -69,7 +69,7 @@ public:
             m_trail.push_back(s);
         }
     }
-    void reset() { m_subst.reset(); m_trail.reset(); m_trail_lim.reset(); }
+    void reset() { m_subst.reset(); m_trail.clear(); m_trail_lim.clear(); }
     void push() { m_trail_lim.push_back(m_trail.size()); }
     void pop(unsigned n) { 
         if (n > 0) {

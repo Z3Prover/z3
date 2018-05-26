@@ -222,7 +222,7 @@ namespace smt {
         }
         m_todo_js.shrink(old_js_qhead);
         m_todo_js_qhead = old_js_qhead;
-        m_todo_eqs.reset();
+        m_todo_eqs.clear();
         m_already_processed_eqs.reset();
     }
 
@@ -255,7 +255,7 @@ namespace smt {
     unsigned conflict_resolution::get_justification_max_lvl(justification * js) {
         unsigned r = 0;
         literal_vector & antecedents = m_tmp_literal_vector;
-        antecedents.reset();
+        antecedents.clear();
         justification2literals(js, antecedents);
         for (literal lit : antecedents) 
             r = std::max(r, m_ctx.get_assign_level(lit));
@@ -344,7 +344,7 @@ namespace smt {
 
     void conflict_resolution::process_justification(justification * js, unsigned & num_marks) {
         literal_vector & antecedents = m_tmp_literal_vector;
-        antecedents.reset();
+        antecedents.clear();
         justification2literals_core(js, antecedents);
         for (literal l : antecedents)
             process_antecedent(l, num_marks);
@@ -375,8 +375,8 @@ namespace smt {
     */
     bool conflict_resolution::initialize_resolve(b_justification conflict, literal not_l, b_justification & js, literal & consequent) {
         TRACE("conflict_detail", m_ctx.display(tout););
-        m_lemma.reset();
-        m_lemma_atoms.reset();
+        m_lemma.clear();
+        m_lemma_atoms.clear();
         SASSERT(m_ctx.get_search_level() >= m_ctx.get_base_level());
         js                  = conflict;
         consequent          = false_literal;
@@ -638,7 +638,7 @@ namespace smt {
 
     bool conflict_resolution::process_justification_for_minimization(justification * js) {
         literal_vector & antecedents = m_tmp_literal_vector;
-        antecedents.reset();
+        antecedents.clear();
         // Invoking justification2literals_core will not reset the caches for visited justifications and eqs.
         // The method unmark_justifications must be invoked to reset these caches.
         // Remark: The method reset_unmark_and_justifications invokes unmark_justifications.
@@ -657,7 +657,7 @@ namespace smt {
        as soon as we find a literal assigned in a level that is not in lvl_set.
     */
     bool conflict_resolution::implied_by_marked(literal lit) {
-        m_lemma_min_stack.reset();  // avoid recursive function
+        m_lemma_min_stack.clear();  // avoid recursive function
         m_lemma_min_stack.push_back(lit.var());
         unsigned old_size     = m_unmark.size();
         unsigned old_js_qhead = m_todo_js_qhead;
@@ -719,7 +719,7 @@ namespace smt {
        assigned in the base levels.
     */
     void conflict_resolution::minimize_lemma() {
-        m_unmark.reset();
+        m_unmark.clear();
 
         m_lvl_set   = get_lemma_approx_level_set();
 
@@ -1040,8 +1040,8 @@ namespace smt {
 
     void conflict_resolution::init_mk_proof() {
         TRACE("proof_gen_bug", tout << "reset_caches\n";);
-        m_new_proofs.reset();
-        m_todo_pr.reset();
+        m_new_proofs.clear();
+        m_todo_pr.clear();
         m_eq2proof.reset();
         m_lit2proof.reset();
         m_js2proof.reset();
@@ -1321,7 +1321,7 @@ namespace smt {
             m_lemma_proof = pr;
         else
             m_lemma_proof = m_manager.mk_lemma(pr, fact);
-        m_new_proofs.reset();
+        m_new_proofs.clear();
     }
 
     void conflict_resolution::process_antecedent_for_unsat_core(literal antecedent) {
@@ -1342,7 +1342,7 @@ namespace smt {
 
     void conflict_resolution::process_justification_for_unsat_core(justification * js) {
         literal_vector & antecedents = m_tmp_literal_vector;
-        antecedents.reset();
+        antecedents.clear();
         justification2literals_core(js, antecedents);
         for (literal lit : antecedents) 
             process_antecedent_for_unsat_core(lit);
@@ -1350,8 +1350,8 @@ namespace smt {
 
     void conflict_resolution::mk_unsat_core(b_justification conflict, literal not_l) {
         SASSERT(m_ctx.tracking_assumptions());
-        m_assumptions.reset();
-        m_unmark.reset();
+        m_assumptions.clear();
+        m_unmark.clear();
 
         SASSERT(m_conflict_lvl <= m_ctx.get_search_level());
         unsigned search_lvl = m_ctx.get_search_level();

@@ -139,8 +139,8 @@ class parallel_tactic : public tactic {
         void reset() {
             for (auto* t : m_tasks) dealloc(t);
             for (auto* t : m_active) dealloc(t);
-            m_tasks.reset();
-            m_active.reset();
+            m_tasks.clear();
+            m_active.clear();
         }
 
         std::ostream& display(std::ostream& out) {
@@ -238,7 +238,7 @@ class parallel_tactic : public tactic {
         }
 
         void set_cubes(vector<cube_var>& c) {
-            m_cubes.reset();
+            m_cubes.clear();
             m_cubes.append(c);
         }
 
@@ -347,7 +347,7 @@ private:
         m_conquer_delay = pp.conquer_delay();
         m_exn_code = 0;
         m_params.set_bool("override_incremental", true);
-        m_core.reset();
+        m_core.clear();
     }
 
     void log_branches(lbool status) {
@@ -441,14 +441,14 @@ private:
 
     cube_again:
         // extract up to one cube and add it.
-        cube.reset();
+        cube.clear();
         cube.append(s.split_cubes(1));
         SASSERT(cube.size() <= 1);
         IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :split-cube " << cube.size() << ")\n";);
         if (!s.cubes().empty()) m_queue.add_task(s.clone());
         if (!cube.empty()) {
             s.assert_cube(cube[0].cube());
-            vars.reset();
+            vars.clear();
             vars.append(cube[0].vars());
         }
 
@@ -467,7 +467,7 @@ private:
             goto simplify_again;
         }
         // extract cubes.
-        cubes.reset();
+        cubes.clear();
         s.set_cube_params();
         solver_ref conquer;
         
@@ -520,7 +520,7 @@ private:
             if (cubes.size() >= conquer_batch_size()) {
                 spawn_cubes(s, 10*width, cubes);
                 first = false;
-                cubes.reset();
+                cubes.clear();
             }
         }
 
@@ -574,7 +574,7 @@ private:
                 asms.push_back(last);
                 return;
             }
-            core.reset();
+            core.clear();
             s.get_unsat_core(core);
             if (core.contains(not_last)) {
                 //s.assert_expr(m.mk_not(mk_and(core)));

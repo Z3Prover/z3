@@ -547,7 +547,7 @@ namespace qe {
         }
 
         void extract_coefficients(opt::model_based_opt& mbo, model_evaluator& eval, obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
-            coeffs.reset();
+            coeffs.clear();
             eval.set_model_completion(true);
             for (auto& kv : ts) {
                 unsigned id;

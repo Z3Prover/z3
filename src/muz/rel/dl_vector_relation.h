@@ -124,7 +124,7 @@ namespace datalog {
         void set_empty() { 
             unsigned sz = m_elems->size();
             m_empty = true; 
-            m_elems->reset();
+            m_elems->clear();
             m_elems->resize(sz, m_default);
             dealloc(m_eqs);
             m_eqs = alloc(union_find<>,m_ctx);

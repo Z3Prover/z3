@@ -50,7 +50,7 @@ void pred_transformer::legacy_frames::simplify_formulas(tactic& tac,
     tac(g, result);
     SASSERT(result.size() == 1);
     goal* r = result[0];
-    v.reset();
+    v.clear();
     for (unsigned j = 0; j < r->size(); ++j) { v.push_back(r->form(j)); }
 }
 
@@ -153,7 +153,7 @@ void  pred_transformer::legacy_frames::propagate_to_infinity(unsigned level)
         expr_ref_vector &lemmas = m_levels [i - 1];
         for (unsigned j = 0; j < lemmas.size(); ++j)
         { add_lemma(lemmas.get(j), infty_level()); }
-        lemmas.reset();
+        lemmas.clear();
     }
 }
 

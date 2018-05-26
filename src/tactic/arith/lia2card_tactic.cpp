@@ -48,8 +48,8 @@ class lia2card_tactic : public tactic {
         rational         coeff;
 
         bool is_pb(expr* x, expr* y, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
-            args.reset();
-            coeffs.reset();
+            args.clear();
+            coeffs.clear();
             coeff.reset();
             return 
                 t.get_pb_sum(x,  rational::one(), args, coeffs, coeff) &&

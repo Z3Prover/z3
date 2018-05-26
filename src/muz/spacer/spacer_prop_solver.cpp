@@ -154,7 +154,7 @@ lbool prop_solver::mss(expr_ref_vector &hard, expr_ref_vector &soft) {
 
     // don't proxy soft literals. Assume that they are propositional.
     hard.append(soft);
-    soft.reset();
+    soft.clear();
 
 
     // hard is divided into 4 regions
@@ -244,7 +244,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
     if (res != l_false || soft.empty()) { return res; }
 
     // clear soft constraints, we will recompute them later
-    soft.reset();
+    soft.clear();
 
     expr_ref saved(m);
     expr_ref_vector core(m);
@@ -275,7 +275,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
         res = m_ctx->check_sat_cc(hard, clauses);
         if (res != l_false) { break; }
         // still unsat, update the core and repeat
-        core.reset();
+        core.clear();
         m_ctx->get_unsat_core(core);
     }
 
@@ -332,10 +332,10 @@ lbool prop_solver::internal_check_assumptions(expr_ref_vector &hard_atoms,
 
     if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
         TRACE("spacer", tout << "Using IUC core\n";);
-        m_core->reset();
+        m_core->clear();
         m_ctx->get_iuc(*m_core);
     } else if (result == l_false && m_core) {
-        m_core->reset();
+        m_core->clear();
         m_ctx->get_unsat_core(*m_core);
         // manually undo proxies because maxsmt() call above manually adds proxies
         // AG: don't think this is needed. maxsmt() undoes the proxies already

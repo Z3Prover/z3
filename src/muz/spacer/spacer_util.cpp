@@ -179,7 +179,7 @@ namespace spacer {
 
             TRACE ("spacer_mbp", tout << "Array vars:\n"; tout << array_vars;);
 
-            vars.reset ();
+            vars.clear ();
 
             // project arrays
             {
@@ -245,7 +245,7 @@ namespace spacer {
             SASSERT(mev.is_true(fml));
         );
 
-        vars.reset ();
+        vars.clear ();
         if (dont_sub && !arith_vars.empty ()) {
             vars.append(arith_vars);
         }
@@ -560,7 +560,7 @@ namespace {
        (*simplifier)(g, result);
         SASSERT(result.size() == 1);
         goal* r = result[0];
-        cube.reset();
+        cube.clear();
         for (unsigned i = 0; i < r->size(); ++i) {
             cube.push_back(r->form(i));
         }
@@ -582,7 +582,7 @@ namespace {
         SASSERT(goals.size() == 1);
 
         g = goals[0];
-        cube.reset();
+        cube.clear();
         for (unsigned i = 0; i < g->size(); ++i) {
             cube.push_back(g->form(i));
         }
@@ -674,7 +674,7 @@ namespace {
                     // -- refactor equivalence classes and choose a representative
                     qe::term_graph egraph(out.m());
                     egraph.add_lits(v);
-                    v.reset();
+                    v.clear();
                     egraph.to_lits(v);
                 }
                 // sort arguments of the top-level and

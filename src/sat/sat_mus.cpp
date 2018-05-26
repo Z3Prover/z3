@@ -28,14 +28,14 @@ namespace sat {
     mus::~mus() {}
    
     void mus::reset() {
-        m_core.reset();
-        m_mus.reset();
-        m_model.reset();
+        m_core.clear();
+        m_mus.clear();
+        m_model.clear();
     }
 
     void mus::set_core() {   
         m_mus.append(m_core);
-        s.m_core.reset();
+        s.m_core.clear();
         s.m_core.append(m_mus);
         TRACE("sat", tout << "new core: " << s.m_core << "\n";);
     }
@@ -118,7 +118,7 @@ namespace sat {
                 }
                 else {
                     TRACE("sat", tout << "core: " << new_core << " mus: " << mus << "\n";);
-                    core.reset();
+                    core.clear();
                     for (unsigned i = 0; i < new_core.size(); ++i) {
                         literal lit = new_core[i];
                         if (!mus.contains(lit)) {
@@ -140,7 +140,7 @@ namespace sat {
         literal_set core(get_core());
         literal_set support;
         lbool is_sat = qx(core, support, false);
-        s.m_core.reset();
+        s.m_core.clear();
         s.m_core.append(core.to_vector());
         IF_VERBOSE(3, verbose_stream() << "(sat.mus.new " << s.m_core << ")\n";);
         return is_sat;
@@ -214,8 +214,8 @@ namespace sat {
     }
 
     literal_vector& mus::get_core() {
-        m_core.reset();
-        m_mus.reset();
+        m_core.clear();
+        m_mus.clear();
         literal_vector& core = m_core;
         core.append(s.get_core());        
         for (unsigned i = 0; i < core.size(); ++i) {

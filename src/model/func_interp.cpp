@@ -101,7 +101,7 @@ void func_interp::reset_interp_cache() {
 }
 
 bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
-    args.reset();
+    args.clear();
     expr* c, *t, *f, *a0, *a1;
     if (!m().is_ite(e, c, t, f)) {
         return false;
@@ -273,7 +273,7 @@ void func_interp::compress() {
         for (func_entry * curr : m_entries) {
             curr->deallocate(m_manager, m_arity);
         }
-        m_entries.reset();
+        m_entries.clear();
         reset_interp_cache();
         m_manager.inc_ref(new_else);
         m_manager.dec_ref(m_else);
@@ -283,7 +283,7 @@ void func_interp::compress() {
         for (func_entry * curr : m_entries) {
             curr->deallocate(m_manager, m_arity);
         }
-        m_entries.reset();
+        m_entries.clear();
         reset_interp_cache();
         expr_ref new_else(m_manager.mk_var(0, m_manager.get_sort(m_else)), m_manager);
         m_manager.inc_ref(new_else);

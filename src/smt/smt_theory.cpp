@@ -29,7 +29,7 @@ namespace smt {
     }
 
     void theory::reset_eh() {
-        m_var2enode.reset();
+        m_var2enode.clear();
     }
     
     void theory::push_scope_eh() {

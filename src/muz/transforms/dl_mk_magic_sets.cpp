@@ -35,11 +35,11 @@ namespace datalog {
 
     void mk_magic_sets::reset() {
         m_extentional.reset();
-        m_todo.reset();
+        m_todo.clear();
         m_adorned_preds.reset();
         m_adornments.reset();
         m_magic_preds.reset();
-        m_pinned.reset();
+        m_pinned.clear();
     }
 
     void mk_magic_sets::adornment::populate(app * lit, const var_idx_set & bound_vars) {

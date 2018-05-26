@@ -137,7 +137,7 @@ public:
         for (unsigned i = 0; i < P.size(); ++i) {
             term_set& consts = P[i];
             if (invariant_by_permutations(fml, consts)) {
-                cts.reset();
+                cts.clear();
                 select_terms(fml, consts, T);
                 while (!T.empty() && cts.size() < consts.size()) {
                     app* t = select_most_promising_term(fml, T, cts, consts, occs);
@@ -469,7 +469,7 @@ private:
 
     // select terms that are range restricted by set p.
     void select_terms(expr* fml, term_set const& p, term_set& T) {
-        T.reset();
+        T.clear();
         ptr_vector<expr> todo;
         todo.push_back(fml);
         app* t = nullptr;

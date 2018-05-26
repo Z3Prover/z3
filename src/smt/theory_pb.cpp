@@ -158,9 +158,9 @@ namespace smt {
         m_watch_sz = 0;
         m_watch_sum.reset();
         m_num_propagations = 0;
-        m_args[0].reset();
+        m_args[0].clear();
         m_args[0].m_k.reset();
-        m_args[1].reset();
+        m_args[1].clear();
         m_args[1].m_k.reset();
         m_nfixed = 0;
         m_max_sum.reset();
@@ -178,7 +178,7 @@ namespace smt {
         if (!m_args[0].empty() && is_ge()) {
             m_args[0].negate();
             m_args[0].negate();            
-            m_args[1].reset();
+            m_args[1].clear();
             m_args[1].m_k = m_args[0].m_k;
             m_args[1].append(m_args[0]);
             m_args[1].negate();
@@ -980,10 +980,10 @@ namespace smt {
         for (unsigned i = 0; i < m_var_infos.size(); ++i) {
             m_var_infos[i].reset();
         }
-        m_ineqs_trail.reset();
-        m_ineqs_lim.reset();
-        m_card_trail.reset();
-        m_card_lim.reset();
+        m_ineqs_trail.clear();
+        m_ineqs_lim.clear();
+        m_card_trail.clear();
+        m_card_lim.clear();
         m_stats.reset();
     }
 
@@ -1343,7 +1343,7 @@ namespace smt {
         context& ctx = get_context();
 
         unsigned z = 0, nz = 0;
-        m_occs.reset();
+        m_occs.clear();
         for (unsigned i = 0; i < m_card_trail.size(); ++i) {
             bool_var v = m_card_trail[i];
             if (v == null_bool_var) continue;
@@ -1388,7 +1388,7 @@ namespace smt {
         //std::cout << "zs: " << z << " nzs: " << nz << " lemmas: " << ctx.get_lemmas().size() << " trail: " << m_card_trail.size() << "\n";
         return z*10 >= nz;
 
-        m_occs.reset();
+        m_occs.clear();
         for (unsigned i = 0; i < lemmas.size(); ++i) {
             clause* cl = lemmas[i];
             unsigned sz = cl->get_num_literals();
@@ -1555,7 +1555,7 @@ namespace smt {
         for (unsigned i = 0; i < m_active_vars.size(); ++i) {
             m_coeffs[m_active_vars[i]] = 0;
         }
-        m_active_vars.reset();
+        m_active_vars.clear();
     }
 
     void theory_pb::process_antecedent(literal l, int offset) {        
@@ -1708,7 +1708,7 @@ namespace smt {
         for (unsigned i = 0; i < m_active_vars.size(); ++i) {
             int coeff = get_abs_coeff(m_active_vars[i]);
             if (static_cast<int>(m_coeff2args.size()) > coeff) {
-                m_coeff2args[coeff].reset();
+                m_coeff2args[coeff].clear();
             }
         }
     }
@@ -1717,7 +1717,7 @@ namespace smt {
         if (m_coeff2args.size() < (1 << 10)) {
             m_coeff2args.resize(1 << 10);
         }
-        m_active_coeffs.reset();
+        m_active_coeffs.clear();
         if (m_active_vars.empty()) {
             return false;
         }
@@ -1839,8 +1839,8 @@ namespace smt {
         reset_coeffs();
         m_num_marks = 0;
         m_bound = c.k();
-        m_antecedents.reset();
-        m_resolved.reset();
+        m_antecedents.clear();
+        m_resolved.clear();
         literal_vector ante;
 
         process_card(c, 1);

@@ -366,7 +366,7 @@ class fm_tactic : public tactic {
             return c;
         }
         
-        void reset() { m_id2pos.reset(); m_set.reset(); }
+        void reset() { m_id2pos.clear(); m_set.clear(); }
         void finalize() { m_id2pos.finalize(); m_set.finalize(); }
         
         iterator begin() const { return m_set.begin(); }
@@ -532,7 +532,7 @@ class fm_tactic : public tactic {
         
         void reset_constraints() {
             del_constraints(m_constraints.size(), m_constraints.c_ptr());
-            m_constraints.reset();
+            m_constraints.clear();
         }
         
         constraint * mk_constraint(unsigned num_lits, literal * lits, unsigned num_vars, var * xs, rational * as, rational & c, bool strict,
@@ -827,18 +827,18 @@ class fm_tactic : public tactic {
             m_sub_todo.reset();
             m_id_gen.reset();
             reset_constraints();
-            m_bvar2expr.reset();
-            m_bvar2sign.reset();
+            m_bvar2expr.clear();
+            m_bvar2sign.clear();
             m_bvar2expr.push_back(nullptr); // bvar 0 is not used
             m_bvar2sign.push_back(0);
             m_expr2var.reset();
-            m_is_int.reset();
-            m_var2pos.reset();
-            m_forbidden.reset();
-            m_var2expr.reset();
+            m_is_int.clear();
+            m_var2pos.clear();
+            m_forbidden.clear();
+            m_var2expr.clear();
             m_expr2var.reset();
-            m_lowers.reset();
-            m_uppers.reset();
+            m_lowers.clear();
+            m_uppers.clear();
             m_new_goal = nullptr;
             m_mc = nullptr;
             m_counter = 0;
@@ -1257,7 +1257,7 @@ class fm_tactic : public tactic {
         clauses tmp_clauses;
         void save_constraints(var x) {
             if (m_produce_models) {
-                tmp_clauses.reset();
+                tmp_clauses.clear();
                 copy_constraints(m_lowers[x], tmp_clauses);
                 copy_constraints(m_uppers[x], tmp_clauses);
                 m_mc->insert(to_app(m_var2expr.get(x))->get_decl(), tmp_clauses);
@@ -1302,8 +1302,8 @@ class fm_tactic : public tactic {
             
             SASSERT(!is_int(x) || a.is_one() || b.is_one());
             
-            new_xs.reset();
-            new_as.reset();
+            new_xs.clear();
+            new_as.clear();
             rational         new_c = l.m_c*b + u.m_c*a;
             bool             new_strict = l.m_strict || u.m_strict;
             
@@ -1371,7 +1371,7 @@ class fm_tactic : public tactic {
                 return nullptr; // no constraint needs to be created.
             }
             
-            new_lits.reset();
+            new_lits.clear();
             for (unsigned i = 0; i < l.m_num_lits; i++) {
                 literal lit = l.m_lits[i];
                 bvar    p   = lit2bvar(lit);
@@ -1483,7 +1483,7 @@ class fm_tactic : public tactic {
             unsigned num_old_cnstrs = num_uppers + num_lowers;
             unsigned limit          = num_old_cnstrs + m_fm_extra;
             unsigned num_new_cnstrs = 0;
-            new_constraints.reset();
+            new_constraints.clear();
             for (unsigned i = 0; i < num_lowers; i++) {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {

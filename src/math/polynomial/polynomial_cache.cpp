@@ -156,7 +156,7 @@ namespace polynomial {
             if (entry != old_entry) {
                 entry->~psc_chain_entry();
                 m_allocator.deallocate(sizeof(psc_chain_entry), entry);
-                S.reset();
+                S.clear();
                 for (unsigned i = 0; i < old_entry->m_result_sz; i++) {
                     S.push_back(old_entry->m_result[i]);
                 }
@@ -175,7 +175,7 @@ namespace polynomial {
         }
 
         void factor(polynomial * p, polynomial_ref_vector & distinct_factors) {
-            distinct_factors.reset();
+            distinct_factors.clear();
             p = mk_unique(p);
             unsigned h = hash_u(pid(p));
             factor_entry * entry = new (m_allocator.allocate(sizeof(factor_entry))) factor_entry(p, h);
@@ -183,7 +183,7 @@ namespace polynomial {
             if (entry != old_entry) {
                 entry->~factor_entry();
                 m_allocator.deallocate(sizeof(factor_entry), entry);
-                distinct_factors.reset();
+                distinct_factors.clear();
                 for (unsigned i = 0; i < old_entry->m_result_sz; i++) {
                     distinct_factors.push_back(old_entry->m_result[i]);
                 }

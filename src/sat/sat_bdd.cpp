@@ -348,9 +348,9 @@ namespace sat {
         if (m_level2nodes[lvl].empty()) return;
         // SASSERT(well_formed());
         // exchange level and level + 1.
-        m_S.reset();
-        m_T.reset();
-        m_to_free.reset();
+        m_S.clear();
+        m_T.clear();
+        m_to_free.clear();
         m_disable_gc = true;
 
         for (unsigned n : m_level2nodes[lvl + 1]) {
@@ -369,7 +369,7 @@ namespace sat {
             TRACE("bdd", tout << "remove " << n << "\n";);
             m_node_table.remove(m_nodes[n]);
         }
-        m_level2nodes[lvl + 1].reset();
+        m_level2nodes[lvl + 1].clear();
         m_level2nodes[lvl + 1].append(m_T);
 
         for (unsigned n : m_level2nodes[lvl]) {
@@ -385,7 +385,7 @@ namespace sat {
                 m_level2nodes[lvl + 1].push_back(n);
             }
         }
-        m_level2nodes[lvl].reset();
+        m_level2nodes[lvl].clear();
         m_level2nodes[lvl].append(m_S);
     
         for (unsigned n : m_S) {
@@ -482,7 +482,7 @@ namespace sat {
     }
 
     void bdd_manager::init_reorder() {
-        m_level2nodes.reset();
+        m_level2nodes.clear();
         unsigned sz = m_nodes.size();
         m_reorder_rc.fill(sz, 0);
         for (unsigned i = 0; i < sz; ++i) {
@@ -742,7 +742,7 @@ namespace sat {
     }
 
     void bdd_manager::gc() {
-        m_free_nodes.reset();
+        m_free_nodes.clear();
         IF_VERBOSE(13, verbose_stream() << "(bdd :gc " << m_nodes.size() << ")\n";);
         vector<bool> reachable(m_nodes.size(), false);
         for (unsigned i = m_bdd_stack.size(); i-- > 0; ) {

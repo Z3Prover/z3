@@ -65,7 +65,7 @@ void create_forwarding(
                 tbvm.display(std::cout, *t) << " " << line << "\n";
                 exit(0);
             }
-            forwarding_set.reset();
+            forwarding_set.clear();
             ddnf.accumulate(*t, forwarding_set);
             for (unsigned i = 0; i < forwarding_set.size(); ++i) {
                 forwarding_index[forwarding_set[i]] = p;

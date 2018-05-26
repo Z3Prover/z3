@@ -864,7 +864,7 @@ namespace smt {
         already_processed.reset();
         vector<theory_var> vars;
         for (;;) {
-            vars.reset();
+            vars.clear();
             // Collect infeasible integer variables.
             typename vector<row>::const_iterator it  = m_rows.begin();
             typename vector<row>::const_iterator end = m_rows.end();
@@ -1047,8 +1047,8 @@ namespace smt {
                 ejustification j = m_solver.mk_justification();
                 m_j2v.expand(j+1, null_theory_var);
                 m_j2v[j] = v;
-                as.reset();
-                xs.reset();
+                as.clear();
+                xs.clear();
                 bool failed = false;
                 unsigned num_args;
                 expr * const * args;
@@ -1132,8 +1132,8 @@ namespace smt {
             bool init_g = false;
             mpz_buffer & as      = m_as;
             unsigned_vector & xs = m_xs;
-            as.reset();
-            xs.reset();
+            as.clear();
+            xs.clear();
 
             unsigned num_args;
             expr * const * args;
@@ -1169,7 +1169,7 @@ namespace smt {
                     xs.push_back(x);
                 }
             }
-            m_js.reset();
+            m_js.clear();
             m_solver.normalize(as.size(), as.c_ptr(), xs.c_ptr(), c, a, c, m_js);
             if (init_g) {
                 if (!m.is_zero(a))

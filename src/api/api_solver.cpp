@@ -715,7 +715,7 @@ extern "C" {
         for (expr* e : result) {
             v->m_ast_vector.push_back(e);
         }
-        to_ast_vector_ref(vs).reset();
+        to_ast_vector_ref(vs).clear();
         for (expr* a : vars) {
             to_ast_vector_ref(vs).push_back(a);
         }

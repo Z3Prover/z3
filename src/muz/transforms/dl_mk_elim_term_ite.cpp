@@ -90,7 +90,7 @@ namespace datalog {
     }
 
     bool mk_elim_term_ite::elim(rule &r, rule_set &new_rules){
-        m_ground.reset();
+        m_ground.clear();
 
         th_rewriter rw(m);
         unsigned utsz = r.get_uninterpreted_tail_size();
@@ -112,7 +112,7 @@ namespace datalog {
             new_rules.add_rule(&r);
             return false;
         }
-        new_conjs.reset();
+        new_conjs.clear();
         blast_term_ite(body, m_ctx.blast_term_ite_inflation());
         // simplify body
         rw(body);
@@ -144,7 +144,7 @@ namespace datalog {
         if (result.size() == 1) {
             goal_ref new_goal = result[0];
             if (new_goal->num_exprs() != sz) {
-                new_conjs.reset();
+                new_conjs.clear();
                 new_goal->get_formulas(new_conjs);
                 flatten_and(new_conjs);
             }

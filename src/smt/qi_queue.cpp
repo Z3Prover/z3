@@ -174,7 +174,7 @@ namespace smt {
                 since_last_check = 0;
             }
         }
-        m_new_entries.reset();
+        m_new_entries.clear();
         TRACE("new_entries_bug", tout << "[qi:instantiate]\n";);
     }
 
@@ -328,16 +328,16 @@ namespace smt {
         m_instantiated_trail.shrink(old_sz);
         m_delayed_entries.shrink(s.m_delayed_entries_lim);
         m_instances.shrink(s.m_instances_lim);
-        m_new_entries.reset();
+        m_new_entries.clear();
         m_scopes.shrink(new_lvl);
         TRACE("new_entries_bug", tout << "[qi:pop-scope]\n";);
     }
 
     void qi_queue::reset() {
-        m_new_entries.reset();
-        m_delayed_entries.reset();
-        m_instances.reset();
-        m_scopes.reset();
+        m_new_entries.clear();
+        m_delayed_entries.clear();
+        m_instances.clear();
+        m_scopes.clear();
     }
 
     void qi_queue::init_search_eh() {

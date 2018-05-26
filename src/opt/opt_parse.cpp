@@ -398,7 +398,7 @@ private:
             if (c == '-') {
                 in.next();
                 c = in.ch();
-                m_buffer.reset();
+                m_buffer.clear();
                 m_buffer.push_back('-');
                 if (is_num(c)) {
                     neg = true;
@@ -439,7 +439,7 @@ private:
                 IF_VERBOSE(10, verbose_stream() << "num: " << m_tokens.back() << "\n");
                 continue;
             }
-            m_buffer.reset();
+            m_buffer.clear();
             if (is_alpha(c)) {
                 while (is_sym(c) && !in.eof()) {
                     m_buffer.push_back(lower(c));

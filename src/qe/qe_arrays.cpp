@@ -198,15 +198,15 @@ namespace qe {
             m_subst_term_v = nullptr;
             m_true_sub_v.reset ();
             m_false_sub_v.reset ();
-            m_aux_lits_v.reset ();
-            m_idx_lits_v.reset ();
+            m_aux_lits_v.clear();
+            m_idx_lits_v.clear();
         }
 
         void reset () {
             M = nullptr;
             m_mev = nullptr;
             reset_v ();
-            m_aux_vars.reset ();
+            m_aux_vars.clear();
         }
 
         /**
@@ -683,8 +683,8 @@ namespace qe {
 
         void reset () {
             m_cache.reset ();
-            m_pinned.reset ();
-            m_idx_lits.reset ();
+            m_pinned.clear();
+            m_idx_lits.clear();
             M = nullptr;
             m_mev = nullptr;
             m_arr_test.reset ();
@@ -747,7 +747,7 @@ namespace qe {
                 unsigned sz = todo.size ();
                 bool dirty = false;
                 bool args_have_stores = false;
-                args.reset();
+                args.clear();
                 for (expr * arg : *a) {
                     expr *narg = nullptr;
                     if (!is_app (arg)) {
@@ -896,7 +896,7 @@ namespace qe {
             vector<rational> rval;
             idx_val(expr_ref_vector & idx, expr_ref_vector & val, vector<rational> const& rval): idx(idx), val(val), rval(rval) {}
             idx_val& operator=(idx_val const& o) {
-                idx.reset(); val.reset(); rval.reset();
+                idx.clear(); val.clear(); rval.clear();
                 idx.append(o.idx); val.append(o.val); rval.append(o.rval);
                 return *this;
             }
@@ -917,9 +917,9 @@ namespace qe {
 
         void reset () {
             m_sel_terms.reset ();
-            m_idxs.reset();
-            m_sel_consts.reset ();
-            m_idx_lits.reset ();
+            m_idxs.clear();
+            m_sel_consts.clear();
+            m_idx_lits.clear();
             M = nullptr;
             m_mev = nullptr;
             m_sub.reset ();
@@ -1158,7 +1158,7 @@ namespace qe {
             if (project (fml)) {
                 mk_result (fml);
                 aux_vars.append (m_sel_consts);
-                arr_vars.reset ();
+                arr_vars.clear();
             }
             else {
                 IF_VERBOSE(2, verbose_stream() << "can't project arrays:" << "\n";);
@@ -1263,7 +1263,7 @@ namespace qe {
                     expr_ref val(m);
                     var = m.mk_fresh_const("value", range);
                     vars.push_back(var);
-                    args.reset();
+                    args.clear();
 
                     args.push_back (s);
                     args.append(idxs[i].m_values.size(), idxs[i].m_vars);
@@ -1373,7 +1373,7 @@ namespace qe {
         app_ref_vector vvars(m, 1, &var);
         expr_ref fml = mk_and(lits);
         (*this)(model, vvars, fml, vars, false);
-        lits.reset();
+        lits.clear();
         flatten_and(fml, lits);
         return true;
     }

@@ -553,8 +553,8 @@ bool arith_eq_solver::solve_integer_equations_gcd(
         change = false;
         for (unsigned i = 1; i < max_column; ++i) {
             rational g(0);
-            gcds.reset();
-            gcd_pos.reset();
+            gcds.clear();
+            gcd_pos.clear();
             unsigned j = 0;
             for (; j < live.size(); ++j) {
                 rational const& k = rows[live[j]][i];

@@ -30,7 +30,7 @@ class region {
     unsigned_vector  m_scopes;
 public:
     ~region() {
-        reset();
+        clear();
     }
 
     void * allocate(size_t size) {
@@ -39,14 +39,14 @@ public:
         return r;
     }
 
-    void reset() {
+    void clear() {
         ptr_vector<char>::iterator it  = m_chuncks.begin();
         ptr_vector<char>::iterator end = m_chuncks.end();
         for (; it != end; ++it) {
             dealloc_svect(*it);
         }
-        m_chuncks.reset();
-        m_scopes.reset();
+        m_chuncks.clear();
+        m_scopes.clear();
     }
 
     void push_scope() {
@@ -97,7 +97,7 @@ public:
     region();
     ~region();
     void * allocate(size_t size);
-    void reset();
+    void clear();
     void push_scope();
     void pop_scope();
     void pop_scope(unsigned num_scopes) {

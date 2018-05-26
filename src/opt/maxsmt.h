@@ -192,7 +192,7 @@ namespace opt {
             vector<std::pair<expr*, rational>> _soft;
             for (expr* e : soft) _soft.push_back(std::make_pair(e, rational::one()));
             lbool r = (*this)(_soft);
-            soft.reset();
+            soft.clear();
             for (auto const& p : _soft) soft.push_back(p.first);
             return r;
         }

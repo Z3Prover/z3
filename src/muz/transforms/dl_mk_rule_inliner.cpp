@@ -625,10 +625,10 @@ namespace datalog {
     }
 
     void mk_rule_inliner::visitor::reset(unsigned sz) {
-        m_unifiers.reset();
-        m_can_remove.reset();
+        m_unifiers.clear();
+        m_can_remove.clear();
         m_can_remove.resize(sz, true);
-        m_can_expand.reset();
+        m_can_expand.clear();
         m_can_expand.resize(sz, true);
         m_positions.reset();
     }
@@ -728,7 +728,7 @@ namespace datalog {
         m_subst.reserve_offsets(std::max(m_tail_index.get_approx_num_regs(), 2+m_head_index.get_approx_num_regs()));
 
         vector<bool> valid;
-        valid.reset();
+        valid.clear();
         valid.resize(sz, true);
 
         bool allow_branching = m_context.get_params().xform_inline_linear_branch();

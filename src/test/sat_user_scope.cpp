@@ -61,7 +61,7 @@ static void check_coherence(sat::solver& s1, trail_t& t) {
     for (unsigned i = 0; i < t.size(); ++i) {
         clauses_t& clss = t[i];
         for (unsigned j = 0; j < clss.size(); ++j) {
-            cls.reset();
+            cls.clear();
             cls.append(clss[j]);
             s2.mk_clause(cls.size(), cls.c_ptr());
         }

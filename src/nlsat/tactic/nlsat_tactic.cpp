@@ -145,7 +145,7 @@ class nlsat_tactic : public tactic {
             
             m_g2nl(*g, m_params, m_solver, a2b, t2x);
 
-            m_display_var.m_var2expr.reset();
+            m_display_var.m_var2expr.clear();
             t2x.mk_inv(m_display_var.m_var2expr);
             m_solver.set_display_var(m_display_var);
             

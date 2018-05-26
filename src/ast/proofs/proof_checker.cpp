@@ -110,8 +110,8 @@ bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
     }
 
     m_hypotheses.reset();
-    m_pinned.reset();
-    m_todo.reset();
+    m_pinned.clear();
+    m_todo.clear();
     m_marked.reset();
 
     return result;

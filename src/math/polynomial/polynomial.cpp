@@ -900,7 +900,7 @@ namespace polynomial {
                 return m_unit;
             if (sz == 1)
                 return mk_monomial(xs[0]);
-            m_powers_tmp.reset();
+            m_powers_tmp.clear();
             std::sort(xs, xs+sz);
             SASSERT(is_valid(xs[0]));
             m_powers_tmp.push_back(power(xs[0], 1));
@@ -1323,12 +1323,12 @@ namespace polynomial {
                 if (d > max_degree)
                     max_degree = d;
             }
-            p.reset();
+            p.clear();
             unsigned i = max_degree + 1;
             while (i > 0) {
                 --i;
                 p.append(buckets[i]);
-                buckets[i].reset();
+                buckets[i].clear();
             }
             SASSERT(p.size() == end - start);
             apply_permutation(p.size(), m_as + start, p.c_ptr());
@@ -1623,8 +1623,8 @@ namespace polynomial {
         for (unsigned i = 0; i < m_factors.size(); ++ i) {
             m().dec_ref(m_factors[i]);
         }
-        m_factors.reset();
-        m_degrees.reset();
+        m_factors.clear();
+        m_degrees.clear();
         m_total_factors = 0;
         m().m().set(m_constant, 1);
     }
@@ -1941,8 +1941,8 @@ namespace polynomial {
                     mng.reset(m_tmp_as[i]);
                     m_owner->dec_ref(m_tmp_ms[i]);
                 }
-                m_tmp_as.reset();
-                m_tmp_ms.reset();
+                m_tmp_as.clear();
+                m_tmp_ms.clear();
             }
 
             void set_owner(imp * o) { m_owner = o; }
@@ -2140,8 +2140,8 @@ namespace polynomial {
             polynomial * mk(bool normalize = false) {
                 remove_zeros(normalize);
                 polynomial * p = m_owner->mk_polynomial_core(m_tmp_as.size(), m_tmp_as.c_ptr(), m_tmp_ms.c_ptr());
-                m_tmp_as.reset();
-                m_tmp_ms.reset();
+                m_tmp_as.clear();
+                m_tmp_ms.clear();
                 return p;
             }
 
@@ -2288,14 +2288,14 @@ namespace polynomial {
                     mng.del(m_tmp_as[i]);
                     m_owner->dec_ref(m_tmp_ms[i]);
                 }
-                m_tmp_as.reset();
-                m_tmp_ms.reset();
+                m_tmp_as.clear();
+                m_tmp_ms.clear();
             }
 
             polynomial * mk() {
                 polynomial * new_p = m_owner->mk_polynomial_core(m_tmp_as.size(), m_tmp_as.c_ptr(), m_tmp_ms.c_ptr());
-                m_tmp_as.reset();
-                m_tmp_ms.reset();
+                m_tmp_as.clear();
+                m_tmp_ms.clear();
                 return new_p;
             }
         };
@@ -2352,7 +2352,7 @@ namespace polynomial {
             m_cheap_som_buffer2.reset();
             m_manager.del(m_zero_numeral);
             m_mgcd_iterpolators.flush();
-            m_mgcd_skeletons.reset();
+            m_mgcd_skeletons.clear();
             DEBUG_CODE({
                 TRACE("polynomial",
                       tout << "leaked polynomials\n";
@@ -2362,7 +2362,7 @@ namespace polynomial {
                               tout << "\n";
                           }
                       });
-                m_polynomials.reset();
+                m_polynomials.clear();
             });
             SASSERT(m_polynomials.empty());
             m_monomial_manager->dec_ref();
@@ -2569,7 +2569,7 @@ namespace polynomial {
                     SASSERT(m_manager.is_zero(m_rat2numeral[i]));
                 }
             });
-            m_rat2numeral.reset();
+            m_rat2numeral.clear();
         }
 
         polynomial * mk_polynomial(unsigned sz, rational const * as, monomial * const * ms) {
@@ -2617,8 +2617,8 @@ namespace polynomial {
                 m_tmp_linear_ms.push_back(mk_unit());
             }
             polynomial * p = mk_polynomial(m_tmp_linear_as.size(), m_tmp_linear_as.c_ptr(), m_tmp_linear_ms.c_ptr());
-            m_tmp_linear_as.reset();
-            m_tmp_linear_ms.reset();
+            m_tmp_linear_as.clear();
+            m_tmp_linear_ms.clear();
             return p;
         }
 
@@ -2816,9 +2816,9 @@ namespace polynomial {
             }
 
             void reset() {
-                m_inputs.reset();
+                m_inputs.clear();
                 m_invs.shrink(1);
-                m_vs.reset();
+                m_vs.clear();
                 SASSERT(m().is_zero(m_invs[0]));
             }
 
@@ -2934,7 +2934,7 @@ namespace polynomial {
                 unsigned sz = m_data.size();
                 for (unsigned i = 0; i < sz; i++)
                     dealloc(m_data[i]);
-                m_data.reset();
+                m_data.clear();
             }
 
             void set_owner(imp * owner) {
@@ -3102,7 +3102,7 @@ namespace polynomial {
                 for (unsigned i = 0; i < m_inputs.size(); i++) {
                     m.del(m_inputs[i]);
                 }
-                m_inputs.reset();
+                m_inputs.clear();
             }
 
             bool ready() const {
@@ -3148,7 +3148,7 @@ namespace polynomial {
                     new_as.resize(num_pws);
                     for (unsigned i = 0; i < num_pws; i++) {
                         numeral & in = m_inputs[i];
-                        cs.reset();
+                        cs.clear();
                         for (unsigned j = 0; j < num_pws; j++) {
                             m.power(in, m_skeleton->ith_power(e, j), aux);
                             cs.push_back(aux);
@@ -3184,7 +3184,7 @@ namespace polynomial {
 
         vector<bool>  m_found_vars;
         void vars(polynomial const * p, var_vector & xs) {
-            xs.reset();
+            xs.clear();
             m_found_vars.expand(num_vars(), false);
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
@@ -4252,7 +4252,7 @@ namespace polynomial {
                 var_min_degrees.push_back(power(x, d));
             }
             std::sort(var_min_degrees.begin(), var_min_degrees.end(), power::lt_degree());
-            m_mgcd_skeletons.reset();
+            m_mgcd_skeletons.clear();
             for (unsigned i = 0; i < num_vars; i++) {
                 vars.push_back(var_min_degrees[i].get_var());
                 m_mgcd_skeletons.push_back(nullptr);
@@ -5506,7 +5506,7 @@ namespace polynomial {
             }
             SASSERT(deg_p > 0);
             unsigned n = deg_p;
-            sRes.reset();
+            sRes.clear();
             sRes.resize(n + 1); // the sequence is from 0 ... n
             sRes.set(n, const_cast<polynomial*>(p));
             sRes.set(n - 1, const_cast<polynomial*>(q));
@@ -5606,7 +5606,7 @@ namespace polynomial {
             unsigned d1 = n1 - n2;
             unsigned i  = 1;
             unsigned n3;
-            S.reset();
+            S.clear();
             while (true) {
                 // Compute Gh_{i+2}
                 if (!is_zero(G2)) {
@@ -5804,7 +5804,7 @@ namespace polynomial {
         void psc_chain_optimized(polynomial const * P, polynomial const * Q, var x, polynomial_ref_vector & S) {
             SASSERT(degree(P, x) > 0);
             SASSERT(degree(Q, x) > 0);
-            S.reset();
+            S.clear();
             if (degree(P, x) >= degree(Q, x))
                 psc_chain_optimized_core(P, Q, x, S);
             else
@@ -5884,7 +5884,7 @@ namespace polynomial {
         void psc_chain_classic(polynomial const * P, polynomial const * Q, var x, polynomial_ref_vector & S) {
             SASSERT(degree(P, x) > 0);
             SASSERT(degree(Q, x) > 0);
-            S.reset();
+            S.clear();
             if (degree(P, x) >= degree(Q, x))
                 psc_chain_classic_core(P, Q, x, S);
             else
@@ -6203,7 +6203,7 @@ namespace polynomial {
                 for (unsigned i = 0; i < sz; i++) {
                     m_max_degree[m_xs[i]] = 0;
                 }
-                m_xs.reset();
+                m_xs.clear();
             }
 
             unsigned operator()(var x) const {

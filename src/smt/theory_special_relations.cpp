@@ -228,7 +228,7 @@ namespace smt {
             if (a.phase() || r.m_uf.find(a.v1()) != r.m_uf.find(a.v2())) {
                 continue;
             }
-            target.reset();
+            target.clear();
             theory_var w;
             // v2 !<= v1 is asserted
             target.insert(a.v2());
@@ -248,7 +248,7 @@ namespace smt {
                 //   v1 <= w & v2 <= w & v1 !<= v2 -> v2 <= v1
                 //
                 unsigned timestamp = r.m_graph.get_timestamp();
-                r.m_explanation.reset();
+                r.m_explanation.clear();
                 r.m_graph.find_shortest_reachable_path(a.v1(), w, timestamp, r);
                 r.m_graph.find_shortest_reachable_path(a.v2(), w, timestamp, r);
                 r.m_explanation.push_back(a.explanation());
@@ -274,7 +274,7 @@ namespace smt {
     }
 
     void theory_special_relations::set_neg_cycle_conflict(relation& r) {
-        r.m_explanation.reset();
+        r.m_explanation.clear();
         r.m_graph.traverse_neg_cycle2(false, r);
         set_conflict(r);
     }
@@ -330,7 +330,7 @@ namespace smt {
                 if (n->get_root() != m->get_root()) {
                     new_eq = true;
                     unsigned timestamp = r.m_graph.get_timestamp();
-                    r.m_explanation.reset();
+                    r.m_explanation.clear();
                     r.m_graph.find_shortest_zero_edge_path(i, j, timestamp, r);
                     r.m_graph.find_shortest_zero_edge_path(j, i, timestamp, r);
                     eq_justification js(ctx.mk_justification(theory_axiom_justification(get_id(), ctx.get_region(), r.m_explanation.size(), r.m_explanation.c_ptr())));
@@ -376,7 +376,7 @@ namespace smt {
             if (!a.phase() && r.m_uf.find(a.v1()) == r.m_uf.find(a.v2())) {
                 // v1 !-> v2
                 // find v1 -> v3 -> v4 -> v2 path
-                r.m_explanation.reset();
+                r.m_explanation.clear();
                 unsigned timestamp = r.m_graph.get_timestamp();
                 bool found_path = r.m_graph.find_shortest_reachable_path(a.v1(), a.v2(), timestamp, r);
                 if (found_path) {

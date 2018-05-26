@@ -244,7 +244,7 @@ namespace smt {
 
         bool has_del_eh() const override { return !m_params.empty(); }
 
-        void del_eh(ast_manager & m) override { m_params.reset(); }
+        void del_eh(ast_manager & m) override { m_params.clear(); }
 
         theory_id get_from_theory() const override { return m_th_id; }
  
@@ -329,7 +329,7 @@ namespace smt {
 
         bool has_del_eh() const override { return !m_params.empty(); }
 
-        void del_eh(ast_manager & m) override { m_params.reset(); }
+        void del_eh(ast_manager & m) override { m_params.clear(); }
 
         theory_id get_from_theory() const override { return m_th_id; }
     };

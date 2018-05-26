@@ -102,7 +102,7 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
         } else {
             // check if the literal can be expanded and any single
             // literal in the expansion can replace it
-            extra_lits.reset();
+            extra_lits.clear();
             extra_lits.push_back(lit);
             expand_literals(m, extra_lits);
             SASSERT(extra_lits.size() > 0);

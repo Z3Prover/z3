@@ -44,8 +44,8 @@ namespace datalog {
         result->set_output_predicate(query->get_decl());
         m_ctx.register_predicate(query->get_decl(), false);
         for (unsigned i = 0; i < sz; ++i) {            
-            tail.reset();
-            neg.reset();
+            tail.clear();
+            neg.clear();
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz  = r.get_tail_size();

@@ -210,7 +210,7 @@ namespace sat {
 
     void lookahead::pre_select() {
         IF_VERBOSE(10, verbose_stream() << "(sat-lookahead :freevars " << m_freevars.size() << ")\n";);
-        m_lookahead.reset();
+        m_lookahead.clear();
         for (bool_var x : m_freevars) { // tree lookahead leaves literals fixed in lower truth levels
             literal l(x, false);
             set_undef(l);
@@ -317,7 +317,7 @@ namespace sat {
     }
 
     double lookahead::init_candidates(unsigned level, bool newbies) {
-        m_candidates.reset();
+        m_candidates.clear();
         double sum = 0;
         unsigned skip_candidates = 0;
         bool autarky = get_config().m_lookahead_global_autarky;
@@ -697,7 +697,7 @@ namespace sat {
             }
         }
         for (auto w : m_watches[l.index()]) {
-            lits.reset();
+            lits.clear();
             if (w.is_ext_constraint() && m_s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), lits)) { 
                 for (literal u : lits) {
                     // u is positive in lits, l is negative:                    
@@ -1188,7 +1188,7 @@ namespace sat {
         default:
             break;
         }
-        m_wstack.reset();
+        m_wstack.clear();
     }
 
     void lookahead::lookahead_backtrack() {
@@ -1987,7 +1987,7 @@ namespace sat {
     }
 
     lbool lookahead::search() {
-        m_model.reset();
+        m_model.clear();
         scoped_level _sl(*this, c_fixed_truth);
         literal_vector trail;
         m_search_mode = lookahead_mode::searching;
@@ -2077,15 +2077,15 @@ namespace sat {
 
     lbool lookahead::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
         scoped_ext _scoped_ext(*this);
-        lits.reset();
+        lits.clear();
         bool is_first = m_cube_state.m_first;
         if (is_first) {
-            m_select_lookahead_vars.reset();
+            m_select_lookahead_vars.clear();
             for (auto v : vars) {
                 m_select_lookahead_vars.insert(v);
             }
             init_search();
-            m_model.reset();
+            m_model.clear();
             m_cube_state.m_first = false;
         }        
         scoped_level _sl(*this, c_fixed_truth);
@@ -2129,7 +2129,7 @@ namespace sat {
                 set_conflict();
                 m_cube_state.inc_cutoff();
                 lits.append(m_cube_state.m_cube);
-                vars.reset();
+                vars.clear();
                 for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
                 backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
                 return l_undef;
@@ -2148,9 +2148,9 @@ namespace sat {
                 continue;
             }
             if (lit == null_literal) {
-                vars.reset();
+                vars.clear();
                 for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
-                m_model.reset();
+                m_model.clear();
                 init_model();
                 return l_true;
             }
@@ -2166,7 +2166,7 @@ namespace sat {
     }
 
     void lookahead::init_model() {
-        m_model.reset();
+        m_model.clear();
         for (unsigned i = 0; i < m_num_vars; ++i) {
             lbool val;
             literal lit(i, false);
@@ -2335,7 +2335,7 @@ namespace sat {
                 }                
             }
         }   
-        m_lookahead.reset();    
+        m_lookahead.clear();    
     }
 
 

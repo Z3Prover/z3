@@ -145,12 +145,12 @@ public:
         }
         expr_ref fml(m);
         proof_ref pr(m);
-        m_todo.reset();
-        m_proofs.reset();
-        m_refs.reset();
+        m_todo.clear();
+        m_proofs.clear();
+        m_refs.clear();
         m_memoize_disj.reset();
         m_memoize_proof.reset();
-        m_fresh_predicates.reset();
+        m_fresh_predicates.clear();
         m_todo.push_back(n);
         m_proofs.push_back(p);
         m_produce_proofs = p != nullptr;
@@ -190,12 +190,12 @@ public:
     }
 
     void reset() {
-        m_todo.reset();
-        m_proofs.reset();
-        m_refs.reset();
+        m_todo.clear();
+        m_proofs.clear();
+        m_refs.clear();
         m_memoize_disj.reset();
         m_memoize_proof.reset();
-        m_fresh_predicates.reset();
+        m_fresh_predicates.clear();
     }
 
     ast_manager& get_manager() { return m; }
@@ -233,10 +233,10 @@ private:
         expr_ref fml0(m), fml1(m), fml2(m), head(m);
         proof_ref p(m);
         fml0 = fml;
-        m_names.reset();
-        m_sorts.reset();
-        m_body.reset();
-        m_defs.reset();
+        m_names.clear();
+        m_sorts.clear();
+        m_body.clear();
+        m_defs.clear();
         m_qh.pull_quantifier(true, fml0, &m_sorts, &m_names);
         if (premise){
             fml1 = bind_variables(fml0);
@@ -471,7 +471,7 @@ private:
             app* e2 = to_app(to_app(fact)->get_arg(1));
             p2 = m.mk_oeq_congruence(e2, fml, defs.size(), defs.c_ptr());
             p3 = mk_transitivity(p1, p2);
-            defs.reset();
+            defs.clear();
             return proof_ref(p3, m);
         }
     }

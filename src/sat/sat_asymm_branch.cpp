@@ -243,7 +243,7 @@ namespace sat {
     }
 
     void asymm_branch::sort(big& big, literal const* begin, literal const* end) {
-        m_pos.reset(); m_neg.reset();
+        m_pos.clear(); m_neg.clear();
         for (; begin != end; ++begin) {
             literal l = *begin;
             m_pos.push_back(l);
@@ -303,7 +303,7 @@ namespace sat {
     }
 
     void asymm_branch::uhle(big& big) {
-        m_to_delete.reset();
+        m_to_delete.clear();
         if (m_to_delete.empty()) {
             int right = big.get_right(m_pos.back());
             for (unsigned i = m_pos.size() - 1; i-- > 0; ) {

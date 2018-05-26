@@ -69,7 +69,7 @@ namespace datalog {
     eq_classes.reset();
     cnt = src_manager->get_counter().get_max_rule_var(r)+1;
     done_selects.reset();
-    ownership.reset();
+    ownership.clear();
 
     expr_ref_vector phi(m);
     expr_ref_vector preds(m);

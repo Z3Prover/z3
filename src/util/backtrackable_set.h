@@ -97,8 +97,8 @@ public:
     }
     
     void reset() {
-        m_scopes.reset();
-        m_trail.reset();
+        m_scopes.clear();
+        m_trail.clear();
         m_set.reset();
     }
     

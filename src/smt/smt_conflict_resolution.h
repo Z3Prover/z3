@@ -241,7 +241,7 @@ namespace smt {
         }
 
         void release_lemma_atoms() {
-            m_lemma_atoms.reset();
+            m_lemma_atoms.clear();
         }
         
         proof * get_lemma_proof() {

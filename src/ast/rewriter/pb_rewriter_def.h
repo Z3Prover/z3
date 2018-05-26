@@ -122,7 +122,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
     }
     // detect tautologies:
     if (!is_eq && k <= PBU::numeral::zero()) {
-        args.reset();
+        args.clear();
         k = PBU::numeral::zero();
         return l_true;
     }
@@ -132,7 +132,7 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
 
     // detect infeasible constraints:
     if (sum < k) {
-        args.reset();
+        args.clear();
         k = PBU::numeral::one();
         return l_false;
     }

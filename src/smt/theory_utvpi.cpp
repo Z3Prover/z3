@@ -27,7 +27,7 @@ namespace smt {
     utvpi_tester::utvpi_tester(ast_manager& m): m(m), a(m) {}
 
     bool utvpi_tester::operator()(expr* e) {
-        m_todo.reset();
+        m_todo.clear();
         m_mark.reset();
         m_todo.push_back(e);
         expr* e1, *e2;
@@ -84,13 +84,13 @@ namespace smt {
     }
 
     bool utvpi_tester::linearize(expr* e) {
-        m_terms.reset();
+        m_terms.clear();
         m_terms.push_back(std::make_pair(e, rational(1)));
         return linearize();
     }
 
     bool utvpi_tester::linearize(expr* e1, expr* e2) {
-        m_terms.reset();
+        m_terms.clear();
         m_terms.push_back(std::make_pair(e1, rational(1)));
         m_terms.push_back(std::make_pair(e2, rational(-1)));
         return linearize();

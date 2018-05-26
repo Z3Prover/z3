@@ -57,9 +57,9 @@ public:
         dec_range_ref(m_nodes.begin(), m_nodes.end());
     }
     
-    void reset() {
+    void clear() {
         dec_range_ref(m_nodes.begin(), m_nodes.end());
-        m_nodes.reset();
+        m_nodes.clear();
     }
 
     void finalize() {
@@ -304,7 +304,7 @@ public:
     // enable abuse:
     ref_vector & set(ref_vector const& other) {
         if (this != &other) {
-            this->reset();
+            this->clear();
             this->append(other);
         }
         return *this;

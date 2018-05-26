@@ -100,7 +100,7 @@ namespace datalog {
 
     void table_signature::from_join(const table_signature & s1, const table_signature & s2, unsigned col_cnt, 
             const unsigned * cols1, const unsigned * cols2, table_signature & result) {
-        result.reset();
+        result.clear();
 
         unsigned s1sz=s1.size();
         unsigned s2sz=s2.size();
@@ -447,7 +447,7 @@ namespace datalog {
     }
 
     void table_base::row_interface::get_fact(table_fact & result) const {
-        result.reset();
+        result.clear();
         unsigned n=size();
         for(unsigned i=0; i<n; i++) {
             result.push_back((*this)[i]);
@@ -475,7 +475,7 @@ namespace datalog {
         for(; it != iend; ++it) {
             const row_interface & r = *it;   
             r.get_fact(fact);
-            conjs.reset();
+            conjs.clear();
             for (unsigned i = 0; i < fact.size(); ++i) {
                 conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])));
             }

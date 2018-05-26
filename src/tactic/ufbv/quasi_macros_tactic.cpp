@@ -62,9 +62,9 @@ class quasi_macros_tactic : public tactic {
                 if (m().canceled())
                     throw tactic_exception(m().limit().get_cancel_msg());
 
-                new_forms.reset();
-                new_proofs.reset();
-                new_deps.reset();
+                new_forms.clear();
+                new_proofs.clear();
+                new_deps.clear();
                 more = qm(forms.size(), forms.c_ptr(), proofs.c_ptr(), deps.c_ptr(), new_forms, new_proofs, new_deps);
                 forms.swap(new_forms);
                 proofs.swap(new_proofs);

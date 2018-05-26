@@ -83,8 +83,8 @@ namespace sat{
         clause_use_list & neg_occs = simp.m_use_list.get(neg_l);
 
         // eliminate variable
-        simp.m_pos_cls.reset();
-        simp.m_neg_cls.reset();
+        simp.m_pos_cls.clear();
+        simp.m_neg_cls.clear();
         simp.collect_clauses(pos_l, simp.m_pos_cls);
         simp.collect_clauses(neg_l, simp.m_neg_cls);
         VERIFY(!simp.is_external(v));
@@ -235,7 +235,7 @@ namespace sat{
     }
 
     void elim_vars::reset_mark() {
-        m_vars.reset();
+        m_vars.clear();
         m_mark.resize(s.num_vars());
         m_var2index.resize(s.num_vars());
         m_occ.resize(s.num_vars());

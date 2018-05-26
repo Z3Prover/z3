@@ -76,7 +76,7 @@ namespace datalog {
                         continue;
                     }
 
-                    acc.reset();
+                    acc.clear();
                     acc.append(row1);
                     acc.append(row2);
                     res->m_data.insert(acc);

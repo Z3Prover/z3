@@ -240,7 +240,7 @@ void get_free_vars(expr_sparse_mark& mark, ptr_vector<expr>& todo, expr* e, ptr_
 
 void expr_free_vars::reset() {
     m_mark.reset();
-    m_sorts.reset();
+    m_sorts.clear();
     SASSERT(m_todo.empty());
 }
 

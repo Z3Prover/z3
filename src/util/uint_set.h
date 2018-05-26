@@ -48,8 +48,8 @@ public:
         return 32 * size();
     }
 
-    void reset() {
-        unsigned_vector::reset();
+    void clear() {
+        unsigned_vector::clear();
     }
 
     bool empty() const {
@@ -303,11 +303,11 @@ public:
     unsigned size() const { return m_set.size(); }
     iterator begin() const { return m_set.begin(); }
     iterator end() const { return m_set.end(); }
-    // void reset() { m_set.reset(); m_in_set.reset(); }
-    void reset() { 
+    // void clear() { m_set.clear(); m_in_set.clear(); }
+    void clear() { 
         unsigned sz = m_set.size();
         for (unsigned i = 0; i < sz; ++i) m_in_set[m_set[i]] = false;
-        m_set.reset(); 
+        m_set.clear(); 
     }
     void finalize() { m_set.finalize(); m_in_set.finalize(); }
     tracked_uint_set& operator&=(tracked_uint_set const& other) {
@@ -365,7 +365,7 @@ public:
     }
 
     bool contains(unsigned x) const { return x < m_index.size() && m_index[x] < m_size && m_elems[m_index[x]] == x; }
-    void reset() { m_size = 0; }
+    void clear() { m_size = 0; }
     bool empty() const { return m_size == 0; }    
     unsigned size() const { return m_size; }
     unsigned max_var() const { return m_index.size(); }

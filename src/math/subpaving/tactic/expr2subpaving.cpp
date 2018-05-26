@@ -87,9 +87,9 @@ struct expr2subpaving::imp {
 
     void reset_cache() {
         dec_ref_map_keys(m(), m_cache);
-        m_cached_vars.reset();
-        m_cached_numerators.reset();
-        m_cached_denominators.reset();
+        m_cached_vars.clear();
+        m_cached_numerators.clear();
+        m_cached_denominators.clear();
         dec_ref_map_key_values(m(), s(), m_lit_cache);
     }
 

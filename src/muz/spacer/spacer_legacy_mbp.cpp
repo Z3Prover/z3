@@ -108,7 +108,7 @@ void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& 
                  );
         }
         SASSERT(M->is_true(fml));
-        vars.reset();
+        vars.clear();
         vars.append(arith_vars);
     }
 }

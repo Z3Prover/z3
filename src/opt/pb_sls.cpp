@@ -31,7 +31,7 @@ namespace smt {
     public:
         unsigned num_elems() const { return m_elems.size(); }       
         unsigned operator[](unsigned idx) const { return m_elems[idx]; }
-        void reset() { m_elems.reset(); m_index.reset(); }        
+        void reset() { m_elems.clear(); m_index.clear(); }        
         bool empty() const { return m_elems.empty(); }        
 
         bool contains(unsigned idx) const {
@@ -140,15 +140,15 @@ namespace smt {
             init_max_flips();
             m_non_greedy_percent = 30;
             m_decl2var.reset();
-            m_var2decl.reset();
-            m_assignment.reset();
-            m_hard_occ.reset();
-            m_soft_occ.reset();
-            m_clauses.reset();
-            m_orig_clauses.reset();
-            m_soft.reset();
-            m_weights.reset();
-            m_trail.reset();
+            m_var2decl.clear();
+            m_assignment.clear();
+            m_hard_occ.clear();
+            m_soft_occ.clear();
+            m_clauses.clear();
+            m_orig_clauses.clear();
+            m_soft.clear();
+            m_weights.clear();
+            m_trail.clear();
             m_decl2var.insert(m.mk_true(), 0);
             m_var2decl.push_back(m.mk_true());
             m_assignment.push_back(true);
@@ -209,13 +209,13 @@ namespace smt {
                 }
                 IF_VERBOSE(1, verbose_stream() << "(pb.sls best penalty " << m_best_penalty << ")\n";);
                 if (!m_best_assignment.empty()) {
-                    assignment.reset();
+                    assignment.clear();
                     assignment.append(m_best_assignment);
                     round = 0;
                 }
-                m_assignment.reset();
+                m_assignment.clear();
                 m_assignment.append(assignment);
-                m_best_assignment.reset();      
+                m_best_assignment.clear();      
                 m_soft_false.reset();
                 m_hard_false.reset();
                 m_penalty.reset();
@@ -231,7 +231,7 @@ namespace smt {
                     }
                 }
             }
-            m_assignment.reset();
+            m_assignment.clear();
             m_assignment.append(assignment);
             m_penalty = m_best_penalty;
             return l_true;
@@ -323,12 +323,12 @@ namespace smt {
         }
         
         void init() {
-            m_best_assignment.reset();
+            m_best_assignment.clear();
             m_best_penalty.reset();
             m_hard_false.reset();
-            m_hard_occ.reset();
+            m_hard_occ.clear();
             m_soft_false.reset();
-            m_soft_occ.reset();
+            m_soft_occ.clear();
             m_penalty.reset();
             for (unsigned i = 0; i <= m_var2decl.size(); ++i) {
                 m_soft_occ.push_back(unsigned_vector());
@@ -371,7 +371,7 @@ namespace smt {
             }            
             if (m_hard_false.empty() && m_best_penalty > m_penalty) {
                 IF_VERBOSE(1, verbose_stream() << "(pb.sls improved bound " << m_penalty << ")\n";);
-                m_best_assignment.reset();
+                m_best_assignment.clear();
                 m_best_assignment.append(m_assignment);
                 m_best_penalty = m_penalty;
                 m_stats.m_num_improvements++;

@@ -55,7 +55,7 @@ public:
         TRACE("reduce_invertible", g->display(tout););
         tactic_report report("reduce-invertible", *g);
         m_inverted.reset();
-        m_parents.reset();
+        m_parents.clear();
         collect_parents(g);
         collect_occs occs;
         obj_hashtable<expr> vars;
@@ -449,7 +449,7 @@ private:
             // if they are invertible, then produce inverting expression.
             //
             expr_safe_replace sub(m);
-            t.m_parents.reset();
+            t.m_parents.clear();
             t.m_inverted.reset();
             expr_ref new_v(m);
             expr * p;

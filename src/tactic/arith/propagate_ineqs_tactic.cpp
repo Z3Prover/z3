@@ -161,8 +161,8 @@ struct propagate_ineqs_tactic::imp {
             return x;
         x = mk_var(t);
         if (m_util.is_add(t)) {
-            m_num_buffer.reset();
-            m_var_buffer.reset();
+            m_num_buffer.clear();
+            m_var_buffer.clear();
             expr2linear_pol(t, m_num_buffer, m_var_buffer);
             m_num_buffer.push_back(mpq(-1));
             m_var_buffer.push_back(x);
@@ -253,8 +253,8 @@ struct propagate_ineqs_tactic::imp {
     bool lower_subsumed(expr * p, mpq const & k, bool strict) {
         if (!m_util.is_add(p))
             return false;
-        m_num_buffer.reset();
-        m_var_buffer.reset();
+        m_num_buffer.clear();
+        m_var_buffer.clear();
         expr2linear_pol(p, m_num_buffer, m_var_buffer);
         mpq  implied_k;
         bool implied_strict;
@@ -268,8 +268,8 @@ struct propagate_ineqs_tactic::imp {
     bool upper_subsumed(expr * p, mpq const & k, bool strict) {
         if (!m_util.is_add(p))
             return false;
-        m_num_buffer.reset();
-        m_var_buffer.reset();
+        m_num_buffer.clear();
+        m_var_buffer.clear();
         expr2linear_pol(p, m_num_buffer, m_var_buffer);
         mpq  implied_k;
         bool implied_strict;

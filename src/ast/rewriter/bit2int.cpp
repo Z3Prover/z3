@@ -245,7 +245,7 @@ void bit2int::visit(app* n) {
     func_decl* f = n->get_decl();
     unsigned num_args = n->get_num_args();
 
-    m_args.reset();
+    m_args.clear();
     for (unsigned i = 0; i < num_args; ++i) {
         m_args.push_back(get_cached(n->get_arg(i)));
     }

@@ -525,7 +525,7 @@ protected:
         m_num_vars = 0;
         m_sym_idx = 0;
         m_vars.reset();
-        m_region.reset();
+        m_region.clear();
         m_path.clear();
         m_sort_dict.reset();
     }
@@ -1379,7 +1379,7 @@ private:
             m_current_line++;
             char * full_line = rdr.get_line();
 
-            args.reset();
+            args.clear();
             if(!parse_rel_line(full_line, args)) {
                 continue;
             }
@@ -1389,7 +1389,7 @@ private:
             }
 
             bool fact_fail = false;
-            fact.reset();
+            fact.clear();
             for(unsigned i=0;i<pred_arity; i++) {
                 uint64_t const_num = args[i];
                 table_element c;

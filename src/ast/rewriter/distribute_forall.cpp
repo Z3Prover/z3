@@ -140,7 +140,7 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
 }
 
 void distribute_forall::operator()(expr * f, expr_ref & result) {
-    m_todo.reset();
+    m_todo.clear();
     flush_cache();
 
     m_todo.push_back(f);

@@ -96,19 +96,19 @@ static void track_clauses(sat::solver const& src,
     for (sat::bool_var v = 1; v < src.num_vars(); ++v) {
         if (src.value(v) != l_undef) {
             bool sign = src.value(v) == l_false;
-            lits.reset();
+            lits.clear();
             lits.push_back(sat::literal(v, sign));
             track_clause(dst, lits, assumptions, tracking_clauses);
         }
     }
     for (; it != end; ++it) {
-        lits.reset();
+        lits.clear();
         sat::clause& cls = *(*it);
         lits.append(static_cast<unsigned>(cls.end()-cls.begin()), cls.begin());
         track_clause(dst, lits, assumptions, tracking_clauses);
     }
     for (unsigned i = 0; i < bin_clauses.size(); ++i) {
-        lits.reset();
+        lits.clear();
         lits.push_back(bin_clauses[i].first);
         lits.push_back(bin_clauses[i].second);        
         track_clause(dst, lits, assumptions, tracking_clauses);

@@ -318,7 +318,7 @@ namespace datalog {
             }
         }
 
-        m_refs.reset();
+        m_refs.clear();
         m_old2new.reset();
         m_new2old.reset();
         rule_manager& rm = source.get_rule_manager();
@@ -334,7 +334,7 @@ namespace datalog {
         rule_set * result = alloc(rule_set, m_ctx);
 
         for (unsigned i = 0; i < sz; ++i) {
-            tail.reset();
+            tail.clear();
             rule & r = *source.get_rule(i);
             TRACE("dl", r.display(m_ctx, tout); );
             unsigned cnt = vc.get_max_rule_var(r)+1;

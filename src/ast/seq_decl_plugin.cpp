@@ -443,7 +443,7 @@ void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* do
 }
 
 void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
-    m_binding.reset();
+    m_binding.clear();
     ast_manager& m = *m_manager;
     if (sig.m_dom.size() != dsz) {
         std::ostringstream strm;

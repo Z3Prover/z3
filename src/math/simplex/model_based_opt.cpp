@@ -355,8 +355,8 @@ namespace opt {
         rational const& x_val = m_var2value[x];
         unsigned_vector const& row_ids = m_var2row_ids[x];
         uint_set visited;
-        m_above.reset();
-        m_below.reset();
+        m_above.clear();
+        m_below.clear();
         for (unsigned row_id : row_ids) {
             SASSERT(row_id != m_objective_id);
             if (visited.contains(row_id)) {
@@ -693,7 +693,7 @@ namespace opt {
             return;
         }
 
-        m_new_vars.reset();
+        m_new_vars.clear();
         row& r1 = m_rows[row_id1];
         row const& r2 = m_rows[row_id2];
         unsigned i = 0, j = 0;
@@ -926,9 +926,9 @@ namespace opt {
         rational const& x_val = m_var2value[x];
         unsigned_vector const& row_ids = m_var2row_ids[x];
         uint_set visited;
-        lub_rows.reset();
-        glb_rows.reset();
-        mod_rows.reset();
+        lub_rows.clear();
+        glb_rows.clear();
+        mod_rows.clear();
         bool lub_is_unit = false, glb_is_unit = false;
         unsigned eq_row = UINT_MAX;
         // select the lub and glb.

@@ -51,7 +51,7 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
     // read the constraints, one at a time
     int k;
     for (int c = 0; c < num_constraints; ++c) {        
-        lits.reset();
+        lits.clear();
         infile >> cur_term;
         while (cur_term != 0) {
             lits.push_back(sat::literal(abs(cur_term), cur_term > 0));

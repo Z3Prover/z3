@@ -28,15 +28,15 @@ class _scoped_numeral_vector : public vector<typename Manager::numeral> {
 public:
     _scoped_numeral_vector(Manager & m):m_manager(m) {}
     ~_scoped_numeral_vector() {
-        reset();
+        clear();
     }
 
-    void reset() {
+    void clear() {
         unsigned sz = this->size();
         for (unsigned i = 0; i < sz; i++) {
             m().del(this->operator[](i));
         }
-        vector<typename Manager::numeral>::reset();
+        vector<typename Manager::numeral>::clear();
     }
 
     Manager & m() const { return m_manager; }

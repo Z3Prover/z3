@@ -120,13 +120,13 @@ public:
         if (names && !bound_names.empty()) {
             bound_names.reverse();
             bound_names.append(*names);
-            names->reset();
+            names->clear();
             names->append(bound_names);
         }
         if (sorts && !bound_sorts.empty()) {
             bound_sorts.reverse();
             bound_sorts.append(*sorts);
-            sorts->reset();
+            sorts->clear();
             sorts->append(bound_sorts);
         }
         rep(fml);

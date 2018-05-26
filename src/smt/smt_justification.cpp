@@ -398,7 +398,7 @@ namespace smt {
         for (unsigned i = 0; i < m_num_literals; i++) {
             m.dec_ref(UNTAG(expr*, m_literals[i]));
         }
-        m_params.reset();
+        m_params.clear();
     }
 
     proof * theory_lemma_justification::mk_proof(conflict_resolution & cr) {

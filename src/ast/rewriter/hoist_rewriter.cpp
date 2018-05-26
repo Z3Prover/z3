@@ -45,7 +45,7 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
     m_uf1.reset(); 
     m_uf2.reset();
     m_expr2var.reset();
-    m_var2expr.reset();
+    m_var2expr.clear();
     basic_union_find* uf[2] = { &m_uf1, &m_uf2 };
     obj_hashtable<expr>* preds[2] = { &m_preds1, &m_preds2 };
     expr_ref_vector* args[2] = { &m_args1, &m_args2 };
@@ -62,7 +62,7 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
     unsigned round = 0;
     for (unsigned j = 1; j < num_args; ++j) {
         ++round;
-        m_es.reset();
+        m_es.clear();
         m_mark.reset();
 
         bool last = turn;
@@ -85,7 +85,7 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
             return BR_FAILED;
         }
 
-        m_eqs.reset();
+        m_eqs.clear();
         for (expr* e : m_es) {
             if (m_mark.is_marked(e)) {
                 continue;
@@ -174,14 +174,14 @@ br_status hoist_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
 bool hoist_rewriter::is_and(expr * e, expr_ref_vector* args) {
     if (m().is_and(e)) {
         if (args) {
-            args->reset();
+            args->clear();
             args->append(to_app(e)->get_num_args(), to_app(e)->get_args());
         }
         return true;
     }
     if (m().is_not(e, e) && m().is_or(e)) {
         if (args) {
-            args->reset();
+            args->clear();
             for (expr* arg : *to_app(e)) {
                 args->push_back(::mk_not(m(), arg));
             }

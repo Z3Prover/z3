@@ -43,7 +43,7 @@ namespace simplex {
         for (unsigned i = 0; i < m_entries.size(); ++i) {
             m.reset(m_entries[i].m_coeff);
         }
-        m_entries.reset();
+        m_entries.clear();
         m_size           = 0;
         m_first_free_idx = -1;
     }
@@ -166,7 +166,7 @@ namespace simplex {
     
     template<typename Ext>
     void sparse_matrix<Ext>::column::reset() {
-        m_entries.reset();
+        m_entries.clear();
         m_size           = 0;
         m_first_free_idx = -1;
     }
@@ -282,11 +282,11 @@ namespace simplex {
 
     template<typename Ext>
     void sparse_matrix<Ext>::reset() {
-        m_rows.reset();
-        m_dead_rows.reset();
-        m_columns.reset();
-        m_var_pos.reset();
-        m_var_pos_idx.reset();
+        m_rows.clear();
+        m_dead_rows.clear();
+        m_columns.clear();
+        m_var_pos.clear();
+        m_var_pos_idx.clear();
 
     }
 
@@ -394,7 +394,7 @@ namespace simplex {
         for (unsigned i = 0; i < m_var_pos_idx.size(); ++i) {
             m_var_pos[m_var_pos_idx[i]] = -1;
         }
-        m_var_pos_idx.reset();
+        m_var_pos_idx.clear();
         r1.compress_if_needed(m, m_columns);
     }
     

@@ -152,7 +152,7 @@ namespace datalog {
 
     class context::restore_rules : public trail<context> {
         rule_set* m_old_rules;
-        void reset() {
+        void clear() {
             dealloc(m_old_rules);
             m_old_rules = nullptr;
         }
@@ -163,7 +163,7 @@ namespace datalog {
 
         void undo(context& ctx) override {
             ctx.replace_rules(*m_old_rules);
-            reset();
+            clear();
         }
     };
 
@@ -242,9 +242,9 @@ namespace datalog {
         m_trail.reset();
         m_rule_set.reset();
         m_rule_fmls_head = 0;
-        m_rule_fmls.reset();
-        m_rule_names.reset();
-        m_rule_bounds.reset();
+        m_rule_fmls.clear();
+        m_rule_names.clear();
+        m_rule_bounds.clear();
         m_argument_var_names.reset();
         m_preds.reset();
         m_preds_by_name.reset();
@@ -1269,7 +1269,7 @@ namespace datalog {
                 continue;
             }
             max_vars.reset();
-            subst.reset();
+            subst.clear();
             unsigned max_var = 0;
             unsigned num_vars = q->get_num_decls();
             for (unsigned j = 0; j < num_vars; ++j) {

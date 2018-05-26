@@ -416,11 +416,11 @@ namespace datalog {
               tout << " le ";
               for (unsigned i = 0; i < lev.size(); ++i) tout << lev[i] << " ";
               tout << "\n";);
-        t.lt.reset();
+        t.lt.clear();
         for (unsigned i = 0; i < ltv.size(); ++i) {
             t.lt.insert(ltv[i]);
         }
-        t.le.reset();
+        t.le.clear();
         for (unsigned i = 0; i < lev.size(); ++i) {
             t.le.insert(lev[i]);
         }
@@ -542,7 +542,7 @@ namespace datalog {
             unsigned j = m_todo.back().first;
             bool strict = m_todo.back().second;
             if (i == j && strict) {
-                m_todo.reset();
+                m_todo.clear();
                 m_empty = true;
                 return;
             }
@@ -569,14 +569,14 @@ namespace datalog {
     }
 
     void bound_relation::mk_lt(unsigned i, unsigned j) {
-        m_todo.reset();
+        m_todo.clear();
         i = find(i);
         m_todo.push_back(std::make_pair(find(j), true));
         mk_lt(i);
     }
 
     void bound_relation::mk_le(unsigned i, unsigned j) {
-        m_todo.reset();
+        m_todo.clear();
         i = find(i);
         m_todo.push_back(std::make_pair(find(j), false));
         mk_lt(i);
@@ -624,8 +624,8 @@ namespace datalog {
             uint_set2& s = (*this)[i];
             ext_numeral const& lo = src[i].sup();
             if (lo.is_infinite()) {
-                s.lt.reset();
-                s.le.reset();
+                s.lt.clear();
+                s.le.clear();
                 continue;
             }
             uint_set::iterator it = s.lt.begin(), end = s.lt.end();

@@ -70,12 +70,12 @@ namespace qe {
         lbool r = m_solver->check_sat(lits);
         switch (r) {
         case l_false:
-            lits.reset();
+            lits.clear();
             m_solver->get_unsat_core(lits);
             return mbi_unsat;
         case l_true:
             m_solver->get_model(mdl);
-            lits.reset();
+            lits.clear();
             for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
                 func_decl* c = mdl->get_constant(i);
                 if (m_shared.contains(c)) {
@@ -196,7 +196,7 @@ namespace qe {
     }
 
     bool euf_arith_mbi_plugin::get_literals(model_ref& mdl, expr_ref_vector& lits) {
-        lits.reset();
+        lits.clear();
         for (expr* e : m_atoms) {
             if (mdl->is_true(e)) {
                 lits.push_back(e);
@@ -212,7 +212,7 @@ namespace qe {
         TRACE("qe", dual->display(tout << "dual result " << r << "\n"););
         if (l_false == r) {
             // use the dual solver to find a 'small' implicant
-            lits.reset();
+            lits.clear();
             dual->get_unsat_core(lits);
             return true;
         }
@@ -237,7 +237,7 @@ namespace qe {
 
         switch (r) {
         case l_false:
-            lits.reset();
+            lits.clear();
             m_solver->get_unsat_core(lits);
             TRACE("qe", tout << "unsat core: " << lits << "\n";);
             // optionally minimize core using superposition.
@@ -317,7 +317,7 @@ namespace qe {
         tg2.set_vars(shared, false);
         tg1.add_lits(lits);
         tg2.add_lits(lits);
-        lits.reset();
+        lits.clear();
         lits.append(tg1.project(*mdl.get()));
         lits.append(tg2.project(*mdl.get()));
         TRACE("qe", tout << "project: " << lits << "\n";);                
@@ -465,7 +465,7 @@ namespace qe {
                 itp = m.mk_implies(mk_and(blocks[!turn]), lemma);
                 // TBD: compute closure over variables not in vars
                 itps[turn].push_back(itp);
-                lits.reset();  // or find a prefix of lits?
+                lits.clear();  // or find a prefix of lits?
                 break;
             }
             case mbi_augment:
@@ -486,7 +486,7 @@ namespace qe {
         expr_ref_vector lits(m), itps(m);
         while (true) {
             model_ref mdl;
-            lits.reset();
+            lits.clear();
             switch (a.check(lits, mdl)) {
             case l_true:
                 switch (b.check(lits, mdl)) {
@@ -564,7 +564,7 @@ namespace qe {
                 case l_false:
                     // Force a different A-implicant
                     a.block(lits);
-                    lits.reset();
+                    lits.clear();
                     mdl.reset();
                     break;
                 case l_undef:
@@ -579,7 +579,7 @@ namespace qe {
                 // force B to pick a different model or a different implicant
                 b.block(lits);
                 itps.push_back(mk_not(mk_and(lits)));
-                lits.reset();
+                lits.clear();
                 mdl.reset();
                 break;
             case l_undef:

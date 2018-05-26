@@ -180,7 +180,7 @@ namespace datatype {
         ~def() {
             if (m_sort_size) m_sort_size->dec_ref();
             for (constructor* c : m_constructors) dealloc(c);
-            m_constructors.reset();
+            m_constructors.clear();
         }
         void add(constructor* c) {
             m_constructors.push_back(c);
@@ -238,7 +238,7 @@ namespace datatype {
         
             void get_op_names(vector<builtin_name> & op_names, symbol const & logic) override;
                 
-            void begin_def_block() { m_class_id++; m_def_block.reset(); }
+            void begin_def_block() { m_class_id++; m_def_block.clear(); }
 
             void end_def_block();
 

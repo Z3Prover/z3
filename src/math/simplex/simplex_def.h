@@ -31,7 +31,7 @@ namespace simplex {
     template<typename Ext>
     typename simplex<Ext>::row 
     simplex<Ext>::add_row(var_t base_var, unsigned num_vars, var_t const* vars, numeral const* coeffs) {
-        m_base_vars.reset();
+        m_base_vars.clear();
         row r = M.mk_row();
         for (unsigned i = 0; i < num_vars; ++i) {
             if (!m.is_zero(coeffs[i])) {
@@ -314,16 +314,16 @@ namespace simplex {
     void simplex<Ext>::reset() {
         M.reset();
         m_to_patch.reset();
-        m_vars.reset();
-        m_row2base.reset();
-        m_left_basis.reset();
-        m_base_vars.reset();
+        m_vars.clear();
+        m_row2base.clear();
+        m_left_basis.clear();
+        m_base_vars.clear();
     }
 
     template<typename Ext>
     lbool simplex<Ext>::make_feasible() {
         ++m_stats.m_num_checks;
-        m_left_basis.reset();
+        m_left_basis.clear();
         m_infeasible_var = null_var;
         unsigned num_iterations = 0;
         unsigned num_repeated = 0;

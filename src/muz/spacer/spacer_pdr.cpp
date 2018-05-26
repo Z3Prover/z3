@@ -113,7 +113,7 @@ void model_search::reset() {
         dealloc(m_root);
         m_root = nullptr;
     }
-    m_cache.reset();
+    m_cache.clear();
 }
 
 model_node* model_search::pop_front() {

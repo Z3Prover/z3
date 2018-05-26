@@ -221,7 +221,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         SASSERT(butil().is_bv_sort(s));
         unsigned bv_size = butil().get_bv_size(s);
         sort * b = m().mk_bool_sort();
-        m_out.reset();
+        m_out.clear();
         for (unsigned i = 0; i < bv_size; i++) {
             m_out.push_back(m().mk_fresh_const(nullptr, b));
             m_newbits.push_back(to_app(m_out.back())->get_decl());
@@ -235,9 +235,9 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
 
 #define MK_UNARY_REDUCE(OP, BB_OP)                              \
 void OP(expr * arg, expr_ref & result) {                        \
-    m_in1.reset();                                              \
+    m_in1.clear();                                              \
     get_bits(arg, m_in1);                                       \
-    m_out.reset();                                              \
+    m_out.clear();                                              \
     m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), m_out);        \
     result = mk_mkbv(m_out);                                    \
 }
@@ -248,10 +248,10 @@ void OP(expr * arg, expr_ref & result) {                        \
 
 #define MK_BIN_REDUCE(OP, BB_OP)                                        \
 void OP(expr * arg1, expr * arg2, expr_ref & result) {                  \
-    m_in1.reset(); m_in2.reset();                                       \
+    m_in1.clear(); m_in2.clear();                                       \
     get_bits(arg1, m_in1);                                              \
     get_bits(arg2, m_in2);                                              \
-    m_out.reset();                                                      \
+    m_out.clear();                                                      \
     m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), m_in2.c_ptr(), m_out); \
     result = mk_mkbv(m_out);                                            \
 }
@@ -288,7 +288,7 @@ void OP(unsigned num_args, expr * const * args, expr_ref & result) {    \
 
 #define MK_BIN_PRED_REDUCE(OP, BB_OP)                                           \
 void OP(expr * arg1, expr * arg2, expr_ref & result) {                          \
-    m_in1.reset(); m_in2.reset();                                               \
+    m_in1.clear(); m_in2.clear();                                               \
     get_bits(arg1, m_in1);                                                      \
     get_bits(arg2, m_in2);                                                      \
     m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), m_in2.c_ptr(), result);        \
@@ -303,9 +303,9 @@ void OP(expr * arg1, expr * arg2, expr_ref & result) {                          
 
 #define MK_PARAMETRIC_UNARY_REDUCE(OP, BB_OP)                   \
 void OP(expr * arg, unsigned n, expr_ref & result) {            \
-    m_in1.reset();                                              \
+    m_in1.clear();                                              \
     get_bits(arg, m_in1);                                       \
-    m_out.reset();                                              \
+    m_out.clear();                                              \
     m_blaster.BB_OP(m_in1.size(), m_in1.c_ptr(), n, m_out);     \
     result = mk_mkbv(m_out);                                    \
 }
@@ -313,21 +313,21 @@ void OP(expr * arg, unsigned n, expr_ref & result) {            \
 MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
 
     void reduce_ite(expr * arg1, expr * arg2, expr * arg3, expr_ref & result) {
-        m_in1.reset();
-        m_in2.reset();
+        m_in1.clear();
+        m_in2.clear();
         get_bits(arg2, m_in1);
         get_bits(arg3, m_in2);
-        m_out.reset();
+        m_out.clear();
         m_blaster.mk_multiplexer(arg1, m_in1.size(), m_in1.c_ptr(), m_in2.c_ptr(), m_out);
         result = mk_mkbv(m_out);
     }
 
     void reduce_concat(unsigned num_args, expr * const * args, expr_ref & result) {
-        m_out.reset();
+        m_out.clear();
         unsigned i = num_args;
         while (i > 0) {
             i--;
-            m_in1.reset();
+            m_in1.clear();
             get_bits(args[i], m_in1);
             m_out.append(m_in1.size(), m_in1.c_ptr());
         }
@@ -335,9 +335,9 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
     }
 
     void reduce_extract(unsigned start, unsigned end, expr * arg, expr_ref & result) {
-        m_in1.reset();
+        m_in1.clear();
         get_bits(arg, m_in1);
-        m_out.reset();
+        m_out.clear();
         for (unsigned i = start; i <= end; ++i)
             m_out.push_back(m_in1.get(i));
         result = mk_mkbv(m_out);
@@ -349,7 +349,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         SASSERT(f->get_parameter(1).is_int());
         rational v     = f->get_parameter(0).get_rational();
         unsigned bv_sz = f->get_parameter(1).get_int();
-        m_out.reset();
+        m_out.clear();
         m_blaster.num2bits(v, bv_sz, m_out);
         result = mk_mkbv(m_out);
     }

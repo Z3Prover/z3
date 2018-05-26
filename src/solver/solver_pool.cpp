@@ -245,7 +245,7 @@ public:
             m_flat.push_back(e);
             flatten_and(m_flat);
             m_assertions.append(m_flat);
-            m_flat.reset();
+            m_flat.clear();
         }
     }
 
@@ -273,7 +273,7 @@ public:
     void reset() {
         SASSERT(!m_pushed);
         m_head = 0;
-        m_assertions.reset();
+        m_assertions.clear();
         m_pool.refresh(m_base.get());
     }
 

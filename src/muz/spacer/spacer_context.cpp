@@ -86,7 +86,7 @@ void pob::set_post(expr* post, app_ref_vector const &binding) {
               m_pt.get_context().simplify_pob(),
               m_pt.get_context().use_euf_gen());
 
-    m_binding.reset();
+    m_binding.clear();
     if (!binding.empty()) {m_binding.append(binding);}
 }
 
@@ -97,7 +97,7 @@ void pob::inherit(pob const &p) {
     SASSERT(m_post == p.m_post);
     SASSERT(!m_new_post);
 
-    m_binding.reset();
+    m_binding.clear();
     m_binding.append(p.m_binding);
 
     m_level = p.m_level;
@@ -277,20 +277,20 @@ pob *derivation::create_next_child(model &mdl)
     // -- update m_trans with the pre-image of m_trans over the must summaries
     summaries.push_back (m_trans);
     m_trans = mk_and (summaries);
-    summaries.reset ();
+    summaries.clear();
 
     if (!vars.empty()) {
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "create_next_child::qproject1",
                         verbose_stream ());
         vars.append(m_evars);
-        m_evars.reset();
+        m_evars.clear();
         pt().mbp(vars, m_trans, mdl,
                  true, pt().get_context().use_ground_pob());
         CTRACE("spacer", !vars.empty(),
                tout << "Failed to eliminate: " << vars << "\n";);
         m_evars.append (vars);
-        vars.reset();
+        vars.clear();
     }
 
     if (!mdl.is_true(m_premises[m_active].get_summary())) {
@@ -308,7 +308,7 @@ pob *derivation::create_next_child(model &mdl)
     summaries.push_back (m_trans);
     expr_ref post(m);
     post = mk_and(summaries);
-    summaries.reset ();
+    summaries.clear();
 
     if (!vars.empty()) {
         timeit _timer2(is_trace_enabled("spacer_timeit"),
@@ -407,7 +407,7 @@ pob *derivation::create_next_child ()
         pred_transformer &pt = m_premises[m_active].pt ();
         app_ref_vector vars (m);
 
-        summaries.reset ();
+        summaries.clear();
         summaries.push_back (v);
         summaries.push_back (active_trans);
         m_trans = mk_and (summaries);
@@ -419,14 +419,14 @@ pob *derivation::create_next_child ()
 
         if (!vars.empty ()) {
             vars.append(m_evars);
-            m_evars.reset();
+            m_evars.clear();
             this->pt().mbp(vars, m_trans, *mdl,
                            true, this->pt().get_context().use_ground_pob());
             // keep track of implicitly quantified variables
             CTRACE("spacer", !vars.empty(),
                    tout << "Failed to eliminate: " << vars << "\n";);
             m_evars.append (vars);
-            vars.reset();
+            vars.clear();
         }
     }
 
@@ -473,7 +473,7 @@ void derivation::premise::set_summary (expr * summary, bool must,
     m_must = must;
     sm.formula_n2o (summary, m_summary, m_oidx);
 
-    m_ovars.reset ();
+    m_ovars.clear();
     for (unsigned i = 0; i < sig_sz; ++i)
     { m_ovars.push_back(m.mk_const(sm.o2o(m_pt.sig(i), 0, m_oidx))); }
 
@@ -618,7 +618,7 @@ expr_ref_vector const &lemma::get_cube() {
 void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
     SASSERT(m_pob);
     SASSERT(m_pob.get() == p.get());
-    m_cube.reset();
+    m_cube.clear();
     m_body.reset();
     m_cube.append(cube);
     if (m_cube.empty()) {m_cube.push_back(m.mk_true());}
@@ -631,8 +631,8 @@ void lemma::update_cube (pob_ref const &p, expr_ref_vector &cube) {
     }
 
     if (!is_quant) {
-        m_zks.reset();
-        m_bindings.reset();
+        m_zks.clear();
+        m_bindings.clear();
     }
 }
 
@@ -883,7 +883,7 @@ const datalog::rule *pred_transformer::find_rule(model &model,
             r = &kv.m_value->rule();
             is_concrete = true;
             num_reuse_reach = 0;
-            reach_pred_used.reset();
+            reach_pred_used.clear();
             unsigned tail_sz = r->get_uninterpreted_tail_size();
             for (unsigned i = 0; i < tail_sz; i++) {
                 bool used = false;
@@ -912,7 +912,7 @@ const datalog::rule *pred_transformer::find_rule(model &model,
 
 void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& preds) const
 {
-    preds.reset();
+    preds.clear();
     unsigned tail_sz = r.get_uninterpreted_tail_size();
     for (unsigned ti = 0; ti < tail_sz; ti++) {
         preds.push_back(r.get_tail(ti)->get_decl());
@@ -1432,7 +1432,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
         );
 
     if (is_sat == l_true || is_sat == l_undef) {
-        if (core) { core->reset(); }
+        if (core) { core->clear(); }
         if (model && model->get()) {
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
             TRACE ("spacer", tout << "reachable "
@@ -1576,7 +1576,7 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
                                             m_transition_clause,
                                             conj.size (), conj.c_ptr (), 1);
     if (res == l_false) {
-        state.reset();
+        state.clear();
         state.append(core);
         uses_level = m_solver->uses_level();
     }
@@ -1651,7 +1651,7 @@ void pred_transformer::init_rules(decl2rel const& pts) {
 
     if (m_pt_rules.empty()) {
         m_transition = m.mk_false();
-        m_transition_clause.reset();
+        m_transition_clause.clear();
     }
     else {
         unsigned i = 0;
@@ -1670,7 +1670,7 @@ void pred_transformer::init_rules(decl2rel const& pts) {
 
         if (!ctx.use_inc_clause()) {
             transitions.push_back(mk_or(m_transition_clause));
-            m_transition_clause.reset();
+            m_transition_clause.clear();
         }
         m_transition = mk_and(transitions);
     }
@@ -1721,7 +1721,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
         expr_ref tmp = var_subst(m, false)(trans, var_reprs.size (), (expr*const*)var_reprs.c_ptr());
         flatten_and (tmp, side);
         trans = mk_and(side);
-        side.reset ();
+        side.clear();
     }
 
     // rewrite and simplify
@@ -1906,7 +1906,7 @@ void pred_transformer::updt_solver(prop_solver *solver) {
             for (unsigned i = 0; i <= u->level(); ++i)
                 solver->assert_exprs(fmls, i);
         }
-        fmls.reset();
+        fmls.clear();
     }
 
     // -- lemmas and rfs from other predicates
@@ -1958,7 +1958,7 @@ void pred_transformer::updt_solver_with_lemmas(prop_solver *solver,
             for (unsigned i = 1, end = next_level(u->level()); i <= end; ++i)
                 solver->assert_exprs(fmls, i);
         }
-        fmls.reset();
+        fmls.clear();
     }
 }
 
@@ -2224,7 +2224,7 @@ void pred_transformer::frames::simplify_formulas ()
     SASSERT(new_lemmas.size() + num_sumbsumed == m_lemmas.size());
     ENSURE(new_lemmas.size() + num_sumbsumed == m_lemmas.size());
     if (new_lemmas.size() < m_lemmas.size()) {
-        m_lemmas.reset();
+        m_lemmas.clear();
         m_lemmas.append(new_lemmas);
         m_sorted = false;
         sort();
@@ -3010,7 +3010,7 @@ expr_ref context::get_ground_sat_answer()  {
         const reach_fact_ref_vector &child_reach_facts =
             reach_fact->get_justifications ();
         // get child pts
-        preds.reset();
+        preds.clear();
         pt->find_predecessors(*r, preds);
 
         for (unsigned j = 0; j < preds.size (); j++) {

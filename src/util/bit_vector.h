@@ -93,7 +93,7 @@ public:
         dealloc_svect(m_data);
     }
     
-    void reset() {
+    void clear() {
         if (m_data)
             memset(m_data, 0, m_capacity * sizeof(unsigned));
         m_num_bits = 0;
@@ -220,17 +220,17 @@ inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {
 }
 
 /**
-   \brief Bitvector class with fast reset.
-   This class should be used if the reset is frequently called.
+   \brief Bitvector class with fast clear.
+   This class should be used if the clear is frequently called.
 */
-class fr_bit_vector : private bit_vector {
+class fc_bit_vector : private bit_vector {
     unsigned_vector m_one_idxs;
 public:
-    void reset();
+    void clear();
 
     void fill0() {
         bit_vector::fill0();
-        m_one_idxs.reset();
+        m_one_idxs.clear();
     }
 
     void set(unsigned idx) {

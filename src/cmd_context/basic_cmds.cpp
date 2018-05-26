@@ -52,7 +52,7 @@ public:
     char const * get_usage() const override { return "<symbol>*"; }
     char const * get_descr(cmd_context & ctx) const override { return "print this help."; }
     unsigned get_arity() const override { return VAR_ARITY; }
-    void prepare(cmd_context & ctx) override { m_cmds.reset(); }
+    void prepare(cmd_context & ctx) override { m_cmds.clear(); }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_SYMBOL; }
     void set_next_arg(cmd_context & ctx, symbol const & s) override {
         cmd * c = ctx.find_cmd(s);
@@ -758,7 +758,7 @@ public:
     char const * get_usage() const override { return "<symbol> (<sort>+) <func-decl-ref>"; }
     char const * get_descr(cmd_context & ctx) const override { return "declare a new array map operator with name <symbol> using the given function declaration.\n<func-decl-ref> ::= <symbol>\n                  | (<symbol> (<sort>*) <sort>)\n                  | ((_ <symbol> <numeral>+) (<sort>*) <sort>)\nThe last two cases are used to disumbiguate between declarations with the same name and/or select (indexed) builtin declarations.\nFor more details about the array map operator, see 'Generalized and Efficient Array Decision Procedures' (FMCAD 2009).\nExample: (declare-map set-union (Int) (or (Bool Bool) Bool))\nDeclares a new function (declare-fun set-union ((Array Int Bool) (Array Int Bool)) (Array Int Bool)).\nThe instance of the map axiom for this new declaration is:\n(forall ((a1 (Array Int Bool)) (a2 (Array Int Bool)) (i Int)) (= (select (set-union a1 a2) i) (or (select a1 i) (select a2 i))))"; }
     unsigned get_arity() const override { return 3; }
-    void prepare(cmd_context & ctx) override { m_name = symbol::null; m_domain.reset(); }
+    void prepare(cmd_context & ctx) override { m_name = symbol::null; m_domain.clear(); }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         if (m_name == symbol::null) return CPK_SYMBOL;
         if (m_domain.empty()) return CPK_SORT_LIST;
@@ -833,7 +833,7 @@ public:
     void prepare(cmd_context & ctx) override { reset(ctx); }
 
     void reset(cmd_context& ctx) override {
-        m_assumptions.reset(); m_variables.reset(); m_count = 0;
+        m_assumptions.clear(); m_variables.clear(); m_count = 0;
     }
     void finalize(cmd_context & ctx) override {}
 };

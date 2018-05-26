@@ -122,7 +122,7 @@ void act_cache::del_unused() {
     if (m_qhead == sz) {
         // The "active" part of the queue is empty.
         // So, we perform a "cheap" compress.
-        m_queue.reset();
+        m_queue.clear();
         m_qhead = 0;
     }
     else if (m_qhead > m_max_unused) {
@@ -206,7 +206,7 @@ expr * act_cache::find(expr * k, unsigned offset) {
 void act_cache::reset() {
     dec_refs();
     m_table.reset();
-    m_queue.reset();
+    m_queue.clear();
     m_unused = 0;
     m_qhead = 0;
 }

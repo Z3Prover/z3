@@ -41,14 +41,14 @@ namespace smt {
     {}
     
     theory_wmaxsat::~theory_wmaxsat() { 
-        m_old_values.reset();
+        m_old_values.clear();
     }
     
     /**
        \brief return the complement of variables that are currently assigned.
     */
     void theory_wmaxsat::get_assignment(vector<bool>& result) {
-        result.reset();
+        result.clear();
         
         if (!m_found_optimal) {
             for (unsigned i = 0; i < m_vars.size(); ++i) {
@@ -193,21 +193,21 @@ namespace smt {
     }
 
     void theory_wmaxsat::reset_local() {
-        m_vars.reset();
-        m_fmls.reset();
-        m_rweights.reset();
+        m_vars.clear();
+        m_fmls.clear();
+        m_rweights.clear();
         m_rmin_cost.reset();
-        m_zweights.reset();
+        m_zweights.clear();
         m_zcost.reset();
         m_zmin_cost.reset();
-        m_cost_save.reset();
+        m_cost_save.clear();
         m_bool2var.reset();
-        m_var2bool.reset();
+        m_var2bool.clear();
         m_propagate = false;
         m_can_propagate = false;
         m_found_optimal = false;
-        m_assigned.reset();
-        m_enabled.reset();
+        m_assigned.clear();
+        m_enabled.clear();
     }
 
 
@@ -248,7 +248,7 @@ namespace smt {
         }
         if (is_optimal()) {
             m_found_optimal = true;
-            m_cost_save.reset();
+            m_cost_save.clear();
             m_cost_save.append(m_costs);
             TRACE("opt",
                   tout << "costs: ";
@@ -352,8 +352,8 @@ namespace smt {
         }
         m_den = lcm(m_den, denominator(m_rmin_cost));
         SASSERT(!m_den.is_zero());
-        m_zweights.reset();
-        m_sorted_vars.reset();
+        m_zweights.clear();
+        m_sorted_vars.clear();
         for (unsigned i = 0; i < m_rweights.size(); ++i) {            
             rational r = m_rweights[i]*m_den;
             SASSERT(r.is_int());

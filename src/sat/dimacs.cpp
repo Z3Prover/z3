@@ -100,7 +100,7 @@ void read_clause(Buffer & in, std::ostream& err, sat::solver & solver, sat::lite
     int     parsed_lit;
     int     var;
     
-    lits.reset();
+    lits.clear();
 
     while (true) { 
         parsed_lit = parse_int(in, err);

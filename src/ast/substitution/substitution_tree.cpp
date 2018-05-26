@@ -191,8 +191,8 @@ substitution_tree::node * substitution_tree::find_best_child(node * r) {
    \brief Reset datastructures used to insert/erase elements from the substitution tree.
 */
 void substitution_tree::reset_compiler() {
-    m_todo.reset();
-    m_used_regs.reset();
+    m_todo.clear();
+    m_used_regs.clear();
     m_next_reg = 1; // register 0 is reserved for input.
     DEBUG_CODE({
         ptr_vector<expr>::iterator it  = m_registers.begin();
@@ -290,8 +290,8 @@ void substitution_tree::insert(app * new_expr) {
     node * r = m_roots[id];
     
     while (true) {
-        m_compatible.reset();
-        m_incompatible.reset();
+        m_compatible.clear();
+        m_incompatible.clear();
         vector<subst> & sv = r->m_subst;
         // separate sv in the set of compatible & incompatible instructions
         vector<subst>::iterator it  = sv.begin();
@@ -567,9 +567,9 @@ void substitution_tree::reset() {
         if (*it)
             delete_node(*it);
     }
-    m_roots.reset();
+    m_roots.clear();
     std::for_each(m_vars.begin(), m_vars.end(), delete_proc<var_ref_vector>());
-    m_vars.reset();
+    m_vars.clear();
     m_size = 0;
 }
 
@@ -676,7 +676,7 @@ bool substitution_tree::bind_var(var * v, unsigned offset, expr_offset const & p
 template<substitution_tree::st_visit_mode Mode>
 bool substitution_tree::unify_match(expr_offset p1, expr_offset p2) {
     vector<entry> & todo = m_visit_todo;
-    todo.reset();
+    todo.clear();
     todo.push_back(entry(p1, p2));
     while (!todo.empty()) {
         entry const & e = todo.back();
@@ -774,7 +774,7 @@ bool substitution_tree::visit(vector<subst> const & sv) {
 
 template<substitution_tree::st_visit_mode Mode>
 bool substitution_tree::visit(expr * e, st_visitor & st, node * r) {
-    m_bstack.reset();
+    m_bstack.clear();
     m_bstack.push_back(r);
     m_subst->push_scope();
     m_subst->insert(static_cast<unsigned>(0), m_reg_offset, expr_offset(e, m_in_offset));

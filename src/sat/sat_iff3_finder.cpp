@@ -63,7 +63,7 @@ namespace sat {
         for (; it != end; ++it) {
             marks[it->index()] = false;
         }
-        to_unmark.reset();
+        to_unmark.clear();
     }
 
 #define SMALL_WLIST 16
@@ -156,7 +156,7 @@ namespace sat {
                     if (v1 != curr_v1) {
                         curr_v1 = v1;
                         unmark(found, to_unmark);
-                        pairs.reset();
+                        pairs.clear();
                     }
                     if (!l1.sign()) {
                         if (!found[l2.index()]) {

@@ -394,8 +394,8 @@ public:
         ctx.m(); // ensure manager is initialized.
         m_arg_idx = 0;
         m_query_arg_idx = 0;
-        m_domain.reset();
-        m_kinds.reset();
+        m_domain.clear();
+        m_kinds.clear();
     }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         switch(m_query_arg_idx++) {
@@ -405,7 +405,7 @@ public:
         }
     }
     void set_next_arg(cmd_context & ctx, unsigned num, sort * const * slist) override {
-        m_domain.reset();
+        m_domain.clear();
         m_domain.append(num, slist);
         m_arg_idx++;
     }

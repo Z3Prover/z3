@@ -31,9 +31,9 @@ substitution::substitution(ast_manager & m):
 
 void substitution::reset() {
     m_subst.reset(); 
-    m_vars.reset();
-    m_refs.reset();
-    m_scopes.reset();
+    m_vars.clear();
+    m_refs.clear();
+    m_scopes.clear();
     reset_cache();
 }
 
@@ -43,7 +43,7 @@ void substitution::reset_cache() {
           for (unsigned i = 0; i < m_new_exprs.size(); i++) { tout << mk_pp(m_new_exprs.get(i), m_manager) << "\nref_count: " << m_new_exprs.get(i)->get_ref_count() << "\n"; });
 
     m_apply_cache.reset();
-    m_new_exprs.reset();
+    m_new_exprs.clear();
     m_state = CLEAN;
 }
 
@@ -270,7 +270,7 @@ bool substitution::visit_children(expr_offset const & p) {
 bool substitution::acyclic(expr_offset p) {
     if (get_color(p) == Black)
         return true;
-    m_todo.reset();
+    m_todo.clear();
     m_todo.push_back(p);
     while (!m_todo.empty()) {
         expr_offset p = m_todo.back();

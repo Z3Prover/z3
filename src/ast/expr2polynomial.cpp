@@ -81,16 +81,16 @@ struct expr2polynomial::imp {
     polynomial::numeral_manager & nm() { return pm().m(); }
 
     void reset() {
-        m_frame_stack.reset();
-        m_presult_stack.reset();
-        m_dresult_stack.reset();
+        m_frame_stack.clear();
+        m_presult_stack.clear();
+        m_dresult_stack.clear();
     }
 
     void reset_cache() {
         m_cache.reset();
-        m_cached_domain.reset();
-        m_cached_polynomials.reset();
-        m_cached_denominators.reset();
+        m_cached_domain.clear();
+        m_cached_polynomials.clear();
+        m_cached_denominators.clear();
     }
 
     void checkpoint() {

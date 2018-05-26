@@ -339,11 +339,11 @@ namespace spacer_qe {
             expr_ref_vector new_lits(m);
             expr_ref eq_term (m);
 
-            m_lits.reset ();
-            m_terms.reset();
-            m_coeffs.reset();
-            m_strict.reset();
-            m_eq.reset ();
+            m_lits.clear ();
+            m_terms.clear();
+            m_coeffs.clear();
+            m_strict.clear();
+            m_eq.clear ();
 
             for (unsigned i = 0; i < lits.size(); ++i) {
                 rational c(0), d(0);
@@ -426,7 +426,7 @@ namespace spacer_qe {
                     new_lits.push_back (result);
                 }
             }
-            lits.reset();
+            lits.clear();
             lits.append(new_lits);
             if (use_eq || num_pos == 0 || num_neg == 0) {
                 return true;
@@ -457,12 +457,12 @@ namespace spacer_qe {
             unsigned num_pos = 0; // number of positive literals true in the model
             unsigned num_neg = 0; // number of negative literals true in the model
 
-            m_lits.reset ();
-            m_terms.reset();
-            m_coeffs.reset();
-            m_divs.reset ();
-            m_strict.reset();
-            m_eq.reset ();
+            m_lits.clear ();
+            m_terms.clear();
+            m_coeffs.clear();
+            m_divs.clear ();
+            m_strict.clear();
+            m_eq.clear ();
 
             expr_ref var_val = mdl(m_var->x());
 
@@ -1199,7 +1199,7 @@ namespace spacer_qe {
                         }
                      );
             }
-            vars.reset();
+            vars.clear();
             vars.append(new_vars);
             return mk_and(result);
         }
@@ -1240,7 +1240,7 @@ namespace spacer_qe {
                       );
                 m_var = alloc(contains_app, m, v);
                 map.reset ();
-                lits.reset ();
+                lits.clear ();
                 if (a.is_int (v)) {
                     // factor out mod terms using div terms
                     expr_map mod_map (m);
@@ -1268,7 +1268,7 @@ namespace spacer_qe {
                     new_vars.push_back(v);
                 }
             }
-            vars.reset();
+            vars.clear();
             vars.append(new_vars);
             m_rw (fml);
         }
@@ -1295,14 +1295,14 @@ namespace spacer_qe {
             m_subst_term_v = nullptr;
             m_true_sub_v.reset ();
             m_false_sub_v.reset ();
-            m_aux_lits_v.reset ();
-            m_idx_lits_v.reset ();
+            m_aux_lits_v.clear ();
+            m_idx_lits_v.clear ();
         }
 
         void reset () {
             M = nullptr;
             reset_v ();
-            m_aux_vars.reset ();
+            m_aux_vars.clear ();
         }
 
         /**
@@ -1803,7 +1803,7 @@ namespace spacer_qe {
                     rem_arr_vars.push_back(m_v);
                 }
             }
-            arr_vars.reset ();
+            arr_vars.clear ();
             arr_vars.append (rem_arr_vars);
             aux_vars.append (m_aux_vars);
         }
@@ -1825,8 +1825,8 @@ namespace spacer_qe {
 
         void reset () {
             m_cache.reset ();
-            m_pinned.reset ();
-            m_idx_lits.reset ();
+            m_pinned.clear ();
+            m_idx_lits.clear ();
             M = nullptr;
             m_arr_test.reset ();
             m_has_stores.reset ();
@@ -2019,10 +2019,10 @@ namespace spacer_qe {
 
         void reset () {
             m_sel_terms.reset ();
-            m_idx_reprs.reset ();
-            m_idx_vals.reset ();
-            m_sel_consts.reset ();
-            m_idx_lits.reset ();
+            m_idx_reprs.clear ();
+            m_idx_vals.clear ();
+            m_sel_consts.clear ();
+            m_idx_lits.clear ();
             M = nullptr;
             m_sub.reset ();
             m_arr_test.reset ();
@@ -2226,7 +2226,7 @@ namespace spacer_qe {
             if (project (fml)) {
                 mk_result (fml);
                 aux_vars.append (m_sel_consts);
-                arr_vars.reset ();
+                arr_vars.clear ();
             }
             else {
                 IF_VERBOSE(2, verbose_stream() << "can't project arrays:" << "\n";);

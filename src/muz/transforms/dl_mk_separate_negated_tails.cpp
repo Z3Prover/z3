@@ -35,7 +35,7 @@ namespace datalog {
     }
 
     void mk_separate_negated_tails::get_private_vars(rule const& r, unsigned j) {
-        m_vars.reset();
+        m_vars.clear();
         m_fv.reset();
         m_fv(r.get_head());
         for (unsigned i = 0; i < r.get_tail_size(); ++i) {

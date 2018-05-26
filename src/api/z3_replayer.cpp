@@ -165,7 +165,7 @@ struct z3_replayer::imp {
     void read_string_core(char delimiter) {
         if (curr() != delimiter)
             throw z3_replayer_exception("invalid string/symbol");
-        m_string.reset();
+        m_string.clear();
         next();
         while (true) {
             char c = curr();
@@ -270,7 +270,7 @@ struct z3_replayer::imp {
 #endif
 
     void read_float() {
-        m_string.reset();
+        m_string.clear();
         while (is_double_char()) {
             m_string.push_back(curr());
             next();
@@ -283,7 +283,7 @@ struct z3_replayer::imp {
     }
 
     void read_double() {
-        m_string.reset();
+        m_string.clear();
         while (is_double_char()) {
             m_string.push_back(curr());
             next();
@@ -701,11 +701,11 @@ struct z3_replayer::imp {
 
     void reset() {
         m_result = nullptr;
-        m_args.reset();
-        m_obj_arrays.reset();
-        m_sym_arrays.reset();
-        m_unsigned_arrays.reset();
-        m_int_arrays.reset();
+        m_args.clear();
+        m_obj_arrays.clear();
+        m_sym_arrays.clear();
+        m_unsigned_arrays.clear();
+        m_int_arrays.clear();
     }
 
 

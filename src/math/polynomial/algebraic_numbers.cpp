@@ -544,7 +544,7 @@ namespace algebraic_numbers {
             }
             else {
                 scoped_upoly & up_sqf = m_isolate_tmp3;
-                up_sqf.reset();
+                up_sqf.clear();
                 upm().square_free(up.size(), up.c_ptr(), up_sqf);
                 TRACE("algebraic", upm().display(tout, up_sqf.size(), up_sqf.c_ptr()); tout << "\n";);
                 r.push_back(up_sqf, 1);
@@ -627,9 +627,9 @@ namespace algebraic_numbers {
                         roots.push_back(numeral(c));
                     }
                 }
-                m_isolate_roots.reset();
-                m_isolate_lowers.reset();
-                m_isolate_uppers.reset();
+                m_isolate_roots.clear();
+                m_isolate_lowers.clear();
+                m_isolate_uppers.clear();
             }
             sort_roots(roots);
         }
@@ -1400,7 +1400,7 @@ namespace algebraic_numbers {
             qm().set(nbv, b->m_value);
             if (IsAdd)
                 qm().neg(nbv);
-            m_add_tmp.reset();
+            m_add_tmp.clear();
             upm().translate_q(a->m_p_sz, a->m_p, nbv, m_add_tmp);
             mpbqi const & i = a->m_interval;
             scoped_mpbq l(bqm());
@@ -2017,7 +2017,7 @@ namespace algebraic_numbers {
 
                 // Try to find sign using intervals
                 polynomial::var_vector & xs = m_eval_sign_vars;
-                xs.reset();
+                xs.clear();
                 ext_pm.vars(p_prime, xs);
                 SASSERT(!xs.empty());
                 var2interval x2v_interval(*this, x2v);
@@ -2328,7 +2328,7 @@ namespace algebraic_numbers {
             }
 
             polynomial::var_vector & xs = m_isolate_roots_vars;
-            xs.reset();
+            xs.clear();
             ext_pm.vars(p_prime, xs);
             SASSERT(xs.size() > 1);
 

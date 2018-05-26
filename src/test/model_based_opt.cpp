@@ -96,7 +96,7 @@ static void check_random_ineqs(random_gen& r, unsigned num_vars, unsigned max_va
     }
 
     vector<var> vars;
-    vars.reset();
+    vars.clear();
     vars.push_back(var(0, rational(2)));
     vars.push_back(var(1, rational(-2)));
     mbo.set_objective(vars, rational(0));
@@ -133,7 +133,7 @@ static void test1() {
     add_ineq(mbo, z, 1, u, -1, 1, opt::t_le);
     add_ineq(mbo, u, 1, -6, opt::t_le);
 
-    vars.reset();
+    vars.clear();
     vars.push_back(var(x, rational(2)));
     mbo.set_objective(vars, rational(0));
 
@@ -160,7 +160,7 @@ static void test2() {
     add_ineq(mbo, z, -1, u, 1, 1, opt::t_le);
     add_ineq(mbo, u, -1, -6, opt::t_le);
 
-    vars.reset();
+    vars.clear();
     vars.push_back(var(x, rational(-2)));
     mbo.set_objective(vars, rational(0));
 
@@ -182,7 +182,7 @@ static void test3() {
     add_ineq(mbo, y, 1, u, -1, 0, opt::t_le);
     add_ineq(mbo, z, 1, u, -1, 1, opt::t_le);
 
-    vars.reset();
+    vars.clear();
     vars.push_back(var(x, rational(2)));
     mbo.set_objective(vars, rational(0));
 
@@ -206,7 +206,7 @@ static void test4() {
     add_ineq(mbo, z, 1, u, -1, 1, opt::t_le);
     add_ineq(mbo, u, 1, -6, opt::t_le);
 
-    vars.reset();
+    vars.clear();
     vars.push_back(var(x, rational(2)));
     mbo.set_objective(vars, rational(0));
 

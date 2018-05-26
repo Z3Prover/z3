@@ -41,7 +41,7 @@ namespace sat {
 
     void elim_eqs::cleanup_bin_watches(literal_vector const & roots) {        
         unsigned l_idx = 0;
-        m_new_bin.reset();
+        m_new_bin.clear();
         for (watch_list & wlist : m_solver.m_watches) {
             literal l1 = ~to_literal(l_idx++);
             literal r1 = norm(roots, l1);
@@ -89,7 +89,7 @@ namespace sat {
         for (auto const& b : m_new_bin) {
             m_solver.mk_bin_clause(b.l1, b.l2, b.learned);
         }
-        m_new_bin.reset();
+        m_new_bin.clear();
     }
 
     void elim_eqs::drat_delete_clause() {

@@ -312,10 +312,10 @@ void defined_names::impl::pop_scope(unsigned num_scopes) {
 void defined_names::impl::reset() {
     m_expr2name.reset();
     m_expr2proof.reset();
-    m_exprs.reset();
-    m_names.reset();
-    m_apply_proofs.reset();
-    m_lims.reset();
+    m_exprs.clear();
+    m_names.clear();
+    m_apply_proofs.clear();
+    m_lims.clear();
 }
 
 defined_names::defined_names(ast_manager & m, char const * fresh_prefix) {

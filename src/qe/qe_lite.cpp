@@ -85,7 +85,7 @@ namespace eq {
         params_ref       m_params;
 
         void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
-            order.reset();
+            order.clear();
 
             // eliminate self loops, and definitions containing quantifiers.
             bool found = false;
@@ -287,7 +287,7 @@ namespace eq {
         }
 
         void get_elimination_order() {
-            m_order.reset();
+            m_order.clear();
 
             TRACE("top_sort",
                   tout << "DEFINITIONS: " << std::endl;
@@ -304,7 +304,7 @@ namespace eq {
         }
 
         void create_substitution(unsigned sz) {
-            m_subst_map.reset();
+            m_subst_map.clear();
             m_subst_map.resize(sz, nullptr);
             m_subst.reset();
             m_subst.set_inv_bindings(sz, m_subst_map.c_ptr());
@@ -441,10 +441,10 @@ namespace eq {
         void find_definitions(unsigned num_args, expr* const* args, bool is_exists, unsigned& def_count, unsigned& largest_vinx) {
             def_count = 0;
             largest_vinx = 0;
-            m_map.reset();
-            m_pos2var.reset();
-            m_var2pos.reset();
-            m_inx2var.reset();
+            m_map.clear();
+            m_pos2var.clear();
+            m_var2pos.clear();
+            m_inx2var.clear();
             m_pos2var.expand(num_args, -1);
 
             // Find all definitions
@@ -633,7 +633,7 @@ namespace eq {
                     create_substitution(largest_vinx + 1);
                     new_r = m_subst(r, m_subst_map.size(), m_subst_map.c_ptr());
                     m_rewriter(new_r);
-                    conjs.reset();
+                    conjs.clear();
                     flatten_and(new_r, conjs);
                     reduced = true;
                 }
@@ -697,12 +697,12 @@ namespace eq {
             } 
             while (q != r && is_quantifier(r));
 
-            m_new_exprs.reset();
+            m_new_exprs.clear();
         }
 
         void operator()(expr_ref_vector& r) {
             while (reduce_var_set(r)) ;
-            m_new_exprs.reset();
+            m_new_exprs.clear();
         }
 
         ast_manager& get_manager() const { return m; }
@@ -951,7 +951,7 @@ namespace fm {
             return c;
         }
 
-        void reset() { m_id2pos.reset(); m_set.reset(); }
+        void reset() { m_id2pos.clear(); m_set.clear(); }
         void finalize() { m_id2pos.finalize(); m_set.finalize(); }
 
         iterator begin() const { return m_set.begin(); }
@@ -1117,7 +1117,7 @@ namespace fm {
 
         void reset_constraints() {
             del_constraints(m_constraints.size(), m_constraints.c_ptr());
-            m_constraints.reset();
+            m_constraints.clear();
         }
 
         constraint * mk_constraint(unsigned num_lits, literal * lits, unsigned num_vars, var * xs, rational * as, rational & c, bool strict,
@@ -1401,7 +1401,7 @@ namespace fm {
         };
 
         void init_forbidden_set(expr_ref_vector const & g) {
-            m_forbidden_set.reset();
+            m_forbidden_set.clear();
             expr_fast_mark1 visited;
             forbidden_proc  proc(*this);
             unsigned sz = g.size();
@@ -1420,19 +1420,19 @@ namespace fm {
             m_sub_todo.reset();
             m_id_gen.reset();
             reset_constraints();
-            m_bvar2expr.reset();
-            m_bvar2sign.reset();
+            m_bvar2expr.clear();
+            m_bvar2sign.clear();
             m_bvar2expr.push_back(nullptr); // bvar 0 is not used
             m_bvar2sign.push_back(0);
             m_expr2var.reset();
-            m_is_int.reset();
-            m_var2pos.reset();
-            m_forbidden.reset();
-            m_var2expr.reset();
+            m_is_int.clear();
+            m_var2pos.clear();
+            m_forbidden.clear();
+            m_var2expr.clear();
             m_expr2var.reset();
-            m_lowers.reset();
-            m_uppers.reset();
-            m_new_fmls.reset();
+            m_lowers.clear();
+            m_uppers.clear();
+            m_new_fmls.clear();
             m_counter = 0;
             m_inconsistent = false;
             m_inconsistent_core = nullptr;
@@ -1877,8 +1877,8 @@ namespace fm {
 
             SASSERT(!is_int(x) || a.is_one() || b.is_one());
 
-            new_xs.reset();
-            new_as.reset();
+            new_xs.clear();
+            new_as.clear();
             rational         new_c = l.m_c*b + u.m_c*a;
             bool             new_strict = l.m_strict || u.m_strict;
 
@@ -1946,7 +1946,7 @@ namespace fm {
                 return nullptr; // no constraint needs to be created.
             }
 
-            new_lits.reset();
+            new_lits.clear();
             for (unsigned i = 0; i < l.m_num_lits; i++) {
                 literal lit = l.m_lits[i];
                 bvar    p   = lit2bvar(lit);
@@ -2058,7 +2058,7 @@ namespace fm {
             unsigned num_old_cnstrs = num_uppers + num_lowers;
             unsigned limit          = num_old_cnstrs + m_fm_extra;
             unsigned num_new_cnstrs = 0;
-            new_constraints.reset();
+            new_constraints.clear();
             for (unsigned i = 0; i < num_lowers; i++) {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
@@ -2127,7 +2127,7 @@ namespace fm {
                 if (has_quantifiers(f)) return;
             }
             if (m_inconsistent) {
-                m_new_fmls.reset();
+                m_new_fmls.clear();
                 m_new_fmls.push_back(m.mk_false());
             }
             else {
@@ -2147,7 +2147,7 @@ namespace fm {
                     if (try_eliminate(candidates[i]))
                         eliminated++;
                     if (m_inconsistent) {
-                        m_new_fmls.reset();
+                        m_new_fmls.clear();
                         m_new_fmls.push_back(m.mk_false());
                         break;
                     }
@@ -2157,7 +2157,7 @@ namespace fm {
                 }
             }
             reset_constraints();
-            fmls.reset();
+            fmls.clear();
             fmls.append(m_new_fmls);
         }
 

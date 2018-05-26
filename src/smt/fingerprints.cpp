@@ -43,7 +43,7 @@ namespace smt {
     }
 
     fingerprint * fingerprint_set::mk_dummy(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
-        m_tmp.reset();
+        m_tmp.clear();
         m_tmp.append(num_args, args);
         m_dummy.m_data      = data;
         m_dummy.m_data_hash = data_hash;
@@ -98,8 +98,8 @@ namespace smt {
     
     void fingerprint_set::reset() {
         m_set.reset();
-        m_fingerprints.reset();
-        m_defs.reset();
+        m_fingerprints.clear();
+        m_defs.clear();
     }
         
     void fingerprint_set::push_scope() {

@@ -53,7 +53,7 @@ namespace qe {
     }
 
     void pred_abs::reset() {
-        m_trail.reset();
+        m_trail.clear();
         dec_keys<expr>(m_pred2lit);
         dec_keys<app>(m_lit2pred);
         dec_keys<app>(m_asm2pred);
@@ -63,9 +63,9 @@ namespace qe {
         m_asm2pred.reset();
         m_pred2asm.reset();
         m_elevel.reset();
-        m_asms.reset();
-        m_asms_lim.reset();
-        m_preds.reset();
+        m_asms.clear();
+        m_asms_lim.clear();
+        m_preds.clear();
     }
 
     max_level pred_abs::compute_level(app* e) {
@@ -310,7 +310,7 @@ namespace qe {
             }
             unsigned sz = a->get_num_args();
             bool diff = false;
-            args.reset();
+            args.clear();
             for (unsigned i = 0; i < sz; ++i) {
                 expr* f = a->get_arg(i), *f1;
                 if (cache.find(f, f1)) {
@@ -402,7 +402,7 @@ namespace qe {
                 continue;
             }
             unsigned sz = a->get_num_args();
-            args.reset();
+            args.clear();
             bool diff = false;
             for (unsigned i = 0; i < sz; ++i) {
                 expr* f = a->get_arg(i), *f1;
@@ -563,7 +563,7 @@ namespace qe {
         }
         
         void get_core(expr_ref_vector& core) {
-            core.reset();
+            core.clear();
             m_solver->get_unsat_core(core);
             TRACE("qe", m_solver->display(tout << "core: " << core << "\n") << "\n";);
         }
@@ -708,12 +708,12 @@ namespace qe {
             m_ex.s().collect_statistics(m_st);        
             m_pred_abs.collect_statistics(m_st);
             m_level = 0;
-            m_answer.reset();
-            m_asms.reset();
+            m_answer.clear();
+            m_asms.clear();
             m_pred_abs.reset();
-            m_vars.reset();
+            m_vars.clear();
             m_model = nullptr;
-            m_free_vars.reset();
+            m_free_vars.clear();
             m_fa.clear();
             m_ex.clear();                    
         }
@@ -736,7 +736,7 @@ namespace qe {
             bool is_forall = false;        
             m_pred_abs.get_free_vars(fml, vars);
             m_vars.push_back(vars);
-            vars.reset();
+            vars.clear();
             if (m_mode != qsat_sat) {
                 is_forall = true;
                 hoist.pull_quantifier(is_forall, fml, vars);
@@ -750,7 +750,7 @@ namespace qe {
             }
             do {
                 is_forall = !is_forall;
-                vars.reset();
+                vars.clear();
                 hoist.pull_quantifier(is_forall, fml, vars);
                 m_vars.push_back(vars);
                 filter_vars(vars);
@@ -830,7 +830,7 @@ namespace qe {
                     return false;
                 }
                 TRACE("qe", tout << core1.size() << " -> " << core2.size() << "\n";);
-                core.reset();
+                core.clear();
                 core.append(core2);
             }
             return true;
@@ -945,7 +945,7 @@ namespace qe {
         }
         
         void get_vars(unsigned level) {
-            m_avars.reset();
+            m_avars.clear();
             for (unsigned i = level; i < m_vars.size(); ++i) {
                 m_avars.append(m_vars[i]);
             }

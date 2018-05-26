@@ -33,7 +33,7 @@ public:
     numeral_buffer(NumeralManager & m):m_manager(m) {}
 
     ~numeral_buffer() {
-        reset();
+        clear();
     }
     
     NumeralManager & m() const { return m_manager; }
@@ -68,12 +68,10 @@ public:
         return m_buffer[idx];
     }
 
-    void reset() {
-        typename vector<Numeral>::iterator it  = m_buffer.begin();
-        typename vector<Numeral>::iterator end = m_buffer.end();
-        for (; it != end; ++it)
-            m().del(*it);
-        m_buffer.reset();
+    void clear() {
+        for (auto& element : m_buffer)
+            m().del(element);
+        m_buffer.clear();
     }
 
     Numeral * c_ptr() { return m_buffer.c_ptr(); }

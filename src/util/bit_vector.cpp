@@ -234,7 +234,7 @@ bit_vector& bit_vector::neg() {
     return *this;
 }
 
-void fr_bit_vector::reset() {
+void fc_bit_vector::clear() {
     unsigned sz = size();
     unsigned_vector::const_iterator it  = m_one_idxs.begin();
     unsigned_vector::const_iterator end = m_one_idxs.end();
@@ -243,5 +243,5 @@ void fr_bit_vector::reset() {
         if (idx < sz)
             unset(idx);
     }
-    m_one_idxs.reset();
+    m_one_idxs.clear();
 }

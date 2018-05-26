@@ -169,11 +169,11 @@ class theory_lra::imp {
         ptr_vector<expr>    m_terms_to_internalize;
         internalize_state(ast_manager& m): m_terms(m) {}
         void reset() {
-            m_terms.reset();
-            m_coeffs.reset();
+            m_terms.clear();
+            m_coeffs.clear();
             m_offset.reset();
-            m_vars.reset();
-            m_terms_to_internalize.reset();
+            m_vars.clear();
+            m_terms_to_internalize.clear();
         }
     };
     ptr_vector<internalize_state> m_internalize_states;
@@ -307,7 +307,7 @@ class theory_lra::imp {
         if (m_solver) return;
 
         reset_variable_values();
-        m_theory_var2var_index.reset();
+        m_theory_var2var_index.clear();
         m_solver = alloc(lp::lar_solver); 
         lp_params lp(ctx().get_params());
         m_solver->settings().set_resource_limit(m_resource_limit);
@@ -516,7 +516,7 @@ class theory_lra::imp {
                 mk_enode(to_app(n));
             }
         }
-        st.terms_to_internalize().reset();
+        st.terms_to_internalize().clear();
     }
 
     void internalize_args(app* t) {
@@ -996,8 +996,8 @@ public:
         m_scopes.resize(old_size);            
         m_solver->pop(num_scopes);
         // VERIFY(l_false != make_feasible());
-        m_new_bounds.reset();
-        m_to_check.reset();
+        m_new_bounds.clear();
+        m_to_check.clear();
         if (m_nra) m_nra->pop(num_scopes);
         TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
     }
@@ -1861,7 +1861,7 @@ public:
         if (!check_idiv_bounds()) {
             return l_false;
         }
-        m_explanation.reset();
+        m_explanation.clear();
         switch (m_lia->check()) {
         case lp::lia_move::sat:
             lia_check = l_true;
@@ -1896,9 +1896,9 @@ public:
             }
             IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n");
             TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_lia->get_explanation(), m_lia->is_upper()););
-            m_eqs.reset();
-            m_core.reset();
-            m_params.reset();
+            m_eqs.clear();
+            m_core.clear();
+            m_params.clear();
             for (auto const& ev : m_lia->get_explanation().m_explanation) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
@@ -2034,7 +2034,7 @@ public:
             ++m_asserted_qhead;
         }
         if (ctx().inconsistent()) {
-            m_to_check.reset();
+            m_to_check.clear();
             return;
         }
         /*for (; qhead < m_asserted_atoms.size() && !ctx().inconsistent(); ++qhead) {
@@ -2166,9 +2166,9 @@ public:
             m_solver->settings().st().m_num_of_implied_bounds ++;
             if (first) {
                 first = false;
-                m_core.reset();
-                m_eqs.reset();
-                m_params.reset();
+                m_core.clear();
+                m_eqs.clear();
+                m_params.clear();
                 m_explanation.clear();
                 local_bound_propagator bp(*this);
                 m_solver->explain_implied_bound(be, bp);
@@ -2198,7 +2198,7 @@ public:
         //        SASSERT(validate_assign(lit));
         dump_assign(lit);
         if (m_core.size() < small_lemma_size() && m_eqs.empty()) {
-            m_core2.reset();
+            m_core2.clear();
             for (auto const& c : m_core) {
                 m_core2.push_back(~c);
             }
@@ -2498,7 +2498,7 @@ public:
             if (ctx().inconsistent()) break;
 
         }
-        m_to_check.reset();
+        m_to_check.clear();
     }
         
     // for glb lo': lo' < lo:
@@ -2560,9 +2560,9 @@ public:
               tout << "\n";);
         updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
-        m_params.reset();
-        m_core.reset();
-        m_eqs.reset();
+        m_params.clear();
+        m_core.clear();
+        m_eqs.clear();
         m_core.push_back(lit1);
         m_params.push_back(parameter(symbol("farkas")));
         m_params.push_back(parameter(rational(1)));
@@ -2692,9 +2692,9 @@ public:
     }
 
     bool get_bound(lp_api::bound const& b, inf_rational& r, bool is_lub) {
-        m_core.reset();
-        m_eqs.reset();
-        m_params.reset();
+        m_core.clear();
+        m_eqs.clear();
+        m_params.clear();
         r.reset();
         theory_var v = b.get_var();
         lp::var_index vi = m_theory_var2var_index[v];
@@ -2920,8 +2920,8 @@ public:
                     VERIFY (has_lower_bound(vi1, ci1, bound));
                     VERIFY (has_upper_bound(vi1, ci2, bound));
                     ++m_stats.m_fixed_eqs;
-                    m_core.reset();
-                    m_eqs.reset();
+                    m_core.clear();
+                    m_eqs.clear();
                     set_evidence(ci1);
                     set_evidence(ci2);
                     set_evidence(ci3);
@@ -3021,9 +3021,9 @@ public:
     }
 
     void set_conflict1() {
-        m_eqs.reset();
-        m_core.reset();
-        m_params.reset();
+        m_eqs.clear();
+        m_core.clear();
+        m_params.clear();
         // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         /*
           static unsigned cn = 0;
@@ -3061,12 +3061,12 @@ public:
         m_internalize_head = 0;
         m_not_handled = nullptr;
         del_bounds(0);
-        m_unassigned_bounds.reset();
+        m_unassigned_bounds.clear();
         m_asserted_qhead  = 0;
         m_assume_eq_head = 0;
-        m_scopes.reset();
+        m_scopes.clear();
         m_stats.reset();
-        m_to_check.reset();
+        m_to_check.clear();
         reset_variable_values();
     }
 

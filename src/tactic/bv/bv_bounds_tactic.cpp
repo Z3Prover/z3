@@ -415,7 +415,7 @@ namespace {
                     continue;
                 }
                 if (t == v) {
-                    todo.reset();
+                    todo.clear();
                     return true;
                 }
                 mark.mark(t);
@@ -449,12 +449,12 @@ namespace {
                 expr* e;
                 if (is_bound(t, e, b)) {
                     if (mark2.is_marked(e)) {
-                        todo.reset();
+                        todo.clear();
                         return true;
                     }
                     mark2.mark(e);
                     if (m_bound.contains(e)) {
-                        todo.reset();
+                        todo.clear();
                         return true;
                     }
                 }
@@ -511,7 +511,7 @@ namespace {
             unsigned target = m_scopes.size() - num_scopes;
             if (target == 0) {
                 m_bound.reset();
-                m_scopes.reset();
+                m_scopes.clear();
                 return;
             }
             for (unsigned i = m_scopes.size()-1; i >= target; --i) {
@@ -731,7 +731,7 @@ namespace {
                     continue;
                 }
                 if (t == v) {
-                    todo.reset();
+                    todo.clear();
                     return true;
                 }
                 mark.mark(t);
@@ -765,12 +765,12 @@ namespace {
                 expr* e;
                 if (is_bound(t, e, b)) {
                     if (mark2.is_marked(e)) {
-                        todo.reset();
+                        todo.clear();
                         return true;
                     }
                     mark2.mark(e);
                     if (m_bound.contains(e)) {
-                        todo.reset();
+                        todo.clear();
                         return true;
                     }
                 }
@@ -788,7 +788,7 @@ namespace {
             unsigned target = m_scopes.size() - num_scopes;
             if (target == 0) {
                 m_bound.reset();
-                m_scopes.reset();
+                m_scopes.clear();
                 return;
             }
             for (unsigned i = m_scopes.size()-1; i >= target; --i) {

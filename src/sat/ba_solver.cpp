@@ -518,7 +518,7 @@ namespace sat {
 
         // ~root * (k - a) + p >= k - a
 
-        m_wlits.reset();
+        m_wlits.clear();
         for (literal l : lits) {
             w = m_weights[l.index()];
             if (w != 0) {
@@ -660,7 +660,7 @@ namespace sat {
         SASSERT(num_watch > 0);
         unsigned index = 0;
         m_a_max = 0;
-        m_pb_undef.reset();
+        m_pb_undef.clear();
         for (; index < num_watch; ++index) {
             literal lit = p[index].second;
             if (lit == alit) {
@@ -1107,14 +1107,14 @@ namespace sat {
         for (unsigned i = m_active_vars.size(); i-- > 0; ) {
             m_coeffs[m_active_vars[i]] = 0;
         }
-        m_active_vars.reset();
+        m_active_vars.clear();
     }
 
     void ba_solver::init_visited() {
         m_visited_ts++;
         if (m_visited_ts == 0) {
             m_visited_ts = 1;
-            m_visited.reset();
+            m_visited.clear();
         }
         while (m_visited.size() < 2*s().num_vars()) {
             m_visited.push_back(0);
@@ -1266,7 +1266,7 @@ namespace sat {
                 }
                 case pb_t: {
                     pb& p = cnstr.to_pb();
-                    m_lemma.reset();
+                    m_lemma.clear();
                     inc_bound(offset);
                     inc_coeff(consequent, offset);
                     get_antecedents(consequent, p, m_lemma);
@@ -1280,7 +1280,7 @@ namespace sat {
                 }
                 case xr_t: {
                     // jus.push_back(js);
-                    m_lemma.reset();
+                    m_lemma.clear();
                     inc_bound(offset);
                     inc_coeff(consequent, offset);
                     get_xr_antecedents(consequent, idx, js, m_lemma);
@@ -1692,7 +1692,7 @@ namespace sat {
             m_active_vars[j++] = v;
         }
         m_active_vars.shrink(j);
-        m_lemma.reset();        
+        m_lemma.clear();        
         m_lemma.push_back(null_literal);
         unsigned num_skipped = 0;
         int64_t asserting_coeff = 0;
@@ -1749,7 +1749,7 @@ namespace sat {
             drat_add(m_lemma, ps);
         }
 
-        s().m_lemma.reset();
+        s().m_lemma.clear();
         s().m_lemma.append(m_lemma);
         for (unsigned i = 1; i < m_lemma.size(); ++i) {
             CTRACE("ba", s().is_marked(m_lemma[i].var()), tout << "marked: " << m_lemma[i] << "\n";);
@@ -2160,7 +2160,7 @@ namespace sat {
             }
             reset_parity(lit.var());
         }
-        m_parity_trail.reset();
+        m_parity_trail.clear();
         TRACE("ba", tout << r << "\n";);
     }
 
@@ -2289,7 +2289,7 @@ namespace sat {
         case card_t: {
             card const& ca = c.to_card();
             if (ca.size() == ca.k() + 1 && ca.lit() == null_literal) {
-                r.reset();
+                r.clear();
                 for (literal l : ca) r.push_back(l);
                 return true;
             }
@@ -2953,7 +2953,7 @@ namespace sat {
 
 
     literal ba_solver::ba_sort::mk_max(unsigned n, literal const* lits) {
-        m_lits.reset();        
+        m_lits.clear();        
         for (unsigned i = 0; i < n; ++i) {
             if (lits[i] == m_true) return m_true;
             if (lits[i] == ~m_true) continue;
@@ -2977,7 +2977,7 @@ namespace sat {
     }
 
     literal ba_solver::ba_sort::mk_min(unsigned n, literal const* lits) {
-        m_lits.reset();        
+        m_lits.clear();        
         for (unsigned i = 0; i < n; ++i) {
             if (lits[i] == ~m_true) return ~m_true;
             if (lits[i] == m_true) continue;
@@ -3002,7 +3002,7 @@ namespace sat {
     }
 
     void ba_solver::ba_sort::mk_clause(unsigned n, literal const* lits) {
-        m_lits.reset();
+        m_lits.clear();
         m_lits.append(n, lits);
         s.s().mk_clause(n, m_lits.c_ptr());
     }
@@ -3165,7 +3165,7 @@ namespace sat {
 
         if (!all_units) {            
             TRACE("ba", tout << "replacing by pb: " << c << "\n";);
-            m_wlits.reset();
+            m_wlits.clear();
             for (unsigned i = 0; i < sz; ++i) {
                 m_wlits.push_back(wliteral(coeffs[i], c[i]));
             }
@@ -3247,7 +3247,7 @@ namespace sat {
     }
 
     bool ba_solver::is_cardinality(pb const& p, literal_vector& lits) {
-        lits.reset();
+        lits.clear();
         p.size();
         for (wliteral wl : p) {
             if (lits.size() > 2*p.size() + wl.first) {
@@ -3345,7 +3345,7 @@ namespace sat {
     void ba_solver::init_use_lists() {
         m_visited.resize(s().num_vars()*2, false);
         m_clause_use_list.init(s().num_vars());
-        m_cnstr_use_list.reset();
+        m_cnstr_use_list.clear();
         m_cnstr_use_list.resize(2*s().num_vars());
         for (clause* c : s().m_clauses) {
             if (!c->frozen()) 
@@ -3646,7 +3646,7 @@ namespace sat {
 
         unsigned c2_exclusive = 0;
         unsigned common = 0;
-        comp.reset();
+        comp.clear();
         for (literal l : c2) {
             if (is_visited(l)) {
                 ++common;
@@ -3924,14 +3924,14 @@ namespace sat {
             switch (cp->tag()) {
             case card_t: {
                 card const& c = cp->to_card();
-                lits.reset();
+                lits.clear();
                 for (literal l : c) lits.push_back(l);
                 result->add_at_least(c.lit(), lits, c.k(), c.learned());        
                 break;
             }
             case pb_t: {
                 pb const& p = cp->to_pb();
-                wlits.reset();
+                wlits.clear();
                 for (wliteral w : p) {
                     wlits.push_back(w);
                 }
@@ -3940,7 +3940,7 @@ namespace sat {
             }
             case xr_t: {
                 xr const& x = cp->to_xr();
-                lits.reset();
+                lits.clear();
                 for (literal l : x) lits.push_back(l);
                 result->add_xr(lits, x.learned());        
                 break;
@@ -4055,7 +4055,7 @@ namespace sat {
             }
         }        
         if (!change) return;
-        lits.reset();
+        lits.clear();
         for (literal l : slits) {
             lits.push_back(l);
         }
@@ -4301,7 +4301,7 @@ namespace sat {
     }
 
     void ba_solver::active2wlits() {
-        m_wlits.reset();
+        m_wlits.clear();
         active2wlits(m_wlits);
     }
 
@@ -4434,7 +4434,7 @@ namespace sat {
         ++m_stats.m_num_lemmas;
 
         if (c) {
-            lits.reset();
+            lits.clear();
             for (wliteral wl : m_wlits) {
                 if (value(wl.second) == l_false) lits.push_back(wl.second);        
             }

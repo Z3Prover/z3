@@ -156,7 +156,7 @@ class occf_tactic : public tactic {
                     g->add(m_mc);
                 }
                 expr * keep = nullptr;
-                new_lits.reset();
+                new_lits.clear();
                 unsigned num = cls->get_num_args();
                 for (unsigned j = 0; j < num; j++) {
                     expr * l = cls->get_arg(j);

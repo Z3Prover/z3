@@ -48,7 +48,7 @@ namespace sat {
         m_cached_bins.expand(l.index() + 1);
         cache_entry & entry = m_cached_bins[l.index()];
         entry.m_available = true;
-        entry.m_lits.reset();
+        entry.m_lits.clear();
         unsigned tr_sz = s.m_trail.size();
         for (unsigned i = old_tr_sz; i < tr_sz; i++) {
             entry.m_lits.push_back(s.m_trail[i]);
@@ -78,7 +78,7 @@ namespace sat {
             }
         }
         else {
-            m_to_assert.reset();
+            m_to_assert.clear();
             s.push();
             s.assign_scoped(l);
             m_counter--;

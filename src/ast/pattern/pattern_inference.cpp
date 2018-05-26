@@ -38,7 +38,7 @@ void smaller_pattern::save(expr * p1, expr * p2) {
 }
 
 bool smaller_pattern::process(expr * p1, expr * p2) {
-    m_todo.reset();
+    m_todo.clear();
     m_cache.reset();
     save(p1, p2);
     while (!m_todo.empty()) {
@@ -263,7 +263,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
 void pattern_inference_cfg::collect::reset() {
     m_cache.reset();
     std::for_each(m_info.begin(), m_info.end(), delete_proc<info>());
-    m_info.reset();
+    m_info.clear();
     SASSERT(m_todo.empty());
 }
 
@@ -334,7 +334,7 @@ inline void pattern_inference_cfg::contains_subpattern::save(expr * n) {
 
 bool pattern_inference_cfg::contains_subpattern::operator()(expr * n) {
     m_already_processed.reset();
-    m_todo.reset();
+    m_todo.clear();
     expr2info::obj_map_entry * _e = m_owner.m_candidates_info.find_core(n);
     SASSERT(_e);
     uint_set const & s1 = _e->get_data().m_value.m_free_vars;
@@ -478,7 +478,7 @@ void pattern_inference_cfg::candidates2multi_patterns(unsigned max_num_patterns,
 
 void pattern_inference_cfg::reset_pre_patterns() {
     std::for_each(m_pre_patterns.begin(), m_pre_patterns.end(), delete_proc<pre_pattern>());
-    m_pre_patterns.reset();
+    m_pre_patterns.clear();
 }
 
 
@@ -537,7 +537,7 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
           });
 
     if (!m_candidates.empty()) {
-        m_tmp1.reset();
+        m_tmp1.clear();
         filter_looping_patterns(m_tmp1);
         TRACE("pattern_inference",
               tout << "candidates after removing looping-patterns:\n";
@@ -545,13 +545,13 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
         SASSERT(!m_tmp1.empty());
         if (!has_preferred_patterns(m_tmp1, result)) {
             // continue if there are no preferred patterns
-            m_tmp2.reset();
+            m_tmp2.clear();
             filter_bigger_patterns(m_tmp1, m_tmp2);
             SASSERT(!m_tmp2.empty());
             TRACE("pattern_inference",
                   tout << "candidates after removing bigger patterns:\n";
                   dump_app_vector(tout, m_tmp2, m););
-            m_tmp1.reset();
+            m_tmp1.clear();
             candidates2unary_patterns(m_tmp2, m_tmp1, result);
             unsigned num_extra_multi_patterns = m_params.m_pi_max_multi_patterns;
             if (result.empty())
@@ -569,7 +569,7 @@ void pattern_inference_cfg::mk_patterns(unsigned num_bindings,
 
     reset_pre_patterns();
     m_candidates_info.reset();
-    m_candidates.reset();
+    m_candidates.clear();
 }
 
 

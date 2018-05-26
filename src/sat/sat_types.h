@@ -192,7 +192,7 @@ namespace sat {
         bool contains(literal l) const { return m_set.contains(l.index()); }
         bool empty() const { return m_set.empty(); }
         unsigned size() const { return m_set.size(); }
-        void reset() { m_set.reset(); }
+        void reset() { m_set.clear(); }
         void finalize() { m_set.finalize(); }
         class iterator {
             uint_set::iterator m_it;

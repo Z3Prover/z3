@@ -61,7 +61,7 @@ void recurse_expr<T, Visitor, IgnorePatterns>::process(expr * n) {
     unsigned num;
     switch (n->get_kind()) {
     case AST_APP:
-        m_results1.reset();
+        m_results1.clear();
         num = to_app(n)->get_num_args();
         for (unsigned j = 0; j < num; j++)
             m_results1.push_back(get_cached(to_app(n)->get_arg(j)));
@@ -75,8 +75,8 @@ void recurse_expr<T, Visitor, IgnorePatterns>::process(expr * n) {
             cache_result(n, this->Visitor::visit(to_quantifier(n), get_cached(to_quantifier(n)->get_expr()), nullptr, nullptr));
         }
         else {
-            m_results1.reset();
-            m_results2.reset();
+            m_results1.clear();
+            m_results2.clear();
             num = to_quantifier(n)->get_num_patterns();
             for (unsigned j = 0; j < num; j++)
                 m_results1.push_back(get_cached(to_quantifier(n)->get_pattern(j)));

@@ -34,7 +34,7 @@ namespace smt {
 
     theory_array::~theory_array() {
         std::for_each(m_var_data.begin(), m_var_data.end(), delete_proc<var_data>());
-        m_var_data.reset();
+        m_var_data.clear();
     }
 
     void theory_array::init(context * ctx) {
@@ -412,7 +412,7 @@ namespace smt {
     void theory_array::reset_eh() {
         m_trail_stack.reset();
         std::for_each(m_var_data.begin(), m_var_data.end(), delete_proc<var_data>());
-        m_var_data.reset();
+        m_var_data.clear();
         theory_array_base::reset_eh();
     }
 

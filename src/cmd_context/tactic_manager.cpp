@@ -51,12 +51,12 @@ probe_info * tactic_manager::find_probe(symbol const & s) const {
 
 void tactic_manager::finalize_tactic_cmds() {
     std::for_each(m_tactics.begin(), m_tactics.end(), delete_proc<tactic_cmd>());
-    m_tactics.reset();
+    m_tactics.clear();
     m_name2tactic.reset();
 }
 
 void tactic_manager::finalize_probes() {
     std::for_each(m_probes.begin(), m_probes.end(), delete_proc<probe_info>());
-    m_probes.reset();
+    m_probes.clear();
     m_name2probe.reset();
 }

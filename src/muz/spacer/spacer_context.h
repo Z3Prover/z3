@@ -343,8 +343,8 @@ class pred_transformer {
         void set_tag(app* tag) {m_tag = tag;}
         app* tag() const {return m_tag;}
         ptr_vector<app> &auxs() {return m_auxs;}
-        void set_auxs(ptr_vector<app> &v) {m_auxs.reset(); m_auxs.append(v);}
-        void set_reps(app_ref_vector &v) {m_reps.reset(); m_reps.append(v);}
+        void set_auxs(ptr_vector<app> &v) {m_auxs.clear(); m_auxs.append(v);}
+        void set_reps(app_ref_vector &v) {m_reps.clear(); m_reps.append(v);}
 
         void set_trans(expr_ref &v) {m_trans=v;}
         expr* trans() const {return m_trans;}

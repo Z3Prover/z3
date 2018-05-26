@@ -600,7 +600,7 @@ struct cofactor_elim_term_ite::imp {
                     if (!visited)
                         continue;
                 }
-                new_args.reset();
+                new_args.clear();
                 bool has_new_args = false;
                 bool has_term_ite = false;
                 unsigned num = to_app(t)->get_num_args();

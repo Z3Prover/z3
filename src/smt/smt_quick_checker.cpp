@@ -123,7 +123,7 @@ namespace smt {
         candidates.expand(m_num_vars+1);
         for (unsigned i = 0; i < m_num_vars; i++) {
             enode_vector & v        = candidates[i];
-            v.reset();
+            v.clear();
             enode_set & s           = m_candidates[i];
             for (enode * curr : s) {
                 v.push_back(curr);
@@ -160,7 +160,7 @@ namespace smt {
     */
     bool quick_checker::instantiate_unsat(quantifier * q) {
         TRACE("quick_checker", tout << "instantiate instances unsatisfied by current model\n" << mk_pp(q, m_manager) << "\n";);
-        m_candidate_vectors.reset();
+        m_candidate_vectors.clear();
         m_collector(q, true, m_candidate_vectors);
         m_num_bindings = q->get_num_decls();
         return process_candidates(q, true);
@@ -171,7 +171,7 @@ namespace smt {
     */
     bool quick_checker::instantiate_not_sat(quantifier * q) {
         TRACE("quick_checker", tout << "instantiate instances not satisfied by current model\n" << mk_pp(q, m_manager) << "\n";);
-        m_candidate_vectors.reset();
+        m_candidate_vectors.clear();
         m_collector(q, false, m_candidate_vectors);
         m_num_bindings = q->get_num_decls();
         return process_candidates(q, false);
@@ -179,11 +179,11 @@ namespace smt {
 
     bool quick_checker::instantiate_not_sat(quantifier * q, unsigned num_candidates, expr * const * candidates) {
         // initialize m_candidates using the given set of candidates.
-        m_candidate_vectors.reset();
+        m_candidate_vectors.clear();
         m_num_bindings = q->get_num_decls();
         m_candidate_vectors.expand(m_num_bindings+1);
         for (unsigned i = 0; i < m_num_bindings; i++) {
-            m_candidate_vectors[i].reset();
+            m_candidate_vectors[i].clear();
             sort * s = q->get_decl_sort(i);
             for (unsigned j = 0; j < num_candidates; j++) {
                 if (m_manager.get_sort(candidates[j]) == s) {
@@ -251,7 +251,7 @@ namespace smt {
 
     bool quick_checker::check_quantifier(quantifier * n, bool is_true) {
         bool r = check(n->get_expr(), is_true);
-        m_new_exprs.reset();
+        m_new_exprs.clear();
         m_check_cache.reset();
         m_canonize_cache.reset();
         return r;

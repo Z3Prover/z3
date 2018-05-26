@@ -182,7 +182,7 @@ class degree_shift_tactic : public tactic {
         }
 
         void discard_non_candidates() {
-            m_pinned.reset();
+            m_pinned.clear();
             ptr_vector<app> to_delete;
             for (auto const& kv : m_var2degree) {
                 if (kv.m_value.is_one())

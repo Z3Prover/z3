@@ -412,7 +412,7 @@ static void check_random_ineqs(random_gen& r, ast_manager& m, unsigned num_vars,
     }
 
     vector<var_t> vars;
-    vars.reset();
+    vars.clear();
     vars.push_back(var_t(0, rational(2)));
     vars.push_back(var_t(1, rational(-2)));
     mbo.set_objective(vars, rational(0));
@@ -471,8 +471,8 @@ static void test_project() {
     fi->insert_new_entry(nums.c_ptr()+2, a.mk_int(3));
     fi->set_else(a.mk_int(10));
     mdl.register_decl(f, fi);
-    vars.reset();
-    lits.reset();
+    vars.clear();
+    lits.clear();
     vars.push_back(x);
     lits.push_back(x <= app_ref(m.mk_app(f, (expr*)x), m));
     lits.push_back(x < y);
@@ -480,8 +480,8 @@ static void test_project() {
     std::cout << lits << "\n";
 
     // test not-equals
-    vars.reset();
-    lits.reset();
+    vars.clear();
+    lits.clear();
     vars.push_back(x);
     lits.push_back(m.mk_not(m.mk_eq(x, y)));
     plugin(mdl, vars, lits);
@@ -492,9 +492,9 @@ static void test_project() {
     mdl.register_decl(y->get_decl(), a.mk_int(1));
     mdl.register_decl(z->get_decl(), a.mk_int(0));
     mdl.register_decl(u->get_decl(), a.mk_int(6));
-    vars.reset();
-    lits.reset();
-    ds.reset();
+    vars.clear();
+    lits.clear();
+    ds.clear();
     vars.push_back(x);
     vars.push_back(y);
     ds.push_back(x);
@@ -511,9 +511,9 @@ static void test_project() {
     mdl.register_decl(y->get_decl(), a.mk_int(1));
     mdl.register_decl(z->get_decl(), a.mk_int(0));
     mdl.register_decl(u->get_decl(), a.mk_int(6));
-    vars.reset();
-    lits.reset();
-    ds.reset();
+    vars.clear();
+    lits.clear();
+    ds.clear();
     vars.push_back(x);
     vars.push_back(y);
     ds.push_back(x);
@@ -532,9 +532,9 @@ static void test_project() {
     mdl.register_decl(y->get_decl(), a.mk_int(1));
     mdl.register_decl(z->get_decl(), a.mk_int(0));
     mdl.register_decl(u->get_decl(), a.mk_int(6));
-    vars.reset();
-    lits.reset();
-    ds.reset();
+    vars.clear();
+    lits.clear();
+    ds.clear();
     vars.push_back(x);
     vars.push_back(y);
     ds.push_back(x);
@@ -548,8 +548,8 @@ static void test_project() {
     // equality over modulus
     mdl.register_decl(y->get_decl(), a.mk_int(4));
     mdl.register_decl(z->get_decl(), a.mk_int(8));
-    lits.reset();
-    vars.reset();
+    lits.clear();
+    vars.clear();
     vars.push_back(y);
     lits.push_back(m.mk_eq(a.mk_mod(y, a.mk_int(3)), a.mk_int(1)));
     lits.push_back(m.mk_eq(2*y, z));
@@ -561,8 +561,8 @@ static void test_project() {
     mdl.register_decl(y->get_decl(), a.mk_int(1));
     mdl.register_decl(z->get_decl(), a.mk_int(0));
     mdl.register_decl(u->get_decl(), a.mk_int(6));
-    vars.reset();
-    lits.reset();
+    vars.clear();
+    lits.clear();
     vars.push_back(x);
     vars.push_back(y);
     lits.push_back(z <= (x + (2*y)));
@@ -576,8 +576,8 @@ static void test_project() {
     mdl.register_decl(z->get_decl(), a.mk_int(2));
     mdl.register_decl(u->get_decl(), a.mk_int(3));
     mdl.register_decl(y->get_decl(), a.mk_int(4));
-    lits.reset();
-    vars.reset();
+    lits.clear();
+    vars.clear();
     vars.push_back(x);
     lits.push_back(m.mk_eq(2*x, z));
     lits.push_back(m.mk_eq(3*x, u));

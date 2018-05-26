@@ -26,7 +26,7 @@ inline void shared_occs::insert(expr * t) {
 }
 
 void shared_occs::reset() { 
-    m_shared.reset(); 
+    m_shared.clear(); 
 }
 
 void shared_occs::cleanup() { 

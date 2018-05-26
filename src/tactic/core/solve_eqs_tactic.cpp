@@ -416,8 +416,8 @@ class solve_eqs_tactic : public tactic {
             m_r->set_substitution(nullptr);
             m_candidate_vars.reset();
             m_candidate_set.reset();
-            m_candidates.reset();
-            m_vars.reset();
+            m_candidates.clear();
+            m_vars.clear();
             m_nonzero.reset();
             app_ref  var(m());
             expr_ref  def(m());
@@ -612,7 +612,7 @@ class solve_eqs_tactic : public tactic {
         void sort_vars() {
             SASSERT(m_candidates.size() == m_vars.size());
             TRACE("solve_eqs_bug", tout << "sorting vars...\n";);
-            m_ordered_vars.reset();
+            m_ordered_vars.clear();
             
 
             // The variables (and its definitions) in m_subst must remain alive until the end of this procedure.

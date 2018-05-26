@@ -117,7 +117,7 @@ namespace datalog {
                     exit(-1);
                 }
 
-                exprs.reset();
+                exprs.clear();
                 assert_pred_id(numqs ? r->get_tail(0)->get_decl() : nullptr, m_ruleid_var_set, exprs);
                 assert_pred_id(r->get_head()->get_decl(), m_ruleid_varp_set, exprs);
 
@@ -140,7 +140,7 @@ namespace datalog {
         // collect table facts
         if (m_facts) {
             for (fact_vector::const_iterator I = m_facts->begin(), E = m_facts->end(); I != E; ++I) {
-                exprs.reset();
+                exprs.clear();
                 assert_pred_id(nullptr, m_ruleid_var_set, exprs);
                 assert_pred_id(I->first, m_ruleid_varp_set, exprs);
 
@@ -183,7 +183,7 @@ namespace datalog {
             unsigned latch_val = mk_and(neg(tr_id), get_var(m_latch_vars.get(i)));
             latch_varp_ids.push_back(mk_or(in_val, latch_val));
         }
-        m_latch_varsp.reset();
+        m_latch_varsp.clear();
 
         // create output variable (true iff an output predicate is derivable)
         unsigned output_id = 0;
@@ -192,7 +192,7 @@ namespace datalog {
             const func_decl_set& preds = m_rules.get_output_predicates();
 
             for (func_decl_set::iterator I = preds.begin(), E = preds.end(); I != E; ++I) {
-                exprs.reset();
+                exprs.clear();
                 assert_pred_id(*I, m_ruleid_var_set, exprs);
                 output.push_back(m.mk_and(exprs.size(), exprs.c_ptr()));
             }

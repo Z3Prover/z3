@@ -217,7 +217,7 @@ namespace sat {
             unsigned size() const { return m_wlits.size(); }
             literal lit(unsigned i) const { return m_wlits[i].second; }
             unsigned coeff(unsigned i) const { return m_wlits[i].first; }
-            void reset(uint64_t k) { m_wlits.reset(); m_k = k; }
+            void reset(uint64_t k) { m_wlits.clear(); m_k = k; }
             void push(literal l, unsigned c) { m_wlits.push_back(wliteral(c,l)); }
             unsigned bv_coeff(bool_var v) const;
             void divide(unsigned c);

@@ -124,7 +124,7 @@ namespace tb {
                 pat->get_num_args() != term->get_num_args()) {
                 return false;
             }
-            m_todo.reset();
+            m_todo.clear();
             for (unsigned i = 0; i < pat->get_num_args(); ++i) {
                 m_todo.push_back(expr_pair(pat->get_arg(i), term->get_arg(i)));
             }
@@ -256,7 +256,7 @@ namespace tb {
             m_predicate_index = 0;
             m_next_rule       = static_cast<unsigned>(-1);
             m_head = head;
-            m_predicates.reset();
+            m_predicates.clear();
             m_predicates.append(predicates);
             m_constraint = constraint;
             ptr_vector<sort> sorts;
@@ -325,7 +325,7 @@ namespace tb {
             }
             m_num_vars = 1 + r.get_manager().get_counter().get_max_rule_var(*r);
             m_head = r->get_head();
-            m_predicates.reset();
+            m_predicates.clear();
             for (unsigned i = 0; i < utsz; ++i) {
                 m_predicates.push_back(r->get_tail(i));
             }
@@ -485,7 +485,7 @@ namespace tb {
         }
     private:
         void reset() {
-            m_rules.reset();
+            m_rules.clear();
             m_index.reset();
         }
     };
@@ -540,14 +540,14 @@ namespace tb {
 
 
         void reset() {
-            m_index.reset();
+            m_index.clear();
         }
 
     private:
 
         void setup(clause const& g) {
-            m_preds.reset();
-            m_refs.reset();
+            m_preds.clear();
+            m_refs.clear();
             m_sat_lits.reset();
             expr_ref_vector fmls(m);
             expr_ref_vector vars(m);
@@ -595,7 +595,7 @@ namespace tb {
         //
         bool match_rule(unsigned rule_index) {
             clause const& g = *m_index[rule_index];
-            m_sideconds.reset();
+            m_sideconds.clear();
             m_subst.reset();
             m_subst.reserve(2, g.get_num_vars());
 
@@ -762,7 +762,7 @@ namespace tb {
             for (; it != end; ++it) {
                 ref<clause> g = *it;
                 app* p = g->get_head();
-                scores.reset();
+                scores.clear();
                 basic_score_predicate(p, scores);
                 insert_score(p->get_decl(), scores);
             }
@@ -787,8 +787,8 @@ namespace tb {
 
         void reset() {
             m_score_map.reset();
-            m_scores.reset();
-            m_var_scores.reset();
+            m_scores.clear();
+            m_var_scores.clear();
         }
 
     private:
@@ -841,7 +841,7 @@ namespace tb {
             double max_score = 0;
             unsigned result = 0;
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
-                scores.reset();
+                scores.clear();
                 double_vector p_scores;
                 double score = 0;
                 app* p = g.get_predicate(i);
@@ -905,7 +905,7 @@ namespace tb {
 
 
         void score_variables(clause const& g) {
-            m_var_scores.reset();
+            m_var_scores.clear();
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
                 app* p = g.get_predicate(i);
                 score_variables(p);
@@ -1154,9 +1154,9 @@ namespace tb {
         void reset() {
             m_S1.reset();
             m_S2.reset();
-            m_rename.reset();
-            m_sub1.reset();
-            m_sub2.reset();
+            m_rename.clear();
+            m_sub1.clear();
+            m_sub2.clear();
         }
 
         void extract_subst(unsigned const* delta, clause const& g, unsigned offset) {
@@ -1363,7 +1363,7 @@ namespace datalog {
             m_ctx.ensure_opened();
             m_index.reset();
             m_selection.reset();
-            m_displayed_rules.reset();
+            m_displayed_rules.clear();
             m_rules.init(m_ctx.get_rules());
             m_selection.init(m_rules);
             rule_set query_rules(m_ctx);
@@ -1379,7 +1379,7 @@ namespace datalog {
         }
 
         void cleanup() {
-            m_clauses.reset();
+            m_clauses.clear();
         }
 
         void reset_statistics() {

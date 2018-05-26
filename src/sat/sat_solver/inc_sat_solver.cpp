@@ -156,7 +156,7 @@ public:
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             nweights.push_back((unsigned) m_weights[i]);
         }
-        m_weights.reset();
+        m_weights.clear();
         m_solver.display_wcnf(out, m_asms.size(), m_asms.c_ptr(), nweights.c_ptr());
     }
 
@@ -168,7 +168,7 @@ public:
 
     lbool check_sat_core(unsigned sz, expr * const * assumptions) override {
         m_solver.pop_to_base_level();
-        m_core.reset();
+        m_core.clear();
         if (m_solver.inconsistent()) return l_false;
         expr_ref_vector _assumptions(m);
         obj_map<expr, expr*> asm2fml;
@@ -310,7 +310,7 @@ public:
         m_solver.collect_statistics(st);
     }
     void get_unsat_core(expr_ref_vector & r) override {
-        r.reset();
+        r.clear();
         r.append(m_core.size(), m_core.c_ptr());
     }
 
@@ -382,7 +382,7 @@ public:
         for (sat::literal l : lits) {
             fmls.push_back(lit2expr[l.index()].get());
         }
-        vs.reset();
+        vs.clear();
         for (sat::bool_var v : vars) {
             expr* x = lit2expr[sat::literal(v, false).index()].get();
             if (x) {
@@ -537,7 +537,7 @@ public:
         m_cached_mc = nullptr;
         goal g(m, false, true, false);
         s2g(m_solver, m_map, m_params, g, m_sat_mc);
-        m_internalized_fmls.reset();
+        m_internalized_fmls.clear();
         g.get_formulas(m_internalized_fmls);
         TRACE("sat", m_solver.display(tout); tout << m_internalized_fmls << "\n";);
         m_internalized_converted = true;
@@ -791,7 +791,7 @@ private:
     }
 
     void extract_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
-        m_asms.reset();
+        m_asms.clear();
         unsigned j = 0;
         sat::literal lit;
         sat::literal_set seen;
@@ -848,7 +848,7 @@ private:
               m_solver.display(tout);
               );
 
-        m_core.reset();
+        m_core.clear();
         for (sat::literal c : core) {
             expr* e = nullptr;
             VERIFY(asm2dep.find(c.index(), e));

@@ -122,21 +122,21 @@ namespace smt {
             m_manager.dec_ref(p.first);
             m_manager.dec_ref(p.second);
         }
-        m_app_pairs.reset();
+        m_app_pairs.clear();
     }
 
 
     void dyn_ack_manager::init_search_eh() {
         m_app_pair2num_occs.reset();
         reset_app_pairs();
-        m_to_instantiate.reset();
+        m_to_instantiate.clear();
         m_qhead = 0;
         m_num_instances = 0;
         m_num_propagations_since_last_gc = 0;
 
         m_triple.m_app2num_occs.reset();
         reset_app_triples();
-        m_triple.m_to_instantiate.reset();
+        m_triple.m_to_instantiate.clear();
         m_triple.m_qhead = 0;
     }
 
@@ -237,7 +237,7 @@ namespace smt {
     void dyn_ack_manager::gc() {
         TRACE("dyn_ack", tout << "dyn_ack GC\n";);
         unsigned num_deleted = 0;
-        m_to_instantiate.reset();
+        m_to_instantiate.clear();
         m_qhead = 0;
         vector<app_pair>::iterator it  = m_app_pairs.begin();
         vector<app_pair>::iterator end = m_app_pairs.end();
@@ -400,7 +400,7 @@ namespace smt {
             m_manager.dec_ref(p.second);
             m_manager.dec_ref(p.third);
         }
-        m_triple.m_apps.reset();
+        m_triple.m_apps.clear();
     }
 
     void dyn_ack_manager::instantiate(app * n1, app * n2, app* r) {
@@ -459,7 +459,7 @@ namespace smt {
     void dyn_ack_manager::gc_triples() {
         TRACE("dyn_ack", tout << "dyn_ack GC\n";);
         unsigned num_deleted = 0;
-        m_triple.m_to_instantiate.reset();
+        m_triple.m_to_instantiate.clear();
         m_triple.m_qhead = 0;
         vector<app_triple>::iterator it  = m_triple.m_apps.begin();
         vector<app_triple>::iterator end = m_triple.m_apps.end();

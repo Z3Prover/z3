@@ -70,9 +70,9 @@ namespace nlarith {
         vector<expr_ref_vector> const& subst() const  { return m_subst; }
         expr_ref_vector const&         constraints() const { return m_constraints; }
         void reset() { 
-            m_branches.reset(); m_preds.reset(); m_subst.reset(); 
-            m_constraints.reset(); m_defs.reset(); 
-            m_a.reset(); m_b.reset(); m_c.reset();
+            m_branches.clear(); m_preds.clear(); m_subst.clear(); 
+            m_constraints.clear(); m_defs.clear(); 
+            m_a.clear(); m_b.clear(); m_c.clear();
         }
 
         unsigned size() const { return branches().size(); }

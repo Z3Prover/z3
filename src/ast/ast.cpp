@@ -1479,7 +1479,7 @@ ast_manager::~ast_manager() {
         if (p)
             dealloc(p);
     }
-    m_plugins.reset();
+    m_plugins.clear();
     while (!m_ast_table.empty()) {
         DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
         ptr_vector<ast> roots;
@@ -3403,8 +3403,8 @@ void scoped_mark::mark(ast * n) {
 
 void scoped_mark::reset() {
     ast_mark::reset();
-    m_stack.reset();
-    m_lim.reset();
+    m_stack.clear();
+    m_lim.clear();
 }
 
 void scoped_mark::push_scope() {

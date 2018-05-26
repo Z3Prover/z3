@@ -23,8 +23,8 @@ permutation::permutation(unsigned size) {
 }
 
 void permutation::reset(unsigned size) {
-    m_p.reset();
-    m_inv_p.reset();
+    m_p.clear();
+    m_inv_p.clear();
     for (unsigned i = 0; i < size; i++) {
         m_p.push_back(i);
         m_inv_p.push_back(i);

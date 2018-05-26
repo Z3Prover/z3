@@ -148,7 +148,7 @@ namespace datalog {
         }
 
         ~ddnf_mgr() {
-            m_noderefs.reset();
+            m_noderefs.clear();
             m_tbv.reset();
         }
 
@@ -555,7 +555,7 @@ namespace datalog {
    
         bool pre_process_rules(rule_set const& rules)  {
             m_visited1.reset();
-            m_todo.reset();
+            m_todo.clear();
             m_cache.reset();
             m_expr2tbv.reset();
             datalog::rule_set::iterator it  = rules.begin();

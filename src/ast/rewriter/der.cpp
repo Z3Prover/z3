@@ -160,9 +160,9 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
         unsigned diseq_count = 0;
         unsigned largest_vinx = 0;
 
-        m_map.reset();
-        m_pos2var.reset();
-        m_inx2var.reset();
+        m_map.clear();
+        m_pos2var.clear();
+        m_inx2var.clear();
 
         m_pos2var.expand(num_args, -1);
 
@@ -211,7 +211,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
 }
 
 void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
-    order.reset();
+    order.clear();
 
     // eliminate self loops, and definitions containing quantifiers.
     bool found = false;
@@ -313,7 +313,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
 }
 
 void der::get_elimination_order() {
-    m_order.reset();
+    m_order.clear();
 
     TRACE("top_sort",
         tout << "DEFINITIONS: " << std::endl;
@@ -336,7 +336,7 @@ void der::get_elimination_order() {
 }
 
 void der::create_substitution(unsigned sz) {
-    m_subst_map.reset();
+    m_subst_map.clear();
     m_subst_map.resize(sz, nullptr);
 
     for(unsigned i = 0; i < m_order.size(); i++) {

@@ -4179,7 +4179,7 @@ void fpa2bv_converter::reset() {
         m.dec_ref(it->m_value.second);
     }
     m_min_max_ufs.reset();
-    m_extra_assertions.reset();
+    m_extra_assertions.clear();
 }
 
 func_decl * fpa2bv_converter::mk_bv_uf(func_decl * f, sort * const * domain, sort * range) {

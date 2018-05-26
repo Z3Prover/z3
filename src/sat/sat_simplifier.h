@@ -222,9 +222,9 @@ namespace sat {
         void insert_elim_todo(bool_var v) { m_elim_todo.insert(v); }
 
         void reset_todos() {
-            m_elim_todo.reset();
-            m_sub_todo.reset();
-            m_sub_bin_todo.reset();
+            m_elim_todo.clear();
+            m_sub_todo.clear();
+            m_sub_bin_todo.clear();
         }
 
         void operator()(bool learned);

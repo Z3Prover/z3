@@ -37,7 +37,7 @@ namespace sat {
             unsigned          m_head;
         public:
             var_priority() { m_head = 0; }
-            void reset() { m_lim.reset(); m_head = 0;}
+            void reset() { m_lim.clear(); m_head = 0;}
             void rewind() { for (unsigned& l : m_lim) l = 0; m_head = 0;}
             void add(bool_var v) { m_vars.push_back(v); }
             bool_var next(solver& s);

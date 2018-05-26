@@ -51,7 +51,7 @@ void simple_check_sat_result::collect_statistics(statistics & st) const {
 
 void simple_check_sat_result::get_unsat_core(expr_ref_vector & r) { 
     if (m_status == l_false) {
-        r.reset();
+        r.clear();
         r.append(m_core.size(), m_core.c_ptr()); 
     }
 }

@@ -739,7 +739,7 @@ namespace smt {
             if (row_vars.size() == top) {
                 row_vars.push_back(uint_set());
             }
-            row_vars[top].reset();
+            row_vars[top].clear();
             ++m_top;
         }
         ~scoped_row_vars() {
@@ -1575,53 +1575,53 @@ namespace smt {
     void theory_arith<Ext>::failed() {
         restore_assignment();
         m_to_patch.reset();
-        m_to_check.reset();
+        m_to_check.clear();
         m_in_to_check.reset();
     }
 
     template<typename Ext>
     void theory_arith<Ext>::flush_eh() {
         std::for_each(m_atoms.begin(), m_atoms.end(), delete_proc<atom>());
-        m_atoms.reset();
+        m_atoms.clear();
         std::for_each(m_bounds_to_delete.begin(), m_bounds_to_delete.end(), delete_proc<bound>());
-        m_bounds_to_delete.reset();
+        m_bounds_to_delete.clear();
     }
 
     template<typename Ext>
     void theory_arith<Ext>::reset_eh() {
         m_stats.reset();
-        m_rows                   .reset();
+        m_rows                   .clear();
         m_arith_eq_adapter       .reset_eh();
-        m_dead_rows              .reset();
-        m_columns                .reset();
-        m_data                   .reset();
-        m_value                  .reset();
-        m_old_value              .reset();
-        m_bounds[0]              .reset();
-        m_bounds[1]              .reset();
-        m_var_occs               .reset();
-        m_unassigned_atoms       .reset();
-        m_bool_var2atom          .reset();
-        m_var_pos                .reset();
+        m_dead_rows              .clear();
+        m_columns                .clear();
+        m_data                   .clear();
+        m_value                  .clear();
+        m_old_value              .clear();
+        m_bounds[0]              .clear();
+        m_bounds[1]              .clear();
+        m_var_occs               .clear();
+        m_unassigned_atoms       .clear();
+        m_bool_var2atom          .clear();
+        m_var_pos                .clear();
         std::for_each(m_atoms.begin(), m_atoms.end(), delete_proc<atom>());
-        m_atoms                  .reset();
+        m_atoms                  .clear();
         std::for_each(m_bounds_to_delete.begin(), m_bounds_to_delete.end(), delete_proc<bound>());
-        m_bounds_to_delete.reset();
-        m_asserted_bounds        .reset();
+        m_bounds_to_delete.clear();
+        m_asserted_bounds        .clear();
         m_asserted_qhead         = 0;
         m_to_patch               .reset();
         m_left_basis             .reset();
         m_blands_rule            = false;
-        m_update_trail_stack     .reset();
+        m_update_trail_stack     .clear();
         m_in_update_trail_stack  .reset();
-        m_to_check               .reset();
+        m_to_check               .clear();
         m_in_to_check            .reset();
         m_num_conflicts          = 0;
-        m_bound_trail            .reset();
-        m_unassigned_atoms_trail .reset();
-        m_scopes                 .reset();
-        m_nl_monomials           .reset();
-        m_nl_propagated          .reset();
+        m_bound_trail            .clear();
+        m_unassigned_atoms_trail .clear();
+        m_scopes                 .clear();
+        m_nl_monomials           .clear();
+        m_nl_propagated          .clear();
         m_nl_rounds              = 0;
         m_nl_gb_exhausted        = false;
         m_nl_strategy_idx        = 0;
@@ -1866,7 +1866,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::discard_update_trail() {
         m_in_update_trail_stack.reset();
-        m_update_trail_stack.reset();
+        m_update_trail_stack.clear();
     }
 
     template<typename Ext>
@@ -1879,7 +1879,7 @@ namespace smt {
             SASSERT(m_in_update_trail_stack.contains(v));
             m_value[v] = m_old_value[v];
         }
-        m_update_trail_stack.reset();
+        m_update_trail_stack.clear();
         m_in_update_trail_stack.reset();
         CASSERT("arith", valid_row_assignment());
     }
@@ -2993,7 +2993,7 @@ namespace smt {
 
         if (ante.lits().size() < small_lemma_size() && ante.eqs().empty()) {
             literal_vector & lits = m_tmp_literal_vector2;
-            lits.reset();
+            lits.clear();
             lits.push_back(l);
             literal_vector::const_iterator it  = ante.lits().begin();
             literal_vector::const_iterator end = ante.lits().end();
@@ -3061,7 +3061,7 @@ namespace smt {
 #endif
             }
         }
-        m_to_check.reset();
+        m_to_check.clear();
         m_in_to_check.reset();
     }
 
@@ -3393,9 +3393,9 @@ namespace smt {
         theory::pop_scope_eh(num_scopes);
         VERIFY(make_feasible());
         SASSERT(m_to_patch.empty());
-        m_to_check.reset();
+        m_to_check.clear();
         m_in_to_check.reset();
-        m_new_atoms.reset();
+        m_new_atoms.clear();
         CASSERT("arith", wf_rows());
         CASSERT("arith", wf_columns());
         CASSERT("arith", valid_row_assignment());

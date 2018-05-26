@@ -93,7 +93,7 @@ namespace datalog {
     }
 
     void rule_manager::reset_collect_vars() {
-        m_var_idx.reset();
+        m_var_idx.clear();
         m_free_vars.reset();
     }
 
@@ -184,8 +184,8 @@ namespace datalog {
 
     void rule_manager::mk_horn_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
 
-        m_body.reset();
-        m_neg.reset();
+        m_body.clear();
+        m_neg.clear();
         unsigned index = extract_horn(fml, m_body, m_head);
         hoist_compound_predicates(index, m_head, m_body);
         TRACE("dl_rule",
@@ -238,7 +238,7 @@ namespace datalog {
         }
         unsigned index = m_counter.get_next_var(fml);
         if (m.is_implies(fml, e1, e2)) {
-            m_args.reset();
+            m_args.clear();
             head = ensure_app(e2);
             flatten_and(e1, m_args);
             for (unsigned i = 0; i < m_args.size(); ++i) {
@@ -294,7 +294,7 @@ namespace datalog {
                 }
             }
             q = sub(q, args.size(), args.c_ptr());
-            vars.reset();
+            vars.clear();
             m_free_vars(q);
             vars.append(m_free_vars.size(), m_free_vars.c_ptr());
         }
@@ -364,7 +364,7 @@ namespace datalog {
             r.push_back(body[i].get());
         }
         flatten_and(r);
-        body.reset();
+        body.clear();
         for (unsigned i = 0; i < r.size(); ++i) {
             body.push_back(ensure_app(r[i].get()));
         }
@@ -383,7 +383,7 @@ namespace datalog {
         if (!m_ctx.is_predicate(fml)) {
             return;
         }
-        m_args.reset();
+        m_args.clear();
         for (unsigned i = 0; i < fml->get_num_args(); ++i) {
             e = fml->get_arg(i);
             if (!is_app(e)) {
@@ -964,7 +964,7 @@ namespace datalog {
     }
 
     void rule::get_vars(ast_manager& m, ptr_vector<sort>& sorts) const {
-        sorts.reset();
+        sorts.clear();
         used_vars used;
         get_used_vars(used);
         unsigned sz = used.get_max_found_var_idx_plus_1();

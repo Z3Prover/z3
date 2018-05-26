@@ -409,8 +409,8 @@ public:
 
     void reset() {
         m_heap.reset();
-        m_free_list.reset();
-        m_passive.reset();
+        m_free_list.clear();
+        m_passive.clear();
     }
     
     bool empty() const {
@@ -541,15 +541,15 @@ public:
 
     void reset() {
         m_heap.reset();
-        m_free_list.reset();
-        m_psos.reset();
-        m_pas.reset();
-        m_sum_abs.reset();
-        m_pos_sos.reset();
-        m_neg_sos.reset();
-        m_pos_sos_sum.reset();
-        m_neg_sos_sum.reset();
-        m_weight.reset();
+        m_free_list.clear();
+        m_psos.clear();
+        m_pas.clear();
+        m_sum_abs.clear();
+        m_pos_sos.clear();
+        m_neg_sos.clear();
+        m_pos_sos_sum.clear();
+        m_neg_sos_sum.clear();
+        m_weight.clear();
     }
 
     void insert(offset_t idx, unsigned offset) {
@@ -673,14 +673,14 @@ bool hilbert_basis::is_invalid_offset(offset_t offs) {
 }
 
 void hilbert_basis::reset() {
-    m_ineqs.reset();
-    m_iseq.reset();
-    m_store.reset();
-    m_basis.reset();
-    m_free_list.reset();
-    m_sos.reset();
-    m_zero.reset();
-    m_active.reset();
+    m_ineqs.clear();
+    m_iseq.clear();
+    m_store.clear();
+    m_basis.clear();
+    m_free_list.clear();
+    m_sos.clear();
+    m_zero.clear();
+    m_active.clear();
     if (m_passive) {
         m_passive->reset();
     }
@@ -690,7 +690,7 @@ void hilbert_basis::reset() {
     if (m_index) {
         m_index->reset(1);
     }
-    m_ints.reset();
+    m_ints.clear();
     m_current_ineq = 0;
     
 }
@@ -777,9 +777,9 @@ hilbert_basis::values hilbert_basis::vec(offset_t offs) const {
 }
 
 void hilbert_basis::init_basis() {
-    m_basis.reset();
-    m_store.reset();
-    m_free_list.reset();
+    m_basis.clear();
+    m_store.clear();
+    m_free_list.clear();
     unsigned nv = get_num_vars();
     for (unsigned i = 0; i < nv; ++i) {
         add_unit_vector(i, numeral(1));
@@ -830,9 +830,9 @@ lbool hilbert_basis::saturate() {
 }
 
 lbool hilbert_basis::saturate_orig(num_vector const& ineq, bool is_eq) {
-    m_active.reset();
+    m_active.clear();
     m_passive->reset();
-    m_zero.reset();
+    m_zero.clear();
     m_index->reset(m_current_ineq+1);
     int_table support;
     TRACE("hilbert_basis", display_ineq(tout, ineq, is_eq););
@@ -874,7 +874,7 @@ lbool hilbert_basis::saturate_orig(num_vector const& ineq, bool is_eq) {
     }
     m_free_list.push_back(j);
     // Move positive from active and zeros to new basis.
-    m_basis.reset();
+    m_basis.clear();
     m_basis.append(m_zero);
     for (unsigned i = 0; !is_eq && i < m_active.size(); ++i) {
         offset_t idx = m_active[i];
@@ -885,9 +885,9 @@ lbool hilbert_basis::saturate_orig(num_vector const& ineq, bool is_eq) {
             m_free_list.push_back(idx);
         }
     }
-    m_active.reset();
+    m_active.clear();
     m_passive->reset();
-    m_zero.reset();
+    m_zero.clear();
     TRACE("hilbert_basis", display(tout););
     return m_basis.empty()?l_false:l_true;
 }
@@ -904,10 +904,10 @@ bool hilbert_basis::vector_lt(offset_t idx1, offset_t idx2) const {
 }
 
 lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
-    m_zero.reset();
+    m_zero.clear();
     m_index->reset(m_current_ineq+1);
     m_passive2->reset();
-    m_sos.reset();
+    m_sos.clear();
     TRACE("hilbert_basis", display_ineq(tout, ineq, is_eq););
     unsigned init_basis_size = 0;
     for (unsigned i = 0; i < m_basis.size(); ++i) {
@@ -979,14 +979,14 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
     }
     m_basis.append(m_zero);
     std::sort(m_basis.begin(), m_basis.end(), vector_lt_t(*this));
-    m_zero.reset();
+    m_zero.clear();
     TRACE("hilbert_basis", display(tout););
     return m_basis.empty()?l_false:l_true;
 }
 
 void hilbert_basis::get_basis_solution(unsigned i, rational_vector& v, bool& is_initial) {
     offset_t offs = m_basis[i];
-    v.reset();
+    v.clear();
     for (unsigned i = 1; i < get_num_vars(); ++i) {
         v.push_back(to_rational(vec(offs)[i]));
     }
@@ -994,7 +994,7 @@ void hilbert_basis::get_basis_solution(unsigned i, rational_vector& v, bool& is_
 }
 
 void hilbert_basis::get_ge(unsigned i, rational_vector& v, rational& b, bool& is_eq) {
-    v.reset();
+    v.clear();
     for (unsigned j = 1; j < m_ineqs[i].size(); ++j) {
         v.push_back(to_rational(m_ineqs[i][j]));
     }

@@ -335,14 +335,14 @@ ast * ast_translation::process(ast const * _n) {
     }
     SASSERT(m_result_stack.size() == 1);
     ast * r = m_result_stack.back();
-    m_result_stack.reset();
+    m_result_stack.clear();
     return r;
 }
 
 expr_dependency * expr_dependency_translation::operator()(expr_dependency * d) {
     if (d == nullptr)
         return d;
-    m_buffer.reset();
+    m_buffer.clear();
     m_translation.from().linearize(d, m_buffer);
     unsigned sz = m_buffer.size();
     SASSERT(sz >= 1);

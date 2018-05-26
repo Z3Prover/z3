@@ -29,15 +29,15 @@ namespace nlsat {
         literal_vector m_lits;
     public:
         scoped_literal_vector(solver & s):m_solver(s) {}
-        ~scoped_literal_vector() { reset(); }
+        ~scoped_literal_vector() { clear(); }
         unsigned size() const { return m_lits.size(); }
         bool empty() const { return m_lits.empty(); }
         literal operator[](unsigned i) const { return m_lits[i]; }
-        void reset() {
+        void clear() {
             for (literal l : m_lits) {
                 m_solver.dec_ref(l);
             }
-            m_lits.reset();
+            m_lits.clear();
         }
         void push_back(literal l) {
             m_solver.inc_ref(l);

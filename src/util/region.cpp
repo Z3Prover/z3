@@ -80,7 +80,7 @@ inline void region::recycle_curr_page() {
     m_curr_page = prev;
 }
 
-void region::reset() {
+void region::clear() {
     while (m_curr_page != nullptr) {
         recycle_curr_page();
     }

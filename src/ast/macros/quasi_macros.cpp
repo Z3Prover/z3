@@ -36,7 +36,7 @@ quasi_macros::~quasi_macros() {
 
 void quasi_macros::find_occurrences(expr * e) {
     unsigned j;
-    m_todo.reset();
+    m_todo.clear();
     m_todo.push_back(e);
 
     // we remember whether we have seen an expr once, or more than once;
@@ -189,10 +189,10 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
 }
 
 void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quantifier_ref & macro) {
-    m_new_var_names.reset();
-    m_new_vars.reset();
-    m_new_qsorts.reset();
-    m_new_eqs.reset();
+    m_new_var_names.clear();
+    m_new_vars.clear();
+    m_new_qsorts.clear();
+    m_new_eqs.clear();
 
     func_decl * f = a->get_decl();
 

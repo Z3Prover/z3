@@ -749,7 +749,7 @@ namespace qe {
             expr_ref_vector trail(m);
             expr_ref tmp1(m), tmp2(m);
             expr *a0, *a1;
-            eqs.reset();
+            eqs.clear();
             conj_enum::iterator it = conjs.begin(), end = conjs.end();
             for (; it != end; ++it) {
                 expr* e = *it;
@@ -1098,7 +1098,7 @@ namespace qe {
             if (num_vars == 0) {
                 return false;
             }
-            values.reset();
+            values.clear();
             for (unsigned i = 0; i <= num_vars; ++i) {
                 values.push_back(numeral(0));
             }
@@ -1271,28 +1271,28 @@ namespace qe {
         app* nested_div_z_bv(unsigned idx)             { return to_app(m_nested_div_z[idx]->get_arg(0)); }
 
         void reset() {
-            m_lt_terms.reset();
-            m_gt_terms.reset();
-            m_ge_terms.reset();
-            m_le_terms.reset();
-            m_gt_coeffs.reset();
-            m_lt_coeffs.reset();
-            m_ge_coeffs.reset();
-            m_le_coeffs.reset();
-            m_lt_atoms.reset();
-            m_gt_atoms.reset();
-            m_le_atoms.reset();
-            m_ge_atoms.reset();
-            m_div_terms.reset();
-            m_div_coeffs.reset();
-            m_div_divisors.reset();
-            m_div_atoms.reset();
+            m_lt_terms.clear();
+            m_gt_terms.clear();
+            m_ge_terms.clear();
+            m_le_terms.clear();
+            m_gt_coeffs.clear();
+            m_lt_coeffs.clear();
+            m_ge_coeffs.clear();
+            m_le_coeffs.clear();
+            m_lt_atoms.clear();
+            m_gt_atoms.clear();
+            m_le_atoms.clear();
+            m_ge_atoms.clear();
+            m_div_terms.clear();
+            m_div_coeffs.clear();
+            m_div_divisors.clear();
+            m_div_atoms.clear();
             m_div_z = nullptr;
-            m_nested_div_terms.reset();
-            m_nested_div_coeffs.reset();
-            m_nested_div_divisors.reset();
-            m_nested_div_atoms.reset();
-            m_nested_div_z.reset();
+            m_nested_div_terms.clear();
+            m_nested_div_coeffs.clear();
+            m_nested_div_divisors.clear();
+            m_nested_div_atoms.clear();
+            m_nested_div_z.clear();
         }
 
     private:
@@ -1554,7 +1554,7 @@ public:
             if (get_cache(x, fml, v, result)) {
                 return;
             }
-            m_util.m_vars_added.reset();
+            m_util.m_vars_added.clear();
             
             bounds_proc& bounds = get_bounds(x, fml);            
             bool is_lower = get_bound_sizes(bounds, x, t_size, e_size);            

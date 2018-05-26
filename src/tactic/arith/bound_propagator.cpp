@@ -89,7 +89,7 @@ void bound_propagator::del_constraints_core() {
     for (; it != end; ++it) {
         del_constraint(*it);
     }
-    m_constraints.reset();
+    m_constraints.clear();
 }
 
 void bound_propagator::del_constraints() {
@@ -156,7 +156,7 @@ void bound_propagator::mk_var(var x, bool is_int) {
     m_uppers[x] = 0;
     m_lower_refinements[x] = 0;
     m_upper_refinements[x] = 0;
-    m_watches[x].reset();
+    m_watches[x].clear();
 }
 
 void bound_propagator::del_var(var x) {
@@ -459,7 +459,7 @@ void bound_propagator::check_feasibility(var x) {
 }
 
 void bound_propagator::propagate() {
-    m_to_reset_ts.reset();
+    m_to_reset_ts.clear();
 
     while (m_qhead < m_trail.size()) {
         if (inconsistent())
@@ -808,7 +808,7 @@ void bound_propagator::explain(var x, bound * b, unsigned ts, assumption_vector 
         return;
     }
     vector<var_bound> & todo = const_cast<bound_propagator*>(this)->m_todo;
-    todo.reset();
+    todo.clear();
     unsigned qhead = 0;
     todo.push_back(var_bound(x, b));
     b->m_mark = true;
@@ -853,7 +853,7 @@ void bound_propagator::explain(var x, bound * b, unsigned ts, assumption_vector 
     unsigned sz = todo.size();
     for (unsigned i = 0; i < sz; i++)
         todo[i].second->m_mark = false;
-    todo.reset();
+    todo.clear();
 }
 
 /**

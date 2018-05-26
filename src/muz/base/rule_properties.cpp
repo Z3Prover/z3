@@ -201,8 +201,8 @@ void rule_properties::operator()(app* n) {
 void rule_properties::reset() {
     m_quantifiers.reset();
     m_uninterp_funs.reset();
-    m_interp_pred.reset();
-    m_negative_rules.reset();
-    m_inf_sort.reset();
+    m_interp_pred.clear();
+    m_negative_rules.clear();
+    m_inf_sort.clear();
 }
 

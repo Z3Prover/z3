@@ -65,6 +65,6 @@ unsigned cost_parser::add_var(symbol name) {
 
 void cost_parser::reset_vars() { 
     simple_parser::reset_vars(); 
-    m_vars.reset(); 
+    m_vars.clear(); 
 }
 

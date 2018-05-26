@@ -20,7 +20,7 @@ Revision History:
 #include "ast/ast_pp.h"
 
 void unifier::reset(unsigned num_offsets) {
-    m_todo.reset();
+    m_todo.clear();
     m_find.reset();
     m_size.reset();
 }

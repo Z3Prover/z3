@@ -1719,15 +1719,15 @@ void tst_linear_solver() {
     solver.resize(3);
     xs.resize(3);
 
-    as.reset();
+    as.clear();
     as.push_back(mpq(2));  as.push_back(mpq(1));  as.push_back(mpq(-1)); qm.set(b, 8);
     solver.add(0, as.c_ptr(), b);
 
-    as.reset();
+    as.clear();
     as.push_back(mpq(-3)); as.push_back(mpq(-1)); as.push_back(mpq(2));  qm.set(b, -11);
     solver.add(1, as.c_ptr(), b);
 
-    as.reset();
+    as.clear();
     as.push_back(mpq(-2)); as.push_back(mpq(1));  as.push_back(mpq(2));  qm.set(b, -3);
     solver.add(2, as.c_ptr(), b);
 

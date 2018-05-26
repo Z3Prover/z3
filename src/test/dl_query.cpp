@@ -92,8 +92,8 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         relation_fact f_b(m);
         relation_fact f_q(m);
         for(unsigned attempt=0; attempt<test_count; attempt++) {
-            f_b.reset();
-            f_q.reset();
+            f_b.clear();
+            f_q.clear();
             for(unsigned col=0; col<sig_b.size(); col++) {
                 uint64_t sort_sz;
                 if(!decl_util.try_get_size(sig_q[col], sort_sz)) {

@@ -611,8 +611,8 @@ template<typename Config>
 void rewriter_tpl<Config>::reset() {
     m_cfg.reset();
     rewriter_core::reset();
-    m_bindings.reset();
-    m_shifts.reset();
+    m_bindings.clear();
+    m_shifts.clear();
     m_shifter.reset();
     m_inv_shifter.reset();
 }
@@ -640,8 +640,8 @@ template<typename Config>
 void rewriter_tpl<Config>::set_bindings(unsigned num_bindings, expr * const * bindings) {
     SASSERT(!m_proof_gen);
     SASSERT(not_rewriting());
-    m_bindings.reset();
-    m_shifts.reset();
+    m_bindings.clear();
+    m_shifts.clear();
     unsigned i = num_bindings;
     while (i > 0) {
         --i;
@@ -655,8 +655,8 @@ template<typename Config>
 void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const * bindings) {
     SASSERT(!m_proof_gen);
     SASSERT(not_rewriting());
-    m_bindings.reset();
-    m_shifts.reset();
+    m_bindings.clear();
+    m_shifts.clear();
     for (unsigned i = 0; i < num_bindings; i++) {
         m_bindings.push_back(bindings[i]);
         m_shifts.push_back(num_bindings);

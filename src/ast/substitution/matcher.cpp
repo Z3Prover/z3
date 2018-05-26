@@ -77,5 +77,5 @@ bool matcher::operator()(expr * e1, expr * e2, substitution & s) {
 
 void matcher::reset() {
     // m_cache.reset();
-    m_todo.reset();
+    m_todo.clear();
 }

@@ -98,10 +98,10 @@ namespace datalog {
                     continue;
                 }
                 flatten_and(l1, literals);
-                positions2.reset();
-                premises2.reset();
+                positions2.clear();
+                premises2.clear();
                 premises2.push_back(premise);       
-                substs2.reset();
+                substs2.clear();
                 for (unsigned j = 0; j < literals.size(); ++j) {
                     expr* lit = literals[j].get();
                     for (unsigned k = 1; k < premises1.size(); ++k) {

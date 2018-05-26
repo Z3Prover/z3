@@ -134,10 +134,10 @@ namespace smt {
     void theory_utvpi<Ext>::reset_eh() {
         m_graph            .reset();
         m_zero              = null_theory_var;
-        m_atoms            .reset();
-        m_asserted_atoms   .reset();
+        m_atoms            .clear();
+        m_asserted_atoms   .clear();
         m_stats            .reset();
-        m_scopes           .reset();
+        m_scopes           .clear();
         m_asserted_qhead    = 0;
         m_agility           = 0.5;
         m_lia               = false;
@@ -291,7 +291,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_utvpi<Ext>::mk_coeffs(vector<std::pair<expr*,rational> > const& terms, coeffs& coeffs, rational& w) {
-        coeffs.reset();
+        coeffs.clear();
         w = m_test.get_weight();
         for (unsigned i = 0; i < terms.size(); ++i) {
             coeffs.push_back(std::make_pair(mk_var(terms[i].first), terms[i].second));
@@ -735,7 +735,7 @@ namespace smt {
             m_graph.compute_zero_succ(v1, zero_v);
             for (unsigned j = 0; j < zero_v.size(); ++j) {
                 if (zero_v[j] == v2) {
-                    zero_v.reset();
+                    zero_v.clear();
                     m_graph.compute_zero_succ(v2, zero_v);
                     break;
                 }

@@ -60,7 +60,7 @@ public:
         
     bool operator()(expr* e);
 
-    void reset() { m_pred_holds.reset(); m_visited.reset(); m_refs.reset(); }
+    void reset() { m_pred_holds.reset(); m_visited.reset(); m_refs.clear(); }
 
 private:        
     void visit(expr* e);        

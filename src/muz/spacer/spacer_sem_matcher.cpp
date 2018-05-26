@@ -141,7 +141,7 @@ bool sem_matcher::operator()(expr * e1, expr * e2, substitution & s, bool &pos) 
 }
 
 void sem_matcher::reset() {
-    m_todo.reset();
-    m_pinned.reset();
+    m_todo.clear();
+    m_pinned.clear();
 }
 }

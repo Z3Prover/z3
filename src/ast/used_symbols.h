@@ -55,7 +55,7 @@ public:
     void operator()(expr * n, bool ignore_quantifiers = false) {
         m_visited.reset();
         m_used.reset();
-        m_todo.reset();
+        m_todo.clear();
         visit(n);
         while (!m_todo.empty()) {
             n = m_todo.back();

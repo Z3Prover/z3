@@ -49,8 +49,8 @@ public:
     ~sat_allocator() { reset(); }
     void reset() {
         for (chunk * ch : m_chunks) dealloc(ch);
-        m_chunks.reset();
-        for (unsigned i = 0; i < NUM_FREE; ++i) m_free[i].reset();
+        m_chunks.clear();
+        for (unsigned i = 0; i < NUM_FREE; ++i) m_free[i].clear();
         m_alloc_size = 0;
         m_chunk_ptr = nullptr;
     }

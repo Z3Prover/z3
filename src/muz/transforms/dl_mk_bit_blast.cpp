@@ -168,9 +168,9 @@ namespace datalog {
             //
             // f(mk_bv(args),...)
             //
-            m_args.reset();
-            m_g_vars.reset();
-            m_f_vars.reset();
+            m_args.clear();
+            m_g_vars.clear();
+            m_f_vars.clear();
             expr_ref fml(m);
             unsigned idx = 0;
             for (unsigned j = 0; j < num; ++j) {

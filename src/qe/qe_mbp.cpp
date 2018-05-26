@@ -558,7 +558,7 @@ public:
             }
         }
         if (fmls.empty()) {
-            vars.reset();
+            vars.clear();
         }
         fmls.append(unused_fmls);
         SASSERT(validate_model(model, fmls));
@@ -611,7 +611,7 @@ public:
             
             TRACE ("qe", tout << "Array vars: " << array_vars << "\n";);
             
-            vars.reset ();
+            vars.clear();
             
             // project arrays
             qe::array_project_plugin ap(m);
@@ -654,12 +654,12 @@ public:
             TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             // an extra round of simplification because subst_vars is not simplifying
             m_rw(fml);
-            other_vars.reset();
+            other_vars.clear();
         }
         
         SASSERT(!eval.is_false(fml));
                 
-        vars.reset ();
+        vars.clear();
         vars.append(other_vars);
     }    
     

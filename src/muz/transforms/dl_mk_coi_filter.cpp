@@ -40,8 +40,8 @@ namespace datalog {
         for (rule* r : source) {
             bool new_tail = false;
             bool contained = true;
-            m_new_tail.reset();
-            m_new_tail_neg.reset();
+            m_new_tail.clear();
+            m_new_tail_neg.clear();
             for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
                 func_decl* decl_i = r->get_decl(i);
                 if (m_context.has_facts(decl_i)) {

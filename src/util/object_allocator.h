@@ -117,7 +117,7 @@ class object_allocator : public ResetProc {
 
         void reset() {
             free_memory();
-            m_pages.reset();
+            m_pages.clear();
             allocate_new_page();
         }
 
@@ -197,7 +197,7 @@ public:
         unsigned c = capacity();
         for (unsigned i = 0; i < c; i++) {
             m_regions[i]->reset();
-            m_free_lists[i].reset();
+            m_free_lists[i].clear();
         }
     }
 

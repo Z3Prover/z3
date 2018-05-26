@@ -93,8 +93,8 @@ struct pb2bv_rewriter::imp {
                 cas.push_back(std::make_pair(m_coeffs[i], expr_ref(m_args[i].get(), m)));
             }
             std::sort(cas.begin(), cas.end(), compare_coeffs());
-            m_coeffs.reset();
-            m_args.reset();
+            m_coeffs.clear();
+            m_args.clear();
             for (ca const& ca : cas) {
                 m_coeffs.push_back(ca.first);
                 m_args.push_back(ca.second);
@@ -403,9 +403,9 @@ struct pb2bv_rewriter::imp {
         }
 
         bool create_basis() {
-            m_base.reset();
+            m_base.clear();
             m_min_cost = rational(INT_MAX);
-            m_min_base.reset();
+            m_min_base.clear();
             rational cost(0);
             create_basis(m_coeffs, rational::zero(), cost);
             m_base = m_min_base;
@@ -487,11 +487,11 @@ struct pb2bv_rewriter::imp {
                 result = mk_or(gt, result);                
                 TRACE("pb", tout << "b: " << b_i << " d: " << d_i << " gt: " << gt << " ge: " << ge << " " << result << "\n";);
 
-                new_carry.reset();
+                new_carry.clear();
                 for (unsigned j = B - 1; j < out.size(); j += B) {
                     new_carry.push_back(out[j]);
                 }
-                carry.reset();
+                carry.clear();
                 carry.append(new_carry);
             }
             TRACE("pb", tout << "bound: " << bound << " Carry: " << carry << " result: " << result << "\n";);
@@ -638,8 +638,8 @@ struct pb2bv_rewriter::imp {
             ++m_imp.m_compile_bv;
             decl_kind kind = f->get_decl_kind();
             rational k = pb.get_k(f);
-            m_coeffs.reset();
-            m_args.reset();
+            m_coeffs.clear();
+            m_args.clear();
             for (unsigned i = 0; i < sz; ++i) {
                 m_coeffs.push_back(pb.get_coeff(f, i));
                 m_args.push_back(args[i]);
@@ -767,8 +767,8 @@ struct pb2bv_rewriter::imp {
         }
 
         bool is_pb(expr* x, expr* y) {
-            m_args.reset();
-            m_coeffs.reset();
+            m_args.clear();
+            m_coeffs.clear();
             m_k.reset();
             return is_pb(x, rational::one()) && is_pb(y, rational::minus_one());
         }
@@ -1041,7 +1041,7 @@ struct pb2bv_rewriter::imp {
 
     void flush_side_constraints(expr_ref_vector& side_constraints) { 
         side_constraints.append(m_lemmas);  
-        m_lemmas.reset(); 
+        m_lemmas.clear(); 
     }
 
     void collect_statistics(statistics & st) const {

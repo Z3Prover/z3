@@ -139,11 +139,11 @@ namespace datalog {
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz  = r.get_tail_size();
-            tail.reset();
-            vars.reset();
+            tail.clear();
+            vars.clear();
             m_cache.reset();
-            m_trail.reset();
-            m_eqs.reset();
+            m_trail.clear();
+            m_eqs.clear();
             r.get_vars(m, vars);
             unsigned num_vars = vars.size();
             for (unsigned j = 0; j < utsz; ++j) {
@@ -166,7 +166,7 @@ namespace datalog {
         if (m_mc) {
             m_ctx.add_model_converter(m_mc);
         }
-        m_trail.reset();
+        m_trail.clear();
         m_cache.reset();
         return result;
     }

@@ -2175,7 +2175,7 @@ namespace smt2 {
             m_sort_id2param_idx.reset();
             m_dt_name2arity.reset();
             m_dt_name2idx.reset();
-            m_dt_names.reset();
+            m_dt_names.clear();
             check_lparen_next("invalid sort declaration, parameters missing");
             unsigned i = 0;
             bool first = true;
@@ -3097,8 +3097,8 @@ namespace smt2 {
             m_pattern_stack   = nullptr;
             m_nopattern_stack = nullptr;
             m_sexpr_stack     = nullptr;
-            m_symbol_stack      .reset();
-            m_param_stack       .reset();
+            m_symbol_stack      .clear();
+            m_param_stack       .clear();
             m_env               .reset();
             m_sort_id2param_idx .reset();
             m_dt_name2idx       .reset();

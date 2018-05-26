@@ -40,7 +40,7 @@ class recurse_expr : public Visitor {
 public:
     recurse_expr(Visitor const & v = Visitor()):Visitor(v) {}
     T operator()(expr * n);
-    void reset() { m_cache.reset(); m_todo.reset(); }
+    void reset() { m_cache.reset(); m_todo.clear(); }
     void finalize() { m_cache.finalize(); m_todo.finalize(); }
 };
 

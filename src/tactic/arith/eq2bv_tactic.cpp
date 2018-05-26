@@ -153,7 +153,7 @@ public:
     
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
-        m_trail.reset();
+        m_trail.clear();
         m_fd.reset();
         m_max.reset();
         m_nonfd.reset();

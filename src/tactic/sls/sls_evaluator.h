@@ -574,7 +574,7 @@ public:
                 }
             }
 
-            cur_depth_exprs.reset();
+            cur_depth_exprs.clear();
             cur_depth--;
         }
 
@@ -615,7 +615,7 @@ public:
                 }
             }
 
-            cur_depth_exprs.reset();
+            cur_depth_exprs.clear();
             cur_depth--;
         }
 
@@ -698,7 +698,7 @@ public:
             }
         }
 
-        cur_depth_exprs.reset();
+        cur_depth_exprs.clear();
         cur_depth--;
  
         while (cur_depth != static_cast<unsigned>(-1)) {
@@ -728,7 +728,7 @@ public:
                     }
                 }
             }
-            cur_depth_exprs.reset();
+            cur_depth_exprs.clear();
             cur_depth--;
         }
 
@@ -768,7 +768,7 @@ public:
                 }
             }
 
-            cur_depth_exprs.reset();
+            cur_depth_exprs.clear();
             cur_depth--;
         }
 

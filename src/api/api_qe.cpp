@@ -156,7 +156,7 @@ extern "C"
 
         // -- copy back variables that were not eliminated
         if (vApps.size () < vVars.size ()) {
-            vVars.reset ();
+            vVars.clear ();
             for (app* v : vApps) {
                 vVars.push_back (v);
             }

@@ -261,7 +261,7 @@ static void tst_bv_reset() {
     bit_vector b; 
     bool bit = true;
     for (unsigned sz = 1; sz < 84; ++sz) {
-        b.reset();
+        b.clear();
         b.resize(sz, bit);        
         for (unsigned i = 0; i < sz; ++i) {
             ENSURE(bit == b.get(i));

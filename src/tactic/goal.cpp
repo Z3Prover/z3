@@ -349,7 +349,7 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         out << "\n  |-";
-        deps.reset();
+        deps.clear();
         m().linearize(dep(i), deps);
         for (expr * d : deps) {
             if (is_uninterp_const(d)) {
@@ -381,7 +381,7 @@ void goal::display_with_dependencies(std::ostream & out) const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         out << "\n  |-";
-        deps.reset();
+        deps.clear();
         m().linearize(dep(i), deps);
         for (expr * d : deps) {
             if (is_uninterp_const(d)) {

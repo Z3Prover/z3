@@ -340,7 +340,7 @@ public:
 
 
     lbool operator()() override {
-        m_defs.reset();
+        m_defs.clear();
         switch(m_st) {
         case s_primal:
             return mus_solver();
@@ -365,10 +365,10 @@ public:
     lbool get_cores(vector<weighted_core>& cores) {
         // assume m_s is unsat.
         lbool is_sat = l_false;
-        cores.reset();
+        cores.clear();
         exprs core;
         while (is_sat == l_false) {
-            core.reset();
+            core.clear();
             expr_ref_vector _core(m);
             s().get_unsat_core(_core);
             model_ref mdl;
@@ -384,7 +384,7 @@ public:
             if (core.empty()) {
                 IF_VERBOSE(100, verbose_stream() << "(opt.maxres core is empty)\n";);
                 TRACE("opt", tout << "empty core\n";);
-                cores.reset();
+                cores.clear();
                 m_lower = m_upper;
                 return l_true;
             }
@@ -421,7 +421,7 @@ public:
     }
 
     void get_current_correction_set(model* mdl, exprs& cs) {
-        cs.reset();
+        cs.clear();
         if (!mdl) return;
         for (expr* a : m_asms) {
             if (mdl->is_false(a)) {
@@ -444,7 +444,7 @@ public:
         exprs asms(_asms.size(), _asms.c_ptr());
         expr_ref_vector trail(_asms);
         std::sort(asms.begin(), asms.end(), comp);
-        _asms.reset();
+        _asms.clear();
         _asms.append(asms.size(), asms.c_ptr());
         DEBUG_CODE(
             for (unsigned i = 0; i + 1 < asms.size(); ++i) {
@@ -573,7 +573,7 @@ public:
         if (is_sat != l_true) {
             return is_sat;
         }
-        core.reset();
+        core.clear();
         core.append(m_new_core);
         return l_true;
     }
@@ -630,7 +630,7 @@ public:
         SASSERT(!core.empty());
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
-        m_B.reset();
+        m_B.clear();
         m_B.append(core.size(), core.c_ptr());
         //
         // d_0 := true
@@ -682,7 +682,7 @@ public:
         TRACE("opt", display_vec(tout << "correction set: ", cs););
         expr_ref fml(m), asum(m);
         app_ref cls(m), d(m), dd(m);
-        m_B.reset();
+        m_B.clear();
         m_B.append(cs.size(), cs.c_ptr());
         d = m.mk_false();
         //
@@ -817,7 +817,7 @@ public:
 
     lbool init_local() {
         m_lower.reset();
-        m_trail.reset();
+        m_trail.clear();
         lbool is_sat = l_true;
         obj_map<expr, rational> new_soft;
         is_sat = find_mutexes(new_soft);

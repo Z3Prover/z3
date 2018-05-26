@@ -59,7 +59,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < sz; i++) {
                     m_in_set[pm.id(m_set.get(i))] = false;
                 }
-                m_set.reset();
+                m_set.clear();
             }
             
             void insert(poly * p) {
@@ -93,7 +93,7 @@ namespace nlsat {
                them in max_polys. Return the maximal variable
              */
             var remove_max_polys(polynomial_ref_vector & max_polys) {
-                max_polys.reset();
+                max_polys.clear();
                 var x = max_var();
                 pmanager & pm = m_set.m();
                 unsigned sz = m_set.size();
@@ -228,7 +228,7 @@ namespace nlsat {
         void factor(polynomial_ref & p, polynomial_ref_vector & fs) {
             // TODO: add params, caching
             TRACE("nlsat_factor", tout << "factor\n" << p << "\n";);
-            fs.reset();
+            fs.clear();
             m_cache.factor(p.get(), fs);
         }
 
@@ -246,7 +246,7 @@ namespace nlsat {
            \brief Store in ps the polynomials occurring in the given literals.
         */
         void collect_polys(unsigned num, literal const * ls, polynomial_ref_vector & ps) {
-            ps.reset();
+            ps.clear();
             for (unsigned i = 0; i < num; i++) {
                 atom * a = m_atoms[ls[i].var()];
                 SASSERT(a != 0);
@@ -273,8 +273,8 @@ namespace nlsat {
             // Then, I assert p_i1 * ... * p_im  != 0
             factor(p, m_factors);
             unsigned num_factors = m_factors.size();
-            m_zero_fs.reset();
-            m_is_even.reset();
+            m_zero_fs.clear();
+            m_is_even.clear();
             polynomial_ref f(m_pm);
             for (unsigned i = 0; i < num_factors; i++) {
                 f = m_factors.get(i);
@@ -491,7 +491,7 @@ namespace nlsat {
                     continue;
                 if (new_l == false_literal) {
                     // false literal was created. The assumptions added are sufficient for implying the conflict.
-                    C.reset();
+                    C.clear();
                     return;
                 }
                 C.set(j, new_l);
@@ -899,7 +899,7 @@ namespace nlsat {
                 p = ps.get(k);
                 if (max_var(p) != y)
                     continue;
-                roots.reset();
+                roots.clear();
                 // Variable y is assigned in m_assignment. We must temporarily unassign it.
                 // Otherwise, the isolate_roots procedure will assume p is a constant polynomial.
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
@@ -1282,7 +1282,7 @@ namespace nlsat {
                 unsigned num_factors = _a->size();
                 for (unsigned j = 0; j < num_factors; j++) {
                     poly * p = _a->p(j);
-                    xs.reset();
+                    xs.clear();
                     m_pm.vars(p, xs);
                     unsigned xs_sz = xs.size();
                     for (unsigned k = 0; k < xs_sz; k++) {
@@ -1352,7 +1352,7 @@ namespace nlsat {
 
         void process2(unsigned num, literal const * ls) {
             if (m_simplify_cores) {
-                m_core2.reset();
+                m_core2.clear();
                 m_core2.append(num, ls);
                 var max = max_var(num, ls);
                 SASSERT(max != null_var);
@@ -1361,7 +1361,7 @@ namespace nlsat {
                 simplify(m_core2, max);
                 TRACE("nlsat_explain", tout << "core after simplify\n"; display(tout, m_core2););
                 main(m_core2.size(), m_core2.c_ptr());
-                m_core2.reset();
+                m_core2.clear();
             }
             else {
                 main(num, ls);
@@ -1373,7 +1373,7 @@ namespace nlsat {
         bool minimize_core(literal_vector & todo, literal_vector & core) {
             SASSERT(!todo.empty());
             literal_vector & new_todo = m_min_newtodo;
-            new_todo.reset();
+            new_todo.clear();
             interval_set_manager & ism = m_evaluator.ism();
             interval_set_ref r(ism);
             // Copy the union of the infeasible intervals of core into r.
@@ -1422,7 +1422,7 @@ namespace nlsat {
         void minimize(unsigned num, literal const * ls, scoped_literal_vector & r) {
             literal_vector & todo = m_min_todo;
             literal_vector & core = m_min_core;
-            todo.reset(); core.reset();
+            todo.clear(); core.clear();
             todo.append(num, ls);
             while (true) {
                 TRACE("nlsat_mininize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core););
@@ -1439,10 +1439,10 @@ namespace nlsat {
 
         void process(unsigned num, literal const * ls) {
             if (m_minimize_cores && num > 1) {
-                m_core1.reset();
+                m_core1.clear();
                 minimize(num, ls, m_core1);
                 process2(m_core1.size(), m_core1.c_ptr());
-                m_core1.reset();
+                m_core1.clear();
             }
             else {
                 process2(num, ls);
@@ -1530,7 +1530,7 @@ namespace nlsat {
         void split_literals(var x, unsigned n, literal const* ls, vector<literal>& lits) {
             var_vector vs;
             for (unsigned i = 0; i < n; ++i) {                  
-                vs.reset();
+                vs.clear();
                 m_solver.vars(ls[i], vs);
                 if (vs.contains(x)) {
                     lits.push_back(ls[i]);
@@ -1630,7 +1630,7 @@ namespace nlsat {
             for (unsigned i = 0; i < ps.size(); ++i) {
                 p = ps.get(i);
                 scoped_anum_vector & roots = m_roots_tmp;
-                roots.reset();
+                roots.clear();
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
                 bool glb_valid = false, lub_valid = false;
                 for (auto const& r : roots) {
@@ -1724,14 +1724,14 @@ namespace nlsat {
         }
 
         void project_pair(var x, polynomial::polynomial* p1, polynomial::polynomial* p2) {
-            m_ps2.reset();
+            m_ps2.clear();
             m_ps2.push_back(p1);
             m_ps2.push_back(p2);
             project(m_ps2, x);
         }
 
         void project_single(var x, polynomial::polynomial* p) {
-            m_ps2.reset();
+            m_ps2.clear();
             m_ps2.push_back(p);
             project(m_ps2, x);
         }
@@ -1790,7 +1790,7 @@ namespace nlsat {
             for (unsigned i = 0; i < m_ps.size(); ++i) {
                 p = m_ps.get(i);
                 scoped_anum_vector & roots = m_roots_tmp;
-                roots.reset();
+                roots.clear();
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
                 for (unsigned j = 0; j < roots.size(); ++j) {
                     int s = m_am.compare(x_val, roots[j]);
@@ -1814,8 +1814,8 @@ namespace nlsat {
     }
 
     void explain::reset() {
-        m_imp->m_core1.reset();
-        m_imp->m_core2.reset();
+        m_imp->m_core1.clear();
+        m_imp->m_core2.clear();
     }
 
     void explain::set_simplify_cores(bool f) {

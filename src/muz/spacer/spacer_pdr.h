@@ -67,7 +67,7 @@ public:
 
     void set_closed() { m_closed = true; }
     void set_open();
-    void reset_children() { m_children.reset(); }
+    void reset_children() { m_children.clear(); }
 
     /// queue
 

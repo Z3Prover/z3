@@ -44,9 +44,9 @@ struct mus::imp {
     {}
 
     void reset() {
-        m_lit2expr.reset();
+        m_lit2expr.clear();
         m_expr2lit.reset();
-        m_assumptions.reset();
+        m_assumptions.clear();
     }
 
     bool is_literal(expr* lit) const {
@@ -69,7 +69,7 @@ struct mus::imp {
 
     lbool get_mus(expr_ref_vector& mus) {
         m_model.reset();
-        mus.reset();
+        mus.clear();
         if (m_lit2expr.size() == 1) {
             mus.push_back(m_lit2expr.back());
             return l_true;
@@ -102,11 +102,11 @@ struct mus::imp {
                 update_model();
                 break;
             default:
-                core_exprs.reset();
+                core_exprs.clear();
                 m_solver.get_unsat_core(core_exprs);
                 if (!core_exprs.contains(not_lit)) {
                     // unknown := core_exprs \ mus
-                    unknown.reset();
+                    unknown.clear();
                     for (expr* c : core_exprs) {
                         if (!mus.contains(c)) {
                             unknown.push_back(c);
@@ -189,7 +189,7 @@ struct mus::imp {
                 get_core(core);
                 if (!core.contains(lit)) {
                     // The current mus is already a core.
-                    unknown.reset();
+                    unknown.clear();
                     return l_true;
                 }
                 if (have_intersection(nmcs_set, core)) {

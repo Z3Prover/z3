@@ -55,7 +55,7 @@ namespace smt {
         context & ctx         = get_context();
         literal_vector & bits = m_bits[v];
         TRACE("bv", tout << "v" << v << "\n";);
-        bits.reset();
+        bits.clear();
         for (unsigned i = 0; i < bv_size; i++) {
             app * bit  = mk_bit2bool(owner, i);
             ctx.internalize(bit, true);
@@ -324,7 +324,7 @@ namespace smt {
         SASSERT(v != null_theory_var);
         unsigned sz             = bits.size();
         SASSERT(get_bv_size(n) == sz);
-        m_bits[v].reset();
+        m_bits[v].clear();
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
             expr_ref s_bit(m);
@@ -758,10 +758,10 @@ namespace smt {
         get_arg_bits(e, i, bits);                                                               \
         while (i > 0) {                                                                         \
             --i;                                                                                \
-            arg_bits.reset();                                                                   \
+            arg_bits.clear();                                                                   \
             get_arg_bits(e, i, arg_bits);                                                       \
             SASSERT(arg_bits.size() == bits.size());                                            \
-            new_bits.reset();                                                                   \
+            new_bits.clear();                                                                   \
             m_bb.BLAST_OP(arg_bits.size(), arg_bits.c_ptr(), bits.c_ptr(), new_bits);           \
             bits.swap(new_bits);                                                                \
         }                                                                                       \
@@ -857,7 +857,7 @@ namespace smt {
         theory_var v       = e->get_th_var(get_id());
         unsigned num_args  = n->get_num_args();
         unsigned i         = num_args;
-        m_bits[v].reset();
+        m_bits[v].clear();
         while (i > 0) {
             i--;
             theory_var arg = get_arg_var(e, i);
@@ -878,7 +878,7 @@ namespace smt {
         unsigned end       = n->get_decl()->get_parameter(0).get_int();
         SASSERT(start <= end);
         literal_vector & arg_bits = m_bits[arg];
-        m_bits[v].reset();
+        m_bits[v].clear();
         for (unsigned i = start; i <= end; ++i)
             add_bit(v, arg_bits[i]);
         find_wpos(v);
@@ -1205,7 +1205,7 @@ namespace smt {
 
         literal_vector & lits = m_tmp_literals;
         expr_ref_vector exprs(m);
-        lits.reset();
+        lits.clear();
         literal eq = mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true);
         lits.push_back(eq);
         it1 = bits1.begin();
@@ -1242,7 +1242,7 @@ namespace smt {
             //    TRACE("bv", tout << "has th_justification\n";);
             //    return;
             // }
-            m_prop_queue.reset();
+            m_prop_queue.clear();
             bit_atom * b = static_cast<bit_atom*>(a);
             var_pos_occ * curr = b->m_occs;
             while (curr) {
@@ -1304,14 +1304,14 @@ namespace smt {
                     assign_bit(consequent, v, v2, idx, antecedent, false);
                     if (ctx.inconsistent()) {
                         TRACE("bv_bit_prop", tout << "inconsistent " << bit <<  " " << bit2 << "\n";);
-                        m_prop_queue.reset();
+                        m_prop_queue.clear();
                         return;
                     }
                 }
                 v2 = next(v2);
             }            
         }
-        m_prop_queue.reset();
+        m_prop_queue.clear();
         TRACE("bv_bit_prop", tout << "done propagating\n";);
     }
 
@@ -1444,7 +1444,7 @@ namespace smt {
 
     void theory_bv::reset_eh() {
         pop_scope_eh(m_trail_stack.get_num_scopes());
-        m_bool_var2atom.reset();
+        m_bool_var2atom.clear();
         m_fixed_var_table.reset();
         theory::reset_eh();
     }
@@ -1492,7 +1492,7 @@ namespace smt {
             TRACE("bv", tout << "conflict detected\n";);
             return; // conflict was detected
         }
-        m_prop_queue.reset();
+        m_prop_queue.clear();
         context & ctx                 = get_context();
         literal_vector & bits1        = m_bits[v1];
         literal_vector & bits2        = m_bits[v2];
@@ -1604,7 +1604,7 @@ namespace smt {
                 auto const& p = m_replay_diseq[i];
                 expand_diseq(p.first, p.second);
             }
-            m_replay_diseq.reset();
+            m_replay_diseq.clear();
         }
     }
 

@@ -825,7 +825,7 @@ class tseitin_cnf_tactic : public tactic {
 
         void reset_cache() {
             m_cache.reset();
-            m_cache_domain.reset();
+            m_cache_domain.clear();
         }
 
         void operator()(goal_ref const & g, 
@@ -838,10 +838,10 @@ class tseitin_cnf_tactic : public tactic {
 
             m_occs(*g);
             reset_cache();
-            m_deps.reset();
-            m_fresh_vars.reset();
-            m_frame_stack.reset();
-            m_clauses.reset();
+            m_deps.clear();
+            m_fresh_vars.clear();
+            m_frame_stack.clear();
+            m_clauses.clear();
             if (m_produce_models)
                 m_mc = alloc(generic_model_converter, m, "tseitin");
             else

@@ -42,7 +42,7 @@ namespace sat {
         // erase some clause from the set
         clause & erase();
 
-        void reset() { m_id2pos.reset(); m_set.reset(); }
+        void clear() { m_id2pos.clear(); m_set.clear(); }
         void finalize() { m_id2pos.finalize(); m_set.finalize(); }
 
         iterator begin() const { return m_set.begin(); }

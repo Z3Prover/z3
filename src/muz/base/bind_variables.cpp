@@ -40,10 +40,10 @@ expr_ref bind_variables::operator()(expr* fml, bool is_forall) {
         m_names.reverse();
         result = m.mk_quantifier(is_forall ? forall_k : exists_k, m_bound.size(), m_bound.c_ptr(), m_names.c_ptr(), result);
     }
-    m_pinned.reset();
+    m_pinned.clear();
     m_cache.reset();
-    m_names.reset();
-    m_bound.reset();
+    m_names.clear();
+    m_bound.clear();
     for (var2bound::iterator it = m_var2bound.begin(); it != m_var2bound.end(); ++it) {
         it->m_value = 0;
     }
@@ -54,7 +54,7 @@ expr_ref bind_variables::operator()(expr* fml, bool is_forall) {
 expr_ref bind_variables::abstract(expr* term, cache_t& cache, unsigned scope) {
     unsigned sz = m_todo.size();
     m_todo.push_back(term);
-    m_args.reset();
+    m_args.clear();
     expr* b, *arg;
     while (m_todo.size() > sz) {
         expr* e = m_todo.back();
@@ -98,7 +98,7 @@ expr_ref bind_variables::abstract(expr* term, cache_t& cache, unsigned scope) {
             }
             bool all_visited = true;
             bool some_diff = false;
-            m_args.reset();
+            m_args.clear();
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 arg = a->get_arg(i);                
                 if (!cache.find(arg, b)) {

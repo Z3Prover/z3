@@ -221,19 +221,19 @@ namespace nlsat {
 
         void reset() {
             m_explain.reset();
-            m_lemma.reset();
-            m_lazy_clause.reset();
+            m_lemma.clear();
+            m_lazy_clause.clear();
             undo_until_size(0);
             del_clauses();
             del_unref_atoms();
             m_cache.reset();
-            m_assignment.reset();
+            m_assignment.clear();
         }
 
         void clear() {
             m_explain.reset();
-            m_lemma.reset();
-            m_lazy_clause.reset();
+            m_lemma.clear();
+            m_lazy_clause.clear();
             undo_until_size(0);
             del_clauses();
             del_unref_atoms();
@@ -435,7 +435,7 @@ namespace nlsat {
 
         vector<bool> m_found_vars;
         void vars(literal l, var_vector& vs) {                
-            vs.reset();
+            vs.clear();
             atom * a = m_atoms[l.var()];
             if (a == nullptr) {
                 
@@ -444,7 +444,7 @@ namespace nlsat {
                 unsigned sz = to_ineq_atom(a)->size();
                 var_vector new_vs;
                 for (unsigned j = 0; j < sz; j++) {
-                    m_found_vars.reset();
+                    m_found_vars.clear();
                     m_pm.vars(to_ineq_atom(a)->p(j), new_vs);
                     for (unsigned i = 0; i < new_vs.size(); ++i) {
                         if (!m_found_vars.get(new_vs[i], false)) {
@@ -1301,7 +1301,7 @@ namespace nlsat {
                     bool is_even = false;                        
                     polynomial_ref p(m_pm);
                     rational one(1);
-                    m_lemma.reset();
+                    m_lemma.clear();
                     p = m_pm.mk_linear(1, &one, &x, -lo);
                     poly* p1 = p.get();
                     m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
@@ -1359,7 +1359,7 @@ namespace nlsat {
             for (unsigned i = 0; i < m_bvalues.size(); ++i) {
                 m_bvalues[i] = l_undef;
             }
-            m_assignment.reset();
+            m_assignment.clear();
         }
 
         lbool check(literal_vector& assumptions) {
@@ -1385,7 +1385,7 @@ namespace nlsat {
             collect(assumptions, m_clauses);
             collect(assumptions, m_learned);
             
-            assumptions.reset();
+            assumptions.clear();
             assumptions.append(result);
             return r;
         }
@@ -1522,7 +1522,7 @@ namespace nlsat {
                   }
                   display_mathematica_lemma(tout, core.size(), core.c_ptr(), true););
 
-            m_lazy_clause.reset();
+            m_lazy_clause.clear();
             m_explain(jst.size(), jst.lits(), m_lazy_clause);
             for (unsigned i = 0; i < sz; i++)
                 m_lazy_clause.push_back(~jst[i]);
@@ -1673,7 +1673,7 @@ namespace nlsat {
                   tout << "current assignment\n"; display_assignment(tout););
             
             m_num_marks = 0;
-            m_lemma.reset();
+            m_lemma.clear();
             m_lemma_assumptions = nullptr;
 
             resolve_clause(null_bool_var, *conflict_clause);
@@ -1920,7 +1920,7 @@ namespace nlsat {
 
             var_vector      m_vars;
             void collect(poly * p) {
-                m_vars.reset();
+                m_vars.clear();
                 pm.vars(p, m_vars);
                 unsigned sz = m_vars.size(); 
                 for (unsigned i = 0; i < sz; i++) {
@@ -2187,7 +2187,7 @@ namespace nlsat {
         void reset_watches() {
             unsigned num = num_vars();
             for (var x = 0; x < num; x++) {
-                m_watches[x].reset();
+                m_watches[x].clear();
             }
         }
 
@@ -2223,8 +2223,8 @@ namespace nlsat {
             if (sz <= 1)
                 return;
             TRACE("nlsat_reorder_clauses", tout << "before:\n"; for (unsigned i = 0; i < sz; i++) { display(tout, *(cs[i])); tout << "\n"; });
-            m_cs_degrees.reset();
-            m_cs_p.reset();
+            m_cs_degrees.clear();
+            m_cs_p.clear();
             for (unsigned i = 0; i < sz; i++) {
                 m_cs_p.push_back(i);
                 m_cs_degrees.push_back(degree(*(cs[i])));
@@ -2368,8 +2368,8 @@ namespace nlsat {
                 if (a && a->is_ineq_atom()) {
                     ineq_atom const& a1 = *to_ineq_atom(a);
                     unsigned sz = a1.size();
-                    ps.reset();
-                    even.reset();
+                    ps.clear();
+                    even.clear();
                     bool change = false;
                     for (unsigned i = 0; i < sz; ++i) {
                         poly * po = a1.p(i);
@@ -2378,8 +2378,8 @@ namespace nlsat {
                         even.push_back(a1.is_even(i));
                         change |= pr != po;
                         if (m_pm.is_zero(pr)) {
-                            ps.reset();
-                            even.reset();
+                            ps.clear();
+                            even.clear();
                             change = true;
                             break;
                         }
@@ -2405,7 +2405,7 @@ namespace nlsat {
             unsigned n = m_clauses.size();
             for (unsigned i = 0; i < n; ++i) {
                 clause* c = m_clauses[i];
-                lits.reset();
+                lits.clear();
                 bool changed = false;
                 bool is_tautology = false;
                 for (literal l : *c) {               
@@ -2499,7 +2499,7 @@ namespace nlsat {
         vector<lbool> m_var_signs;
 
         void init_var_signs() {
-            m_var_signs.reset();
+            m_var_signs.clear();
             for (clause* cp : m_clauses) {
                 clause& c = *cp;
                 var x = 0;
@@ -3168,7 +3168,7 @@ namespace nlsat {
     }
 
     void solver::get_bvalues(vector<lbool>& vs) {
-        vs.reset();
+        vs.clear();
         unsigned sz = m_imp->m_bvalues.size();
         for (bool_var b = 0; b < sz; ++b) {
             if (m_imp->m_atoms[b] == nullptr) {
@@ -3183,7 +3183,7 @@ namespace nlsat {
 
     void solver::set_bvalues(vector<lbool> const& vs) {
         TRACE("nlsat", display(tout););
-        m_imp->m_bvalues.reset();
+        m_imp->m_bvalues.clear();
         m_imp->m_bvalues.append(vs);
         m_imp->m_bvalues.resize(m_imp->m_atoms.size(), l_undef);        
         TRACE("nlsat", display(tout););

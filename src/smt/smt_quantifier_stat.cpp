@@ -40,7 +40,7 @@ namespace smt {
 
     void quantifier_stat_gen::reset() {
         m_already_found.reset();
-        m_todo.reset();
+        m_todo.clear();
         m_case_split_factor = 1;
     }
 

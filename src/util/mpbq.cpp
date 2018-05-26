@@ -60,7 +60,7 @@ void mpbq_manager::reset(mpbq_vector & v) {
     unsigned sz = v.size();
     for (unsigned i = 0; i < sz; i++)
         reset(v[i]);
-    v.reset();
+    v.clear();
 }
 
 void mpbq_manager::normalize(mpbq & a) {

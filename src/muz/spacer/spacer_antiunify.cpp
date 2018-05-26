@@ -46,7 +46,7 @@ struct var_abs_rewriter : public default_rewriter_cfg {
         m_pinned(m), m_substitution(substitution) {}
 
     void reset(unsigned k = 0) {
-        m_pinned.reset();
+        m_pinned.clear();
         m_var_index = k;
     }
 
@@ -107,10 +107,10 @@ struct var_abs_rewriter : public default_rewriter_cfg {
 anti_unifier::anti_unifier(ast_manager &manager) : m(manager), m_pinned(m) {}
 
 void anti_unifier::reset() {
-    m_subs.reset();
+    m_subs.clear();
     m_cache.reset();
-    m_todo.reset();
-    m_pinned.reset();
+    m_todo.clear();
+    m_pinned.clear();
 }
 
 void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,

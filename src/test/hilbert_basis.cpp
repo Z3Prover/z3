@@ -169,7 +169,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
         fmls.push_back(fml);
     }
     fml1 = m.mk_or(fmls.size(), fmls.c_ptr());
-    fmls.reset();
+    fmls.clear();
 
     sz = hb.get_num_ineqs();
     for (unsigned i = 0; i < sz; ++i) {
@@ -196,7 +196,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
     fml2 = m.mk_and(fmls.size(), fmls.c_ptr());
     fml = m.mk_eq(fml1, fml2);
 
-    bounds.reset();
+    bounds.clear();
     for (unsigned i = 0; i < xs.size(); ++i) {
         if (!hb.get_is_int(i)) {
             bounds.push_back(a.mk_ge(xs[i].get(), a.mk_numeral(rational(0), true)));

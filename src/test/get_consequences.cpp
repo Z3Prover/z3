@@ -85,7 +85,7 @@ void test2() {
 
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
     std::cout << conseq << "\n";
-    conseq.reset();
+    conseq.clear();
 
     fd_solver->push();
     fd_solver->assert_expr(m.mk_not(m.mk_eq(x, g)));
@@ -95,7 +95,7 @@ void test2() {
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
 
     std::cout << conseq << "\n";
-    conseq.reset();
+    conseq.clear();
 
     model_ref mr;
     fd_solver->get_model(mr);

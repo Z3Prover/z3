@@ -27,8 +27,8 @@ template<typename T>
 class scoped_ptr_vector {
     ptr_vector<T> m_vector;
 public:
-    ~scoped_ptr_vector() { reset(); }
-    void reset() { std::for_each(m_vector.begin(), m_vector.end(), delete_proc<T>()); m_vector.reset(); }
+    ~scoped_ptr_vector() { clear(); }
+    void clear() { std::for_each(m_vector.begin(), m_vector.end(), delete_proc<T>()); m_vector.clear(); }
     void push_back(T * ptr) { m_vector.push_back(ptr); }
     void pop_back() { SASSERT(!empty()); set(size()-1, nullptr); m_vector.pop_back(); }
     T * back() const { return m_vector.back(); }

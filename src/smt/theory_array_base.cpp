@@ -356,13 +356,13 @@ namespace smt {
         while (can_propagate()) {
             for (unsigned i = 0; i < m_axiom1_todo.size(); i++)
                 assert_store_axiom1_core(m_axiom1_todo[i]);
-            m_axiom1_todo.reset();
+            m_axiom1_todo.clear();
             for (unsigned i = 0; i < m_axiom2_todo.size(); i++)
                 assert_store_axiom2_core(m_axiom2_todo[i].first, m_axiom2_todo[i].second);
-            m_axiom2_todo.reset();
+            m_axiom2_todo.clear();
             for (unsigned i = 0; i < m_extensionality_todo.size(); i++)
                 assert_extensionality_core(m_extensionality_todo[i].first, m_extensionality_todo[i].second);
-            m_extensionality_todo.reset();
+            m_extensionality_todo.clear();
         }
     }
 
@@ -529,9 +529,9 @@ namespace smt {
     }
 
     void theory_array_base::reset_queues() {
-        m_axiom1_todo.reset();
-        m_axiom2_todo.reset();
-        m_extensionality_todo.reset();
+        m_axiom1_todo.clear();
+        m_axiom2_todo.clear();
+        m_extensionality_todo.clear();
     }
 
 
@@ -629,9 +629,9 @@ namespace smt {
 
     void theory_array_base::collect_defaults() {
         int num_vars = get_num_vars();
-        m_defaults.reset();
-        m_else_values.reset();
-        m_parents.reset();
+        m_defaults.clear();
+        m_else_values.clear();
+        m_parents.clear();
         m_parents.resize(num_vars, -1);
         m_defaults.resize(num_vars);
         m_else_values.resize(num_vars);
@@ -705,8 +705,8 @@ namespace smt {
         int num_vars = get_num_vars();
 
         m_selects.reset();
-        m_selects_domain.reset();
-        m_selects_range.reset();
+        m_selects_domain.clear();
+        m_selects_range.clear();
 
         for (theory_var v = 0; v < num_vars; ++v) {
             enode * r = get_enode(v)->get_root();                

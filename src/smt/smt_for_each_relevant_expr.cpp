@@ -125,7 +125,7 @@ namespace smt {
     }
 
     void for_each_relevant_expr::reset() {
-        m_todo.reset();
+        m_todo.clear();
         m_cache.reset();
     }
 
@@ -144,7 +144,7 @@ namespace smt {
         TRACE("for_each_relevant_expr", tout << "processing:\n" << mk_pp(n, m_manager) << "\n";);
         if (m_cache.contains(n))
             return;
-        m_todo.reset();
+        m_todo.clear();
         m_todo.push_back(n);
         while (!m_todo.empty()) {
             expr * curr = m_todo.back();

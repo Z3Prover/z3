@@ -50,10 +50,10 @@ namespace smt {
     }
 
     void model_generator::reset() {
-        m_extra_fresh_values.reset();
+        m_extra_fresh_values.clear();
         m_fresh_idx = 1;
         m_root2value.reset();
-        m_asts.reset();
+        m_asts.clear();
         m_model = nullptr;
     }
 
@@ -325,7 +325,7 @@ namespace smt {
                 SASSERT(n->get_root() == n);
                 TRACE("mg_top_sort", tout << curr << "\n";);
                 dependencies.clear();
-                dependency_values.reset();
+                dependency_values.clear();
                 model_value_proc * proc = root2proc[n];
                 SASSERT(proc);
                 proc->get_dependencies(dependencies);
@@ -354,7 +354,7 @@ namespace smt {
         }
         std::for_each(procs.begin(), procs.end(), delete_proc<model_value_proc>());
         std::for_each(m_extra_fresh_values.begin(), m_extra_fresh_values.end(), delete_proc<extra_fresh_value>());
-        m_extra_fresh_values.reset();
+        m_extra_fresh_values.clear();
         
         // send model
         for (enode * n : m_context->enodes()) {

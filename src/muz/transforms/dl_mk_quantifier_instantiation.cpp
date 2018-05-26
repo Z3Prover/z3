@@ -45,8 +45,8 @@ namespace datalog {
     }
 
     void mk_quantifier_instantiation::extract_quantifiers(rule& r, expr_ref_vector& conjs, quantifier_ref_vector& qs) {
-        conjs.reset();
-        qs.reset();
+        conjs.clear();
+        qs.clear();
         unsigned tsz = r.get_tail_size();
         for (unsigned j = 0; j < tsz; ++j) {
             conjs.push_back(r.get_tail(j));            
@@ -86,7 +86,7 @@ namespace datalog {
 
 
     void mk_quantifier_instantiation::instantiate_quantifier(quantifier* q, app* pat, expr_ref_vector & conjs) {
-        m_binding.reset();
+        m_binding.clear();
         m_binding.resize(q->get_num_decls());
         term_pairs todo;
         match(0, pat, 0, todo, q, conjs);
@@ -202,7 +202,7 @@ namespace datalog {
         ptr_vector<sort> sorts;
         r.get_vars(m, sorts);
         m_uf.reset();
-        m_terms.reset();
+        m_terms.clear();
         m_var2cnst.reset();
         m_cnst2var.reset();
         fml = m.mk_and(conjs.size(), conjs.c_ptr());

@@ -87,7 +87,7 @@ namespace opt {
         for (unsigned i = 0; eq && i < hard.size(); ++i) {
             eq = hard.get(i) == m_hard.get(i);
         }
-        m_hard.reset();
+        m_hard.clear();
         m_hard.append(hard);
         return !eq;
     }
@@ -169,7 +169,7 @@ namespace opt {
         clear_state();
         reset_maxsmts();
         m_optsmt.reset();        
-        m_hard_constraints.reset();
+        m_hard_constraints.clear();
     }
 
     void context::get_labels(vector<symbol> & r) {
@@ -249,8 +249,8 @@ namespace opt {
     void context::import_scoped_state() {
         m_optsmt.reset();        
         reset_maxsmts();
-        m_objectives.reset();
-        m_hard_constraints.reset();
+        m_objectives.clear();
+        m_hard_constraints.clear();
         scoped_state& s = m_scoped_state;        
         for (unsigned i = 0; i < s.m_objectives.size(); ++i) {
             objective& obj = s.m_objectives[i];
@@ -490,7 +490,7 @@ namespace opt {
             return l_false;
         }
         m_box_index = 1;
-        m_box_models.reset();
+        m_box_models.clear();
         lbool r = m_optsmt.box();
         for (unsigned i = 0, j = 0; r == l_true && i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
@@ -825,7 +825,7 @@ namespace opt {
         SASSERT(result.size() == 1);
         goal* r = result[0];
         m_model_converter = r->mc();
-        fmls.reset();
+        fmls.clear();
         expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {
             if (asms.empty()) {
@@ -1020,7 +1020,7 @@ namespace opt {
 
     void context::from_fmls(expr_ref_vector const& fmls) {
         TRACE("opt", tout << fmls << "\n";);
-        m_hard_constraints.reset();
+        m_hard_constraints.clear();
         for (expr * fml : fmls) {
             app_ref tr(m);
             expr_ref orig_term(m);
@@ -1043,9 +1043,9 @@ namespace opt {
                 mk_atomic(terms);
                 SASSERT(obj.m_id == id);
                 obj.m_term = orig_term?to_app(orig_term):nullptr;
-                obj.m_terms.reset();
+                obj.m_terms.clear();
                 obj.m_terms.append(terms);
-                obj.m_weights.reset();
+                obj.m_weights.clear();
                 obj.m_weights.append(weights);
                 obj.m_adjust_value.set_offset(offset);
                 obj.m_adjust_value.set_negate(neg);
@@ -1459,8 +1459,8 @@ namespace opt {
         m_pareto = nullptr;
         m_box_index = UINT_MAX;
         m_model.reset();
-        m_model_fixed.reset();
-        m_core.reset();
+        m_model_fixed.clear();
+        m_core.clear();
     }
 
     void context::set_pareto(pareto_base* p) {

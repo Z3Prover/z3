@@ -33,11 +33,11 @@ namespace datalog {
     }
 
     void mk_unbound_compressor::reset() {
-        m_rules.reset();
-        m_todo.reset();
+        m_rules.clear();
+        m_todo.clear();
         m_in_progress.reset();
         m_map.reset();
-        m_pinned.reset();
+        m_pinned.clear();
     }
 
     bool mk_unbound_compressor::is_unbound_argument(rule * r, unsigned head_index) {
@@ -265,7 +265,7 @@ namespace datalog {
     }
     
     void mk_unbound_compressor::add_in_progress_indices(unsigned_vector& arg_indices, app* p) {
-        arg_indices.reset();
+        arg_indices.clear();
         for (unsigned i = 0; i < p->get_num_args(); ++i) {
             if (m_in_progress.contains(c_info(p->get_decl(), i))) {
                 SASSERT(m_map.contains(c_info(p->get_decl(), i)));

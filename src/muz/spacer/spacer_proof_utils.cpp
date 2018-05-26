@@ -204,7 +204,7 @@ namespace spacer {
 
     void theory_axiom_reducer::reset() {
         m_cache.reset();
-        m_pinned.reset();
+        m_pinned.clear();
     }
 
     static proof_ref  mk_th_lemma(ast_manager &m, ptr_buffer<proof> const &parents,
@@ -481,8 +481,8 @@ namespace spacer {
         m_units.reset();
         m_cache.reset();
         for (auto t : m_pinned_active_hyps) dealloc(t);
-        m_pinned_active_hyps.reset();
-        m_pinned.reset();
+        m_pinned_active_hyps.clear();
+        m_pinned.clear();
         m_hyp_mark.reset();
         m_open_mark.reset();
         m_visited.reset();

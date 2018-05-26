@@ -569,7 +569,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
         }
         pos_lits.reset();
         neg_lits.reset();
-        old_args.reset();
+        old_args.clear();
         old_args.swap(new_args);
         SASSERT(new_args.empty());
         args     = old_args.c_ptr();

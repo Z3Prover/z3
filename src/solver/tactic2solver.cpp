@@ -186,7 +186,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             if (!reason_unknown.empty())
                 m_result->m_unknown = reason_unknown;
             if (num_assumptions == 0 && m_scopes.empty()) {
-                m_assertions.reset();
+                m_assertions.clear();
                 g->get_formulas(m_assertions);
             }
             break;

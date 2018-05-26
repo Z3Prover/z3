@@ -113,7 +113,7 @@ public:
         m_idx++;
     }
     void set_next_arg(cmd_context & ctx, unsigned num, symbol const * s) override {
-        m_subst.reset();
+        m_subst.clear();
         unsigned i = num;
         while (i > 0) {
             --i;
@@ -275,7 +275,7 @@ public:
     char const * get_usage() const override { return "<quantifier> (<symbol>*)"; }
     char const * get_descr(cmd_context & ctx) const override { return "instantiate the quantifier using the given expressions."; }
     unsigned get_arity() const override { return 2; }
-    void prepare(cmd_context & ctx) override { m_q = nullptr; m_args.reset(); }
+    void prepare(cmd_context & ctx) override { m_q = nullptr; m_args.clear(); }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         if (m_q == nullptr) return CPK_EXPR;
@@ -355,7 +355,7 @@ public:
     void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
         m_vars.append(num, ts);
     }
-    void prepare(cmd_context & ctx) override { m_fml = nullptr; m_vars.reset(); }
+    void prepare(cmd_context & ctx) override { m_fml = nullptr; m_vars.clear(); }
     void execute(cmd_context & ctx) override { 
         ast_manager& m = ctx.m();
         app_ref_vector vars(m);
@@ -399,7 +399,7 @@ public:
     void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
         m_vars.append(num, ts);
     }
-    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr; m_vars.reset(); }
+    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr; m_vars.clear(); }
     void execute(cmd_context & ctx) override { 
         ast_manager& m = ctx.m();
         func_decl_ref_vector vars(m);
@@ -449,7 +449,7 @@ public:
     void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
         m_vars.append(num, ts);
     }
-    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr; m_vars.reset(); }
+    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr; m_vars.clear(); }
     void execute(cmd_context & ctx) override { 
         ast_manager& m = ctx.m();
         func_decl_ref_vector vars(m);
@@ -498,7 +498,7 @@ public:
     void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
         m_vars.append(num, ts);
     }
-    void prepare(cmd_context & ctx) override { m_arg_index = 0; m_lits.reset(); m_vars.reset(); }
+    void prepare(cmd_context & ctx) override { m_arg_index = 0; m_lits.clear(); m_vars.clear(); }
     void execute(cmd_context & ctx) override { 
         ast_manager& m = ctx.m();
         func_decl_ref_vector vars(m);

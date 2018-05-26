@@ -85,7 +85,7 @@ public:
 
     void fill_non_basis_with_only_able_to_enter_columns() {
         auto & nb = this->m_nbasis;
-        nb.reset();
+        nb.clear();
         unsigned j = this->m_n();
         while (j--) {
             if (this->m_basis_heading[j] >= 0 || !m_can_enter_basis[j]) continue;

@@ -117,7 +117,7 @@ namespace smt {
             theory_utvpi& m_super;
         public:
             nc_functor(theory_utvpi& s) : m_super(s) {}
-            void reset() { m_antecedents.reset(); m_coeffs.reset(); }
+            void reset() { m_antecedents.clear(); m_coeffs.clear(); }
             literal_vector const& get_lits() const { return m_antecedents; }
             unsigned_vector const& get_coeffs() const { return m_coeffs; }
 

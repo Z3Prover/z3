@@ -36,7 +36,7 @@ namespace datalog {
         vector<rational>          b;
         vector<bool>             eq;
         unsigned size() const { return A.size(); }
-        void reset() { A.reset(); b.reset(); eq.reset(); }
+        void reset() { A.clear(); b.clear(); eq.clear(); }
         matrix& operator=(matrix const& other);
         void append(matrix const& other) { A.append(other.A); b.append(other.b); eq.append(other.eq); }
         void display(std::ostream& out) const;

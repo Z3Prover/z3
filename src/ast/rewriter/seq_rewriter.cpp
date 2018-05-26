@@ -604,7 +604,7 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     zstring b;
-    m_es.reset();
+    m_es.clear();
     m_util.str.get_concat(a, m_es);
     unsigned len = 0;
     unsigned j = 0;
@@ -1299,7 +1299,7 @@ void seq_rewriter::add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned
 }
 
 bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
-    seq.reset();
+    seq.clear();
     unsigned state = aut.init();
     uint_set visited;
     eautomaton::moves mvs;
@@ -1327,9 +1327,9 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
         }
         seq.push_back(m_util.str.mk_unit(t->get_char()));
         state = mvs[0].dst();
-        mvs.reset();
+        mvs.clear();
         aut.get_moves_from(state, mvs, true);
-        states.reset();
+        states.clear();
         has_final = false;
         aut.get_epsilon_closure(state, states);
         for (unsigned i = 0; !has_final && i < states.size(); ++i) {
@@ -1340,7 +1340,7 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
 }
 
 bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
-    seq.reset();
+    seq.clear();
     zstring s;
     ptr_vector<expr> todo;
     expr *e1, *e2;
@@ -1419,7 +1419,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         next.reset();
         u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
         for (; it != end; ++it) {
-            mvs.reset();
+            mvs.clear();
             unsigned state = it->m_key;
             expr*    acc  = it->m_value;
             aut->get_moves_from(state, mvs, false);
@@ -1913,20 +1913,20 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     expr* const* _ls = ls.c_ptr() + head1, * const* _rs = rs.c_ptr() + head2;
 
     if (solve_itos(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
-        ls.reset(); rs.reset();
+        ls.clear(); rs.clear();
         change = true;
         return is_sat;
     }
 
     if (length_constrained(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
-        ls.reset(); rs.reset();
+        ls.clear(); rs.clear();
         change = true;
         return is_sat;
     }
 
     if (szr == 0 && szl == 0) {
-        ls.reset();
-        rs.reset();
+        ls.clear();
+        rs.clear();
         return true;
     }
     if (szr == 0 && szl > 0) {
@@ -1938,12 +1938,12 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
             lchange |= szr > 1; 
             change  |= szr > 1;
             if (szr == 1 && !lchange) {
-                lhs.reset();
-                rhs.reset();
+                lhs.clear();
+                rhs.clear();
             }
             else {
-                ls.reset();        
-                rs.reset();
+                ls.clear();        
+                rs.clear();
             }
             return true;
         }
@@ -1954,7 +1954,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     SASSERT(szl > 0 && szr > 0);
 
     if (is_subsequence(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
-        ls.reset(); rs.reset();
+        ls.clear(); rs.clear();
         change = true;
         return is_sat;
     }
@@ -1995,8 +1995,8 @@ void seq_rewriter::add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs
 
 
 bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& changed) {
-    m_lhs.reset();
-    m_rhs.reset();
+    m_lhs.clear();
+    m_rhs.clear();
     m_util.str.get_concat(l, m_lhs);
     m_util.str.get_concat(r, m_rhs);
     bool change = false;
@@ -2019,7 +2019,7 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
 }
 
 bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
-    m_lhs.reset();
+    m_lhs.clear();
     m_util.str.get_concat(a, m_lhs);
     TRACE("seq", tout << expr_ref(a, m()) << " " << expr_ref(b, m()) << "\n";);
     zstring s;

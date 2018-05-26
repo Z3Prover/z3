@@ -72,7 +72,7 @@ class bv2real_util {
 public:
     bv2real_util(ast_manager& m, rational const& default_root, rational const& default_divisor, unsigned max_num_bits);
 
-    void reset() { m_side_conditions.reset(); }
+    void reset() { m_side_conditions.clear(); }
 
     bool is_bv2real(func_decl* f) const;
     bool is_bv2real(func_decl* f, unsigned num_args, expr* const* args, 

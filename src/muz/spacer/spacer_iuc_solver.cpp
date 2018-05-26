@@ -165,7 +165,7 @@ namespace spacer {
     void iuc_solver::def_manager::reset () {
         m_expr2proxy.reset ();
         m_proxy2def.reset ();
-        m_defs.reset ();
+        m_defs.clear();
     }
 
     bool iuc_solver::def_manager::is_proxy_def (expr *v) {
@@ -249,7 +249,7 @@ namespace spacer {
         scoped_ptr<expr_replacer> rep = mk_expr_simp_replacer (m);
         rep->set_substitution (&m_elim_proxies_sub);
         (*rep)(f);
-        v.reset();
+        v.clear();
         flatten_and(f, v);
     }
     

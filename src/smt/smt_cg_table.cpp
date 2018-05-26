@@ -139,7 +139,7 @@ namespace smt {
                 break;
             }
         }
-        m_tables.reset();
+        m_tables.clear();
         for (auto const& kv : m_func_decl2id) {
             m_manager.dec_ref(kv.m_key);
         }

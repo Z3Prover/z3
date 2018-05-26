@@ -588,7 +588,7 @@ private:
         unsigned_vector to_remove;
         while (change) {
             change = false;
-            to_remove.reset();
+            to_remove.clear();
             for (unsigned s : dead_states) {
                 moves const& mvs = m_delta[s];
                 for (move const& mv : mvs) {
@@ -602,12 +602,12 @@ private:
             for (unsigned s : to_remove) {
                 dead_states.remove(s);
             }
-            to_remove.reset();
+            to_remove.clear();
         }
         TRACE("seq", tout << "remove: " << dead_states << "\n";);
         for (unsigned s : dead_states) {
             CTRACE("seq", !m_delta[s].empty(), tout << "live state " << s << "\n";); 
-            m_delta[s].reset();
+            m_delta[s].clear();
         }
     }
 
@@ -662,8 +662,8 @@ private:
     mutable unsigned_vector m_states1, m_states2;
     
     void get_moves(unsigned state, vector<moves> const& delta, moves& mvs, bool epsilon_closure) const {
-        m_states1.reset(); 
-        m_states2.reset();
+        m_states1.clear(); 
+        m_states2.clear();
         get_epsilon_closure(state, delta, m_states1);
         for (unsigned i = 0; i < m_states1.size(); ++i) {
             state = m_states1[i];
@@ -672,7 +672,7 @@ private:
                 move const& mv = mv1[j];
                 if (!mv.is_epsilon()) {
                     if (epsilon_closure) {
-                        m_states2.reset();
+                        m_states2.clear();
                         get_epsilon_closure(mv.dst(), delta, m_states2);
                         for (unsigned k = 0; k < m_states2.size(); ++k) {
                             mvs.push_back(move(m, state, m_states2[k], mv.t()));                            
@@ -702,7 +702,7 @@ private:
                 }
             }
         }
-        m_visited.reset();
+        m_visited.clear();
         SASSERT(m_todo.empty());   
     }
 

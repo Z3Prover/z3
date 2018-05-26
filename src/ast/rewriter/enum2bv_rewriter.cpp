@@ -270,7 +270,7 @@ struct enum2bv_rewriter::imp {
 
     void flush_side_constraints(expr_ref_vector& side_constraints) { 
         side_constraints.append(m_bounds);  
-        m_bounds.reset(); 
+        m_bounds.clear(); 
     }
 
     bool is_fd(sort* s) {

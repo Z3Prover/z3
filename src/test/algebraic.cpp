@@ -59,7 +59,7 @@ static void tst1() {
 
     p = (x^2) - 2;
     std::cout << "p: " << p << "\n";
-    rs1.reset();
+    rs1.clear();
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
     ENSURE(rs1.size() == 2);
@@ -85,7 +85,7 @@ static void tst1() {
 
     p = ((x^5) - x - 1)*(x-1)*(x-2);
     std::cout << "p: " << p << "\n";
-    rs1.reset();
+    rs1.clear();
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
     ENSURE(rs1.size() == 3);
@@ -101,7 +101,7 @@ static void tst1() {
 
     p = ((x^2) - 2)*((x^2) - 3);
     std::cout << "p: " << p << "\n";
-    rs1.reset();
+    rs1.clear();
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
     ENSURE(rs1.size() == 4);
@@ -156,7 +156,7 @@ static void tst1() {
 
     p = (998*x - 1414)*((x^2) - 15);
     std::cout << "p: " << p << "\n";
-    rs1.reset();
+    rs1.clear();
     am.isolate_roots(p, rs1);
 
     std::cout << "is-rational(sqrt2): " << am.is_rational(sqrt2) << "\n";
@@ -173,7 +173,7 @@ static void tst1() {
 
     p = (x^16) - 136*(x^14) + 6476*(x^12) - 141912*(x^10) + 1513334*(x^8) - 7453176*(x^6) + 13950764*(x^4) - 5596840*(x^2) + 46225;
     std::cout << "p: " << p << "\n";
-    rs1.reset();
+    rs1.clear();
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
 }

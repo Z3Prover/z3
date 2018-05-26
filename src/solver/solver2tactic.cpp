@@ -39,9 +39,9 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
         }
         else {
             // create clause (not d1 \/ ... \/ not dn \/ f) when the d's are the assumptions/dependencies of f.
-            clause.reset();
+            clause.clear();
             clause.push_back(f);
-            deps.reset();
+            deps.clear();
             m.linearize(d, deps);
             SASSERT(!deps.empty()); // d != 0, then deps must not be empty
             ptr_vector<expr>::iterator it  = deps.begin();

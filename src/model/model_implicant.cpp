@@ -89,7 +89,7 @@ void model_implicant::reset() {
     m_values.reset();
     m_visited.reset();
     m_numbers.reset();
-    m_refs.reset();
+    m_refs.clear();
     m_model = nullptr;
 }
 

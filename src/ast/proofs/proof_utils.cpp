@@ -99,7 +99,7 @@ class reduce_hypotheses {
         m_units.reset();
         m_hyps.reset();
         m_hypmark.reset();
-        m_pinned.reset();
+        m_pinned.clear();
     }
 
     bool compute_mark1(proof *pr)
@@ -145,7 +145,7 @@ class reduce_hypotheses {
     {
         proof *res = nullptr;
 
-        m_todo.reset();
+        m_todo.clear();
         m_todo.push_back(pf);
         ptr_buffer<proof> args;
         bool dirty = false;
@@ -357,15 +357,15 @@ class reduce_hypotheses0 {
     ptr_vector<expr>      m_literals;
     
     void reset() {
-        m_refs.reset();
+        m_refs.clear();
         m_cache.reset();
         m_units.reset();
-        m_units_trail.reset();
-        m_limits.reset();
+        m_units_trail.clear();
+        m_limits.clear();
         std::for_each(m_hyprefs.begin(), m_hyprefs.end(), delete_proc<expr_set>());
         m_hypmap.reset();
-        m_hyprefs.reset();
-        m_literals.reset();
+        m_hyprefs.clear();
+        m_literals.clear();
     }
     
     void push() {
@@ -382,7 +382,7 @@ class reduce_hypotheses0 {
     }
     
     void get_literals(expr* clause) {
-        m_literals.reset();
+        m_literals.clear();
         if (m.is_or(clause)) {
             m_literals.append(to_app(clause)->get_num_args(), to_app(clause)->get_args());                
         }
@@ -520,7 +520,7 @@ public:
             // when hypothesis is a single literal of the form 
             // (or A B), and the fact of p is (or A B).            
             if (hyps && hyps->size() == 1 && in_hypotheses(fact, hyps)) {
-                m_literals.reset();
+                m_literals.clear();
                 m_literals.push_back(fact);
             }
             else {
@@ -755,7 +755,7 @@ class proof_is_closed {
     ast_mark         m_visit;
 
     void reset() {
-        m_literals.reset();
+        m_literals.clear();
         m_visit.reset();
     }
 
@@ -937,7 +937,7 @@ private:
             for (unsigned i = 0; i < premises.size(); ++i) {
                 compose(substs[i], sub);
                 premises[i] = push(premises[i].get(), substs[i]);
-                substs[i].reset();
+                substs[i].clear();
             }
             instantiate(sub, conclusion);
             return 

@@ -190,7 +190,7 @@ class lia2pb_tactic : public tactic {
             m_produce_unsat_cores = g->unsat_core_enabled();
             result.clear();
             tactic_report report("lia2pb", *g);
-            m_bm.reset(); m_rw.reset(); m_new_deps.reset();
+            m_bm.reset(); m_rw.reset(); m_new_deps.clear();
 
             if (g->inconsistent()) {
                 result.push_back(g.get());

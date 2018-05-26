@@ -94,21 +94,21 @@ void static_features::reset() {
     m_num_simple_eqs                       = 0;
     m_num_simple_ineqs                     = 0;
     m_num_non_linear                       = 0;
-    m_num_apps                             .reset();
-    m_num_theory_terms                     .reset();
-    m_num_theory_atoms                     .reset();
-    m_num_theory_constants                 .reset();
-    m_num_theory_eqs                       .reset();
+    m_num_apps                             .clear();
+    m_num_theory_terms                     .clear();
+    m_num_theory_atoms                     .clear();
+    m_num_theory_constants                 .clear();
+    m_num_theory_eqs                       .clear();
     m_num_aliens                           = 0;
-    m_num_aliens_per_family                .reset();
+    m_num_aliens_per_family                .clear();
     m_num_theories                         = 0;
-    m_theories                             .reset();
+    m_theories                             .clear();
     m_max_stack_depth                      = 500;
     flush_cache();
 }
 
 void static_features::flush_cache() {
-    m_expr2depth.reset(); 
+    m_expr2depth.clear(); 
     m_expr2or_and_depth.reset();
     m_expr2ite_depth.reset();
     m_expr2formula_depth.reset();

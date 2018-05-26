@@ -59,7 +59,7 @@ namespace smt {
             eval_cache(ast_manager& m): m_trail(m) {}
             bool find(expr* v, expr_dep& r) const { return m_map.find(v, r); }
             void insert(expr* v, expr_dep& r) { m_trail.push_back(v); m_trail.push_back(r.first); m_map.insert(v, r); }
-            void reset() { m_map.reset(); m_trail.reset(); }
+            void reset() { m_map.reset(); m_trail.clear(); }
         };
         
         // map from variables to representatives 
@@ -126,8 +126,8 @@ namespace smt {
             eq(eq const& other): m_id(other.m_id), m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_dep(other.m_dep) {}
             eq& operator=(eq const& other) {
                 if (this != &other) {
-                    m_lhs.reset(); 
-                    m_rhs.reset();
+                    m_lhs.clear(); 
+                    m_rhs.clear();
                     m_lhs.append(other.m_lhs); 
                     m_rhs.append(other.m_rhs); 
                     m_dep = other.m_dep;
@@ -177,9 +177,9 @@ namespace smt {
                 if (this != &other) {
                     m_l = other.m_l;
                     m_r = other.m_r;
-                    m_lhs.reset();  m_lhs.append(other.m_lhs);
-                    m_rhs.reset();  m_rhs.append(other.m_rhs); 
-                    m_lits.reset(); m_lits.append(other.m_lits); 
+                    m_lhs.clear();  m_lhs.append(other.m_lhs);
+                    m_rhs.clear();  m_rhs.append(other.m_rhs); 
+                    m_lits.clear(); m_lits.append(other.m_lits); 
                     m_dep = other.m_dep; 
                 }
                 return *this; 

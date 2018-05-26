@@ -19,8 +19,8 @@ namespace karr {
         unsigned size() const { return A.size(); }
 
         void reset() {
-            A.reset();
-            b.reset();
+            A.clear();
+            b.clear();
         }
 
         matrix& operator=(matrix const& other) {

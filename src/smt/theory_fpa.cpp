@@ -397,7 +397,7 @@ namespace smt {
             ctx.get_rewriter()(*it, t, t_pr);
             res = m.mk_and(res, t);
         }
-        m_converter.m_extra_assertions.reset();
+        m_converter.m_extra_assertions.clear();
 
         m_th_rw(res);
 

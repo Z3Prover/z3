@@ -538,7 +538,7 @@ unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector c
     if (m_overlap.find(pair, result)) {
         return result;
     }
-    result.reset();
+    result.clear();
     for (unsigned i = 0; i < ls.size(); ++i) {
         if (eq_unit(ls[i], rs.back())) {
             bool same = rs.size() > i;
@@ -1124,7 +1124,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
         if (e.rs().size() > 1 && is_var(e.rs().get(0)))
             nl_fst = e.rs().get(0);
         if (nl_fst && nl_fst != r_fst && root2 == get_root(mk_len(nl_fst))) {
-            res.reset();
+            res.clear();
             res.append(e.rs().size(), e.rs().c_ptr());
             deps = m_dm.mk_join(e.dep(), deps);
             return true;
@@ -1163,7 +1163,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
                 if (ctx.e_internalized(len_nl_fst)) {
                     enode * root1 = ctx.get_enode(len_nl_fst)->get_root();
                     if (!m_autil.is_numeral(root1->get_owner()) && tmp.find(root1, offset)) {
-                        res.reset();
+                        res.clear();
                         res.append(e.rs().size(), e.rs().c_ptr());
                         deps = m_dm.mk_join(e.dep(), deps);
                         find_max_eq_len(res, rs);
@@ -2041,7 +2041,7 @@ bool theory_seq::check_extensionality() {
                     continue;
                 }
                 expr_ref e2 = canonize(n2->get_owner(), dep);
-                m_lhs.reset(); m_rhs.reset();
+                m_lhs.clear(); m_rhs.clear();
                 bool change = false;
                 if (!m_seq_rewrite.reduce_eq(e1, e2, m_lhs, m_rhs, change)) {
                     m_exclude.update(o1, o2);
@@ -2349,7 +2349,7 @@ bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& 
 bool theory_seq::reduce_length(expr* l, expr* r, literal_vector& lits) {
 
     expr_ref len1(m), len2(m);
-    lits.reset();
+    lits.clear();
     if (get_length(l, len1, lits) &&
         get_length(r, len2, lits) && len1 == len2) {
         return true;
@@ -2394,7 +2394,7 @@ bool theory_seq::occurs(expr* a, expr* b) {
     while (!m_todo.empty()) {
         b = m_todo.back();
         if (a == b || m.is_ite(b)) {
-            m_todo.reset();
+            m_todo.clear();
             return true;
         }
         m_todo.pop_back();
@@ -2459,7 +2459,7 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
     context& ctx = get_context();
     expr_ref_vector& ls = m_ls;
     expr_ref_vector& rs = m_rs;
-    rs.reset(); ls.reset();
+    rs.clear(); ls.clear();
     dependency* dep2 = nullptr;
     bool change = canonize(l, ls, dep2);
     change = canonize(r, rs, dep2) || change;
@@ -2537,8 +2537,8 @@ bool theory_seq::propagate_max_length(expr* l, expr* r, dependency* deps) {
 bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y) {
     if (ls.size() > 1 && is_var(ls[0]) &&
         rs.size() > 1 && is_var(rs.back())) {
-        xs.reset();
-        ys.reset();
+        xs.clear();
+        ys.clear();
         x = ls[0];
         y = rs.back();
         for (unsigned i = 1; i < ls.size(); ++i) {
@@ -2584,11 +2584,11 @@ bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
         for (unsigned i = r_start; i < r_end+1; ++i) {
             if (!m_util.str.is_unit(rs[i])) return false;
         }
-        xs.reset();
+        xs.clear();
         xs.append(l_end-l_start+1, ls.c_ptr()+l_start);
         x1 = m_util.str.mk_concat(l_start, ls.c_ptr());
         x2 = m_util.str.mk_concat(ls.size()-l_end-1, ls.c_ptr()+l_end+1);
-        ys.reset();
+        ys.clear();
         ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
         y1 = m_util.str.mk_concat(r_start, rs.c_ptr());
         y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1);
@@ -2623,10 +2623,10 @@ bool theory_seq::is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const&
         for (unsigned i = r_start; i < r_end+1; ++i) {
             if (!m_util.str.is_unit(rs[i])) return false;
         }
-        xs.reset();
+        xs.clear();
         xs.append(ls.size()-l_start, ls.c_ptr()+l_start);
         x = m_util.str.mk_concat(l_start, ls.c_ptr());
-        ys.reset();
+        ys.clear();
         ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
         y1 = m_util.str.mk_concat(r_start, rs.c_ptr());
         y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1);
@@ -2660,10 +2660,10 @@ bool theory_seq::is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const
         for (unsigned i = r_start; i < r_end+1; ++i) {
             if (!m_util.str.is_unit(rs[i])) return false;
         }
-        xs.reset();
+        xs.clear();
         xs.append(l_start, ls.c_ptr());
         x = m_util.str.mk_concat(ls.size()-l_start, ls.c_ptr()+l_start);
-        ys.reset();
+        ys.clear();
         ys.append(r_end-r_start+1, rs.c_ptr()+r_start);
         y1 = m_util.str.mk_concat(r_start, rs.c_ptr());
         y2 = m_util.str.mk_concat(rs.size()-r_end-1, rs.c_ptr()+r_end+1);
@@ -2994,7 +2994,7 @@ bool theory_seq::solve_ne(unsigned idx) {
         expr_ref_vector& rs = m_rs;
         expr_ref_vector& lhs = m_lhs;
         expr_ref_vector& rhs = m_rhs;
-        ls.reset(); rs.reset(); lhs.reset(); rhs.reset();
+        ls.clear(); rs.clear(); lhs.clear(); rhs.clear();
         dependency* deps = nullptr;
         bool change = false;
         change = canonize(n.ls(i), ls, deps) || change;
@@ -3036,8 +3036,8 @@ bool theory_seq::solve_ne(unsigned idx) {
                 expr* nl = lhs[j].get();
                 expr* nr = rhs[j].get();
                 if (m_util.is_seq(nl) || m_util.is_re(nl)) {
-                    ls.reset();
-                    rs.reset(); 
+                    ls.clear();
+                    rs.clear(); 
                     m_util.str.get_concat(nl, ls);
                     m_util.str.get_concat(nr, rs);
                     new_ls.push_back(ls);
@@ -3105,7 +3105,7 @@ bool theory_seq::solve_ne(unsigned idx) {
             if (explain_eq(n.l(), n.r(), deps1)) {
                 literal diseq = mk_eq(n.l(), n.r(), false);
                 if (ctx.get_assignment(diseq) == l_false) {
-                    new_lits.reset();                
+                    new_lits.clear();                
                     new_lits.push_back(~diseq);
                     new_deps = deps1;
                     TRACE("seq", tout << "conflict explained\n";);
@@ -3788,8 +3788,8 @@ void theory_seq::collect_statistics(::statistics & st) const {
 
 void theory_seq::init_search_eh() {
     m_re2aut.reset();
-    m_res.reset();
-    m_automata.reset();
+    m_res.clear();
+    m_automata.clear();
 }
 
 void theory_seq::init_model(expr_ref_vector const& es) {
@@ -5547,7 +5547,7 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
     m_ncs.pop_scope(num_scopes);
     m_rewrite.reset();    
     if (ctx.get_base_level() > ctx.get_scope_level() - num_scopes) {
-        m_replay.reset();
+        m_replay.clear();
     }
     if (m_len_prop_lvl > (int) ctx.get_scope_level()) {
         m_len_prop_lvl = ctx.get_scope_level();

@@ -161,7 +161,7 @@ struct lackr_model_constructor::imp {
         bool check_term(expr * term) {
             m_stack.push_back(term);
             const bool rv = _check_stack();
-            m_stack.reset();
+            m_stack.clear();
             return rv;
         }
 
@@ -373,7 +373,7 @@ lackr_model_constructor::~lackr_model_constructor() {
 }
 
 bool lackr_model_constructor::check(model_ref& abstr_model) {
-    m_conflicts.reset();
+    m_conflicts.clear();
     dealloc(m_imp);
     m_imp = alloc(lackr_model_constructor::imp, m_m, m_info, abstr_model, m_conflicts);
     const bool rv = m_imp->check();

@@ -69,7 +69,7 @@ void grobner::del_monomials(ptr_vector<monomial>& ms) {
     for (; it != end; ++it) {
         del_monomial(*it);
     }
-    ms.reset();
+    ms.clear();
 }
 
 void grobner::del_monomial(monomial * m) {
@@ -114,8 +114,8 @@ void grobner::reset() {
     flush();
     m_processed.reset();
     m_to_process.reset();
-    m_equations_to_unfreeze.reset();
-    m_equations_to_delete.reset();
+    m_equations_to_unfreeze.clear();
+    m_equations_to_delete.clear();
     m_unsat = nullptr;
 }
 
@@ -445,7 +445,7 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
         return;
     SASSERT(&m_del_monomials != &monomials);
     ptr_vector<monomial>& to_delete = m_del_monomials;
-    to_delete.reset();
+    to_delete.clear();
     m_manager.limit().inc(sz);
     for (unsigned i = 1; i < sz; ++i) {
         monomial * m1 = monomials[j];
@@ -636,11 +636,11 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
         unsigned sz         = target->m_monomials.size();
         monomial const * LT = source->get_monomial(0); 
         ptr_vector<monomial> & new_monomials = m_tmp_monomials;
-        new_monomials.reset();
+        new_monomials.clear();
         ptr_vector<expr>  & rest = m_tmp_vars1;
         for (; i < sz; i++) {
             monomial * curr = target->m_monomials[i];
-            rest.reset();
+            rest.clear();
             if (is_subset(LT, curr, rest)) {
                 if (i == 0)
                     m_changed_leading_term = true;
@@ -893,15 +893,15 @@ void grobner::superpose(equation * eq1, equation * eq2) {
         return;
     m_stats.m_superpose++;
     ptr_vector<expr> & rest1 = m_tmp_vars1;
-    rest1.reset();
+    rest1.clear();
     ptr_vector<expr> & rest2 = m_tmp_vars2;
-    rest2.reset();
+    rest2.clear();
     if (unify(eq1->m_monomials[0], eq2->m_monomials[0], rest1, rest2)) {
         TRACE("grobner", tout << "superposing:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2); 
               tout << "rest1: "; display_vars(tout, rest1.size(), rest1.c_ptr()); tout << "\n";
               tout << "rest2: "; display_vars(tout, rest2.size(), rest2.c_ptr()); tout << "\n";);
         ptr_vector<monomial> & new_monomials = m_tmp_monomials;
-        new_monomials.reset();
+        new_monomials.clear();
         mul_append(1, eq1, eq2->m_monomials[0]->m_coeff, rest2, new_monomials);
         rational c = eq1->m_monomials[0]->m_coeff;
         c.neg();

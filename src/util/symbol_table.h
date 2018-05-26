@@ -114,8 +114,8 @@ class symbol_table {
 public:
     void reset() {
         m_sym_table.reset();
-        m_trail_stack.reset();
-        m_trail_lims.reset();
+        m_trail_stack.clear();
+        m_trail_lims.clear();
     }
 
     bool find(symbol key, T & result) const {

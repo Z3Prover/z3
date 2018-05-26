@@ -318,7 +318,7 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
     uint_set state;
     moves_t mvsA;
     
-    new_mvs.reset();
+    new_mvs.clear();
     
     // or just make todo a vector whose indices coincide with state_id.
     while (!todo.empty()) {
@@ -326,10 +326,10 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
         
         unsigned state_id = s2id[state];
         todo.pop_back();
-        mvsA.reset();
+        mvsA.clear();
         
-        min_terms.reset();
-        predicates.reset();
+        min_terms.clear();
+        predicates.clear();
         
         a.get_moves_from_states(state, mvsA);
         
@@ -388,7 +388,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         unsigned_pair curr_pair = todo.back();
         todo.pop_back();
         unsigned src = pair2id[curr_pair];
-        mvsA.reset(); mvsB.reset();
+        mvsA.clear(); mvsB.clear();
         a.get_moves_from(curr_pair.first,  mvsA, true);
         b.get_moves_from(curr_pair.second, mvsB, true);
         for (unsigned i = 0; i < mvsA.size(); ++i) {

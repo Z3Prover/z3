@@ -35,10 +35,10 @@ cached_var_subst::cached_var_subst(ast_manager & m):
 }
 
 void cached_var_subst::reset() {
-    m_refs.reset();
+    m_refs.clear();
     m_instances.reset();
-    m_region.reset();
-    m_new_keys.reset();
+    m_region.clear();
+    m_new_keys.clear();
 }
 
 void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::enode * const * bindings, expr_ref & result) {

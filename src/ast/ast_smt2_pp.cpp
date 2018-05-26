@@ -1017,7 +1017,7 @@ class smt2_printer {
 
     void del_expr2alias_stack() {
         std::for_each(m_expr2alias_stack.begin(), m_expr2alias_stack.end(), delete_proc<expr2alias>());
-        m_expr2alias_stack.reset();
+        m_expr2alias_stack.clear();
         m_expr2alias = nullptr;
     }
 
@@ -1031,13 +1031,13 @@ class smt2_printer {
     void reset_stacks() {
         m_next_alias_idx = 1;
         reset_expr2alias_stack();
-        m_aliased_exprs.reset();
-        m_aliased_pps.reset();
-        m_aliased_lvls_names.reset();
-        m_scopes.reset();
-        m_frame_stack.reset();
-        m_format_stack.reset();
-        m_info_stack.reset();
+        m_aliased_exprs.clear();
+        m_aliased_pps.clear();
+        m_aliased_lvls_names.clear();
+        m_scopes.clear();
+        m_frame_stack.clear();
+        m_format_stack.clear();
+        m_info_stack.clear();
     }
 
     void process(expr * n, format_ref & r) {
@@ -1071,7 +1071,7 @@ class smt2_printer {
     }
 
     void reset_var_names() {
-        m_var_names.reset();
+        m_var_names.clear();
         m_var_names_set.reset();
     }
 

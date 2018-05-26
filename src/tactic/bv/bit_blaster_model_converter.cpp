@@ -190,8 +190,8 @@ struct bit_blaster_model_converter : public model_converter {
         for (unsigned i = 0; i < sz; i++) {
             fmls.push_back(m().mk_eq(m().mk_const(m_vars.get(i)), m_bits.get(i)));
         }        
-        m_vars.reset();
-        m_bits.reset();
+        m_vars.clear();
+        m_bits.clear();
         fml = mk_and(fmls);
     }
     

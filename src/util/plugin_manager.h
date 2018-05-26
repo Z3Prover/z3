@@ -39,8 +39,8 @@ public:
        \brief Release ownership of the plugins.
     */
     void release() {
-        m_fid2plugins.reset();
-        m_plugins.reset();
+        m_fid2plugins.clear();
+        m_plugins.clear();
     }
     
     void register_plugin(Plugin * p) {

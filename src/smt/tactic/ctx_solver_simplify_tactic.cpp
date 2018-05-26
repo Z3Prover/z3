@@ -167,7 +167,7 @@ protected:
 
         while (!todo.empty() && !m.canceled()) {            
             expr_ref res(m);
-            args.reset();
+            args.clear();
             expr* e    = todo.back().m_expr;
             self_pos   = todo.back().m_self;
             parent_pos = todo.back().m_parent;

@@ -117,7 +117,7 @@ namespace nlarith {
             comps comps;
             contains_app contains_x(m(), x);
             branch_conds.reset();
-            m_trail.reset(); // use scope?
+            m_trail.clear(); // use scope?
 
             if (!a().is_real(x)) {
                 return false;
@@ -568,8 +568,8 @@ namespace nlarith {
                 TRACE("nlarith", display(tout << "a != 0 & phi[-b/2a / x]", p);tout<<"\n";);
                 app* a2 = mk_mul(num(2), a);
                 sqrt_form e1(*this, mk_uminus(b), 0, z(), a2);
-                es.reset();
-                subst.reset();
+                es.clear();
+                subst.clear();
                 cond = mk_ne(a);
                 es.push_back(cond);
                 es.push_back(bc.preds(i));
@@ -608,8 +608,8 @@ namespace nlarith {
 
             if (b != z()) {
                 sqrt_form e0(*this, mk_uminus(c), 0,     z(), b);
-                es.reset();
-                subst.reset();
+                es.clear();
+                subst.clear();
                 scoped_ptr<expr_replacer> rp = mk_default_expr_replacer(m());
                 expr_substitution sub(m());
                 sub.insert(a, z());
@@ -631,8 +631,8 @@ namespace nlarith {
             if (a != z()) {
                 sqrt_form e1(*this, mk_uminus(b), 1,  d,   a2);
                 sqrt_form e2(*this, mk_uminus(b), -1, d,   a2);
-                es.reset();
-                subst.reset();
+                es.clear();
+                subst.clear();
                 es.push_back(mk_ne(a));
                 es.push_back(mk_ge(d));
                 cond = mk_and(es.size(), es.c_ptr());
@@ -651,7 +651,7 @@ namespace nlarith {
                       tout << mk_pp(mk_ge(d), m()) << "\n";);
 
                 es.resize(3);
-                subst.reset();
+                subst.clear();
                 for (unsigned j = 0; j < polys.size(); ++j) {
                     mk_subst(cmp, polys[j], comps[j], e2, t1);
                     es.push_back(m().mk_implies(bc.preds(j), t1));
@@ -862,7 +862,7 @@ namespace nlarith {
            p = result[0] + x*result[1] + x*x*result[2] + ...
         */
         bool get_decomposition(expr* t, contains_app& contains_x, poly& result) {
-            result.reset();
+            result.clear();
             if (!is_app(t)) {
                 return false;
             }
@@ -952,7 +952,7 @@ namespace nlarith {
                 result.push_back(t);
             }
             TRACE("nlarith_verbose", display(tout, r); display(tout <<" * ", other); display(tout << " = ", result); tout <<"\n";);
-            r.reset();
+            r.clear();
             r.append(result.size(), result.c_ptr());
         }
 
@@ -1360,8 +1360,8 @@ namespace nlarith {
             lc = v.empty()?num(0):v[v.size()-1];
             power = 0;
             if (u.size() < v.size() || v.empty()) {
-                q.reset();
-                r.reset();
+                q.clear();
+                r.clear();
                 r.append(u);
                 return;
             }
@@ -1383,8 +1383,8 @@ namespace nlarith {
         void numeric_quot_rem(poly const& u, poly const& v, poly& q, poly& r) {
             SASSERT(u.size() > 0 && v.size() > 0);
             unsigned m = u.size()-1, n = v.size()-1;
-            q.reset();
-            r.reset();
+            q.clear();
+            r.clear();
             r.append(u);
             rational v_n;
             VERIFY(a().is_numeral(v[n], v_n));
@@ -1417,8 +1417,8 @@ namespace nlarith {
             unsigned m = u.size()-1, n = v.size()-1;
             app* v_n = v[n];
             power = m- n + 1;
-            q.reset();
-            r.reset();
+            q.clear();
+            r.clear();
             r.append(u);
             q.resize(m-n+1);
             poly powers_v(m_manager);
@@ -1484,7 +1484,7 @@ namespace nlarith {
         }
 
         void mk_inf_sign(isubst& sub, util::literal_set const& literals, app_ref& fml, app_ref_vector& new_atoms) {
-            new_atoms.reset();
+            new_atoms.clear();
             expr_ref_vector equivs(m());
             app_ref tmp(m());
             for (unsigned i = 0; i < literals.size(); ++i) {
@@ -1511,7 +1511,7 @@ namespace nlarith {
         // literals have their derivative close.
 
         void mk_bound(util::literal_set& literals, app_ref& fml, app_ref_vector& new_atoms) {
-            new_atoms.reset();
+            new_atoms.clear();
             app_ref tmp(m());
             expr_ref_vector conjs(m());
             mk_exists_zero(literals, true,  nullptr, conjs, new_atoms);
@@ -1886,7 +1886,7 @@ namespace nlarith {
         */
         void get_sign_branches(util::literal_set& lits, util::eval& eval, 
                                ptr_vector<util::branch>& branches) {
-            m_trail.reset();
+            m_trail.clear();
             unsigned z1 = UINT_MAX, z2 = UINT_MAX;
             for (unsigned i = 0; i < lits.size(); ++i) {
                 if (lits.compare(i) == EQ && l_true == eval(lits.literal(i))) {
@@ -1914,7 +1914,7 @@ namespace nlarith {
 
         bool get_sign_literals(util::atoms const& atoms, util::eval& eval, util::literal_set*& lits) {
             // TBD: use 'eval' to select non-linear literals that are relevant.
-            m_trail.reset();
+            m_trail.clear();
             ptr_vector<app> nlvars, atms;
             util::atoms::iterator it = atoms.begin(), end = atoms.end();
             for (; it != end; ++it) {

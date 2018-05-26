@@ -356,7 +356,7 @@ void zp_square_free_factor(zp_manager & upm, numeral_vector const & f, zp_factor
 
         // [finished e-loop] T_0 = \sum_{p div j} t_j x^j, set T_0 \sum_{p div j} t_j x^{j/p}, e = pe
         e *= p;
-        T_0.reset();
+        T_0.clear();
         for (unsigned deg_p = 0; deg_p < T.size(); deg_p += p) {
             T_0.push_back(numeral());
             nm.set(T_0.back(), T[deg_p]);

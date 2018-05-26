@@ -117,7 +117,7 @@ void decl_collector::order_deps() {
     top_sort<sort> st;
     for (sort * s : m_sorts) st.insert(s, collect_deps(s));
     st.topological_sort();
-    m_sorts.reset();
+    m_sorts.clear();
     for (sort* s : st.top_sorted()) m_sorts.push_back(s);
 }
 

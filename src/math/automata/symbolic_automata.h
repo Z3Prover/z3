@@ -87,7 +87,7 @@ class symbolic_automata {
         bool is_empty() const { return m_set.empty(); }
         unsigned size() const { return m_set.num_elems(); }
         void remove(unsigned i) { m_set.remove(i); m_rep_chosen = false; }        
-        void clear() { m_set.reset(); m_rep_chosen = false; }
+        void clear() { m_set.clear(); m_rep_chosen = false; }
         uint_set::iterator begin() const { return m_set.begin(); }
         uint_set::iterator end() const { return m_set.end(); }
     };

@@ -42,7 +42,7 @@ namespace qe {
          * Set the shared symbols.
          */
         virtual void set_shared(func_decl_ref_vector const& vars) {
-            m_shared.reset();
+            m_shared.clear();
             m_shared.append(vars);
         }
 

@@ -638,12 +638,12 @@ macro_util::macro_candidates::macro_candidates(ast_manager & m):
 }
 
 void macro_util::macro_candidates::reset() {
-    m_fs.reset();
-    m_defs.reset();
-    m_conds.reset();
-    m_ineq.reset();
-    m_satisfy.reset();
-    m_hint.reset();
+    m_fs.clear();
+    m_defs.clear();
+    m_conds.clear();
+    m_ineq.clear();
+    m_satisfy.clear();
+    m_hint.clear();
 }
 
 void macro_util::macro_candidates::insert(func_decl * f, expr * def, expr * cond, bool ineq, bool satisfy_atom, bool hint) {

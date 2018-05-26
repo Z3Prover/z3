@@ -548,8 +548,8 @@ namespace smt {
     }
 
     void model_checker::reset_new_instances() {
-        m_pinned_exprs.reset();
-        m_new_instances.reset();
+        m_pinned_exprs.clear();
+        m_new_instances.clear();
     }
 
     void model_checker::reset() {

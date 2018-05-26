@@ -179,8 +179,8 @@ void small_object_allocator::consolidate() {
     for (unsigned slot_id = 1; slot_id < NUM_SLOTS; slot_id++) {
         if (m_free_list[slot_id] == nullptr)
             continue;
-        chunks.reset();
-        free_objs.reset();
+        chunks.clear();
+        free_objs.clear();
         chunk * c = m_chunks[slot_id];
         while (c != nullptr) {
             chunks.push_back(c);

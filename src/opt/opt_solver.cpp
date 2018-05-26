@@ -302,7 +302,7 @@ namespace opt {
     }
     
     void opt_solver::get_unsat_core(expr_ref_vector & r) {
-        r.reset();
+        r.clear();
         unsigned sz = m_context.get_unsat_core_size();
         for (unsigned i = 0; i < sz; i++) {
             r.push_back(m_context.get_unsat_core_expr(i));
@@ -327,7 +327,7 @@ namespace opt {
     }
     
     void opt_solver::get_labels(vector<symbol> & r) {
-        r.reset();
+        r.clear();
         buffer<symbol> tmp;
         m_context.get_relevant_labels(nullptr, tmp);
         r.append(tmp.size(), tmp.c_ptr());
@@ -444,10 +444,10 @@ namespace opt {
     } 
 
     void opt_solver::reset_objectives() {
-        m_objective_vars.reset();
-        m_objective_values.reset();
-        m_objective_terms.reset();
-        m_valid_objectives.reset();
+        m_objective_vars.clear();
+        m_objective_values.clear();
+        m_objective_terms.clear();
+        m_valid_objectives.clear();
     }
 
     opt_solver& opt_solver::to_opt(solver& s) {

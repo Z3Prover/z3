@@ -177,10 +177,10 @@ namespace datalog {
         }
 
         void reset() {
-            m_args1.reset();
-            m_args2.reset();
-            m_const_indexes.reset();
-            m_consts.reset();
+            m_args1.clear();
+            m_args2.clear();
+            m_const_indexes.clear();
+            m_consts.clear();
         }
 
         bool args_match(const app * f1, const app * f2); 

@@ -65,7 +65,7 @@ public:
     iterator begin() const { return m_mapping.begin(); }
     iterator end() const { return m_mapping.end(); }
 
-    void reset_recent() { SASSERT(m_recent_lim.empty()); m_recent_exprs.reset(); }
+    void reset_recent() { SASSERT(m_recent_lim.empty()); m_recent_exprs.clear(); }
 
     // Iterators for traversing the recently registered expressions.
     // The set of recent registered expressions is reset by using reset_recent().

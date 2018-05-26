@@ -606,7 +606,7 @@ bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &cube,
     expr_ref tmp(m);
     tmp = mk_and(cube);
     normalize(tmp, tmp, false, true);
-    cube.reset();
+    cube.clear();
     flatten_and(tmp, cube);
 
     app_ref_vector indices(m);
@@ -627,7 +627,7 @@ bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &cube,
         if (!contains_selects(lit, m))
             continue;
 
-        indices.reset();
+        indices.clear();
         get_select_indices(lit, indices);
 
         // TBD: handle multi-dimensional arrays
@@ -690,7 +690,7 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
           tout << "initial cube: " << mk_and(lemma->get_cube()) << "\n";);
 
     // setup the cube
-    m_cube.reset();
+    m_cube.clear();
     m_cube.append(lemma->get_cube());
 
     if (m_normalize_cube) {
@@ -698,7 +698,7 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
         expr_ref c(m);
         c = mk_and(m_cube);
         normalize(c, c, false, true);
-        m_cube.reset();
+        m_cube.clear();
         flatten_and(c, m_cube);
         TRACE("spacer_qgen",
               tout << "normalized cube:\n" << mk_and(m_cube) << "\n";);

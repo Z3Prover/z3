@@ -111,9 +111,9 @@ struct unit_subsumption_tactic : public tactic {
 
     void init(goal_ref const& g) {
         m_clause_count = 0;
-        m_is_deleted.reset();
+        m_is_deleted.clear();
         m_is_deleted.resize(g->size());
-        m_deleted.reset();
+        m_deleted.clear();
     }
 
     expr* new_bool(unsigned& count, expr_ref_vector& v, char const* name) {

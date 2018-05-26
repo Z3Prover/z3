@@ -212,7 +212,7 @@ namespace smt {
             expr_ref_vector m_assumptions;
             scoped_minimize_core(smt_solver& s) : s(s), m_assumptions(s.m_assumptions) {
                 s.m_minimizing_core = true;
-                s.m_assumptions.reset();
+                s.m_assumptions.clear();
             }
 
             ~scoped_minimize_core() {
@@ -233,7 +233,7 @@ namespace smt {
                 mus.add_soft(r.size(), r.c_ptr());
                 expr_ref_vector r2(m);
                 if (l_true == mus.get_mus(r2)) {
-                    r.reset();
+                    r.clear();
                     r.append(r2);
                 }
             }
@@ -374,7 +374,7 @@ namespace smt {
             vector<func_decl_set> assrtn_fds;
 
             for (unsigned d = 0; d < m_core_extend_patterns_max_distance; d++) {
-                new_core_literals.reset();
+                new_core_literals.clear();
 
                 for (expr* c : core) {
                     expr_ref name(c, m);

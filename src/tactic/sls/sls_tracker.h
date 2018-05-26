@@ -985,7 +985,7 @@ public:
                 return get_constants();
         }
 
-        m_temp_constants.reset();
+        m_temp_constants.clear();
 
         for (unsigned i = 0; i < sz; i++) {
             expr * q = as[i];
@@ -1022,7 +1022,7 @@ public:
 
             if (!e)
             {
-                m_temp_constants.reset();
+                m_temp_constants.clear();
                 return m_temp_constants;
             }
 
@@ -1040,7 +1040,7 @@ public:
             else
                 return nullptr;
         }
-        m_temp_constants.reset();
+        m_temp_constants.clear();
 
         unsigned pos = -1;
         if (m_ucb)
@@ -1093,7 +1093,7 @@ public:
         unsigned sz = as.size();
         if (sz == 1)
             return nullptr;
-        m_temp_constants.reset();
+        m_temp_constants.clear();
         
         unsigned cnt_unsat = 0, pos = -1;
         for (unsigned i = 0; i < sz; i++)

@@ -105,7 +105,7 @@ static void tst2() {
         if (rand() % 5000 == 0) {
             m.enable_concurrent(false);
             m.reset();
-            object_coeff_pairs.reset();
+            object_coeff_pairs.clear();
             m.enable_concurrent(true);
             num_resets++;
         }

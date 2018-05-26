@@ -645,7 +645,7 @@ namespace nlsat {
     }
 
     void interval_set_manager::get_justifications(interval_set const * s, literal_vector & js) {
-        js.reset();
+        js.clear();
         unsigned num = num_intervals(s);
         for (unsigned i = 0; i < num; i++) {
             literal l     = s->m_intervals[i].m_justification;

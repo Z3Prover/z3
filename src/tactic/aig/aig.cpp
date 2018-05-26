@@ -841,8 +841,8 @@ struct aig_manager::imp {
         }
 
         void mk_and(aig * n) {
-            m_and_children.reset();
-            m_and_todo.reset();
+            m_and_children.clear();
+            m_and_todo.clear();
             add_child(left(n));
             add_child(right(n));
             while (!m_and_todo.empty()) {

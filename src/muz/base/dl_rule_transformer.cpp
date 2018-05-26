@@ -41,7 +41,7 @@ namespace datalog {
         for(; it!=end; ++it) {            
             dealloc(*it);
         }
-        m_plugins.reset();
+        m_plugins.clear();
         m_dirty = false;
     }
 

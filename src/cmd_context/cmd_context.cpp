@@ -1237,7 +1237,7 @@ void cmd_context::reset_func_decls() {
         kv.m_value.finalize(m());
     }
     m_func_decls.reset();
-    m_func_decls_stack.reset();
+    m_func_decls_stack.clear();
     m_func_decl2alias.reset();
 }
 
@@ -1247,7 +1247,7 @@ void cmd_context::reset_psort_decls() {
         pm().dec_ref(p);
     }
     m_psort_decls.reset();
-    m_psort_decls_stack.reset();
+    m_psort_decls_stack.clear();
 }
 
 void cmd_context::reset_macros() {
@@ -1255,7 +1255,7 @@ void cmd_context::reset_macros() {
         kv.m_value.finalize(m());
     }
     m_macros.reset();
-    m_macros_stack.reset();
+    m_macros_stack.clear();
 }
 
 void cmd_context::reset_cmds() {
@@ -1297,7 +1297,7 @@ void cmd_context::reset(bool finalize) {
     m_check_sat_result = nullptr;
     m_numeral_as_real = false;
     m_builtin_decls.reset();
-    m_extra_builtin_decls.reset();
+    m_extra_builtin_decls.clear();
     m_check_logic.reset();
     reset_object_refs();
     reset_cmds();
@@ -1308,7 +1308,7 @@ void cmd_context::reset(bool finalize) {
     restore_assertions(0);
     m_solver = nullptr;
     m_mc0 = nullptr;
-    m_scopes.reset();
+    m_scopes.clear();
     m_opt = nullptr;
     m_pp_env = nullptr;
     m_dt_eh  = nullptr;

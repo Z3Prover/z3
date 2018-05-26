@@ -188,13 +188,13 @@ rewriter_core::~rewriter_core() {
 void rewriter_core::reset() {
     SASSERT(!m_cache_stack.empty());
     reset_cache();
-    m_frame_stack.reset();
-    m_result_stack.reset();
+    m_frame_stack.clear();
+    m_result_stack.clear();
     if (m_proof_gen)
-        m_result_pr_stack.reset();
+        m_result_pr_stack.clear();
     m_root = nullptr;
     m_num_qvars = 0;
-    m_scopes.reset();
+    m_scopes.clear();
 }
 
 // free memory & reset (macro definitions are not erased)

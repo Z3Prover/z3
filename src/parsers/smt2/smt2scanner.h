@@ -98,10 +98,10 @@ namespace smt2 {
         token read_string();
         token read_bv_literal();
 
-        void start_caching() { m_cache_input = true; m_cache.reset(); }
+        void start_caching() { m_cache_input = true; m_cache.clear(); }
         void stop_caching() { m_cache_input = false; }
         unsigned cache_size() const { return m_cache.size(); }
-        void reset_cache() { m_cache.reset(); }
+        void reset_cache() { m_cache.clear(); }
         char const * cached_str(unsigned begin, unsigned end);
     };
 

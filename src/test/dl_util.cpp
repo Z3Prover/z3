@@ -40,7 +40,7 @@ void dl_util_cycle_from_permutation() {
     unsigned permutation_arr2[] = { 1, 2, 3, 4, 5, 6, 7, 0 };
     unsigned len2 = sizeof(permutation_arr2)/sizeof(unsigned);
     unsigned_vector perm2(len2, permutation_arr2);
-    cycle.reset();
+    cycle.clear();
     datalog::cycle_from_permutation(perm2, cycle);
 
     for(unsigned i=0; i<len2; i++) {

@@ -102,7 +102,7 @@ void pb_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const 
 }
 
 void pb_util::normalize(unsigned num_args, rational const* coeffs, rational const& k) {
-    m_coeffs.reset();
+    m_coeffs.clear();
     bool all_ones = true;
     for (unsigned i = 0; i < num_args && all_ones; ++i) {
         all_ones = denominator(coeffs[i]).is_one();
@@ -127,7 +127,7 @@ void pb_util::normalize(unsigned num_args, rational const* coeffs, rational cons
 
 app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
     normalize(num_args, coeffs, k);
-    m_params.reset();
+    m_params.clear();
     m_params.push_back(parameter(floor(m_k)));
     bool all_ones = true;
     for (unsigned i = 0; i < num_args; ++i) {
@@ -143,7 +143,7 @@ app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * 
 
 app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
     normalize(num_args, coeffs, k);
-    m_params.reset();
+    m_params.clear();
     m_params.push_back(parameter(ceil(m_k)));
     bool all_ones = true;
     for (unsigned i = 0; i < num_args; ++i) {
@@ -165,7 +165,7 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
     if (num_args == 0) {
         return m_k.is_zero() ? m.mk_true() : m.mk_false();
     }
-    m_params.reset();
+    m_params.clear();
     m_params.push_back(parameter(m_k));
     for (unsigned i = 0; i < num_args; ++i) {
         m_params.push_back(parameter(m_coeffs[i]));

@@ -946,8 +946,8 @@ namespace smt {
                     found_zero = true;
                     m_tmp_lit_set.reset();
                     m_tmp_eq_set.reset();
-                    new_lower->m_lits.reset();
-                    new_lower->m_eqs.reset();
+                    new_lower->m_lits.clear();
+                    new_lower->m_eqs.clear();
                 }
                 accumulate_justification(*l, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
 
@@ -1614,7 +1614,7 @@ namespace smt {
                   tout << mk_bounded_pp(kv.first, get_manager()) << " -> " << kv.second << "\n";
               });
         for (auto const& kv : varinfo) {
-            m_nl_new_exprs.reset();
+            m_nl_new_exprs.clear();
             expr * var  = kv.first;
             expr * cn   = cross_nested(p, var);
             // Remark: cn may not be well-sorted because, since a row may contain mixed integer/real monomials.
@@ -2264,7 +2264,7 @@ namespace smt {
             }
             TRACE("non_linear_gb", tout << "after:\n"; gb.display(tout););
             // Scan the grobner basis eqs, and look for inconsistencies.
-            eqs.reset();
+            eqs.clear();
             gb.get_equations(eqs);
             TRACE("grobner_bug", tout << "after gb\n";);
             for (grobner::equation* eq : eqs) {

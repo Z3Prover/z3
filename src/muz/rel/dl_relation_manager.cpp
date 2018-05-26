@@ -50,9 +50,9 @@ namespace datalog {
         m_favourite_table_plugin   = static_cast<table_plugin *>(nullptr);
         m_favourite_relation_plugin = static_cast<relation_plugin *>(nullptr);
         dealloc_ptr_vector_content(m_table_plugins);
-        m_table_plugins.reset();
+        m_table_plugins.clear();
         dealloc_ptr_vector_content(m_relation_plugins);
-        m_relation_plugins.reset();
+        m_relation_plugins.clear();
         m_next_table_fid = 0;
         m_next_relation_fid = 0;
     }
@@ -400,7 +400,7 @@ namespace datalog {
     }
 
     void relation_manager::from_predicate(func_decl * pred, relation_signature & result) {
-        result.reset();
+        result.clear();
         unsigned arg_num=pred->get_arity();
         for(unsigned i=0;i<arg_num; i++) {
             relation_sort rel_srt;
@@ -953,7 +953,7 @@ namespace datalog {
                         continue;
                     }
 
-                    acc.reset();
+                    acc.clear();
                     for(unsigned i=0; i<t1first_func; i++) {
                         acc.push_back(row1[i]);
                     }
@@ -1237,7 +1237,7 @@ namespace datalog {
         virtual bool should_remove(const table_fact & f) const = 0;
 
         void operator()(table_base & r) {
-            m_to_remove.reset();
+            m_to_remove.clear();
             unsigned sz = 0;
             for (table_base::row_interface& a : r) {
                 a.get_fact(m_row);
@@ -1382,7 +1382,7 @@ namespace datalog {
         bool should_remove(const table_fact & f) const override {
             expr_ref_vector& args = const_cast<expr_ref_vector&>(m_args);
 
-            args.reset();
+            args.clear();
             //arguments need to be in reverse order for the substitution
             unsigned col_cnt = f.size();
             for(int i=col_cnt-1;i>=0;i--) {

@@ -40,7 +40,7 @@ namespace nlsat {
             m_assigned.swap(other.m_assigned);
         }
         void copy(assignment const& other) {
-            m_assigned.reset();
+            m_assigned.clear();
             m_assigned.append(other.m_assigned);
             m_values.expand(m_assigned.size(), anum());
             for (unsigned i = 0; i < m_assigned.size(); ++i) {
@@ -63,7 +63,7 @@ namespace nlsat {
             am().set(m_values[x], v); 
         }
         void reset(var x) { if (x < m_assigned.size()) m_assigned[x] = false; }
-        void reset() { m_assigned.reset(); }
+        void clear() { m_assigned.clear(); }
         bool is_assigned(var x) const { return m_assigned.get(x, false); }
         anum const & value(var x) const { return m_values[x]; }
         anum_manager & m() const override { return am(); }

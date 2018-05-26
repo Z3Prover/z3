@@ -102,7 +102,7 @@ namespace smt {
     }
 
     void almost_cg_table::reset() {
-        m_region.reset();
+        m_region.clear();
         m_table.reset();
     }
 

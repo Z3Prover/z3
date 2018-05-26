@@ -212,7 +212,7 @@ class diff_neq_tactic : public tactic {
                 if (m_upper[x] > max)
                     max = m_upper[x];
             }
-            m_forbidden.reset();
+            m_forbidden.clear();
             m_forbidden.resize(max+1, false);
         }
         

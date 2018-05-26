@@ -225,7 +225,7 @@ namespace datalog {
         rule_set* rules = lc.revert(*src_annot);
         rules->inherit_predicates(source);
         TRACE("dl", rules->display(tout););
-        m_pinned.reset();
+        m_pinned.clear();
         m_fun2inv.reset();
         return rules;
     }

@@ -861,7 +861,7 @@ namespace smt {
                     break;
                 }
             }
-            m_basicstr_axiom_todo.reset();
+            m_basicstr_axiom_todo.clear();
             TRACE("str", tout << "reset m_basicstr_axiom_todo" << std::endl;);
 
             for (auto const& pair : m_str_eq_todo) {
@@ -869,17 +869,17 @@ namespace smt {
                 enode * rhs = pair.second;
                 handle_equality(lhs->get_owner(), rhs->get_owner());
             }
-            m_str_eq_todo.reset();
+            m_str_eq_todo.clear();
 
             for (auto const& el : m_concat_axiom_todo) {
                 instantiate_concat_axiom(el);
             }
-            m_concat_axiom_todo.reset();
+            m_concat_axiom_todo.clear();
 
             for (auto const& el : m_concat_eval_todo) {
                 try_eval_concat(el);
             }
-            m_concat_eval_todo.reset();
+            m_concat_eval_todo.clear();
 
             while(true) {
                 // Special handling: terms can recursively set up other terms
@@ -926,25 +926,25 @@ namespace smt {
                     break;
                 }
             }
-            m_library_aware_axiom_todo.reset();
+            m_library_aware_axiom_todo.clear();
 
             for (auto el : m_delayed_axiom_setup_terms) {
                 // I think this is okay
                 ctx.internalize(el, false);
                 set_up_axioms(el);
             }
-            m_delayed_axiom_setup_terms.reset();
+            m_delayed_axiom_setup_terms.clear();
 
             for (expr * a : m_persisted_axiom_todo) {
                 assert_axiom(a);
             }
-            m_persisted_axiom_todo.reset();
+            m_persisted_axiom_todo.clear();
 
             if (search_started) {
                 for (auto const& el : m_delayed_assertions_todo) {
                     assert_axiom(el);
                 }
-                m_delayed_assertions_todo.reset();
+                m_delayed_assertions_todo.clear();
             }
         }
     }
@@ -2031,9 +2031,9 @@ namespace smt {
         TRACE("str", tout << "resetting" << std::endl;);
         m_trail_stack.reset();
 
-        m_basicstr_axiom_todo.reset();
-        m_str_eq_todo.reset();
-        m_concat_axiom_todo.reset();
+        m_basicstr_axiom_todo.clear();
+        m_str_eq_todo.clear();
+        m_concat_axiom_todo.clear();
         pop_scope_eh(get_context().get_scope_level());
     }
 
@@ -5075,7 +5075,7 @@ namespace smt {
                 // varEqcNode is str
                 if (strAst == varNode) {
                     expr_ref implyR(m);
-                    litems.reset();
+                    litems.clear();
 
                     if (strAst != constNode) {
                         litems.push_back(ctx.mk_eq_atom(strAst, constNode));
@@ -5143,7 +5143,7 @@ namespace smt {
                 // varEqcNode is subStr
                 else if (substrAst == varNode) {
                     expr_ref implyR(m);
-                    litems.reset();
+                    litems.clear();
 
                     if (substrAst != constNode) {
                         litems.push_back(ctx.mk_eq_atom(substrAst, constNode));
@@ -7371,7 +7371,7 @@ namespace smt {
             next.reset();
             u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
             for (; it != end; ++it) {
-                mvs.reset();
+                mvs.clear();
                 unsigned state = it->m_key;
                 expr*    acc  = it->m_value;
                 aut->get_moves_from(state, mvs, false);
@@ -8623,7 +8623,7 @@ namespace smt {
                 new_m_basicstr.push_back(e);
             }
         }
-        m_basicstr_axiom_todo.reset();
+        m_basicstr_axiom_todo.clear();
         m_basicstr_axiom_todo = new_m_basicstr;
 
         for (expr * e : m_persisted_axioms) {
@@ -11034,7 +11034,7 @@ namespace smt {
 
         int s = 0;
         int carry = 0;
-        next.reset();
+        next.clear();
 
         for (int i = 0; i < (int) base.size(); i++) {
             if (i == 0) {
@@ -11050,7 +11050,7 @@ namespace smt {
             }
         }
         if (next[next.size() - 1] > 0) {
-            next.reset();
+            next.clear();
             return true;
         } else {
             return false;
@@ -11163,7 +11163,7 @@ namespace smt {
         // If the new value tester is $$_val_x_16_i
         // Should add ($$_len_x_j = 16) /\ ($$_val_x_16_i = "more")
         // ---------------------------------------
-        andList.reset();
+        andList.clear();
         andList.push_back(m.mk_eq(len_indicator, mk_string(lenStr)));
         for (int i = 0; i < tries; i++) {
             expr * vTester = fvar_valueTester_map[freeVar][len][i].second;
@@ -11396,7 +11396,7 @@ namespace smt {
 
             expr * regexInUnr = to_app(unrFunc)->get_arg(0);
             expr * cntInUnr = to_app(unrFunc)->get_arg(1);
-            items.reset();
+            items.clear();
 
             rational low, high;
             bool low_exists = lower_bound(cntInUnr, low); (void)low_exists;

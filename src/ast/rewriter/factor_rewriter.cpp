@@ -155,7 +155,7 @@ void factor_rewriter::mk_is_negative(expr_ref& result, expr_ref_vector& eqs) {
 // m_adds: sum of products.
 // m_muls: list of products
 void factor_rewriter::mk_adds(expr* arg1, expr* arg2) {
-    m_adds.reset();
+    m_adds.clear();
     m_adds.push_back(std::make_pair(arg1, true));
     m_adds.push_back(std::make_pair(arg2, false));
     rational k;
@@ -205,7 +205,7 @@ void factor_rewriter::mk_adds(expr* arg1, expr* arg2) {
 }
 
 void factor_rewriter::mk_muls() {
-    m_muls.reset();
+    m_muls.clear();
     for (unsigned i = 0; i < m_adds.size(); ++i) {
         m_muls.push_back(ptr_vector<expr>());
         m_muls.back().push_back(m_adds[i].first);
@@ -248,7 +248,7 @@ void factor_rewriter::mk_expand_muls(ptr_vector<expr>& muls) {
 }
 
 bool factor_rewriter::extract_factors() {
-    m_factors.reset();
+    m_factors.clear();
     unsigned_vector pos;
     expr* e;
     SASSERT(!m_muls.empty());
@@ -275,7 +275,7 @@ bool factor_rewriter::extract_factors() {
         return false;
     }
     for (unsigned i = 0; i < m_muls[0].size(); ++i) {
-        pos.reset();
+        pos.clear();
         pos.push_back(i);
         e = m_muls[0][i];
         bool ok = true;

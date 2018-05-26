@@ -293,7 +293,7 @@ struct euclidean_solver::imp {
         unsigned sz = as.size();
         for (unsigned i = 0; i < sz; i++)
             m().del(as[i]);
-        as.reset();
+        as.clear();
     }
     
     void del_eq(equation * eq) {
@@ -351,8 +351,8 @@ struct euclidean_solver::imp {
         Numeral new_a;
         SASSERT(as1.size() == xs1.size());
         SASSERT(as2.size() == xs2.size());
-        new_as.reset();
-        new_xs.reset();
+        new_as.clear();
+        new_xs.clear();
         unsigned sz1 = xs1.size();
         unsigned sz2 = xs2.size();
         unsigned i1  = 0;
@@ -596,7 +596,7 @@ struct euclidean_solver::imp {
             if (inconsistent())
                 break;
         }
-        use_list.reset();
+        use_list.clear();
     }
 
     void elim_unit() {
@@ -644,9 +644,9 @@ struct euclidean_solver::imp {
     }
 
     void decompose_and_elim() {
-        m_tmp_xs.reset();
+        m_tmp_xs.clear();
         mpz_buffer & buffer = m_decompose_buffer;
-        buffer.reset();
+        buffer.clear();
         var p = mk_var(true);
         mpz new_a_i;
         equation & eq = *(m_equations[m_next_eq]);
@@ -736,16 +736,16 @@ struct euclidean_solver::imp {
                   tout << m().to_string(as[i]) << "*x" << xs[i] << " ";
               }
               tout << "\n";);
-        m_norm_xs_vector.reset();
-        m_norm_as_vector.reset();
+        m_norm_xs_vector.clear();
+        m_norm_as_vector.clear();
         for (unsigned i = 0; i < num; i++) {
             m_norm_xs_vector.push_back(xs[i]);
             m_norm_as_vector.push_back(mpz());
             m().set(m_norm_as_vector.back(), as[i]);
         }
         sort(m_norm_as_vector, m_norm_xs_vector, m_as_buffer);
-        m_norm_bs_vector.reset();
-        js.reset();
+        m_norm_bs_vector.clear();
+        js.clear();
         m().set(c_prime, c);
         apply_solution(m_norm_as_vector, m_norm_xs_vector, c_prime, m_norm_bs_vector, js);
         TRACE("euclidean_solver", tout << "after applying solution set\n";

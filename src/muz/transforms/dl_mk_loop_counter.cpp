@@ -64,7 +64,7 @@ namespace datalog {
     }
         
     rule_set * mk_loop_counter::operator()(rule_set const & source) {
-        m_refs.reset();
+        m_refs.clear();
         m_old2new.reset();
         m_new2old.reset();
         rule_manager& rm = source.get_rule_manager();
@@ -76,8 +76,8 @@ namespace datalog {
         vector<bool> neg;
         rule_counter& vc = rm.get_counter();
         for (unsigned i = 0; i < sz; ++i) {            
-            tail.reset();
-            neg.reset();
+            tail.clear();
+            neg.clear();
             rule & r = *source.get_rule(i);
             unsigned cnt = vc.get_max_rule_var(r)+1;
             unsigned utsz = r.get_uninterpreted_tail_size();
@@ -131,8 +131,8 @@ namespace datalog {
         app_ref head(m);
         vector<bool> neg;
         for (unsigned i = 0; i < sz; ++i) {            
-            tail.reset();
-            neg.reset();
+            tail.clear();
+            neg.clear();
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz = r.get_tail_size();

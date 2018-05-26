@@ -68,7 +68,7 @@ public:
     bool operator()(expr * n, unsigned begin = 0, unsigned end = UINT_MAX) {
         m_contains   = false;
         m_window     = end - begin;
-        m_todo.reset();
+        m_todo.clear();
         m_cache.reset();
         m_todo.push_back(expr_delta_pair(n, begin));
         while (!m_todo.empty()) {

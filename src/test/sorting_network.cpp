@@ -221,7 +221,7 @@ static void test_eq1(unsigned n, sorting_network_encoding enc) {
         TRACE("pb", model_smt2_pp(tout, m, *model, 0););
     }
     ENSURE(l_false == res);
-    ext.m_clauses.reset();
+    ext.m_clauses.clear();
 }
 
 static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc) {
@@ -278,7 +278,7 @@ static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc
     }
     ENSURE(res == l_false);
     solver.pop(1);
-    ext.m_clauses.reset();
+    ext.m_clauses.clear();
 }
 
 static void test_sorting_le(unsigned n, unsigned k, sorting_network_encoding enc) {
@@ -335,7 +335,7 @@ static void test_sorting_le(unsigned n, unsigned k, sorting_network_encoding enc
     }
     ENSURE(res == l_false);
     solver.pop(1);
-    ext.m_clauses.reset();
+    ext.m_clauses.clear();
 }
 
 

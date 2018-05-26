@@ -259,7 +259,7 @@ public:
                 ++m_stats.m_num_find_le_nodes;
                 to_trie(todo[index][j])->find_le(m_le, get_key(keys, i), todo[!index]);
             }
-            todo[index].reset();
+            todo[index].clear();
             index = !index;
         }
         for (unsigned j = 0; j < todo[index].size(); ++j) {

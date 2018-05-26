@@ -82,10 +82,10 @@ void expr2var::reset() {
     for (auto & kv : m_mapping) {
         m().dec_ref(kv.m_key);
     }
-    m_mapping.reset();
-    m_id2map.reset();
-    m_recent_exprs.reset();
-    m_recent_lim.reset();
+    m_mapping.clear();
+    m_id2map.clear();
+    m_recent_exprs.clear();
+    m_recent_lim.clear();
     m_interpreted_vars = false;
 }
 

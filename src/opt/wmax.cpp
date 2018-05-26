@@ -39,8 +39,8 @@ namespace opt {
         void reset() {
             m_weights.reset();
             m_keys.reset();
-            m_trail.reset();
-            m_defs.reset();
+            m_trail.clear();
+            m_defs.clear();
         }
 
     public:
@@ -141,7 +141,7 @@ namespace opt {
             }
             compare_asm comp(*this);
             std::sort(_asms.begin(),_asms.end(), comp); 
-            asms.reset();
+            asms.clear();
             for (unsigned i = 0; i < _asms.size(); ++i) {
                 asms.push_back(m.mk_not(_asms[i]));
             }

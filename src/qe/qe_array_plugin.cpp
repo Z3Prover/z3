@@ -231,7 +231,7 @@ namespace qe {
                 ptr_vector<expr> args2;
                 for (unsigned i = args.size(); i > 0; ) {
                     --i;
-                    args2.reset();
+                    args2.clear();
                     w = m.mk_fresh_const("w", m.get_sort(args[i].back()));
                     args2.push_back(store_T);
                     args2.append(args[i]);

@@ -556,7 +556,7 @@ public:
         fact1.push_back(bv.mk_numeral(rational(0), 2));
         fact1.push_back(bv.mk_numeral(rational(3), 2));
         t2->add_fact(fact1);
-        fact1.reset();
+        fact1.clear();
         fact1.push_back(bv.mk_numeral(rational(1), 2));
         fact1.push_back(bv.mk_numeral(rational(3), 2));
         t2->add_fact(fact1);
@@ -593,24 +593,24 @@ public:
         cycle.push_back(2);
         check_permutation(t1, cycle);
 
-        sig.reset();
+        sig.clear();
         sig.push_back(bv.mk_sort(2));
         sig.push_back(bv.mk_sort(6));
         sig.push_back(bv.mk_sort(12));
-        fact1.reset();
+        fact1.clear();
         fact1.push_back(bv.mk_numeral(rational(3), 2));
         fact1.push_back(bv.mk_numeral(rational(6), 6));
         fact1.push_back(bv.mk_numeral(rational(1), 12));
         t1 = mk_empty(sig);
         t1->add_fact(fact1);
-        cycle.reset();
+        cycle.clear();
         cycle.push_back(0);
         cycle.push_back(2);
         check_permutation(t1, cycle);
 
         t1 = mk_empty(sig);
         t1->add_fact(fact1);
-        cycle.reset();
+        cycle.clear();
         cycle.push_back(0);
         cycle.push_back(1);
         cycle.push_back(2);

@@ -39,18 +39,18 @@ namespace smt {
     theory_datatype::final_check_st::final_check_st(theory_datatype * th) : th(th) {
         SASSERT(th->m_to_unmark.empty());
         SASSERT(th->m_to_unmark2.empty());
-        th->m_used_eqs.reset();
-        th->m_stack.reset();
+        th->m_used_eqs.clear();
+        th->m_stack.clear();
         th->m_parent.reset();
     }
 
     theory_datatype::final_check_st::~final_check_st() {
         unmark_enodes(th->m_to_unmark.size(), th->m_to_unmark.c_ptr());
         unmark_enodes2(th->m_to_unmark2.size(), th->m_to_unmark2.c_ptr());
-        th->m_to_unmark.reset();
-        th->m_to_unmark2.reset();
-        th->m_used_eqs.reset();
-        th->m_stack.reset();
+        th->m_to_unmark.clear();
+        th->m_to_unmark2.clear();
+        th->m_used_eqs.clear();
+        th->m_stack.clear();
         th->m_parent.reset();
     }   
     
@@ -613,7 +613,7 @@ namespace smt {
     void theory_datatype::reset_eh() {
         m_trail_stack.reset();
         std::for_each(m_var_data.begin(), m_var_data.end(), delete_proc<var_data>());
-        m_var_data.reset();
+        m_var_data.clear();
         theory::reset_eh();
         m_util.reset();
         m_stats.reset();
@@ -637,7 +637,7 @@ namespace smt {
 
     theory_datatype::~theory_datatype() {
         std::for_each(m_var_data.begin(), m_var_data.end(), delete_proc<var_data>());
-        m_var_data.reset();
+        m_var_data.clear();
     }
 
     void theory_datatype::display(std::ostream & out) const {

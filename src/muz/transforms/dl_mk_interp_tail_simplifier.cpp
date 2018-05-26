@@ -71,8 +71,8 @@ namespace datalog {
 
         apply(m_rule->get_head(), m_head);
 
-        m_tail.reset();
-        m_neg.reset();
+        m_tail.clear();
+        m_neg.clear();
 
         unsigned tail_len = m_rule->get_tail_size();
         for (unsigned i=0; i<tail_len; i++) {
@@ -301,7 +301,7 @@ namespace datalog {
                 SASSERT(num == 1);
                 expr_ref tmp(m);
                 app* a = to_app(args[0]);
-                m_app_args.reset();
+                m_app_args.clear();
                 for (expr* arg : *a) {
                     m_brwr.mk_not(arg, tmp);
                     m_app_args.push_back(tmp);
@@ -331,7 +331,7 @@ namespace datalog {
                 return BR_DONE;
             }
 
-            m_app_args.reset();
+            m_app_args.clear();
             m_app_args.append(num, args);
 
             std::sort(m_app_args.c_ptr(), m_app_args.c_ptr()+m_app_args.size(), m_expr_cmp);
@@ -406,7 +406,7 @@ namespace datalog {
             return false;
         }
 
-        m_todo.reset();
+        m_todo.clear();
         m_leqs.reset();
         for (unsigned i = u_len; i < len; i++) {
             m_todo.push_back(r->get_tail(i));
@@ -507,8 +507,8 @@ namespace datalog {
         }
         app_ref head(r->get_head(), m);
 
-        m_tail.reset();
-        m_tail_neg.reset();
+        m_tail.clear();
+        m_tail_neg.clear();
 
         for (unsigned i=0; i<u_len; i++) {
             m_tail.push_back(r->get_tail(i));
@@ -524,7 +524,7 @@ namespace datalog {
             SASSERT(!r->is_neg_tail(u_len));
         }
         else {
-            m_itail_members.reset();
+            m_itail_members.clear();
             for (unsigned i=u_len; i<len; i++) {
                 m_itail_members.push_back(r->get_tail(i));
                 SASSERT(!r->is_neg_tail(i));
@@ -545,7 +545,7 @@ namespace datalog {
         SASSERT(m.is_bool(simp_res));
 
         if (modified) {
-            m_conj.reset();
+            m_conj.clear();
             flatten_and(simp_res, m_conj);
             for (unsigned i = 0; i < m_conj.size(); ++i) {
                 expr* e = m_conj[i].get();

@@ -33,7 +33,7 @@ namespace smt {
 
     theory_array_full::~theory_array_full() {
         std::for_each(m_var_data_full.begin(), m_var_data_full.end(), delete_proc<var_data_full>());
-        m_var_data_full.reset();
+        m_var_data_full.clear();
     }
 
     theory* theory_array_full::mk_fresh(context* new_ctx) { 
@@ -195,9 +195,9 @@ namespace smt {
     void theory_array_full::reset_eh() {
         theory_array::reset_eh();
         std::for_each(m_var_data_full.begin(), m_var_data_full.end(), delete_proc<var_data_full>());
-        m_var_data_full.reset();
+        m_var_data_full.clear();
         m_eqs.reset();
-        m_eqsv.reset();
+        m_eqsv.clear();
     }
 
     void theory_array_full::display_var(std::ostream & out, theory_var v) const {
@@ -797,7 +797,7 @@ namespace smt {
         std::for_each(m_var_data_full.begin() + num_old_vars, m_var_data_full.end(), delete_proc<var_data_full>());
         m_var_data_full.shrink(num_old_vars);        
         m_eqs.reset();
-        m_eqsv.reset();
+        m_eqsv.clear();
     }
 
     void theory_array_full::collect_statistics(::statistics & st) const {

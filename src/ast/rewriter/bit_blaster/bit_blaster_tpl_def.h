@@ -174,7 +174,7 @@ template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
     SASSERT(sz > 0);
     numeral n_a, n_b;
-    out_bits.reset();
+    out_bits.clear();
     if (is_numeral(sz, a_bits, n_b))
         std::swap(a_bits, b_bits);
     if (is_minus_one(sz, b_bits)) {
@@ -197,7 +197,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         SASSERT(sz == out_bits.size());
         return;
     }
-    out_bits.reset();
+    out_bits.clear();
     if (!m_use_wtm) {
 #if 0
     static unsigned counter = 0;
@@ -236,7 +236,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
 
         for (unsigned i = 1; i < sz; i++) {
             checkpoint();
-            couts.reset();
+            couts.clear();
             expr_ref i1(m()), i2(m());
             mk_and(a_bits[0], b_bits[i],   i1);
             mk_and(a_bits[1], b_bits[i-1], i2);
@@ -471,7 +471,7 @@ void bit_blaster_tpl<Cfg>::mk_udiv_urem(unsigned sz, expr * const * a_bits, expr
         checkpoint();
         // generate p - b
         expr_ref q(m());
-        t.reset();
+        t.clear();
         mk_subtracter(sz, p.c_ptr(), b_bits, t, q);
         q_bits.set(sz - i - 1, q);
 
@@ -948,9 +948,9 @@ void bit_blaster_tpl<Cfg>::mk_shl(unsigned sz, expr * const * a_bits, expr * con
                 mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
                 new_out_bits.push_back(new_out);
             }
-            out_bits.reset();
+            out_bits.clear();
             out_bits.append(new_out_bits);
-            new_out_bits.reset();
+            new_out_bits.clear();
         }        
         expr_ref is_large(m());
         is_large = m().mk_false();
@@ -992,7 +992,7 @@ void bit_blaster_tpl<Cfg>::mk_lshr(unsigned sz, expr * const * a_bits, expr * co
                 mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
                 new_out_bits.push_back(new_out);
             }
-            out_bits.reset();
+            out_bits.clear();
             out_bits.append(new_out_bits);
         }
         expr_ref is_large(m());
@@ -1035,7 +1035,7 @@ void bit_blaster_tpl<Cfg>::mk_ashr(unsigned sz, expr * const * a_bits, expr * co
                 mk_ite(b_bits[i], a_j, out_bits[j].get(), new_out);
                 new_out_bits.push_back(new_out);
             }
-            out_bits.reset();
+            out_bits.clear();
             out_bits.append(new_out_bits);
         }
         expr_ref is_large(m());
@@ -1257,7 +1257,7 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
         SASSERT(sz == out_bits.size());
         return true;
     }    
-    out_bits.reset();
+    out_bits.clear();
     if (!m_use_bcm) {
         return false;
     }
@@ -1271,7 +1271,7 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
     for (unsigned i = 0; i < sz; i++) {
         now = m().is_true(a_bits[i]);
         SASSERT(now || m().is_false(a_bits[i]));
-        tmp.reset();
+        tmp.clear();
 
         if (now && !last) {            
             mk_adder(sz - i, out_bits.c_ptr() + i, minus_b_bits.c_ptr(), tmp);

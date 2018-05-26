@@ -238,7 +238,7 @@ namespace qe {
             m_vars.push_back(v);
             m_defs.push_back(e);
         }
-        void reset() { m_vars.reset(); m_defs.reset(); }
+        void reset() { m_vars.clear(); m_defs.clear(); }
         void append(def_vector const& o) { m_vars.append(o.m_vars); m_defs.append(o.m_defs); }
         unsigned size() const { return m_defs.size(); }
         void shrink(unsigned sz) { m_vars.shrink(sz); m_defs.shrink(sz); }

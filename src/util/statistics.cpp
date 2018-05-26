@@ -39,8 +39,8 @@ void statistics::copy(statistics const & st) {
 }
 
 void statistics::reset() {
-    m_stats.reset();
-    m_d_stats.reset();
+    m_stats.clear();
+    m_d_stats.clear();
 }
 
 template<typename V, typename M>

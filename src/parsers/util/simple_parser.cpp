@@ -53,7 +53,7 @@ void simple_parser::add_var(char const * str, var * v) {
 void simple_parser::reset() {
     m_builtin.reset();
     m_vars.reset();
-    m_exprs.reset();
+    m_exprs.clear();
 }
 
 void simple_parser::reset_vars() {
@@ -122,7 +122,7 @@ bool simple_parser::parse(std::istream & in, expr_ref & result) {
         warning_msg("parser error");
         return false;
     } 
-    m_exprs.reset();
+    m_exprs.clear();
     return result.get() != nullptr;
 }
 

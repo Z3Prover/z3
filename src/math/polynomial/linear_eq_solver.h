@@ -43,8 +43,8 @@ public:
             for (unsigned j = 0; j < n; j++) 
                 m.del(as[j]);
         }
-        A.reset();
-        b.reset();
+        A.clear();
+        b.clear();
         n = 0;
     }
 

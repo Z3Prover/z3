@@ -36,7 +36,7 @@ expr_ref func_decl_replace::operator()(expr* e) {
         else if (is_app(a)) {
             app* c = to_app(a);
             unsigned n = c->get_num_args();
-            m_args.reset();            
+            m_args.clear();            
             bool arg_differs = false;
             for (unsigned i = 0; i < n; ++i) {
                 expr* d = nullptr, *arg = c->get_arg(i);
@@ -92,6 +92,6 @@ expr_ref func_decl_replace::operator()(expr* e) {
 void func_decl_replace::reset() {
     m_cache.reset();
     m_subst.reset();
-    m_refs.reset();
-    m_funs.reset();
+    m_refs.clear();
+    m_funs.clear();
 }

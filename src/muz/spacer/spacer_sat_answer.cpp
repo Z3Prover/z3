@@ -86,7 +86,7 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         }
 
         if (curr.m_visit == 0) {
-            new_todo.reset();
+            new_todo.clear();
             mk_children(curr, new_todo);
             curr.m_visit = 1;
             // curr becomes invalid
@@ -130,7 +130,7 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
     m_solver->get_model(mdl);
     expr_ref_vector subst(m);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
-        subst.reset();
+        subst.clear();
         mk_child_subst_from_model(preds[i], i, mdl, subst);
         todo.push_back(frame(kid_rfs.get(i),
                              m_ctx.get_pred_transformer(preds[i]), subst));

@@ -218,7 +218,7 @@ namespace api {
             // When, we execute reset() it is deleted
             // To avoid this bug, I bump the reference counter before resetting m_last_result
             ast_ref node(n, m());
-            m_last_result.reset();
+            m_last_result.clear();
             m_last_result.push_back(std::move(node));
         }
         else {
@@ -235,7 +235,7 @@ namespace api {
 
     void context::reset_last_result() {
         if (m_user_ref_count)
-            m_last_result.reset();
+            m_last_result.clear();
         m_last_obj = nullptr;
     }
 

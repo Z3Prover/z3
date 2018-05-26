@@ -85,7 +85,7 @@ lbool dl_interface::query(expr * query)
 {
     //we restore the initial state in the datalog context
     m_ctx.ensure_opened();
-    m_refs.reset();
+    m_refs.clear();
     m_pred2slice.reset();
     ast_manager& m =                      m_ctx.get_manager();
     datalog::rule_manager& rm = m_ctx.get_rule_manager();
@@ -172,7 +172,7 @@ lbool dl_interface::query_from_lvl(expr * query, unsigned lvl)
 {
     //we restore the initial state in the datalog context
     m_ctx.ensure_opened();
-    m_refs.reset();
+    m_refs.clear();
     m_pred2slice.reset();
     ast_manager& m =                      m_ctx.get_manager();
     datalog::rule_manager& rm = m_ctx.get_rule_manager();

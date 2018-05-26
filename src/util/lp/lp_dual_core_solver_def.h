@@ -33,7 +33,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::init_a_wave_by
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::restore_non_basis() {
     auto & nb = this->m_nbasis;
-    nb.reset();
+    nb.clear();
     unsigned j = this->m_n();
     while (j--) {
         if (this->m_basis_heading[j] >= 0 ) continue;

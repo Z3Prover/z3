@@ -320,11 +320,11 @@ struct nnf::imp {
     }
 
     void reset() {
-        m_frame_stack.reset();
-        m_result_stack.reset();
-        m_result_pr_stack.reset();
-        m_todo_defs.reset();
-        m_todo_proofs.reset();
+        m_frame_stack.clear();
+        m_result_stack.clear();
+        m_result_pr_stack.clear();
+        m_todo_defs.clear();
+        m_todo_proofs.clear();
     }
 
     void reset_cache() {

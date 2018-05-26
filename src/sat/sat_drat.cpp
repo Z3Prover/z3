@@ -53,7 +53,7 @@ namespace sat {
                 m_alloc.del_clause(c);
             }
         }
-        m_proof.reset();
+        m_proof.clear();
         m_out = nullptr;
         m_bout = nullptr;
     }

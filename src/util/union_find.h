@@ -235,9 +235,9 @@ class basic_union_find {
     }
     
     void reset() {
-        m_find.reset();
-        m_next.reset();
-        m_size.reset();
+        m_find.clear();
+        m_next.clear();
+        m_size.clear();
     }
 };
 

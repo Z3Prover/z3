@@ -29,7 +29,7 @@ Revision History:
 namespace sat {
 
     void use_list::init(unsigned num_vars) {
-        m_use_list.reset();
+        m_use_list.clear();
         unsigned num_lits = 2 * num_vars;
         m_use_list.resize(num_lits);
     }
@@ -154,7 +154,7 @@ namespace sat {
     }
 
     void simplifier::init_visited() {
-        m_visited.reset();
+        m_visited.clear();
         m_visited.resize(2*s.num_vars(), false);
     }
 
@@ -175,9 +175,9 @@ namespace sat {
         m_last_sub_trail_sz = s.m_trail.size();
         m_use_list.init(s.num_vars());
         if (s.m_ext) s.m_ext->init_use_list(m_ext_use_list);
-        m_sub_todo.reset();
-        m_sub_bin_todo.reset();
-        m_elim_todo.reset();
+        m_sub_todo.clear();
+        m_sub_bin_todo.clear();
+        m_elim_todo.clear();
         init_visited();
         TRACE("after_cleanup", s.display(tout););
         CASSERT("sat_solver", s.check_invariant());
@@ -462,8 +462,8 @@ namespace sat {
        \brief Perform backward subsumption and self-subsumption resolution using c1.
     */
     void simplifier::back_subsumption1(clause & c1) {
-        m_bs_cs.reset();
-        m_bs_ls.reset();
+        m_bs_cs.clear();
+        m_bs_ls.clear();
         collect_subsumed1(c1, m_bs_cs, m_bs_ls);
         SASSERT(m_bs_cs.size() == m_bs_ls.size());
         clause_vector::iterator it    = m_bs_cs.begin();
@@ -569,7 +569,7 @@ namespace sat {
        \brief Perform backward subsumption using c1.
     */
     void simplifier::back_subsumption0(clause & c1) {
-        m_bs_cs.reset();
+        m_bs_cs.clear();
         collect_subsumed0(c1, m_bs_cs);
         for (clause* cp : m_bs_cs) {
             clause & c2 = *cp;
@@ -1090,7 +1090,7 @@ namespace sat {
 
         void reset_intersection() {
             for (literal l : m_intersection) m_in_intersection[l.index()] = false;
-            m_intersection.reset();
+            m_intersection.clear();
         }
 
         void add_intersection(literal lit) {
@@ -1149,7 +1149,7 @@ namespace sat {
                         first = false;
                     }
                     else {
-                        m_new_intersection.reset();
+                        m_new_intersection.clear();
                         for (literal lit : c) 
                             if (m_in_intersection[lit.index()]) 
                                 m_new_intersection.push_back(lit);
@@ -1385,8 +1385,8 @@ namespace sat {
             unsigned sz = 0, sz0 = m_covered_clause.size();     
             for (literal l : m_covered_clause) s.mark_visited(l);
             shuffle<literal>(m_covered_clause.size(), m_covered_clause.c_ptr(), s.s.m_rand);
-            m_tautology.reset();
-            m_mc.stackv().reset();
+            m_tautology.clear();
+            m_mc.stackv().clear();
             m_ala_qhead = 0;
 
             switch (et) {
@@ -1474,8 +1474,8 @@ namespace sat {
         template<elim_type et>
         elim_type cce(clause& c, literal& blocked, model_converter::kind& k) {
             m_clause = clause_wrapper(c);
-            m_covered_clause.reset();
-            m_covered_antecedent.reset();
+            m_covered_clause.clear();
+            m_covered_antecedent.clear();
             for (literal l : c) { 
                 m_covered_clause.push_back(l);
                 m_covered_antecedent.push_back(clause_ante());
@@ -1486,8 +1486,8 @@ namespace sat {
         template<elim_type et>
         elim_type cce(literal l1, literal l2, literal& blocked, model_converter::kind& k) {
             m_clause = clause_wrapper(l1, l2);
-            m_covered_clause.reset();
-            m_covered_antecedent.reset();
+            m_covered_clause.clear();
+            m_covered_antecedent.clear();
             m_covered_clause.push_back(l1);
             m_covered_clause.push_back(l2);
             m_covered_antecedent.push_back(clause_ante());
@@ -1632,7 +1632,7 @@ namespace sat {
           Then the following binary clause is blocked: l \/ ~l'
          */
         void bca(literal l) {
-            m_tautology.reset();
+            m_tautology.clear();
             if (resolution_intersection(l, true)) {
                 // this literal is pure. 
                 return;
@@ -1771,7 +1771,7 @@ namespace sat {
             unsigned c = get_to_elim_cost(v);
             tmp.push_back(bool_var_and_cost(v, c));
         }
-        m_elim_todo.reset();
+        m_elim_todo.clear();
         std::stable_sort(tmp.begin(), tmp.end(), bool_var_and_cost_lt());
         TRACE("elim_vars",
               for (auto& p : tmp) tout << "(" << p.first << ", " << p.second << ") ";
@@ -1948,8 +1948,8 @@ namespace sat {
             s.m_clauses.size() <= m_res_cls_cutoff1)
             return false;
 
-        m_pos_cls.reset();
-        m_neg_cls.reset();
+        m_pos_cls.clear();
+        m_neg_cls.clear();
         collect_clauses(pos_l, m_pos_cls);
         collect_clauses(neg_l, m_neg_cls);
 
@@ -1958,7 +1958,7 @@ namespace sat {
         unsigned after_clauses  = 0;
         for (clause_wrapper& c1 : m_pos_cls) {
             for (clause_wrapper& c2 : m_neg_cls) {
-                m_new_cls.reset();
+                m_new_cls.clear();
                 if (resolve(c1, c2, pos_l, m_new_cls)) {
                     TRACE("resolution_detail", tout << c1 << "\n" << c2 << "\n-->\n";
                           for (literal l : m_new_cls) tout << l << " "; tout << "\n";);
@@ -1986,7 +1986,7 @@ namespace sat {
 
         for (auto & c1 : m_pos_cls) {
             for (auto & c2 : m_neg_cls) {
-                m_new_cls.reset();
+                m_new_cls.clear();
                 if (!resolve(c1, c2, pos_l, m_new_cls))
                     continue;                
                 TRACE("resolution_new_cls", tout << c1 << "\n" << c2 << "\n-->\n" << m_new_cls << "\n";);

@@ -377,7 +377,7 @@ namespace qe {
 
         // -- merge might invalidate term2app cache
         m_term2app.reset();
-        m_pinned.reset();
+        m_pinned.clear();
 
         if (a->get_class_size() > b->get_class_size()) {
             std::swap(a, b);
@@ -568,11 +568,11 @@ namespace qe {
 
     void term_graph::reset() {
         m_term2app.reset();
-        m_pinned.reset();
+        m_pinned.clear();
         m_app2term.reset();
         std::for_each(m_terms.begin(), m_terms.end(), delete_proc<term>());
-        m_terms.reset();
-        m_lits.reset();
+        m_terms.clear();
+        m_lits.clear();
         m_cg_table.reset();
     }
 
@@ -779,8 +779,8 @@ namespace qe {
         
         void collect_decl2terms() {
             // Collect the projected function symbols.
-            m_decl2terms.reset();
-            m_decls.reset();
+            m_decl2terms.clear();
+            m_decls.clear();
             for (term *t : m_tg.m_terms) {
                 expr* e = t->get_expr();
                 if (!is_app(e)) continue;
@@ -987,7 +987,7 @@ namespace qe {
             m_tg.reset_marks();
             m_term2app.reset();
             m_root2rep.reset();
-            m_pinned.reset();
+            m_pinned.clear();
             m_model.reset();
         }
 

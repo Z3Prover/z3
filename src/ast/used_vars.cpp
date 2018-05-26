@@ -23,7 +23,7 @@ void used_vars::process(expr * n, unsigned delta) {
     unsigned j, idx;
 
     m_cache.reset();
-    m_todo.reset();
+    m_todo.clear();
     m_todo.push_back(expr_delta_pair(n, delta));
 
     while (!m_todo.empty()) {

@@ -55,7 +55,7 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
             app* a = to_app(curr);
             bool all_visited = true;
             bool changed = false;
-            m_args.reset();
+            m_args.clear();
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 if (!m_map.find(a->get_arg(i), b)) {
                     m_stack.push_back(a->get_arg(i));
@@ -101,10 +101,10 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
     }
     VERIFY (m_map.find(n, b));
     result = b;
-    m_pinned.reset();
+    m_pinned.clear();
     m_map.reset();
-    m_stack.reset();
-    m_args.reset();   
+    m_stack.clear();
+    m_args.clear();   
 }
 
 void expr_abstract(ast_manager& m, unsigned base, unsigned num_bound, expr* const* bound, expr* n, expr_ref&  result) {

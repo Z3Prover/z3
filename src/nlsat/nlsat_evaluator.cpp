@@ -66,11 +66,11 @@ namespace nlsat {
                 unsigned sz = m_sections.size();
                 for (unsigned i = 0; i < sz; i++)
                     m_am.del(m_sections[i].m_root);
-                m_sections.reset();
-                m_sorted_sections.reset();
-                m_poly_sections.reset();
-                m_poly_signs.reset();
-                m_info.reset();
+                m_sections.clear();
+                m_sorted_sections.clear();
+                m_poly_sections.clear();
+                m_poly_signs.clear();
+                m_info.clear();
             }
 
             unsigned mk_section(anum & v, unsigned pos) {
@@ -86,7 +86,7 @@ namespace nlsat {
             // Store the section ids for the new roots in p_section_ids
             unsigned_vector new_sorted_sections;
             void merge(anum_vector & roots, unsigned_vector & p_section_ids) {
-                new_sorted_sections.reset();  // new m_sorted_sections
+                new_sorted_sections.clear();  // new m_sorted_sections
                 unsigned i1  = 0;
                 unsigned sz1 = m_sorted_sections.size();
                 unsigned i2  = 0;
@@ -150,7 +150,7 @@ namespace nlsat {
             */
             unsigned_vector p_section_ids;
             void add(anum_vector & roots, vector<int> & signs) {
-                p_section_ids.reset();
+                p_section_ids.clear();
                 if (!roots.empty())
                     merge(roots, p_section_ids);
                 unsigned first_sign    = m_poly_signs.size();
@@ -421,7 +421,7 @@ namespace nlsat {
             // all variables of a were already assigned... 
             atom::kind k = a->get_kind();
             scoped_anum_vector & roots = m_tmp_values;
-            roots.reset();
+            roots.clear();
             m_am.isolate_roots(polynomial_ref(a->p(), m_pm), undef_var_assignment(m_assignment, a->x()), roots);
             TRACE("nlsat",
                   m_solver.display(tout << (neg?"!":""), *a); tout << "\n";
@@ -459,8 +459,8 @@ namespace nlsat {
                 // isolate roots of p
                 scoped_anum_vector & roots = m_add_roots_tmp;
                 vector<int>       & signs = m_add_signs_tmp;
-                roots.reset();
-                signs.reset();
+                roots.clear();
+                signs.clear();
                 TRACE("nlsat_evaluator", tout << "x: " << x << " max_var(p): " << m_pm.max_var(p) << "\n";);
                 // Note: I added undef_var_assignment in the following statement, to allow us to obtain the infeasible interval sets
                 // even when the maximal variable is assigned. I need this feature to minimize conflict cores.
@@ -598,7 +598,7 @@ namespace nlsat {
             literal jst(a->bvar(), neg);
             anum dummy;
             scoped_anum_vector & roots = m_tmp_values;
-            roots.reset();
+            roots.clear();
             var x = a->max_var();
             // Note: I added undef_var_assignment in the following statement, to allow us to obtain the infeasible interval sets
             // even when the maximal variable is assigned. I need this feature to minimize conflict cores.

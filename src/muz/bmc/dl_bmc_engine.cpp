@@ -97,8 +97,8 @@ namespace datalog {
                 expr_ref_vector rules(m), sub(m), conjs(m);
                 expr_ref trm(m), rule_body(m), rule_i(m);
                 for (unsigned i = 0; i < rls.size(); ++i) {
-                    sub.reset();
-                    conjs.reset();
+                    sub.clear();
+                    conjs.clear();
                     rule& r = *rls[i];
                     rule_i = m.mk_app(mk_q_rule(p, i), var.get());
                     rules.push_back(rule_i);
@@ -145,14 +145,14 @@ namespace datalog {
             p.set_uint("smt.relevancy", 2ul);
             p.set_bool("smt.mbqi", true);
             b.m_solver->updt_params(p);
-            b.m_rule_trace.reset();
+            b.m_rule_trace.clear();
         }
 
         void mk_qrule_vars(datalog::rule const& r, unsigned rule_id, expr_ref_vector& sub) {
             ptr_vector<sort> sorts;
             r.get_vars(m, sorts);
             // populate substitution of bound variables.
-            sub.reset();
+            sub.clear();
             sub.resize(sorts.size());
 
             for (unsigned k = 0; k < r.get_decl()->get_arity(); ++k) {
@@ -471,7 +471,7 @@ namespace datalog {
             params_ref p;
             p.set_uint("smt.relevancy", 2ul);
             b.m_solver->updt_params(p);
-            b.m_rule_trace.reset();
+            b.m_rule_trace.clear();
         }
 
         lbool check(unsigned level) {
@@ -752,13 +752,13 @@ namespace datalog {
     private:
         void setup() {
             m_pred2sort.reset();
-            m_pinned.reset();
+            m_pinned.clear();
             m_sort2pred.reset();
             params_ref p;
             p.set_uint("smt.relevancy", 2ul);
             p.set_bool("smt.mbqi", false);
             b.m_solver->updt_params(p);
-            b.m_rule_trace.reset();
+            b.m_rule_trace.clear();
         }
 
         func_decl_ref mk_predicate(func_decl* pred) {
@@ -803,7 +803,7 @@ namespace datalog {
             ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m.get_sort(path));
             // populate substitution of bound variables.
             r.get_vars(m, sorts);
-            sub.reset();
+            sub.clear();
             sub.resize(sorts.size());
             for (unsigned k = 0; k < r.get_decl()->get_arity(); ++k) {
                 expr* arg = r.get_head()->get_arg(k);
@@ -868,9 +868,9 @@ namespace datalog {
                 SASSERT(cnstrs.size() == rls.size());
                 pred = m.mk_app(mk_predicate(p), trace_var.get(), path_var.get());
                 for (unsigned i = 0; i < rls.size(); ++i) {
-                    sub.reset();
-                    conjs.reset();
-                    vars.reset();
+                    sub.clear();
+                    conjs.clear();
+                    vars.clear();
                     rule& r = *rls[i];
                     func_decl_ref rule_pred_i = mk_rule(p, i);
 
@@ -927,7 +927,7 @@ namespace datalog {
                     SASSERT(vars.size() == names.size());
                     symbol qid = r.name(), skid;
                     tmp = m.mk_app(mk_predicate(p), trace_arg.get(), path_var.get());
-                    patterns.reset();
+                    patterns.clear();
                     patterns.push_back(m.mk_pattern(to_app(tmp)));
                     fml = m.mk_implies(tmp, rule_body);
                     fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
@@ -993,8 +993,8 @@ namespace datalog {
 
             // declare path data-type.
             {
-                new_sorts.reset();
-                dts.reset();
+                new_sorts.clear();
+                dts.clear();
                 ptr_vector<constructor_decl> cnstrs;
                 unsigned max_arity = 0;
                 rule_set::iterator it  = b.m_rules.begin();
@@ -1285,7 +1285,7 @@ namespace datalog {
             p.set_uint("smt.relevancy", 0ul);
             p.set_bool("smt.mbqi", false);
             b.m_solver->updt_params(p);
-            b.m_rule_trace.reset();
+            b.m_rule_trace.clear();
         }
 
 
@@ -1332,7 +1332,7 @@ namespace datalog {
             ptr_vector<sort> sorts;
             r.get_vars(m, sorts);
             // populate substitution of bound variables.
-            sub.reset();
+            sub.clear();
             sub.resize(sorts.size());
 
             for (unsigned k = 0; k < r.get_decl()->get_arity(); ++k) {
@@ -1378,8 +1378,8 @@ namespace datalog {
                 expr_ref_vector rules(m), sub(m), conjs(m);
                 expr_ref rule_body(m), tmp(m);
                 for (unsigned i = 0; i < rls.size(); ++i) {
-                    sub.reset();
-                    conjs.reset();
+                    sub.clear();
+                    conjs.clear();
                     rule& r = *rls[i];
                     expr_ref rule_i = mk_level_rule(p, i, level);
                     rules.push_back(rule_i);

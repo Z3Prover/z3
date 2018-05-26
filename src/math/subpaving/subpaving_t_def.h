@@ -697,7 +697,7 @@ void context_t<C>::del_monomial(monomial * m) {
 template<typename C>
 var context_t<C>::mk_monomial(unsigned sz, power const * pws) {
     SASSERT(sz > 0);
-    m_pws.reset();
+    m_pws.clear();
     m_pws.append(sz, pws);
     std::sort(m_pws.begin(), m_pws.end(), power::lt_proc());
     unsigned j = 0;
@@ -1092,7 +1092,7 @@ void context_t<C>::del_unit_clauses() {
     unsigned sz = m_unit_clauses.size();
     for (unsigned i = 0; i < sz; i++)
         dec_ref(UNTAG(ineq*, m_unit_clauses[i]));
-    m_unit_clauses.reset();
+    m_unit_clauses.clear();
 }
 
 template<typename C>
@@ -1101,7 +1101,7 @@ void context_t<C>::del_clauses(ptr_vector<clause> & cs) {
     for (unsigned i = 0; i < sz; i++) {
         del_clause(cs[i]);
     }
-    cs.reset();
+    cs.clear();
 }
 
 template<typename C>
@@ -1748,7 +1748,7 @@ void context_t<C>::propagate(node * n) {
         m_qhead++;
         propagate(n, b);
     }
-    m_queue.reset();
+    m_queue.clear();
     m_qhead = 0;
 }
 

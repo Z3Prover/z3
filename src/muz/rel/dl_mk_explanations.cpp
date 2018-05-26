@@ -152,12 +152,12 @@ namespace datalog {
 
             unsigned n=get_signature().size();
             SASSERT(f.size()==n);
-            m_data.reset();
+            m_data.clear();
             m_data.append(n, f.c_ptr());
         }
         void set_undefined() {
             m_empty = false;
-            m_data.reset();
+            m_data.clear();
             m_data.resize(get_signature().size());
         }
         void unite_with_data(const relation_fact & f) {
@@ -278,7 +278,7 @@ namespace datalog {
             explanation_relation* r = m_pool[s.size()].back();
             m_pool[s.size()].pop_back();
             r->m_empty = true;
-            r->m_data.reset();
+            r->m_data.clear();
             return r;
         }
         return alloc(explanation_relation, *this, s);
@@ -767,7 +767,7 @@ namespace datalog {
         for (; pit != pend; ++pit) {
             func_decl * orig_decl = *pit;
 
-            lit_args.reset();
+            lit_args.clear();
             unsigned arity = orig_decl->get_arity();
             for (unsigned i=0; i<arity; i++) {
                 lit_args.push_back(m_manager.mk_var(i, orig_decl->get_domain(i)));

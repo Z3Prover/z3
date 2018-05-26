@@ -206,7 +206,7 @@ private:
 
     unsigned get_values(cell * s, value * & vs) {
         ptr_vector<cell> & cs = m_get_values_tmp;
-        cs.reset();
+        cs.clear();
         cell * r = s;
         while (r->kind() != ROOT) {
             cs.push_back(r);
@@ -524,7 +524,7 @@ public:
         if (r.root())
             return;
         ptr_vector<cell> & cs = m_reroot_tmp;
-        cs.reset();
+        cs.clear();
         unsigned r_sz = size(r);
         unsigned trail_split_idx = r_sz / C::factor;
         unsigned i = 0;

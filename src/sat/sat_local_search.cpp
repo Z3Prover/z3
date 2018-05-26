@@ -27,7 +27,7 @@ namespace sat {
 
     void local_search::init() {
         flet<bool> _init(m_initializing, true);
-        m_unsat_stack.reset();
+        m_unsat_stack.clear();
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
             add_clause(1, m_assumptions.c_ptr() + i);
         }
@@ -111,7 +111,7 @@ namespace sat {
 
     // init goodvars 
     void local_search::init_goodvars() {
-        m_goodvar_stack.reset();
+        m_goodvar_stack.clear();
         for (unsigned v = 0; v < num_vars(); ++v) {
             if (score(v) > 0) { // && conf_change[v] == true
                 m_vars[v].m_in_goodvar_stack = true;
@@ -143,7 +143,7 @@ namespace sat {
         
         // init unsat stack
         m_is_unsat = false;
-        m_unsat_stack.reset();
+        m_unsat_stack.clear();
         
         // init solution using the bias
         init_cur_solution();
@@ -180,7 +180,7 @@ namespace sat {
     bool local_search::propagate(literal lit) {
         bool unit = is_unit(lit);
         VERIFY(is_true(lit));
-        m_prop_queue.reset();
+        m_prop_queue.clear();
         add_propagation(lit);
         for (unsigned i = 0; i < m_prop_queue.size() && i < m_vars.size(); ++i) {
             literal lit2 = m_prop_queue[i];
@@ -354,10 +354,10 @@ namespace sat {
     void local_search::import(solver& s, bool _init) {        
         flet<bool> linit(m_initializing, true);
         m_is_pb = false;
-        m_vars.reset();
-        m_constraints.reset();
-        m_units.reset();
-        m_unsat_stack.reset();
+        m_vars.clear();
+        m_constraints.clear();
+        m_units.clear();
+        m_unsat_stack.clear();
         m_vars.expand(s.num_vars());
         m_config.set_config(s.get_config());
 
@@ -414,7 +414,7 @@ namespace sat {
                         //    c.lits() >= k 
                         // <=> 
                         //    ~c.lits() <= n - k
-                        lits.reset();
+                        lits.clear();
                         for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
                         add_cardinality(lits.size(), lits.c_ptr(), n - k);
                     }
@@ -430,14 +430,14 @@ namespace sat {
                         // =  k*c.lit() + ~c.lits() <= n 
                         // 
                         m_is_pb = true;
-                        lits.reset();
-                        coeffs.reset();
+                        lits.clear();
+                        coeffs.clear();
                         for (literal l : c) lits.push_back(l), coeffs.push_back(1);
                         lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
                         add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
                         
-                        lits.reset();
-                        coeffs.reset();
+                        lits.clear();
+                        coeffs.clear();
                         for (literal l : c) lits.push_back(~l), coeffs.push_back(1);
                         lits.push_back(c.lit()); coeffs.push_back(k);
                         add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
@@ -446,8 +446,8 @@ namespace sat {
                 }
                 case ba_solver::pb_t: {
                     ba_solver::pb const& p = cp->to_pb();
-                    lits.reset();
-                    coeffs.reset();
+                    lits.clear();
+                    coeffs.clear();
                     m_is_pb = true;
                     unsigned sum = 0;
                     for (ba_solver::wliteral wl : p) sum += wl.first;
@@ -471,8 +471,8 @@ namespace sat {
                         for (ba_solver::wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
                         add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
 
-                        lits.reset();
-                        coeffs.reset();
+                        lits.clear();
+                        coeffs.clear();
                         lits.push_back(~p.lit()), coeffs.push_back(sum + 1 - p.k());
                         for (ba_solver::wliteral wl : p) lits.push_back(wl.second), coeffs.push_back(wl.first);
                         add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
@@ -542,8 +542,8 @@ namespace sat {
     
     lbool local_search::check(unsigned sz, literal const* assumptions, parallel* p) {
         flet<parallel*> _p(m_par, p);
-        m_model.reset();
-        m_assumptions.reset();
+        m_model.clear();
+        m_assumptions.clear();
         m_assumptions.append(sz, assumptions);
         unsigned num_units = m_units.size();
         init();
@@ -790,7 +790,7 @@ namespace sat {
     }
 
     void local_search::extract_model() {
-        m_model.reset();
+        m_model.clear();
         for (unsigned v = 0; v < num_vars(); ++v) {
             m_model.push_back(cur_solution(v) ? l_true : l_false);
         }

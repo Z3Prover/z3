@@ -47,7 +47,7 @@ public:
     void mark(T const * obj, bool flag) { mark(*obj, flag); }
     void mark(T const & obj) { mark(obj, true); }
     void mark(T const * obj) { mark(obj, true); }
-    void reset() { m_marks.reset(); }
+    void reset() { m_marks.clear(); }
 };
 
 #endif /* OBJ_MARK_H_ */

@@ -251,7 +251,7 @@ obj_hashtable<expr> const & proto_model::get_known_universe(sort * s) const {
 
 ptr_vector<expr> const & proto_model::get_universe(sort * s) const {
     ptr_vector<expr> & tmp = const_cast<proto_model*>(this)->m_tmp;
-    tmp.reset();
+    tmp.clear();
     obj_hashtable<expr> const & u = get_known_universe(s);
     for (expr * e : u) {
         tmp.push_back(e);

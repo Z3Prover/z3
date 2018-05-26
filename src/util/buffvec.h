@@ -805,7 +805,6 @@ public:
 
     // adaptors for the old vector interface
     pointer c_ptr() const { return m_data; }
-    void reset() noexcept { clear(); }
     void finalize() { clear(); shrink_to_fit(); }
     const_reference get(size_type index, T const& default_value) const { return index < size() ? (*this)[index] : default_value; }
     void setx(size_type index, T const& new_value, T const& default_value) {

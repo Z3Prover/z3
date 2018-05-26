@@ -79,7 +79,7 @@ public:
     void reset() {
         m_uf.reset();
         m_to_int.reset();
-        m_to_obj.reset();
+        m_to_obj.clear();
     }
 
     bool are_equiv(OBJ*a, OBJ*b) {

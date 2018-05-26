@@ -164,7 +164,7 @@ class func_decl_dependencies::top_sort {
                     SASSERT(m_todo.back() == cf);
                     set_color(cf, CLOSED);
                 } else {
-                    m_todo.reset();
+                    m_todo.clear();
                     return true;
                 }
                 break;

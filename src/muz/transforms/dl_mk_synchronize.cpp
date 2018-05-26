@@ -186,7 +186,7 @@ namespace datalog {
         ptr_vector<app> merged_recursive_calls;
 
         for (unsigned j = 0; j < max_sz; ++j) {
-            merged_recursive_calls.reset();
+            merged_recursive_calls.clear();
             merged_recursive_calls.resize(n);
             for (unsigned i = 0; i < n; ++i) {
                 unsigned sz = recursive_calls[i].size();

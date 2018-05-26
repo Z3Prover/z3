@@ -49,8 +49,8 @@ public:
 
     void reset() {
         m_coefficient.reset();
-        m_coefficients.reset();
-        m_factors.reset();
+        m_coefficients.clear();
+        m_factors.clear();
     }
 
 };

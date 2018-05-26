@@ -547,7 +547,7 @@ namespace smt {
         }
 
         void reset_candidates() {
-            m_candidates.reset();
+            m_candidates.clear();
         }
 
         enode_vector const & get_candidates() const {
@@ -838,7 +838,7 @@ namespace smt {
             m_qa          = qa;
             m_mp          = mp;
             m_num_choices = 0;
-            m_todo.reset();
+            m_todo.clear();
             m_registers.fill(0);
 
             app * p = to_app(mp->get_arg(first_idx));
@@ -915,7 +915,7 @@ namespace smt {
            \remark The new operations are appended to m_seq.
         */
         void linearise_core() {
-            m_aux.reset();
+            m_aux.clear();
             app *         first_app = nullptr;
             unsigned      first_app_reg;
             unsigned      first_app_sz;
@@ -1215,13 +1215,13 @@ namespace smt {
            \brief Produce the operations for the registers in m_todo.
         */
         void linearise(instruction * head, unsigned first_idx) {
-            m_seq.reset();
+            m_seq.clear();
             m_matched_exprs.reset();
             while (!m_todo.empty())
                 linearise_core();
 
             if (m_mp->get_num_args() > 1) {
-                m_mp_already_processed.reset();
+                m_mp_already_processed.clear();
                 m_mp_already_processed.resize(m_mp->get_num_args());
                 m_mp_already_processed[first_idx] = true;
                 linearise_multi_pattern(first_idx);
@@ -1433,7 +1433,7 @@ namespace smt {
         */
         unsigned get_compatibility_measure(choose * child, bool & simple) {
             simple = true;
-            m_to_reset.reset();
+            m_to_reset.clear();
             unsigned weight    = 0;
             unsigned num_instr = 0;
             instruction * curr = child->m_next;
@@ -1489,8 +1489,8 @@ namespace smt {
 
         void insert(instruction * head, unsigned first_mp_idx) {
             for (;;) {
-                m_compatible.reset();
-                m_incompatible.reset();
+                m_compatible.clear();
+                m_incompatible.clear();
                 TRACE("mam_compiler_detail", tout << "processing head: " << *head << "\n";);
                 instruction * curr = head->m_next;
                 instruction * last = head;
@@ -1859,7 +1859,7 @@ namespace smt {
 
         enode_vector * mk_enode_vector() {
             enode_vector * r = m_pool.mk();
-            r->reset();
+            r->clear();
             return r;
         }
 
@@ -2273,14 +2273,14 @@ namespace smt {
         // It doesn't make sense to process an irrelevant enode.
         TRACE("mam_execute_core", tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
         SASSERT(m_context.is_relevant(n));
-        m_pattern_instances.reset();
-        m_min_top_generation.reset();
-        m_max_top_generation.reset();
+        m_pattern_instances.clear();
+        m_min_top_generation.clear();
+        m_max_top_generation.clear();
         m_pattern_instances.push_back(n);
         m_max_generation = n->get_generation();
 
         if (m_ast_manager.has_trace_stream()) {
-            m_used_enodes.reset();
+            m_used_enodes.clear();
             m_used_enodes.push_back(std::make_tuple(nullptr, n)); // null indicates that n was matched against the trigger at the top-level
         }
 
@@ -2908,7 +2908,7 @@ namespace smt {
 
         void reset() {
             std::for_each(m_trees.begin(), m_trees.end(), delete_proc<code_tree>());
-            m_trees.reset();
+            m_trees.clear();
         }
 
         code_tree * get_code_tree_for(func_decl * lbl) const {
@@ -3118,7 +3118,7 @@ namespace smt {
 
         enode_vector * mk_tmp_vector() {
             enode_vector * r = m_pool.mk();
-            r->reset();
+            r->clear();
             return r;
         }
 
@@ -3445,8 +3445,8 @@ namespace smt {
             if (num_vars >= m_var_paths.size())
                 m_var_paths.resize(num_vars+1);
             for (unsigned i = 0; i < num_vars; i++)
-                m_var_paths[i].reset();
-            m_tmp_region.reset();
+                m_var_paths[i].clear();
+            m_tmp_region.clear();
             // Given a multi-pattern (p_1, ..., p_n)
             // We need to update the filters using patterns:
             //  (p_1, p_2, ..., p_n)
@@ -3497,7 +3497,7 @@ namespace smt {
 #ifdef _PROFILE_PATH_TREE
             t->m_watch.start();
 #endif
-            m_todo.reset();
+            m_todo.clear();
             enode_vector * to_unmark  = mk_tmp_vector();
             enode_vector * to_unmark2 = mk_tmp_vector();
             SASSERT(to_unmark->empty());
@@ -3634,8 +3634,8 @@ namespace smt {
                 // remove both marks.
                 unmark_enodes(to_unmark->size(), to_unmark->c_ptr());
                 unmark_enodes2(to_unmark2->size(), to_unmark2->c_ptr());
-                to_unmark->reset();
-                to_unmark2->reset();
+                to_unmark->clear();
+                to_unmark2->clear();
             }
             recycle(to_unmark);
             recycle(to_unmark2);
@@ -3708,7 +3708,7 @@ namespace smt {
 
         void match_new_patterns() {
             TRACE("mam_new_pat", tout << "matching new patterns:\n";);
-            m_tmp_trees_to_delete.reset();
+            m_tmp_trees_to_delete.clear();
             for (auto const& kv : m_new_patterns) {
                 if (m_context.get_cancel_flag()) {
                     break;
@@ -3744,7 +3744,7 @@ namespace smt {
                 m_tmp_trees[lbl_id] = 0;
                 dealloc(tmp_tree);
             }
-            m_new_patterns.reset();
+            m_new_patterns.clear();
         }
 
         void collect_ground_exprs(quantifier * qa, app * mp) {
@@ -3829,21 +3829,21 @@ namespace smt {
                 for (code_tree* t : m_to_match) {
                     t->reset_candidates();
                 }
-                m_to_match.reset();
+                m_to_match.clear();
             }
-            m_new_patterns.reset();
+            m_new_patterns.clear();
             m_trail_stack.pop_scope(num_scopes);
         }
 
         void reset() override {
             m_trail_stack.reset();
             m_trees.reset();
-            m_to_match.reset();
-            m_new_patterns.reset();
-            m_is_plbl.reset();
-            m_is_clbl.reset();
+            m_to_match.clear();
+            m_new_patterns.clear();
+            m_is_plbl.clear();
+            m_is_clbl.clear();
             reset_pp_pc();
-            m_tmp_region.reset();
+            m_tmp_region.clear();
         }
 
         void display(std::ostream& out) override {
@@ -3864,10 +3864,10 @@ namespace smt {
                 m_interpreter.execute(t);
                 t->reset_candidates();
             }
-            m_to_match.reset();
+            m_to_match.clear();
             if (!m_new_patterns.empty()) {
                 match_new_patterns();
-                m_new_patterns.reset();
+                m_new_patterns.clear();
             }
         }
 

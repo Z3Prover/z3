@@ -325,7 +325,7 @@ namespace opt {
                 TRACE("opt", tout << fml << "\n";);
                 is_sat = m_s->check_sat(1,vars);
                 if (is_sat == l_true) {
-                    disj.reset();
+                    disj.clear();
                     m_s->maximize_objectives(disj);
                     m_s->get_model(m_model);       
                     m_s->get_labels(m_labels);            
@@ -478,7 +478,7 @@ namespace opt {
     void optsmt::setup(opt_solver& solver) {
         m_s = &solver;
         solver.reset_objectives();
-        m_vars.reset();
+        m_vars.clear();
 
         // force base level
         {
@@ -624,12 +624,12 @@ namespace opt {
     }
 
     void optsmt::reset() {
-        m_lower.reset();
-        m_upper.reset();
-        m_objs.reset();
-        m_vars.reset();
+        m_lower.clear();
+        m_upper.clear();
+        m_objs.clear();
+        m_vars.clear();
         m_model.reset();
-        m_lower_fmls.reset();
+        m_lower_fmls.clear();
         m_s = nullptr;
     }
 }

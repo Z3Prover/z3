@@ -82,7 +82,7 @@ public:
     void topological_sort() {
         m_next_preorder = 0;
         m_partition_id.reset();
-        m_top_sorted.reset();
+        m_top_sorted.clear();
         for (auto & kv : m_deps) {
             traverse(kv.m_key);
         }

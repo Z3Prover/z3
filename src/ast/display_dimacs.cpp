@@ -60,8 +60,8 @@ std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls) {
         }
         if (!is_from_dimacs) {
             num_vars = 0;
-            expr2var.reset();
-            exprs.reset();
+            expr2var.clear();
+            exprs.clear();
             break;
         }
     }

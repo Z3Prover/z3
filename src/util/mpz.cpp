@@ -2414,7 +2414,7 @@ bool mpz_manager<SYNCH>::root(mpz & a, unsigned n) {
 
 template<bool SYNCH>
 bool mpz_manager<SYNCH>::decompose(mpz const & a, vector<digit_t> & digits) {
-    digits.reset();
+    digits.clear();
     if (is_small(a)) {
         if (a.m_val < 0) {
             digits.push_back(-a.m_val);

@@ -154,7 +154,7 @@ namespace datalog {
         unsigned n = s.size();
         relation_signature inner_sig_singleton;
         for(unsigned i=0; i<n; i++) {
-            inner_sig_singleton.reset();
+            inner_sig_singleton.clear();
             inner_sig_singleton.push_back(s[i]);
             inner_columns[i] = inner.can_handle_signature(inner_sig_singleton);
         }
@@ -170,7 +170,7 @@ namespace datalog {
     void sieve_relation_plugin::collect_inner_signature(const relation_signature & s, 
             const vector<bool> & inner_columns, relation_signature & inner_sig) {
         SASSERT(inner_columns.size()==s.size());
-        inner_sig.reset();
+        inner_sig.clear();
         unsigned n = s.size();
         for(unsigned i=0; i<n; i++) {
             if(inner_columns[i]) {

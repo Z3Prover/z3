@@ -325,10 +325,10 @@ namespace qe {
                 dealloc(m_solvers[i]);
             }
             m_fml = nullptr;
-            m_Ms.reset();
-            m_fparamv.reset();
-            m_solvers.reset();
-            m_vars.reset();
+            m_Ms.clear();
+            m_fparamv.clear();
+            m_solvers.clear();
+            m_vars.clear();
         }
 
         void skolemize_existential_prefix() {
@@ -672,7 +672,7 @@ namespace qe {
             solver.push();
             solver.assert_expr(ctx);
             lbool r = solver.check();
-            m_assignments.reset();
+            m_assignments.clear();
             solver.get_assignments(m_assignments);
             solver.pop(1);
             check_success(r != l_undef);

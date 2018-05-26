@@ -59,7 +59,7 @@ namespace sat {
     }
 
     void unit_walk::var_priority::set_vars(solver& s) {
-        m_vars.reset();
+        m_vars.clear();
         for (unsigned v = 0; v < s.num_vars(); ++v) {            
             if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
                 add(v);
@@ -173,8 +173,8 @@ namespace sat {
         m_luby_index = 0;
         m_restart_threshold = 1000;
         m_max_trail = 0;
-        m_trail.reset();
-        m_decisions.reset();
+        m_trail.clear();
+        m_decisions.clear();
         m_phase.resize(s.num_vars());
         m_phase_tf.resize(s.num_vars(), ema(1e-5));
         pqueue().reset();
@@ -315,10 +315,10 @@ namespace sat {
             s.m_assignment[(~lit).index()] = l_undef;
         }
         m_flips = 0;
-        m_trail.reset();
+        m_trail.clear();
         s.m_stats.m_conflict = 0;
         m_conflict_offset = 10000;
-        m_decisions.reset();
+        m_decisions.clear();
         m_qhead = 0;
         m_inconsistent = false;
     }

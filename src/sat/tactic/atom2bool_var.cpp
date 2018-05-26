@@ -102,7 +102,7 @@ struct collect_boolean_interface_proc {
         ptr_vector<expr> deps, all_deps;
         for (unsigned i = 0; i < sz; i++) {
             if (g.dep(i)) {
-                deps.reset();
+                deps.clear();
                 m.linearize(g.dep(i), deps);
                 all_deps.append(deps);
             }

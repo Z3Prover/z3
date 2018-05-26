@@ -96,11 +96,11 @@ namespace smt {
         for (auto* e : m_q_case_expand) {
             dealloc(e);
         }
-        m_q_case_expand.reset();
+        m_q_case_expand.clear();
         for (auto* e : m_q_body_expand) {
             dealloc(e);
         }
-        m_q_body_expand.reset();
+        m_q_body_expand.clear();
         m_q_clauses.clear();
     }
 
@@ -181,7 +181,7 @@ namespace smt {
             m_q_case_expand[i] = nullptr;
         }
         m_stats.m_case_expansions += m_q_case_expand.size();
-        m_q_case_expand.reset();
+        m_q_case_expand.clear();
 
         for (unsigned i = 0; i < m_q_body_expand.size(); ++i) {
             assert_body_axiom(*m_q_body_expand[i]);
@@ -189,7 +189,7 @@ namespace smt {
             m_q_body_expand[i] = nullptr;
         }
         m_stats.m_body_expansions += m_q_body_expand.size();
-        m_q_body_expand.reset();
+        m_q_body_expand.clear();
     }
 
     /**

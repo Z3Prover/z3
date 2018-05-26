@@ -40,7 +40,7 @@ namespace sat {
     class ext_use_list {
         vector<ext_constraint_list> m_use_list;
     public:
-        void init(unsigned num_vars) { m_use_list.reset(); m_use_list.resize(num_vars*2); }
+        void init(unsigned num_vars) { m_use_list.clear(); m_use_list.resize(num_vars*2); }
         void insert(literal l, ext_constraint_idx idx) { get(l).push_back(idx); }
         ext_constraint_list & get(literal l) { return m_use_list[l.index()]; }
         ext_constraint_list const & get(literal l) const { return m_use_list[l.index()]; }

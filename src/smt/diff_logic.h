@@ -318,7 +318,7 @@ private:
             TRACE("diff_logic_bug", tout << "undo assignment: " << it->get_var() << " " << it->get_old_value() << "\n";);
             m_assignment[it->get_var()] = it->get_old_value();
         }
-        m_assignment_stack.reset();
+        m_assignment_stack.clear();
     }
 
     // Store in gamma the normalized weight. The normalized weight is given
@@ -335,7 +335,7 @@ private:
         for (dl_var v : m_visited) {
             m_mark[v] = DL_UNMARKED;
         }
-        m_visited.reset();
+        m_visited.clear();
     }
 
     bool marks_are_clear() const {
@@ -420,7 +420,7 @@ private:
             if (m_heap.empty()) {
                 SASSERT(is_feasible());
                 reset_marks();
-                m_assignment_stack.reset();
+                m_assignment_stack.clear();
                 return true;
             }
 
@@ -655,7 +655,7 @@ public:
     }
 
     bool reachable(dl_var start, uint_set const& target, uint_set& visited, dl_var& dst) {
-        visited.reset();
+        visited.clear();
         vector<dl_var> nodes;
         nodes.push_back(start);
         for (dl_var n : nodes) {
@@ -696,8 +696,8 @@ public:
     bool find_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
         auto zero_edge = true;
         unsigned bfs_head = 0;
-        bfs_todo.reset();
-        dfs_todo.reset();
+        bfs_todo.clear();
+        dfs_todo.clear();
         m_hybrid_visited.resize(m_assignment.size(), m_run_counter++);
         m_hybrid_parent.resize(m_assignment.size(), -1);
         bfs_todo.push_back(source);
@@ -1043,7 +1043,7 @@ public:
     }
 
     void get_neighbours_undirected(dl_var current, vector<dl_var> & neighbours) {
-        neighbours.reset();
+        neighbours.clear();
         edge_id_vector & out_edges = m_out_edges[current];
         for (edge_id e_id : out_edges) {
             edge & e     = m_edges[e_id];
@@ -1061,7 +1061,7 @@ public:
     }
 
     void dfs_undirected(dl_var start, vector<dl_var> & threads) {
-        threads.reset();
+        threads.clear();
         threads.resize(get_num_nodes());
         uint_set discovered, explored;
         vector<dl_var> nodes;
@@ -1100,10 +1100,10 @@ public:
     }
 
     void bfs_undirected(dl_var start, vector<dl_var> & parents, vector<dl_var> & depths) {
-        parents.reset();
+        parents.clear();
         parents.resize(get_num_nodes());
         parents[start] = -1;
-        depths.reset();
+        depths.clear();
         depths.resize(get_num_nodes());
         uint_set visited;
         std::deque<dl_var> nodes;
@@ -1145,28 +1145,28 @@ public:
 
 
     void reset() {
-        m_assignment        .reset();
-        m_assignment_stack  .reset();
-        m_edges             .reset();
-        m_in_edges          .reset();
-        m_out_edges         .reset();
-        m_trail_stack       .reset();
-        m_gamma             .reset();
-        m_mark              .reset();
-        m_parent            .reset();
-        m_visited           .reset();
+        m_assignment        .clear();
+        m_assignment_stack  .clear();
+        m_edges             .clear();
+        m_in_edges          .clear();
+        m_out_edges         .clear();
+        m_trail_stack       .clear();
+        m_gamma             .clear();
+        m_mark              .clear();
+        m_parent            .clear();
+        m_visited           .clear();
         m_heap              .reset();
-        m_enabled_edges     .reset();
-        m_activity          .reset();
+        m_enabled_edges     .clear();
+        m_activity          .clear();
     }
 
     // Compute strongly connected components connected by (normalized) zero edges.
     void compute_zero_edge_scc(int_vector & scc_id) {
-        m_unfinished_set.reset();
-        m_dfs_time.reset();
-        scc_id.reset();
-        m_roots.reset();
-        m_unfinished.reset();
+        m_unfinished_set.clear();
+        m_dfs_time.clear();
+        scc_id.clear();
+        m_roots.clear();
+        m_unfinished.clear();
         int n = m_assignment.size();
         m_unfinished_set.resize(n, false);
         m_dfs_time.resize(n, -1);
@@ -1237,7 +1237,7 @@ public:
 
     void compute_zero_succ(dl_var v, int_vector& succ) {
         unsigned n = m_assignment.size();
-        m_dfs_time.reset();
+        m_dfs_time.clear();
         m_dfs_time.resize(n, -1);
         m_dfs_time[v] = 0;
         succ.push_back(v);
@@ -1472,7 +1472,7 @@ private:
         void re_init(unsigned sz) {
             m_delta.resize(sz, numeral(0));
             m_parent.resize(sz, 0);
-            m_visited.reset();
+            m_visited.clear();
             m_num_edges = 0;
             m_heap.set_bounds(sz);
             SASSERT(m_heap.empty());
@@ -1686,8 +1686,8 @@ public:
         find_relevant<true>(m_fw, id);        
         find_relevant<false>(m_bw, id);
         find_subsumed(id, m_bw, m_fw, subsumed);
-        m_fw.m_visited.reset();
-        m_bw.m_visited.reset();
+        m_fw.m_visited.clear();
+        m_bw.m_visited.clear();
         if (!subsumed.empty()) {
             TRACE("diff_logic", 
                   display(tout);

@@ -113,7 +113,7 @@ private:
         for (; it != end; ++it) {
             (*it)->unmark();
         }
-        m_todo.reset();
+        m_todo.clear();
     }
 
 public:
@@ -166,7 +166,7 @@ public:
 
     bool contains(dependency * d, value const & v) {
         if (d) {
-            m_todo.reset();
+            m_todo.clear();
             d->mark();
             m_todo.push_back(d);
             unsigned qhead = 0;
@@ -196,7 +196,7 @@ public:
 
     void linearize(dependency * d, vector<value> & vs) {
         if (d) {
-            m_todo.reset();
+            m_todo.clear();
             d->mark();
             m_todo.push_back(d);
             unsigned qhead = 0;
@@ -265,7 +265,7 @@ class scoped_dependency_manager {
             }
             
             void reset() {
-                m_region.reset();
+                m_region.clear();
             }
         };
     };

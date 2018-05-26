@@ -181,8 +181,8 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
         VERIFY(mk_horn(m_delay_head[i].get(), m_delay_body[i].get(), pred, body_res));
         insert(pred.get(), body_res.get());
     }
-    m_delay_head.reset();
-    m_delay_body.reset();
+    m_delay_head.clear();
+    m_delay_body.clear();
 
     TRACE("mc", tout << m_funcs.size() << "\n"; model_smt2_pp(tout, m, *mr, 0););
     for (unsigned i = m_funcs.size(); i > 0; ) {

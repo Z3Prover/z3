@@ -114,7 +114,7 @@ namespace datalog {
             */
             static void from_join(const signature & s1, const signature & s2, unsigned col_cnt, 
                     const unsigned * cols1, const unsigned * cols2, signature & result) {
-                result.reset();
+                result.clear();
 
                 unsigned s1sz=s1.size();
                 for(unsigned i=0; i<s1sz; i++) {
@@ -169,7 +169,7 @@ namespace datalog {
             */
             static void from_permutation_rename(const signature & src, 
                     const unsigned * permutation, signature & result) {
-                result.reset();
+                result.clear();
                 unsigned n = src.size();
                 for(unsigned i=0; i<n; i++) {
                     result.push_back(src[permutation[i]]);
@@ -677,7 +677,7 @@ namespace datalog {
                         transformer_fn * renamer = o.get_manager().mk_rename_fn(*res, cycle);
                         SASSERT(renamer);
                         m_renamers.push_back(renamer);
-                        cycle.reset();
+                        cycle.clear();
 
                         res_scoped = (*renamer)(*res);
                         res = res_scoped.get();
@@ -1250,7 +1250,7 @@ namespace datalog {
 
                Must be called when the row object begins to represent a different row in the table.
             */
-            void reset() { m_current.reset(); }
+            void reset() { m_current.clear(); }
         };
 
         //This function is here to create iterator instances in classes that derive from table_base.

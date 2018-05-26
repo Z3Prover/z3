@@ -35,11 +35,11 @@ namespace sat {
     }
 
     void parallel::vector_pool::reserve(unsigned num_threads, unsigned sz) {
-        m_vectors.reset();
+        m_vectors.clear();
         m_vectors.resize(sz, 0);
-        m_heads.reset();
+        m_heads.clear();
         m_heads.resize(num_threads, 0);
-        m_at_end.reset();
+        m_at_end.clear();
         m_at_end.resize(num_threads, true);
         m_tail = 0;
         m_size = sz;
@@ -189,7 +189,7 @@ namespace sat {
         unsigned const* ptr;
         unsigned owner = s.m_par_id;
         while (m_pool.get_vector(owner, n, ptr)) {
-            m_lits.reset();
+            m_lits.clear();
             bool usable_clause = true;
             for (unsigned i = 0; usable_clause && i < n; ++i) {
                 literal lit(to_literal(ptr[i]));                

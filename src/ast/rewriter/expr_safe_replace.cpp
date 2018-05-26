@@ -58,7 +58,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         else if (is_app(a)) {
             app* c = to_app(a);
             unsigned n = c->get_num_args();
-            m_args.reset();
+            m_args.clear();
             bool arg_differs = false;
             for (unsigned i = 0; i < n; ++i) {
                 expr* d = nullptr, *arg = c->get_arg(i);
@@ -115,14 +115,14 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
     }
     res = m_cache.find(e);
     m_cache.reset();
-    m_todo.reset();
-    m_args.reset();
-    m_refs.reset();    
+    m_todo.clear();
+    m_args.clear();
+    m_refs.clear();    
 }
 
 void expr_safe_replace::reset() {
-    m_src.reset();
-    m_dst.reset();
+    m_src.clear();
+    m_dst.clear();
     m_subst.reset();
 }
 

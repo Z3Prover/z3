@@ -114,7 +114,7 @@ namespace sat {
                         first = false;
                     }
                     ++index;
-                    clause.reset();
+                    clause.clear();
                     continue;                    
                 }
 
@@ -236,7 +236,7 @@ namespace sat {
     void model_converter::add_elim_stack(entry & e) {
         e.m_elim_stack.push_back(stackv().empty() ? nullptr : alloc(elim_stack, stackv()));
         // VERIFY(for (auto const& s : stackv()) VERIFY(legal_to_flip(s.second.var())););
-        stackv().reset();
+        stackv().clear();
     }
 
     void model_converter::insert(entry & e, clause const & c) {
@@ -365,7 +365,7 @@ namespace sat {
     void model_converter::flush(model_converter & src) {
         VERIFY(this != &src);
         m_entries.append(src.m_entries);
-        src.m_entries.reset();
+        src.m_entries.clear();
     }
 
     void model_converter::collect_vars(bool_var_set & s) const {
@@ -400,7 +400,7 @@ namespace sat {
         sat::literal_vector clause;
         for (entry const& e : m_entries) {
             unsigned index = 0;
-            clause.reset();
+            clause.clear();
             for (literal l : e.m_clauses) {
                 if (l == null_literal) {
                     elim_stack* st = e.m_elim_stack[index];                    
@@ -420,7 +420,7 @@ namespace sat {
                         update_stack.append(clause);
                         update_stack.push_back(null_literal);
                     }
-                    clause.reset();
+                    clause.clear();
                 }
                 else {
                     clause.push_back(l);

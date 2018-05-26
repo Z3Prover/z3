@@ -124,7 +124,7 @@ Notes:
         {}
         
         void operator()(vector_type const& in, vector_type& out) {
-            out.reset();
+            out.clear();
             out.append(in);
             if (in.size() <= 1) {
                 return;
@@ -428,7 +428,7 @@ Notes:
             for (unsigned i = 0; i < bits; ++i) {
 
                 // B is digits from Xs that are set at bit position i
-                B.reset(); 
+                B.clear(); 
                 for (unsigned j = 0; j < n; ++j) {
                     if (0 != ((1 << i) & Ws[j])) {
                         B.push_back(Xs[j]);
@@ -436,7 +436,7 @@ Notes:
                 }                
 
                 // We is every second position of W
-                We.reset();
+                We.clear();
                 for (unsigned j = 0; j + 2 <= W.size(); j += 2) {
                     We.push_back(W[j+1]);
                 } 
@@ -446,11 +446,11 @@ Notes:
                 }
 
                 // B is the sorted (from largest to smallest bit) version of S
-                S.reset();
+                S.clear();
                 sorting(B.size(), B.begin(), S);
 
                 // W is the merge of S and We
-                W.reset();
+                W.clear();
                 merge(S.size(), S.begin(), We.size(), We.begin(), W);
             } 
             
@@ -735,7 +735,7 @@ Notes:
             literal_vector ands;
             ands.push_back(result);
             while (!in.empty()) {
-                ors.reset();
+                ors.clear();
                 unsigned n = in.size();
                 if (n + 1 == inc_size) ++inc_size;
                 for (unsigned i = 0; i < n; i += inc_size) {       
@@ -748,7 +748,7 @@ Notes:
                 if (n <= inc_size) {
                     break;
                 }
-                in.reset();
+                in.clear();
                 in.append(ors);
             }
             if (full) {
@@ -1402,7 +1402,7 @@ Notes:
             if (m_t != LE) {
                 literal_vector ls;
                 for (unsigned k = 0; k < c; ++k) {
-                    ls.reset();
+                    ls.clear();
                     ls.push_back(mk_not(out[k]));
                     if (a <= k) {
                         add_clause(mk_not(out[k]), bs[k-a]);

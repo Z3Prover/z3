@@ -373,7 +373,7 @@ public:
                     expr_ref_buffer or_args(m);
                     ptr_vector<expr> formulas;
                     for (unsigned i = 0; i < num_goals; i++) {
-                        formulas.reset();
+                        formulas.clear();
                         result_goals[i]->get_formulas(formulas);
                         if (formulas.size() == 1)
                             or_args.push_back(formulas[0]);

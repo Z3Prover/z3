@@ -400,7 +400,7 @@ struct reduce_args_tactic::imp {
             expr * def     = nullptr;
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
-            new_vars.reset();
+            new_vars.clear();
             new_args.clear();
             for (unsigned i = 0; i < f->get_arity(); i++) {
                 new_vars.push_back(m_manager.mk_var(i, f->get_domain(i)));

@@ -175,11 +175,11 @@ namespace qe {
             union_find_default_ctx df;
             union_find<union_find_default_ctx> uf(df);
             
-            partition.reset();
+            partition.clear();
             
             for (unsigned v = 0; v < num_vars; ++v) {
                 contains_app& contains_x = *vars[v];
-                contains_index.reset();
+                contains_index.clear();
                 for (unsigned i = 0; i < num_args; ++i) {
                     if (contains_x(args[i])) {
                         contains_index.push_back(i);
@@ -313,7 +313,7 @@ namespace qe {
         expr_ref_vector trail(m);
         expr_ref tmp1(m), tmp2(m);
         expr *a0, *a1;
-        eqs.reset();
+        eqs.clear();
         conj_enum::iterator it = begin();
         for (; it != end(); ++it) {
             expr* e = *it;
@@ -434,9 +434,9 @@ namespace qe {
         }
 
         void reset() {
-            m_todo.reset();
-            m_trail.reset();
-            m_pols.reset();
+            m_todo.clear();
+            m_trail.clear();
+            m_pols.clear();
             m_pos.reset();
             m_neg.reset();
         }
@@ -550,7 +550,7 @@ namespace qe {
         }
 
         void nnf_and_or(bool is_and, app* a, bool p) {
-            m_args.reset();
+            m_args.clear();
             unsigned num_args = a->get_num_args();
             expr_ref tmp(m);
             bool visited = true;
@@ -679,8 +679,8 @@ namespace qe {
 
         void reset() {
             m_cache.reset();
-            m_todo.reset();
-            m_trail.reset();
+            m_todo.clear();
+            m_trail.clear();
         }
 
     private:
@@ -693,7 +693,7 @@ namespace qe {
                 m_cache.insert(e, e);               
             }
             else if (m.is_and(e) || m.is_or(e)) {
-                m_args.reset();
+                m_args.clear();
                 for (unsigned i = 0; i < e->get_num_args(); ++i) {
                     if (m_cache.find(e->get_arg(i), f)) {
                         m_args.push_back(f);
@@ -1022,8 +1022,8 @@ namespace qe {
             for (auto* ch : m_children) dealloc(ch);
             m_pos.reset();
             m_neg.reset();
-            m_children.reset();
-            m_vars.reset();
+            m_children.clear();
+            m_vars.clear();
             m_branch_index.reset();
             m_var = nullptr;
             m_def.reset();
@@ -1046,7 +1046,7 @@ namespace qe {
         // app* const* free_vars() const { return m_vars.c_ptr(); }
         app_ref_vector const& free_vars() const { return m_vars; }
         app*        free_var(unsigned i) const { return m_vars[i]; }
-        void        reset_free_vars() { TRACE("qe", tout << m_vars << "\n";); m_vars.reset(); }
+        void        reset_free_vars() { TRACE("qe", tout << m_vars << "\n";); m_vars.clear(); }
 
         atom_set const& pos_atoms() const { return m_pos; }   
         atom_set const& neg_atoms() const { return m_neg; }    
@@ -1388,8 +1388,8 @@ namespace qe {
         }
         
         void reset() {
-            m_free_vars.reset();
-            m_trail.reset();
+            m_free_vars.clear();
+            m_trail.clear();
             obj_map<app, contains_app*>::iterator it = m_var2contains.begin(), end = m_var2contains.end();
             for (; it != end; ++it) {
                 dealloc(it->m_value);
@@ -1397,7 +1397,7 @@ namespace qe {
             m_var2contains.reset();
             m_var2branch.reset();
             m_root.reset();
-            m_new_vars.reset();
+            m_new_vars.clear();
             m_fml = nullptr;
             m_defs = nullptr;
             m_nnf.reset();
@@ -1588,7 +1588,7 @@ namespace qe {
             if (!use_current_val) {
                 node = m_current->parent();
             }
-            m_literals.reset();
+            m_literals.clear();
             while (node) {
                 m_literals.push_back(mk_not(m, node->assignment()));
                 node = node->parent();
@@ -1948,7 +1948,7 @@ namespace qe {
             bool closed = true;
             while (extract_partition(vars)) {
                 lbool r = m_qe.eliminate_exists(vars.size(), vars.c_ptr(), fml, m_free_vars, m_get_first, m_defs);
-                vars.reset();
+                vars.clear();
                 closed = closed && (r != l_undef);
             }        
             TRACE("qe", tout << fml << " free: " << m_current->free_vars() << "\n";);
@@ -2235,7 +2235,7 @@ namespace qe {
         m_assumption = assumption;
         instantiate_expr(bound, result);
         elim(result);
-        m_trail.reset();
+        m_trail.clear();
         m_visited.reset();
         abstract_expr(bound.size(), bound.c_ptr(), result);
         TRACE("qe", tout << "elim result\n" << mk_ismt2_pp(result, m) << "\n";);
@@ -2560,7 +2560,7 @@ namespace qe {
             for (unsigned i = 0; i < m_contains.size(); ++i) {
                 dealloc (m_contains[i]);
             }  
-            m_contains.reset();
+            m_contains.clear();
         }
 
         void init(expr_ref& fml, app_ref_vector& vars) {

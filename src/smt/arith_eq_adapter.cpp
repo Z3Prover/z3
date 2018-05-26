@@ -238,13 +238,13 @@ namespace smt {
     }
 
     void arith_eq_adapter::init_search_eh() {
-        m_restart_pairs.reset();
+        m_restart_pairs.clear();
     }
 
     void arith_eq_adapter::reset_eh() {
         TRACE("arith_eq_adapter", tout << "reset\n";);
         m_already_processed .reset();
-        m_restart_pairs     .reset();
+        m_restart_pairs     .clear();
         m_stats             .reset();
     }
 
@@ -254,7 +254,7 @@ namespace smt {
         enode_pair_vector tmp(m_restart_pairs);
         enode_pair_vector::iterator it  =  tmp.begin();
         enode_pair_vector::iterator end =  tmp.end();
-        m_restart_pairs.reset();
+        m_restart_pairs.clear();
         for (; it != end && !ctx.inconsistent(); ++it) {
             TRACE("arith_eq_adapter", tout << "creating arith_eq_adapter axioms at the base level #" << it->first->get_owner_id() << " #" <<
                   it->second->get_owner_id() << "\n";);

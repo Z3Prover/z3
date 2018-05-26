@@ -810,7 +810,7 @@ namespace datalog {
                     
                     unsigned delta_idx = m_delta_rels->size();
                     m_delta_rels->push_back(odelta);
-                    m_di_fact.reset();
+                    m_di_fact.clear();
                     m_di_fact.push_back(new_tgt_idx);
                     m_di_fact.push_back(delta_idx);
                     m_delta_indexes->add_fact(m_di_fact);
@@ -1506,7 +1506,7 @@ namespace datalog {
 
                 unsigned_vector data_cols;
                 add_sequence(0, tsig.size()-1, data_cols);
-                removed_cols.reset();
+                removed_cols.clear();
                 //remove the second copy of table data columns
                 add_sequence(tsig.size()-1, tsig.size()-1, removed_cols);
                 m_table_intersection_join = rmgr.mk_join_project_fn(rtable, rtable, data_cols, data_cols, 
@@ -1924,7 +1924,7 @@ namespace datalog {
         const relation_signature & sig = get_signature();
         relation_manager & rmgr = get_manager();
 
-        tf.reset();
+        tf.clear();
         //this is m_table_sig.size()-1 since the last column in table signature if index of the other relation
         unsigned t_rel_sz = m_table2sig.size();
         for(unsigned i=0; i<t_rel_sz; i++) {
@@ -1937,7 +1937,7 @@ namespace datalog {
     }
 
     void finite_product_relation::extract_other_fact(const relation_fact & rf, relation_fact & of) const {
-        of.reset();
+        of.clear();
         unsigned o_sz = m_other_sig.size();
         for(unsigned i=0; i<o_sz; i++) {
             unsigned sig_idx = m_other2sig[i];
@@ -2071,7 +2071,7 @@ namespace datalog {
             SASSERT(m_live_rel_collection_project);
         }
 
-        m_live_rel_collection_acc.reset();
+        m_live_rel_collection_acc.clear();
         scoped_rel<table_base> live_indexes_table = (*m_live_rel_collection_project)(get_table());
         res.swap(m_live_rel_collection_acc);
 
@@ -2115,7 +2115,7 @@ namespace datalog {
                     empty_rel_indexes_sig.push_back(s_rel_idx_sort);
                     empty_rel_indexes = get_table_plugin().mk_empty(empty_rel_indexes_sig);
                 }
-                empty_rel_fact.reset();
+                empty_rel_fact.clear();
                 empty_rel_fact.push_back(rel_idx);
                 empty_rel_indexes->add_fact(empty_rel_fact);
             }
@@ -2129,8 +2129,8 @@ namespace datalog {
         SASSERT(encountered_live_indexes==live_indexes.num_elems());
 
         if(m_available_rel_indexes.size()==m_others.size()) {
-            m_available_rel_indexes.reset();
-            m_others.reset();
+            m_available_rel_indexes.clear();
+            m_others.clear();
         }
 
         if(empty_rel_indexes) {
@@ -2257,7 +2257,7 @@ namespace datalog {
             scoped_ptr<relation_transformer_fn> perm_fun = get_manager().mk_rename_fn(*unordered_rel, cycle);
             //the scoped_rel wrapper does the destruction of the old object
             unordered_rel = (*perm_fun)(*unordered_rel);
-            cycle.reset();
+            cycle.clear();
         }
 
         finite_product_relation & new_rel = finite_product_relation_plugin::get(*unordered_rel);
@@ -2354,7 +2354,7 @@ namespace datalog {
         unsigned fact_sz = m_table_sig.size();
         for(; it!=end ; ++it) {
             it->get_fact(fact);
-            conjs.reset();
+            conjs.clear();
             SASSERT(fact.size() == fact_sz);
             unsigned rel_idx = static_cast<unsigned>(fact[fact_sz-1]);
             m_others[rel_idx]->to_formula(tmp);

@@ -113,7 +113,7 @@ bool contains_app::operator()(unsigned size, expr* const* es) {
 // map_proc
 
 void map_proc::reconstruct(app* a) {
-    m_args.reset();
+    m_args.clear();
     bool is_new = false;
     for (unsigned i = 0; i < a->get_num_args(); ++i) {
         expr* e1 = a->get_arg(i);

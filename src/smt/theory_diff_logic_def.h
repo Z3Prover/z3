@@ -56,7 +56,7 @@ std::ostream& theory_diff_logic<Ext>::atom::display(theory_diff_logic const& th,
 
 template<typename Ext>
 void theory_diff_logic<Ext>::nc_functor::reset() {
-    m_antecedents.reset();
+    m_antecedents.clear();
 }
 
 
@@ -190,8 +190,8 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     }
     numeral k(kr);
 
-    m_terms.reset();
-    m_signs.reset();
+    m_terms.clear();
+    m_signs.clear();
     m_terms.push_back(lhs);
     m_signs.push_back(true);
     if (!decompose_linear(m_terms, m_signs)) {
@@ -345,7 +345,7 @@ void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
     if (num_edges != m_graph.get_num_edges() && m_num_simplex_edges > 0) {
         m_S.reset();
         m_num_simplex_edges = 0;
-        m_objective_rows.reset();
+        m_objective_rows.clear();
     }
     theory::pop_scope_eh(num_scopes);
 }
@@ -846,19 +846,19 @@ void theory_diff_logic<Ext>::reset_eh() {
     }
     m_graph            .reset();
     m_zero              = null_theory_var;
-    m_atoms            .reset();
-    m_asserted_atoms   .reset();
+    m_atoms            .clear();
+    m_asserted_atoms   .clear();
     m_stats            .reset();
-    m_scopes           .reset();
+    m_scopes           .clear();
     m_asserted_qhead        = 0;
     m_num_core_conflicts    = 0;
     m_num_propagation_calls = 0;
     m_agility               = 0.5;
     m_is_lia                = true;
     m_non_diff_logic_exprs  = false;
-    m_objectives      .reset();
-    m_objective_consts.reset();
-    m_objective_assignments.reset();
+    m_objectives      .clear();
+    m_objective_consts.clear();
+    m_objective_assignments.clear();
     theory::reset_eh();
 }
 
@@ -1171,8 +1171,8 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
         objective_term const& objective = m_objectives[v];
 
         // add objective function as row.
-        coeffs.reset();
-        vars.reset();
+        coeffs.clear();
+        vars.clear();
         for (unsigned i = 0; i < objective.size(); ++i) {
             coeffs.push_back(objective[i].second.to_mpq());
             vars.push_back(node2simplex(objective[i].first));
@@ -1238,7 +1238,7 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
         Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
         expr_ref_vector& core = m_objective_assignments[v];
         expr_ref tmp(m);
-        core.reset();
+        core.clear();
         for (; it != end; ++it) {
             unsigned v = it->m_var;
             if (is_simplex_edge(v)) {

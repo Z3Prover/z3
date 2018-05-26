@@ -139,7 +139,7 @@ namespace datalog {
 
         vector<rel_spec>::iterator sit = specs.begin(), send = specs.end();
 
-        res.reset();
+        res.clear();
         for(;;) {
             family_id next = -1;
 
@@ -244,7 +244,7 @@ namespace datalog {
                 return rmgr.mk_table_relation(sig, rmgr.get_appropriate_plugin(tsig).mk_full(p, tsig, kind));
             }
             unsigned sz = sig.size();
-            tsig.reset();
+            tsig.clear();
             for(unsigned i=0; i<sz; i++) {
                 table_sort tsort;
                 if(rmgr.relation_sort_to_table(sig[i], tsort)) {

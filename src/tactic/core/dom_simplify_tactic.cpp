@@ -147,7 +147,7 @@ bool expr_dominators::compile(unsigned sz, expr * const* es) {
 
 void expr_dominators::reset() {
     m_expr2post.reset();
-    m_post2expr.reset();
+    m_post2expr.clear();
     m_parents.reset();
     m_doms.reset();
     m_tree.reset();
@@ -191,8 +191,8 @@ void dom_simplify_tactic::operator()(goal_ref const & in, goal_ref_buffer & resu
 }
 
 void dom_simplify_tactic::cleanup() {
-    m_trail.reset();
-    m_args.reset();
+    m_trail.clear();
+    m_args.clear();
     m_result.reset();
     m_dominators.reset();
 }
@@ -279,7 +279,7 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
             simplify_rec(child);
         }
         if (is_app(e)) {
-            m_args.reset();
+            m_args.clear();
             for (expr* arg : *to_app(e)) {
                 m_args.push_back(simplify_arg(arg)); 
             }
@@ -351,7 +351,7 @@ bool dom_simplify_tactic::init(goal& g) {
     for (unsigned i = 0; i < sz; ++i) args.push_back(g.form(i));
     expr_ref fml = mk_and(args);
     m_result.reset();
-    m_trail.reset();
+    m_trail.clear();
     return m_dominators.compile(fml);
 }
 

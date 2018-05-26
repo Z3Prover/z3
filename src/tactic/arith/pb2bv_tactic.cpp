@@ -865,7 +865,7 @@ private:
             dec_ref_map_values(m, m_not_const2bit);
             m_rw.reset();
             m_bm.reset();
-            m_temporary_ints.reset();
+            m_temporary_ints.clear();
         }
 
         void updt_params(params_ref const & p) {
@@ -894,7 +894,7 @@ private:
             m_produce_unsat_cores = g->unsat_core_enabled();
             result.clear();
             tactic_report report("pb2bv", *g);
-            m_bm.reset(); m_rw.reset(); m_new_deps.reset();
+            m_bm.reset(); m_rw.reset(); m_new_deps.clear();
 
             if (g->inconsistent()) {
                 result.push_back(g.get());

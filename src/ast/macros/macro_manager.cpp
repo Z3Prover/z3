@@ -85,13 +85,13 @@ void macro_manager::reset() {
     m_decl2macro.reset();
     m_decl2macro_pr.reset();
     m_decl2macro_dep.reset();
-    m_decls.reset();
-    m_macros.reset();
-    m_macro_prs.reset();
-    m_macro_deps.reset();
-    m_scopes.reset();
+    m_decls.clear();
+    m_macros.clear();
+    m_macro_prs.clear();
+    m_macro_deps.clear();
+    m_scopes.clear();
     m_forbidden_set.reset();
-    m_forbidden.reset();
+    m_forbidden.clear();
     m_deps.reset();
 }
 

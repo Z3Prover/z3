@@ -70,7 +70,7 @@ public:
     }
 
     void pop_core(unsigned n) override {
-        m_assertions.reset();
+        m_assertions.clear();
         m_solver->pop(n);
         m_rewriter.pop(n);
     }
@@ -166,7 +166,7 @@ private:
         }
         m_rewriter.flush_side_constraints(fmls);
         m_solver->assert_expr(fmls);
-        m_assertions.reset();
+        m_assertions.clear();
     }
 };
 

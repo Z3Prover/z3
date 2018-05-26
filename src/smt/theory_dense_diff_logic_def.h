@@ -416,14 +416,14 @@ namespace smt {
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::reset_eh() {
         del_atoms(0);
-        m_atoms      .reset();
-        m_bv2atoms   .reset();
-        m_edges      .reset();
-        m_matrix     .reset();
-        m_is_int     .reset();
-        m_f_targets  .reset();
-        m_cell_trail .reset();
-        m_scopes     .reset();
+        m_atoms      .clear();
+        m_bv2atoms   .clear();
+        m_edges      .clear();
+        m_matrix     .clear();
+        m_is_int     .clear();
+        m_f_targets  .clear();
+        m_cell_trail .clear();
+        m_scopes     .clear();
         m_non_diff_logic_exprs = false;
         m_edges.push_back(edge());
         theory::reset_eh();
@@ -443,7 +443,7 @@ namespace smt {
         CTRACE("ddl", !is_connected(source, target), display(tout););
         SASSERT(is_connected(source, target));
         vector<var_pair> & todo = m_tmp_pairs;
-        todo.reset();
+        todo.clear();
 
         if (source != target)
             todo.push_back(var_pair(source, target));
@@ -542,7 +542,7 @@ namespace smt {
     void theory_dense_diff_logic<Ext>::assign_literal(literal l, theory_var source, theory_var target) {
         context & ctx = get_context();
         literal_vector & antecedents = m_tmp_literals;
-        antecedents.reset();
+        antecedents.clear();
         get_antecedents(source, target, antecedents);
         ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), antecedents.size(), antecedents.c_ptr(), l)));
     }
@@ -593,7 +593,7 @@ namespace smt {
             TRACE("ddl", tout << "conflict detected: #" << get_enode(source)->get_owner_id() << " #" << get_enode(target)->get_owner_id() <<
                   " offset: " << offset << ", c_inv.m_edge_id: " << c_inv.m_edge_id << ", c_inv.m_distance: " << c_inv.m_distance << "\n";);
             literal_vector & antecedents = m_tmp_literals;
-            antecedents.reset();
+            antecedents.clear();
             get_antecedents(target, source, antecedents);
             if (l != null_literal)
                 antecedents.push_back(l);
@@ -714,7 +714,7 @@ namespace smt {
     template<typename Ext>
     void theory_dense_diff_logic<Ext>::init_model() {
         int num_vars = get_num_vars();
-        m_assignment.reset();
+        m_assignment.clear();
         m_assignment.resize(num_vars);
         for (int i = 0; i < num_vars; i++) {
             row & r     = m_matrix[i];
@@ -963,8 +963,8 @@ namespace smt {
         unsigned w = num_nodes + num_edges + v;
 
         // add objective function as row.
-        coeffs.reset();
-        vars.reset();
+        coeffs.clear();
+        vars.clear();
         for (unsigned i = 0; i < objective.size(); ++i) {
             coeffs.push_back(objective[i].second.to_mpq());
             vars.push_back(objective[i].first);
@@ -994,7 +994,7 @@ namespace smt {
             Simplex::row_iterator it = S.row_begin(row), end = S.row_end(row);
             expr_ref_vector& core = m_objective_assignments[v];
             expr_ref tmp(m);
-            core.reset();
+            core.clear();
             for (; it != end; ++it) {
                 unsigned v = it->m_var;
                 if (num_nodes <= v && v < num_nodes + num_edges) {

@@ -113,7 +113,7 @@ namespace qe {
         
         void init_assumptions() {
             unsigned lvl = level();
-            m_asms.reset();
+            m_asms.clear();
             m_asms.push_back(is_exists()?m_is_true:~m_is_true);
             m_asms.append(m_assumptions);
             TRACE("qe", tout << "model valid: " << m_valid_model << " level: " << lvl << " "; 
@@ -203,7 +203,7 @@ namespace qe {
             unsave_model();
             nlsat::explain& ex = m_solver.get_explain();
             nlsat::scoped_literal_vector new_result(m_solver);
-            result.reset();
+            result.clear();
             // project quantified Boolean variables.
             for (nlsat::literal lit : m_asms) {
                 if (!m_b2a.contains(lit.var()) || fvars.contains(lit.var())) {
@@ -215,7 +215,7 @@ namespace qe {
             // They are sorted by size, so we project the largest variables first to avoid 
             // renaming variables. 
             for (unsigned i = vars.size(); i-- > 0;) {
-                new_result.reset();
+                new_result.clear();
                 TRACE("qe", m_solver.display(tout << "project: ", vars[i]) << "\n";);
                 ex.project(vars[i], result.size(), result.c_ptr(), new_result);
                 result.swap(new_result);
@@ -237,7 +237,7 @@ namespace qe {
             m_valid_model = true;
             if (is_exists(level())) {
                 m_rmodel0.copy(m_rmodel);
-                m_bmodel0.reset();
+                m_bmodel0.clear();
                 m_bmodel0.append(m_bmodel);
             }
         }
@@ -250,8 +250,8 @@ namespace qe {
          
         void clear_model() {
             m_valid_model = false;
-            m_rmodel.reset();
-            m_bmodel.reset();
+            m_rmodel.clear();
+            m_bmodel.clear();
             m_solver.set_rvalues(m_rmodel);
         }
 
@@ -557,16 +557,16 @@ namespace qe {
 
         void reset() override {
             //m_solver.reset();
-            m_asms.reset();
-            m_cached_asms.reset();
-            m_cached_asms_lim.reset();
+            m_asms.clear();
+            m_cached_asms.clear();
+            m_cached_asms_lim.clear();
             m_is_true = nlsat::null_literal;
-            m_rmodel.reset();
+            m_rmodel.clear();
             m_valid_model = false;
-            m_bound_rvars.reset();
-            m_bound_bvars.reset();
-            m_preds.reset();
-            m_rvar2level.reset();
+            m_bound_rvars.clear();
+            m_bound_bvars.clear();
+            m_preds.clear();
+            m_rvar2level.clear();
             m_bvar2level.reset();
             m_t2x.reset();
             m_a2b.reset();
@@ -577,11 +577,11 @@ namespace qe {
             m_solver.collect_statistics(m_st);
             m_free_vars.reset();
             m_aux_vars.reset();
-            m_answer.reset();
+            m_answer.clear();
             m_answer_simplify.reset();
-            m_assumptions.reset();
+            m_assumptions.clear();
             m_asm2fml.reset();
-            m_trail.reset();
+            m_trail.clear();
         }
 
         void push() {
@@ -626,7 +626,7 @@ namespace qe {
             abs.get_free_vars(fml, vars);
             insert_set(m_free_vars, vars);
             qvars.push_back(vars); 
-            vars.reset();  
+            vars.clear();  
 
             if (m_mode == elim_t) {
                 is_forall = true;
@@ -639,7 +639,7 @@ namespace qe {
             }
             do {
                 is_forall = !is_forall;
-                vars.reset();
+                vars.clear();
                 hoist.pull_quantifier(is_forall, fml, vars);
                 qvars.push_back(vars);
             }

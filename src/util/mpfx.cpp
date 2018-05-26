@@ -254,7 +254,7 @@ void mpfx_manager::set_core(mpfx & n, mpz_manager<SYNCH> & m, mpz const & v) {
         reset(n);
     }
     else {
-        m_tmp_digits.reset();
+        m_tmp_digits.clear();
         allocate_if_needed(n);
         n.m_sign = m.decompose(v, m_tmp_digits);
         unsigned sz = m_tmp_digits.size();
@@ -296,7 +296,7 @@ void mpfx_manager::set_core(mpfx & n, mpq_manager<SYNCH> & m, mpq const & v) {
         else {
             m.div(tmp, v.denominator(), tmp);
         }
-        m_tmp_digits.reset();
+        m_tmp_digits.clear();
         m.decompose(tmp, m_tmp_digits);
         unsigned sz = m_tmp_digits.size();
         if (sz > m_total_sz)

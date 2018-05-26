@@ -106,8 +106,8 @@ namespace datalog {
 
     void mk_coalesce::merge_rules(rule_ref& tgt, rule const& src) {
         SASSERT(same_body(*tgt.get(), src));
-        m_sub1.reset();
-        m_sub2.reset();
+        m_sub1.clear();
+        m_sub2.clear();
         m_idx = 0;
         app_ref pred(m), head(m);
         expr_ref fml1(m), fml2(m), fml(m);

@@ -515,7 +515,7 @@ namespace smt {
 
     lbool context::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {        
         pop_to_base_lvl();
-        cores.reset();
+        cores.clear();
         setup_context(false);
         internalize_assertions();
         if (m_asserted_formulas.inconsistent() || inconsistent()) {

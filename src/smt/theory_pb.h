@@ -365,7 +365,7 @@ namespace smt {
         int get_abs_coeff(bool_var v) const;       
         int arg_max(int& coeff); 
 
-        literal_vector& get_literals() { m_literals.reset(); return m_literals; }
+        literal_vector& get_literals() { m_literals.clear(); return m_literals; }
 
         vector<vector<bool_var> > m_coeff2args;
         unsigned_vector m_active_coeffs;

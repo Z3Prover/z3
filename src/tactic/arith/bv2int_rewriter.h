@@ -36,7 +36,7 @@ public:
     bv2int_rewriter_ctx(ast_manager& m, params_ref const& p) : 
         m_max_size(UINT_MAX), m_side_conditions(m), m_trail(m) { update_params(p); }
 
-    void reset() { m_side_conditions.reset(); m_trail.reset(); m_power2.reset(); }
+    void reset() { m_side_conditions.clear(); m_trail.clear(); m_power2.reset(); }
     void add_side_condition(expr* e) { m_side_conditions.push_back(e); }
     unsigned num_side_conditions() const { return m_side_conditions.size(); }
     expr* const* side_conditions() const { return m_side_conditions.c_ptr(); }

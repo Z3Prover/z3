@@ -549,7 +549,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             --i;
             if (m.are_equal(else_case, stores[i].back())) {
                 for (unsigned j = i + 1; j < stores.size(); ++j) {
-                    stores[j-1].reset();
+                    stores[j-1].clear();
                     stores[j-1].append(stores[j]);
                 }
                 stores.pop_back();

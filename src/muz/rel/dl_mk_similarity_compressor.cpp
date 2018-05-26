@@ -36,9 +36,9 @@ namespace datalog {
     }
     
     void mk_similarity_compressor::reset() {
-        m_rules.reset();
-        m_result_rules.reset();
-        m_pinned.reset();
+        m_rules.clear();
+        m_result_rules.clear();
+        m_pinned.clear();
     }
 
     /**
@@ -194,7 +194,7 @@ namespace datalog {
     template<class T>
     static void collect_orphan_consts(rule * r, const info_vector & const_infos, T & tgt) {
         unsigned const_cnt = const_infos.size();
-        tgt.reset();
+        tgt.clear();
         for (unsigned i=0; i<const_cnt; i++) {
             const_info inf = const_infos[i];
             if (inf.has_parent()) {
@@ -208,7 +208,7 @@ namespace datalog {
     template<class T>
     static void collect_orphan_sorts(rule * r, const info_vector & const_infos, T & tgt) {
         unsigned const_cnt = const_infos.size();
-        tgt.reset();
+        tgt.clear();
         for (unsigned i=0; i<const_cnt; i++) {
             const_info inf = const_infos[i];
             if (inf.has_parent()) {

@@ -281,7 +281,7 @@ namespace recfun {
             else {
                 // leaf of the search tree
 
-                conditions.reset();
+                conditions.clear();
                 subst.reset();
                 convert_path(m, b.path, conditions, subst);
                 

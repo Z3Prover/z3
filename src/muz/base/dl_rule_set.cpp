@@ -280,14 +280,14 @@ namespace datalog {
     }
 
     void rule_set::reset() {
-        m_rules.reset();
+        m_rules.clear();
         reset_dealloc_values(m_head2rules);
         m_deps.reset();
         m_stratifier = nullptr;
         m_output_preds.reset();
         m_orig2pred.reset();
         m_pred2orig.reset();
-        m_refs.reset();
+        m_refs.clear();
     }
 
     ast_manager & rule_set::get_manager() const {

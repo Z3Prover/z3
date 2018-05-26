@@ -232,8 +232,8 @@ public:
 private:
 
     void reset() override {
-        m_ge.reset();
-        m_other.reset();
+        m_ge.clear();
+        m_other.clear();
         m_vars.reset();
     }
 

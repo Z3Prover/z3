@@ -42,7 +42,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::row::reset() {
-        m_entries.reset();
+        m_entries.clear();
         m_size           = 0;
         m_base_var       = -1;
         m_first_free_idx = -1;
@@ -214,7 +214,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::column::reset() {
-        m_entries.reset();
+        m_entries.clear();
         m_size           = 0;
         m_first_free_idx = -1;
     }
@@ -332,11 +332,11 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::antecedents_t::reset() { 
         m_init = false; 
-        m_eq_coeffs.reset();
-        m_lit_coeffs.reset();
-        m_eqs.reset(); 
-        m_lits.reset(); 
-        m_params.reset(); 
+        m_eq_coeffs.clear();
+        m_lit_coeffs.clear();
+        m_eqs.clear(); 
+        m_lits.clear(); 
+        m_params.clear(); 
     }
 
     template<typename Ext>

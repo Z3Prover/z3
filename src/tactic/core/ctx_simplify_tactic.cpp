@@ -287,7 +287,7 @@ struct ctx_simplify_tactic::imp {
             }
             m_allocator.deallocate(sizeof(cached_result), to_delete);
         }
-        keys.reset();
+        keys.clear();
     }
 
     void pop(unsigned num_scopes) {

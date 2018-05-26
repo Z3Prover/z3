@@ -79,8 +79,8 @@ namespace sat {
         m_learned = learned;
         m_num_vars = num_vars;
         unsigned num_lits = m_num_vars * 2;
-        m_dag.reset();
-        m_roots.reset();
+        m_dag.clear();
+        m_roots.clear();
         m_dag.resize(num_lits);
         m_roots.resize(num_lits, true);
     }
@@ -108,10 +108,10 @@ namespace sat {
 
     void big::init_dfs_num() {
         unsigned num_lits = m_num_vars * 2;
-        m_left.reset();
-        m_right.reset();
-        m_root.reset();
-        m_parent.reset();
+        m_left.clear();
+        m_right.clear();
+        m_root.clear();
+        m_parent.clear();
         m_left.resize(num_lits, 0);
         m_right.resize(num_lits, -1);
         m_root.resize(num_lits, null_literal);
@@ -179,7 +179,7 @@ namespace sat {
     unsigned big::reduce_tr(solver& s) {
         unsigned idx = 0;
         unsigned elim = 0;
-        m_del_bin.reset();
+        m_del_bin.clear();
         m_del_bin.expand(s.m_watches.size());
         for (watch_list & wlist : s.m_watches) {
             if (s.inconsistent()) break;
@@ -195,7 +195,7 @@ namespace sat {
                         ++elim;
                         add_del(~u, v);
                         if (s.get_config().m_drat) s.m_drat.del(~u, v);
-                        s.m_mc.stackv().reset(); // TBD: brittle code
+                        s.m_mc.stackv().clear(); // TBD: brittle code
                         s.add_ate(~u, v);
                         if (find_binary_watch(wlist, ~v)) {
                             IF_VERBOSE(10, verbose_stream() << "binary: " << ~u << "\n");

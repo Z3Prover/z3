@@ -49,7 +49,7 @@ public:
     
     void reset(unsigned start = 0) {
         m_next_id = start;
-        m_free_ids.reset();
+        m_free_ids.clear();
     }
 
     void cleanup(unsigned start = 0) {

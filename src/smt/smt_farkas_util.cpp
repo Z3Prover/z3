@@ -137,8 +137,8 @@ namespace smt {
     }
 
     void farkas_util::partition_ineqs() {
-        m_reps.reset();
-        m_his.reset();
+        m_reps.clear();
+        m_his.clear();
         ++m_time;
         for (unsigned i = 0; i < m_ineqs.size(); ++i) {
             m_reps.push_back(process_term(m_ineqs[i].get()));
@@ -293,8 +293,8 @@ namespace smt {
     }
 
     void farkas_util::reset() {
-        m_ineqs.reset();
-        m_coeffs.reset();        
+        m_ineqs.clear();
+        m_coeffs.clear();        
     }
     
     void farkas_util::add(rational const & coef, app * c) {

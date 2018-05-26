@@ -253,8 +253,8 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         bool all_unit = true;
         unsigned sz = vec.size();
         rational slack(0);
-        m_args.reset();
-        m_coeffs.reset();
+        m_args.clear();
+        m_coeffs.clear();
         for (auto const& kv : vec) {
             m_args.push_back(kv.first);
             m_coeffs.push_back(kv.second);

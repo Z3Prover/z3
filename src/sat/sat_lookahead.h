@@ -185,8 +185,8 @@ namespace sat {
             cube_state() { reset(); }
             void reset() { 
                 m_first = true;
-                m_is_decision.reset(); 
-                m_cube.reset(); 
+                m_is_decision.clear(); 
+                m_cube.clear(); 
                 m_freevars_threshold = 0;
                 m_psat_threshold = dbl_max;
                 reset_stats();
@@ -399,7 +399,7 @@ namespace sat {
                 m_rank = 0;
                 m_height = 0;
                 m_parent = null_literal;
-                m_next.reset();
+                m_next.clear();
                 m_link = null_literal;
                 m_min = null_literal;
                 m_vcomp = null_literal;

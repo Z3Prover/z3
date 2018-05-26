@@ -71,7 +71,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpq * as, var * xs, b
     TRACE("linear_equation_mk", tout << "lcm: " << m.to_string(l) << "\n";);
     
     // copy l * as to m_int_buffer.
-    m_int_buffer.reset();
+    m_int_buffer.clear();
     for (unsigned i = 0; i < sz; i++) {
         TRACE("linear_equation_mk", tout << "before as[" << i << "]: " << m.to_string(as[i]) << "\n";);
         m.mul(l, as[i], as[i]);
@@ -209,8 +209,8 @@ linear_equation * linear_equation_manager::mk(mpz const & b1, linear_equation co
     SASSERT(!m.is_zero(b1));
     SASSERT(!m.is_zero(b2));
     mpz tmp, new_a;
-    m_int_buffer.reset();
-    m_var_buffer.reset();
+    m_int_buffer.clear();
+    m_var_buffer.clear();
     unsigned sz1 = eq1.size();
     unsigned sz2 = eq2.size();
     unsigned i1  = 0;

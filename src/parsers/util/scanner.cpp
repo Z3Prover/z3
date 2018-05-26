@@ -95,8 +95,8 @@ scanner::token scanner::read_symbol(char ch) {
 
 scanner::token scanner::read_id(char first_char) {
     char ch;
-    m_string.reset();
-    m_params.reset();
+    m_string.clear();
+    m_params.clear();
     m_string.push_back(first_char);
 
     bool is_arith = (m_normalized[(unsigned char) first_char] == '+');
@@ -172,7 +172,7 @@ bool scanner::read_params() {
             param_num = 0;
             break;
         default:
-            m_string.reset();
+            m_string.clear();
             m_string.push_back(ch);
             while (true) {
                 ch = read_char();
@@ -233,8 +233,8 @@ scanner::token scanner::read_number(char first_char, bool is_pos) {
 }
     
 scanner::token scanner::read_string(char delimiter, token result) {
-    m_string.reset();
-    m_params.reset();
+    m_string.clear();
+    m_params.clear();
     while (true) {
         char ch = read_char();
         
@@ -319,8 +319,8 @@ scanner::token scanner::read_bv_literal() {
         bool is_hex = false;
         
         m_state = ID_TOKEN;
-        m_string.reset();
-        m_params.reset();
+        m_string.clear();
+        m_params.clear();
         
         // convert to SMT1 format
         m_string.push_back('b');

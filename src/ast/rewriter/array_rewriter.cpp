@@ -406,7 +406,7 @@ void array_rewriter::mk_eq(expr* e, expr* lhs, expr* rhs, expr_ref_vector& fmls)
     expr_ref a(m()), v(m());
     expr_ref_vector args0(m()), args(m());
     while (m_util.is_store_ext(e, a, args0, v)) {                                        
-        args.reset();
+        args.clear();
         args.push_back(lhs);
         args.append(args0);
         mk_select(args.size(), args.c_ptr(), tmp1);                     
@@ -433,9 +433,9 @@ bool array_rewriter::has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector
         expr* e1, *e2, *e3;
         ptr_vector<expr> eqs;
         while (!is_ground(e) && m().is_ite(e, e1, e2, e3) && is_ground(e2)) {
-            args.reset();
+            args.clear();
             args.resize(num_idxs, nullptr);
-            eqs.reset();
+            eqs.clear();
             eqs.push_back(e1);
             for (unsigned i = 0; i < eqs.size(); ++i) {
                 expr* e = eqs[i];

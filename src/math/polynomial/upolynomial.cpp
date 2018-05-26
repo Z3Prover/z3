@@ -46,8 +46,8 @@ namespace upolynomial {
         for (unsigned i = 0; i < m_factors.size(); ++ i) {
             m_upm.reset(m_factors[i]);
         }
-        m_factors.reset();
-        m_degrees.reset();
+        m_factors.clear();
+        m_degrees.clear();
         nm().set(m_constant, 1);
         m_total_factors = 0;
         m_total_degree = 0;
@@ -1266,8 +1266,8 @@ namespace upolynomial {
 
     void manager::reset(upolynomial_sequence & seq) {
         reset(seq.m_seq_coeffs);
-        seq.m_szs.reset();
-        seq.m_begins.reset();
+        seq.m_szs.clear();
+        seq.m_begins.clear();
     }
 
     // Remove zero roots from p

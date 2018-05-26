@@ -90,7 +90,7 @@ namespace datalog {
         public:
             visitor(context& c, substitution & s): st_visitor(s), m_context(c) { (void) m_context; }
             bool operator()(expr* e) override;
-            void         reset() { m_unifiers.reset(); }
+            void         reset() { m_unifiers.clear(); }
             void         reset(unsigned sz);
             vector<bool>& can_remove() { return m_can_remove; }
             vector<bool>& can_expand() { return m_can_expand; }

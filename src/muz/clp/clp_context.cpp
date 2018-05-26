@@ -65,7 +65,7 @@ namespace datalog {
         lbool query(expr* query) {
             m_ctx.ensure_opened();
             m_solver.reset();
-            m_goals.reset();
+            m_goals.clear();
             rm.mk_query(query, m_ctx.get_rules());
             apply_default_transformation(m_ctx);
             const rule_set& rules = m_ctx.get_rules();
@@ -107,7 +107,7 @@ namespace datalog {
     private:
 
         void reset_ground() {
-            m_ground.reset();
+            m_ground.clear();
         }
         
         void ground(expr_ref& e) {
