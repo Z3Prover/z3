@@ -19,6 +19,8 @@ Revision History:
 #ifndef REF_VECTOR_H_
 #define REF_VECTOR_H_
 
+#include <functional>
+
 #include "util/vector.h"
 #include "util/obj_ref.h"
 
