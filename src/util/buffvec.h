@@ -644,8 +644,7 @@ public:
         }
     }
 
-    // FIXME: src/muz/pdr/pdr_context.cpp relies on this constructor being implicit
-    /* explicit */ buffvec(size_type count) { resize(count); }
+    explicit buffvec(size_type count) { resize(count); }
     buffvec(size_type count, value_type const& element) { resize(count, element); }
     buffvec(size_type count, const_pointer elements) {
         if(count > 0) {

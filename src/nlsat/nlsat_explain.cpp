@@ -1876,7 +1876,7 @@ void pp(nlsat::explain::imp & ex, polynomial_ref_vector const & ps) {
     ex.display(std::cout, ps);
 }
 void pp_var(nlsat::explain::imp & ex, nlsat::var x) {
-    ex.display(std::cout, x);
+    ex.display_var(std::cout, x);
     std::cout << std::endl;
 }
 void pp_lit(nlsat::explain::imp & ex, nlsat::literal l) {
