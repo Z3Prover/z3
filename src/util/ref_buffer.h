@@ -44,7 +44,7 @@ protected:
     }
 
 public:
-    typedef T * data;
+    using value_type = T*;
 
     ref_buffer_core(Ref const & r = Ref()):
         Ref(r) {

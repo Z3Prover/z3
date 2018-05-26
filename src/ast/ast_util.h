@@ -29,7 +29,7 @@ void remove_duplicates(C & v) {
         unsigned sz = v.size();
         unsigned j = 0;
         for (unsigned i = 0; i < sz; i++) {
-            typename C::data curr = v.get(i);
+            typename C::value_type curr = v.get(i);
             if (!visited.is_marked(curr)) {
                 visited.mark(curr);
                 if (i != j)
