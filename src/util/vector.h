@@ -13,23 +13,23 @@ Author:
 
 #pragma once
 
-#include "old_vector.h"
+#include "buffvec.h"
 #include "hash.h"
 
 template<typename T, bool CallDestructors=true, typename SZ = unsigned>
-using vector = old_vector<T, CallDestructors, SZ>;
+using vector = buffvec<T, SZ, 0>;
 
 template<typename T, typename SZ = unsigned>
-using svector = old_svector<T, SZ>;
+using svector = buffvec<T, SZ, 0>;
 
 template<typename T>
-using ptr_vector = old_ptr_vector<T>;
+using ptr_vector = buffvec<T*, unsigned, 0>;
 
-using int_vector         = old_svector<int>;
-using unsigned_vector    = old_svector<unsigned>;
-using char_vector        = old_svector<char>;
-using signed_char_vector = old_svector<signed char>;
-using double_vector      = old_svector<double>;
+using char_vector        = buffvec<char, unsigned, 0>;
+using signed_char_vector = buffvec<signed char, unsigned, 0>;
+using int_vector         = buffvec<int, unsigned, 0>;
+using unsigned_vector    = buffvec<unsigned, unsigned, 0>;
+using double_vector      = buffvec<double, unsigned, 0>;
 
 inline std::ostream& operator<<(std::ostream& out, unsigned_vector const& v) {
     for (unsigned u : v) out << u << " ";
