@@ -495,9 +495,6 @@ public:
     // adaptors for the old buffer interface
     void reset() noexcept { clear(); }
     void finalize() { clear(); shrink_to_fit(); }
-    reference get(size_type index) { return (*this)[index]; }
-    const_reference get(size_type index) const { return (*this)[index]; }
-    void set(size_type index, value_type const& value) { (*this)[index] = value; }
     void shrink(size_type count) {
         SASSERT(count <= size());
         resize(count);

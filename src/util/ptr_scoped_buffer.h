@@ -25,12 +25,12 @@ Revision History:
 
 template<typename T, unsigned INITIAL_SIZE=16, typename D = delete_proc<T> >
 class ptr_scoped_buffer : private ptr_buffer<T, INITIAL_SIZE> {
+    using buffer_type = ptr_buffer<T, INITIAL_SIZE>;
+
     D m_deallocator;
     void deallocate_all() { 
-        typename ptr_buffer<T, INITIAL_SIZE>::iterator it  = ptr_buffer<T, INITIAL_SIZE>::begin();
-        typename ptr_buffer<T, INITIAL_SIZE>::iterator end = ptr_buffer<T, INITIAL_SIZE>::end();
-        for (; it != end; ++it)
-            m_deallocator(*it);
+        for (auto& pointer : static_cast<buffer_type&>(*this))
+            m_deallocator(pointer);
     }
 public:
     typedef typename ptr_buffer<T, INITIAL_SIZE>::const_iterator const_iterator;
@@ -47,8 +47,8 @@ public:
     void push_back(T * elem) { return ptr_buffer<T, INITIAL_SIZE>::push_back(elem); }
     T * back() const { return ptr_buffer<T, INITIAL_SIZE>::back(); }
     void pop_back() { m_deallocator(back()); ptr_buffer<T, INITIAL_SIZE>::pop_back(); }
-    T * get(unsigned idx) const { return ptr_buffer<T, INITIAL_SIZE>::get(idx); }
-    void set(unsigned idx, T * e) { T * old_e = get(idx); if (e != old_e) m_deallocator(old_e); ptr_buffer<T, INITIAL_SIZE>::set(idx, e); }
+    T * get(unsigned idx) const { return static_cast<buffer_type const&>(*this)[idx]; }
+    void set(unsigned idx, T * e) { T * old_e = get(idx); if (e != old_e) m_deallocator(old_e); static_cast<buffer_type&>(*this)[idx] = e; }
     void append(unsigned n, T * const * elems) { ptr_buffer<T, INITIAL_SIZE>::append(n, elems); }
 };
 

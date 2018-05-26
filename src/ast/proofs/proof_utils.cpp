@@ -189,7 +189,7 @@ class reduce_hypotheses {
             else if (m.is_lemma(p)) {
                 //lemma: reduce the premise; remove reduced consequences from conclusion
                 SASSERT(args.size() == 1);
-                res = mk_lemma_core(args.get(0), m.get_fact(p));
+                res = mk_lemma_core(args[0], m.get_fact(p));
                 compute_mark1(res);
             } else if (m.is_unit_resolution(p)) {
                 // unit: reduce units; reduce the first premise; rebuild unit resolution
@@ -240,7 +240,7 @@ class reduce_hypotheses {
 
         if (args.empty()) { return pf; }
         else if (args.size() == 1) {
-            lemma = args.get(0);
+            lemma = args[0];
         } else {
             lemma = m.mk_or(args.size(), args.c_ptr());
         }
@@ -272,14 +272,14 @@ class reduce_hypotheses {
         for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
             found = false;
             for (unsigned j = 1; j < num_args; ++j) {
-                if (m.is_complement(cls.get(i), m.get_fact(args [j]))) {
+                if (m.is_complement(cls[i], m.get_fact(args[j]))) {
                     found = true;
                     pf_args.push_back(args [j]);
                     break;
                 }
             }
             if (!found) {
-                new_fact_cls.push_back(cls.get(i));
+                new_fact_cls.push_back(cls[i]);
             }
         }
 

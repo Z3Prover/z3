@@ -26,14 +26,13 @@ template<typename C>
 void remove_duplicates(C & v) {
     expr_fast_mark1 visited;
     if (!v.empty()) {
-        unsigned sz = v.size();
-        unsigned j = 0;
-        for (unsigned i = 0; i < sz; i++) {
-            typename C::value_type curr = v.get(i);
+        typename C::size_type j = 0;
+        for (typename C::size_type i = 0; i < v.size(); i++) {
+            typename C::value_type curr = v[i];
             if (!visited.is_marked(curr)) {
                 visited.mark(curr);
                 if (i != j)
-                    v.set(j, curr);
+                    v[j] = curr;
                 j++;
             }
         }

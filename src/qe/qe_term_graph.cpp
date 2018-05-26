@@ -950,12 +950,12 @@ namespace qe {
             unsigned i = 0;
             unsigned sz = reps.size();
             while (i < sz) {
-                sort* last_sort = get_sort(reps.get(i));
+                sort* last_sort = get_sort(reps[i]);
                 unsigned j = i + 1;
-                while (j < sz && last_sort == get_sort(reps.get(j))) {++j;}
+                while (j < sz && last_sort == get_sort(reps[j])) {++j;}
                 if (j - i == 2) {
                     expr_ref d(m);
-                    d = mk_neq(m, reps.get(i), reps.get(i+1));
+                    d = mk_neq(m, reps[i], reps[i+1]);
                     if (!m.is_true(d)) res.push_back(d);
                 }
                 else if (j - i > 2)

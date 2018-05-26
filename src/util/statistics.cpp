@@ -89,7 +89,7 @@ typedef map<char const *, double, str_hash_proc, str_eq_proc> key2dval;
 unsigned get_max_len(ptr_buffer<char> & keys) {
     unsigned max = 0;
     for (unsigned i = 0; i < static_cast<unsigned>(keys.size()); i++) {
-        char * k = keys.get(i);
+        char * k = keys[i];
         if (*k == ':')
             k++;
         unsigned curr = static_cast<unsigned>(strlen(k));
@@ -126,7 +126,7 @@ void statistics::display_smt2(std::ostream & out) const {
     
     out << "(";
     for (unsigned i = 0; i < keys.size(); i++) {
-        char * k = keys.get(i);
+        char * k = keys[i];
         unsigned val; 
         if (m_u.find(k, val)) {
             DISPLAY_KEY();
@@ -156,7 +156,7 @@ void statistics::display(std::ostream & out) const {
     }
 
     for (unsigned i = 0; i < keys.size(); i++) {
-        char * k = keys.get(i);
+        char * k = keys[i];
         unsigned val; 
         if (m_u.find(k, val)) {
             DISPLAY_KEY();

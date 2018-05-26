@@ -291,13 +291,13 @@ namespace spacer {
         // compute missing coefficient
         linear_combinator lcb(m);
         for (unsigned i = 1, sz = parents.size(); i < sz; ++i) {
-            app *p = to_app(m.get_fact(parents.get(i)));
+            app *p = to_app(m.get_fact(parents[i]));
             rational const &r = params[i+1].get_rational();
             lcb.add_lit(p, r);
         }
 
         expr_ref lit0(m);
-        lit0 = m.get_fact(parents.get(0));
+        lit0 = m.get_fact(parents[0]);
         // put lit0 into canonical form
         rw(lit0);
         TRACE("spacer.fkab",
@@ -788,13 +788,13 @@ namespace spacer {
         for (unsigned i = 0, sz = lits.size(); i < sz; ++i) {
             bool found = false;
             for (unsigned j = 1; j < args.size(); ++j) {
-                if (m.is_complement(lits.get(i), m.get_fact(args[j]))) {
+                if (m.is_complement(lits[i], m.get_fact(args[j]))) {
                     found = true;
                     pf_args.push_back(args[j]);
                     break;
                 }
             }
-            if (!found) {pf_fact.push_back(lits.get(i));}
+            if (!found) {pf_fact.push_back(lits[i]);}
         }
 
         // unit resolution got reduced to noop
