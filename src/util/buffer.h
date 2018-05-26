@@ -15,7 +15,7 @@ Author:
 
 #include "buffvec.h"
 
-template<typename T, bool CallDestructors=true, unsigned INITIAL_SIZE=16>
+template<typename T, unsigned INITIAL_SIZE=16>
 using buffer = buffvec<T, unsigned, INITIAL_SIZE>;
 
 template<typename T, unsigned INITIAL_SIZE=16>
