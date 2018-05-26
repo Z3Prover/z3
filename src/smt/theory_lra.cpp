@@ -1302,7 +1302,7 @@ public:
         case lp::lia_move::cut: {
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
-            app_ref b = mk_bound(term, k, false);
+            app_ref b = mk_bound(term, k, !upper);
             m_eqs.reset();
             m_core.reset();
             m_params.reset();

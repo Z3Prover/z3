@@ -273,18 +273,11 @@ void int_solver::gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & po
 bool int_solver::current_solution_is_inf_on_cut() const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = m_t->apply(x);
-    mpq sign = !(*m_upper) ? one_of_type<mpq>()  : -one_of_type<mpq>();
-    TRACE("current_solution_is_inf_on_cut",
-        if (is_pos(sign)) {
-                 tout << "v = " << v << " k = " << (*m_k) << std::endl;
-                if (v <=(*m_k)) {
-                    tout << "v <= k - it should not happen!\n";
-                }
-            } else {
-                if (v >= (*m_k)) {
-                    tout << "v > k - it should not happen!\n";
-                }
-            }
+    mpq sign = *m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
+    CTRACE("current_solution_is_inf_on_cut", v * sign <= (*m_k) * sign,
+           tout << "m_upper = " << *m_upper << std::endl;
+           tout << "v = " << v << ", k = " << (*m_k) << std::endl;
+
           );
     return v * sign > (*m_k) * sign;
 }
@@ -401,7 +394,7 @@ lia_move int_solver::proceed_with_gomory_cut(unsigned j) {
         return lia_move::undef;
     }
 
-    *m_upper = false;
+    *m_upper = true;
     return mk_gomory_cut(j, row);
 }
 
@@ -646,12 +639,15 @@ lia_move int_solver::gomory_cut() {
 bool int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     mpq rs;
     const lar_term* t = m_lar_solver->terms()[i];
+    lp_assert (is_zero(t->m_v)); // todo: what to do in the other case
     for (const auto & p : *t) {
-        if (!is_int(p.var()))
+        if (!is_int(p.var())) {
+            lp_assert(false); 
             return false; // todo : the mix case!
+        }
     }
     bool has_bounds;
-    if (m_lar_solver->get_equality_for_term_on_corrent_x(i, rs, has_bounds)) {
+    if (m_lar_solver->get_equality_and_right_side_for_term_on_corrent_x(i, rs, has_bounds)) {
         m_hnf_cutter.add_term(t, rs);
         return true;
     }
@@ -663,9 +659,18 @@ bool int_solver::hnf_matrix_is_empty() const { return true; }
 bool int_solver::init_terms_for_hnf_cut() {
     m_hnf_cutter.clear();
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
-        if (!try_add_term_to_A_for_hnf(i))
-            return false;
+        try_add_term_to_A_for_hnf(i);
     }
+    TRACE("hnf_cut", tout << "added terms\n";
+          for (unsigned i = 0; i < m_hnf_cutter.terms().size(); i++) {
+              m_lar_solver->print_term(*m_hnf_cutter.terms()[i], tout);
+              tout << " = " << m_hnf_cutter.right_sides()[i] << std::endl;
+          }
+          tout << "x = ";
+          for (unsigned i = 0; i < column_count(); i++)
+              tout << m_lar_solver->get_column_name(i) << " = " << m_lar_solver->get_column_value(i) << std::endl;
+          );
+
     return m_hnf_cutter.row_count() < settings().limit_on_rows_for_hnf_cutter;
 }
 
@@ -675,10 +680,20 @@ lia_move int_solver::make_hnf_cut() {
         return lia_move::undef;
     }
     settings().st().m_hnf_cutter_calls++;
-    lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper);
+#ifdef Z3DEBUG
+    vector<mpq> x0 = m_hnf_cutter.transform_to_local_columns(m_lar_solver->m_mpq_lar_core_solver.m_r_x);
+#endif
+    lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper
+#ifdef Z3DEBUG
+                                          , x0
+#endif
+                                          );
     CTRACE("hnf_cut", r == lia_move::cut, tout<< "cut:"; m_lar_solver->print_term(*m_t, tout); tout << " <= " << *m_k << std::endl;);
-    if (r == lia_move::cut)
+    if (r == lia_move::cut) {
+        
+        lp_assert(current_solution_is_inf_on_cut());
         settings().st().m_hnf_cuts++;
+    }
     return r;
 }
 
@@ -690,7 +705,7 @@ lia_move int_solver::hnf_cut() {
 }
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
-    if (!has_inf_int()) 
+    if (!has_inf_int())
         return lia_move::sat;
     m_t = &t;  m_k = &k;  m_ex = &ex; m_upper = &upper;
     if (run_gcd_test() == lia_move::conflict)

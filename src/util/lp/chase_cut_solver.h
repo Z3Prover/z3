@@ -2233,7 +2233,9 @@ public:
                    m_number_of_variables_function(number_of_variables_function),
                    m_var_value_function(var_value_function),
                    m_settings(settings),
-                   m_decision_level(0)
+                   m_number_of_conflicts(0),
+                   m_decision_level(0),
+                   m_cancelled(false)
     {}
 
 

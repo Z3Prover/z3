@@ -597,8 +597,8 @@ public:
     hnf(M & A, const mpq & d) :
 #ifdef Z3DEBUG
         m_H(A),
-#endif
         m_A_orig(A),
+#endif
         m_W(A),
         m_buffer(std::max(A.row_count(), A.column_count())),
         m_m(A.row_count()),
