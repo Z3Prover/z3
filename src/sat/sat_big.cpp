@@ -81,7 +81,7 @@ namespace sat {
         unsigned num_lits = m_num_vars * 2;
         m_dag.reset();
         m_roots.reset();
-        m_dag.resize(num_lits, 0);
+        m_dag.resize(num_lits);
         m_roots.resize(num_lits, true);
     }
 

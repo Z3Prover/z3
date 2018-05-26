@@ -854,18 +854,6 @@ public:
             resize(new_size, new_value);
         }
     }
-    template<typename... Args>
-    void resize(size_type count, Args const&... args) {
-        SASSERT(size() + count >= size() && "overflow check");
-        if(size() + count > capacity()) {
-            _reserve(std::max(next_capacity(), size() + count));
-        }
-        buffvec_detail::destroy(ptr() + count, ptr() + size());
-        for(size_type i = size(); i < count; ++i) {
-            ::new(ptr() + i) value_type(args...);
-        }
-        m_size = count;
-    }
     void shrink(size_type count) {
         SASSERT(count <= size());
         buffvec_detail::destroy(ptr() + count, ptr() + size());

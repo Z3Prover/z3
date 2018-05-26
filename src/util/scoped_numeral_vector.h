@@ -63,7 +63,7 @@ public:
         unsigned old_sz = this->size();
         if (sz <= old_sz)
             shrink(sz);
-        vector<typename Manager::numeral>::resize(sz, 0);
+        vector<typename Manager::numeral>::resize(sz);
     }
 };
 
