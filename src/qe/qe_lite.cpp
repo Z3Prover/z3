@@ -1623,8 +1623,8 @@ namespace fm {
         void add_constraint(expr * f, expr_dependency * dep) {
             TRACE("qe_lite", tout << mk_pp(f, m) << "\n";);
             SASSERT(!m.is_or(f) || m_fm_occ);
-            sbuffer<literal> lits;
-            sbuffer<var>     xs;
+            buffer<literal> lits;
+            buffer<var>     xs;
             buffer<rational> as;
             rational         c;
             bool             strict = false;

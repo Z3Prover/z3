@@ -2122,7 +2122,7 @@ namespace smt {
         int num_vars = get_num_vars();
         m_var_value_table.reset();
         m_tmp_var_set.reset();
-        sbuffer<theory_var> candidates;
+        buffer<theory_var> candidates;
         for (theory_var v = 0; v < num_vars; v++) {
             enode * n1        = get_enode(v);
             if (!is_relevant_and_shared(n1))

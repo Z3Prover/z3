@@ -1188,9 +1188,9 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::display_coeff_exprs(std::ostream & out, sbuffer<coeff_expr> const & p) const {
-        typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
-        typename sbuffer<coeff_expr>::const_iterator end = p.end();
+    void theory_arith<Ext>::display_coeff_exprs(std::ostream & out, buffer<coeff_expr> const & p) const {
+        typename buffer<coeff_expr>::const_iterator it  = p.begin();
+        typename buffer<coeff_expr>::const_iterator end = p.end();
         for (bool first = true; it != end; ++it) {
             if (first)
                 first = false;
@@ -1206,7 +1206,7 @@ namespace smt {
        occurrences is also stored.
      */
     template<typename Ext>
-    void theory_arith<Ext>::get_polynomial_info(sbuffer<coeff_expr> const & p, sbuffer<var_num_occs> & varinfo) {
+    void theory_arith<Ext>::get_polynomial_info(buffer<coeff_expr> const & p, buffer<var_num_occs> & varinfo) {
         context & ctx = get_context();
         varinfo.reset();
         m_var2num_occs.reset();
@@ -1219,8 +1219,8 @@ namespace smt {
             m_var2num_occs.insert(VAR, occs);                                                           \
         }
 
-        typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
-        typename sbuffer<coeff_expr>::const_iterator end = p.end();
+        typename buffer<coeff_expr>::const_iterator it  = p.begin();
+        typename buffer<coeff_expr>::const_iterator end = p.end();
         for (; it != end; ++it) {
             expr * m = it->second;
             if (is_pure_monomial(m)) {
@@ -1253,7 +1253,7 @@ namespace smt {
        \brief Convert p into an expression.
     */
     template<typename Ext>
-    expr * theory_arith<Ext>::p2expr(sbuffer<coeff_expr> & p) {
+    expr * theory_arith<Ext>::p2expr(buffer<coeff_expr> & p) {
         SASSERT(!p.empty());
         TRACE("p2expr_bug", display_coeff_exprs(tout, p););
         ptr_buffer<expr> args;
@@ -1299,7 +1299,7 @@ namespace smt {
        The arguments i1 and i2 contain the position in p of the two monomials.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::in_monovariate_monomials(sbuffer<coeff_expr> & p, expr * var,
+    bool theory_arith<Ext>::in_monovariate_monomials(buffer<coeff_expr> & p, expr * var,
                                                      unsigned & i1, rational & c1, unsigned & n1, unsigned & i2, rational & c2, unsigned & n2) {
         int idx = 0;
 #define SET_RESULT(POWER) {                     \
@@ -1319,8 +1319,8 @@ namespace smt {
                 return false;                   \
         }
 
-        typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
-        typename sbuffer<coeff_expr>::const_iterator end = p.end();
+        typename buffer<coeff_expr>::const_iterator it  = p.begin();
+        typename buffer<coeff_expr>::const_iterator end = p.end();
         for (unsigned i = 0; it != end; ++it, ++i) {
             expr * m = it->second;
             if (is_pure_monomial(m)) {
@@ -1409,13 +1409,13 @@ namespace smt {
        \brief Return the minimal degree of var in the polynomial p.
      */
     template<typename Ext>
-    unsigned theory_arith<Ext>::get_min_degree(sbuffer<coeff_expr> & p, expr * var) {
+    unsigned theory_arith<Ext>::get_min_degree(buffer<coeff_expr> & p, expr * var) {
         SASSERT(!p.empty());
         SASSERT(var != 0);
         // get monomial where the degree of var is min.
         unsigned d = UINT_MAX; // min. degree of var
-        sbuffer<coeff_expr>::const_iterator it  = p.begin();
-        sbuffer<coeff_expr>::const_iterator end = p.end();
+        buffer<coeff_expr>::const_iterator it  = p.begin();
+        buffer<coeff_expr>::const_iterator end = p.end();
         for (; it != end; ++it) {
             expr * m = it->second;
             d = std::min(d, get_degree_of(m, var));
@@ -1466,7 +1466,7 @@ namespace smt {
        \brief Return the horner extension of p with respect to var.
     */
     template<typename Ext>
-    expr * theory_arith<Ext>::horner(sbuffer<coeff_expr> & p, expr * var) {
+    expr * theory_arith<Ext>::horner(buffer<coeff_expr> & p, expr * var) {
         SASSERT(!p.empty());
         SASSERT(var != 0);
         unsigned d = get_min_degree(p, var);
@@ -1474,8 +1474,8 @@ namespace smt {
               for (unsigned i = 0; i < p.size(); i++) { if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager()); } tout << "\n";
               tout << "var: " << mk_pp(var, get_manager()) << "\n";
               tout << "min_degree: " << d << "\n";);
-        sbuffer<coeff_expr> e; // monomials/x^d where var occurs with degree d
-        sbuffer<coeff_expr> r; // rest
+        buffer<coeff_expr> e; // monomials/x^d where var occurs with degree d
+        buffer<coeff_expr> r; // rest
         for (auto const& kv : p) {
             expr * m = kv.second;
             expr * f = factor(m, var, d);
@@ -1512,15 +1512,15 @@ namespace smt {
        If var != 0, then it is used for performing the horner extension
     */
     template<typename Ext>
-    expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
+    expr * theory_arith<Ext>::cross_nested(buffer<coeff_expr> & p, expr * var) {
         TRACE("non_linear", tout << "p.size: " << p.size() << "\n";);
         if (var == nullptr) {
-            sbuffer<var_num_occs> varinfo;
+            buffer<var_num_occs> varinfo;
             get_polynomial_info(p, varinfo);
             if (varinfo.empty())
                 return p2expr(p);
-            sbuffer<var_num_occs>::const_iterator it  = varinfo.begin();
-            sbuffer<var_num_occs>::const_iterator end = varinfo.end();
+            buffer<var_num_occs>::const_iterator it  = varinfo.begin();
+            buffer<var_num_occs>::const_iterator end = varinfo.end();
             var          = it->first;
             unsigned max = it->second;
             ++it;
@@ -1579,7 +1579,7 @@ namespace smt {
                     new_expr       = b.is_one() ? rhs2 : m_util.mk_mul(m_util.mk_numeral(b, m_util.is_int(var)), rhs2);
                     m_nl_new_exprs.push_back(new_expr);
                     TRACE("non_linear", tout << "new_expr:\n"; display_nested_form(tout, new_expr); tout << "\n";);
-                    sbuffer<coeff_expr> rest;
+                    buffer<coeff_expr> rest;
                     unsigned sz    = p.size();
                     for (unsigned i = 0; i < sz; i++) {
                         if (i != i1 && i != i2)
@@ -1603,8 +1603,8 @@ namespace smt {
        bounds. The polynomial is converted into an equivalent cross nested form.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::is_cross_nested_consistent(sbuffer<coeff_expr> & p) {
-        sbuffer<var_num_occs> varinfo;
+    bool theory_arith<Ext>::is_cross_nested_consistent(buffer<coeff_expr> & p) {
+        buffer<var_num_occs> varinfo;
         get_polynomial_info(p, varinfo);
         if (varinfo.empty())
             return true;
@@ -1696,7 +1696,7 @@ namespace smt {
             c      = r.get_denominators_lcm().to_rational();
 
         TRACE("non_linear", tout << "check problematic row:\n"; display_row(tout, r); display_row(tout, r, false););
-        sbuffer<coeff_expr> p;
+        buffer<coeff_expr> p;
         typename vector<row_entry>::const_iterator it  = r.begin_entries();
         typename vector<row_entry>::const_iterator end = r.end_entries();
         for (; it != end; ++it) {
@@ -2092,7 +2092,7 @@ namespace smt {
             grobner::monomial const * m = eq->get_monomial(i);
             intervals.push_back(mk_interval_for(m));
         }
-        sbuffer<bool> deleted;
+        buffer<bool> deleted;
         deleted.resize(num, false);
         ptr_buffer<grobner::monomial> monomials;
         // try to eliminate monomials that form perfect squares of the form (M1 - M2)^2

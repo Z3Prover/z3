@@ -65,28 +65,28 @@ public:
                      char * buf, size_t lbuf) const;
 private:
     #if defined(__LP64__) || defined(_WIN64)
-    class  mpn_sbuffer : public sbuffer<mpn_digit> {
+    class  mpn_sbuffer : public buffer<mpn_digit> {
     public:
-        mpn_sbuffer() : sbuffer<mpn_digit>() {}
+        mpn_sbuffer() : buffer<mpn_digit>() {}
 
         mpn_sbuffer(size_t nsz, const mpn_digit & elem = 0) :
-          sbuffer<mpn_digit>(static_cast<unsigned>(nsz), elem)
+          buffer<mpn_digit>(static_cast<unsigned>(nsz), elem)
         {
         }
         void resize(size_t nsz, const mpn_digit & elem = 0) {
-            sbuffer<mpn_digit>::resize(static_cast<unsigned>(nsz), elem);
+            buffer<mpn_digit>::resize(static_cast<unsigned>(nsz), elem);
         }
 
         mpn_digit & operator[](size_t idx) {
-            return sbuffer<mpn_digit>::operator[](static_cast<unsigned>(idx));
+            return buffer<mpn_digit>::operator[](static_cast<unsigned>(idx));
         }
 
         const mpn_digit & operator[](size_t idx) const {
-            return sbuffer<mpn_digit>::operator[](static_cast<unsigned>(idx));
+            return buffer<mpn_digit>::operator[](static_cast<unsigned>(idx));
         }
     };
     #else
-    typedef sbuffer<mpn_digit> mpn_sbuffer;
+    typedef buffer<mpn_digit> mpn_sbuffer;
     #endif
 
     static const mpn_digit zero;

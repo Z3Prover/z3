@@ -32,7 +32,7 @@ void for_each_expr_core(ForEachProc & proc, ExprMark & visited, expr * n) {
         visited.mark(n);
     }
 
-    sbuffer<frame> stack;    
+    buffer<frame> stack;    
     
     stack.push_back(frame(n, 0));
     while (!stack.empty()) {

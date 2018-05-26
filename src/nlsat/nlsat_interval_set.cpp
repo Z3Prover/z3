@@ -217,7 +217,7 @@ namespace nlsat {
         return -1;
     }
     
-    typedef sbuffer<interval, 128> interval_buffer;
+    typedef buffer<interval, 128> interval_buffer;
 
     // Given two interval in an interval set s.t. curr occurs before next.
     // We say curr and next are "adjacent" iff

@@ -366,8 +366,8 @@ namespace realclosure {
         typedef obj_ref<value, imp>    value_ref;
         typedef _scoped_interval<mpqi_manager>  scoped_mpqi;
         typedef _scoped_interval<mpbqi_manager> scoped_mpbqi;
-        typedef sbuffer<int, REALCLOSURE_INI_BUFFER_SIZE> int_buffer;
-        typedef sbuffer<unsigned, REALCLOSURE_INI_BUFFER_SIZE> unsigned_buffer;
+        typedef buffer<int, REALCLOSURE_INI_BUFFER_SIZE> int_buffer;
+        typedef buffer<unsigned, REALCLOSURE_INI_BUFFER_SIZE> unsigned_buffer;
 
         reslimit&                      m_limit;
         small_object_allocator *       m_allocator;
@@ -405,8 +405,8 @@ namespace realclosure {
         struct scoped_polynomial_seq {
             typedef ref_buffer<value, imp, REALCLOSURE_INI_SEQ_SIZE> value_seq;
             value_seq          m_seq_coeffs;
-            sbuffer<unsigned>  m_begins;     // start position (in m_seq_coeffs) of each polynomial in the sequence
-            sbuffer<unsigned>  m_szs;        // size of each polynomial in the sequence
+            buffer<unsigned>  m_begins;     // start position (in m_seq_coeffs) of each polynomial in the sequence
+            buffer<unsigned>  m_szs;        // size of each polynomial in the sequence
         public:
             scoped_polynomial_seq(imp & m):m_seq_coeffs(m) {}
             ~scoped_polynomial_seq() {

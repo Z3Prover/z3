@@ -989,8 +989,8 @@ class fm_tactic : public tactic {
         
         void add_constraint(expr * f, expr_dependency * dep) {
             SASSERT(!m.is_or(f) || m_fm_occ);
-            sbuffer<literal> lits;
-            sbuffer<var>     xs;
+            buffer<literal> lits;
+            buffer<var>     xs;
             buffer<rational> as;
             rational         c;
             bool             strict = false;

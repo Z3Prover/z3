@@ -1200,7 +1200,7 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
     }
     if (shift > 0)
         shr(m_precision, u_buffer.c_ptr(), shift, u_buffer.c_ptr());
-    sbuffer<char, 1024> str_buffer(11*m_precision, 0);
+    buffer<char, 1024> str_buffer(11*m_precision, 0);
     out << m_mpn_manager.to_string(u_buffer.c_ptr(), m_precision, str_buffer.begin(), str_buffer.size());
     if (exp > 0) {
         if (exp <= 63) {
@@ -1244,21 +1244,19 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
         out << "-";
     unsigned word_sz = 8 * sizeof(unsigned);
     if (exp >= 0) {
-        sbuffer<unsigned, 1024> buffer;
         unsigned num_extra_words = 1 + static_cast<unsigned>(exp/word_sz);
         unsigned shift           = word_sz - exp%word_sz;
-        for (unsigned i = 0; i < num_extra_words; i++)
-            buffer.push_back(0);
+        buffer<unsigned, 1024> word_buffer(num_extra_words, 0u);
         unsigned * s = sig(n);
         for (unsigned i = 0; i < m_precision; i++) 
-            buffer.push_back(s[i]);
-        shr(buffer.size(), buffer.c_ptr(), shift, buffer.size(), buffer.c_ptr());
-        sbuffer<char, 1024> str_buffer(11*buffer.size(), 0);
-        out << m_mpn_manager.to_string(buffer.c_ptr(), buffer.size(), str_buffer.begin(), str_buffer.size());
+            word_buffer.push_back(s[i]);
+        shr(word_buffer.size(), word_buffer.c_ptr(), shift, word_buffer.size(), word_buffer.c_ptr());
+        buffer<char, 1024> str_buffer(11*word_buffer.size(), 0);
+        out << m_mpn_manager.to_string(word_buffer.c_ptr(), word_buffer.size(), str_buffer.begin(), str_buffer.size());
     }
     else {
-        sbuffer<unsigned, 1024> buffer1, buffer2;
-        sbuffer<unsigned> buffer3;
+        buffer<unsigned, 1024> buffer1, buffer2;
+        buffer<unsigned> buffer3;
         exp = -exp;
         unsigned num_words       = 1 + static_cast<unsigned>(exp/word_sz);
         unsigned num_extra_words = m_precision < num_words ? num_words - m_precision : 0;
@@ -1274,7 +1272,7 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
             buffer2.push_back(0);
         }
         unsigned ten = 10;
-        sbuffer<unsigned, 1024> pw_buffer;
+        buffer<unsigned, 1024> pw_buffer;
         pw_buffer.resize(num_words, 0);
         pw_buffer[0] = 1;
         shl(num_words, pw_buffer.c_ptr(), static_cast<unsigned>(exp), num_words, pw_buffer.c_ptr());
@@ -1286,7 +1284,7 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
                               pw_buffer.c_ptr(), num_words,
                               buffer3.c_ptr(),
                               buffer2.c_ptr());
-            sbuffer<char, 1024> str_buffer(11*buffer3.size(), 0);
+            buffer<char, 1024> str_buffer(11*buffer3.size(), 0);
             out << m_mpn_manager.to_string(buffer3.c_ptr(), buffer3.size(), str_buffer.begin(), str_buffer.size());
             SASSERT(!::is_zero(buffer2.size(), buffer2.c_ptr())); // otherwise n is an integer
             ::copy(buffer2.size(), buffer2.c_ptr(), buffer1.size(), buffer1.c_ptr());
@@ -1356,7 +1354,7 @@ void mpff_manager::display_smt2(std::ostream & out, mpff const & n, bool decimal
     else if (exp < 0)
         out << "(/ ";
 
-    sbuffer<char, 1024> str_buffer(11*m_precision, 0);
+    buffer<char, 1024> str_buffer(11*m_precision, 0);
     out << m_mpn_manager.to_string(u_buffer.c_ptr(), m_precision, str_buffer.begin(), str_buffer.size());
     if (decimal) out << ".0";
 

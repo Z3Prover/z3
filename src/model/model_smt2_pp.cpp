@@ -187,7 +187,7 @@ void sort_fun_decls(ast_manager & m, model_core const & md, ptr_buffer<func_decl
 static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core const & md, unsigned indent) {
     ast_manager & m = ctx.get_ast_manager();
     recfun::util recfun_util(m);
-    sbuffer<symbol>    var_names;
+    buffer<symbol>     var_names;
     ptr_buffer<format> f_var_names;
     ptr_buffer<format> f_arg_decls;
     ptr_buffer<format> f_entries;

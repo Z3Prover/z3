@@ -27,12 +27,12 @@ public:
     virtual ~ast_printer() {}
     virtual void pp(sort * s, format_ns::format_ref & r) const { UNREACHABLE(); }
     virtual void pp(func_decl * f, format_ns::format_ref & r) const { UNREACHABLE(); }
-    virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const { UNREACHABLE(); }
+    virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, buffer<symbol> & var_names) const { UNREACHABLE(); }
     virtual void pp(expr * n, format_ns::format_ref & r) const { UNREACHABLE(); }
     virtual void display(std::ostream & out, sort * s, unsigned indent = 0) const {
         out << "#" << s->get_id() << "\n";
     }
-    virtual void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const {
+    virtual void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, buffer<symbol> & var_names) const {
         out << "#" << n->get_id() << "\n";
     }
     virtual void display(std::ostream & out, expr * n, unsigned indent = 0) const {

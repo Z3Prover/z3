@@ -181,7 +181,7 @@ format * smt2_pp_environment::pp_bv_literal(app * t, bool use_bv_lits, bool bv_n
         vf = mk_string(get_manager(), buf.c_str());
     }
     else {
-        sbuffer<char> buf;
+        buffer<char> buf;
         unsigned sz = 0;
         buf.push_back('#');
         if (bv_size % 4 == 0) {
@@ -1106,7 +1106,7 @@ public:
         process(n, r);
     }
 
-    void operator()(expr * n, unsigned num, char const * var_prefix, format_ref & r, sbuffer<symbol> & var_names) {
+    void operator()(expr * n, unsigned num, char const * var_prefix, format_ref & r, buffer<symbol> & var_names) {
         reset_var_names();
         if (var_prefix == nullptr)
             var_prefix = "x";
@@ -1196,7 +1196,7 @@ public:
 
 void mk_smt2_format(expr * n, smt2_pp_environment & env, params_ref const & p,
                     unsigned num_vars, char const * var_prefix,
-                    format_ref & r, sbuffer<symbol> & var_names) {
+                    format_ref & r, buffer<symbol> & var_names) {
     smt2_printer pr(env, p);
     pr(n, num_vars, var_prefix, r, var_names);
 }
@@ -1218,7 +1218,7 @@ void mk_smt2_format(func_decl * f, expr * e, smt2_pp_environment & env, params_r
 
 void mk_smt2_format(unsigned sz, expr * const* es, smt2_pp_environment & env, params_ref const & p,
                     unsigned num_vars, char const * var_prefix,
-                    format_ref & r, sbuffer<symbol> & var_names) {
+                    format_ref & r, buffer<symbol> & var_names) {
     smt2_printer pr(env, p);
     ast_manager & m = env.get_manager();
     
@@ -1236,7 +1236,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & e
     if (!n) return out << "null";
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
-    sbuffer<symbol> var_names;
+    buffer<symbol> var_names;
     mk_smt2_format(n, env, p, num_vars, var_prefix, r, var_names);
     if (indent > 0)
         r = mk_indent(m, indent, r.get());
@@ -1248,7 +1248,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & e
     if (s == nullptr) return out << "null";
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
-    sbuffer<symbol> var_names;
+    buffer<symbol> var_names;
     mk_smt2_format(s, env, p, r);
     if (indent > 0)
         r = mk_indent(m, indent, r.get());
@@ -1260,7 +1260,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environmen
     if (!f) return out << "null";
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
-    sbuffer<symbol> var_names;
+    buffer<symbol> var_names;
     mk_smt2_format(f, env, p, r, cmd);
     if (indent > 0)
         r = mk_indent(m, indent, r.get());
@@ -1272,7 +1272,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_e
     if (!f) return out << "null";
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
-    sbuffer<symbol> var_names;
+    buffer<symbol> var_names;
     mk_smt2_format(f, e, env, p, r, cmd);
     if (indent > 0)
         r = mk_indent(m, indent, r.get());
@@ -1285,7 +1285,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, unsigned sz, expr * const* es, sm
                             unsigned num_vars, char const * var_prefix) {
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
-    sbuffer<symbol> var_names;
+    buffer<symbol> var_names;
     mk_smt2_format(sz, es, env, p, num_vars, var_prefix, r, var_names);
     if (indent > 0)
         r = mk_indent(m, indent, r.get());

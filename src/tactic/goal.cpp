@@ -150,7 +150,7 @@ void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
         return;
     }
     typedef std::pair<expr *, bool> expr_pol;
-    sbuffer<expr_pol, 64> todo;
+    buffer<expr_pol, 64> todo;
     expr_ref_vector tmp_exprs(m());
     todo.push_back(expr_pol(f, true));
     while (!todo.empty()) {

@@ -131,7 +131,7 @@ void sexpr::display_atom(std::ostream & out) const {
         out << '#';
         unsigned bv_size = static_cast<sexpr_bv const *>(this)->m_size;
         rational val  = static_cast<sexpr_bv const *>(this)->m_val;
-        sbuffer<char> buf;
+        buffer<char> buf;
         unsigned sz = 0;
         if (bv_size % 4 == 0) {
             out << 'x';

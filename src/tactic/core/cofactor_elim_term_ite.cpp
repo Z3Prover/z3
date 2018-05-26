@@ -167,7 +167,7 @@ struct cofactor_elim_term_ite::imp {
         TRACE("cofactor", tout << mk_ismt2_pp(t, m) << "\n";);
         typedef std::pair<expr *, unsigned> frame;
         expr_fast_mark1         visited;            
-        sbuffer<frame>          stack;    
+        buffer<frame>          stack;    
         stack.push_back(frame(t, 0));
         while (!stack.empty()) {
         start:
@@ -227,7 +227,7 @@ struct cofactor_elim_term_ite::imp {
         typedef std::pair<expr *, unsigned> frame;
         obj_map<expr, unsigned> occs;
         expr_fast_mark1         visited;            
-        sbuffer<frame>          stack;    
+        buffer<frame>          stack;    
         
         stack.push_back(frame(t, 0));
         while (!stack.empty()) {

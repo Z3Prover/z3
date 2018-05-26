@@ -779,7 +779,7 @@ void mpfx_manager::display(std::ostream & out, mpfx const & n) const {
             shr(m_total_sz, w, shift, m_total_sz, w);
     }
 
-    sbuffer<char, 1024> str_buffer(11*sz, 0);
+    buffer<char, 1024> str_buffer(11*sz, 0);
     out << m_mpn_manager.to_string(w, sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         SASSERT(shift != UINT_MAX);
@@ -806,7 +806,7 @@ void mpfx_manager::display_smt2(std::ostream & out, mpfx const & n) const {
     else {
         out << "(/ ";
     }
-    sbuffer<char, 1024> str_buffer(11*sz, 0);
+    buffer<char, 1024> str_buffer(11*sz, 0);
     out << m_mpn_manager.to_string(w, sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         out << " ";
@@ -814,7 +814,7 @@ void mpfx_manager::display_smt2(std::ostream & out, mpfx const & n) const {
         for (unsigned i = 0; i < m_frac_part_sz; i++)
             w[i] = 0;
         w[m_frac_part_sz] = 1;
-        sbuffer<char, 1024> str_buffer2(11*(m_frac_part_sz+1), 0);
+        buffer<char, 1024> str_buffer2(11*(m_frac_part_sz+1), 0);
         out << m_mpn_manager.to_string(w, m_frac_part_sz + 1, str_buffer2.begin(), str_buffer2.size());
         out << ")";
     }
@@ -826,7 +826,7 @@ void mpfx_manager::display_decimal(std::ostream & out, mpfx const & n, unsigned 
     if (is_neg(n))
         out << "-";
     unsigned * w = words(n);
-    sbuffer<char, 1024> str_buffer(11*m_int_part_sz, 0);
+    buffer<char, 1024> str_buffer(11*m_int_part_sz, 0);
     out << m_mpn_manager.to_string(w + m_frac_part_sz, m_int_part_sz, str_buffer.begin(), str_buffer.size());
     if (!is_int(n)) {
         out << ".";

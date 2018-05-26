@@ -995,7 +995,7 @@ struct aig_manager::imp {
 
         void operator()(aig_lit const & l, goal & g) {
             g.reset();
-            sbuffer<aig_lit> roots;
+            buffer<aig_lit> roots;
             roots.push_back(l);
             while (!roots.empty()) {
                 aig_lit n = roots.back();

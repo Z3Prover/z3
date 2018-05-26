@@ -469,10 +469,10 @@ public:
     format_ns::format * pp(sort * s) const;
     void pp(sort * s, format_ns::format_ref & r) const override { r = pp(s); }
     void pp(func_decl * f, format_ns::format_ref & r) const override;
-    void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const override;
+    void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, buffer<symbol> & var_names) const override;
     void pp(expr * n, format_ns::format_ref & r) const override;
     void display(std::ostream & out, sort * s, unsigned indent = 0) const override;
-    void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const override;
+    void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, buffer<symbol> & var_names) const override;
     void display(std::ostream & out, expr * n, unsigned indent = 0) const override;
     void display(std::ostream & out, func_decl * f, unsigned indent = 0) const override;
 

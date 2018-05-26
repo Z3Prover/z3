@@ -717,14 +717,14 @@ class tseitin_cnf_tactic : public tactic {
                 }
             }
             else {
-                expr_ref_buffer buffer(m); expr_ref l(m), nl(m);
-                sbuffer<unsigned> szs;
-                sbuffer<unsigned> it;
-                sbuffer<unsigned> offsets;
+                expr_ref_buffer expr_buffer(m); expr_ref l(m), nl(m);
+                buffer<unsigned> szs;
+                buffer<unsigned> it;
+                buffer<unsigned> offsets;
                 unsigned blowup = 1;
                 for (unsigned i = 0; i < num; i++) {
                     it.push_back(0);
-                    offsets.push_back(buffer.size());
+                    offsets.push_back(expr_buffer.size());
                     expr * a = t->get_arg(i);
                     expr * a0;
                     if (m.is_not(a, a0) && m.is_or(a0) && !is_shared(a0)) {
@@ -735,7 +735,7 @@ class tseitin_cnf_tactic : public tactic {
                             expr_ref_buffer lits(m);
                             for (unsigned j = 0; j < num2; j++) {
                                 get_lit(to_app(a0)->get_arg(j), true, nl);
-                                buffer.push_back(nl);
+                                expr_buffer.push_back(nl);
                                 if (!root) {
                                     inv(nl, l);
                                     lits.push_back(l);
@@ -750,16 +750,16 @@ class tseitin_cnf_tactic : public tactic {
                     }
                     szs.push_back(1);
                     get_lit(a, false, l);
-                    buffer.push_back(l);
+                    expr_buffer.push_back(l);
                     if (!root) {
                         inv(l, nl);
                         mk_clause(nl, k); 
                     }
                 }
                 SASSERT(offsets.size() == num);
-                sbuffer<expr**> arg_lits;
+                buffer<expr**> arg_lits;
                 ptr_buffer<expr> lits;
-                expr ** buffer_ptr = buffer.c_ptr();
+                expr ** buffer_ptr = expr_buffer.c_ptr();
                 for (unsigned i = 0; i < num; i++) {
                     arg_lits.push_back(buffer_ptr + offsets[i]);
                 }

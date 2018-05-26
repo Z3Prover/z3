@@ -136,7 +136,7 @@ namespace smt {
         // 
         // --------------------------------------------------
         bool is_shared(theory_var v) const override;
-        void collect_shared_vars(sbuffer<theory_var> & result);
+        void collect_shared_vars(buffer<theory_var> & result);
         unsigned mk_interface_eqs();
 
         bool can_propagate() override;
