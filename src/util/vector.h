@@ -11,8 +11,7 @@ Author:
 
 --*/
 
-#ifndef VECTOR_H_
-#define VECTOR_H_
+#pragma once
 
 #include "old_vector.h"
 #include "hash.h"
@@ -59,5 +58,3 @@ struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > 
 
 template<typename Hash>
 struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
-
-#endif /* VECTOR_H_ */

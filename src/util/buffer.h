@@ -11,8 +11,7 @@ Author:
 
 --*/
 
-#ifndef BUFFER_H_
-#define BUFFER_H_
+#pragma once
 
 #include "old_buffer.h"
 
@@ -26,5 +25,3 @@ using ptr_buffer = old_ptr_buffer<T, INITIAL_SIZE>;
 
 template<typename T, unsigned INITIAL_SIZE=16>
 using sbuffer = old_sbuffer<T, INITIAL_SIZE>;
-
-#endif /* BUFFER_H_ */
