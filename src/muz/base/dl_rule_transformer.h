@@ -34,13 +34,13 @@ namespace datalog {
     private:
         friend class plugin;
 
-        typedef svector<plugin*> plugin_vector;
+        typedef vector<plugin*> plugin_vector;
         struct plugin_comparator;
 
         context &        m_context;
         rule_manager &   m_rule_manager;
         bool             m_dirty;
-        svector<plugin*> m_plugins;
+        vector<plugin*> m_plugins;
         
         void ensure_ordered();
     public:
@@ -108,7 +108,7 @@ namespace datalog {
         /**
            Removes duplicate tails.
         */
-        static void remove_duplicate_tails(app_ref_vector& tail, svector<bool>& tail_neg);
+        static void remove_duplicate_tails(app_ref_vector& tail, vector<bool>& tail_neg);
 
     };
 };

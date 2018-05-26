@@ -254,10 +254,10 @@ inline std::ostream & operator<<(std::ostream & target, const uint_set & s) {
 
 
 class tracked_uint_set {
-    svector<char>        m_in_set;
-    svector<unsigned>    m_set;
+    vector<char>        m_in_set;
+    vector<unsigned>    m_set;
 public:
-    typedef svector<unsigned>::const_iterator iterator;
+    typedef vector<unsigned>::const_iterator iterator;
     void insert(unsigned v) {
         m_in_set.reserve(v+1, false);
         if (m_in_set[v])

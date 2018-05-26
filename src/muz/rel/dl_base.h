@@ -583,7 +583,7 @@ namespace datalog {
             const unsigned_vector m_cols2;
             bool m_all_neg_bound; //all columns are bound at least once
             bool m_overlap; //one column in negated table is bound multiple times
-            svector<bool> m_bound;
+            vector<bool> m_bound;
 
             convenient_negation_filter_fn(const base_object & tgt, const base_object & neg_t, 
                     unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * negated_cols) 
@@ -833,7 +833,7 @@ namespace datalog {
     class table_base;
 
     typedef uint64_t table_sort;
-    typedef svector<table_sort> table_signature_base0;
+    typedef vector<table_sort> table_signature_base0;
     typedef uint64_hash table_sort_hash;
 
     typedef uint64_hash table_element_hash;
@@ -902,7 +902,7 @@ namespace datalog {
     public:
         struct hash {
             unsigned operator()(table_signature const& s) const { 
-                return svector_hash<table_sort_hash>()(s);
+                return vector_hash<table_sort_hash>()(s);
             }
         };
 

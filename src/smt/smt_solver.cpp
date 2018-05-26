@@ -260,7 +260,7 @@ namespace smt {
             m_context.set_reason_unknown(msg);
         }
 
-        void get_labels(svector<symbol> & r) override {
+        void get_labels(vector<symbol> & r) override {
             buffer<symbol> tmp;
             m_context.get_relevant_labels(nullptr, tmp);
             r.append(tmp.size(), tmp.c_ptr());

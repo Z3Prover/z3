@@ -30,8 +30,8 @@ namespace smt {
     typedef map<bool_var, double, int_hash, default_eq<bool_var> > theory_var_priority_map;
 
     struct bool_var_act_lt {
-        svector<double> const & m_activity;
-        bool_var_act_lt(svector<double> const & a):m_activity(a) {}
+        vector<double> const & m_activity;
+        bool_var_act_lt(vector<double> const & a):m_activity(a) {}
         bool operator()(bool_var v1, bool_var v2) const {
             return m_activity[v1] > m_activity[v2];
         }
@@ -40,9 +40,9 @@ namespace smt {
     typedef heap<bool_var_act_lt> bool_var_act_queue;
 
     struct theory_aware_act_lt {
-        svector<double> const & m_activity;
+        vector<double> const & m_activity;
         theory_var_priority_map const & m_theory_var_priority;
-        theory_aware_act_lt(svector<double> const & act, theory_var_priority_map const & a):m_activity(act),m_theory_var_priority(a) {}
+        theory_aware_act_lt(vector<double> const & act, theory_var_priority_map const & a):m_activity(act),m_theory_var_priority(a) {}
         bool operator()(bool_var v1, bool_var v2) const {
             double p_v1, p_v2;
             if (!m_theory_var_priority.find(v1, p_v1)) {
@@ -324,7 +324,7 @@ namespace smt {
         int               m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
         ptr_vector<expr>  m_queue2;
         unsigned          m_head2;
-        svector<scope>    m_scopes;
+        vector<scope>    m_scopes;
     public:
         rel_case_split_queue(context & ctx, smt_params & p):
             m_context(ctx),
@@ -511,7 +511,7 @@ namespace smt {
         unsigned          m_head;
         int               m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
         bool_var_act_queue m_delayed_queue;
-        svector<scope>    m_scopes;
+        vector<scope>    m_scopes;
     public:
         rel_act_case_split_queue(context & ctx, smt_params & p):
             m_context(ctx),
@@ -742,8 +742,8 @@ namespace smt {
         ptr_vector<expr>     m_queue;
         unsigned             m_head;
         int                  m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
-        svector<queue_entry> m_queue2;
-        svector<scope>       m_scopes;
+        vector<queue_entry> m_queue2;
+        vector<scope>       m_scopes;
         unsigned             m_current_generation;
 
         // The heap holds indices into m_queue2, i in m_priority_queue2 <==> m_queue2[i].m_last_assigned == -1

@@ -58,14 +58,14 @@ namespace sat {
         use_list               m_use_list;
         ext_use_list           m_ext_use_list;
         clause_set             m_sub_todo;
-        svector<bin_clause>    m_sub_bin_todo;
+        vector<bin_clause>    m_sub_bin_todo;
         unsigned               m_last_sub_trail_sz; // size of the trail since last cleanup
         bool_var_set           m_elim_todo;
         bool                   m_need_cleanup;
         tmp_clause             m_dummy;
 
         // simplifier extra variable fields.
-        svector<char>          m_visited; // transient
+        vector<char>          m_visited; // transient
 
         // counters
         int                    m_sub_counter;

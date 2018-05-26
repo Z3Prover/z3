@@ -805,7 +805,7 @@ namespace smt {
         unsigned                        m_dim; //!< number of dimensions;
         app *                           m_else;
         bool                            m_unspecified_else;
-        svector<model_value_dependency> m_dependencies;
+        vector<model_value_dependency> m_dependencies;
 
     public:
         array_value_proc(family_id fid, sort * s, extra_fresh_value * v):

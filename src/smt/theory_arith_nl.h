@@ -55,7 +55,7 @@ namespace smt {
        \brief Insert v into vars and already_found if v is not already in already_found.
     */
     template<typename Ext>
-    void theory_arith<Ext>::mark_var(theory_var v, svector<theory_var> & vars, var_set & already_found) {
+    void theory_arith<Ext>::mark_var(theory_var v, vector<theory_var> & vars, var_set & already_found) {
         if (already_found.contains(v))
             return;
         already_found.insert(v);
@@ -66,7 +66,7 @@ namespace smt {
        \brief Invoke mark_var for all variables in rows that contain v.
     */
     template<typename Ext>
-    void theory_arith<Ext>::mark_dependents(theory_var v, svector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows) {
+    void theory_arith<Ext>::mark_dependents(theory_var v, vector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows) {
         if (is_pure_monomial(v)) {
             expr * n     = var2expr(v);
             SASSERT(m_util.is_mul(n));
@@ -79,8 +79,8 @@ namespace smt {
         if (is_fixed(v))
             return;
         column & c      = m_columns[v];
-        typename svector<col_entry>::iterator it  = c.begin_entries();
-        typename svector<col_entry>::iterator end = c.end_entries();
+        typename vector<col_entry>::iterator it  = c.begin_entries();
+        typename vector<col_entry>::iterator end = c.end_entries();
         for (; it != end; ++it) {
             if (it->is_dead() || already_visited_rows.contains(it->m_row_id))
                 continue;
@@ -110,7 +110,7 @@ namespace smt {
        and are not satisfied by the current assignment.
     */
     template<typename Ext>
-    void theory_arith<Ext>::get_non_linear_cluster(svector<theory_var> & vars) {
+    void theory_arith<Ext>::get_non_linear_cluster(vector<theory_var> & vars) {
         if (m_nl_monomials.empty())
             return;
         var_set already_found;
@@ -694,8 +694,8 @@ namespace smt {
     bool theory_arith<Ext>::check_monomial_assignments() {
         bool computed_epsilon = false;
         context & ctx         = get_context();
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
+        vector<theory_var>::const_iterator it  = m_nl_monomials.begin();
+        vector<theory_var>::const_iterator end = m_nl_monomials.end();
         for (; it != end; ++it) {
             TRACE("non_linear", tout << "v" << *it << " is relevant: " << ctx.is_relevant(get_enode(*it)) << "\n";
                   tout << "check_monomial_assignments result: " << check_monomial_assignment(*it, computed_epsilon) << "\n";
@@ -996,8 +996,8 @@ namespace smt {
         // with an index `i'.
 
         // Was previously:
-        // svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        // svector<theory_var>::const_iterator end = m_nl_monomials.end();
+        // vector<theory_var>::const_iterator it  = m_nl_monomials.begin();
+        // vector<theory_var>::const_iterator end = m_nl_monomials.end();
         // for (; it != end; ++it) {
         //     theory_var v = *it;
         for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
@@ -1713,7 +1713,7 @@ namespace smt {
        form in the non linear cluster.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::is_cross_nested_consistent(svector<theory_var> const & nl_cluster) {
+    bool theory_arith<Ext>::is_cross_nested_consistent(vector<theory_var> const & nl_cluster) {
         for (theory_var v : nl_cluster) {
             if (!is_base(v))
                 continue;
@@ -1743,7 +1743,7 @@ namespace smt {
        "bounded variables" > "quoted fixed variables" > "fixed variables"
     */
     template<typename Ext>
-    void theory_arith<Ext>::init_grobner_var_order(svector<theory_var> const & nl_cluster, grobner & gb) {
+    void theory_arith<Ext>::init_grobner_var_order(vector<theory_var> const & nl_cluster, grobner & gb) {
         // Initialize variable order
         for (theory_var v : nl_cluster) {
             expr * var = var2expr(v);
@@ -1880,7 +1880,7 @@ namespace smt {
        The GB is initialized using rows and non linear monomials.
     */
     template<typename Ext>
-    void theory_arith<Ext>::init_grobner(svector<theory_var> const & nl_cluster, grobner & gb) {
+    void theory_arith<Ext>::init_grobner(vector<theory_var> const & nl_cluster, grobner & gb) {
         init_grobner_var_order(nl_cluster, gb);
         for (theory_var v : nl_cluster) {
             if (is_base(v)) {
@@ -2228,7 +2228,7 @@ namespace smt {
        \brief Compute Grobner basis, return true if a conflict or new fixed variables were detected.
     */
     template<typename Ext>
-    typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector<theory_var> const & nl_cluster) {
+    typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(vector<theory_var> const & nl_cluster) {
         if (m_nl_gb_exhausted)
             return GB_FAIL;
         grobner gb(get_manager(), m_dep_manager);
@@ -2334,7 +2334,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::max_min_nl_vars() {
         var_set             already_found;
-        svector<theory_var> vars;
+        vector<theory_var> vars;
         for (theory_var v : m_nl_monomials) {
             mark_var(v, vars, already_found);
             expr * n     = var2expr(v);
@@ -2393,7 +2393,7 @@ namespace smt {
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
         }
 
-        svector<theory_var> vars;
+        vector<theory_var> vars;
         get_non_linear_cluster(vars);
 
         bool progress;

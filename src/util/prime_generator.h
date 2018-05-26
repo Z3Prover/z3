@@ -32,7 +32,7 @@ public:
    \brief Prime generator
 */
 class prime_generator {
-    svector<uint64_t> m_primes;
+    vector<uint64_t> m_primes;
     void process_next_k_numbers(uint64_t k);
 public:
     prime_generator();

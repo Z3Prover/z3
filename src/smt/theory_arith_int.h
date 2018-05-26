@@ -862,7 +862,7 @@ namespace smt {
     bool theory_arith<Ext>::max_min_infeasible_int_vars() {
         var_set & already_processed = m_tmp_var_set;
         already_processed.reset();
-        svector<theory_var> vars;
+        vector<theory_var> vars;
         for (;;) {
             vars.reset();
             // Collect infeasible integer variables.
@@ -956,7 +956,7 @@ namespace smt {
         theory_arith &                t;
         euclidean_solver              m_solver;
         unsigned_vector               m_tv2v; // theory var to euclidean solver var
-        svector<theory_var>           m_j2v;  // justification to theory var
+        vector<theory_var>           m_j2v;  // justification to theory var
         
         // aux fields
         unsigned_vector               m_xs;

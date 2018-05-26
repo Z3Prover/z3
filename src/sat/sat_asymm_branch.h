@@ -51,7 +51,7 @@ namespace sat {
         unsigned   m_tr;
 
         literal_vector m_pos, m_neg; // literals (complements of literals) in clauses sorted by discovery time (m_left in BIG).
-        svector<std::pair<literal, unsigned>> m_pos1, m_neg1;
+        vector<std::pair<literal, unsigned>> m_pos1, m_neg1;
         literal_vector m_to_delete;
         literal_vector m_tmp;
        

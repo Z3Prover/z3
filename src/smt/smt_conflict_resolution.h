@@ -60,7 +60,7 @@ namespace smt {
         
         justification_vector           m_todo_js;
         unsigned                       m_todo_js_qhead;
-        svector<enode_pair>            m_todo_eqs;
+        vector<enode_pair>            m_todo_eqs;
         enode_pair_set                 m_already_processed_eqs;
         
         literal_vector *               m_antecedents;
@@ -99,7 +99,7 @@ namespace smt {
         tp_elem(justification * js):m_kind(JUSTIFICATION), m_js(js) { SASSERT(js);}
         };
 
-        svector<tp_elem>               m_todo_pr;
+        vector<tp_elem>               m_todo_pr;
         js2proof                       m_js2proof;
         eq2proof                       m_eq2proof;
         lit2proof                      m_lit2proof;

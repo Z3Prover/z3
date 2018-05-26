@@ -291,7 +291,7 @@ bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
     // 4. introduce quantifier
     ptr_vector<sort> sorts;
     sorts.push_back(util.mk_int());
-    svector<symbol> names;
+    vector<symbol> names;
     names.push_back(symbol("scti!0"));
 
     result = expr_ref(m.mk_exists(vars.size(), sorts.c_ptr(), names.c_ptr(), body),m);

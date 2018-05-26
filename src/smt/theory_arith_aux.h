@@ -124,7 +124,7 @@ namespace smt {
        \brief Fill the map var -> pos/idx
     */
     template<typename Ext>
-    inline void theory_arith<Ext>::row::save_var_pos(svector<int> & result_map) const {
+    inline void theory_arith<Ext>::row::save_var_pos(vector<int> & result_map) const {
         typename vector<row_entry>::const_iterator it  = m_entries.begin();
         typename vector<row_entry>::const_iterator end = m_entries.end();
         unsigned idx = 0;
@@ -140,7 +140,7 @@ namespace smt {
        This method can be viewed as the "inverse" of save_var_pos.
     */
     template<typename Ext>
-    inline void theory_arith<Ext>::row::reset_var_pos(svector<int> & result_map) const {
+    inline void theory_arith<Ext>::row::reset_var_pos(vector<int> & result_map) const {
         typename vector<row_entry>::const_iterator it  = m_entries.begin();
         typename vector<row_entry>::const_iterator end = m_entries.end();
         for (; it != end; ++it) {
@@ -272,8 +272,8 @@ namespace smt {
     
     template<typename Ext>
     const typename theory_arith<Ext>::col_entry * theory_arith<Ext>::column::get_first_col_entry() const {
-        typename svector<col_entry>::const_iterator it  = m_entries.begin();
-        typename svector<col_entry>::const_iterator end = m_entries.end();
+        typename vector<col_entry>::const_iterator it  = m_entries.begin();
+        typename vector<col_entry>::const_iterator end = m_entries.end();
         for (; it != end; ++it) {
             if (!it->is_dead()) {
                 return it;
@@ -485,8 +485,8 @@ namespace smt {
             if (c.size() == 0)
                 return nullptr;
             int quasi_base_rid = -1;
-            typename svector<col_entry>::const_iterator it  = c.begin_entries();
-            typename svector<col_entry>::const_iterator end = c.end_entries();
+            typename vector<col_entry>::const_iterator it  = c.begin_entries();
+            typename vector<col_entry>::const_iterator end = c.end_entries();
             for (; it != end; ++it) {
                 if (!it->is_dead()) {
                     unsigned rid = it->m_row_id;
@@ -542,8 +542,8 @@ namespace smt {
         column const & c = m_columns[v];
         if (c.size() == 0)
             return nullptr;
-        typename svector<col_entry>::const_iterator it  = c.begin_entries();
-        typename svector<col_entry>::const_iterator end = c.end_entries();
+        typename vector<col_entry>::const_iterator it  = c.begin_entries();
+        typename vector<col_entry>::const_iterator end = c.end_entries();
         for (; it != end; ++it) {
             if (!it->is_dead()) {
                 row const & r = m_rows[it->m_row_id];
@@ -967,8 +967,8 @@ namespace smt {
         context& ctx = get_context();
         shared |= ctx.is_shared(get_enode(x));
         column & c      = m_columns[x];
-        typename svector<col_entry>::iterator it  = c.begin_entries();
-        typename svector<col_entry>::iterator end = c.end_entries();
+        typename vector<col_entry>::iterator it  = c.begin_entries();
+        typename vector<col_entry>::iterator end = c.end_entries();
         has_int = false;
         bool unbounded = (inc && !upper(x)) || (!inc && !lower(x));
         bool was_unsafe = false;
@@ -1336,8 +1336,8 @@ namespace smt {
             return false;
         }        
         column & c   = m_columns[x_j];
-        typename svector<col_entry>::iterator it  = c.begin_entries();
-        typename svector<col_entry>::iterator end = c.end_entries();
+        typename vector<col_entry>::iterator it  = c.begin_entries();
+        typename vector<col_entry>::iterator end = c.end_entries();
         bool empty_column = true;
         for (; it != end; ++it) {
             if (it->is_dead()) continue;
@@ -1751,8 +1751,8 @@ namespace smt {
         }
         init_gains(x_i, inc, min_gain, max_gain);        
         column & c   = m_columns[x_i];
-        typename svector<col_entry>::iterator it  = c.begin_entries();
-        typename svector<col_entry>::iterator end = c.end_entries();
+        typename vector<col_entry>::iterator it  = c.begin_entries();
+        typename vector<col_entry>::iterator end = c.end_entries();
         for (; it != end; ++it) {
             if (it->is_dead()) continue;
             row const & r = m_rows[it->m_row_id];
@@ -1845,11 +1845,11 @@ namespace smt {
        Return false if an inconsistency was detected.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::max_min(svector<theory_var> const & vars) { 
+    bool theory_arith<Ext>::max_min(vector<theory_var> const & vars) { 
         bool succ = false;
         bool has_shared = false;
-        svector<theory_var>::const_iterator it  = vars.begin();
-        svector<theory_var>::const_iterator end = vars.end();
+        vector<theory_var>::const_iterator it  = vars.begin();
+        vector<theory_var>::const_iterator end = vars.end();
         for (; it != end; ++it) {
             if (max_min(*it, true, false, has_shared) == OPTIMIZED && !has_shared)
                 succ = true;
@@ -1885,8 +1885,8 @@ namespace smt {
 
         inf_numeral const & x_j_val = get_value(x_j);
         column & c = m_columns[x_j];
-        typename svector<col_entry>::iterator it  = c.begin_entries();
-        typename svector<col_entry>::iterator end = c.end_entries();
+        typename vector<col_entry>::iterator it  = c.begin_entries();
+        typename vector<col_entry>::iterator end = c.end_entries();
 
         inf_l = true;
         inf_u = true;

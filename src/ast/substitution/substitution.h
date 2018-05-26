@@ -46,12 +46,12 @@ class substitution {
 
     // field for backtracking
     typedef std::pair<unsigned, unsigned> var_offset;
-    svector<var_offset>         m_vars;
+    vector<var_offset>         m_vars;
     expr_ref_vector             m_refs;
     unsigned_vector             m_scopes;
 
     // fields for applying substitutions
-    svector<expr_offset>        m_todo;
+    vector<expr_offset>        m_todo;
     expr_offset_map<expr *>     m_apply_cache;
     expr_ref_vector             m_new_exprs;
 

@@ -112,7 +112,7 @@ static void track_clauses(sat::solver const& src,
     sat::literal lit;
     sat::clause * const * it  = src.begin_clauses();
     sat::clause * const * end = src.end_clauses();
-    svector<sat::solver::bin_clause> bin_clauses;
+    vector<sat::solver::bin_clause> bin_clauses;
     src.collect_bin_clauses(bin_clauses, false, false);
     tracking_clauses.reserve(2*src.num_vars() + static_cast<unsigned>(end - it) + bin_clauses.size());
 

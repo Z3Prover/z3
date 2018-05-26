@@ -43,7 +43,7 @@ struct expr2subpaving::imp {
 
     expr_ref_vector                    m_var2expr;
 
-    typedef svector<subpaving::var>    var_vector;
+    typedef vector<subpaving::var>    var_vector;
 
     obj_map<expr, unsigned>            m_cache;
     var_vector                         m_cached_vars;

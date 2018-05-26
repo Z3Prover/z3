@@ -62,7 +62,7 @@ namespace datalog {
 
     typedef sort * relation_sort;
     typedef uint64_t table_element;
-    typedef svector<table_element> table_fact;
+    typedef vector<table_element> table_fact;
 
     typedef app * relation_element;
     typedef app_ref relation_element_ref;
@@ -162,7 +162,7 @@ namespace datalog {
 
         typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
         typedef map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> sym2decl;
-        typedef obj_map<const func_decl, svector<symbol> > pred2syms;
+        typedef obj_map<const func_decl, vector<symbol> > pred2syms;
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
 
 
@@ -193,7 +193,7 @@ namespace datalog {
         expr_free_vars     m_free_vars;
         unsigned           m_rule_fmls_head;
         expr_ref_vector    m_rule_fmls;
-        svector<symbol>    m_rule_names;
+        vector<symbol>    m_rule_names;
         vector<unsigned>   m_rule_bounds;
         expr_ref_vector    m_background;
         model_converter_ref m_mc;
@@ -370,7 +370,7 @@ namespace datalog {
            These names are used when printing out the relations to make the output conform
            to the one of bddbddb.
         */
-        void set_argument_names(const func_decl * pred, const svector<symbol> & var_names);
+        void set_argument_names(const func_decl * pred, const vector<symbol> & var_names);
         symbol get_argument_name(const func_decl * pred, unsigned arg_index);
 
         void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt,
@@ -380,8 +380,8 @@ namespace datalog {
 
         rule_set & get_rules() { flush_add_rules(); return m_rule_set; }
 
-        void get_rules_as_formulas(expr_ref_vector& fmls, expr_ref_vector& qs, svector<symbol>& names);
-        void get_raw_rule_formulas(expr_ref_vector& fmls, svector<symbol>& names, unsigned_vector &bounds);
+        void get_rules_as_formulas(expr_ref_vector& fmls, expr_ref_vector& qs, vector<symbol>& names);
+        void get_raw_rule_formulas(expr_ref_vector& fmls, vector<symbol>& names, unsigned_vector &bounds);
 
         void add_fact(app * head);
         void add_fact(func_decl * pred, const relation_fact & fact);
@@ -571,7 +571,7 @@ namespace datalog {
          */
         void get_rules_along_trace (rule_ref_vector& rules);
 
-        void get_rules_along_trace_as_formulas (expr_ref_vector& rules, svector<symbol>& names);
+        void get_rules_along_trace_as_formulas (expr_ref_vector& rules, vector<symbol>& names);
 
 
         void collect_statistics(statistics& st) const;

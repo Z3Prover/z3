@@ -46,7 +46,7 @@ struct expr2polynomial::imp {
     polynomial::polynomial_ref_vector  m_cached_polynomials;
     polynomial::scoped_numeral_vector  m_cached_denominators;
 
-    svector<frame>                     m_frame_stack;
+    vector<frame>                     m_frame_stack;
     polynomial::polynomial_ref_vector  m_presult_stack;
     polynomial::scoped_numeral_vector  m_dresult_stack;
 

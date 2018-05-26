@@ -124,7 +124,7 @@ namespace datalog {
         app_ref_vector       m_body;
         app_ref              m_head;
         expr_ref_vector      m_args;
-        svector<bool>        m_neg;
+        vector<bool>        m_neg;
         hnf                  m_hnf;
         qe_lite              m_qe;
         label_rewriter       m_rwr;
@@ -158,7 +158,7 @@ namespace datalog {
 
         void bind_variables(expr* fml, bool is_forall, expr_ref& result);
 
-        void mk_negations(app_ref_vector& body, svector<bool>& is_negated);
+        void mk_negations(app_ref_vector& body, vector<bool>& is_negated);
 
         void mk_rule_core(expr* fml, proof* p, rule_set& rules, symbol const& name);
 

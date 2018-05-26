@@ -214,7 +214,7 @@ class opb {
 
     rational parse_coeff_r() {
         in.skip_whitespace();
-        svector<char> num;
+        vector<char> num;
         bool pos = true;
         if (*in == '-') pos = false, ++in;
         if (*in == '+') ++in;
@@ -335,7 +335,7 @@ std::ostream& operator<<(std::ostream& out, asymbol const& c) {
 class lp_tokenizer {
     vector<asymbol>    m_tokens;
     unsigned           m_pos;
-    svector<char>      m_buffer;
+    vector<char>      m_buffer;
 public:
     lp_tokenizer(opt_stream_buffer& in):
         m_pos(0)

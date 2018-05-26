@@ -108,7 +108,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
     vector<expr_ref_vector> offsets, increments;
     expr_ref_vector xs(m), vars(m);
     expr_ref var(m);
-    svector<symbol> names;
+    vector<symbol> names;
     sort_ref_vector sorts(m);
 
 #define mk_mul(_r,_x) (_r.is_one()?((expr*)_x):((expr*)a.mk_mul(a.mk_numeral(_r,true),_x)))

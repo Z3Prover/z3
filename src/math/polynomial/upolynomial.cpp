@@ -2090,7 +2090,7 @@ namespace upolynomial {
     };
 
     // Pop the top frame from the frame_stack, remove the coefficients of the polynomial associated with the top frame from p_stack.
-    void manager::pop_top_frame(numeral_vector & p_stack, svector<drs_frame> & frame_stack) {
+    void manager::pop_top_frame(numeral_vector & p_stack, vector<drs_frame> & frame_stack) {
         SASSERT(!frame_stack.empty());
         unsigned sz = frame_stack.back().m_size;
         SASSERT(sz <= p_stack.size());
@@ -2108,7 +2108,7 @@ namespace upolynomial {
     //   p2(x) := p1(x+1)
     // We say p1(x) is the left child, and p2 the right child. The coefficients p1 and p2 are stored in p_stack.
     // A new frame is created for each child.
-    void manager::push_child_frames(unsigned sz, numeral const * p, numeral_vector & p_stack, svector<drs_frame> & frame_stack) {
+    void manager::push_child_frames(unsigned sz, numeral const * p, numeral_vector & p_stack, vector<drs_frame> & frame_stack) {
         // I don't really need the following test, because 0 - 1 == UINT_MAX
         unsigned parent_idx = frame_stack.empty() ? UINT_MAX : frame_stack.size() - 1;
         numeral_vector & p_aux = m_push_tmp;
@@ -2140,7 +2140,7 @@ namespace upolynomial {
     // We use the following transformations:
     //    Left child:   (l, u) -> (l/2, u/2)
     //    Right child:  (l, u) -> ((l+1)/2, (u+1)/2)
-    void manager::add_isolating_interval(svector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & lowers, mpbq_vector & uppers) {
+    void manager::add_isolating_interval(vector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & lowers, mpbq_vector & uppers) {
         mpbq l(0);
         mpbq u(1);
         unsigned idx = frame_stack.size() - 1;
@@ -2173,7 +2173,7 @@ namespace upolynomial {
     // We use the following transformations:
     //    Left child:   u -> u/2
     //    Right child:  u -> (u+1)/2
-    void manager::add_root(svector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & roots) {
+    void manager::add_root(vector<drs_frame> const & frame_stack, mpbq_manager & bqm, mpbq_vector & roots) {
         mpbq u(1,1);
         unsigned idx = frame_stack.size() - 1;
         while (idx != UINT_MAX) {
@@ -2210,7 +2210,7 @@ namespace upolynomial {
         TRACE("upolynomial", tout << "polynomial has more than one root in (0, 1), starting search...\n";);
         scoped_numeral_vector  q(m());
         scoped_numeral_vector  p_stack(m());
-        svector<drs_frame> frame_stack;
+        vector<drs_frame> frame_stack;
         if (has_one_half_root(sz, p)) {
             TRACE("upolynomial", tout << "polynomial has a 1/2 root\n";);
             roots.push_back(mpbq(1, 1));
@@ -2358,7 +2358,7 @@ namespace upolynomial {
         unsigned m_upper_sv; // number of sign variations in the sturm sequence at the upper bound
     };
 
-    class ss_frame_stack : public svector<ss_frame> {
+    class ss_frame_stack : public vector<ss_frame> {
         mpbq_manager & m;
     public:
         ss_frame_stack(mpbq_manager & _m):m(_m) {}

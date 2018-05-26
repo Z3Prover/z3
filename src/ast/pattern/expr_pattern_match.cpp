@@ -216,7 +216,7 @@ expr_pattern_match::compile(expr* q)
 bool 
 expr_pattern_match::match(expr* a, unsigned init, subst& s) 
 {    
-    svector<instr> bstack;
+    vector<instr> bstack;
     instr pc = m_instrs[init];
     
     while (true) {

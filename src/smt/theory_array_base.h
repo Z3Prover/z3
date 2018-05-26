@@ -115,7 +115,7 @@ namespace smt {
             unsigned m_sorts_trail_lim;
             scope(unsigned l):m_sorts_trail_lim(l) {}
         };
-        svector<scope>                      m_scopes;
+        vector<scope>                      m_scopes;
         void restore_sorts(unsigned old_size);
         
         // --------------------------------------------------
@@ -165,7 +165,7 @@ namespace smt {
         array_factory *              m_factory;
         ptr_vector<enode>            m_defaults;       // temporary field for model construction
         ptr_vector<void>             m_else_values;    // tagged pointer: expr or extra_fresh_value
-        svector<int>                 m_parents;        // temporary field for model construction
+        vector<int>                 m_parents;        // temporary field for model construction
         obj_map<enode, select_set*>  m_selects;        // mapping from array -> relevant selects
         ptr_vector<enode>            m_selects_domain; 
         ptr_vector<select_set>       m_selects_range;

@@ -33,13 +33,13 @@ namespace smt {
     class dyn_ack_manager {
         typedef std::pair<app *, app *>           app_pair;
         typedef obj_pair_map<app, app, unsigned>  app_pair2num_occs;
-        typedef svector<app_pair>                 app_pair_vector;
+        typedef vector<app_pair>                 app_pair_vector;
         typedef obj_pair_hashtable<app, app>      app_pair_set;
         typedef obj_map<clause, app_pair>         clause2app_pair;
 
         typedef triple<app *, app *,app *>        app_triple;
         typedef obj_triple_map<app, app, app, unsigned>  app_triple2num_occs;
-        typedef svector<app_triple>                 app_triple_vector;
+        typedef vector<app_triple>                 app_triple_vector;
         typedef obj_triple_hashtable<app, app, app>      app_triple_set;
         typedef obj_map<clause, app_triple>         clause2app_triple;
 

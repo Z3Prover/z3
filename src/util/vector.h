@@ -19,9 +19,6 @@ Author:
 template<typename T, bool CallDestructors=true, typename SZ = unsigned>
 using vector = buffvec<T, SZ, 0>;
 
-template<typename T, typename SZ = unsigned>
-using svector = buffvec<T, SZ, 0>;
-
 template<typename T>
 using ptr_vector = buffvec<T*, unsigned, 0>;
 
@@ -55,6 +52,3 @@ struct vector_hash_tpl {
 
 template<typename Hash>
 struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > {};
-
-template<typename Hash>
-struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};

@@ -27,7 +27,7 @@ prime_generator::prime_generator() {
 }
 
 void prime_generator::process_next_k_numbers(uint64_t k) {
-    svector<uint64_t> todo;
+    vector<uint64_t> todo;
     uint64_t begin = m_primes.back() + 2;
     uint64_t end   = begin + k;
     for (uint64_t i = begin; i < end; i+=2) {

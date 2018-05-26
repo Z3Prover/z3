@@ -46,7 +46,7 @@ public:
 
 inline void swap(mpbq & m1, mpbq & m2) { m1.swap(m2); }
 
-typedef svector<mpbq> mpbq_vector;
+typedef vector<mpbq> mpbq_vector;
 
 class mpbq_manager {
     unsynch_mpz_manager & m_manager;

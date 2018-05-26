@@ -63,12 +63,12 @@ class berlekamp_matrix {
     zp_manager &         m_upm;
     mpzzp_manager &      m_zpm;
 
-    svector<mpz>         m_matrix;
+    vector<mpz>         m_matrix;
     unsigned             m_size;
 
     unsigned             m_null_row;     // 0, ..., m_size - 1, state for null vectors
-    svector<int>         m_column_pivot; // position of pivots in the columns
-    svector<int>         m_row_pivot;    // position of pivots in the rows
+    vector<int>         m_column_pivot; // position of pivots in the columns
+    vector<int>         m_row_pivot;    // position of pivots in the rows
 
     mpz & get(unsigned i, unsigned j) {
         SASSERT(i < m_size && j < m_size);

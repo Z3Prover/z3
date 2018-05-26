@@ -118,8 +118,8 @@ class mpff_manager {
     bool              m_to_plus_inf;    //!< If True, then round to plus infinity, otherwise to minus infinity
     id_gen            m_id_gen;
     static const unsigned MPFF_NUM_BUFFERS = 4;
-    svector<unsigned> m_buffers[MPFF_NUM_BUFFERS];      
-    svector<unsigned> m_set_buffer;
+    vector<unsigned> m_buffers[MPFF_NUM_BUFFERS];      
+    vector<unsigned> m_set_buffer;
     mpff              m_one;
     mpn_manager       m_mpn_manager;
 

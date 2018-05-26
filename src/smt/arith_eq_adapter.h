@@ -67,7 +67,7 @@ namespace smt {
 
         already_processed                m_already_processed;
         enode_pair_vector                m_restart_pairs;
-        svector<parameter>               m_proof_hint;
+        vector<parameter>               m_proof_hint;
 
         context & get_context() const { return m_owner.get_context(); }
         ast_manager & get_manager() const { return m_owner.get_manager(); }

@@ -121,9 +121,9 @@ class array_decl_plugin : public decl_plugin {
     func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range) override;
 
-    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    void get_op_names(vector<builtin_name> & op_names, symbol const & logic) override;
 
-    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
+    void get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) override;
 
     expr * get_some_value(sort * s) override;
 

@@ -38,7 +38,7 @@ struct z3_replayer::imp {
     std::istream &           m_stream;
     char                     m_curr;  // current char;
     int                      m_line;  // line
-    svector<char>            m_string;
+    vector<char>            m_string;
     symbol                   m_id;
     int64_t                  m_int64;
     uint64_t                 m_uint64;
@@ -46,7 +46,7 @@ struct z3_replayer::imp {
     float                    m_float;
     size_t                   m_ptr;
     size_t_map<void *>       m_heap;
-    svector<z3_replayer_cmd> m_cmds;
+    vector<z3_replayer_cmd> m_cmds;
     std::vector<std::string>      m_cmds_names;
 
     enum value_kind { INT64, UINT64, DOUBLE, STRING, SYMBOL, OBJECT, UINT_ARRAY, INT_ARRAY, SYMBOL_ARRAY, OBJECT_ARRAY, FLOAT };
@@ -102,12 +102,12 @@ struct z3_replayer::imp {
         value(value_kind k, float f):m_kind(k), m_float(f) {}
     };
 
-    svector<value>              m_args;
+    vector<value>              m_args;
     void *                      m_result;
     vector<ptr_vector<void> >   m_obj_arrays;
-    vector<svector<Z3_symbol> > m_sym_arrays;
+    vector<vector<Z3_symbol> > m_sym_arrays;
     vector<unsigned_vector>     m_unsigned_arrays;
-    vector<svector<int> >       m_int_arrays;
+    vector<vector<int> >       m_int_arrays;
 
     imp(z3_replayer & o, std::istream & in):
         m_owner(o),
@@ -361,8 +361,8 @@ struct z3_replayer::imp {
         else if (k == INT64) {
             aidx = m_int_arrays.size();
             nk   = INT_ARRAY;
-            m_int_arrays.push_back(svector<int>());
-            svector<int> & v = m_int_arrays.back();
+            m_int_arrays.push_back(vector<int>());
+            vector<int> & v = m_int_arrays.back();
             for (unsigned i = asz - sz; i < asz; i++) {
                 v.push_back(static_cast<int>(m_args[i].m_int));
             }
@@ -370,8 +370,8 @@ struct z3_replayer::imp {
         else if (k == SYMBOL) {
             aidx = m_sym_arrays.size();
             nk   = SYMBOL_ARRAY;
-            m_sym_arrays.push_back(svector<Z3_symbol>());
-            svector<Z3_symbol> & v = m_sym_arrays.back();
+            m_sym_arrays.push_back(vector<Z3_symbol>());
+            vector<Z3_symbol> & v = m_sym_arrays.back();
             for (unsigned i = asz - sz; i < asz; i++) {
                 v.push_back(reinterpret_cast<Z3_symbol>(const_cast<char*>(m_args[i].m_str)));
             }

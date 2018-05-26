@@ -44,7 +44,7 @@ namespace opt {
         virtual rational get_upper() const = 0;
         virtual bool get_assignment(unsigned index) const = 0;
         virtual void collect_statistics(statistics& st) const = 0;
-        virtual void get_model(model_ref& mdl, svector<symbol>& labels) = 0;
+        virtual void get_model(model_ref& mdl, vector<symbol>& labels) = 0;
         virtual void updt_params(params_ref& p) = 0;
         void set_adjust_value(adjust_value& adj) { m_adjust_value = adj; }
 
@@ -75,10 +75,10 @@ namespace opt {
         rational         m_lower;
         rational         m_upper;
         model_ref        m_model;
-        svector<symbol>  m_labels;
+        vector<symbol>  m_labels;
         //const expr_ref_vector  m_soft;
         //vector<rational> m_weights;
-        //svector<bool>    m_assignment;       // truth assignment to soft constraints
+        //vector<bool>    m_assignment;       // truth assignment to soft constraints
         params_ref       m_params;           // config
 
     public:
@@ -89,7 +89,7 @@ namespace opt {
         rational get_upper() const override { return m_upper; }
         bool get_assignment(unsigned index) const override { return m_soft[index].is_true(); }
         void collect_statistics(statistics& st) const override { }
-        void get_model(model_ref& mdl, svector<symbol>& labels) override { mdl = m_model.get(); labels = m_labels;}
+        void get_model(model_ref& mdl, vector<symbol>& labels) override { mdl = m_model.get(); labels = m_labels;}
         virtual void commit_assignment();
         void set_model() { s().get_model(m_model); s().get_labels(m_labels); }
         void updt_params(params_ref& p) override;
@@ -138,7 +138,7 @@ namespace opt {
         rational         m_upper;
         adjust_value     m_adjust_value;
         model_ref        m_model;
-        svector<symbol>  m_labels;
+        vector<symbol>  m_labels;
         params_ref       m_params;
     public:
         maxsmt(maxsat_context& c, unsigned id);
@@ -154,7 +154,7 @@ namespace opt {
         rational get_upper() const;        
         void update_lower(rational const& r);
         void update_upper(rational const& r);
-        void get_model(model_ref& mdl, svector<symbol>& labels);
+        void get_model(model_ref& mdl, vector<symbol>& labels);
         bool get_assignment(unsigned index) const;
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;

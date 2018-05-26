@@ -163,8 +163,8 @@ namespace smt {
             void del_row_entry(unsigned idx);
             void compress(vector<column> & cols); 
             void compress_if_needed(vector<column> & cols);
-            void save_var_pos(svector<int> & result_map) const;
-            void reset_var_pos(svector<int> & result_map) const;
+            void save_var_pos(vector<int> & result_map) const;
+            void reset_var_pos(vector<int> & result_map) const;
             theory_var get_base_var() const { return m_base_var; }
 #ifdef Z3DEBUG
             bool is_coeff_of(theory_var v, numeral const & expected) const;
@@ -180,7 +180,7 @@ namespace smt {
            is a reference to the first free/dead entry.
         */
         struct column {
-            svector<col_entry> m_entries;
+            vector<col_entry> m_entries;
             unsigned           m_size; 
             int                m_first_free_idx;
             
@@ -194,10 +194,10 @@ namespace smt {
             col_entry const * get_first_col_entry() const;
             col_entry & operator[](unsigned idx) { return m_entries[idx]; }
             col_entry const & operator[](unsigned idx) const { return m_entries[idx]; }
-            typename svector<col_entry>::iterator begin_entries() { return m_entries.begin(); }
-            typename svector<col_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
-            typename svector<col_entry>::iterator end_entries() { return m_entries.end(); }
-            typename svector<col_entry>::const_iterator end_entries() const { return m_entries.end(); }
+            typename vector<col_entry>::iterator begin_entries() { return m_entries.begin(); }
+            typename vector<col_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
+            typename vector<col_entry>::iterator end_entries() { return m_entries.end(); }
+            typename vector<col_entry>::const_iterator end_entries() const { return m_entries.end(); }
             col_entry & add_col_entry(int & pos_idx);
             void del_col_entry(unsigned idx);
         };
@@ -215,7 +215,7 @@ namespace smt {
             return out;
         }
 
-        typedef svector<enode_pair> eq_vector;
+        typedef vector<enode_pair> eq_vector;
 
         // keep track of coefficients used for bounds for proof generation.
         class antecedents_t {
@@ -432,22 +432,22 @@ namespace smt {
         bool                    m_found_underspecified_op;
         arith_eq_adapter        m_arith_eq_adapter;
         vector<row>             m_rows;
-        svector<unsigned>       m_dead_rows;
+        vector<unsigned>       m_dead_rows;
         vector<column>          m_columns;          // per var
-        svector<var_data>       m_data;             // per var
+        vector<var_data>       m_data;             // per var
         vector<inf_numeral>     m_value;            // per var, the current assignment for the variable.
         vector<inf_numeral>     m_old_value;        // per var, the old assignment for the variable.
         ptr_vector<bound>       m_bounds[2];        // per var, lower bound & upper_bound
         vector<atoms>           m_var_occs;         // per var, atoms that contain a variable
-        svector<unsigned>       m_unassigned_atoms; // per var, the number of unassigned atoms that contain a variable.
+        vector<unsigned>       m_unassigned_atoms; // per var, the number of unassigned atoms that contain a variable.
         bool_var2atom           m_bool_var2atom;    // map bool_var -> atom
-        svector<int>            m_var_pos;          // temporary array used in add_rows
+        vector<int>            m_var_pos;          // temporary array used in add_rows
         atoms                   m_atoms;            // set of theory atoms
         ptr_vector<bound>       m_asserted_bounds;  // set of asserted bounds
         unsigned                m_asserted_qhead;   
         ptr_vector<atom>        m_new_atoms;        // new bound atoms that have yet to be internalized.
-        svector<theory_var>     m_nl_monomials;     // non linear monomials
-        svector<theory_var>     m_nl_propagated;    // non linear monomials that became linear
+        vector<theory_var>     m_nl_monomials;     // non linear monomials
+        vector<theory_var>     m_nl_propagated;    // non linear monomials that became linear
         v_dependency_manager    m_dep_manager;      // for tracking bounds during non-linear reasoning
 
         vector<uint_set>        m_row_vars;         // variables in a given row. Used during internalization to detect repeated variables.
@@ -457,10 +457,10 @@ namespace smt {
         nat_set                 m_left_basis;       // temporary: set of variables that already left the basis in make_feasible
         bool                    m_blands_rule;
 
-        svector<unsigned>       m_update_trail_stack;    // temporary trail stack used to restore the last feasible assignment.
+        vector<unsigned>       m_update_trail_stack;    // temporary trail stack used to restore the last feasible assignment.
         nat_set                 m_in_update_trail_stack; // set of variables in m_update_trail_stack
 
-        svector<unsigned>       m_to_check;    // rows that should be checked for theory propagation
+        vector<unsigned>       m_to_check;    // rows that should be checked for theory propagation
         nat_set                 m_in_to_check; // set of rows in m_to_check. 
         
         inf_numeral             m_tmp;
@@ -473,8 +473,8 @@ namespace smt {
 
 
         // backtracking
-        svector<bound_trail>    m_bound_trail;
-        svector<unsigned>       m_unassigned_atoms_trail;
+        vector<bound_trail>    m_bound_trail;
+        vector<unsigned>       m_unassigned_atoms_trail;
         ptr_vector<bound>       m_bounds_to_delete;
         struct scope {
             unsigned      m_atoms_lim;
@@ -487,7 +487,7 @@ namespace smt {
             unsigned      m_nl_propagated_lim;
         };
 
-        svector<scope>          m_scopes;
+        vector<scope>          m_scopes;
         literal_vector          m_tmp_literal_vector2;
         antecedents_t           m_antecedents[3];
         unsigned                m_antecedents_index;
@@ -814,7 +814,7 @@ namespace smt {
         typedef int_hashtable<int_hash, default_eq<int> > var_set;
         var_set         m_tmp_var_set;
         var_set         m_tmp_var_set2;
-        svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
+        vector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates;
         unsigned                                          m_assume_eq_head;
         bool random_update(theory_var v);
         void mutate_assignment();
@@ -926,7 +926,7 @@ namespace smt {
         enum max_min_t { UNBOUNDED, AT_BOUND, OPTIMIZED, BEST_EFFORT};
         max_min_t max_min(theory_var v, bool max, bool maintain_integrality, bool& has_shared);
         bool has_interface_equality(theory_var v);
-        bool max_min(svector<theory_var> const & vars);
+        bool max_min(vector<theory_var> const & vars);
 
         max_min_t max_min(row& r, bool max, bool maintain_integrality, bool& has_shared);
         bool unbounded_gain(inf_numeral const & max_gain) const;
@@ -962,9 +962,9 @@ namespace smt {
         */
         bool is_pure_monomial(expr * m) const { return m_util.is_mul(m) && !m_util.is_numeral(to_app(m)->get_arg(0)); }
         bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_enode(v)->get_owner()); }
-        void mark_var(theory_var v, svector<theory_var> & vars, var_set & already_found);
-        void mark_dependents(theory_var v, svector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows);
-        void get_non_linear_cluster(svector<theory_var> & vars);
+        void mark_var(theory_var v, vector<theory_var> & vars, var_set & already_found);
+        void mark_dependents(theory_var v, vector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows);
+        void get_non_linear_cluster(vector<theory_var> & vars);
         std::pair<unsigned, int> analyze_monomial(expr * m) const;
         expr * get_monomial_body(expr * m) const;
         rational get_monomial_coeff(expr * m) const;
@@ -1004,7 +1004,7 @@ namespace smt {
         expr * cross_nested(buffer<coeff_expr> & p, expr * var);
         bool is_cross_nested_consistent(buffer<coeff_expr> & p);
         bool is_cross_nested_consistent(row const & r);
-        bool is_cross_nested_consistent(svector<theory_var> const & nl_cluster);
+        bool is_cross_nested_consistent(vector<theory_var> const & nl_cluster);
         rational get_value(theory_var v, bool & computed_epsilon);
         bool check_monomial_assignment(theory_var v, bool & computed_epsilon);
         bool check_monomial_assignments();
@@ -1018,8 +1018,8 @@ namespace smt {
         grobner::monomial * mk_gb_monomial(rational const & coeff, expr * m, grobner & gb, v_dependency * & dep, var_set & already_found);
         void add_monomial_def_to_gb(theory_var v, grobner & gb);
         void add_row_to_gb(row const & r, grobner & gb);
-        void init_grobner_var_order(svector<theory_var> const & nl_cluster, grobner & gb);
-        void init_grobner(svector<theory_var> const & nl_cluster, grobner & gb);
+        void init_grobner_var_order(vector<theory_var> const & nl_cluster, grobner & gb);
+        void init_grobner(vector<theory_var> const & nl_cluster, grobner & gb);
         interval mk_interval_for(grobner::monomial const * m);
         void set_conflict(v_dependency * d);
         bool is_inconsistent(interval const & I, unsigned num_monomials, grobner::monomial * const * monomials, v_dependency * dep);
@@ -1028,7 +1028,7 @@ namespace smt {
         expr * monomial2expr(grobner::monomial const * m, bool is_int);
         bool internalize_gb_eq(grobner::equation const * eq);
         enum gb_result { GB_PROGRESS, GB_NEW_EQ, GB_FAIL };
-        gb_result compute_grobner(svector<theory_var> const & nl_cluster);
+        gb_result compute_grobner(vector<theory_var> const & nl_cluster);
         bool max_min_nl_vars();
         final_check_status process_non_linear();
         

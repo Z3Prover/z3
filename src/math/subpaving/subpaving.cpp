@@ -144,7 +144,7 @@ namespace subpaving {
     class context_hwf_wrapper : public context_wrapper<context_hwf> {
         unsynch_mpq_manager &         m_qm;
         hwf                           m_c;
-        svector<hwf>                  m_as;
+        vector<hwf>                  m_as;
         
         // Convert the mpz (integer) into a hwf, and throws an exception if the conversion is not precise.
         void int2hwf(mpz const & a, hwf & o) {

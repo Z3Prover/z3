@@ -283,7 +283,7 @@ namespace datalog {
 
 
     class sparse_table::general_key_indexer : public key_indexer {
-        typedef svector<store_offset> offset_vector;
+        typedef vector<store_offset> offset_vector;
         typedef size_t_map<offset_vector> index_map;
 
         index_map m_map;
@@ -1149,7 +1149,7 @@ namespace datalog {
            that have a match in the other table into \c res. Offsets in \c res are in ascending order.
         */
         void collect_intersection_offsets(const sparse_table & t1, const sparse_table & t2,
-                bool tgt_is_first, svector<store_offset> & res) {
+                bool tgt_is_first, vector<store_offset> & res) {
             SASSERT(res.empty());
 
             m_intersection_content.reset();
@@ -1223,7 +1223,7 @@ namespace datalog {
                 return;
             }
 
-            svector<store_offset> to_remove; //offsets here are in increasing order
+            vector<store_offset> to_remove; //offsets here are in increasing order
 
             //We don't do just the simple tgt.row_count()>neg.row_count() because the swapped case is 
             //more expensive. The constant 4 is, however, just my guess what the ratio might be.
@@ -1314,7 +1314,7 @@ namespace datalog {
 
             verbose_action  _va("negated_join");
             sparse_table& t = get(_t);
-            svector<store_offset> to_remove;
+            vector<store_offset> to_remove;
             collect_to_remove(t, get(_s1), get(_s2), to_remove);
             for (unsigned i = 0; i < to_remove.size(); ++i) {
                 t.m_data.remove_offset(to_remove[i]);
@@ -1323,7 +1323,7 @@ namespace datalog {
         }
 
     private:
-        void collect_to_remove(sparse_table& t, sparse_table const& s1, sparse_table const& s2, svector<store_offset>& to_remove) {
+        void collect_to_remove(sparse_table& t, sparse_table const& s1, sparse_table const& s2, vector<store_offset>& to_remove) {
             key_value s1_key, s2_key;
             SASSERT(&s1 != &s2);
             SASSERT(m_s1_cols.size() == m_t1_cols.size());

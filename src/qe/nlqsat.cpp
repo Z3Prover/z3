@@ -65,14 +65,14 @@ namespace qe {
         unsigned_vector        m_cached_asms_lim;
         nlsat::literal         m_is_true;
         nlsat::assignment      m_rmodel;        
-        svector<lbool>         m_bmodel;
+        vector<lbool>         m_bmodel;
         nlsat::assignment      m_rmodel0;        
-        svector<lbool>         m_bmodel0;
+        vector<lbool>         m_bmodel0;
         bool                   m_valid_model;
         vector<nlsat::var_vector>            m_bound_rvars;
-        vector<svector<nlsat::bool_var> >    m_bound_bvars;
+        vector<vector<nlsat::bool_var> >    m_bound_bvars;
         vector<nlsat::scoped_literal_vector> m_preds;
-        svector<max_level>                   m_rvar2level;
+        vector<max_level>                   m_rvar2level;
         u_map<max_level>                     m_bvar2level;
         expr2var                             m_a2b, m_t2x;
         u_map<expr*>                         m_b2a, m_x2t;
@@ -664,7 +664,7 @@ namespace qe {
 
             // insert variables and their levels.
             for (unsigned i = 0; i < qvars.size(); ++i) {
-                m_bound_bvars.push_back(svector<nlsat::bool_var>());
+                m_bound_bvars.push_back(vector<nlsat::bool_var>());
                 m_bound_rvars.push_back(nlsat::var_vector());
                 max_level lvl;
                 if (is_exists(i)) lvl.m_ex = i; else lvl.m_fa = i;

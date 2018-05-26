@@ -257,7 +257,7 @@ public:
 
     std::string reason_unknown() const override { return m_base->reason_unknown(); }
     void set_reason_unknown(char const* msg) override { return m_base->set_reason_unknown(msg); }
-    void get_labels(svector<symbol> & r) override { return m_base->get_labels(r); }
+    void get_labels(vector<symbol> & r) override { return m_base->get_labels(r); }
     void set_progress_callback(progress_callback * callback) override { m_base->set_progress_callback(callback); }
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override { return expr_ref_vector(m); }

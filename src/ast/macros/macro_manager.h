@@ -52,7 +52,7 @@ class macro_manager {
         unsigned m_decls_lim;
         unsigned m_forbidden_lim;
     };
-    svector<scope>                   m_scopes;
+    vector<scope>                   m_scopes;
 
     func_decl_dependencies           m_deps;
 

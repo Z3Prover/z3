@@ -30,13 +30,13 @@ namespace sat {
         random_gen&            m_rand;
         unsigned               m_num_vars;
         vector<literal_vector> m_dag;
-        svector<bool>          m_roots;
-        svector<int>           m_left, m_right;
+        vector<bool>          m_roots;
+        vector<int>           m_left, m_right;
         literal_vector         m_root, m_parent;
         bool                   m_learned;
         bool                   m_include_cardinality;
 
-        vector<svector<literal> > m_del_bin;
+        vector<vector<literal> > m_del_bin;
         
 
         void init_dfs_num();
@@ -52,7 +52,7 @@ namespace sat {
 
     public:
 
-        // static svector<std::pair<literal, literal>> s_del_bin;
+        // static vector<std::pair<literal, literal>> s_del_bin;
 
         big(random_gen& rand);
 

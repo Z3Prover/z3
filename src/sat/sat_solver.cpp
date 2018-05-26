@@ -556,7 +556,7 @@ namespace sat {
         for (clause* c : m_clauses) c->unmark_used();
         for (clause* c : m_learned) c->unmark_used();
 
-        svector<bool_var> vars;
+        vector<bool_var> vars;
         for (unsigned i = 0; i < num_vars(); ++i) vars.push_back(i);
         std::stable_sort(vars.begin(), vars.end(), cmp_activity(*this));
         literal_vector lits;
@@ -1900,7 +1900,7 @@ namespace sat {
              << mk_stat(*this)
              << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
         std::string str(strm.str());
-        svector<size_t> nums;
+        vector<size_t> nums;
         for (size_t i = 0; i < str.size(); ++i) {
             while (i < str.size() && str[i] != ' ') ++i;
             while (i < str.size() && str[i] == ' ') ++i;
@@ -3541,7 +3541,7 @@ namespace sat {
     // Iterators
     //
     // -----------------------
-    void solver::collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only) const {
+    void solver::collect_bin_clauses(vector<bin_clause> & r, bool learned, bool learned_only) const {
         SASSERT(learned || !learned_only);  
         unsigned sz = m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; l_idx++) {

@@ -33,7 +33,7 @@ Notes:
 #include "cmd_context/eval_cmd.h"
 
 class help_cmd : public cmd {
-    svector<symbol> m_cmds;
+    vector<symbol> m_cmds;
     void display_cmd(cmd_context & ctx, symbol const & s, cmd * c) {
         char const * usage = c->get_usage();
         char const * descr = c->get_descr(ctx);
@@ -260,7 +260,7 @@ ATOMIC_CMD(labels_cmd, "labels", "retrieve Simplify-like labels", {
     if (!ctx.has_manager() ||
         (ctx.cs_state() != cmd_context::css_sat && ctx.cs_state() != cmd_context::css_unknown))
         throw cmd_exception("labels are not available");
-    svector<symbol> labels;
+    vector<symbol> labels;
     ctx.get_check_sat_result()->get_labels(labels);
     ctx.regular_stream() << "(labels";
     for (unsigned i = 0; i < labels.size(); i++) {

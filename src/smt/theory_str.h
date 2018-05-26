@@ -328,7 +328,7 @@ protected:
     expr_ref_vector m_delayed_axiom_setup_terms;
 
     ptr_vector<enode> m_basicstr_axiom_todo;
-    svector<std::pair<enode*,enode*> > m_str_eq_todo;
+    vector<std::pair<enode*,enode*> > m_str_eq_todo;
     ptr_vector<enode> m_concat_axiom_todo;
     ptr_vector<enode> m_string_constant_length_todo;
     ptr_vector<enode> m_concat_eval_todo;
@@ -374,7 +374,7 @@ protected:
     obj_map<expr, expr*> lenTester_fvar_map;
 
 
-    obj_map<expr, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
+    obj_map<expr, std::map<int, vector<std::pair<int, expr*> > > > fvar_valueTester_map;
 
     obj_map<expr, expr*> valueTester_fvar_map;
 
@@ -400,7 +400,7 @@ protected:
     ptr_vector<eautomaton> regex_automata;
     obj_hashtable<expr> regex_terms;
     obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
-    obj_map<expr, svector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
+    obj_map<expr, vector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
     obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
     obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
     obj_hashtable<expr> regex_terms_with_length_constraints; // set of regex terms which had had length constraints asserted in the current scope
@@ -420,7 +420,7 @@ protected:
 
     obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
-    svector<char> char_set;
+    vector<char> char_set;
     std::map<char, int>  charSetLookupTable;
     int           charSetSize;
 
@@ -668,7 +668,7 @@ protected:
             zstring len_valueStr, expr * valTesterInCbEq, zstring valTesterValueStr);
     expr* gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
             zstring lenStr, int tries);
-    void print_value_tester_list(svector<std::pair<int, expr*> > & testerList);
+    void print_value_tester_list(vector<std::pair<int, expr*> > & testerList);
     bool get_next_val_encode(int_vector & base, int_vector & next);
     zstring gen_val_string(int len, int_vector & encoding);
 

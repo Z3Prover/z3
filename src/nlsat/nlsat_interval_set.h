@@ -28,7 +28,7 @@ namespace nlsat {
     class interval_set_manager {
         anum_manager &           m_am;
         small_object_allocator & m_allocator;
-        svector<char>            m_already_visited;
+        vector<char>            m_already_visited;
         random_gen               m_rand;
         void del(interval_set * s);
     public:

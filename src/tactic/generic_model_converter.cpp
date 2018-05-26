@@ -159,7 +159,7 @@ void generic_model_converter::operator()(expr_ref& fml) {
         else {
             expr_ref_vector args(m);
             sort_ref_vector sorts(m);
-            svector<symbol> names;
+            vector<symbol> names;
             for (unsigned i = 0; i < arity; ++i) {
                 sorts.push_back(e.m_f->get_domain(i));
                 names.push_back(symbol(i));

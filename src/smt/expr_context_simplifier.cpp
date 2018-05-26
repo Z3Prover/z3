@@ -334,8 +334,8 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
 
     ptr_vector<expr> todo;
     ptr_vector<expr> names;
-    svector<bool>    is_checked;
-    svector<unsigned> parent_ids, self_ids;
+    vector<bool>    is_checked;
+    vector<unsigned> parent_ids, self_ids;
     expr_ref_vector  fresh_vars(m);
     expr_ref_vector trail(m);
     obj_map<expr,std::pair<unsigned, expr*> > cache;
@@ -484,8 +484,8 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
 
     ptr_vector<expr> todo;
     ptr_vector<expr> names;
-    svector<bool>    is_checked;
-    svector<unsigned> parent_ids, self_ids;
+    vector<bool>    is_checked;
+    vector<unsigned> parent_ids, self_ids;
     expr_ref_vector  fresh_vars(m);
     expr_ref_vector trail(m);
     obj_map<expr,std::pair<unsigned, expr*> > cache;

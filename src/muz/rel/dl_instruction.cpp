@@ -74,7 +74,7 @@ namespace datalog {
 
     void execution_context::report_big_relations(unsigned threshold, std::ostream & out) const {
         unsigned n = register_count();
-        svector<std::pair<unsigned, unsigned> > sizes;
+        vector<std::pair<unsigned, unsigned> > sizes;
         size_t total_bytes = 0;
         for(unsigned i = 0; i < n; i++) {
             unsigned sz = reg(i) ? reg(i)->get_size_estimate_bytes() : 0;

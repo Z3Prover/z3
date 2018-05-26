@@ -124,9 +124,9 @@ namespace smt {
         atoms                 m_bv2atoms;
         edges                 m_edges;  // list of asserted edges
         matrix                m_matrix;
-        svector<bool>         m_is_int;
+        vector<bool>         m_is_int;
         vector<cell_trail>    m_cell_trail;
-        svector<scope>        m_scopes;
+        vector<scope>        m_scopes;
         bool                  m_non_diff_logic_exprs;
 
         // For optimization purpose
@@ -144,7 +144,7 @@ namespace smt {
         typedef vector<f_target>                  f_targets;
 
         literal_vector        m_tmp_literals;
-        svector<var_pair>     m_tmp_pairs;
+        vector<var_pair>     m_tmp_pairs;
         f_targets             m_f_targets;
     
         vector<numeral>       m_assignment;

@@ -326,7 +326,7 @@ namespace opt {
         m_context.set_reason_unknown(msg);
     }
     
-    void opt_solver::get_labels(svector<symbol> & r) {
+    void opt_solver::get_labels(vector<symbol> & r) {
         r.reset();
         buffer<symbol> tmp;
         m_context.get_relevant_labels(nullptr, tmp);

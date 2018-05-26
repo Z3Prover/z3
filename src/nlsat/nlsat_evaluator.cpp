@@ -40,10 +40,10 @@ namespace nlsat {
                 anum     m_root;
                 unsigned m_pos;
             };
-            svector<section>   m_sections;
+            vector<section>   m_sections;
             unsigned_vector    m_sorted_sections; // refs to m_sections
             unsigned_vector    m_poly_sections;   // refs to m_sections
-            svector<int>       m_poly_signs;
+            vector<int>       m_poly_signs;
             struct poly_info {
                 unsigned       m_num_roots;
                 unsigned       m_first_section;   // idx in m_poly_sections;
@@ -54,7 +54,7 @@ namespace nlsat {
                     m_first_sign(first_sign) {
                 }
             };
-            svector<poly_info> m_info;
+            vector<poly_info> m_info;
             
             sign_table(anum_manager & am):m_am(am) {}
 
@@ -149,7 +149,7 @@ namespace nlsat {
                \brief Add polynomial with the given roots and signs.
             */
             unsigned_vector p_section_ids;
-            void add(anum_vector & roots, svector<int> & signs) {
+            void add(anum_vector & roots, vector<int> & signs) {
                 p_section_ids.reset();
                 if (!roots.empty())
                     merge(roots, p_section_ids);
@@ -449,7 +449,7 @@ namespace nlsat {
             return a->is_ineq_atom() ? eval_ineq(to_ineq_atom(a), neg) : eval_root(to_root_atom(a), neg);
         }
 
-        svector<int> m_add_signs_tmp;
+        vector<int> m_add_signs_tmp;
         void add(poly * p, var x, sign_table & t) {
             SASSERT(m_pm.max_var(p) <= x);
             if (m_pm.max_var(p) < x) {
@@ -458,7 +458,7 @@ namespace nlsat {
             else {
                 // isolate roots of p
                 scoped_anum_vector & roots = m_add_roots_tmp;
-                svector<int>       & signs = m_add_signs_tmp;
+                vector<int>       & signs = m_add_signs_tmp;
                 roots.reset();
                 signs.reset();
                 TRACE("nlsat_evaluator", tout << "x: " << x << " max_var(p): " << m_pm.max_var(p) << "\n";);

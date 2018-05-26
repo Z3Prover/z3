@@ -66,8 +66,8 @@ namespace smt {
 
     void context::display_num_assigned_literals_per_lvl(std::ostream & out) const {
         unsigned n = 0;
-        svector<scope>::const_iterator it  = m_scopes.begin();
-        svector<scope>::const_iterator end = m_scopes.end();
+        vector<scope>::const_iterator it  = m_scopes.begin();
+        vector<scope>::const_iterator end = m_scopes.end();
         out << "[";
         for (; it != end; ++it) {
             scope const & s = *it;

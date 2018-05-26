@@ -1819,7 +1819,7 @@ namespace smt {
         if (get_context().inconsistent())
             return true; // property is only valid if the context is not in a conflict.
         if (is_root(v) && is_bv(v)) {
-            svector<bool> bits[2];
+            vector<bool> bits[2];
             unsigned      num_bits = 0;
             unsigned      bv_sz    = get_bv_size(v);
             bits[0].resize(bv_sz, false);
@@ -1844,7 +1844,7 @@ namespace smt {
 
             zero_one_bits const & _bits = m_zero_one_bits[v];
             SASSERT(_bits.size() == num_bits);
-            svector<bool> already_found;
+            vector<bool> already_found;
             already_found.resize(bv_sz, false);
             for (auto & zo : _bits) {
                 SASSERT(find(zo.m_owner) == v);

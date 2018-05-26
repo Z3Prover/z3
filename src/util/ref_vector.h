@@ -45,6 +45,7 @@ protected:
 
 public:
     typedef T * data;
+    using size_type = typename ptr_vector<T>::size_type;
 
     ref_vector_core(Ref const & r = Ref()):Ref(r) {}
 
@@ -66,30 +67,30 @@ public:
         m_nodes.finalize();
     }
 
-    void resize(unsigned sz) {
+    void resize(size_type sz) {
         if (sz < m_nodes.size())
             dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
         m_nodes.resize(sz);
     }
 
-    void resize(unsigned sz, T * d) {
+    void resize(size_type sz, T * d) {
         if (sz < m_nodes.size()) {
             dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
             m_nodes.shrink(sz); 
         }
         else {
-            for (unsigned i = m_nodes.size(); i < sz; i++)
+            for (size_type i = m_nodes.size(); i < sz; i++)
                 push_back(d);
         }
     }
 
-    void reserve(unsigned sz) {
+    void reserve(size_type sz) {
         if (sz <= m_nodes.size())
             return;
         m_nodes.resize(sz);
     }
 
-    void shrink(unsigned sz) {
+    void shrink(size_type sz) {
         SASSERT(sz <= m_nodes.size());
         dec_range_ref(m_nodes.begin() + sz, m_nodes.end());
         m_nodes.shrink(sz);
@@ -117,13 +118,13 @@ public:
 
     T * back() const { return m_nodes.back(); }
 
-    unsigned size() const { return m_nodes.size(); }
+    size_type size() const { return m_nodes.size(); }
 
     bool empty() const { return m_nodes.empty(); }
 
-    T * get(unsigned idx) const { return m_nodes[idx]; }
+    T * get(size_type idx) const { return m_nodes[idx]; }
 
-    T * get(unsigned idx, T * d) const { return m_nodes.get(idx, d); }
+    T * get(size_type idx, T * d) const { return m_nodes.get(idx, d); }
 
     T * const * c_ptr() const { return m_nodes.begin(); }
 
@@ -134,13 +135,13 @@ public:
     iterator begin() const { return m_nodes.begin(); }
     iterator end() const { return begin() + size(); }
 
-    void set(unsigned idx, T * n) {
+    void set(size_type idx, T * n) {
         inc_ref(n);
         dec_ref(m_nodes[idx]);
         m_nodes[idx] = n;
     }
 
-    void erase(unsigned idx) {
+    void erase(size_type idx) {
         T * curr = m_nodes[idx];
         m_nodes.erase(m_nodes.begin() + idx);
         dec_ref(curr);
@@ -164,27 +165,27 @@ public:
         return false;
     }
     
-    T * operator[](unsigned idx) const {
+    T * operator[](size_type idx) const {
         return m_nodes[idx];
     }
 
     void append(ref_vector_core const & other) {
-        for (unsigned i = 0; i < other.size(); ++i)
+        for (size_type i = 0; i < other.size(); ++i)
             push_back(other[i]);
     }
 
-    void append(unsigned sz, T * const * data) {
-        for(unsigned i = 0; i < sz; ++i)
+    void append(size_type sz, T * const * data) {
+        for(size_type i = 0; i < sz; ++i)
             push_back(data[i]);
     }
 
-    void swap(unsigned idx1, unsigned idx2) {
+    void swap(size_type idx1, size_type idx2) {
         std::swap(m_nodes[idx1], m_nodes[idx2]);
     }
 
     void reverse() {
-        unsigned sz = size();
-        for (unsigned i = 0; i < sz/2; ++i) {
+        size_type sz = size();
+        for (size_type i = 0; i < sz/2; ++i) {
             std::swap(m_nodes[i], m_nodes[sz-i-1]);
         }
     }

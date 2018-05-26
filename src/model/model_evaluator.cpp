@@ -236,7 +236,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (get_macro(g, def, q, def_pr)) {
                 sort_ref_vector sorts(m);
                 expr_ref_vector vars(m);
-                svector<symbol> var_names;
+                vector<symbol> var_names;
                 unsigned sz = g->get_arity();
                 for (unsigned i = 0; i < sz; ++i) {
                     var_names.push_back(symbol(sz - i - 1));

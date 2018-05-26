@@ -560,7 +560,7 @@ void lemma::mk_expr_core() {
                           zks.size(), (expr* const*)zks.c_ptr(), m_body,
                           m_body);
             ptr_buffer<sort> sorts;
-            svector<symbol> names;
+            vector<symbol> names;
             for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
                 sorts.push_back(get_sort(zks.get(i)));
                 names.push_back(zks.get(i)->get_decl()->get_name());
@@ -2571,7 +2571,7 @@ bool context::validate() {
                     fmls.push_back(r.get_tail(j));
                 }
                 tmp = m.mk_and(fmls.size(), fmls.c_ptr());
-                svector<symbol> names;
+                vector<symbol> names;
                 expr_free_vars fv;
                 fv (tmp);
                 fv.set_default_sort (m.mk_bool_sort ());

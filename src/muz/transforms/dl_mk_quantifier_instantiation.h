@@ -36,7 +36,7 @@ namespace datalog {
     class context;
 
     class mk_quantifier_instantiation : public rule_transformer::plugin {
-        typedef svector<std::pair<expr*,expr*> > term_pairs;
+        typedef vector<std::pair<expr*,expr*> > term_pairs;
 
 
         ast_manager&      m;

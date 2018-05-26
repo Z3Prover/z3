@@ -22,7 +22,7 @@ Revision History:
 #include "util/vector.h"
 
 template<typename Manager>
-class _scoped_numeral_vector : public svector<typename Manager::numeral> {
+class _scoped_numeral_vector : public vector<typename Manager::numeral> {
     Manager & m_manager;
     _scoped_numeral_vector(_scoped_numeral_vector const & v);
 public:
@@ -36,13 +36,13 @@ public:
         for (unsigned i = 0; i < sz; i++) {
             m().del(this->operator[](i));
         }
-        svector<typename Manager::numeral>::reset();
+        vector<typename Manager::numeral>::reset();
     }
 
     Manager & m() const { return m_manager; }
 
     void push_back(typename Manager::numeral const & v) {
-        svector<typename Manager::numeral>::push_back(typename Manager::numeral());
+        vector<typename Manager::numeral>::push_back(typename Manager::numeral());
         m_manager.set(this->back(), v);
     }
 
@@ -56,14 +56,14 @@ public:
             return;
         for (unsigned i = sz; i < old_sz; i++)
             m().del(this->operator[](i));
-        svector<typename Manager::numeral>::shrink(sz);
+        vector<typename Manager::numeral>::shrink(sz);
     }
 
     void resize(unsigned sz) {
         unsigned old_sz = this->size();
         if (sz <= old_sz)
             shrink(sz);
-        svector<typename Manager::numeral>::resize(sz, 0);
+        vector<typename Manager::numeral>::resize(sz, 0);
     }
 };
 

@@ -3304,7 +3304,7 @@ void fill_general_matrix(general_matrix & M) {
 }
 
 void call_hnf(general_matrix& A) {
-    svector<unsigned> r;
+    vector<unsigned> r;
     mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r, mpq((int)1000000000));
     A.shrink_to_rank(r);
     hnf<general_matrix> h(A, d);

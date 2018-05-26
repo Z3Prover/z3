@@ -48,7 +48,7 @@ namespace datalog {
         /** predicates that are results of compression */
         typedef map<c_info, func_decl*, c_info_hash, default_eq<c_info> > c_map;
         typedef hashtable<c_info, c_info_hash, default_eq<c_info> > in_progress_table;
-        typedef svector<c_info> todo_stack;
+        typedef vector<c_info> todo_stack;
 
         context &           m_context;
         ast_manager &       m;

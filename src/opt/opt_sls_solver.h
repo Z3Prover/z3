@@ -87,7 +87,7 @@ namespace opt {
         virtual std::string reason_unknown() const {
             return m_solver->reason_unknown();
         }
-        virtual void get_labels(svector<symbol> & r) {
+        virtual void get_labels(vector<symbol> & r) {
             m_solver->get_labels(r);
         }
         virtual void set_progress_callback(progress_callback * callback) {

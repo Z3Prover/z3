@@ -179,7 +179,7 @@ struct reduce_args_tactic::imp {
         bv_util &                         m_bv;
         obj_hashtable<func_decl> &        m_non_cadidates;
         obj_map<func_decl, bit_vector> &  m_decl2args;    
-        obj_map<func_decl, svector<expr*> > m_decl2base; // for args = base + offset
+        obj_map<func_decl, vector<expr*> > m_decl2base; // for args = base + offset
 
         populate_decl2args_proc(ast_manager & m, bv_util & bv, obj_hashtable<func_decl> & nc, obj_map<func_decl, bit_vector> & d):
             m_manager(m), m_bv(bv), m_non_cadidates(nc), m_decl2args(d) {}
@@ -199,7 +199,7 @@ struct reduce_args_tactic::imp {
             expr* base;
             if (it == m_decl2args.end()) {
                 m_decl2args.insert(d, bit_vector());
-                svector<expr*>& bases = m_decl2base.insert_if_not_there2(d, svector<expr*>())->get_data().m_value;
+                vector<expr*>& bases = m_decl2base.insert_if_not_there2(d, vector<expr*>())->get_data().m_value;
                 bases.resize(j);
                 it = m_decl2args.find_iterator(d);
                 SASSERT(it != m_decl2args.end());
@@ -210,7 +210,7 @@ struct reduce_args_tactic::imp {
                     bases[j] = base;
                 }
             } else {
-                svector<expr*>& bases = m_decl2base[d];
+                vector<expr*>& bases = m_decl2base[d];
                 SASSERT(j == it->m_value.size());                        
                 while (j > 0) {
                     --j;

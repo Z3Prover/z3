@@ -136,7 +136,7 @@ namespace smt {
     app_ref theory_pb::arg_t::to_expr(bool is_eq, context& ctx, ast_manager& m) {
         expr_ref tmp(m);
         app_ref result(m);
-        svector<rational> coeffs;
+        vector<rational> coeffs;
         expr_ref_vector args(m);
         for (unsigned i = 0; i < size(); ++i) {
             ctx.literal2expr(lit(i), tmp);
@@ -2316,7 +2316,7 @@ namespace smt {
 
     class theory_pb::pb_model_value_proc : public model_value_proc {
         app*              m_app;
-        svector<model_value_dependency> m_dependencies;
+        vector<model_value_dependency> m_dependencies;
     public:
 
         pb_model_value_proc(app* a): 

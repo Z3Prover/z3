@@ -49,7 +49,7 @@ namespace nlsat {
         struct todo_set {
             polynomial::cache  &    m_cache;
             polynomial_ref_vector   m_set;
-            svector<char>           m_in_set;
+            vector<char>           m_in_set;
             
             todo_set(polynomial::cache & u):m_cache(u), m_set(u.pm()) {}
 
@@ -125,7 +125,7 @@ namespace nlsat {
 
         // temporary fields for storing the result
         scoped_literal_vector * m_result;
-        svector<char>           m_already_added_literal;
+        vector<char>           m_already_added_literal;
 
         evaluator &             m_evaluator;
 
@@ -265,7 +265,7 @@ namespace nlsat {
            \brief Add literal p != 0 into m_result.
         */
         ptr_vector<poly>  m_zero_fs;
-        svector<bool>     m_is_even;
+        vector<bool>     m_is_even;
         void add_zero_assumption(polynomial_ref & p) {
             // If p is of the form p1^n1 * ... * pk^nk,
             // then only the factors that are zero in the current interpretation needed to be considered.
@@ -1465,7 +1465,7 @@ namespace nlsat {
         void project(var x, unsigned num, literal const * ls, scoped_literal_vector & result) {
             
             m_result = &result;
-            svector<literal> lits;
+            vector<literal> lits;
             TRACE("nlsat", tout << "project x" << x << "\n"; 
                   for (unsigned i = 0; i < num; ++i) {
                       m_solver.display(tout, ls[i]) << " ";
@@ -1483,7 +1483,7 @@ namespace nlsat {
             collect_polys(lits.size(), lits.c_ptr(), m_ps);
             var mx_var = max_var(m_ps);
             if (!m_ps.empty()) {                
-                svector<var> renaming;
+                vector<var> renaming;
                 if (x != mx_var) {
                     for (var i = 0; i < m_solver.num_vars(); ++i) {
                         renaming.push_back(i);
@@ -1527,7 +1527,7 @@ namespace nlsat {
 
         }
 
-        void split_literals(var x, unsigned n, literal const* ls, svector<literal>& lits) {
+        void split_literals(var x, unsigned n, literal const* ls, vector<literal>& lits) {
             var_vector vs;
             for (unsigned i = 0; i < n; ++i) {                  
                 vs.reset();
@@ -1780,7 +1780,7 @@ namespace nlsat {
         }
 
         void maximize(var x, unsigned num, literal const * ls, scoped_anum& val, bool& unbounded) {
-            svector<literal> lits;
+            vector<literal> lits;
             polynomial_ref p(m_pm);
             split_literals(x, num, ls, lits);
             collect_polys(lits.size(), lits.c_ptr(), m_ps);

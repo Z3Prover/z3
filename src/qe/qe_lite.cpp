@@ -102,7 +102,7 @@ namespace eq {
                 return;
 
             typedef std::pair<expr *, unsigned> frame;
-            svector<frame> todo;
+            vector<frame> todo;
 
             expr_fast_mark1 visiting;
             expr_fast_mark2 done;
@@ -869,7 +869,7 @@ namespace fm {
     typedef unsigned        var;
     typedef int             bvar;
     typedef int             literal;
-    typedef svector<var>    var_vector;
+    typedef vector<var>    var_vector;
 
     // Encode the constraint
     // lits \/ ( as[0]*xs[0] + ... + as[num_vars-1]*xs[num_vars-1] <= c
@@ -1754,7 +1754,7 @@ namespace fm {
         };
 
         void sort_candidates(var_vector & xs) {
-            svector<x_cost> x_cost_vector;
+            vector<x_cost> x_cost_vector;
             unsigned num = num_vars();
             for (var x = 0; x < num; x++) {
                 if (!is_forbidden(x)) {
@@ -1864,7 +1864,7 @@ namespace fm {
 
         var_vector       new_xs;
         vector<rational> new_as;
-        svector<literal> new_lits;
+        vector<literal> new_lits;
 
         constraint * resolve(constraint const & l, constraint const & u, var x) {
             m_counter += l.m_num_vars + u.m_num_vars + l.m_num_lits + u.m_num_lits;
@@ -2273,7 +2273,7 @@ public:
         symbol qe_lite("QE");
         expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), fml, tmp);
         ptr_vector<sort> sorts;
-        svector<symbol> names;
+        vector<symbol> names;
         for (unsigned i = 0; i < vars.size(); ++i) {
             sorts.push_back(m.get_sort(vars[i].get()));
             names.push_back(vars[i]->get_decl()->get_name());

@@ -69,7 +69,7 @@ func_decl * proof_checker::hyp_decl_plugin::mk_func_decl(
     return mk_func_decl(k);
 }
 
-void proof_checker::hyp_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void proof_checker::hyp_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     if (logic == symbol::null) {
         op_names.push_back(builtin_name("cons", OP_CONS));
         op_names.push_back(builtin_name("atom", OP_ATOM));
@@ -77,7 +77,7 @@ void proof_checker::hyp_decl_plugin::get_op_names(svector<builtin_name> & op_nam
     }
 }
 
-void proof_checker::hyp_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+void proof_checker::hyp_decl_plugin::get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) {
     if (logic == symbol::null) {
         sort_names.push_back(builtin_name("cell", CELL_SORT));
     }
@@ -777,7 +777,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         proof_ref_vector premises(m);
         expr_ref_vector fmls(m);
         expr_ref conclusion(m), premise(m), premise0(m), premise1(m);
-        svector<std::pair<unsigned, unsigned> > positions;
+        vector<std::pair<unsigned, unsigned> > positions;
         vector<expr_ref_vector> substs;
         VERIFY(m.is_hyper_resolve(p, premises, conclusion, positions, substs));
         var_subst vs(m, false);

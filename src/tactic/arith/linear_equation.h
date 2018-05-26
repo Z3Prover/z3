@@ -56,7 +56,7 @@ public:
     typedef linear_equation::var var;
     typedef numeral_buffer<mpz, numeral_manager> mpz_buffer;
 private:
-    typedef svector<var>      var_buffer;
+    typedef vector<var>      var_buffer;
 
     small_object_allocator &  m_allocator;
     numeral_manager &         m;

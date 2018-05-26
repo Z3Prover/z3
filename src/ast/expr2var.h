@@ -39,7 +39,7 @@ protected:
     ast_manager &    m_manager;
     
     unsigned_vector    m_id2map;
-    svector<key_value> m_mapping;
+    vector<key_value> m_mapping;
     ptr_vector<expr> m_recent_exprs;
     unsigned_vector  m_recent_lim;
     bool             m_interpreted_vars;

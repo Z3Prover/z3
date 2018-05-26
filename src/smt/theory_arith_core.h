@@ -1908,8 +1908,8 @@ namespace smt {
         c.compress_if_needed(m_rows);
 
         inf_numeral delta2;
-        typename svector<col_entry>::const_iterator it  = c.begin_entries();
-        typename svector<col_entry>::const_iterator end = c.end_entries();
+        typename vector<col_entry>::const_iterator it  = c.begin_entries();
+        typename vector<col_entry>::const_iterator end = c.end_entries();
         for (; it != end; ++it) {
             if (!it->is_dead()) {
                 row & r      = m_rows[it->m_row_id];
@@ -2011,8 +2011,8 @@ namespace smt {
         unsigned r_id = get_var_row(x_i);
         column & c    = m_columns[x_i];
         numeral a_kj;
-        typename svector<col_entry>::iterator it  = c.begin_entries();
-        typename svector<col_entry>::iterator end = c.end_entries();
+        typename vector<col_entry>::iterator it  = c.begin_entries();
+        typename vector<col_entry>::iterator end = c.end_entries();
         int i     = 0;
         int s_pos = -1;
         for (; it != end; ++it, ++i) {
@@ -2084,8 +2084,8 @@ namespace smt {
     int theory_arith<Ext>::get_num_non_free_dep_vars(theory_var v, int best_so_far) {
         int result = is_non_free(v);
         column & c = m_columns[v];
-        typename svector<col_entry>::const_iterator it  = c.begin_entries();
-        typename svector<col_entry>::const_iterator end = c.end_entries();
+        typename vector<col_entry>::const_iterator it  = c.begin_entries();
+        typename vector<col_entry>::const_iterator end = c.end_entries();
         for (; it != end; ++it) {
             if (!it->is_dead()) {
                 row & r      = m_rows[it->m_row_id];
@@ -2577,8 +2577,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::mark_rows_for_bound_prop(theory_var v) {
         column const & c = m_columns[v];
-        typename svector<col_entry>::const_iterator it  = c.begin_entries();
-        typename svector<col_entry>::const_iterator end = c.end_entries();
+        typename vector<col_entry>::const_iterator it  = c.begin_entries();
+        typename vector<col_entry>::const_iterator end = c.end_entries();
         for (; it != end; ++it) {
             if (!it->is_dead())
                 mark_row_for_bound_prop(it->m_row_id);
@@ -3023,8 +3023,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::propagate_bounds() {
         TRACE("propagate_bounds_detail", display(tout););
-        typename svector<unsigned>::iterator it  = m_to_check.begin();
-        typename svector<unsigned>::iterator end = m_to_check.end();
+        typename vector<unsigned>::iterator it  = m_to_check.begin();
+        typename vector<unsigned>::iterator end = m_to_check.end();
         for (; it != end; ++it) {
             row & r = m_rows[*it];
             if (r.get_base_var() != null_theory_var) {
@@ -3404,8 +3404,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::restore_nl_propagated_flag(unsigned old_trail_size) {
-        typename svector<theory_var>::iterator begin = m_nl_propagated.begin() + old_trail_size;
-        typename svector<theory_var>::iterator it    = m_nl_propagated.end();
+        typename vector<theory_var>::iterator begin = m_nl_propagated.begin() + old_trail_size;
+        typename vector<theory_var>::iterator it    = m_nl_propagated.end();
         while (it != begin) {
             --it;
             SASSERT(m_data[*it].m_nl_propagated);
@@ -3417,8 +3417,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::restore_bounds(unsigned old_trail_size) {
         CASSERT("arith", wf_rows());
-        typename svector<bound_trail>::iterator begin = m_bound_trail.begin() + old_trail_size;
-        typename svector<bound_trail>::iterator it    = m_bound_trail.end();
+        typename vector<bound_trail>::iterator begin = m_bound_trail.begin() + old_trail_size;
+        typename vector<bound_trail>::iterator it    = m_bound_trail.end();
         while (it != begin) {
             --it;
             theory_var v = it->get_var();
@@ -3441,8 +3441,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::restore_unassigned_atoms(unsigned old_trail_size) {
-        svector<unsigned>::iterator begin = m_unassigned_atoms_trail.begin() + old_trail_size;
-        svector<unsigned>::iterator it    = m_unassigned_atoms_trail.end();
+        vector<unsigned>::iterator begin = m_unassigned_atoms_trail.begin() + old_trail_size;
+        vector<unsigned>::iterator it    = m_unassigned_atoms_trail.end();
         while (it != begin) {
             --it;
             m_unassigned_atoms[*it]++;

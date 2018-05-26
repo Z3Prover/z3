@@ -21,7 +21,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
         }
         std::cout << "}, " << k << ")" << std::endl;
     }
-    svector<unsigned> actual_dst;
+    vector<unsigned> actual_dst;
     actual_dst.resize(dst_sz, 0xAAAAAAAA);
     for (unsigned sz = 1; sz <= dst_sz; sz++) {
         if (trace)
@@ -45,7 +45,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
             }
         }
         if (sz >= src_sz + (k/32) + 1) {
-            svector<unsigned> new_src;
+            vector<unsigned> new_src;
             new_src.resize(sz, 0xAAAAAAAA);
             shr(sz, actual_dst.c_ptr(), k, new_src.c_ptr());
             for (unsigned i = 0; i < src_sz; i++) {
@@ -128,7 +128,7 @@ static void tst_shr(unsigned src_sz, unsigned const * src, unsigned k,
         }
         std::cout << "}, " << k << ")" << std::endl;
     }
-    svector<unsigned> actual_dst;
+    vector<unsigned> actual_dst;
     actual_dst.resize(src_sz, 0xAAAAAAAA);
     shr(src_sz, src, k, actual_dst.c_ptr());
     for (unsigned i = 0; i < src_sz; i++) {
@@ -147,7 +147,7 @@ static void tst_shr() {
 
 static void tst_shl_rand(unsynch_mpz_manager & m, unsigned sz, unsigned k, bool trace = true) {
     // create a random bitvector of of size sz
-    svector<unsigned> src;
+    vector<unsigned> src;
     for (unsigned i = 0; i < sz; i++) {
         src.push_back(rand());
     }
@@ -166,7 +166,7 @@ static void tst_shl_rand(unsynch_mpz_manager & m, unsigned sz, unsigned k, bool 
     m.set(_dst, _src);
     m.mul2k(_dst, k);
     // convert _dst into a vector of unsigned values
-    svector<unsigned> dst;
+    vector<unsigned> dst;
     scoped_mpz max(m);
     m.set(max, 1);
     m.mul2k(max, 32);

@@ -554,7 +554,7 @@ namespace qe {
          */
         bool project (expr_ref const& fml) {
             app_ref_vector eqs (m);
-            svector<std::pair<unsigned, app*> > true_eqs;
+            vector<std::pair<unsigned, app*> > true_eqs;
 
             find_arr_eqs (fml, eqs);
             TRACE ("qe", tout << "array equalities:\n" << eqs << "\n";);

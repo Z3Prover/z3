@@ -154,7 +154,7 @@ void ground_sat_answer_op::mk_child_subst_from_model(func_decl *pred,
 }
 
 proof *ground_sat_answer_op::mk_proof_step(frame &fr) {
-    svector<std::pair<unsigned, unsigned>> positions;
+    vector<std::pair<unsigned, unsigned>> positions;
     vector<expr_ref_vector> substs;
 
     proof_ref_vector premises(m);

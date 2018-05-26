@@ -19,7 +19,7 @@ Revision History:
 #include "util/vector.h"
 
 static void tst1() {
-    svector<int> v1;
+    vector<int> v1;
     ENSURE(v1.empty());
     for (unsigned i = 0; i < 1000; i++) {
         v1.push_back(i + 3);
@@ -30,8 +30,8 @@ static void tst1() {
     for (unsigned i = 0; i < 1000; i++) {
         ENSURE(static_cast<unsigned>(v1[i]) == i + 3);
     }
-    svector<int>::iterator it = v1.begin();
-    svector<int>::iterator end = v1.end();
+    vector<int>::iterator it = v1.begin();
+    vector<int>::iterator end = v1.end();
     for (int i = 0; it != end; ++it, ++i) {
         ENSURE(*it == i + 3);
     }

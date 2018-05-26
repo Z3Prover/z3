@@ -53,8 +53,8 @@ struct goal2sat::imp {
     ast_manager &               m;
     pb_util                     pb;
     sat::ba_solver*             m_ext;
-    svector<frame>              m_frame_stack;
-    svector<sat::literal>       m_result_stack;
+    vector<frame>              m_frame_stack;
+    vector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
     obj_hashtable<expr>         m_interface_vars;
     sat::solver_core &          m_solver;
@@ -430,7 +430,7 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_to_wlits(app* t, sat::literal_vector const& lits, svector<wliteral>& wlits) {
+    void convert_to_wlits(app* t, sat::literal_vector const& lits, vector<wliteral>& wlits) {
         for (unsigned i = 0; i < lits.size(); ++i) {
             rational c = pb.get_coeff(t, i);
             check_unsigned(c);
@@ -438,7 +438,7 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_pb_args(app* t, svector<wliteral>& wlits) {
+    void convert_pb_args(app* t, vector<wliteral>& wlits) {
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
         convert_to_wlits(t, lits, wlits);        
@@ -458,7 +458,7 @@ struct goal2sat::imp {
     void convert_pb_ge(app* t, bool root, bool sign) {
         rational k = pb.get_k(t);
         check_unsigned(k);                
-        svector<wliteral> wlits;
+        vector<wliteral> wlits;
         convert_pb_args(t, wlits);
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
@@ -484,7 +484,7 @@ struct goal2sat::imp {
     void convert_pb_le(app* t, bool root, bool sign) {
         rational k = pb.get_k(t);
         k.neg();
-        svector<wliteral> wlits;
+        vector<wliteral> wlits;
         convert_pb_args(t, wlits);
         for (wliteral& wl : wlits) {
             wl.second.neg();
@@ -516,7 +516,7 @@ struct goal2sat::imp {
         //IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
         rational k = pb.get_k(t);
         SASSERT(k.is_unsigned());
-        svector<wliteral> wlits;
+        vector<wliteral> wlits;
         convert_pb_args(t, wlits);
         bool base_assert = (root && !sign && m_solver.num_user_scopes() == 0);
         sat::bool_var v1 = base_assert ? sat::null_bool_var : m_solver.add_var(true);
@@ -1206,7 +1206,7 @@ struct sat2goal::imp {
         }
 
         // collect binary clauses
-        svector<sat::solver::bin_clause> bin_clauses;
+        vector<sat::solver::bin_clause> bin_clauses;
         s.collect_bin_clauses(bin_clauses, m_learned, false);
         for (sat::solver::bin_clause const& bc : bin_clauses) {
             checkpoint();

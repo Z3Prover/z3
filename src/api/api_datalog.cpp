@@ -444,7 +444,7 @@ extern "C" {
         Z3_symbol const relation_kinds[]) {
         Z3_TRY;
         LOG_Z3_fixedpoint_set_predicate_representation(c, d, f, num_relations, relation_kinds);
-        svector<symbol> kinds;
+        vector<symbol> kinds;
         for (unsigned i = 0; i < num_relations; ++i) {
             kinds.push_back(to_symbol(relation_kinds[i]));
         }
@@ -463,7 +463,7 @@ extern "C" {
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         expr_ref_vector rules(m), queries(m);
-        svector<symbol> names;
+        vector<symbol> names;
         
         to_fixedpoint_ref(d)->ctx().get_rules_as_formulas(rules, queries, names);
         for (unsigned i = 0; i < rules.size(); ++i) {
@@ -669,7 +669,7 @@ extern "C" {
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         expr_ref_vector rules(m);
-        svector<symbol> names;
+        vector<symbol> names;
         
         to_fixedpoint_ref(d)->ctx().get_rules_along_trace_as_formulas(rules, names);
         for (unsigned i = 0; i < rules.size(); ++i) {
@@ -689,7 +689,7 @@ extern "C" {
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         expr_ref_vector rules(m);
-        svector<symbol> names;
+        vector<symbol> names;
         std::stringstream ss;
         
         to_fixedpoint_ref(d)->ctx().get_rules_along_trace_as_formulas(rules, names);

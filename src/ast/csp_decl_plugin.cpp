@@ -177,7 +177,7 @@ bool csp_decl_plugin::is_value(app * e) const {
     return is_app_of(e, m_family_id, OP_JS_JOB) || is_app_of(e, m_family_id, OP_JS_RESOURCE);
 }
 
-void csp_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void csp_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     if (logic == symbol("CSP")) {
         op_names.push_back(builtin_name("job", OP_JS_JOB));
         op_names.push_back(builtin_name("resource", OP_JS_RESOURCE));
@@ -195,7 +195,7 @@ void csp_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     }
 }
 
-void csp_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+void csp_decl_plugin::get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) {
     if (logic == symbol("CSP")) {
         sort_names.push_back(builtin_name("Job", JOB_SORT));
         sort_names.push_back(builtin_name("Resource", RESOURCE_SORT));
@@ -291,7 +291,7 @@ bool csp_util::is_job2resource(expr* e, unsigned& j) {
     return is_app_of(e, m_fid, OP_JS_JOB2RESOURCE) && (j = job2id(e), true);
 }
 
-bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, unsigned& cap_time, uint64_t& start, uint64_t& end, svector<symbol>& properties) {
+bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, unsigned& cap_time, uint64_t& start, uint64_t& end, vector<symbol>& properties) {
     if (!is_app_of(e, m_fid, OP_JS_RESOURCE_AVAILABLE)) return false;
     res = to_app(e)->get_arg(0);
     arith_util a(m);
@@ -308,7 +308,7 @@ bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpc
     return true;
 }
 
-bool csp_util::is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end, svector<symbol>& properties) {
+bool csp_util::is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end, vector<symbol>& properties) {
     if (!is_app_of(e, m_fid, OP_JS_JOB_RESOURCE)) return false;
     job = to_app(e)->get_arg(0);
     res = to_app(e)->get_arg(1);
@@ -330,7 +330,7 @@ bool csp_util::is_set_preemptable(expr* e, expr *& job) {
     return true;
 }
 
-bool csp_util::is_js_properties(expr* e, svector<symbol>& properties) {
+bool csp_util::is_js_properties(expr* e, vector<symbol>& properties) {
     if (!is_app_of(e, m_fid, OP_JS_PROPERTIES)) 
         return false;
     unsigned sz = to_app(e)->get_decl()->get_num_parameters();

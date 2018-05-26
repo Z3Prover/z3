@@ -113,7 +113,7 @@ static void tst_solve(unsigned n, int _A[], int _b[], int _c[], bool solved) {
     for (unsigned i = 0; i < n; i++)
         for (unsigned j = 0; j < n; j++)
             A.set(i, j, _A[i*n + j]);
-    svector<int> b;
+    vector<int> b;
     b.resize(n, 0);
     if (mm.solve(A, b.c_ptr(), _c)) {
         ENSURE(solved);

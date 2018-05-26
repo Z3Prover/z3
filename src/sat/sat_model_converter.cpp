@@ -291,7 +291,7 @@ namespace sat {
         for (; it != end; ++it) {
             SASSERT(it->var() == null_bool_var || it->var() < num_vars);
             if (it->get_kind() == ELIM_VAR) {
-                svector<entry>::const_iterator it2 = it;
+                vector<entry>::const_iterator it2 = it;
                 it2++;
                 for (; it2 != end; ++it2) {
                     SASSERT(it2->var() != it->var());

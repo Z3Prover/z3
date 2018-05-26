@@ -135,7 +135,7 @@ namespace datalog {
         ddnf_node::hash        m_hash;
         ddnf_node::eq          m_eq;
         ddnf_nodes             m_nodes;
-        svector<bool>          m_marked;
+        vector<bool>          m_marked;
         stats                  m_stats;
     public:
         ddnf_mgr(unsigned n): m_noderefs(*this), m_internalized(false), m_tbv(n),
@@ -338,7 +338,7 @@ namespace datalog {
             }
             ptr_vector<ddnf_node> todo;
             todo.push_back(m_root);
-            svector<bool> done(m_noderefs.size(), false);
+            vector<bool> done(m_noderefs.size(), false);
             while (!todo.empty()) {
                 ddnf_node& n = *todo.back();
                 if (done[n.get_id()]) {

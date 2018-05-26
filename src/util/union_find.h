@@ -41,9 +41,9 @@ template<typename Ctx = union_find_default_ctx>
 class union_find {
     Ctx &                         m_ctx;
     trail_stack<Ctx> &            m_trail_stack;
-    svector<unsigned>             m_find;
-    svector<unsigned>             m_size;
-    svector<unsigned>             m_next;
+    vector<unsigned>             m_find;
+    vector<unsigned>             m_size;
+    vector<unsigned>             m_next;
     
     class mk_var_trail;
     friend class mk_var_trail;

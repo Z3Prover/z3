@@ -153,7 +153,7 @@ namespace datalog {
         mk_rule_core(fml1, pr, rules, name);
     }
 
-    void rule_manager::mk_negations(app_ref_vector& body, svector<bool>& is_negated) {
+    void rule_manager::mk_negations(app_ref_vector& body, vector<bool>& is_negated) {
         for (unsigned i = 0; i < body.size(); ++i) {
             expr* e = body[i].get(), *e1;
             if (m.is_not(e, e1) && m_ctx.is_predicate(e1)) {
@@ -266,7 +266,7 @@ namespace datalog {
         TRACE("dl", tout << mk_pp(query, m) << "\n";);
 
         ptr_vector<sort> vars;
-        svector<symbol> names;
+        vector<symbol> names;
         app_ref_vector body(m);
         expr_ref q(m);
 
@@ -574,7 +574,7 @@ namespace datalog {
         if (m_free_vars.empty()) {
             return;
         }
-        svector<symbol> names;
+        vector<symbol> names;
         used_symbols<> us;
         m_free_vars.set_default_sort(m.mk_bool_sort());
 
@@ -628,7 +628,7 @@ namespace datalog {
         }
         if (change) {
             app_ref_vector tail(m);
-            svector<bool> tail_neg;
+            vector<bool> tail_neg;
             for (unsigned i = 0; i < ut_len; ++i) {
                 tail.push_back(r->get_tail(i));
                 tail_neg.push_back(r->is_neg_tail(i));
@@ -660,7 +660,7 @@ namespace datalog {
 
         var_counter vctr;
         app_ref_vector tail(m);
-        svector<bool> tail_neg;
+        vector<bool> tail_neg;
         app_ref head(r->get_head(), m);
 
         vctr.count_vars(head);
@@ -731,7 +731,7 @@ namespace datalog {
         }
         SASSERT(q_idx == q_var_cnt);
 
-        svector<symbol> qnames;
+        vector<symbol> qnames;
         for (unsigned i = 0; i < q_var_cnt; i++) {
             qnames.push_back(symbol(i));
         }
@@ -811,7 +811,7 @@ namespace datalog {
         expr_ref tmp(m);
         app_ref  new_head(m);
         app_ref_vector new_tail(m);
-        svector<bool> tail_neg;
+        vector<bool> tail_neg;
         var_subst vs(m, false);
         tmp = vs(r->get_head(), sz, es);
         new_head = to_app(tmp);

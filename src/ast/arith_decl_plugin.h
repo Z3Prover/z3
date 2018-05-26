@@ -183,9 +183,9 @@ public:
 
     bool are_distinct(app * a, app * b) const override;
 
-    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    void get_op_names(vector<builtin_name> & op_names, symbol const & logic) override;
 
-    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
+    void get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) override;
 
     app * mk_numeral(rational const & n, bool is_int);
 

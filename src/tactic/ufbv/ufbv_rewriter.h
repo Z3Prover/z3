@@ -130,7 +130,7 @@ class ufbv_rewriter {
         ast_manager &         m_manager;
         substitution          m_subst;
         cache                 m_cache;
-        svector<expr_pair>    m_todo;
+        vector<expr_pair>    m_todo;
         bool                  m_all_args_eq;
      
         bool match_args(app * t, expr * const * args);

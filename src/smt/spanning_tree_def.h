@@ -29,7 +29,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void thread_spanning_tree<Ext>::initialize(svector<edge_id> const & tree) {
+    void thread_spanning_tree<Ext>::initialize(vector<edge_id> const & tree) {
         m_tree = tree;
 
         unsigned num_nodes = m_graph.get_num_nodes();
@@ -67,7 +67,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void thread_spanning_tree<Ext>::get_path(node_id start, node_id end, svector<edge_id> & path, svector<bool> & against) {
+    void thread_spanning_tree<Ext>::get_path(node_id start, node_id end, vector<edge_id> & path, vector<bool> & against) {
         node_id join = get_common_ancestor(start, end);
         path.reset();
         while (start != join) {
@@ -93,7 +93,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void thread_spanning_tree<Ext>::get_descendants(node_id start, svector<node_id> & descendants) {
+    void thread_spanning_tree<Ext>::get_descendants(node_id start, vector<node_id> & descendants) {
         descendants.reset();        
         descendants.push_back(start);
         node_id u = m_thread[start];
@@ -261,10 +261,10 @@ namespace smt {
 
         Spanning tree of m_graph + root is represented using:
         
-        svector<edge_state> m_states;      edge_id |-> edge_state
-        svector<node_id> m_pred;              node_id |-> node
-        svector<int>     m_depth;             node_id |-> int
-        svector<node_id> m_thread;            node_id |-> node
+        vector<edge_state> m_states;      edge_id |-> edge_state
+        vector<node_id> m_pred;              node_id |-> node
+        vector<int>     m_depth;             node_id |-> int
+        vector<node_id> m_thread;            node_id |-> node
 
         Tree is determined by m_pred:
         - m_pred[root] == -1
@@ -282,7 +282,7 @@ namespace smt {
 
         // Check that m_thread traverses each node.
         // This gets checked using union-find as well.
-        svector<bool> found(m_thread.size(), false);
+        vector<bool> found(m_thread.size(), false);
         found[root] = true;
         for (node_id x = m_thread[root]; x != root; x = m_thread[x]) {
             SASSERT(x != m_thread[x]);
@@ -307,7 +307,7 @@ namespace smt {
 
         // m_thread forms a spanning tree over [0..root]
         // Union-find structure
-        svector<int> roots(m_pred.size(), -1);
+        vector<int> roots(m_pred.size(), -1);
                       
         for (node_id x = m_thread[root]; x != root; x = m_thread[x]) {
             node_id y = m_pred[x];
@@ -330,7 +330,7 @@ namespace smt {
         return true;
     }
 
-    static unsigned find(svector<int>& roots, unsigned x) {
+    static unsigned find(vector<int>& roots, unsigned x) {
         unsigned old_x = x;
         while (roots[x] >= 0) {
             x = roots[x];
@@ -342,7 +342,7 @@ namespace smt {
         return x;
     }
 
-    static void merge(svector<int>& roots, unsigned x, unsigned y) {
+    static void merge(vector<int>& roots, unsigned x, unsigned y) {
         x = find(roots, x);
         y = find(roots, y);
         SASSERT(roots[x] < 0 && roots[y] < 0);
@@ -419,7 +419,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void basic_spanning_tree<Ext>::initialize(svector<edge_id> const & tree) {        
+    void basic_spanning_tree<Ext>::initialize(vector<edge_id> const & tree) {        
         m_tree_graph = alloc(graph);
         m_tree = tree;
         unsigned num_nodes = m_graph.get_num_nodes();
@@ -428,7 +428,7 @@ namespace smt {
         }
 
         vector<edge> const & es = m_graph.get_all_edges();
-        svector<edge_id>::const_iterator it = m_tree.begin(), end = m_tree.end();
+        vector<edge_id>::const_iterator it = m_tree.begin(), end = m_tree.end();
         for(; it != end; ++it) {
             edge const & e = es[*it];
             m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
@@ -449,7 +449,7 @@ namespace smt {
         }
 
         vector<edge> const & es = m_graph.get_all_edges();
-        svector<edge_id>::const_iterator it = m_tree.begin(), end = m_tree.end();
+        vector<edge_id>::const_iterator it = m_tree.begin(), end = m_tree.end();
         for(; it != end; ++it) {
             edge const & e = es[*it];
             if (leave_id != *it) {

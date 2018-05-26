@@ -2413,7 +2413,7 @@ bool mpz_manager<SYNCH>::root(mpz & a, unsigned n) {
 }
 
 template<bool SYNCH>
-bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
+bool mpz_manager<SYNCH>::decompose(mpz const & a, vector<digit_t> & digits) {
     digits.reset();
     if (is_small(a)) {
         if (a.m_val < 0) {

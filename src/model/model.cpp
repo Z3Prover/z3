@@ -409,7 +409,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
                 f = autil.get_as_array_func_decl(a);
                 expr_ref_vector sargs(m);
                 sort_ref_vector vars(m);
-                svector<symbol> var_names;
+                vector<symbol> var_names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) {
                     var_names.push_back(symbol(i));
                     vars.push_back(f->get_domain(f->get_arity() - i - 1));

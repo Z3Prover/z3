@@ -37,7 +37,7 @@ class unifier {
     ast_manager &                m_manager;
     substitution *               m_subst;
     
-    svector<entry>               m_todo;
+    vector<entry>               m_todo;
     expr_offset_map<expr_offset> m_find;
     expr_offset_map<unsigned>    m_size;
 

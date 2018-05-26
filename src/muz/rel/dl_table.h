@@ -73,7 +73,7 @@ namespace datalog {
 
         class our_iterator_core;
 
-        typedef hashtable<table_fact, svector_hash_proc<table_element_hash>, 
+        typedef hashtable<table_fact, vector_hash_proc<table_element_hash>, 
             vector_eq_proc<table_fact> > storage;
 
         storage m_data;

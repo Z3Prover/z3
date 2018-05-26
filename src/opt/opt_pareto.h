@@ -40,7 +40,7 @@ namespace opt {
         ref<solver>      m_solver;
         params_ref       m_params;
         model_ref        m_model;
-        svector<symbol>  m_labels;
+        vector<symbol>  m_labels;
     public:
         pareto_base(
             ast_manager & m, 
@@ -68,7 +68,7 @@ namespace opt {
         }
         virtual lbool operator()() = 0;
 
-        virtual void get_model(model_ref& mdl, svector<symbol>& labels) {
+        virtual void get_model(model_ref& mdl, vector<symbol>& labels) {
             mdl = m_model;
             labels = m_labels;
         }

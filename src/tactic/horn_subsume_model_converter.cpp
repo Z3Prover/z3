@@ -63,7 +63,7 @@ bool horn_subsume_model_converter::mk_horn(
     }
     fv.set_default_sort(m.mk_bool_sort());
 
-    svector<symbol> names;
+    vector<symbol> names;
     for (unsigned i = 0; i < fv.size(); ++i) {
         names.push_back(symbol(i));
     }

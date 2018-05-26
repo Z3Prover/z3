@@ -32,7 +32,7 @@ class bind_variables {
     var2bound              m_var2bound;
     expr_ref_vector        m_pinned;
     ptr_vector<sort>       m_bound;
-    svector<symbol>        m_names;
+    vector<symbol>        m_names;
     ptr_vector<expr>       m_todo;
     ptr_vector<expr>       m_args;
 

@@ -44,7 +44,7 @@ namespace rpolynomial {
     public:
         typedef unsynch_mpz_manager                     numeral_manager;
         typedef numeral_manager::numeral                numeral;
-        typedef svector<numeral>                        numeral_vector;
+        typedef vector<numeral>                        numeral_vector;
         typedef _scoped_numeral<numeral_manager>        scoped_numeral;
         typedef _scoped_numeral_vector<numeral_manager> scoped_numeral_vector;
         struct imp;

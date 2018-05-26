@@ -699,7 +699,7 @@ public:
     bool is_odd(mpz const & n) { return !is_even(n); }
     
     // Store the digits of n into digits, and return the sign.
-    bool decompose(mpz const & n, svector<digit_t> & digits);
+    bool decompose(mpz const & n, vector<digit_t> & digits);
 };
 
 #ifndef _NO_OMP_

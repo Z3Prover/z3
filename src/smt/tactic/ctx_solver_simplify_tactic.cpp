@@ -143,7 +143,7 @@ protected:
     void reduce(expr_ref& result){
         SASSERT(m.is_bool(result));
         ptr_vector<expr> names;
-        svector<expr_pos> todo;
+        vector<expr_pos> todo;
         expr_ref_vector fresh_vars(m), trail(m);
         expr_ref res(m), tmp(m);
         obj_map<expr, expr_pos> cache;        

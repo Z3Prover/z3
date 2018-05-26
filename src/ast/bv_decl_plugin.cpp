@@ -673,13 +673,13 @@ bool bv_decl_plugin::are_distinct(app * a, app * b) const {
     return decl_plugin::are_distinct(a, b);
 }
 
-void bv_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+void bv_decl_plugin::get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) {
     if (logic == symbol::null || logic == symbol("ALL"))
         sort_names.push_back(builtin_name("bv", BV_SORT));
     sort_names.push_back(builtin_name("BitVec", BV_SORT));
 }
 
-void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void bv_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     op_names.push_back(builtin_name("bit1",OP_BIT1));
     op_names.push_back(builtin_name("bit0",OP_BIT0));
     op_names.push_back(builtin_name("bvneg",OP_BNEG));

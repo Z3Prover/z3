@@ -72,7 +72,7 @@ struct propagate_ineqs_tactic::imp {
     expr_ref_vector        m_var2expr;
 
     typedef numeral_buffer<mpq, unsynch_mpq_manager> mpq_buffer;
-    typedef svector<a_var> var_buffer;                          
+    typedef vector<a_var> var_buffer;                          
     
     mpq_buffer             m_num_buffer;
     var_buffer             m_var_buffer;

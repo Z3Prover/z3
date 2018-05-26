@@ -318,7 +318,7 @@ namespace datalog {
         rm.to_formula(r2, fml2);
         rm.to_formula(res, fml3);
         vector<expr_ref_vector> substs;
-        svector<std::pair<unsigned, unsigned> > positions;
+        vector<std::pair<unsigned, unsigned> > positions;
         substs.push_back(s1);
         substs.push_back(s2);
 
@@ -356,7 +356,7 @@ namespace datalog {
         expr_ref fml(m);
         rm.to_formula(res, fml);
         vector<expr_ref_vector> substs;
-        svector<std::pair<unsigned, unsigned> > positions;
+        vector<std::pair<unsigned, unsigned> > positions;
         substs.push_back(s1);
         substs.push_back(s2);
 

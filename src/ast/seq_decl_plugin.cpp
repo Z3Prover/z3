@@ -858,7 +858,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     }
 }
 
-void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void seq_decl_plugin::get_op_names(vector<builtin_name> & op_names, symbol const & logic) {
     init();
     for (unsigned i = 0; i < m_sigs.size(); ++i) {
         if (m_sigs[i]) {
@@ -867,7 +867,7 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     }
 }
 
-void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
+void seq_decl_plugin::get_sort_names(vector<builtin_name> & sort_names, symbol const & logic) {
     init();
     sort_names.push_back(builtin_name("Seq",   SEQ_SORT));
     sort_names.push_back(builtin_name("RegEx", RE_SORT));

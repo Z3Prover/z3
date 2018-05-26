@@ -72,7 +72,7 @@ namespace smt {
             eval_cache             m_cache;
             expr_ref_vector        m_lhs, m_rhs;
             ptr_vector<dependency> m_deps;
-            svector<map_update>    m_updates;
+            vector<map_update>    m_updates;
             unsigned_vector        m_limit;
 
             void add_trail(map_update op, expr* l, expr* r, dependency* d);
@@ -86,7 +86,7 @@ namespace smt {
             expr* find(expr* e, dependency*& d);
             expr* find(expr* e);
             bool  find1(expr* a, expr*& b, dependency*& dep);
-            void  find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds);
+            void  find_rec(expr* e, vector<std::pair<expr*, dependency*> >& finds);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, dependency* d);
             void  reset_cache() { m_cache.reset(); }

@@ -516,7 +516,7 @@ namespace smt {
             std::swap(val_u, val_v);
         }
         SASSERT(val_u > val_v);
-        svector<dl_var> todo;
+        vector<dl_var> todo;
         todo.push_back(u);
         while (!todo.empty()) {
             u = todo.back();
@@ -782,9 +782,9 @@ namespace smt {
 
     void theory_special_relations::count_children(graph const& g, unsigned_vector& num_children) {
         unsigned sz = g.get_num_nodes();
-        svector<dl_var> nodes;
+        vector<dl_var> nodes;
         num_children.resize(sz, 0);
-        svector<bool> processed(sz, false);
+        vector<bool> processed(sz, false);
         for (unsigned i = 0; i < sz; ++i) nodes.push_back(i);
         while (!nodes.empty()) {
             dl_var v = nodes.back();
@@ -818,7 +818,7 @@ namespace smt {
     }
 
     void theory_special_relations::assign_interval(graph const& g, unsigned_vector const& num_children, unsigned_vector& lo, unsigned_vector& hi) {
-        svector<dl_var> nodes;
+        vector<dl_var> nodes;
         unsigned sz = g.get_num_nodes();
         lo.resize(sz, 0);
         hi.resize(sz, 0);

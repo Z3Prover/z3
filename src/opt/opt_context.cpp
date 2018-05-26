@@ -172,7 +172,7 @@ namespace opt {
         m_hard_constraints.reset();
     }
 
-    void context::get_labels(svector<symbol> & r) {
+    void context::get_labels(vector<symbol> & r) {
         r.append(m_labels);
     }
 

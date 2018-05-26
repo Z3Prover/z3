@@ -110,27 +110,27 @@ namespace sat {
         unsigned                m_num_frozen;
         vector<watch_list>      m_watches;
         char_vector             m_assignment;
-        svector<justification>  m_justification; 
-        svector<char>           m_decision;
-        svector<char>           m_mark;
-        svector<char>           m_lit_mark;
-        svector<char>           m_eliminated;
-        svector<char>           m_external;
-        svector<unsigned>       m_level; 
+        vector<justification>  m_justification; 
+        vector<char>           m_decision;
+        vector<char>           m_mark;
+        vector<char>           m_lit_mark;
+        vector<char>           m_eliminated;
+        vector<char>           m_external;
+        vector<unsigned>       m_level; 
         // branch variable selection:
-        svector<unsigned>       m_activity;
+        vector<unsigned>       m_activity;
         unsigned                m_activity_inc;
-        svector<uint64_t>       m_last_conflict;
-        svector<uint64_t>       m_last_propagation;
-        svector<uint64_t>       m_participated;
-        svector<uint64_t>       m_canceled;
-        svector<uint64_t>       m_reasoned;
+        vector<uint64_t>       m_last_conflict;
+        vector<uint64_t>       m_last_propagation;
+        vector<uint64_t>       m_participated;
+        vector<uint64_t>       m_canceled;
+        vector<uint64_t>       m_reasoned;
         int                     m_action;
         double                  m_step_size;
         // phase
-        svector<char>           m_phase; 
-        svector<char>           m_prev_phase;
-        svector<char>           m_assigned_since_gc;
+        vector<char>           m_phase; 
+        vector<char>           m_prev_phase;
+        vector<char>           m_assigned_since_gc;
         bool                    m_phase_cache_on;
         unsigned                m_phase_counter; 
         var_queue               m_case_split_queue;
@@ -148,7 +148,7 @@ namespace sat {
             unsigned m_clauses_to_reinit_lim;
             bool     m_inconsistent;
         };
-        svector<scope>          m_scopes;
+        vector<scope>          m_scopes;
         stopwatch               m_stopwatch;
         params_ref              m_params;
         scoped_ptr<solver>      m_clone; // for debugging purposes
@@ -431,7 +431,7 @@ namespace sat {
         void mk_model();
         bool check_model(model const & m) const;
         void restart(bool to_base);
-        svector<size_t> m_last_positions;
+        vector<size_t> m_last_positions;
         unsigned m_last_position_log;
         unsigned m_restart_logs;
         unsigned restart_level(bool to_base);
@@ -504,7 +504,7 @@ namespace sat {
         unsigned skip_literals_above_conflict_level();
         void forget_phase_of_vars(unsigned from_lvl);
         void updt_phase_counters();
-        svector<char> m_diff_levels;
+        vector<char> m_diff_levels;
         unsigned num_diff_levels(unsigned num, literal const * lits);
         bool     num_diff_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue);
         bool     num_diff_false_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue);
@@ -536,7 +536,7 @@ namespace sat {
 
         literal_vector m_user_scope_literals;
         literal_vector m_aux_literals;
-        svector<bin_clause> m_user_bin_clauses;
+        vector<bin_clause> m_user_bin_clauses;
         void gc_lit(clause_vector& clauses, literal lit);
         void gc_bin(literal lit);
         void gc_var(bool_var v);
@@ -646,7 +646,7 @@ namespace sat {
         clause * const * end_learned() const { return m_learned.end(); }
         clause_vector const& learned() const { return m_learned; }
         clause_vector const& clauses() const override { return m_clauses; }
-        void collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only) const override;
+        void collect_bin_clauses(vector<bin_clause> & r, bool learned, bool learned_only) const override;
 
 
         // -----------------------

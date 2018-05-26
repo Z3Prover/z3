@@ -151,7 +151,7 @@ namespace sat {
     // -----------------------------------
     // pb
 
-    ba_solver::pb::pb(unsigned id, literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
+    ba_solver::pb::pb(unsigned id, literal lit, vector<ba_solver::wliteral> const& wlits, unsigned k):
         pb_base(pb_t, id, lit, wlits.size(), get_obj_size(wlits.size()), k),
         m_slack(0),
         m_num_watch(0),
@@ -350,7 +350,7 @@ namespace sat {
             //TRACE("ba", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
             SASSERT(validate_unit_propagation(c, lit));
             if (get_config().m_drat) {
-                svector<drat::premise> ps;
+                vector<drat::premise> ps;
                 literal_vector lits;
                 get_antecedents(lit, c, lits);
                 lits.push_back(lit);
@@ -1745,7 +1745,7 @@ namespace sat {
         TRACE("ba", tout << m_lemma << "\n";);
 
         if (get_config().m_drat) {
-            svector<drat::premise> ps; // TBD fill in
+            vector<drat::premise> ps; // TBD fill in
             drat_add(m_lemma, ps);
         }
 
@@ -1954,7 +1954,7 @@ namespace sat {
         return l_undef;
     }
 
-    ba_solver::constraint* ba_solver::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k, bool learned) {
+    ba_solver::constraint* ba_solver::add_pb_ge(literal lit, vector<wliteral> const& wlits, unsigned k, bool learned) {
         bool units = true;
         for (wliteral wl : wlits) units &= wl.first == 1;
         if (k == 0 && lit == null_literal) {
@@ -1972,7 +1972,7 @@ namespace sat {
         return p;
     }
 
-    void ba_solver::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
+    void ba_solver::add_pb_ge(bool_var v, vector<wliteral> const& wlits, unsigned k) {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         add_pb_ge(lit, wlits, k, false);
     }
@@ -3522,7 +3522,7 @@ namespace sat {
                 r.neg();
                 unsigned coeff = b - k;
                 
-                svector<wliteral> wlits;
+                vector<wliteral> wlits;
                 // add coeff * r to p
                 wlits.push_back(wliteral(coeff, r));
                 for (unsigned j = 0; j < sz; ++j) {
@@ -3919,7 +3919,7 @@ namespace sat {
 
     void ba_solver::copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints) {
         literal_vector lits;
-        svector<wliteral> wlits;
+        vector<wliteral> wlits;
         for (constraint* cp : constraints) {
             switch (cp->tag()) {
             case card_t: {
@@ -4305,7 +4305,7 @@ namespace sat {
         active2wlits(m_wlits);
     }
 
-    void ba_solver::active2wlits(svector<wliteral>& wlits) {
+    void ba_solver::active2wlits(vector<wliteral>& wlits) {
         uint64_t sum = 0;        
         reset_active_var_set();
         for (bool_var v : m_active_vars) {

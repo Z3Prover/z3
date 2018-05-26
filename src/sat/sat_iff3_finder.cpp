@@ -57,7 +57,7 @@ namespace sat {
         }
     };
 
-    static void unmark(svector<bool> & marks, literal_vector & to_unmark) {
+    static void unmark(vector<bool> & marks, literal_vector & to_unmark) {
         literal_vector::const_iterator it  = to_unmark.begin();
         literal_vector::const_iterator end = to_unmark.end();
         for (; it != end; ++it) {
@@ -120,12 +120,12 @@ namespace sat {
         
         unsigned counter = 0;
 
-        svector<bool>   found;
+        vector<bool>   found;
         found.resize(s.num_vars()*2, false);
         literal_vector to_unmark;
 
         typedef std::pair<literal, literal> lit_pair;
-        svector<lit_pair> pairs;
+        vector<lit_pair> pairs;
 
         for (bool_var x = 0; x < s.num_vars(); x++) {
             literal pos_x(x, false);
@@ -179,8 +179,8 @@ namespace sat {
                                 // verbose_stream() << counter << ": " << x << " = " << v1 << " = " << l2 << "\n";
                                 TRACE("iff3_finder", tout << counter << ": " << x << " = " << v1 << " = " << l2 << "\n";);
                                 l1.neg();
-                                svector<lit_pair>::iterator it2  = pairs.begin();
-                                svector<lit_pair>::iterator end2 = pairs.end();
+                                vector<lit_pair>::iterator it2  = pairs.begin();
+                                vector<lit_pair>::iterator end2 = pairs.end();
                                 for (; it2 != end2; ++it2) {
                                     if (it2->first == l1) {
                                         // l2 == it2->second

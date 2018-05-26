@@ -75,8 +75,8 @@ namespace sat {
             pbcoeff(unsigned id, unsigned coeff):
                 m_constraint_id(id), m_coeff(coeff) {}
         };
-        typedef svector<bool> bool_vector;
-        typedef svector<pbcoeff> coeff_vector;
+        typedef vector<bool> bool_vector;
+        typedef vector<pbcoeff> coeff_vector;
 
 
         struct stats {
@@ -134,7 +134,7 @@ namespace sat {
         local_search_config m_config;        
         
         vector<var_info>    m_vars;                      // variables
-        svector<bool_var>   m_units;                     // unit clauses
+        vector<bool_var>    m_units;                     // unit clauses
         vector<constraint>  m_constraints;               // all constraints
         literal_vector      m_assumptions;               // temporary assumptions
         literal_vector      m_prop_queue;                // propagation queue

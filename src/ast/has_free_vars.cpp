@@ -23,7 +23,7 @@ Revision History:
 class contains_vars {
     typedef hashtable<expr_delta_pair, obj_hash<expr_delta_pair>, default_eq<expr_delta_pair> > cache;
     cache                    m_cache;
-    svector<expr_delta_pair> m_todo;
+    vector<expr_delta_pair> m_todo;
     bool                     m_contains;
     unsigned                 m_window;
 

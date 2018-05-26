@@ -96,7 +96,7 @@ namespace smt {
     const literal true_literal(true_bool_var, false); 
     const literal false_literal(true_bool_var, true);
 
-    typedef svector<literal> literal_vector;
+    typedef vector<literal> literal_vector;
     typedef buffer<literal> literal_buffer;
     std::ostream & operator<<(std::ostream & out, literal l);
     std::ostream & operator<<(std::ostream & out, const literal_vector & v);

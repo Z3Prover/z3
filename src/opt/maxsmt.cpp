@@ -331,7 +331,7 @@ namespace opt {
         m_upper = r;
     }    
 
-    void maxsmt::get_model(model_ref& mdl, svector<symbol>& labels) {
+    void maxsmt::get_model(model_ref& mdl, vector<symbol>& labels) {
         mdl = m_model.get();
         labels = m_labels;
     }
@@ -454,7 +454,7 @@ namespace opt {
         }
         lbool r = maxsmt();
         if (r == l_true) {
-            svector<symbol> labels;
+            vector<symbol> labels;
             maxsmt.get_model(m_model, labels);
             // TBD: is m_fm applied or not?
             unsigned j = 0;

@@ -306,7 +306,7 @@ class horn_tactic : public tactic {
             m_free_vars.set_default_sort(m.mk_bool_sort());
             if (!m_free_vars.empty()) {
                 m_free_vars.reverse();
-                svector<symbol> names;
+                vector<symbol> names;
                 for (unsigned i = 0; i < m_free_vars.size(); ++i) {
                     names.push_back(symbol(m_free_vars.size() - i - 1));
                 }

@@ -35,7 +35,7 @@ public:
     typedef unsigned_vector assumption_vector;
     typedef unsigned constraint_id;
     typedef numeral_buffer<mpz, numeral_manager> mpz_buffer;
-    typedef svector<double> double_vector;
+    typedef vector<double> double_vector;
     static const assumption null_assumption = UINT_MAX;
     static const var null_var = UINT_MAX;
     static const unsigned null_constraint_idx = UINT_MAX;
@@ -97,8 +97,8 @@ protected:
     };
 
     typedef ptr_vector<bound>       var2bound;
-    typedef svector<var>            var_vector;
-    typedef svector<constraint>     constraint_vector;
+    typedef vector<var>            var_vector;
+    typedef vector<constraint>     constraint_vector;
     typedef unsigned_vector         c_idx_vector;
     typedef c_idx_vector            wlist;
     typedef small_object_allocator  allocator;
@@ -113,7 +113,7 @@ protected:
     var2bound           m_lowers;
     var2bound           m_uppers;
     vector<wlist>       m_watches;
-    svector<trail_info> m_trail;
+    vector<trail_info> m_trail;
     unsigned            m_qhead;
     c_idx_vector        m_reinit_stack;
     unsigned_vector     m_lower_refinements;  // number of times a lower bound was propagated for each variable (loop prevention)
@@ -130,7 +130,7 @@ protected:
         unsigned       m_in_conflict:1;
     };
 
-    svector<scope>     m_scopes;
+    vector<scope>     m_scopes;
 
     unsigned_vector    m_to_reset_ts; // temp field: ids of the constraints we must reset the field m_timestamp
 
@@ -165,7 +165,7 @@ protected:
     void undo_trail(unsigned old_sz);
 
     typedef std::pair<var, bound *> var_bound;
-    svector<var_bound> m_todo;
+    vector<var_bound> m_todo;
     void explain(var x, bound * b, unsigned ts, assumption_vector & ex) const;
     bool is_a_i_pos(linear_equation const & eq, var x) const;
 
@@ -243,7 +243,7 @@ public:
     unsigned trail_size() const { return m_trail.size(); }
     unsigned qhead() const { return m_qhead; }
 
-    typedef svector<trail_info>::const_iterator trail_iterator;
+    typedef vector<trail_info>::const_iterator trail_iterator;
 
     trail_iterator begin_trail() const { return m_trail.begin(); }
     trail_iterator end_trail() const { return m_trail.end(); }

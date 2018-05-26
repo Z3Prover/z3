@@ -677,7 +677,7 @@ namespace smt {
 
     class datatype_value_proc : public model_value_proc {
         func_decl *                     m_constructor;
-        svector<model_value_dependency> m_dependencies;
+        vector<model_value_dependency> m_dependencies;
     public:
         datatype_value_proc(func_decl * d):m_constructor(d) {}
         void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }

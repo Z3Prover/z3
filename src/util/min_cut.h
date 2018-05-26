@@ -44,9 +44,9 @@ public:
     
 private:
 
-    typedef svector<bool> bool_vector;
+    typedef vector<bool> bool_vector;
     struct edge { unsigned node; unsigned weight; edge(unsigned n, unsigned w): node(n), weight(w) {} edge(): node(0), weight(0) {} };
-    typedef svector<edge> edge_vector;
+    typedef vector<edge> edge_vector;
         
     vector<edge_vector> m_edges; // map from node to all outgoing edges together with their weights (also contains "reverse edges")
     unsigned_vector m_d;    // approximation of distance from node to sink in residual graph

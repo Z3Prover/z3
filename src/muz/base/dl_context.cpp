@@ -61,7 +61,7 @@ namespace datalog {
 
     class context::symbol_sort_domain : public sort_domain {
         typedef map<symbol,       finite_element,   symbol_hash_proc, symbol_eq_proc> sym2num;
-        typedef svector<symbol> num2sym;
+        typedef vector<symbol> num2sym;
 
         sym2num m_el_numbers;
         num2sym m_el_names;
@@ -104,7 +104,7 @@ namespace datalog {
 
     class context::uint64_sort_domain : public sort_domain {
         typedef map<uint64_t,     finite_element,   uint64_hash, default_eq<uint64_t> > el2num;
-        typedef svector<uint64_t> num2el;
+        typedef vector<uint64_t> num2el;
 
         el2num m_el_numbers;
         num2el m_el_names;
@@ -413,7 +413,7 @@ namespace datalog {
         return res;
     }
 
-    void context::set_argument_names(const func_decl * pred, const svector<symbol> & var_names)
+    void context::set_argument_names(const func_decl * pred, const vector<symbol> & var_names)
     {
         SASSERT(!m_argument_var_names.contains(pred));
         m_argument_var_names.insert(pred, var_names);
@@ -934,7 +934,7 @@ namespace datalog {
         m_engine->get_rules_along_trace (rules);
     }
 
-    void context::get_rules_along_trace_as_formulas (expr_ref_vector& rules, svector<symbol>& names) {
+    void context::get_rules_along_trace_as_formulas (expr_ref_vector& rules, vector<symbol>& names) {
         rule_manager& rm = get_rule_manager ();
         rule_ref_vector rv (rm);
         get_rules_along_trace (rv);
@@ -1016,7 +1016,7 @@ namespace datalog {
         }
     }
 
-    void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names, unsigned_vector &bounds) {
+    void context::get_raw_rule_formulas(expr_ref_vector& rules, vector<symbol>& names, unsigned_vector &bounds) {
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
             expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
             rules.push_back(r.get());
@@ -1025,7 +1025,7 @@ namespace datalog {
         }
     }
 
-    void context::get_rules_as_formulas(expr_ref_vector& rules, expr_ref_vector& queries, svector<symbol>& names) {
+    void context::get_rules_as_formulas(expr_ref_vector& rules, expr_ref_vector& queries, vector<symbol>& names) {
         expr_ref fml(m);
         rule_manager& rm = get_rule_manager();
 
@@ -1099,7 +1099,7 @@ namespace datalog {
         expr* const* axioms = m_background.c_ptr();
         expr_ref fml(m);
         expr_ref_vector rules(m), queries(m);
-        svector<symbol> names;
+        vector<symbol> names;
         bool use_fixedpoint_extensions = m_params->print_fixedpoint_extensions();
         bool print_low_level = m_params->print_low_level_smt2();
         bool do_declare_vars = m_params->print_with_variable_declarations();

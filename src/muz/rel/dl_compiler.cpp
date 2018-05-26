@@ -266,7 +266,7 @@ namespace datalog {
         rule* compiled_rule, 
         func_decl* head_pred, 
         reg_idx    src, 
-        const svector<assembling_column_info> & acis0,
+        const vector<assembling_column_info> & acis0,
         reg_idx &           result, 
         bool & dealloc,
         instruction_block & acc) {
@@ -287,7 +287,7 @@ namespace datalog {
         }
         unsigned src_col_cnt=curr_sig->size();
 
-        svector<assembling_column_info> acis(acis0);
+        vector<assembling_column_info> acis(acis0);
         int2int handled_unbound;
 
         //first remove unused source columns
@@ -812,7 +812,7 @@ namespace datalog {
         {
             //put together the columns of head relation
             relation_signature & head_sig = m_reg_signatures[head_reg];
-            svector<assembling_column_info> head_acis;
+            vector<assembling_column_info> head_acis;
             unsigned_vector head_src_cols;
             for(unsigned i=0; i<head_len; i++) {
                 assembling_column_info aci;
@@ -910,12 +910,12 @@ namespace datalog {
     void compiler::compile_rule_evaluation(rule * r, const pred2idx * input_deltas,
             reg_idx output_delta, bool use_widening, instruction_block & acc) {
         typedef std::pair<reg_idx, unsigned> tail_delta_info; //(delta register, tail index)
-        typedef svector<tail_delta_info> tail_delta_infos;
+        typedef vector<tail_delta_info> tail_delta_infos;
 
         unsigned rule_len = r->get_uninterpreted_tail_size();
         reg_idx head_reg = m_pred_regs.find(r->get_decl());
 
-        svector<reg_idx> tail_regs;
+        vector<reg_idx> tail_regs;
         tail_delta_infos tail_deltas;
         for(unsigned j=0;j<rule_len;j++) {
             func_decl * tail_pred = r->get_tail(j)->get_decl();
@@ -951,7 +951,7 @@ namespace datalog {
 
         rule_dependencies & m_deps;
         item_set & m_removed;
-        svector<T> m_stack;
+        vector<T> m_stack;
         ast_mark m_stack_content;
         ast_mark m_visited;
 
@@ -1113,7 +1113,7 @@ namespace datalog {
         //deltas generated earlier in the same iteration.
         compile_preds(head_preds, widened_preds, &all_tail_deltas, all_head_deltas, *loop_body);
 
-        svector<reg_idx> loop_control_regs; //loop is controlled by global src regs
+        vector<reg_idx> loop_control_regs; //loop is controlled by global src regs
         collect_map_range(loop_control_regs, global_tail_deltas);
         //move target deltas into source deltas at the end of the loop
         //and clear local deltas

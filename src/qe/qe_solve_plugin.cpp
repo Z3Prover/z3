@@ -44,7 +44,7 @@ namespace qe {
          *\brief
          *   return r * (sum_{(sign,e) \in exprs} sign * e)
          */
-        expr_ref mk_term(bool is_int, rational const& r, bool sign, svector<signed_expr> const& exprs) {
+        expr_ref mk_term(bool is_int, rational const& r, bool sign, vector<signed_expr> const& exprs) {
             expr_ref_vector result(m);
             for (auto const& kv : exprs) {
                 bool sign2 = kv.first;
@@ -72,7 +72,7 @@ namespace qe {
             }
             rational a_val;
             bool is_int = a.is_int(lhs);
-            svector<signed_expr> todo, done;
+            vector<signed_expr> todo, done;
             todo.push_back(std::make_pair(true,  lhs));
             todo.push_back(std::make_pair(false, rhs));
             while (!todo.empty()) {

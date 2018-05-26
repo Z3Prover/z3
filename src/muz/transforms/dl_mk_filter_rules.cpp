@@ -106,7 +106,7 @@ namespace datalog {
         m_current = r;
         app * new_head = r->get_head();
         app_ref_vector new_tail(m);
-        svector<bool>  new_is_negated;
+        vector<bool>  new_is_negated;
         unsigned sz = r->get_tail_size();
         bool rule_modified = false;
         for (unsigned i = 0; i < sz; i++) {

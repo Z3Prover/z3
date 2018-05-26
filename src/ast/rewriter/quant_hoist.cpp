@@ -82,7 +82,7 @@ public:
         result = instantiate(m, q, exprs);
     }
 
-    unsigned pull_quantifier(bool _is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh, bool rewrite_ok) {
+    unsigned pull_quantifier(bool _is_forall, expr_ref& fml, ptr_vector<sort>* sorts, vector<symbol>* names, bool use_fresh, bool rewrite_ok) {
         unsigned index = var_counter().get_next_var(fml);
         while (is_quantifier(fml) && _is_forall == is_forall(fml)) {
             quantifier* q = to_quantifier(fml);
@@ -105,7 +105,7 @@ public:
         }
         // replace vars by de-bruijn indices
         expr_safe_replace rep(m);
-        svector<symbol> bound_names;
+        vector<symbol> bound_names;
         ptr_vector<sort> bound_sorts;
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* v = vars[i].get();
@@ -323,6 +323,6 @@ void quantifier_hoister::pull_quantifier(bool is_forall, expr_ref& fml, app_ref_
     m_impl->pull_quantifier(is_forall, fml, vars, use_fresh, rewrite_ok);
 }
 
-unsigned quantifier_hoister::pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh, bool rewrite_ok) {
+unsigned quantifier_hoister::pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, vector<symbol>* names, bool use_fresh, bool rewrite_ok) {
     return m_impl->pull_quantifier(is_forall, fml, sorts, names, use_fresh, rewrite_ok);
 }

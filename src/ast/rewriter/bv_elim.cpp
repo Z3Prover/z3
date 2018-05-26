@@ -18,7 +18,7 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
                                 proof_ref & result_pr) {
 
 
-    svector<symbol>  names, _names;
+    vector<symbol>  names, _names;
     sort_ref_buffer  sorts(m), _sorts(m);
     expr_ref_buffer  pats(m);
     expr_ref_buffer  no_pats(m);

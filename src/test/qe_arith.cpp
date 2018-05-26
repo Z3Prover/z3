@@ -255,7 +255,7 @@ static void test2(char const *ex) {
     expr_ref pr1(m), pr2(m), fml2(m);
     expr_ref_vector bound(m);
     ptr_vector<sort> sorts;
-    svector<symbol> names;
+    vector<symbol> names;
     for (unsigned i = 0; i < vars.size(); ++i) {
         bound.push_back(vars[i].get());
         names.push_back(vars[i]->get_decl()->get_name());
@@ -310,7 +310,7 @@ static void add_random_ineq(
     expr_ref_vector& fmls, 
     opt::model_based_opt& mbo,
     random_gen& r,
-    svector<int>  const& values,
+    vector<int>  const& values,
     unsigned max_vars,
     unsigned max_coeff) 
 {
@@ -402,7 +402,7 @@ static void check_random_ineqs(random_gen& r, ast_manager& m, unsigned num_vars,
     opt::model_based_opt mbo;
     expr_ref_vector fmls(m);
 
-    svector<int> values;
+    vector<int> values;
     for (unsigned i = 0; i < num_vars; ++i) {
         values.push_back(r(max_value + 1));
         mbo.add_var(rational(values.back()));

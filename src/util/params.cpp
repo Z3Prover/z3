@@ -69,7 +69,7 @@ struct param_descrs::imp {
     };
 
     dictionary<info> m_info;
-    svector<symbol> m_names;
+    vector<symbol> m_names;
 
     void insert(symbol const & name, param_kind k, char const * descr, char const * def, char const* module) {
         SASSERT(!name.is_numerical());
@@ -102,7 +102,7 @@ struct param_descrs::imp {
         char const* str = name.bare_str();
         char const* period = strchr(str,'.');
         if (!period) return false;
-        svector<char> prefix_((unsigned)(period-str), str);
+        vector<char> prefix_((unsigned)(period-str), str);
         prefix_.push_back(0);
         prefix = symbol(prefix_.c_ptr());
         suffix = symbol(period + 1);
@@ -160,7 +160,7 @@ struct param_descrs::imp {
     };
 
     void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
-        svector<symbol> names;
+        vector<symbol> names;
         for (auto const& kv : m_info) {
             names.push_back(kv.m_key);
         }
@@ -323,7 +323,7 @@ class params {
         };
     };
     typedef std::pair<symbol, value> entry;
-    svector<entry> m_entries;
+    vector<entry> m_entries;
     unsigned       m_ref_count;
     void del_value(entry & e);
     void del_values();
@@ -754,16 +754,16 @@ void params::del_value(entry & e) {
 }
 
 #define TRAVERSE_ENTRIES(CODE) {                        \
-    svector<entry>::iterator it  = m_entries.begin();   \
-    svector<entry>::iterator end = m_entries.end();     \
+    vector<entry>::iterator it  = m_entries.begin();   \
+    vector<entry>::iterator end = m_entries.end();     \
     for (; it != end; ++it) {                           \
         CODE                                            \
     }                                                   \
 }
 
 #define TRAVERSE_CONST_ENTRIES(CODE) {                          \
-    svector<entry>::const_iterator it  = m_entries.begin();     \
-    svector<entry>::const_iterator end = m_entries.end();       \
+    vector<entry>::const_iterator it  = m_entries.begin();     \
+    vector<entry>::const_iterator end = m_entries.end();       \
     for (; it != end; ++it) {                                   \
         CODE                                                    \
     }                                                           \
@@ -798,7 +798,7 @@ void params::reset() {
 #define RESET(k) {                              \
     if (empty()) return;                        \
     TRAVERSE_ENTRIES(if (it->first == k) {      \
-        svector<entry>::iterator it2 = it;      \
+        vector<entry>::iterator it2 = it;      \
         del_value(*it2);                        \
         ++it;                                   \
         for (; it != end; ++it, ++it2) {        \

@@ -1907,7 +1907,7 @@ namespace algebraic_numbers {
                 return compare(a.to_algebraic(), b) > 0;
         }
 
-        void get_polynomial(numeral const & a, svector<mpz> & r) {
+        void get_polynomial(numeral const & a, vector<mpz> & r) {
             if (a.is_basic()) {
                 r.reserve(2);
                 if (is_zero(a)) {
@@ -2570,7 +2570,7 @@ namespace algebraic_numbers {
 
 #define DEFAULT_PRECISION 2
 
-        void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<int> & signs) {
+        void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, vector<int> & signs) {
             isolate_roots(p, x2v, roots);
             unsigned num_roots = roots.size();
             if (num_roots == 0) {
@@ -2881,7 +2881,7 @@ namespace algebraic_numbers {
         m_imp->isolate_roots(p, x2v, roots);
     }
 
-    void manager::isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<int> & signs) {
+    void manager::isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, vector<int> & signs) {
         m_imp->isolate_roots(p, x2v, roots, signs);
     }
 
@@ -2981,7 +2981,7 @@ namespace algebraic_numbers {
         return gt(const_cast<numeral&>(a), _b);
     }
 
-    void manager::get_polynomial(numeral const & a, svector<mpz> & r) {
+    void manager::get_polynomial(numeral const & a, vector<mpz> & r) {
         m_imp->get_polynomial(a, r);
     }
 

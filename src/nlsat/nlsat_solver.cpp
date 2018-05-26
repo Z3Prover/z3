@@ -80,7 +80,7 @@ namespace nlsat {
         interval_set_manager & m_ism;
         ineq_atom_table        m_ineq_atoms;
         root_atom_table        m_root_atoms;
-        svector<bool_var>      m_patch_var;
+        vector<bool_var>      m_patch_var;
         polynomial_ref_vector  m_patch_num, m_patch_denom;
         
         id_gen                 m_cid_gen;
@@ -89,14 +89,14 @@ namespace nlsat {
 
         unsigned               m_num_bool_vars;
         atom_vector            m_atoms;        // bool_var -> atom
-        svector<lbool>         m_bvalues;      // boolean assignment
+        vector<lbool>         m_bvalues;      // boolean assignment
         unsigned_vector        m_levels;       // bool_var -> level
-        svector<justification> m_justifications;
+        vector<justification> m_justifications;
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
-        svector<bool>          m_dead;         // mark dead boolean variables
+        vector<bool>          m_dead;         // mark dead boolean variables
         id_gen                 m_bid_gen;
 
-        svector<bool>          m_is_int;     // m_is_int[x] is true if variable is integer
+        vector<bool>          m_is_int;     // m_is_int[x] is true if variable is integer
         vector<clause_vector>  m_watches;    // var -> clauses where variable is maximal
         interval_set_vector    m_infeasible; // var -> to a set of interval where the variable cannot be assigned to.
         atom_vector            m_var2eq;     // var -> to asserted equality
@@ -142,7 +142,7 @@ namespace nlsat {
             trail(bool stage):m_kind(stage ? NEW_STAGE : NEW_LEVEL) {}
             trail(atom * a):m_kind(UPDT_EQ), m_old_eq(a) {}
         };
-        svector<trail>         m_trail;
+        vector<trail>         m_trail;
 
         anum                   m_zero;
 
@@ -433,7 +433,7 @@ namespace nlsat {
             return x;
         }
 
-        svector<bool> m_found_vars;
+        vector<bool> m_found_vars;
         void vars(literal l, var_vector& vs) {                
             vs.reset();
             atom * a = m_atoms[l.var()];
@@ -821,9 +821,9 @@ namespace nlsat {
         }
         
         struct size_pred {
-            svector<trail> & m_trail;
+            vector<trail> & m_trail;
             unsigned         m_old_size;
-            size_pred(svector<trail> & trail, unsigned old_size):m_trail(trail), m_old_size(old_size) {}
+            size_pred(vector<trail> & trail, unsigned old_size):m_trail(trail), m_old_size(old_size) {}
             bool operator()() const { return m_trail.size() > m_old_size; }
         };
         
@@ -859,8 +859,8 @@ namespace nlsat {
 
         struct unassigned_pred {
             bool_var               m_b;
-            svector<lbool> const & m_bvalues;
-            unassigned_pred(svector<lbool> const & bvalues, bool_var b):
+            vector<lbool> const & m_bvalues;
+            unassigned_pred(vector<lbool> const & bvalues, bool_var b):
                 m_b(b),
                 m_bvalues(bvalues) {}
             bool operator()() const { return m_bvalues[m_b] != l_undef; }
@@ -1431,7 +1431,7 @@ namespace nlsat {
         // Conflict Resolution
         //
         // -----------------------
-        svector<char>          m_marks;        // bool_var -> bool  temp mark used during conflict resolution
+        vector<char>          m_marks;        // bool_var -> bool  temp mark used during conflict resolution
         unsigned               m_num_marks;
         scoped_literal_vector  m_lemma;
         scoped_literal_vector  m_lazy_clause;
@@ -2067,7 +2067,7 @@ namespace nlsat {
                 new_inv_perm[ext_x] = p[m_inv_perm[ext_x]];
                 m_perm.set(new_inv_perm[ext_x], ext_x);
             }
-            svector<bool> is_int;
+            vector<bool> is_int;
             is_int.swap(m_is_int);
             for (var x = 0; x < sz; x++) {
                 m_is_int.setx(p[x], is_int[x], false);
@@ -2361,7 +2361,7 @@ namespace nlsat {
             polynomial_ref pr(m_pm);
             polynomial_ref_vector ps(m_pm);
             u_map<literal> b2l;
-            svector<bool> even;
+            vector<bool> even;
             unsigned num_atoms = m_atoms.size();
             for (unsigned j = 0; j < num_atoms; ++j) {
                 atom* a = m_atoms[j];
@@ -2496,7 +2496,7 @@ namespace nlsat {
             return sz == 1 && a.is_odd(0) && (p = a.p(0), true);
         }
 
-        svector<lbool> m_var_signs;
+        vector<lbool> m_var_signs;
 
         void init_var_signs() {
             m_var_signs.reset();
@@ -3167,7 +3167,7 @@ namespace nlsat {
         as.copy(m_imp->m_assignment);
     }
 
-    void solver::get_bvalues(svector<lbool>& vs) {
+    void solver::get_bvalues(vector<lbool>& vs) {
         vs.reset();
         unsigned sz = m_imp->m_bvalues.size();
         for (bool_var b = 0; b < sz; ++b) {
@@ -3181,7 +3181,7 @@ namespace nlsat {
         TRACE("nlsat", display(tout););
     }
 
-    void solver::set_bvalues(svector<lbool> const& vs) {
+    void solver::set_bvalues(vector<lbool> const& vs) {
         TRACE("nlsat", display(tout););
         m_imp->m_bvalues.reset();
         m_imp->m_bvalues.append(vs);

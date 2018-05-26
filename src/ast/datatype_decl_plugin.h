@@ -208,7 +208,7 @@ namespace datatype {
             map<symbol, def*, symbol_hash_proc, symbol_eq_proc> m_defs; 
             map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> m_axiom_bases;
             unsigned                 m_id_counter;
-            svector<symbol>          m_def_block;
+            vector<symbol>           m_def_block;
             unsigned                 m_class_id;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
@@ -236,7 +236,7 @@ namespace datatype {
         
             bool is_unique_value(app * e) const override { return is_value(e); }
         
-            void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+            void get_op_names(vector<builtin_name> & op_names, symbol const & logic) override;
                 
             void begin_def_block() { m_class_id++; m_def_block.reset(); }
 
@@ -311,7 +311,7 @@ namespace datatype {
 
         bool is_recursive_core(sort * s) const;
         sort_size get_datatype_size(sort* s0);
-        void compute_datatype_size_functions(svector<symbol> const& names);
+        void compute_datatype_size_functions(vector<symbol> const& names);
         param_size::size* get_sort_size(sort_ref_vector const& params, sort* s);
         bool is_well_founded(unsigned num_types, sort* const* sorts);
         def& get_def(symbol const& s) { return m_plugin->get_def(s); }
@@ -369,7 +369,7 @@ namespace datatype {
                                   func_decl_ref& hd, func_decl_ref& tl, 
                                   func_decl_ref& nil, func_decl_ref& is_nil);
         sort_ref mk_pair_datatype(sort* a, sort* b, func_decl_ref& fst, func_decl_ref& snd, func_decl_ref& pair);
-        sort_ref mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs);
+        sort_ref mk_tuple_datatype(vector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs);
     };
 
 };

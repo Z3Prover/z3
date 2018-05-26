@@ -35,7 +35,7 @@ namespace sat {
         random_gen  m_rand;
 
 
-        svector<bool_var> m_vars;
+        vector<bool_var> m_vars;
         unsigned_vector   m_mark;
         unsigned          m_mark_lim;
         unsigned_vector   m_var2index;

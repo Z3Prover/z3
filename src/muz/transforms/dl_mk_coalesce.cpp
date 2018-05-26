@@ -64,7 +64,7 @@ namespace datalog {
         expr_ref_vector revsub(m), conjs(m);
         rl.get_vars(m, sorts);
         revsub.resize(sorts.size());  
-        svector<bool> valid(sorts.size(), true);
+        vector<bool> valid(sorts.size(), true);
         for (unsigned i = 0; i < sub.size(); ++i) {
             expr* e = sub[i];
             sort* s = m.get_sort(e);
@@ -116,7 +116,7 @@ namespace datalog {
         expr_ref_vector conjs1(m), conjs(m);
         rule_ref res(rm);
         bool_rewriter bwr(m);
-        svector<bool> is_neg;
+        vector<bool> is_neg;
         tgt->get_vars(m, sorts1);
         src.get_vars(m, sorts2);
 
@@ -144,7 +144,7 @@ namespace datalog {
             expr* args[3] = { m.mk_asserted(fml1), m.mk_asserted(fml2), fml };
             // ...m_pc->insert(m.mk_app(merge, 3, args));
 #else
-            svector<std::pair<unsigned, unsigned> > pos;
+            vector<std::pair<unsigned, unsigned> > pos;
             vector<expr_ref_vector> substs;
             proof* p = src.get_proof();
             p = m.mk_hyper_resolve(1, &p, fml, pos, substs);

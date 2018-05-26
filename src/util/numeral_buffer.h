@@ -24,7 +24,7 @@ Revision History:
 template<typename Numeral, typename NumeralManager>
 class numeral_buffer {
     NumeralManager &  m_manager;
-    svector<Numeral>  m_buffer;
+    vector<Numeral>  m_buffer;
 public:
     typedef Numeral numeral;
     typedef Numeral data;
@@ -82,7 +82,7 @@ public:
         m_buffer.reserve(sz);
     }
 
-    void swap(svector<Numeral> & other) {
+    void swap(vector<Numeral> & other) {
         m_buffer.swap(other);
     }
 

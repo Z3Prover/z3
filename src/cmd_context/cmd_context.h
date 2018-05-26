@@ -218,9 +218,9 @@ protected:
     dictionary<macro_decls>      m_macros;
     // the following fields m_func_decls_stack, m_psort_decls_stack and m_exprs_stack are used when m_global_decls == false
     typedef std::pair<symbol, func_decl *> sf_pair;
-    svector<sf_pair>             m_func_decls_stack;
-    svector<symbol>              m_psort_decls_stack;
-    svector<symbol>              m_macros_stack;
+    vector<sf_pair>             m_func_decls_stack;
+    vector<symbol>              m_psort_decls_stack;
+    vector<symbol>              m_macros_stack;
     ptr_vector<pdecl>            m_psort_inst_stack;
 
     //
@@ -239,7 +239,7 @@ protected:
         unsigned m_assertions_lim;
     };
 
-    svector<scope>               m_scopes;
+    vector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
     ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
@@ -267,7 +267,7 @@ protected:
 
     void register_builtin_sorts(decl_plugin * p);
     void register_builtin_ops(decl_plugin * p);
-    void load_plugin(symbol const & name, bool install_names, svector<family_id>& fids);
+    void load_plugin(symbol const & name, bool install_names, vector<family_id>& fids);
     void init_manager_core(bool new_manager);
     void init_manager();
     void init_external_manager();
@@ -384,8 +384,8 @@ public:
     void insert_aux_pdecl(pdecl * p);
     void model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t);
     void model_del(func_decl* f);
-    void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
-    void insert_rec_fun_as_axiom(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
+    void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, vector<symbol> const& ids, expr* e);
+    void insert_rec_fun_as_axiom(func_decl* f, expr_ref_vector const& binding, vector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                unsigned arity, sort * const * domain, sort * range) const;

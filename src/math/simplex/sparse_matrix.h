@@ -101,7 +101,7 @@ namespace simplex {
             void del_row_entry(unsigned idx);
             void compress(manager& m, vector<column> & cols); 
             void compress_if_needed(manager& _m, vector<column> & cols);
-            void save_var_pos(svector<int> & result_map, unsigned_vector& idxs) const;
+            void save_var_pos(vector<int> & result_map, unsigned_vector& idxs) const;
             //bool is_coeff_of(var_t v, numeral const & expected) const;
             int get_idx_of(var_t v) const;
         };
@@ -112,7 +112,7 @@ namespace simplex {
            is a reference to the first free/dead entry.
         */
         struct column {
-            svector<col_entry> m_entries;
+            vector<col_entry> m_entries;
             unsigned           m_size; 
             int                m_first_free_idx;
             mutable unsigned   m_refs;
@@ -131,9 +131,9 @@ namespace simplex {
 
         manager&                m;
         vector<_row>            m_rows;
-        svector<unsigned>       m_dead_rows;        // rows to recycle
+        vector<unsigned>       m_dead_rows;        // rows to recycle
         vector<column>          m_columns;          // per var
-        svector<int>            m_var_pos;          // temporary map from variables to positions in row
+        vector<int>            m_var_pos;          // temporary map from variables to positions in row
         unsigned_vector         m_var_pos_idx;      // indices in m_var_pos
         stats                   m_stats;
 

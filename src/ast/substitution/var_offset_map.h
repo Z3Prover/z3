@@ -34,7 +34,7 @@ protected:
         data():m_timestamp(0) {}
     };
     
-    svector<data>           m_map;
+    vector<data>           m_map;
     unsigned                m_num_offsets;
     unsigned                m_num_vars;
     unsigned                m_timestamp;
@@ -49,8 +49,8 @@ public:
     void reset() {
         m_timestamp++;
         if (m_timestamp == UINT_MAX) {
-            typename svector<data>::iterator it  = m_map.begin();
-            typename svector<data>::iterator end = m_map.end();
+            typename vector<data>::iterator it  = m_map.begin();
+            typename vector<data>::iterator end = m_map.end();
             for (; it != end; ++it)
                 it->m_timestamp = 0;
             m_timestamp = 1;

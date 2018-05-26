@@ -33,12 +33,12 @@ namespace smt {
         typedef typename Ext::fin_numeral fin_numeral;
 
         // Store the parent of a node i in the spanning tree
-        svector<node_id> m_pred;
+        vector<node_id> m_pred;
         // Store the number of edge on the path from node i to the root
-        svector<int> m_depth;
-        svector<node_id> m_thread;           // Store the pointer from node i to the next node in depth-first search order
+        vector<int> m_depth;
+        vector<node_id> m_thread;           // Store the pointer from node i to the next node in depth-first search order
 
-        svector<edge_id> m_tree;          // i |-> edge between (i, m_pred[i])
+        vector<edge_id> m_tree;          // i |-> edge between (i, m_pred[i])
 
         node_id m_root_t2;
 
@@ -56,11 +56,11 @@ namespace smt {
     public:      
         thread_spanning_tree(graph & g);
 
-        virtual void initialize(svector<edge_id> const & tree);
-        void get_descendants(node_id start, svector<node_id> & descendants);
+        virtual void initialize(vector<edge_id> const & tree);
+        void get_descendants(node_id start, vector<node_id> & descendants);
         
         virtual void update(edge_id enter_id, edge_id leave_id);                
-        void get_path(node_id start, node_id end, svector<edge_id> & path, svector<bool> & against);              
+        void get_path(node_id start, node_id end, vector<edge_id> & path, vector<bool> & against);              
         bool in_subtree_t2(node_id child);
 
         bool check_well_formed();        
@@ -73,7 +73,7 @@ namespace smt {
 
     public:
         basic_spanning_tree(graph & g);
-        void initialize(svector<edge_id> const & tree);
+        void initialize(vector<edge_id> const & tree);
         void update(edge_id enter_id, edge_id leave_id);
     };
 

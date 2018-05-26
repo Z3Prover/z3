@@ -44,7 +44,7 @@ namespace sat {
     class model_converter {
         
     public:
-        typedef svector<std::pair<unsigned, literal>> elim_stackv;
+        typedef vector<std::pair<unsigned, literal>> elim_stackv;
 
 
         class elim_stack {

@@ -62,7 +62,7 @@ public:
     virtual std::string reason_unknown() const = 0;
     virtual void set_reason_unknown(char const* msg) = 0;
     void set_reason_unknown(event_handler& eh);
-    virtual void get_labels(svector<symbol> & r) = 0;
+    virtual void get_labels(vector<symbol> & r) = 0;
     virtual ast_manager& get_manager() const = 0;
 
 };
@@ -86,7 +86,7 @@ struct simple_check_sat_result : public check_sat_result {
     void get_model_core(model_ref & m) override;
     proof * get_proof() override;
     std::string reason_unknown() const override;
-    void get_labels(svector<symbol> & r) override;
+    void get_labels(vector<symbol> & r) override;
     void set_reason_unknown(char const* msg) override { m_unknown = msg; }
 };
 

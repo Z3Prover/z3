@@ -77,7 +77,7 @@ namespace smt {
             instance(quantifier * q, unsigned offset, expr* def, unsigned gen):m_q(q), m_generation(gen), m_def(def), m_bindings_offset(offset) {}
         };
 
-        svector<instance>                          m_new_instances;
+        vector<instance>                           m_new_instances;
         expr_ref_vector                            m_pinned_exprs;
         bool add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv);
         void reset_new_instances();

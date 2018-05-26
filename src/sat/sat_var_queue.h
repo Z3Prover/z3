@@ -26,13 +26,13 @@ namespace sat {
     
     class var_queue {
         struct lt {
-            svector<unsigned> & m_activity;
-            lt(svector<unsigned> & act):m_activity(act) {}
+            vector<unsigned> & m_activity;
+            lt(vector<unsigned> & act):m_activity(act) {}
             bool operator()(bool_var v1, bool_var v2) const { return m_activity[v1] > m_activity[v2]; }
         };
         heap<lt>  m_queue;
     public:
-        var_queue(svector<unsigned> & act):m_queue(128, lt(act)) {}
+        var_queue(vector<unsigned> & act):m_queue(128, lt(act)) {}
         
         void activity_increased_eh(bool_var v) {
             if (m_queue.contains(v))

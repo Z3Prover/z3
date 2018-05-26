@@ -54,17 +54,18 @@ Notes:
 
     template <typename Ext>
     class sorting_network {
-        typedef typename Ext::vector vect;
+        using vector_type = typename Ext::vector_type;
+        using size_type = typename vector_type::size_type;
         Ext&               m_ext;
-        svector<unsigned>  m_currentv;
-        svector<unsigned>  m_nextv;
-        svector<unsigned>* m_current;
-        svector<unsigned>* m_next;
+        vector<size_type>  m_currentv;
+        vector<size_type>  m_nextv;
+        vector<size_type>* m_current;
+        vector<size_type>* m_next;
 
-        unsigned& current(unsigned i) { return (*m_current)[i]; }
-        unsigned& next(unsigned i) { return (*m_next)[i]; }
+        size_type& current(size_type i) { return (*m_current)[i]; }
+        size_type& next(size_type i) { return (*m_next)[i]; }
        
-        void exchange(unsigned i, unsigned j, vect& out) {
+        void exchange(size_type i, size_type j, vector_type& out) {
             SASSERT(i <= j);
             if (i < j) {
                 typename Ext::T ei = out.get(i);
@@ -74,10 +75,10 @@ Notes:
             }
         }
         
-        void sort(unsigned k, vect& out) {
+        void sort(size_type k, vector_type& out) {
             SASSERT(is_power_of2(k) && k > 0);
             if (k == 2) {
-                for (unsigned i = 0; i < out.size()/2; ++i) {
+                for (size_type i = 0; i < out.size()/2; ++i) {
                     exchange(current(2*i), current(2*i+1), out);
                     next(2*i) = current(2*i);
                     next(2*i+1) = current(2*i+1);
@@ -86,9 +87,9 @@ Notes:
             }
             else {
                 
-                for (unsigned i = 0; i < out.size()/k; ++i) {
-                    unsigned ki = k * i;
-                    for (unsigned j = 0; j < k / 2; ++j) {
+                for (size_type i = 0; i < out.size()/k; ++i) {
+                    size_type ki = k * i;
+                    for (size_type j = 0; j < k / 2; ++j) {
                         next(ki + j) = current(ki + (2 * j));
                         next(ki + (k / 2) + j) = current(ki + (2 * j) + 1);
                     }
@@ -96,14 +97,14 @@ Notes:
                 
                 std::swap(m_current, m_next);
                 sort(k / 2, out);
-                for (unsigned i = 0; i < out.size() / k; ++i) {
-                    unsigned ki = k * i;
-                    for (unsigned j = 0; j < k / 2; ++j) {
+                for (size_type i = 0; i < out.size() / k; ++i) {
+                    size_type ki = k * i;
+                    for (size_type j = 0; j < k / 2; ++j) {
                         next(ki + (2 * j)) = current(ki + j);
                         next(ki + (2 * j) + 1) = current(ki + (k / 2) + j);
                     }
                     
-                    for (unsigned j = 0; j < (k / 2) - 1; ++j) {
+                    for (size_type j = 0; j < (k / 2) - 1; ++j) {
                         exchange(next(ki + (2 * j) + 1), next(ki + (2 * (j + 1))), out);
                     }
                 }
@@ -111,7 +112,7 @@ Notes:
             }
         }        
 
-        bool is_power_of2(unsigned n) const {
+        bool is_power_of2(size_type n) const {
             return n != 0 && ((n-1) & n) == 0;
         }
         
@@ -122,7 +123,7 @@ Notes:
             m_next(&m_nextv)
         {}
         
-        void operator()(vect const& in, vect& out) {
+        void operator()(vector_type const& in, vector_type& out) {
             out.reset();
             out.append(in);
             if (in.size() <= 1) {
@@ -131,11 +132,11 @@ Notes:
             while (!is_power_of2(out.size())) {
                 out.push_back(m_ext.mk_default());
             }
-            for (unsigned i = 0; i < out.size(); ++i) {
+            for (size_type i = 0; i < out.size(); ++i) {
                 m_currentv.push_back(i);
                 m_nextv.push_back(i);
             }
-            unsigned k = 2;
+            size_type k = 2;
             while (k <= out.size()) {
                 sort(k, out);
                 k *= 2;

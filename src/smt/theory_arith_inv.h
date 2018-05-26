@@ -42,8 +42,8 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::check_null_var_pos() const {
-        svector<int>::const_iterator it  = m_var_pos.begin();
-        svector<int>::const_iterator end = m_var_pos.end();
+        vector<int>::const_iterator it  = m_var_pos.begin();
+        vector<int>::const_iterator end = m_var_pos.end();
         for (; it != end; ++it) {
             SASSERT(*it == -1);
         }
@@ -125,8 +125,8 @@ namespace smt {
     bool theory_arith<Ext>::wf_column(theory_var v) const { 
         column const & c = m_columns[v];
         int i = 0;
-        typename svector<col_entry>::const_iterator it  = c.begin_entries();
-        typename svector<col_entry>::const_iterator end = c.end_entries();
+        typename vector<col_entry>::const_iterator it  = c.begin_entries();
+        typename vector<col_entry>::const_iterator end = c.end_entries();
         for (; it != end; ++it, ++i) {
             if (!it->is_dead()) {
                 row const & r = m_rows[it->m_row_id];

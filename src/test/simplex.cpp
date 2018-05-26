@@ -142,7 +142,7 @@ void tst_simplex() {
     unsynch_mpz_manager m;
     unsynch_mpq_inf_manager em;
     scoped_mpz_vector coeffs(m);
-    svector<unsigned> vars;
+    vector<unsigned> vars;
     for (unsigned i = 0; i < 5; ++i) {
         S.ensure_var(i);
         vars.push_back(i);

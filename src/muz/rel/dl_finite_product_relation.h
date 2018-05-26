@@ -36,10 +36,10 @@ namespace datalog {
     public:
         struct rel_spec {
             family_id m_inner_kind; //null_family_id means we don't care about the kind
-            svector<bool> m_table_cols;
+            vector<bool> m_table_cols;
 
             rel_spec() : m_inner_kind(null_family_id) {}
-            rel_spec(const svector<bool>& table_cols) 
+            rel_spec(const vector<bool>& table_cols) 
                 : m_inner_kind(null_family_id), m_table_cols(table_cols) {}
 
             bool operator==(const rel_spec & o) const {
@@ -47,7 +47,7 @@ namespace datalog {
             }
             struct hash {
                 unsigned operator()(const rel_spec & o) const {
-                    return o.m_inner_kind^svector_hash<bool_hash>()(o.m_table_cols);
+                    return o.m_inner_kind^vector_hash<bool_hash>()(o.m_table_cols);
                 }
             };
         };
@@ -74,8 +74,8 @@ namespace datalog {
         family_id get_relation_kind(finite_product_relation & r, const bool * table_columns);
 
         static void get_all_possible_table_columns(relation_manager & rmgr, const relation_signature & s, 
-            svector<bool> & table_columns);
-        void get_all_possible_table_columns(const relation_signature & s, svector<bool> & table_columns) {
+            vector<bool> & table_columns);
+        void get_all_possible_table_columns(const relation_signature & s, vector<bool> & table_columns) {
             get_all_possible_table_columns(get_manager(), s, table_columns);
         }
 

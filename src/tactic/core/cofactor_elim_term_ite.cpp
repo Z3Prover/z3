@@ -53,7 +53,7 @@ struct cofactor_elim_term_ite::imp {
         obj_hashtable<expr> m_candidates;
         expr_fast_mark1     m_processed;
         expr_fast_mark2     m_has_term_ite;
-        svector<frame>      m_frame_stack;
+        vector<frame>      m_frame_stack;
 
         analyzer(ast_manager & _m, imp & owner):m(_m), m_owner(owner) {}
         
@@ -493,7 +493,7 @@ struct cofactor_elim_term_ite::imp {
         obj_map<expr, expr*> m_cache;
         expr_ref_vector      m_cache_domain;
         obj_hashtable<expr>  m_has_term_ite;
-        svector<frame>       m_frames;
+        vector<frame>       m_frames;
         cofactor_rw          m_cofactor;
         
         bottom_up_elim(ast_manager & _m, imp & owner):

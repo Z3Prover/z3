@@ -80,7 +80,7 @@ void set_warning_stream(std::ostream* strm) {
 }
 
 void format2ostream(std::ostream & out, char const* msg, va_list args) {
-    svector<char>  buff;
+    vector<char>  buff;
     BEGIN_ERR_HANDLER();
 
     va_list args_copy;

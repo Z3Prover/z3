@@ -352,7 +352,7 @@ public:
         m_solver2->set_reason_unknown(msg);
     }
 
-    void get_labels(svector<symbol> & r) override {
+    void get_labels(vector<symbol> & r) override {
         if (m_use_solver1_results)
             return m_solver1->get_labels(r);
         else

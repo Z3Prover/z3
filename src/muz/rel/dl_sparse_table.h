@@ -114,7 +114,7 @@ namespace datalog {
     public:
         typedef size_t store_offset;
     private:
-        typedef svector<char, size_t> storage;
+        typedef vector<char, false, std::size_t> storage;
 
         class offset_hash_proc {
             storage & m_storage;
@@ -352,7 +352,7 @@ namespace datalog {
             }
             unsigned next_ofs() const { return m_offset+m_length; }
         };
-        class column_layout : public svector<column_info> {
+        class column_layout : public vector<column_info> {
 
             void make_byte_aligned_end(unsigned col_index);
         public:
@@ -375,9 +375,9 @@ namespace datalog {
         };
         
 
-        typedef svector<unsigned> key_spec;        //sequence of columns in a key
-        typedef svector<table_element> key_value;  //values of key columns
-        typedef map<key_spec, key_indexer*, svector_hash_proc<unsigned_hash>,
+        typedef vector<unsigned> key_spec;        //sequence of columns in a key
+        typedef vector<table_element> key_value;  //values of key columns
+        typedef map<key_spec, key_indexer*, vector_hash_proc<unsigned_hash>,
             vector_eq_proc<key_spec> > key_index_map;
 
         static const store_offset NO_RESERVE = UINT_MAX;

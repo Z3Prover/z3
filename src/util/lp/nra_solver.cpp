@@ -17,7 +17,7 @@ namespace nra {
         mon_eq(lp::var_index v, unsigned sz, lp::var_index const* vs):
             m_v(v), m_vs(sz, vs) {}
         lp::var_index          m_v;
-        svector<lp::var_index> m_vs;
+        vector<lp::var_index> m_vs;
     };
 
     struct solver::imp {
@@ -140,7 +140,7 @@ namespace nra {
 
         void add_monomial_eq(mon_eq const& m) {
             polynomial::manager& pm = m_nlsat->pm();
-            svector<polynomial::var> vars;
+            vector<polynomial::var> vars;
             for (auto v : m.m_vs) {
                 vars.push_back(lp2nl(v));
             }
@@ -164,7 +164,7 @@ namespace nra {
             auto rhs = c.m_right_side;
             auto lhs = c.get_left_side_coefficients();
             auto sz = lhs.size();
-            svector<polynomial::var> vars;
+            vector<polynomial::var> vars;
             rational den = denominator(rhs);
             for (auto kv : lhs) {
                 vars.push_back(lp2nl(kv.second));

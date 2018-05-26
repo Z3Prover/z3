@@ -74,11 +74,11 @@ namespace opt {
         progress_callback * m_callback;
         symbol              m_logic;
         model_ref           m_model;
-        svector<smt::theory_var>  m_objective_vars;
+        vector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
         sref_vector<model>  m_models;
         expr_ref_vector     m_objective_terms;
-        svector<bool>       m_valid_objectives;
+        vector<bool>       m_valid_objectives;
         bool                m_dump_benchmarks;
         static unsigned     m_dump_count;
         statistics          m_stats;
@@ -101,7 +101,7 @@ namespace opt {
         proof * get_proof() override;
         std::string reason_unknown() const override;
         void set_reason_unknown(char const* msg) override;
-        void get_labels(svector<symbol> & r) override;
+        void get_labels(vector<symbol> & r) override;
         void set_progress_callback(progress_callback * callback) override;
         unsigned get_num_assertions() const override;
         expr * get_assertion(unsigned idx) const override;

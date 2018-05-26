@@ -202,7 +202,7 @@ extern "C" {
     struct constructor {
         symbol           m_name;
         symbol           m_tester;
-        svector<symbol>  m_field_names;
+        vector<symbol>  m_field_names;
         sort_ref_vector  m_sorts;
         unsigned_vector  m_sort_refs;
         func_decl_ref    m_constructor;

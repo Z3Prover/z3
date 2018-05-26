@@ -52,7 +52,7 @@ namespace datalog {
             unsigned operator()(a_flag x) const { return x; }
         };
 
-        struct adornment : public svector<a_flag> {
+        struct adornment : public vector<a_flag> {
 
             void populate(app * lit, const var_idx_set & bound_vars);
 
@@ -76,7 +76,7 @@ namespace datalog {
                 return m_pred==o.m_pred && m_adornment==o.m_adornment;
             }
             unsigned hash() const {
-                return m_pred->hash()^svector_hash<a_flag_hash>()(m_adornment);
+                return m_pred->hash()^vector_hash<a_flag_hash>()(m_adornment);
             }
         };
 

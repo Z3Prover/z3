@@ -180,8 +180,8 @@ namespace {
         bv_util            m_bv;
         vector<undo_bound> m_scopes;
         map                m_bound;
-        svector<expr_set*> m_expr_vars;
-        svector<expr_cnt*> m_bound_exprs;
+        vector<expr_set*> m_expr_vars;
+        vector<expr_cnt*> m_bound_exprs;
 
         bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
             rational r;
@@ -547,8 +547,8 @@ namespace {
         bv_util            m_bv;
         vector<undo_bound> m_scopes;
         map                m_bound;
-        svector<expr_set*> m_expr_vars;
-        svector<expr_cnt*> m_bound_exprs;
+        vector<expr_set*> m_expr_vars;
+        vector<expr_cnt*> m_bound_exprs;
 
         bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
             rational r;
