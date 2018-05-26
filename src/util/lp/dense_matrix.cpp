@@ -35,6 +35,6 @@ template lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::dense_matrix(uns
 template lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >& lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::operator=(lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> > const&);
 template lp::dense_matrix<lp::mpq, lp::numeric_pair<lp::mpq> > lp::operator*<lp::mpq, lp::numeric_pair<lp::mpq> >(lp::matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&, lp::matrix<lp::mpq, lp::numeric_pair<lp::mpq> >&);
 template void lp::dense_matrix<lp::mpq, lp::numeric_pair< lp::mpq> >::apply_from_right( vector< lp::mpq> &);
-template void lp::dense_matrix<double,double>::apply_from_right(class vector<double> &);
+template void lp::dense_matrix<double,double>::apply_from_right(vector<double> &);
 template void lp::dense_matrix<lp::mpq, lp::mpq>::apply_from_left(vector<lp::mpq>&);
 #endif
