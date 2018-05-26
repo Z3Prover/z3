@@ -297,7 +297,7 @@ class recover_01_tactic : public tactic {
             fail_if_proof_generation("recover-01", g);
             fail_if_unsat_core_generation("recover-01", g);
             m_produce_models      = g->models_enabled();
-            result.reset();
+            result.clear();
             tactic_report report("recover-01", *g);
             
             bool saved = false;

@@ -188,7 +188,7 @@ class lia2pb_tactic : public tactic {
             fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            result.reset();
+            result.clear();
             tactic_report report("lia2pb", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -232,7 +232,7 @@ class lia2pb_tactic : public tactic {
             for (expr * x : m_bm) {
                 if (is_target_core(x, u) && u > rational(1)) {
                     num_converted++;
-                    def_args.reset();
+                    def_args.clear();
                     rational a(1);
                     unsigned num_bits = u.get_num_bits();
                     for (unsigned i = 0; i < num_bits; i++) {           

@@ -36,10 +36,10 @@ public:
     typedef typename ptr_buffer<T, INITIAL_SIZE>::const_iterator const_iterator;
     ptr_scoped_buffer(D const & m = D()):ptr_buffer<T, INITIAL_SIZE>(), m_deallocator(m) {}
     ~ptr_scoped_buffer() { deallocate_all(); }
-    void reset() { deallocate_all(); ptr_buffer<T, INITIAL_SIZE>::reset(); }
+    void reset() { deallocate_all(); ptr_buffer<T, INITIAL_SIZE>::clear(); }
     void finalize() { deallocate_all(); ptr_buffer<T, INITIAL_SIZE>::finalize(); }
     /** \brief Release ownership of the pointers stored in the buffer */
-    void release() { ptr_buffer<T, INITIAL_SIZE>::reset(); }
+    void release() { ptr_buffer<T, INITIAL_SIZE>::clear(); }
     unsigned size() const { return ptr_buffer<T, INITIAL_SIZE>::size(); }
     bool empty() const { return ptr_buffer<T, INITIAL_SIZE>::empty(); }
     const_iterator begin() const { return ptr_buffer<T, INITIAL_SIZE>::begin(); }

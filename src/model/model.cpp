@@ -382,7 +382,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             func_decl* f = t->get_decl();
             bool visited = true;
             
-            args.reset();
+            args.clear();
             for (expr* t_arg : *t) {
                 expr * arg = nullptr;
                 if (!cache.find(t_arg, arg)) {

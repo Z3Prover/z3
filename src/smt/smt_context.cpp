@@ -4128,7 +4128,7 @@ namespace smt {
         buffer<symbol> lbls;
         for (expr * curr : m_b_internalized_stack) {
             if (is_relevant(curr) && get_assignment(curr) == l_true) {
-                lbls.reset();
+                lbls.clear();
                 if (m_manager.is_label_lit(curr, lbls)) {
                     bool include = false;
                     if (at_lbls) {

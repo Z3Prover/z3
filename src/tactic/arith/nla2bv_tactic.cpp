@@ -460,7 +460,7 @@ public:
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
-        result.reset();
+        result.clear();
         
         imp proc(g->m(), m_params);
         scoped_set_imp setter(*this, proc);

@@ -29,15 +29,15 @@ class _scoped_numeral_buffer : public buffer<typename Manager::numeral, INITIAL_
 public:
     _scoped_numeral_buffer(Manager & m):m_manager(m) {}
     ~_scoped_numeral_buffer() {
-        reset();
+        clear();
     }
 
-    void reset() {
+    void clear() {
         unsigned sz = this->size();
         for (unsigned i = 0; i < sz; i++) {
             m().del(this->operator[](i));
         }
-        super::reset();
+        super::clear();
     }
 
     Manager & m() const { return m_manager; }

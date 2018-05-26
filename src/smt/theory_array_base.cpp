@@ -886,7 +886,7 @@ namespace smt {
             
             ptr_buffer<expr> args;
             for (unsigned i = 0; i < m_num_entries; i++) {
-                args.reset();
+                args.clear();
                 // copy indices
                 for (unsigned j = 0; j < m_dim; j++, idx++) 
                     args.push_back(values[idx]);
@@ -951,7 +951,7 @@ namespace smt {
             select_set::iterator end = sel_set->end();
             for (; it != end; ++it) {
                 enode * select = *it;
-                args.reset();
+                args.clear();
                 unsigned num = select->get_num_args();
                 for (unsigned j = 1; j < num; ++j)
                     args.push_back(select->get_arg(j));

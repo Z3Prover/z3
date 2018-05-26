@@ -1208,7 +1208,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::get_polynomial_info(buffer<coeff_expr> const & p, buffer<var_num_occs> & varinfo) {
         context & ctx = get_context();
-        varinfo.reset();
+        varinfo.clear();
         m_var2num_occs.reset();
 
 #define ADD_OCC(VAR) if (has_var(VAR) && !is_fixed(expr2var(VAR))) {                                    \

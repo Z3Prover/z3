@@ -199,7 +199,7 @@ class bv1_blaster_tactic : public tactic {
             bit_buffer arg_bits;
             for (unsigned i = 0; i < num; i++) {
                 expr * arg = args[i];
-                arg_bits.reset();
+                arg_bits.clear();
                 get_bits(arg, arg_bits);
                 bits.append(arg_bits.size(), arg_bits.c_ptr());
             }

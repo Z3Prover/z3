@@ -765,7 +765,7 @@ class tseitin_cnf_tactic : public tactic {
                     arg_lits.push_back(buffer_ptr + offsets[i]);
                 }
                 do {
-                    lits.reset();
+                    lits.clear();
                     for (unsigned i = 0; i < num; i++) {
                         lits.push_back(arg_lits[i][it[i]]);
                     }

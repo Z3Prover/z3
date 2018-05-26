@@ -198,7 +198,7 @@ void bv_bound_chk_tactic::operator()(goal_ref const & g, goal_ref_buffer & resul
     fail_if_proof_generation("bv-bound-chk", g);
     fail_if_unsat_core_generation("bv-bound-chk", g);
     TRACE("bv-bound-chk", g->display(tout << "before:"); tout << std::endl;);
-    result.reset();
+    result.clear();
     m_imp->operator()(g);
     g->inc_depth();
     result.push_back(g.get());

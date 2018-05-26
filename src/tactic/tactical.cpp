@@ -123,13 +123,13 @@ public:
             goal_ref_buffer r2;
             for (unsigned i = 0; i < r1_size; i++) {                                                        
                 goal_ref g = r1[i];                                                                       
-                r2.reset();
+                r2.clear();
                 m_t2->operator()(g, r2);
                 if (is_decided(r2)) {
                     SASSERT(r2.size() == 1);
                     if (is_decided_sat(r2)) {                                                          
                         // found solution...                                                           
-                        result.reset();
+                        result.clear();
                         result.push_back(r2[0]);
                         return;
                     }                                                                                   
@@ -297,7 +297,7 @@ public:
                     return;
                 }
                 catch (tactic_exception &) {
-                    result.reset();
+                    result.clear();
                 }
             }
             else {
@@ -785,7 +785,7 @@ class repeat_tactical : public unary_tactical {
 
         ast_manager & m = in->m();                                                                          
         goal_ref_buffer      r1;  
-        result.reset();          
+        result.clear();
         {
             goal orig_in(in->m(), proofs_enabled, models_enabled, cores_enabled);
             orig_in.copy_from(*(in.get()));
@@ -809,7 +809,7 @@ class repeat_tactical : public unary_tactical {
             goal_ref_buffer            r2;                                                                  
             for (unsigned i = 0; i < r1_size; i++) {                                                        
                 goal_ref g = r1[i];                                                                         
-                r2.reset();                   
+                r2.clear();
                 operator()(depth+1, g, r2);                                              
                 if (is_decided(r2)) {
                     SASSERT(r2.size() == 1);
@@ -873,7 +873,7 @@ public:
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         m_t->operator()(in, result);
         if (result.size() > m_threshold) {
-            result.reset(); // assumes in is not strenthened to one of the branches
+            result.clear(); // assumes in is not strenthened to one of the branches
             throw tactic_exception("failed-if-branching tactical");
         }
     };    

@@ -139,7 +139,7 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
             pr = m_manager.mk_transitivity(pr, p1);
         }
     }
-    m_new_exprs.reset();
+    m_new_exprs.clear();
 }
 
 void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
@@ -356,7 +356,7 @@ void der::apply_substitution(quantifier * q, expr_ref & r) {
     unsigned num_args=to_app(e)->get_num_args();
 
     // get a new expression
-    m_new_args.reset();
+    m_new_args.clear();
     for(unsigned i = 0; i < num_args; i++) {
         int x = m_pos2var[i];
         if (x != -1 && m_map[x] != 0)

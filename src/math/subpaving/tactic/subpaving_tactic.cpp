@@ -246,7 +246,7 @@ public:
         try {
             m_imp->process(*in);
             m_imp->collect_statistics(m_stats);
-            result.reset();
+            result.clear();
             result.push_back(in.get());
         }
         catch (z3_exception & ex) {

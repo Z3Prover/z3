@@ -161,7 +161,7 @@ struct enum2bv_rewriter::imp {
             proof_ref & result_pr) {
 
             if (q->get_kind() == lambda_k) return false;
-            m_sorts.reset();
+            m_sorts.clear();
             expr_ref_vector bounds(m);
             bool found = false;
             for (unsigned i = 0; i < q->get_num_decls(); ++i) {

@@ -635,7 +635,7 @@ void symmetry_reduce_tactic::operator()(goal_ref const & g,
                                         goal_ref_buffer & result) {
     fail_if_proof_generation("symmetry_reduce", g);
     fail_if_unsat_core_generation("symmetry_reduce", g);
-    result.reset();
+    result.clear();
     (*m_imp)(*(g.get()));
     g->inc_depth();
     result.push_back(g.get());

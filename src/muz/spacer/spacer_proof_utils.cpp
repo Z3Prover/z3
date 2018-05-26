@@ -618,7 +618,7 @@ namespace spacer {
             }
 
             dirty = false;
-            args.reset();
+            args.clear();
             todo_sz = todo.size();
             for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
                 pp = m.get_parent(p, i);
@@ -770,7 +770,7 @@ namespace spacer {
         // fact0 is a literal only if it appears as a literal in the
         // original resolution
         else {
-            lits.reset();
+            lits.clear();
             app* ures_fact = to_app(m.get_fact(m.get_parent(ures, 0)));
             for (unsigned i = 0, sz = ures_fact->get_num_args(); i < sz; ++i) {
                 if (ures_fact->get_arg(i) == fact0) {

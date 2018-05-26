@@ -401,7 +401,7 @@ struct reduce_args_tactic::imp {
             SASSERT(decl2args.contains(f));
             bit_vector & bv = decl2args.find(f);
             new_vars.reset();
-            new_args.reset();
+            new_args.clear();
             for (unsigned i = 0; i < f->get_arity(); i++) {
                 new_vars.push_back(m_manager.mk_var(i, f->get_domain(i)));
                 if (!bv.get(i))
@@ -419,7 +419,7 @@ struct reduce_args_tactic::imp {
                     def = new_t;
                 }
                 else {
-                    new_eqs.reset();
+                    new_eqs.clear();
                     for (unsigned i = 0; i < f->get_arity(); i++) {
                         if (bv.get(i))
                             new_eqs.push_back(m_manager.mk_eq(new_vars.get(i), t->get_arg(i)));
@@ -487,7 +487,7 @@ void reduce_args_tactic::operator()(goal_ref const & g,
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("reduce-args", g);
     fail_if_unsat_core_generation("reduce-args", g);
-    result.reset();
+    result.clear();
     m_imp->operator()(*(g.get()));
     g->inc_depth();
     result.push_back(g.get());

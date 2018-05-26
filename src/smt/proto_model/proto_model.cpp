@@ -149,7 +149,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
             case AST_APP: {
                 app * t = to_app(a);
                 bool visited = true;
-                args.reset();
+                args.clear();
                 for (expr* t_arg : *t) {
                     expr * arg = nullptr;
                     if (!cache.find(t_arg, arg)) {

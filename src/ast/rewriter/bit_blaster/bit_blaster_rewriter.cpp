@@ -566,7 +566,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
                 sort * s = q->get_decl_sort(i);
                 if (butil().is_bv_sort(s)) {
                     unsigned bv_size = butil().get_bv_size(s);
-                    new_args.reset();
+                    new_args.clear();
                     for (unsigned k = 0; k < bv_size; k++) {
                         new_args.push_back(m().mk_var(j, m().mk_bool_sort()));
                         j++;

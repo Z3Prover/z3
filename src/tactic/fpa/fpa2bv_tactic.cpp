@@ -53,7 +53,7 @@ class fpa2bv_tactic : public tactic {
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
 
-            result.reset();
+            result.clear();
             tactic_report report("fpa2bv", *g);
             m_rw.reset();
 

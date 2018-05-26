@@ -162,7 +162,7 @@ class reduce_hypotheses {
             }
 
             dirty = false;
-            args.reset();
+            args.clear();
             todo_sz = m_todo.size();
             for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
                 pp = m.get_parent(p, i);

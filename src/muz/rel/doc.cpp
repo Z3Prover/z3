@@ -352,7 +352,7 @@ doc* doc_manager::project(doc_manager& dstm, bit_vector const& to_delete, doc co
                 }
             }
             std::swap(new_todo, todo);
-            new_todo.reset();
+            new_todo.clear();
             break;        
         case project_resolve: {
             utbv pos, neg;
@@ -391,7 +391,7 @@ doc* doc_manager::project(doc_manager& dstm, bit_vector const& to_delete, doc co
             pos.reset(m);
             neg.reset(m);
             std::swap(todo, new_todo);
-            new_todo.reset();
+            new_todo.clear();
             break;
         }
         case project_done: {
@@ -557,7 +557,7 @@ doc_manager::pick_resolvent(
 
 
 void doc_manager::complement(doc const& src, doc_vector& result) {
-    result.reset();
+    result.clear();
     if (is_full(src)) {
         return;
     }

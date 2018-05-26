@@ -97,7 +97,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
         }
         pp_indent(out, indent);
         out << ";; cardinality constraint:\n";
-        f_conds.reset();
+        f_conds.clear();
         format * var = mk_string(m, "x");
         for (expr* e : u) {
             app * c = to_app(e);
@@ -202,7 +202,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
         func_interp * f_i = md.get_func_interp(f);
         SASSERT(f->get_arity() == f_i->get_arity());
         format_ref body(fm(m));
-        var_names.reset();
+        var_names.clear();
         if (f_i->is_partial()) {
             body = mk_string(m, "#unspecified");
             for (unsigned j = 0; j < f->get_arity(); j++) {
@@ -215,10 +215,10 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
             ctx.pp(f_i->get_else(), f->get_arity(), "x", body, var_names);  
         }
         TRACE("model_smt2_pp", for (unsigned i = 0; i < var_names.size(); i++) tout << var_names[i] << "\n";);
-        f_var_names.reset();
+        f_var_names.clear();
         for (unsigned i = 0; i < f->get_arity(); i++)
             f_var_names.push_back(mk_string(m, var_names[i].bare_str()));
-        f_arg_decls.reset();
+        f_arg_decls.clear();
         for (unsigned i = 0; i < f->get_arity(); i++) {
             format_ref f_domain(fm(m));
             ctx.pp(f->get_domain(i), f_domain);
@@ -229,10 +229,10 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
         format_ref f_range(fm(m));
         ctx.pp(f->get_range(), f_range);
         if (f_i->num_entries() > 0) {
-            f_entries.reset();
+            f_entries.clear();
             for (unsigned i = 0; i < f_i->num_entries(); i++) {
                 func_entry const * e = f_i->get_entry(i);
-                f_entry_conds.reset();
+                f_entry_conds.clear();
                 for (unsigned j = 0; j < f->get_arity(); j++) {
                     format_ref f_arg(fm(m));
                     ctx.pp(e->get_arg(j), f_arg);

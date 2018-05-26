@@ -563,7 +563,7 @@ namespace smt {
         for (instance const& inst : m_new_instances) {
             quantifier * q  = inst.m_q;
             if (m_context->b_internalized(q)) {
-                bindings.reset();
+                bindings.clear();
                 unsigned num_decls = q->get_num_decls();
                 unsigned gen       = inst.m_generation;
                 unsigned offset    = inst.m_bindings_offset;

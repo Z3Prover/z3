@@ -167,7 +167,7 @@ zstring::zstring(unsigned ch, encoding enc) {
 
 zstring& zstring::operator=(zstring const& other) {
     m_encoding = other.m_encoding;
-    m_buffer.reset();
+    m_buffer.clear();
     m_buffer.append(other.m_buffer);
     return *this;
 }

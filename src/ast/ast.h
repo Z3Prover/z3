@@ -2442,7 +2442,7 @@ public:
 
     void reset() {
         for (ast* a : m_to_unmark) reset_mark(a); 
-        m_to_unmark.reset();
+        m_to_unmark.clear();
     }
 
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); }
@@ -2508,7 +2508,7 @@ public:
         for (; it != end; ++it) {
             reset_mark(*it);
         }
-        m_to_unmark.reset();
+        m_to_unmark.clear();
     }
 
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); }

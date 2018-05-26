@@ -2610,7 +2610,7 @@ void context::reset_lemma_generalizers()
 {
     std::for_each(m_lemma_generalizers.begin(), m_lemma_generalizers.end(),
                   delete_proc<lemma_generalizer>());
-    m_lemma_generalizers.reset();
+    m_lemma_generalizers.clear();
 }
 
 // initialize global SMT parameters shared by all solvers
@@ -3256,7 +3256,7 @@ bool context::check_reachability ()
             for (auto pob : new_pobs) {m_pob_queue.push(*pob);}
             break;
         }
-        new_pobs.reset();
+        new_pobs.clear();
     }
 
     UNREACHABLE();

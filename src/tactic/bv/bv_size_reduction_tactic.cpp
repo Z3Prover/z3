@@ -375,7 +375,7 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-size-reduction", g);
     fail_if_unsat_core_generation("bv-size-reduction", g);
-    result.reset();
+    result.clear();
     model_converter_ref mc;
     run(*(g.get()), mc);
     g->inc_depth();

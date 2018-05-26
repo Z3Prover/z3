@@ -504,7 +504,7 @@ public:
             (*this)(a, result);
 
             unsigned n_args = a->get_num_args();
-            m_temp_exprs.reset();
+            m_temp_exprs.clear();
             for (unsigned i = 0; i < n_args; i++) {
                 expr * arg = a->get_arg(i);
                 const mpz & v = m_tracker.get_value(arg);

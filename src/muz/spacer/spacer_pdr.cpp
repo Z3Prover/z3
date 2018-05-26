@@ -262,7 +262,7 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
     while (model_node *node = ms.pop_front()) {
         IF_VERBOSE(2, verbose_stream() << "Expand node: "
                    << node->level() << "\n";);
-        new_pobs.reset();
+        new_pobs.clear();
         checkpoint();
         pred_transformer &pt = node->pt();
 

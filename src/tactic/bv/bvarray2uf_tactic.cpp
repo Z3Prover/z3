@@ -57,7 +57,7 @@ class bvarray2uf_tactic : public tactic {
         {
             SASSERT(g->is_well_sorted());
             tactic_report report("bvarray2uf", *g);
-            result.reset();
+            result.clear();
             fail_if_unsat_core_generation("bvarray2uf", g);
 
             TRACE("bvarray2uf", tout << "Before: " << std::endl; g->display(tout); );

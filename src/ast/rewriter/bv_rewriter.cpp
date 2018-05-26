@@ -645,7 +645,7 @@ unsigned bv_rewriter::propagate_extract(unsigned high, expr * arg, expr_ref & re
         if (curr_is_conc) {
             const unsigned conc_num = to_app(curr)->get_num_args();
             if (new_first) {
-                new_concat_args.reset();
+                new_concat_args.clear();
                 new_concat_args.push_back(new_first);
                 for (unsigned j = 1; j < conc_num; ++j)
                     new_concat_args.push_back(to_app(curr)->get_arg(j));

@@ -91,7 +91,7 @@ void substitution_tree::linearize(vector<subst> & result) {
                     new_args.push_back(m_manager.mk_var(oreg, s));
                 }
                 new_app = m_manager.mk_app(to_app(n)->get_decl(), new_args.size(), new_args.c_ptr());
-                new_args.reset();
+                new_args.clear();
             }
             push(result, subst(ireg, new_app));
         }

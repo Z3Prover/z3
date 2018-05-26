@@ -62,7 +62,7 @@ public:
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());        
-        result.reset();
+        result.clear();
         
         TRACE("sls", g->display(tout););
         tactic_report report("sls", *g);

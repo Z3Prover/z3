@@ -105,9 +105,9 @@ public:
         return m_buffer.empty();
     }
 
-    void reset() {
+    void clear() {
         dec_range_ref(m_buffer.begin(), m_buffer.end());
-        m_buffer.reset();
+        m_buffer.clear();
     }
 
     void finalize() {
@@ -147,7 +147,7 @@ public:
     ref_buffer_core & operator=(ref_buffer_core const & other) {
         if (this == &other)
             return *this;
-        reset();
+        clear();
         append(other);
         return *this;
     }

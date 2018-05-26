@@ -892,7 +892,7 @@ private:
             fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            result.reset();
+            result.clear();
             tactic_report report("pb2bv", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 

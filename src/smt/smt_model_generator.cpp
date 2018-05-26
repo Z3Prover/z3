@@ -324,7 +324,7 @@ namespace smt {
                 enode * n = curr.get_enode();
                 SASSERT(n->get_root() == n);
                 TRACE("mg_top_sort", tout << curr << "\n";);
-                dependencies.reset();
+                dependencies.clear();
                 dependency_values.reset();
                 model_value_proc * proc = root2proc[n];
                 SASSERT(proc);

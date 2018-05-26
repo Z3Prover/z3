@@ -3214,7 +3214,7 @@ namespace polynomial {
         unsigned_vector m_var_degrees_tmp;
         template<bool Max>
         void var_degrees(polynomial const * p, power_buffer & pws) {
-            pws.reset();
+            pws.clear();
             unsigned_vector & var2pos = m_var_degrees_tmp;
             var2pos.expand(num_vars(), UINT_MAX);
 
@@ -3483,7 +3483,7 @@ namespace polynomial {
             buffer<unsigned, 128> iccp_filter;
             buffer<unsigned, 128> iccp_powers;
             iccp_filter.resize(d+1, 0);
-            iccp_powers.reset();
+            iccp_powers.clear();
             for (unsigned j = 0; j <= d; j++)
                 iccp_filter[j] = 0;
             unsigned sz = p->size();
@@ -3962,7 +3962,7 @@ namespace polynomial {
 
             // Extract integer content
             ic(p, ci, pp);
-            no_x_ms.reset();
+            no_x_ms.clear();
             som_buffer_vector & som_buffers = m_iccp_ZpX_buffers;
             som_buffers.set_owner(this);
             for (unsigned i = 0; i < sz; i++) {
@@ -4685,7 +4685,7 @@ namespace polynomial {
             buffer<power> pws;
             for (unsigned i = 0; i < sz; i++) {
                 unsigned   k = p->m(i)->degree_of(x);
-                pws.reset();
+                pws.clear();
                 if (x < y) {
                     push_power(pws, x, k);
                     push_power(pws, y, n - k);

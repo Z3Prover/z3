@@ -102,7 +102,7 @@ public:
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
         m_rw = &r;
-        result.reset();
+        result.clear();
         tactic_report report("distribute-forall", *g);
 
         expr_ref   new_curr(m);

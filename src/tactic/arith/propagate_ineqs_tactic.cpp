@@ -531,7 +531,7 @@ void propagate_ineqs_tactic::operator()(goal_ref const & g,
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("propagate-ineqs", g);
     fail_if_unsat_core_generation("propagate-ineqs", g);
-    result.reset();
+    result.clear();
     goal_ref r;
     (*m_imp)(g.get(), r);
     result.push_back(r.get());

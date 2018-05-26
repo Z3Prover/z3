@@ -125,7 +125,7 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
                 new_args.push_back(to_app(args[0])->get_arg(0));
                 new_args.append(num_args-1, args+1);
                 expr * nested_store = m().mk_app(get_fid(), OP_STORE, num_args, new_args.c_ptr());
-                new_args.reset();
+                new_args.clear();
                 new_args.push_back(nested_store);
                 new_args.append(num_args - 1, to_app(args[0])->get_args() + 1);
                 result = m().mk_app(get_fid(), OP_STORE, num_args, new_args.c_ptr());

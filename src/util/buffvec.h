@@ -493,7 +493,6 @@ public:
     }
 
     // adaptors for the old buffer interface
-    void reset() noexcept { clear(); }
     void finalize() { clear(); shrink_to_fit(); }
     void shrink(size_type count) {
         SASSERT(count <= size());

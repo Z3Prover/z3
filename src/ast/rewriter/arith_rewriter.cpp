@@ -1221,7 +1221,7 @@ br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
             decl_kind k = to_app(arg)->get_decl()->get_decl_kind();
             expr_ref t1(m().mk_app(get_fid(), k, int_args.size(), int_args.c_ptr()), m());
             expr_ref t2(m().mk_app(get_fid(), k, real_args.size(), real_args.c_ptr()), m());
-            int_args.reset();
+            int_args.clear();
             int_args.push_back(t1);
             int_args.push_back(m_util.mk_to_int(t2));
             result = m().mk_app(get_fid(), k, int_args.size(), int_args.c_ptr());

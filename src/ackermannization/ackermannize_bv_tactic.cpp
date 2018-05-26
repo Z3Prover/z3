@@ -45,7 +45,7 @@ public:
         const bool success = lackr.mk_ackermann(resg, m_lemma_limit);
         if (!success) { // Just pass on the input unchanged
             TRACE("ackermannize", tout << "ackermannize not run due to limit" << std::endl;);
-            result.reset();
+            result.clear();
             result.push_back(g.get());
             return;
         }

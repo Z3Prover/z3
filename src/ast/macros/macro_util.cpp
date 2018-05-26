@@ -732,7 +732,7 @@ void macro_util::get_rest_clause_as_cond(expr * except_lit, expr_ref & extra_con
 }
 
 void macro_util::collect_poly_args(expr * n, expr * exception, ptr_buffer<expr> & args) {
-    args.reset();
+    args.clear();
     unsigned num_args;
     expr * const * _args;
     if (is_add(n)) {

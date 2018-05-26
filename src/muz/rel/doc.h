@@ -167,7 +167,7 @@ public:
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             m.deallocate(m_elems[i]);
         }
-        m_elems.reset(); 
+        m_elems.clear(); 
     }    
     bool insert(M& m, T* t) {
         SASSERT(t);
@@ -224,7 +224,7 @@ public:
             for (unsigned j = 0; j < tmp.size(); ++j) {
                 result.push_back(tmp.m_elems[j]);
             }
-            tmp.m_elems.reset();
+            tmp.m_elems.clear();
         }
         std::swap(*this, result);
         result.reset(m);

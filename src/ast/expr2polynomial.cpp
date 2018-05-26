@@ -408,7 +408,7 @@ struct expr2polynomial::imp {
         bool is_int = is_int_poly(p);
 
         for (unsigned i = 0; i < sz; i++) {
-            margs.reset();
+            margs.clear();
             polynomial::monomial * _m = pm().get_monomial(p, i);
             polynomial::numeral const & a = pm().coeff(p, i);
             if (!nm().is_one(a)) {

@@ -316,7 +316,7 @@ class diff_neq_tactic : public tactic {
                         goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             m_produce_models = g->models_enabled();
-            result.reset();
+            result.clear();
             tactic_report report("diff-neq", *g);
             fail_if_proof_generation("diff-neq", g);
             fail_if_unsat_core_generation("diff-neq", g);

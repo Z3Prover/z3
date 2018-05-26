@@ -579,7 +579,7 @@ private:
 
     lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
         m_pc.reset();
-        m_subgoals.reset();
+        m_subgoals.clear();
         init_preprocess();
         SASSERT(g->models_enabled());
         if (g->proofs_enabled()) {

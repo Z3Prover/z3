@@ -441,9 +441,9 @@ namespace realclosure {
             unsigned size(unsigned i) const { return m_szs[i]; }
 
             void reset() {
-                m_seq_coeffs.reset();
-                m_begins.reset();
-                m_szs.reset();
+                m_seq_coeffs.clear();
+                m_begins.clear();
+                m_szs.clear();
             }
 
             scoped_polynomial_seq & operator=(scoped_polynomial_seq & s) {
@@ -472,7 +472,7 @@ namespace realclosure {
             void push_back(sign_condition * sc) { m_scs.push_back(sc); }
             void release() {
                 // release ownership
-                m_scs.reset();
+                m_scs.clear();
             }
             void copy_from(scoped_sign_conditions & scs) {
                 SASSERT(this != &scs);
@@ -701,7 +701,7 @@ namespace realclosure {
                 v->m_old_interval = nullptr;
                 dec_ref(v);
             }
-            to_restore.reset();
+            to_restore.clear();
         }
         void restore_saved_intervals() {
             restore_saved_intervals(m_to_restore);
@@ -1713,7 +1713,7 @@ namespace realclosure {
                           scoped_polynomial_seq &         new_prs
                           ) {
             SASSERT(taqrs.size() == prs.size());
-            new_taqrs.reset(); new_prs.reset();
+            new_taqrs.clear(); new_prs.reset();
             for (unsigned i = 0; i < taqrs.size(); i++) {
                 // Add prs * 1
                 new_taqrs.push_back(taqrs[i]);
@@ -2048,7 +2048,7 @@ namespace realclosure {
                 qs.push(q_sz, q);
                 // We remove the columns associated with sign conditions that have cardinality zero,
                 // and create new extended sign condition objects for the ones that have cardinality > 0.
-                cols_to_keep.reset();
+                cols_to_keep.clear();
                 unsigned j = 0; unsigned k = 0;
                 unsigned step_sz = use_q2 ? 3 : 2;
                 bool all_one = true;
@@ -2077,7 +2077,7 @@ namespace realclosure {
                 SASSERT(new_num_rows == cols_to_keep.size());
                 // Update taqrs and prs
                 prs.reset();
-                taqrs.reset();
+                taqrs.clear();
                 for (unsigned j = 0; j < new_num_rows; j++) {
                     unsigned rid = new_row_idxs[j];
                     prs.push(new_prs.size(rid), new_prs.coeffs(rid));
@@ -2679,7 +2679,7 @@ namespace realclosure {
         void add(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             SASSERT(p1 != r.c_ptr());
             SASSERT(p2 != r.c_ptr());
-            r.reset();
+            r.clear();
             value_ref a_i(*this);
             unsigned min = std::min(sz1, sz2);
             unsigned i = 0;
@@ -2701,7 +2701,7 @@ namespace realclosure {
         void add(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
             SASSERT(p != r.c_ptr());
             SASSERT(sz > 0);
-            r.reset();
+            r.clear();
             value_ref a_0(*this);
             add(p[0], a, a_0);
             r.push_back(a_0);
@@ -2715,7 +2715,7 @@ namespace realclosure {
         void sub(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             SASSERT(p1 != r.c_ptr());
             SASSERT(p2 != r.c_ptr());
-            r.reset();
+            r.clear();
             value_ref a_i(*this);
             unsigned min = std::min(sz1, sz2);
             unsigned i = 0;
@@ -2739,7 +2739,7 @@ namespace realclosure {
         void sub(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
             SASSERT(p != r.c_ptr());
             SASSERT(sz > 0);
-            r.reset();
+            r.clear();
             value_ref a_0(*this);
             sub(p[0], a, a_0);
             r.push_back(a_0);
@@ -2752,7 +2752,7 @@ namespace realclosure {
         */
         void mul(value * a, unsigned sz, value * const * p, value_ref_buffer & r) {
             SASSERT(p != r.c_ptr());
-            r.reset();
+            r.clear();
             if (a == nullptr)
                 return;
             value_ref a_i(*this);
@@ -2768,7 +2768,7 @@ namespace realclosure {
         void mul(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             SASSERT(p1 != r.c_ptr());
             SASSERT(p2 != r.c_ptr());
-            r.reset();
+            r.clear();
             unsigned sz = sz1*sz2;
             r.resize(sz);
             if (sz1 < sz2) {
@@ -2812,13 +2812,13 @@ namespace realclosure {
                      value_ref_buffer & q, value_ref_buffer & r) {
             SASSERT(sz2 > 0);
             if (sz2 == 1) {
-                q.reset(); q.append(sz1, p1);
+                q.clear(); q.append(sz1, p1);
                 div(q, *p2);
-                r.reset();
+                r.clear();
             }
             else {
-                q.reset();
-                r.reset(); r.append(sz1, p1);
+                q.clear();
+                r.clear(); r.append(sz1, p1);
                 if (sz1 > 1) {
                     if (sz1 >= sz2) {
                         q.resize(sz1 - sz2 + 1);
@@ -2867,7 +2867,7 @@ namespace realclosure {
            \brief r <- p/a
         */
         void div(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
-            r.reset();
+            r.clear();
             value_ref a_i(*this);
             for (unsigned i = 0; i < sz; i++) {
                 div(p[i], a, a_i);
@@ -2885,7 +2885,7 @@ namespace realclosure {
                   tout << "rem\n";
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
-            r.reset();
+            r.clear();
             SASSERT(sz2 > 0);
             if (sz2 == 1)
                 return;
@@ -2930,7 +2930,7 @@ namespace realclosure {
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
             d = 0;
-            r.reset();
+            r.clear();
             SASSERT(sz2 > 0);
             if (sz2 == 1)
                 return;
@@ -2982,7 +2982,7 @@ namespace realclosure {
         */
         void neg(unsigned sz, value * const * p, value_ref_buffer & r) {
             SASSERT(p != r.c_ptr());
-            r.reset();
+            r.clear();
             value_ref a_i(*this);
             for (unsigned i = 0; i < sz; i++) {
                 neg(p[i], a_i);
@@ -3252,7 +3252,7 @@ namespace realclosure {
                 // However, we detect structurally equivalent denominators.
                 //
                 //   Thus   a/(b+1) + c/(b+1)  is converted into a*c/(b+1) instead of (a*(b+1) + c*(b+1))/(b+1)^2
-                norm_p.reset();
+                norm_p.clear();
                 d = lcm;
                 value_ref_buffer multipliers(*this);
                 value_ref m(*this);
@@ -3590,7 +3590,7 @@ namespace realclosure {
            \brief r <- dp/dx
         */
         void derivative(unsigned sz, value * const * p, value_ref_buffer & r) {
-            r.reset();
+            r.clear();
             if (sz > 1) {
                 for (unsigned i = 1; i < sz; i++) {
                     mpq i_mpq(i);
@@ -4840,7 +4840,7 @@ namespace realclosure {
             if (sz2 == 1) {
                 // - new_p1 <- p1/p2[0];       new_p2 <- one              IF  sz2 == 1
                 div(sz1, p1, p2[0], new_p1);
-                new_p2.reset(); new_p2.push_back(one());
+                new_p2.clear(); new_p2.push_back(one());
             }
             else {
                 value * lc = p2[sz2 - 1];
@@ -4913,7 +4913,7 @@ namespace realclosure {
                 rem(sz1, p1, p.size(), p.data(), new_p1);
             }
             else {
-                new_p1.reset();
+                new_p1.clear();
                 new_p1.append(sz1, p1);
             }
         }
@@ -5361,7 +5361,7 @@ namespace realclosure {
                     div(R.size(), R.c_ptr(), Q[0], h);
                     TRACE("inv_algebraic", tout << "h: "; display_poly(tout, h.size(), h.c_ptr()); tout << "\n";);
                     // g <- 1
-                    g.reset(); g.push_back(one());
+                    g.clear(); g.push_back(one());
                     return true;
                 }
                 else {

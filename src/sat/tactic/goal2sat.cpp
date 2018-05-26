@@ -1172,7 +1172,7 @@ struct sat2goal::imp {
         unsigned small_lbd = 3; // s.get_config().m_gc_small_lbd;
         for (sat::clause* cp : clauses) {
             checkpoint();
-            lits.reset();
+            lits.clear();
             sat::clause const & c = *cp;
             if (asserted || m_learned || c.glue() <= small_lbd) {
                 for (sat::literal l : c) {

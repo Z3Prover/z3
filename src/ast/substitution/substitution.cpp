@@ -142,7 +142,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             }
             if (visited) {
                 m_todo.pop_back();
-                new_args.reset();
+                new_args.clear();
                 bool has_new_args = false;
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg     = to_app(e)->get_arg(i);

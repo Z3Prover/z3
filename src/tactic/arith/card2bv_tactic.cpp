@@ -56,7 +56,7 @@ public:
                     goal_ref_buffer & result) override {
         TRACE("card2bv-before", g->display(tout););
         SASSERT(g->is_well_sorted());
-        result.reset();
+        result.clear();
         tactic_report report("card2bv", *g);
         th_rewriter rw1(m, m_params);
         pb2bv_rewriter rw2(m, m_params);

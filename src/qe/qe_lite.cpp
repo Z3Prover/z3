@@ -343,7 +343,7 @@ namespace eq {
             bool_rewriter rw(m);
 
             // get a new expression
-            m_new_args.reset();
+            m_new_args.clear();
             for(unsigned i = 0; i < num_args; i++) {
                 int x = m_pos2var[i];
                 if (x == -1 || m_map[x] == 0) {
