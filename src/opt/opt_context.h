@@ -159,7 +159,7 @@ namespace opt {
         model_ref           m_model;         
         model_converter_ref          m_model_converter;
         generic_model_converter_ref  m_fm;
-        bool                         m_model_fixed;
+        sref_vector<model>           m_model_fixed;
         unsigned                     m_model_counter;
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;

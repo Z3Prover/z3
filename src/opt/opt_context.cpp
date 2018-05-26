@@ -128,7 +128,7 @@ namespace opt {
         m_optsmt(m),
         m_scoped_state(m),
         m_fm(alloc(generic_model_converter, m, "opt")),
-        m_model_fixed(false),
+        m_model_fixed(),
         m_objective_refs(m),
         m_enable_sat(false),
         m_is_clausal(false),
@@ -340,10 +340,10 @@ namespace opt {
     }
 
     void context::fix_model(model_ref& mdl) {
-        if (mdl && !m_model_fixed) {
+        if (mdl && !m_model_fixed.contains(mdl.get())) {
             (*m_fm)(mdl);
             apply(m_model_converter, mdl);
-            m_model_fixed = true;
+            m_model_fixed.push_back(mdl.get());
         }
     }
 
@@ -444,13 +444,11 @@ namespace opt {
     lbool context::execute_box() {
         if (m_box_index < m_box_models.size()) {
             m_model = m_box_models[m_box_index];
-            m_model_fixed = false;
             ++m_box_index;           
             return l_true;
         }
         if (m_box_index < m_objectives.size()) {
             m_model = nullptr;
-            m_model_fixed = false;
             ++m_box_index;
             return l_undef;
         }
@@ -475,7 +473,6 @@ namespace opt {
         }
         if (r == l_true && m_box_models.size() > 0) {
             m_model = m_box_models[0];
-            m_model_fixed = false;
         }
         return r;
     }
@@ -563,7 +560,6 @@ namespace opt {
     void context::yield() {
         SASSERT (m_pareto);
         m_pareto->get_model(m_model, m_labels);
-        m_model_fixed = false;
         update_bound(true);
         update_bound(false);
         TRACE("opt", model_smt2_pp(tout, m, *m_model.get(), 0););
@@ -1410,7 +1406,7 @@ namespace opt {
         m_pareto = nullptr;
         m_box_index = UINT_MAX;
         m_model.reset();
-        m_model_fixed = false;
+        m_model_fixed.reset();
     }
 
     void context::set_pareto(pareto_base* p) {
