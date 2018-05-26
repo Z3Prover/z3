@@ -734,9 +734,8 @@ public:
           reverse_iterator  rend()         noexcept { return static_cast<reverse_iterator>(begin()); }
     const_reverse_iterator  rend()   const noexcept { return static_cast<const_reverse_iterator>(begin()); }
     const_reverse_iterator crend()   const noexcept { return static_cast<const_reverse_iterator>(begin()); }
-    // interferes with the data member type
-    // pointer data() noexcept { return ptr(); }
-    // const_pointer data() const noexcept { return ptr(); }
+    pointer data() noexcept { return ptr(); }
+    const_pointer data() const noexcept { return ptr(); }
 
     reference front() { 
         SASSERT(!empty()); 
@@ -810,7 +809,6 @@ public:
     }
 
     // adaptors for the old vector interface
-    using data = value_type;
     pointer c_ptr() const { return m_data; }
     void reset() noexcept { clear(); }
     void finalize() { clear(); shrink_to_fit(); }

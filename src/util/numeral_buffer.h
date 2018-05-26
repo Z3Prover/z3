@@ -26,9 +26,9 @@ class numeral_buffer {
     NumeralManager &  m_manager;
     vector<Numeral>  m_buffer;
 public:
-    typedef Numeral numeral;
-    typedef Numeral data;
-    typedef NumeralManager manager;
+    using numeral = Numeral;
+    using manager = NumeralManager;
+    using value_type = Numeral;
 
     numeral_buffer(NumeralManager & m):m_manager(m) {}
 
@@ -77,6 +77,9 @@ public:
     }
 
     Numeral * c_ptr() { return m_buffer.c_ptr(); }
+
+    Numeral* data() { return m_buffer.data(); }
+    Numeral const* data() const { return m_buffer.data(); }
 
     void reserve(unsigned sz) {
         m_buffer.reserve(sz);

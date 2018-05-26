@@ -44,7 +44,7 @@ protected:
     }
 
 public:
-    typedef T * data;
+    using value_type = T*;
     using size_type = typename ptr_vector<T>::size_type;
 
     ref_vector_core(Ref const & r = Ref()):Ref(r) {}

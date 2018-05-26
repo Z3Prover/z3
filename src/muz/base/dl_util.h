@@ -322,7 +322,7 @@ namespace datalog {
         if(cycle_len<2) {
             return;
         }
-        typename T::data aux = container[permutation_cycle[0]];
+        typename T::value_type aux = container[permutation_cycle[0]];
         for(unsigned i=1; i<cycle_len; i++) {
             container[permutation_cycle[i-1]]=container[permutation_cycle[i]];
         }
@@ -478,7 +478,7 @@ namespace datalog {
        is not preserved.
      */
     template<class T>
-    bool remove_from_vector(T & v, const typename T::data & el) {
+    bool remove_from_vector(T & v, const typename T::value_type & el) {
         unsigned sz = v.size();
         for(unsigned i=0; i<sz; i++) {
             if(v[i]==el) {

@@ -48,7 +48,7 @@ static void mk_map(V const & v, M & m) {
     typename V::const_iterator it  = v.begin();
     typename V::const_iterator end = v.end();
     for (; it != end; ++it) {
-        typename V::data::second_type val;
+        typename V::value_type::second_type val;
         if (m.find(it->first, val)) 
             m.insert(it->first, it->second + val);
         else
