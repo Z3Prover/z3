@@ -201,7 +201,7 @@ namespace nlsat {
         //
         // -----------------------
 
-        void get_core(vector<assumption, false>& deps);
+        void get_core(vector<assumption>& deps);
 
         // -----------------------
         //

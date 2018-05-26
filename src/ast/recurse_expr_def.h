@@ -21,16 +21,16 @@ Revision History:
 
 #include "ast/recurse_expr.h"
 
-template<typename T, typename Visitor, bool IgnorePatterns, bool CallDestructors>
-inline void recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::visit(expr * n, bool & visited) {
+template<typename T, typename Visitor, bool IgnorePatterns>
+inline void recurse_expr<T, Visitor, IgnorePatterns>::visit(expr * n, bool & visited) {
     if (!is_cached(n)) {
         m_todo.push_back(n);
         visited = false;
     }
 }
 
-template<typename T, typename Visitor, bool IgnorePatterns, bool CallDestructors>
-bool recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::visit_children(expr * n) {
+template<typename T, typename Visitor, bool IgnorePatterns>
+bool recurse_expr<T, Visitor, IgnorePatterns>::visit_children(expr * n) {
     bool visited = true;
     unsigned num;
     switch (n->get_kind()) {
@@ -56,8 +56,8 @@ bool recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::visit_children(e
     return visited;
 }
 
-template<typename T, typename Visitor, bool IgnorePatterns, bool CallDestructors>
-void recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::process(expr * n) {
+template<typename T, typename Visitor, bool IgnorePatterns>
+void recurse_expr<T, Visitor, IgnorePatterns>::process(expr * n) {
     unsigned num;
     switch (n->get_kind()) {
     case AST_APP:
@@ -91,8 +91,8 @@ void recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::process(expr * n
     }
 }
 
-template<typename T, typename Visitor, bool IgnorePatterns, bool CallDestructors>
-T recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::operator()(expr * r) {
+template<typename T, typename Visitor, bool IgnorePatterns>
+T recurse_expr<T, Visitor, IgnorePatterns>::operator()(expr * r) {
     m_todo.push_back(r);
     while (!m_todo.empty()) {
         expr * n = m_todo.back();

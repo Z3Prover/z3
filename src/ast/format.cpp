@@ -140,7 +140,7 @@ namespace format_ns {
 
     format * flat(ast_manager & m, format * f) {
         flat_visitor v(m);
-        recurse_expr<format *, flat_visitor, true, true> r(v);
+        recurse_expr<format *, flat_visitor, true> r(v);
         return r(f);
     }
 

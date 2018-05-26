@@ -53,7 +53,7 @@ namespace smt {
         //       instead apply stratified filter.
         set_prop_upward(v,d);
         d_full->m_maps.push_back(s);
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d_full->m_maps));
+        m_trail_stack.push(push_back_trail<theory_array, enode *>(d_full->m_maps));
         for (enode* n : d->m_parent_selects) {
             SASSERT(is_select(n));
             instantiate_select_map_axiom(n, s);
@@ -86,7 +86,7 @@ namespace smt {
         var_data * d     = m_var_data[v];
         var_data_full * d_full     = m_var_data_full[v];
         d_full->m_parent_maps.push_back(s);
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d_full->m_parent_maps));
+        m_trail_stack.push(push_back_trail<theory_array, enode *>(d_full->m_parent_maps));
         if (!m_params.m_array_weak && !m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode * n : d->m_parent_selects) {
                 if (!m_params.m_array_cg || n->is_cgr()) {
@@ -166,7 +166,7 @@ namespace smt {
             set_prop_upward(v, d);
         }
         ptr_vector<enode> & consts = m_var_data_full[v]->m_consts;
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(consts));
+        m_trail_stack.push(push_back_trail<theory_array, enode *>(consts));
         consts.push_back(cnst);
         instantiate_default_const_axiom(cnst);
         for (enode * n : d->m_parent_selects) {
@@ -182,7 +182,7 @@ namespace smt {
             set_prop_upward(v, d);
         }
         ptr_vector<enode> & as_arrays = m_var_data_full[v]->m_as_arrays;
-        m_trail_stack.push(push_back_trail<theory_array, enode *, false>(as_arrays));
+        m_trail_stack.push(push_back_trail<theory_array, enode *>(as_arrays));
         as_arrays.push_back(arr);
         instantiate_default_as_array_axiom(arr);
         for (enode * n : d->m_parent_selects) {

@@ -111,9 +111,9 @@ template void square_sparse_matrix<double, double>::solve_y_U_indexed(indexed_ve
 template void square_sparse_matrix<mpq, mpq>::solve_y_U_indexed(indexed_vector<mpq>&, const lp_settings &);
 template void square_sparse_matrix<mpq, numeric_pair<mpq> >::solve_y_U_indexed(indexed_vector<mpq>&, const lp_settings &);
 
-template square_sparse_matrix<double, double>::square_sparse_matrix(static_matrix<double, double> const&, vector<unsigned int, true, unsigned int>&);
-template square_sparse_matrix<mpq, mpq>::square_sparse_matrix (static_matrix<mpq, mpq> const&, vector<unsigned int, true, unsigned int>&);
-template square_sparse_matrix<mpq, numeric_pair<mpq> >::square_sparse_matrix(static_matrix<mpq, numeric_pair<mpq> > const&, vector<unsigned int, true, unsigned int>&);
+template square_sparse_matrix<double, double>::square_sparse_matrix(static_matrix<double, double> const&, vector<unsigned int, unsigned int>&);
+template square_sparse_matrix<mpq, mpq>::square_sparse_matrix (static_matrix<mpq, mpq> const&, vector<unsigned int, unsigned int>&);
+template square_sparse_matrix<mpq, numeric_pair<mpq> >::square_sparse_matrix(static_matrix<mpq, numeric_pair<mpq> > const&, vector<unsigned int, unsigned int>&);
 }
-template void lp::square_sparse_matrix<double, double>::copy_from_input_on_basis<lp::static_matrix<double, double> >(lp::static_matrix<double, double> const&, vector<unsigned int, true, unsigned int>&);
-template void lp::square_sparse_matrix<rational, rational>::copy_from_input_on_basis<lp::static_matrix<rational, rational> >(lp::static_matrix<rational, rational> const&, vector<unsigned int, true, unsigned int>&);
+template void lp::square_sparse_matrix<double, double>::copy_from_input_on_basis<lp::static_matrix<double, double> >(lp::static_matrix<double, double> const&, vector<unsigned int, unsigned int>&);
+template void lp::square_sparse_matrix<rational, rational>::copy_from_input_on_basis<lp::static_matrix<rational, rational> >(lp::static_matrix<rational, rational> const&, vector<unsigned int, unsigned int>&);

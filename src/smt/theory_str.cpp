@@ -11078,7 +11078,7 @@ namespace smt {
         // ----------------------------------------------------------------------------------------
         int len = atoi(lenStr.encode().c_str());
         bool coverAll = false;
-        vector<int_vector, true, size_t> options;
+        vector<int_vector, size_t> options;
         int_vector base;
 
         TRACE("str", tout

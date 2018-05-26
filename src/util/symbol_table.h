@@ -187,7 +187,7 @@ public:
         }
     }
 
-    void get_range(vector<T,false>& range) const {
+    void get_range(vector<T>& range) const {
         for (auto kv : m_sym_table) {
             range.push_back(kv.m_data);
         }

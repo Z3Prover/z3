@@ -1373,7 +1373,7 @@ namespace nlsat {
 
             if (r == l_false) {
                 // collect used literals from m_lemma_assumptions
-                vector<assumption, false> deps;
+                vector<assumption> deps;
                 get_core(deps);
                 for (unsigned i = 0; i < deps.size(); ++i) {
                     literal const* lp = (literal const*)(deps[i]);
@@ -1390,7 +1390,7 @@ namespace nlsat {
             return r;
         }
 
-        void get_core(vector<assumption, false>& deps) {
+        void get_core(vector<assumption>& deps) {
             m_asm.linearize(m_lemma_assumptions.get(), deps);
         }
 
@@ -1417,7 +1417,7 @@ namespace nlsat {
             if (asms == nullptr) {
                 return false;
             }
-            vector<assumption, false> deps;
+            vector<assumption> deps;
             m_asm.linearize(asms, deps);
             bool found = false;
             for (unsigned i = 0; !found && i < deps.size(); ++i) {
@@ -3076,7 +3076,7 @@ namespace nlsat {
         return m_imp->check(assumptions);
     }
 
-    void solver::get_core(vector<assumption, false>& assumptions) {
+    void solver::get_core(vector<assumption>& assumptions) {
         return m_imp->get_core(assumptions);
     }
 

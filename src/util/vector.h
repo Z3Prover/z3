@@ -16,7 +16,7 @@ Author:
 #include "buffvec.h"
 #include "hash.h"
 
-template<typename T, bool CallDestructors=true, typename SZ = unsigned>
+template<typename T, typename SZ = unsigned>
 using vector = buffvec<T, SZ, 0>;
 
 template<typename T>

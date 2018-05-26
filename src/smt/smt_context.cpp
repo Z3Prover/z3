@@ -1089,7 +1089,7 @@ namespace smt {
               );
 
 #ifdef Z3DEBUG
-        push_trail(push_back_trail<context, enode_pair, false>(m_diseq_vector));
+        push_trail(push_back_trail<context, enode_pair>(m_diseq_vector));
         m_diseq_vector.push_back(enode_pair(n1, n2));
 #endif
 
@@ -1659,7 +1659,7 @@ namespace smt {
             SASSERT(th);
             th->new_eq_eh(curr.m_lhs, curr.m_rhs);
 #ifdef Z3DEBUG
-            push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_eqs));
+            push_trail(push_back_trail<context, new_th_eq>(m_propagated_th_eqs));
             m_propagated_th_eqs.push_back(curr);
 #endif
         }
@@ -1673,7 +1673,7 @@ namespace smt {
             SASSERT(th);
             th->new_diseq_eh(curr.m_lhs, curr.m_rhs);
 #ifdef Z3DEBUG
-            push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_diseqs));
+            push_trail(push_back_trail<context, new_th_eq>(m_propagated_th_diseqs));
             m_propagated_th_diseqs.push_back(curr);
 #endif
         }
