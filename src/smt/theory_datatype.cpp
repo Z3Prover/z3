@@ -274,7 +274,7 @@ namespace smt {
             ast_manager & m = get_manager();
             sort * s      = m.get_sort(n->get_owner());
             if (m_util.get_datatype_num_constructors(s) == 1) {
-                func_decl * c = m_util.get_datatype_constructors(s)->get(0);
+                func_decl * c = (*m_util.get_datatype_constructors(s))[0];
                 assert_is_constructor_axiom(n, c, null_literal);
             }
             else {

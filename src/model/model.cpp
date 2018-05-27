@@ -86,7 +86,7 @@ struct model::value_proc : public some_value_proc {
         ptr_vector<expr> * u = nullptr;
         if (m_model.m_usort2universe.find(s, u)) {
             if (!u->empty())
-                return u->get(0);
+                return (*u)[0];
         }
         return nullptr;
     }

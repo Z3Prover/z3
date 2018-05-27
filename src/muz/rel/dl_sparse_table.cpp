@@ -70,7 +70,7 @@ namespace datalog {
             //we don't want any holes, so we put the last element at the place
             //of the removed one
             m_data_indexer.remove(last_ofs);
-            char * base = &m_data.get(0);
+            char * base = m_data.data();
             memcpy(base+ofs, base+last_ofs, m_entry_size);
             m_data_indexer.insert(ofs);
         }

@@ -371,7 +371,7 @@ void proto_model::complete_partial_funcs(bool use_fresh) {
     // m_func_decls may be "expanded" when we invoke get_some_value.
     // So, we must not use iterators to traverse it.
     for (unsigned i = 0; i < m_func_decls.size(); ++i) {
-        complete_partial_func(m_func_decls.get(i), use_fresh);
+        complete_partial_func(m_func_decls[i], use_fresh);
     }
 }
 

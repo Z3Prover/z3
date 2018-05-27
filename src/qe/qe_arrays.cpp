@@ -409,7 +409,7 @@ namespace qe {
                     if (!I.empty ()) {
                         expr_ref_vector vals = (*m_mev)(idxs);
                         for (unsigned i = 0; i < I.size () && !idx_in_I; i++) {
-                            if (is_eq(idxs, I.get(i))) {
+                            if (is_eq(idxs, I[i])) {
                                 idx_in_I = true;
                             }
                             else {
@@ -1013,7 +1013,7 @@ namespace qe {
         void ackermann (ptr_vector<app> const& sel_terms) {
             if (sel_terms.empty ()) return;
 
-            expr* v = sel_terms.get (0)->get_arg (0); // array variable
+            expr* v = sel_terms[0]->get_arg (0); // array variable
             sort* v_sort = m.get_sort (v);
             sort* val_sort = get_array_range (v_sort);
             unsigned arity = get_array_arity(v_sort);

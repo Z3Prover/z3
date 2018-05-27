@@ -347,7 +347,7 @@ extern "C" {
         virtual ~vector_var2anum() {}
         algebraic_numbers::manager & m() const override { return m_as.m(); }
         bool contains(polynomial::var x) const override { return static_cast<unsigned>(x) < m_as.size(); }
-        algebraic_numbers::anum const & operator()(polynomial::var x) const override { return m_as.get(x); }
+        algebraic_numbers::anum const & operator()(polynomial::var x) const override { return m_as[x]; }
     };
 
     Z3_ast_vector Z3_API Z3_algebraic_roots(Z3_context c, Z3_ast p, unsigned n, Z3_ast a[]) {
@@ -380,7 +380,7 @@ extern "C" {
         Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
         for (unsigned i = 0; i < roots.size(); i++) {
-            result->m_ast_vector.push_back(au(c).mk_numeral(roots.get(i), false));
+            result->m_ast_vector.push_back(au(c).mk_numeral(roots[i], false));
         }
         RETURN_Z3(of_ast_vector(result));
         Z3_CATCH_RETURN(nullptr);

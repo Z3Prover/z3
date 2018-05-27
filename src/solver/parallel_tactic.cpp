@@ -447,9 +447,9 @@ private:
         IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :split-cube " << cube.size() << ")\n";);
         if (!s.cubes().empty()) m_queue.add_task(s.clone());
         if (!cube.empty()) {
-            s.assert_cube(cube.get(0).cube());
+            s.assert_cube(cube[0].cube());
             vars.reset();
-            vars.append(cube.get(0).vars());
+            vars.append(cube[0].vars());
         }
 
     simplify_again:

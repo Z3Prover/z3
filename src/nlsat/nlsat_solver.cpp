@@ -2065,7 +2065,7 @@ namespace nlsat {
                 // m_perm: internal -> external
                 // m_inv_perm: external -> internal
                 new_inv_perm[ext_x] = p[m_inv_perm[ext_x]];
-                m_perm.set(new_inv_perm[ext_x], ext_x);
+                m_perm[new_inv_perm[ext_x]] = ext_x;
             }
             vector<bool> is_int;
             is_int.swap(m_is_int);

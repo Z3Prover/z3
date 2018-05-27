@@ -225,7 +225,7 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
     unsigned i = m_new_var_names.size();
     while (i > 0) {
         i--;
-        new_var_names_rev.push_back(m_new_var_names.get(i));
+        new_var_names_rev.push_back(m_new_var_names[i]);
         new_qsorts_rev.push_back(m_new_qsorts.get(i));
     }
 

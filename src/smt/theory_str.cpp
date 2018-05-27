@@ -7337,7 +7337,7 @@ namespace smt {
             string_chars.insert(stringTerm, old_chars);
             // now we're guaranteed to have at least the right number of characters in old_chars
             for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
-                expr_ref ch(old_chars.get(i), m);
+                expr_ref ch(old_chars[i], m);
                 refresh_theory_var(ch);
                 pathChars.push_back(ch);
                 pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));

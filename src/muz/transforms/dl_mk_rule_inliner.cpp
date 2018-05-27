@@ -657,7 +657,7 @@ namespace datalog {
 
         if (source.is_output_predicate(headd) ||
             m_preds_with_facts.contains(headd)) {
-            can_remove.set(i, false);
+            can_remove[i] = false;
             TRACE("dl", output_predicate(m_context, head, tout << "cannot remove: " << i << " "); tout << "\n";);
         }
 
@@ -672,7 +672,7 @@ namespace datalog {
             && r->get_positive_tail_size() == 1
             && !m_preds_with_facts.contains(r->get_decl(0))
             && !source.is_output_predicate(r->get_decl(0));
-        can_expand.set(i, can_exp);
+        can_expand[i] = can_exp;
     }
 
     void mk_rule_inliner::del_rule(rule* r, unsigned i) {
@@ -741,11 +741,11 @@ namespace datalog {
 
                 TRACE("dl", r->display(m_context, tout << "processing: " << i << "\n"););
 
-                if (!valid.get(i)) {
+                if (!valid[i]) {
                     TRACE("dl", tout << "invalid: " << i << "\n";);
                     break;
                 }
-                if (!can_expand.get(i)) {
+                if (!can_expand[i]) {
                     TRACE("dl", tout << "cannot expand: " << i << "\n";);
                     break;
                 }
@@ -758,8 +758,8 @@ namespace datalog {
                     break;
                 }
                 unsigned j = m_head_visitor.get_unifiers()[0];
-                if (!can_remove.get(j) || !valid.get(j) || i == j) {
-                    TRACE("dl", tout << PRT(can_remove.get(j)) << " " << PRT(valid.get(j)) << " " << PRT(i != j) << "\n";);
+                if (!can_remove[j] || !valid[j] || i == j) {
+                    TRACE("dl", tout << PRT(can_remove[j]) << " " << PRT(valid[j]) << " " << PRT(i != j) << "\n";);
                     break;
                 }
 
@@ -791,11 +791,11 @@ namespace datalog {
 
                 r = rl_res;
                 acc[i] = r.get();
-                can_expand.set(i, can_expand.get(j));
+                can_expand[i] = can_expand[j];
 
                 if (num_tail_unifiers == 1) {
                     TRACE("dl", tout << "setting invalid: " << j << "\n";);
-                    valid.set(j, false);
+                    valid[j] = false;
                     datalog::del_rule(m_mc, *r2, true);
                     del_rule(r2, j);
                 }
@@ -808,7 +808,7 @@ namespace datalog {
         if (done_something) {
             scoped_ptr<rule_set> res = alloc(rule_set, m_context);
             for (unsigned i = 0; i < sz; ++i) {
-                if (valid.get(i)) {
+                if (valid[i]) {
                     res->add_rule(acc[i].get());
                 }
             }

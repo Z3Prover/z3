@@ -567,10 +567,10 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                 }
                 bool found = false;
                 for (unsigned j = 0; !found && j < terms1.size(); ++j) {
-                    if (m.is_complement(terms1.get(j), fml2)) {
+                    if (m.is_complement(terms1[j], fml2)) {
                         found = true;
                         if (j + 1 < terms1.size()) {
-                            terms1[j] = terms1.get(terms1.size()-1);
+                            terms1[j] = terms1[terms1.size()-1];
                         }
                         terms1.resize(terms1.size()-1);
                     }

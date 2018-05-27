@@ -240,7 +240,7 @@ namespace datalog {
         */
         char * get_reserve_ptr() {
             SASSERT(has_reserve());
-            return &m_data.get(reserve());
+            return &m_data[reserve()];
         }
 
         bool reserve_content_already_present() const {

@@ -207,7 +207,7 @@ struct expr2polynomial::imp {
         if (is_cached(t)) {
             unsigned idx = m_cache.find(t);
             m_presult_stack.push_back(m_cached_polynomials.get(idx));
-            m_dresult_stack.push_back(m_cached_denominators.get(idx));
+            m_dresult_stack.push_back(m_cached_denominators[idx]);
             return true;
         }
 

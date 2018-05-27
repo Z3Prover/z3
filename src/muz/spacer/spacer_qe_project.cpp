@@ -662,7 +662,7 @@ namespace spacer_qe {
                         // m_divs[i] | (x_term_val + m_terms[i])
 
                       // -- x_term_val is the absolute value, negate it if needed
-                      if (m_coeffs.get (i).is_pos ())
+                      if (m_coeffs[i].is_pos ())
                         new_lit = a.mk_add (m_terms.get (i), x_term_val);
                       else
                         new_lit = a.mk_add (m_terms.get (i), a.mk_uminus (x_term_val));
@@ -1665,7 +1665,7 @@ namespace spacer_qe {
             unsigned num_true_eqs = true_eqs.size ();
             vector<unsigned> nds (num_true_eqs);
             for (unsigned i = 0; i < num_true_eqs; i++) {
-                app* eq = true_eqs.get (i);
+                app* eq = true_eqs[i];
                 expr* lhs = eq->get_arg (0);
                 expr* rhs = eq->get_arg (1);
                 bool lhs_has_v = (lhs == m_v || m_has_stores_v.is_marked (lhs));
@@ -1699,16 +1699,16 @@ namespace spacer_qe {
             // use insertion sort
             for (unsigned i = 1; i < num_true_eqs; i++) {
                 app_ref eq(m);
-                eq = true_eqs.get (i);
-                unsigned nd = nds.get (i);
+                eq = true_eqs[i];
+                unsigned nd = nds[i];
                 unsigned j = i;
-                for (; j >= 1 && nds.get (j-1) > nd; j--) {
-                    true_eqs.set (j, true_eqs.get (j-1));
-                    nds.set (j, nds.get (j-1));
+                for (; j >= 1 && nds[j-1] > nd; j--) {
+                    true_eqs[j] = true_eqs[j-1];
+                    nds[j] = nds[j-1];
                 }
                 if (j < i) {
-                    true_eqs.set (j, eq);
-                    nds.set (j, nd);
+                    true_eqs[j] = eq;
+                    nds[j] = nd;
                     TRACE ("qe",
                             tout << "changing eq order!\n";
                           );
@@ -1717,7 +1717,7 @@ namespace spacer_qe {
 
             // search for subst term
             for (unsigned i = 0; !m_subst_term_v && i < num_true_eqs; i++) {
-                app* eq = true_eqs.get (i);
+                app* eq = true_eqs[i];
                 m_true_sub_v.insert (eq, m.mk_true ());
                 // try to find subst term
                 find_subst_term (eq);
@@ -2072,7 +2072,7 @@ namespace spacer_qe {
         void ackermann (ptr_vector<app> const& sel_terms) {
             if (sel_terms.empty ()) return;
 
-            expr* v = sel_terms.get (0)->get_arg (0); // array variable
+            expr* v = sel_terms[0]->get_arg (0); // array variable
             sort* v_sort = m.get_sort (v);
             sort* val_sort = get_array_range (v_sort);
             sort* idx_sort = get_array_domain (v_sort, 0);
@@ -2081,7 +2081,7 @@ namespace spacer_qe {
             unsigned start = m_idx_reprs.size (); // append at the end
 
             for (unsigned i = 0; i < sel_terms.size (); i++) {
-                app* a = sel_terms.get (i);
+                app* a = sel_terms[i];
                 expr* idx = a->get_arg (1);
                 expr_ref val (m);
                 m_mev.eval (*M, idx, val);

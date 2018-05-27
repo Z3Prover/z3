@@ -131,9 +131,9 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
     expr_ref_vector subst(m);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
         subst.reset();
-        mk_child_subst_from_model(preds.get(i), i, mdl, subst);
+        mk_child_subst_from_model(preds[i], i, mdl, subst);
         todo.push_back(frame(kid_rfs.get(i),
-                             m_ctx.get_pred_transformer(preds.get(i)), subst));
+                             m_ctx.get_pred_transformer(preds[i]), subst));
         fr.m_kids.push_back(todo.back().fact());
     }
 }

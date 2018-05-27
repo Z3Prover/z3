@@ -42,7 +42,7 @@ void model_node::add_child(model_node* kid) {
 unsigned model_node::index_in_parent() const {
     if (!m_parent) return 0;
     for (unsigned i = 0, sz = m_parent->children().size(); i < sz; ++i) {
-        if (this == m_parent->children().get(i)) return i;
+        if (this == m_parent->children()[i]) return i;
     }
     UNREACHABLE();
     return 0;
@@ -318,8 +318,8 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
 
     mbc::partition_map pmap;
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
-        func_decl *p = preds.get(i);
-        pred_transformer &ppt = *ppts.get(i);
+        func_decl *p = preds[i];
+        pred_transformer &ppt = *ppts[i];
         for (unsigned j = 0, jsz = p->get_arity(); j < jsz; ++j) {
             pmap.insert(m_pm.o2o(ppt.sig(j), 0, i), i);
         }
@@ -347,8 +347,8 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
     for (unsigned i = 0, sz = res.size(); i < sz; ++i) {
         unsigned j = kid_order[i];
         expr_ref post(m);
-        pred_transformer &ppt = *ppts.get(j);
-        post = mk_and(res.get(j));
+        pred_transformer &ppt = *ppts[j];
+        post = mk_and(res[j]);
         m_pm.formula_o2n(post.get(), post, j, true);
         pob * k = ppt.mk_pob(&n, prev_level(n.level()), n.depth(), post);
         out.push_back(k);

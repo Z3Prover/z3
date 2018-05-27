@@ -454,7 +454,7 @@ derivation::premise::premise (pred_transformer &pt, unsigned oidx,
 
     if (aux_vars)
         for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
-        { m_ovars.push_back(m.mk_const(sm.n2o(aux_vars->get(i)->get_decl(), m_oidx))); }
+        { m_ovars.push_back(m.mk_const(sm.n2o((*aux_vars)[i]->get_decl(), m_oidx))); }
 }
 
 derivation::premise::premise (const derivation::premise &p) :
@@ -479,7 +479,7 @@ void derivation::premise::set_summary (expr * summary, bool must,
 
     if (aux_vars)
         for (unsigned i = 0, sz = aux_vars->size (); i < sz; ++i)
-            m_ovars.push_back (m.mk_const (sm.n2o (aux_vars->get (i)->get_decl (),
+            m_ovars.push_back (m.mk_const (sm.n2o ((*aux_vars)[i]->get_decl (),
                                                    m_oidx)));
 }
 
@@ -2806,7 +2806,7 @@ unsigned context::get_cex_depth()
     // bfs traversal of the query derivation tree
     for (unsigned curr = 0; curr < pts.size (); curr++) {
         // get current pt and fact
-        pt = pts.get (curr);
+        pt = pts[curr];
         // check for depth marker
         if (pt == nullptr) {
             ++cex_depth;
@@ -2881,7 +2881,7 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
     // populate rules according to a preorder traversal of the query derivation tree
     for (unsigned curr = 0; curr < pts.size (); curr++) {
         // get current pt and fact
-        pt = pts.get (curr);
+        pt = pts[curr];
         fact = facts.get (curr);
         // get rule justifying the derivation of fact at pt
         r = &fact->get_rule ();
@@ -2998,7 +2998,7 @@ expr_ref context::get_ground_sat_answer()  {
     // preorder traversal of the query derivation tree
     for (unsigned curr = 0; curr < pts.size (); curr++) {
         // pick next pt, fact, and cex_fact
-        pt = pts.get (curr);
+        pt = pts[curr];
         reach_fact = reach_facts[curr];
 
         cex_fact = cex_facts.get (curr);
@@ -3062,7 +3062,7 @@ expr_ref context::get_ground_sat_answer()  {
             first = false;
         }
         for (unsigned i = 0; i < child_pts.size(); i++) {
-            pred_transformer& ch_pt = *(child_pts.get(i));
+            pred_transformer& ch_pt = *(child_pts[i]);
             unsigned sig_size = ch_pt.sig_size();
             expr_ref_vector ground_fact_conjs(m);
             expr_ref_vector ground_arg_vals(m);
@@ -3849,7 +3849,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
         unsigned j = kid_order[i];
 
-        pred_transformer &pt = get_pred_transformer(preds.get(j));
+        pred_transformer &pt = get_pred_transformer(preds[j]);
 
         const ptr_vector<app> *aux = nullptr;
         expr_ref sum(m);

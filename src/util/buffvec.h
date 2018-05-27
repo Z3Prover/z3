@@ -808,10 +808,7 @@ public:
     pointer c_ptr() const { return m_data; }
     void reset() noexcept { clear(); }
     void finalize() { clear(); shrink_to_fit(); }
-    reference get(size_type index) { return (*this)[index]; }
-    const_reference get(size_type index) const { return (*this)[index]; }
     const_reference get(size_type index, T const& default_value) const { return index < size() ? (*this)[index] : default_value; }
-    void set(size_type index, T const& new_value) { (*this)[index] = new_value; }
     void setx(size_type index, T const& new_value, T const& default_value) {
         if(index >= size()) {
             SASSERT(index + 1 > 0 && "overflow check");

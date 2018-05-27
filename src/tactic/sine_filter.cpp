@@ -54,7 +54,7 @@ public:
         TRACE("sine", tout << new_forms.size(););
         g->reset();
         for (unsigned i = 0; i < new_forms.size(); i++) {
-            g->assert_expr(new_forms.get(i), nullptr, nullptr);
+            g->assert_expr(new_forms[i], nullptr, nullptr);
         }
         g->inc_depth();
         g->updt_prec(goal::OVER);
@@ -185,7 +185,7 @@ private:
                         }
                         else {
                             for (unsigned i = 0; i < next_consts.size(); i++) {
-                                func_decl *c = next_consts.get(i);
+                                func_decl *c = next_consts[i];
                                 if (!const2quantifier.contains(c)) {
                                     const2quantifier.insert(c, obj_pair_hashtable<expr, expr>());
                                 }

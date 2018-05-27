@@ -71,7 +71,7 @@ static void track_clause(sat::solver& dst,
                          sat::literal_vector& assumptions,
                          vector<sat::literal_vector>& tracking_clauses) {
     sat::literal lit = sat::literal(dst.mk_var(true, false), false);
-    tracking_clauses.set(lit.var(), lits);
+    tracking_clauses[lit.var()] = lits;
     lits.push_back(~lit);
     dst.mk_clause(lits.size(), lits.c_ptr());
     assumptions.push_back(lit);            

@@ -26,7 +26,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
     ENSURE(!ctx.assertions().empty());
-    result = ctx.assertions().get(0);
+    result = ctx.assertions()[0];
     return result;
 }
 

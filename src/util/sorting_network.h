@@ -68,10 +68,10 @@ Notes:
         void exchange(size_type i, size_type j, vector_type& out) {
             SASSERT(i <= j);
             if (i < j) {
-                typename Ext::T ei = out.get(i);
-                typename Ext::T ej = out.get(j);
-                out.set(i, m_ext.mk_ite(m_ext.mk_le(ei, ej), ei, ej));
-                out.set(j, m_ext.mk_ite(m_ext.mk_le(ej, ei), ei, ej));
+                typename Ext::T ei = out[i];
+                typename Ext::T ej = out[j];
+                out[i] = m_ext.mk_ite(m_ext.mk_le(ei, ej), ei, ej);
+                out[j] = m_ext.mk_ite(m_ext.mk_le(ej, ei), ei, ej);
             }
         }
         

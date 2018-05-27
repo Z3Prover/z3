@@ -626,7 +626,7 @@ namespace qe {
             // If 'x' does not yet have a recognizer, then branch according to recognizers.
             // 
             if (!has_recognizer(x, fml, r, c)) {
-                c = m_datatype_util.get_datatype_constructors(s)->get(vl.get_unsigned());
+                c = (*m_datatype_util.get_datatype_constructors(s))[vl.get_unsigned()];
                 r = m_datatype_util.get_constructor_is(c);
                 app* is_c = m.mk_app(r, x);                
                 // assert v => r(x)            
@@ -673,7 +673,7 @@ namespace qe {
             // Introduce auxiliary variable to eliminate.
             // 
             if (!has_recognizer(x, fml, r, c)) {
-                c = m_datatype_util.get_datatype_constructors(s)->get(vl.get_unsigned());
+                c = (*m_datatype_util.get_datatype_constructors(s))[vl.get_unsigned()];
                 r = m_datatype_util.get_constructor_is(c);
                 app* is_c = m.mk_app(r, x);                
                 fml = m.mk_and(is_c, fml);
@@ -774,7 +774,7 @@ namespace qe {
                 return;
             }
             
-            c = m_datatype_util.get_datatype_constructors(s)->get(vl.get_unsigned());
+            c = (*m_datatype_util.get_datatype_constructors(s))[vl.get_unsigned()];
             r = m_datatype_util.get_constructor_is(c);
             app* is_c = m.mk_app(r, x);
             
@@ -794,7 +794,7 @@ namespace qe {
             else {
                 SASSERT(vl.is_unsigned());
                 SASSERT(vl.get_unsigned() < m_datatype_util.get_datatype_num_constructors(s));
-                c = m_datatype_util.get_datatype_constructors(s)->get(vl.get_unsigned());
+                c = (*m_datatype_util.get_datatype_constructors(s))[vl.get_unsigned()];
             }
             subst_constructor(x, c, fml, def);                
         }

@@ -270,6 +270,10 @@ public:
             m_ref = n.steal();
             return *this;
         }
+		
+        operator T*() const {
+            return m_ref;
+        }
 
         T * get() const {
             return m_ref;

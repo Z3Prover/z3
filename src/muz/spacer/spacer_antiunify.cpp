@@ -166,7 +166,7 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
     s2.reserve(2, m_subs.size());
 
     for (unsigned i = 0, sz = m_subs.size(); i < sz; ++i) {
-        expr_pair p = m_subs.get(i);
+        expr_pair p = m_subs[i];
         s1.insert(i, 0, expr_offset(p.first, 1));
         s2.insert(i, 0, expr_offset(p.second, 1));
     }
