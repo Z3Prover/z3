@@ -61,6 +61,7 @@ namespace smt {
         m_dyn_ack_manager(*this, p),
         m_is_diseq_tmp(nullptr),
         m_units_to_reassert(m_manager),
+        m_clause(nullptr),
         m_qhead(0),
         m_simp_qhead(0),
         m_simp_counter(0),
@@ -203,8 +204,8 @@ namespace smt {
             literal l1 = to_literal(l_idx);
             literal neg_l1 = ~l1;
             watch_list const & wl = *it;
-            literal const * it2  = wl.begin_literals();
-            literal const * end2 = wl.end_literals();
+            literal const * it2  = wl.begin();
+            literal const * end2 = wl.end();
             for (; it2 != end2; ++it2) {
                 literal l2 = *it2;
                 if (l1.index() < l2.index()) {
@@ -385,8 +386,8 @@ namespace smt {
                     it2++;
                 }
                 else {
-                    literal * it3  = cls->begin_literals() + 2;
-                    literal * end3 = cls->end_literals();
+                    literal * it3  = cls->begin() + 2;
+                    literal * end3 = cls->end();
                     for(; it3 != end3; ++it3) {
                         if (get_assignment(*it3) != l_false) {
                             // swap literal *it3 with literal at position 0
@@ -1813,6 +1814,17 @@ namespace smt {
        more case splits to be performed.
     */
     bool context::decide() {
+
+        if (m_clause && at_search_level()) {
+            switch (decide_clause()) {
+            case l_true:  // already satisfied
+                break;
+            case l_undef: // made a decision
+                return true;
+            case l_false: // inconsistent
+                break;
+            }
+        }
         bool_var var;
         lbool phase;
         m_case_split_queue->next_case_split(var, phase);
@@ -2152,7 +2164,7 @@ namespace smt {
        \brief See cache_generation(unsigned new_scope_lvl)
     */
     void context::cache_generation(clause const * cls, unsigned new_scope_lvl) {
-        cache_generation(cls->get_num_literals(), cls->begin_literals(), new_scope_lvl);
+        cache_generation(cls->get_num_literals(), cls->begin(), new_scope_lvl);
     }
 
     /**
@@ -2907,6 +2919,8 @@ namespace smt {
         del_clauses(m_aux_clauses, 0);
         del_clauses(m_lemmas, 0);
         del_justifications(m_justifications, 0);
+        if (m_clause) del_clause(m_clause);
+        m_clause = nullptr;
         if (m_is_diseq_tmp) {
             m_is_diseq_tmp->del_eh(m_manager, false);
             m_manager.dec_ref(m_is_diseq_tmp->get_owner());
@@ -3087,6 +3101,7 @@ namespace smt {
         }
         TRACE("internalize_assertions", tout << "after internalize_assertions()...\n";
               tout << "inconsistent: " << inconsistent() << "\n";);
+        TRACE("after_internalize_assertions", display(tout););
     }
 
     bool is_valid_assumption(ast_manager & m, expr * assumption) {
@@ -3109,10 +3124,10 @@ namespace smt {
     /**
        \brief Assumptions must be uninterpreted boolean constants (aka propositional variables).
     */
-    bool context::validate_assumptions(unsigned num_assumptions, expr * const * assumptions) {
-        for (unsigned i = 0; i < num_assumptions; i++) {
-            SASSERT(assumptions[i]);
-            if (!is_valid_assumption(m_manager, assumptions[i])) {
+    bool context::validate_assumptions(expr_ref_vector const& asms) {
+        for (expr* a : asms) {
+            SASSERT(a);
+            if (!is_valid_assumption(m_manager, a)) {
                 warning_msg("an assumption must be a propositional variable or the negation of one");
                 return false;
             }
@@ -3120,11 +3135,55 @@ namespace smt {
         return true;
     }
 
-    void context::init_assumptions(unsigned num_assumptions, expr * const * assumptions) {
+    void context::init_clause(expr_ref_vector const& clause) {
+        if (m_clause) del_clause(m_clause);
+        m_clause_lits.reset();
+        for (expr* lit : clause) {
+            internalize_formula(lit, true);
+            mark_as_relevant(lit);
+            m_clause_lits.push_back(get_literal(lit));
+        }
+        m_clause = mk_clause(m_clause_lits.size(), m_clause_lits.c_ptr(), nullptr);
+    }
+
+    lbool context::decide_clause() {
+        if (!m_clause) return l_true;
+        shuffle(m_clause_lits.size(), m_clause_lits.c_ptr(), m_random);
+        for (literal l : m_clause_lits) {
+            switch (get_assignment(l)) {
+            case l_false:
+                break;
+            case l_true:
+                return l_true;
+            default:
+                push_scope();
+                assign(l, b_justification::mk_axiom(), true);
+                return l_undef;
+            }            
+        }
+        for (unsigned i = m_assigned_literals.size(); i-- > 0; ) {
+            literal lit = m_assigned_literals[i];
+            if (m_clause_lits.contains(~lit)) {
+                for (unsigned j = 0, sz = m_clause->get_num_literals(); j < sz; ++j) {
+                    if (m_clause->get_literal(j) == ~lit) {
+                        if (j > 0) m_clause->swap_lits(j, 0);
+                        break;
+                    }
+                }
+                b_justification js(m_clause);
+                set_conflict(js, ~lit);
+                return l_false;
+            }
+        }
+        UNREACHABLE();
+        return l_false;
+    }
+
+    void context::init_assumptions(expr_ref_vector const& asms) {
         reset_assumptions();
         m_literal2assumption.reset();
         m_unsat_core.reset();
-        if (num_assumptions > 0) {
+        if (!asms.empty()) {
             // We must give a chance to the theories to propagate before we create a new scope...
             propagate();
             // Internal backtracking scopes (created with push_scope()) must only be created when we are
@@ -3134,8 +3193,7 @@ namespace smt {
             if (get_cancel_flag())
                 return;
             push_scope();
-            for (unsigned i = 0; i < num_assumptions; i++) {
-                expr * curr_assumption = assumptions[i];
+            for (expr * curr_assumption : asms) {
                 if (m_manager.is_true(curr_assumption)) continue;
                 SASSERT(is_valid_assumption(m_manager, curr_assumption));
                 proof * pr = m_manager.mk_asserted(curr_assumption);
@@ -3155,8 +3213,9 @@ namespace smt {
             }
         }
         m_search_lvl = m_scope_lvl;
-        SASSERT(!(num_assumptions > 0) || m_search_lvl > m_base_lvl);
-        SASSERT(!(num_assumptions == 0) || m_search_lvl == m_base_lvl);
+        SASSERT(asms.empty() || m_search_lvl > m_base_lvl);
+        SASSERT(!asms.empty() || m_search_lvl == m_base_lvl);
+        TRACE("after_internalization", display(tout););
     }
 
     void context::reset_assumptions() {
@@ -3165,7 +3224,8 @@ namespace smt {
         m_assumptions.reset();
     }
 
-    lbool context::mk_unsat_core() {
+    lbool context::mk_unsat_core(lbool r) {
+        if (r != l_false) return r;
         SASSERT(inconsistent());
         if (!tracking_assumptions()) {
             SASSERT(m_assumptions.empty());
@@ -3217,6 +3277,12 @@ namespace smt {
             m_last_search_failure = MEMOUT;
             return false;
         }
+        
+        if (m_clause) del_clause(m_clause);
+        m_clause = nullptr;
+        m_unsat_core.reset();
+        m_stats.m_num_checks++;
+        pop_to_base_lvl();
         return true;
     }
 
@@ -3240,8 +3306,7 @@ namespace smt {
        and before internalizing any formulas.
     */
     lbool context::setup_and_check(bool reset_cancel) {
-        if (!check_preamble(reset_cancel))
-            return l_undef;
+        if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(m_scope_lvl == 0);
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
@@ -3254,20 +3319,8 @@ namespace smt {
         }
 
         internalize_assertions();
-        lbool r = l_undef;
         TRACE("before_search", display(tout););
-        if (m_asserted_formulas.inconsistent()) {
-            r = l_false;
-        }
-        else {
-            if (inconsistent()) {
-                VERIFY(!resolve_conflict()); // build the proof
-                r = l_false;
-            }
-            else {
-                r = search();
-            }
-        }
+        lbool r = search();
         r = check_finalize(r);
         return r;
     }
@@ -3281,7 +3334,7 @@ namespace smt {
     }
 
     void context::setup_context(bool use_static_features) {
-        if (m_setup.already_configured())
+        if (m_setup.already_configured() || inconsistent())
             return;
         m_setup(get_config_mode(use_static_features));
         setup_components();
@@ -3316,70 +3369,38 @@ namespace smt {
         }
     }
 
-    lbool context::check(unsigned ext_num_assumptions, expr * const * ext_assumptions, bool reset_cancel, bool already_did_theory_assumptions) {
-        m_stats.m_num_checks++;
-        TRACE("check_bug", tout << "STARTING check(num_assumptions, assumptions)\n";
-              tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";
-              m_asserted_formulas.display(tout);
-              tout << "-----------------------\n";
-              display(tout););
-        if (!m_unsat_core.empty())
-            m_unsat_core.reset();
-        if (!check_preamble(reset_cancel))
-            return l_undef;
-
-        TRACE("check_bug", tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";);
-        pop_to_base_lvl();
+    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel, bool already_did_theory_assumptions) {
+        if (!check_preamble(reset_cancel)) return l_undef;
         TRACE("before_search", display(tout););
         SASSERT(at_base_level());
-        lbool r = l_undef;
-        if (inconsistent()) {
-            r = l_false;
-        }
-        else {
-            setup_context(false);
-            expr_ref_vector all_assumptions(m_manager, ext_num_assumptions, ext_assumptions);
-            if (!already_did_theory_assumptions) {
-                add_theory_assumptions(all_assumptions);
-            }
-            
-            unsigned num_assumptions = all_assumptions.size();
-            expr * const * assumptions = all_assumptions.c_ptr();
-
-            if (!validate_assumptions(num_assumptions, assumptions))
-                return l_undef;
-            TRACE("unsat_core_bug", tout << all_assumptions << "\n";);
-
-            internalize_assertions();
-            TRACE("after_internalize_assertions", display(tout););
-            if (m_asserted_formulas.inconsistent()) {
-                r = l_false;
-            }
-            else {
-                init_assumptions(num_assumptions, assumptions);
-                TRACE("after_internalization", display(tout););
-                if (inconsistent()) {
-                    VERIFY(!resolve_conflict()); // build the proof
-                    lbool result = mk_unsat_core();
-                    if (result == l_undef) {
-                        r = l_undef;
-                    } else {
-                        r = l_false;
-                    }
-                }
-                else {
-                    r = search();
-                    if (r == l_false) {
-                        lbool result = mk_unsat_core();
-                        if (result == l_undef) {
-                            r = l_undef;
-                        }
-                    }
-                }
-            }
-        }
+        setup_context(false);
+        expr_ref_vector asms(m_manager, num_assumptions, assumptions);
+        if (!already_did_theory_assumptions) add_theory_assumptions(asms);                
+        if (!validate_assumptions(asms)) return l_undef;
+        TRACE("unsat_core_bug", tout << asms << "\n";);        
+        internalize_assertions();
+        init_assumptions(asms);
+        lbool r = search();
+        r = mk_unsat_core(r);        
         r = check_finalize(r);
         return r;
+    }
+
+    lbool context::check(expr_ref_vector const& cube, expr_ref_vector const& clause) {
+        if (!check_preamble(true)) return l_undef;
+        TRACE("before_search", display(tout););
+        setup_context(false);
+        expr_ref_vector asms(cube);
+        add_theory_assumptions(asms);
+        if (!validate_assumptions(asms)) return l_undef;
+        if (!validate_assumptions(clause)) return l_undef;
+        internalize_assertions();
+        init_assumptions(asms);
+        init_clause(clause);
+        lbool r = search();   
+        r = mk_unsat_core(r);             
+        r = check_finalize(r);
+        return r;           
     }
 
     void context::init_search() {
@@ -3450,6 +3471,12 @@ namespace smt {
             exit(1);
         }
 #endif
+        if (m_asserted_formulas.inconsistent()) 
+            return l_false;
+        if (inconsistent()) {
+            VERIFY(!resolve_conflict());
+            return l_false;
+        }
         timeit tt(get_verbosity_level() >= 100, "smt.stats");
         scoped_mk_model smk(*this);
         SASSERT(at_search_level());
@@ -3473,23 +3500,18 @@ namespace smt {
 
             if (!restart(status, curr_lvl)) {
                 break;
-            }
+            }            
         }
 
-        TRACE("search_lite", tout << "status: " << status << "\n";);
         TRACE("guessed_literals",
               expr_ref_vector guessed_lits(m_manager);
               get_guessed_literals(guessed_lits);
-              unsigned sz = guessed_lits.size();
-              for (unsigned i = 0; i < sz; i++) {
-                  tout << mk_pp(guessed_lits.get(i), m_manager) << "\n";
-              });
+              tout << guessed_lits << "\n";);
         end_search();
         return status;
     }
 
     bool context::restart(lbool& status, unsigned curr_lvl) {
-
 
         if (m_last_search_failure != OK) {
             if (status != l_false) {
@@ -3643,6 +3665,8 @@ namespace smt {
                 simplify_clauses();
 
             if (!decide()) {
+                if (inconsistent()) 
+                    return l_false;
                 final_check_status fcs = final_check();
                 TRACE("final_check_result", tout << "fcs: " << fcs << " last_search_failure: " << m_last_search_failure << "\n";);
                 switch (fcs) {
@@ -3700,6 +3724,7 @@ namespace smt {
         TRACE("final_check", tout << "final_check inconsistent: " << inconsistent() << "\n"; display(tout); display_normalized_enodes(tout););
         CASSERT("relevancy", check_relevancy());
 
+        
         if (m_fparams.m_model_on_final_check) {
             mk_proto_model(l_undef);
             model_pp(std::cout, *m_proto_model);

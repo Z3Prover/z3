@@ -168,6 +168,8 @@ namespace smt {
         expr_ref_vector             m_units_to_reassert;
         svector<char>               m_units_to_reassert_sign;
         literal_vector              m_assigned_literals;
+        clause*                     m_clause;
+        literal_vector              m_clause_lits;
         unsigned                    m_qhead;
         unsigned                    m_simp_qhead;
         int                         m_simp_counter; //!< can become negative
@@ -1104,15 +1106,21 @@ namespace smt {
 
         void assert_assumption(expr * a);
 
-        bool validate_assumptions(unsigned num_assumptions, expr * const * assumptions);
+        bool validate_assumptions(expr_ref_vector const& asms);
 
-        void init_assumptions(unsigned num_assumptions, expr * const * assumptions);
+        void init_assumptions(expr_ref_vector const& asms);
+
+        void init_clause(expr_ref_vector const& clause);
+
+        lbool decide_clause();
 
         void reset_assumptions();
 
+        void reset_clause();
+
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
-        lbool mk_unsat_core();
+        lbool mk_unsat_core(lbool result);
 
         void validate_unsat_core();
 
@@ -1496,6 +1504,8 @@ namespace smt {
         void pop(unsigned num_scopes);
 
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
+
+        lbool check(expr_ref_vector const& cube, expr_ref_vector const& clause);
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
 

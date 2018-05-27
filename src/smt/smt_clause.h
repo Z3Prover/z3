@@ -192,13 +192,13 @@ namespace smt {
             return m_lits[idx];
         }
 
-        literal * begin_literals() { return m_lits; }
+        literal * begin() { return m_lits; }
 
-        literal * end_literals() { return m_lits + m_num_literals; }
+        literal * end() { return m_lits + m_num_literals; }
 
-        literal const * begin_literals() const { return m_lits; }
+        literal const * begin() const { return m_lits; }
 
-        literal const * end_literals() const { return m_lits + m_num_literals; }
+        literal const * end() const { return m_lits + m_num_literals; }
 
         unsigned get_activity() const {
             SASSERT(is_lemma());

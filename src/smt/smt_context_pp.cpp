@@ -583,7 +583,7 @@ namespace smt {
         case b_justification::CLAUSE: {
             clause * cls = j.get_clause();
             out << "clause ";
-            if (cls) out << literal_vector(cls->get_num_literals(), cls->begin_literals());
+            if (cls) out << literal_vector(cls->get_num_literals(), cls->begin());
             break;
         }
         case b_justification::JUSTIFICATION: {

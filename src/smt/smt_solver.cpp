@@ -190,6 +190,26 @@ namespace smt {
             return m_context.check(num_assumptions, assumptions);
         }
 
+        lbool check_sat(expr_ref_vector const& cube, expr_ref_vector const& clause, model_ref* mdl, expr_ref_vector* core, proof_ref* pr) override {
+            lbool r = m_context.check(cube, clause);
+            switch (r) {
+            case l_false:
+                if (pr) *pr = get_proof();
+                if (core) {
+                    ptr_vector<expr> _core;
+                    get_unsat_core(_core);
+                    core->append(_core.size(), _core.c_ptr());
+                }
+                break;
+            case l_true:
+                if (mdl) get_model(*mdl);
+                break;
+            default:
+                break;
+            }
+            return r;
+        }
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;
