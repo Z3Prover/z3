@@ -170,7 +170,7 @@ namespace smt {
                 th_id = en->get_trans_justification().m_justification.get_justification()->get_from_theory();
                 if (th_id != null_theory_id) {
                     symbol const theory = m().get_family_name(th_id);
-                    out << "[eq-expl] #" << en->get_owner_id() << " th:" << theory.str() << " ; #" << target->get_owner_id() << "\n";
+                    out << "[eq-expl] #" << en->get_owner_id() << " th " << theory.str() << " ; #" << target->get_owner_id() << "\n";
                 } else {
                     out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";    
                 }
