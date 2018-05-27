@@ -661,16 +661,6 @@ bool int_solver::init_terms_for_hnf_cut() {
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
         try_add_term_to_A_for_hnf(i);
     }
-    TRACE("hnf_cut", tout << "added terms\n";
-          for (unsigned i = 0; i < m_hnf_cutter.terms().size(); i++) {
-              m_lar_solver->print_term(*m_hnf_cutter.terms()[i], tout);
-              tout << " = " << m_hnf_cutter.right_sides()[i] << std::endl;
-          }
-          tout << "x = ";
-          for (unsigned i = 0; i < column_count(); i++)
-              tout << m_lar_solver->get_column_name(i) << " = " << m_lar_solver->get_column_value(i) << std::endl;
-          );
-
     return m_hnf_cutter.row_count() < settings().limit_on_rows_for_hnf_cutter;
 }
 
@@ -680,6 +670,7 @@ lia_move int_solver::make_hnf_cut() {
         return lia_move::undef;
     }
     settings().st().m_hnf_cutter_calls++;
+    TRACE("hnf_cut", tout << "settings().st().m_hnf_cutter_calls = " << settings().st().m_hnf_cutter_calls;);
 #ifdef Z3DEBUG
     vector<mpq> x0 = m_hnf_cutter.transform_to_local_columns(m_lar_solver->m_mpq_lar_core_solver.m_r_x);
 #endif

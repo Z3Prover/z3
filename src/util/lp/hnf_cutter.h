@@ -169,7 +169,6 @@ public:
                         #endif
                         ) {
         init_matrix_A();
-        TRACE("hnf_cut", m_A.print(tout, "m_A = "); endl(tout););
         svector<unsigned> basis_rows;
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
         if (m_settings.get_cancel_flag())
@@ -184,7 +183,6 @@ public:
         lp_assert(m_A * x0 == b);
         vector<mpq> bcopy = b;
         find_h_minus_1_b(h.W(), b);
-        TRACE("hnf_cut", h.W().print(tout, "H = "); endl(tout); tout << "H-1b = "; print_vector(b, tout); endl(tout););
         lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         int cut_row = find_cut_row_index(b);
         if (cut_row == -1) {
@@ -207,7 +205,6 @@ public:
         vector<mpq> row(m_A.column_count());
         get_ei_H_minus_1(cut_row, h.W(), row);
         vector<mpq> f = row * m_A;
-        TRACE("hnf_cut", tout << "cut row f = "; print_vector(f, tout); endl(tout););
         fill_term(f, t);
         k = floor(b[cut_row]);
         upper = true;
