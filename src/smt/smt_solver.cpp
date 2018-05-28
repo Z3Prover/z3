@@ -190,6 +190,8 @@ namespace smt {
             return m_context.check(num_assumptions, assumptions);
         }
 
+        using solver_na2as::check_sat;
+
         lbool check_sat(expr_ref_vector const& cube, expr_ref_vector const& clause, model_ref* mdl, expr_ref_vector* core, proof_ref* pr) override {
             lbool r = m_context.check(cube, clause);
             switch (r) {
