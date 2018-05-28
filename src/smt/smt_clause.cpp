@@ -28,7 +28,7 @@ namespace smt {
     clause * clause::mk(ast_manager & m, unsigned num_lits, literal * lits, clause_kind k, justification * js, 
                         clause_del_eh * del_eh, bool save_atoms, expr * const * bool_var2expr_map) {
         SASSERT(k == CLS_AUX || js == 0 || !js->in_region());
-        SASSERT(num_lits >= 2);
+        SASSERT(num_lits > 2);
         unsigned sz                = get_obj_size(num_lits, k, save_atoms, del_eh != nullptr, js != nullptr);
         void * mem                 = m.get_allocator().allocate(sz);
         clause * cls               = new (mem) clause();

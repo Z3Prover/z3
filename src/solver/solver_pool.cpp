@@ -107,12 +107,35 @@ public:
         }
     }
 
+    lbool check_sat(expr_ref_vector const& cube, expr_ref_vector const& clause, model_ref* mdl, expr_ref_vector* core, proof_ref* pr) override {
+        SASSERT(!m_pushed || get_scope_level() > 0);
+        m_proof.reset();
+        internalize_assertions();
+        expr_ref_vector cube1(cube);
+        cube1.push_back(m_pred);
+        lbool res = m_base->check_sat(cube1, clause, mdl, core, pr);
+        switch (res) {
+        case l_true:
+            m_pool.m_stats.m_num_sat_checks++;
+            break;
+        case l_undef:
+            m_pool.m_stats.m_num_undef_checks++;
+            break;
+        default:
+            break;
+        }
+        set_status(res);
+        
+        return res;
+    }
+
+    // NSB: seems we would add m_pred as an assumption?
     lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         m_proof.reset();
         scoped_watch _t_(m_pool.m_check_watch);
         m_pool.m_stats.m_num_checks++;
-
+        
         stopwatch sw;
         sw.start();
         internalize_assertions();

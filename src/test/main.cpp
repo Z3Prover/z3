@@ -172,6 +172,7 @@ int main(int argc, char ** argv) {
     TST(var_subst);
     TST(simple_parser);
     TST(api);
+    TST(cube_clause);
     TST(old_interval);
     TST(get_implied_equalities);
     TST(arith_simplifier_plugin);

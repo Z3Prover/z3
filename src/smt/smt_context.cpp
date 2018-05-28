@@ -1815,7 +1815,7 @@ namespace smt {
     */
     bool context::decide() {
 
-        if (m_clause && at_search_level()) {
+        if (at_search_level() && !m_clause_lits.empty()) {
             switch (decide_clause()) {
             case l_true:  // already satisfied
                 break;
@@ -3137,17 +3137,19 @@ namespace smt {
 
     void context::init_clause(expr_ref_vector const& clause) {
         if (m_clause) del_clause(m_clause);
+        m_clause = nullptr;
         m_clause_lits.reset();
         for (expr* lit : clause) {
             internalize_formula(lit, true);
             mark_as_relevant(lit);
             m_clause_lits.push_back(get_literal(lit));
         }
-        m_clause = mk_clause(m_clause_lits.size(), m_clause_lits.c_ptr(), nullptr);
+        if (m_clause_lits.size() > 2) 
+            m_clause = clause::mk(m_manager, m_clause_lits.size(), m_clause_lits.c_ptr(), CLS_AUX);
     }
 
     lbool context::decide_clause() {
-        if (!m_clause) return l_true;
+        if (m_clause_lits.empty()) return l_true;
         shuffle(m_clause_lits.size(), m_clause_lits.c_ptr(), m_random);
         for (literal l : m_clause_lits) {
             switch (get_assignment(l)) {
@@ -3162,20 +3164,38 @@ namespace smt {
             }            
         }
         for (unsigned i = m_assigned_literals.size(); i-- > 0; ) {
-            literal lit = m_assigned_literals[i];
-            if (m_clause_lits.contains(~lit)) {
-                for (unsigned j = 0, sz = m_clause->get_num_literals(); j < sz; ++j) {
-                    if (m_clause->get_literal(j) == ~lit) {
-                        if (j > 0) m_clause->swap_lits(j, 0);
-                        break;
+            literal nlit = ~m_assigned_literals[i];
+            if (m_clause_lits.contains(nlit)) {
+                switch (m_clause_lits.size()) {
+                case 1: {
+                    b_justification js;
+                    set_conflict(js, ~nlit);
+                    break;
+                } 
+                case 2: {
+                    if (nlit == m_clause_lits[1]) {
+                        std::swap(m_clause_lits[0], m_clause_lits[1]);
                     }
+                    b_justification js(~m_clause_lits[1]);
+                    set_conflict(js, ~nlit);
+                    break;
                 }
-                b_justification js(m_clause);
-                set_conflict(js, ~lit);
-                return l_false;
+                default: {
+                    for (unsigned j = 0, sz = m_clause->get_num_literals(); j < sz; ++j) {
+                        if (m_clause->get_literal(j) == nlit) {
+                            if (j > 0) m_clause->swap_lits(j, 0);
+                            break;
+                        }
+                    }
+                    b_justification js(m_clause);
+                    set_conflict(js, ~nlit);
+                    break;
+                }
+                }
+                break;
             }
         }
-        UNREACHABLE();
+        VERIFY(!resolve_conflict());
         return l_false;
     }
 
@@ -3280,6 +3300,7 @@ namespace smt {
         
         if (m_clause) del_clause(m_clause);
         m_clause = nullptr;
+        m_clause_lits.reset();
         m_unsat_core.reset();
         m_stats.m_num_checks++;
         pop_to_base_lvl();
