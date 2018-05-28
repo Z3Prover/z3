@@ -155,7 +155,8 @@ public:
 #ifdef Z3DEBUG
     vector<mpq> transform_to_local_columns(const vector<impq> & x) const {
         vector<mpq> ret;
-        for (unsigned j = 0; j < m_var_register.size();j++) {
+        lp_assert(m_column_count <= m_var_register.size());
+        for (unsigned j = 0; j < m_column_count;j++) {
             lp_assert(is_zero(x[m_var_register.local_var_to_user_var(j)].y));
             ret.push_back(x[m_var_register.local_var_to_user_var(j)].x);
         }

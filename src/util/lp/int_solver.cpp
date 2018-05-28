@@ -639,7 +639,6 @@ lia_move int_solver::gomory_cut() {
 bool int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     mpq rs;
     const lar_term* t = m_lar_solver->terms()[i];
-    lp_assert (is_zero(t->m_v)); // todo: what to do in the other case
     for (const auto & p : *t) {
         if (!is_int(p.var())) {
             lp_assert(false); 
