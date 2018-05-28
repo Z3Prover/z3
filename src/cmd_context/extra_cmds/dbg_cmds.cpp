@@ -365,7 +365,7 @@ public:
         if (m_fml == nullptr) return CPK_EXPR; 
         return CPK_EXPR_LIST;
     }
-    void set_next_arg(cmd_context& ctx, expr * arg) { m_fml = arg; }
+    void set_next_arg(cmd_context& ctx, expr * arg) override { m_fml = arg; }
     void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
         m_vars.append(num, ts);
     }
