@@ -307,7 +307,7 @@ class theory_lra::imp {
         m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
         m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
         m_solver->settings().m_int_gomory_cut_period = ctx().get_fparams().m_arith_branch_cut_ratio;
-        m_solver->settings().m_int_cuts_etc_period = ctx().get_fparams().m_arith_branch_cut_ratio;
+        m_solver->settings().m_hnf_cut_period = ctx().get_fparams().m_arith_branch_cut_ratio;
         m_solver->settings().m_int_chase_cut_solver_period = std::max(8u, ctx().get_fparams().m_arith_branch_cut_ratio);
         m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         

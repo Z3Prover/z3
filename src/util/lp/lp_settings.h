@@ -194,7 +194,6 @@ public:
     unsigned         m_int_gomory_cut_period;
     unsigned         m_int_chase_cut_solver_period;
     unsigned         m_int_find_cube_period;
-    unsigned         m_int_cuts_etc_period;
     unsigned         m_hnf_cut_period;
     bool             m_int_run_gcd_test;
     unsigned         m_chase_cut_solver_cycle_on_var;
@@ -261,7 +260,6 @@ public:
                     m_int_gomory_cut_period(4),
                     m_int_chase_cut_solver_period(8),
                     m_int_find_cube_period(4),
-                    m_int_cuts_etc_period(4),
                     m_hnf_cut_period(4),
                     m_int_run_gcd_test(true),
                     m_chase_cut_solver_cycle_on_var(10),
