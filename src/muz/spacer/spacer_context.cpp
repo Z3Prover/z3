@@ -646,7 +646,7 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_pobs(*this),
     m_frames(*this),
     m_reach_facts(), m_rf_init_sz(0),
-    m_transition(m), m_initial_state(m), m_extend_lit(m),
+    m_transition_clause(m), m_transition(m), m_init(m), m_extend_lit(m),
     m_all_init(false),
     m_reach_case_vars(m)
 {
@@ -866,12 +866,9 @@ void pred_transformer::simplify_formulas()
 {m_frames.simplify_formulas ();}
 
 
-expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms)
+expr_ref pred_transformer::get_formulas(unsigned level)
 {
     expr_ref_vector res(m);
-    if (add_axioms) {
-        res.push_back((level == 0)?initial_state():transition());
-    }
     m_frames.get_frame_geq_lemmas (level, res);
     return mk_and(res);
 }
@@ -1141,7 +1138,7 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
     expr_ref v(m);
 
     if (!must) { // use may summary
-        summary.push_back (get_formulas (level, false));
+        summary.push_back (get_formulas (level));
         // -- no auxiliary variables in lemmas
         *aux = nullptr;
     } else { // find must summary to use
@@ -1380,7 +1377,7 @@ bool pred_transformer::is_ctp_blocked(lemma *lem) {
     for (unsigned i = 0, sz = m_predicates.size(); i < sz; ++i) {
         pred_transformer &pt = ctx.get_pred_transformer(m_predicates[i]);
         expr_ref lemmas(m), val(m);
-        lemmas = pt.get_formulas(lem->level(), false);
+        lemmas = pt.get_formulas(lem->level());
         pm.formula_n2o(lemmas.get(), lemmas, i);
         if (ctp->eval(lemmas, val) && m.is_false(val)) {return false;}
     }
@@ -1498,20 +1495,20 @@ void pred_transformer::mk_assumptions(func_decl* head, expr* fml,
 
 void pred_transformer::initialize(decl2rel const& pts)
 {
-    m_initial_state = m.mk_false();
+    m_init = m.mk_false();
     m_transition = m.mk_true();
-    init_rules(pts, m_initial_state, m_transition);
+    init_rules(pts);
     th_rewriter rw(m);
     rw(m_transition);
-    rw(m_initial_state);
+    rw(m_init);
 
     m_solver.assert_expr (m_transition);
-    m_solver.assert_expr (m_initial_state, 0);
+    m_solver.assert_expr (m_init, 0);
     TRACE("spacer",
-          tout << "Initial state: " << mk_pp(m_initial_state, m) << "\n";
+          tout << "Initial state: " << mk_pp(m_init, m) << "\n";
           tout << "Transition:    " << mk_pp(m_transition,  m) << "\n";);
-    SASSERT(is_app(m_initial_state));
-    //m_reachable.add_init(to_app(m_initial_state));
+    SASSERT(is_app(m_init));
+    //m_reachable.add_init(to_app(m_init));
 
 
 }
@@ -1531,13 +1528,12 @@ void pred_transformer::init_reach_facts ()
     }
 }
 
-void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref& transition)
-{
+void pred_transformer::init_rules(decl2rel const& pts) {
     expr_ref_vector transitions(m);
     ptr_vector<const datalog::rule> tr_rules;
     datalog::rule const* rule;
-    expr_ref_vector disj(m), init_conds (m);
-    app_ref pred(m);
+    expr_ref_vector init_conds (m);
+    app_ref tag(m);
     vector<bool> is_init;
     for (auto r : m_rules) {init_rule(pts, *r, is_init, tr_rules, transitions);}
     SASSERT (is_init.size () == transitions.size ());
@@ -1545,41 +1541,49 @@ void pred_transformer::init_rules(decl2rel const& pts, expr_ref& init, expr_ref&
     std::string name;
     switch(transitions.size()) {
     case 0:
-        transition = m.mk_false();
+        m_transition = m.mk_false();
+        m_transition_clause.reset();
         break;
     case 1:
         // create a dummy tag.
         name  = head()->get_name().str() + "_dummy";
-        pred = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
+        tag = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
 
         rule = tr_rules[0];
-        m_tag2rule.insert(pred, rule);
-        m_rule2tag.insert(rule, pred.get());
-        transitions[0] = m.mk_implies (pred, transitions.get(0));
-        transitions.push_back (m.mk_or (pred, m_extend_lit->get_arg(0)));
-        if (!is_init[0]) {init_conds.push_back(m.mk_not(pred));}
+        m_tag2rule.insert(tag, rule);
+        m_rule2tag.insert(rule, tag);
+        transitions[0] = m.mk_implies (tag, transitions.get(0));
 
-        transition = mk_and(transitions);
+        m_transition_clause.push_back(m_extend_lit->get_arg(0));
+        m_transition_clause.push_back(tag);
+
+        transitions.push_back(mk_or(m_transition_clause));
+        m_transition_clause.reset();
+
+        if (!is_init[0]) {init_conds.push_back(m.mk_not(tag));}
+
+        m_transition = mk_and(transitions);
         break;
     default:
-        disj.push_back (m_extend_lit->get_arg(0));
+        m_transition_clause.push_back (m_extend_lit->get_arg(0));
         for (unsigned i = 0; i < transitions.size(); ++i) {
             name = head()->get_name().str() + "__tr" + std::to_string(i);
-            pred = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
+            tag = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
             rule = tr_rules[i];
-            m_tag2rule.insert(pred, rule);
-            m_rule2tag.insert(rule, pred);
-            disj.push_back(pred);
-            transitions[i] = m.mk_implies(pred, transitions[i].get());
+            m_tag2rule.insert(tag, rule);
+            m_rule2tag.insert(rule, tag);
+            m_transition_clause.push_back(tag);
+            transitions[i] = m.mk_implies(tag, transitions.get(i));
             // update init conds
-            if (!is_init[i]) {init_conds.push_back (m.mk_not (pred));}
+            if (!is_init[i]) {init_conds.push_back (m.mk_not (tag));}
         }
-        transitions.push_back(m.mk_or(disj.size(), disj.c_ptr()));
-        transition = mk_and(transitions);
+        transitions.push_back(mk_or(m_transition_clause));
+        m_transition_clause.reset();
+        m_transition = mk_and(transitions);
         break;
     }
     // mk init condition
-    init = mk_and(init_conds);
+    m_init = mk_and(init_conds);
     // no rule has uninterpreted tail
     if (init_conds.empty ()) {m_all_init = true;}
 }
@@ -1718,20 +1722,29 @@ void pred_transformer::init_atom(decl2rel const &pts, app *atom,
 
 void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r)
 {
-    r.push_back((lvl == 0)?initial_state():transition());
+    if (lvl == 0) {r.push_back(m_init);}
+    else {
+        r.push_back(m_transition);
+        if (!m_transition_clause.empty()) {
+            expr_ref c(m);
+            c = mk_or(m_transition_clause);
+            r.push_back(c);
+        }
+    }
     for (unsigned i = 0; i < rules().size(); ++i) {
         add_premises(pts, lvl, *rules()[i], r);
     }
 }
 
-void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r)
+void pred_transformer::add_premises(decl2rel const& pts, unsigned lvl,
+                                    datalog::rule& rule, expr_ref_vector& r)
 {
     find_predecessors(rule, m_predicates);
     for (unsigned i = 0; i < m_predicates.size(); ++i) {
         expr_ref tmp(m);
         func_decl* head = m_predicates[i];
         pred_transformer& pt = *pts.find(head);
-        expr_ref inv = pt.get_formulas(lvl, false);
+        expr_ref inv = pt.get_formulas(lvl);
         if (!m.is_true(inv)) {
             pm.formula_n2o(inv, tmp, i, true);
             r.push_back(tmp);
@@ -2365,7 +2378,7 @@ void context::get_level_property(unsigned lvl, expr_ref_vector& res,
         if (r->head() == m_query_pred) {
             continue;
         }
-        expr_ref conj = r->get_formulas(lvl, false);
+        expr_ref conj = r->get_formulas(lvl);
         m_pm.formula_n2o(0, false, conj);
         res.push_back(conj);
         ptr_vector<func_decl> sig(r->head()->get_arity(), r->sig());
@@ -3647,7 +3660,7 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     ref<solver> ctx = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
     pred_transformer& pt = *m_rels.find(fn);
     expr_ref_vector conj(m);
-    expr_ref inv = pt.get_formulas(next_level(lvl), false);
+    expr_ref inv = pt.get_formulas(next_level(lvl));
     if (m.is_true(inv)) { return true; }
     pt.add_premises(m_rels, lvl, conj);
     conj.push_back(m.mk_not(inv));
@@ -3667,7 +3680,7 @@ expr_ref context::get_constraints (unsigned level)
     decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
     for (; it != end; ++it) {
         pred_transformer& r = *it->m_value;
-        expr_ref c = r.get_formulas(level, false);
+        expr_ref c = r.get_formulas(level);
 
         if (m.is_true(c)) { continue; }
 

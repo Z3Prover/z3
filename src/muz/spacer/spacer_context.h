@@ -295,8 +295,9 @@ class pred_transformer {
     rule2expr                    m_rule2tag;        // map rule to predicate tag.
     rule2expr                    m_rule2transition; // map rules to transition
     rule2apps                    m_rule2vars;       // map rule to auxiliary variables
-    expr_ref                     m_transition;      // transition relation.
-    expr_ref                     m_initial_state;   // initial state.
+    expr_ref_vector              m_transition_clause; // extra clause for trans
+    expr_ref                     m_transition;      // transition relation
+    expr_ref                     m_init;            // initial condition
     app_ref                      m_extend_lit;      // literal to extend initial state
     bool                         m_all_init;        // true if the pt has no uninterpreted body in any rule
     ptr_vector<func_decl>        m_predicates;      // temp vector used with find_predecessors()
@@ -320,7 +321,7 @@ class pred_transformer {
     void mk_assumptions(func_decl* head, expr* fml, expr_ref_vector& result);
 
     // Initialization
-    void init_rules(decl2rel const& pts, expr_ref& init, expr_ref& transition);
+    void init_rules(decl2rel const& pts);
     void init_rule(decl2rel const& pts, datalog::rule const& rule, vector<bool>& is_init,
                    ptr_vector<datalog::rule const>& rules, expr_ref_vector& transition);
     void init_atom(decl2rel const& pts, app * atom, app_ref_vector& var_reprs,
@@ -355,7 +356,7 @@ public:
     func_decl* const* sig() {return m_sig.c_ptr();}
     unsigned  sig_size() const {return m_sig.size();}
     expr*  transition() const {return m_transition;}
-    expr*  initial_state() const {return m_initial_state;}
+    expr*  init() const {return m_init;}
     expr*  rule2tag(datalog::rule const* r) {return m_rule2tag.find(r);}
     unsigned get_num_levels() {return m_frames.size ();}
     expr_ref get_cover_delta(func_decl* p_orig, int level);
@@ -427,7 +428,7 @@ public:
     bool check_inductive(unsigned level, expr_ref_vector& state,
                          unsigned& assumes_level, unsigned weakness = UINT_MAX);
 
-    expr_ref get_formulas(unsigned level, bool add_axioms);
+    expr_ref get_formulas(unsigned level);
 
     void simplify_formulas();
 
