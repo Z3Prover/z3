@@ -1822,7 +1822,7 @@ namespace smt {
             case l_undef: // made a decision
                 return true;
             case l_false: // inconsistent
-                break;
+                return false;
             }
         }
         bool_var var;
