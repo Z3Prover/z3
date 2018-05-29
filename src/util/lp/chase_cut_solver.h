@@ -268,7 +268,7 @@ public:
 
     struct lemmas_container {
         std::unordered_set<constraint*, constraint_hash, constraint_equal> m_lemmas;
-        unsigned size() const { return m_lemmas.size(); }
+        size_t size() const { return m_lemmas.size(); }
         void submit_assert_origin_for_delete(constraint_index ci) { m_deleted_assert_origins.insert(ci);}
         vector<constraint*> remove_lemmas_depending_on_submitted_origins() {
             vector<constraint*> r;
@@ -2119,7 +2119,7 @@ public:
         bool done = false;
         unsigned j = m_trail.size() - 1;
         bool lemma_has_been_modified = false;
-        unsigned number_of_lemmas = m_lemmas_container.size();
+        size_t number_of_lemmas = m_lemmas_container.size();
         while (!done) {
             if (cancel()) {
                 return;
@@ -2226,7 +2226,7 @@ public:
     chase_cut_solver(std::function<std::string (unsigned)> var_name_function,
                std::function<void (unsigned, std::ostream &)> print_constraint_function,
                std::function<unsigned ()>                     number_of_variables_function,         
-               std::function<const impq &(unsigned)>         var_value_function,         
+               std::function<const impq (unsigned)>         var_value_function,         
                lp_settings & settings
                ) : m_var_name_function(var_name_function),
                    m_print_constraint_function(print_constraint_function),
@@ -2488,7 +2488,7 @@ public:
         return !lower_bound_exists(vi) && !upper_bound_exists(vi);
     }
 
-    unsigned number_of_constraints() const { return m_asserts.size() + m_lemmas_container.size(); }
+    unsigned number_of_constraints() const { return static_cast<unsigned>(m_asserts.size() + m_lemmas_container.size()); }
 
     void copy_poly_coeffs_to_term(polynomial& poly, lar_term & t) {
         for (auto & p :poly.m_coeffs)

@@ -851,6 +851,7 @@ void int_solver::patch_nbasic_column(unsigned j) {
               tout << "patching with 0\n";);
     }
 }
+
 lia_move int_solver::patch_nbasic_columns() {
     settings().st().m_patches++;
     lp_assert(is_feasible());
@@ -936,6 +937,8 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
     }
     return true;
 }
+
+// #if 0
 
 void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
     constraint_index lc, uc;
@@ -1028,18 +1031,23 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 }
 */
 
+
+// NSB: I get the following warning for this code:
+// c:\program files (x86)\microsoft visual studio\2017\enterprise\vc\tools\msvc\14.10.25017\include\type_traits(1569) : 
+// warning C4172: returning address of local variable or temporary
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
     m_chase_cut_solver([this](unsigned j) {return m_lar_solver->get_column_name(j);},
                        [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
                        [this]() {return m_lar_solver->A_r().column_count();},
-                       [this](unsigned j) {return get_value(j);},
+                       [this](unsigned j) {impq v = get_value(j); return v;},
                        settings()),
     m_hnf_cutter(settings())
 {
     m_lar_solver->set_int_solver(this);
 }
+
 
 bool int_solver::has_low(unsigned j) const {
     switch (m_lar_solver->m_mpq_lar_core_solver.m_column_types()[j]) {
@@ -1072,6 +1080,7 @@ void set_lower(impq & l,
         inf_l = false;
     }
 }
+
 
 void set_upper(impq & u,
                bool & inf_u,
@@ -1409,5 +1418,6 @@ void int_solver::pop(unsigned k) {
 void int_solver::push() { m_chase_cut_solver.push(); }
 
 unsigned int_solver::column_count() const  { return m_lar_solver->column_count(); }
+
 
 }

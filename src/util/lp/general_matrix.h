@@ -83,7 +83,7 @@ public:
     void print(std::ostream & out, const char * ss) const {
         std::string s(ss);
         out << s;
-        print(out, s.size());
+        print(out, static_cast<unsigned>(s.size()));
     }
 
     void print_submatrix(std::ostream & out, unsigned k, unsigned blanks = 0) const {
