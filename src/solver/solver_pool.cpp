@@ -107,6 +107,8 @@ public:
         }
     }
 
+    using solver_na2as::check_sat;
+
     lbool check_sat(expr_ref_vector const& cube, expr_ref_vector const& clause, model_ref* mdl, expr_ref_vector* core, proof_ref* pr) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         m_proof.reset();
