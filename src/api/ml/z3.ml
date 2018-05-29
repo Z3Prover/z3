@@ -1654,7 +1654,6 @@ struct
       mk_list f n
 
     let get_subgoal (x:apply_result) (i:int) = Z3native.apply_result_get_subgoal (gc x) x i
-    let convert_model (x:apply_result) (i:int) (m:Model.model) = Z3native.apply_result_convert_model (gc x) x i m
     let to_string (x:apply_result) = Z3native.apply_result_to_string (gc x) x
   end
 

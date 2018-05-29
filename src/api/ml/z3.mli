@@ -2965,11 +2965,6 @@ sig
     (** Retrieves a subgoal from the apply_result. *)
     val get_subgoal : apply_result -> int -> Goal.goal
 
-    (** Convert a model for a subgoal into a model for the original
-        goal [g], that the ApplyResult was obtained from.
-        #return A model for [g] *)
-    val convert_model : apply_result -> int -> Model.model -> Model.model
-
     (** A string representation of the ApplyResult. *)
     val to_string : apply_result -> string
   end
