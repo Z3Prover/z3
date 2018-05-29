@@ -47,8 +47,8 @@ bool int_solver::has_inf_int() const {
 int int_solver::find_inf_int_base_column() {
     unsigned inf_int_count;
     int j = find_inf_int_boxed_base_column_with_smallest_range(inf_int_count);
-	if (j != -1)
-		return j;
+    if (j != -1)
+        return j;
     if (inf_int_count == 0)
         return -1;
     unsigned k = random() % inf_int_count;
@@ -481,7 +481,7 @@ void int_solver::copy_values_from_chase_cut_solver() {
 }
 
 void int_solver::catch_up_in_adding_constraints_to_chase_cut_solver() {
-	lp_assert(m_chase_cut_solver.number_of_asserts() <= m_lar_solver->constraints().size());
+    lp_assert(m_chase_cut_solver.number_of_asserts() <= m_lar_solver->constraints().size());
     for (unsigned j = m_chase_cut_solver.number_of_asserts(); j < m_lar_solver->constraints().size(); j++) {
         add_constraint_to_chase_cut_solver(j, m_lar_solver->constraints()[j]);
     }
@@ -547,7 +547,7 @@ bool int_solver::find_cube() {
           m_lar_solver->print_terms(tout);
           );
     m_lar_solver->push();
-    if(!tighten_terms_for_cube()) {
+    if (!tighten_terms_for_cube()) {
         m_lar_solver->pop();
         return false;
     }
@@ -616,20 +616,23 @@ lia_move int_solver::call_chase_cut_solver() {
 }
 
 lia_move int_solver::gomory_cut() {
+    if ((m_branch_cut_counter % settings().m_int_gomory_cut_period) != 0)
+        return lia_move::undef;
+
     TRACE("check_main_int", tout << "gomory";);
     if (move_non_basic_columns_to_bounds()) {
         lp_status st = m_lar_solver->find_feasible_solution();
-        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-            TRACE("arith_int", tout << "give_up\n";);
-            return lia_move::undef;
-        }
+        VERIFY (st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
     }
+    // This is almost repeated in check.
+
     int j = find_inf_int_base_column(); 
     if (j == -1) {
         j = find_inf_int_nbasis_column();
         return j == -1? lia_move::sat : create_branch_on_column(j);
     }
     lia_move r = proceed_with_gomory_cut(j);
+    // could you just return r here, because "check" repeats this?
     if (r != lia_move::undef)
         return r;
     return create_branch_on_column(j);
@@ -679,8 +682,7 @@ lia_move int_solver::make_hnf_cut() {
 #endif
                                           );
     CTRACE("hnf_cut", r == lia_move::cut, tout<< "cut:"; m_lar_solver->print_term(*m_t, tout); tout << " <= " << *m_k << std::endl;);
-    if (r == lia_move::cut) {
-        
+    if (r == lia_move::cut) {        
         lp_assert(current_solution_is_inf_on_cut());
         settings().st().m_hnf_cuts++;
     }
@@ -695,36 +697,35 @@ lia_move int_solver::hnf_cut() {
 }
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
-    if (!has_inf_int())
-        return lia_move::sat;
+    if (!has_inf_int()) return lia_move::sat;
+
     m_t = &t;  m_k = &k;  m_ex = &ex; m_upper = &upper;
-    if (run_gcd_test() == lia_move::conflict)
-        return lia_move::conflict;
+
+    lia_move r = run_gcd_test();
+    if (r != lia_move::undef) return r;
     
     pivoted_rows_tracking_control pc(m_lar_solver);
-    if(settings().m_int_pivot_fixed_vars_from_basis)
+    if (settings().m_int_pivot_fixed_vars_from_basis)
         m_lar_solver->pivot_fixed_vars_from_basis();
 
-    if (patch_nbasic_columns() == lia_move::sat)
-        return lia_move::sat;
-
+    r = patch_nbasic_columns();
+    if (r != lia_move::undef) return r;
+    
     ++m_branch_cut_counter;
     if (find_cube()){
         settings().st().m_cube_success++;
         return lia_move::sat;
     }
 
-    lia_move r = call_chase_cut_solver();
-    if (r != lia_move::undef)
-        return r;
+    r = call_chase_cut_solver();
+    if (r != lia_move::undef) return r;
 
     r = hnf_cut();
-    if (r != lia_move::undef)
-        return r;
+    if (r != lia_move::undef) return r;
     
-    if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period == 0) {
-        return gomory_cut();
-    }
+    r = gomory_cut();
+    if (r != lia_move::undef) return r;
+
     int j = find_inf_int_base_column();
     if (j == -1) {
         j = find_inf_int_nbasis_column();
@@ -757,7 +758,7 @@ bool int_solver::move_non_basic_column_to_bounds(unsigned j) {
         if (val != lcs.m_r_upper_bounds()[j]) {
             set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
             return true;
-        }		
+        }
         break;
     default:
         if (is_int(j) && !val.is_int()) {
@@ -938,7 +939,6 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
     return true;
 }
 
-// #if 0
 
 void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
     constraint_index lc, uc;
@@ -957,10 +957,8 @@ void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row)
 bool int_solver::gcd_test() {
     auto & A = m_lar_solver->A_r(); // getting the matrix
     for (unsigned i = 0; i < A.row_count(); i++)
-        if (!gcd_test_for_row(A, i)) {
-            return false;
-        }
-        
+        if (!gcd_test_for_row(A, i)) 
+            return false;        
     return true;
 }
 
@@ -1032,19 +1030,16 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 */
 
 
-// NSB: I get the following warning for this code:
-// c:\program files (x86)\microsoft visual studio\2017\enterprise\vc\tools\msvc\14.10.25017\include\type_traits(1569) : 
-// warning C4172: returning address of local variable or temporary
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
-    m_chase_cut_solver([this](unsigned j) {return m_lar_solver->get_column_name(j);},
-                       [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
-                       [this]() {return m_lar_solver->A_r().column_count();},
-                       [this](unsigned j) {impq v = get_value(j); return v;},
-                       settings()),
+    m_chase_cut_solver(settings()),
     m_hnf_cutter(settings())
 {
+    m_chase_cut_solver.m_var_name_function = [this](unsigned j) {return m_lar_solver->get_column_name(j);};
+    m_chase_cut_solver.m_print_constraint_function = [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);};
+    m_chase_cut_solver.m_number_of_variables_function = [this]() {return m_lar_solver->A_r().column_count();};
+    m_chase_cut_solver.m_var_value_function = [this](unsigned j) {return get_value(j);};
     m_lar_solver->set_int_solver(this);
 }
 
