@@ -127,6 +127,28 @@ lbool iuc_solver::check_sat (unsigned num_assumptions, expr * const *assumptions
     return res;
 }
 
+lbool iuc_solver::check_sat_cc(const expr_ref_vector &cube,
+                               const expr_ref_vector &clause) {
+    if (clause.empty()) {return check_sat(cube.size(), cube.c_ptr());}
+
+    // -- remove any old assumptions
+    if (m_assumptions.size() > m_first_assumption)
+    { m_assumptions.shrink(m_first_assumption); }
+
+    // -- replace theory literals in background assumptions with proxies
+    mk_proxies(m_assumptions);
+    // -- in case mk_proxies added new literals, they are all background
+    m_first_assumption = m_assumptions.size();
+
+    m_assumptions.append(cube);
+    m_is_proxied = mk_proxies(m_assumptions, m_first_assumption);
+
+    lbool res;
+    res = m_solver.check_sat_cc(m_assumptions, clause);
+    set_status (res);
+    return res;
+}
+
 
 app* iuc_solver::def_manager::mk_proxy (expr *v)
 {
