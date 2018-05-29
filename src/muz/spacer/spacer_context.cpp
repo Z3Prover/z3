@@ -1199,9 +1199,13 @@ bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
     m_solver.set_core (nullptr);
     m_solver.set_model (nullptr);
 
-    expr_ref_vector post(m), aux(m);
+    expr_ref_vector post(m), _aux(m);
     post.push_back (n.post ());
-    lbool res = m_solver.check_assumptions (post, aux, 0, nullptr, 0);
+    // this only uses the lemmas at the current level
+    // transition relation is irrelevant
+    // XXX quic3: not all lemmas are asserted at the post-condition
+    lbool res = m_solver.check_assumptions (post, _aux, _aux,
+                                            0, nullptr, 0);
     if (res == l_false) { uses_level = m_solver.uses_level(); }
     return res == l_false;
 }
@@ -1315,7 +1319,8 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     // result is either sat (with some reach assumps) or
     // unsat (even with no reach assumps)
     expr *bg = m_extend_lit.get ();
-    lbool is_sat = m_solver.check_assumptions (post, reach_assumps, 1, &bg, 0);
+    lbool is_sat = m_solver.check_assumptions (post, reach_assumps,
+                                               m_transition_clause, 1, &bg, 0);
 
     TRACE ("spacer",
            if (!reach_assumps.empty ()) {
@@ -1423,7 +1428,8 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
     m_solver.set_core(core);
     m_solver.set_model(mdl_ref_ptr);
     expr * bg = m_extend_lit.get ();
-    lbool r = m_solver.check_assumptions (conj, aux, 1, &bg, 1);
+    lbool r = m_solver.check_assumptions (conj, aux, m_transition_clause,
+                                          1, &bg, 1);
     if (r == l_false) {
         solver_level = m_solver.uses_level ();
         lem->reset_ctp();
@@ -1455,7 +1461,9 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
     m_solver.set_model (nullptr);
     expr_ref_vector aux (m);
     conj.push_back (m_extend_lit);
-    lbool res = m_solver.check_assumptions (state, aux, conj.size (), conj.c_ptr (), 1);
+    lbool res = m_solver.check_assumptions (state, aux,
+                                            m_transition_clause,
+                                            conj.size (), conj.c_ptr (), 1);
     if (res == l_false) {
         state.reset();
         state.append(core);
@@ -1557,8 +1565,10 @@ void pred_transformer::init_rules(decl2rel const& pts) {
         m_transition_clause.push_back(m_extend_lit->get_arg(0));
         m_transition_clause.push_back(tag);
 
-        transitions.push_back(mk_or(m_transition_clause));
-        m_transition_clause.reset();
+        if (!ctx.get_params().spacer_use_inc_clause()) {
+            transitions.push_back(mk_or(m_transition_clause));
+            m_transition_clause.reset();
+        }
 
         if (!is_init[0]) {init_conds.push_back(m.mk_not(tag));}
 
@@ -1577,8 +1587,11 @@ void pred_transformer::init_rules(decl2rel const& pts) {
             // update init conds
             if (!is_init[i]) {init_conds.push_back (m.mk_not (tag));}
         }
-        transitions.push_back(mk_or(m_transition_clause));
-        m_transition_clause.reset();
+
+        if (!ctx.get_params().spacer_use_inc_clause()) {
+            transitions.push_back(mk_or(m_transition_clause));
+            m_transition_clause.reset();
+        }
         m_transition = mk_and(transitions);
         break;
     }

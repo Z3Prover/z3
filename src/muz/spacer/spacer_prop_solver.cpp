@@ -347,9 +347,13 @@ lbool prop_solver::internal_check_assumptions(
 
 lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
                                      expr_ref_vector& soft,
+                                     const expr_ref_vector &clause,
                                      unsigned num_bg, expr * const * bg,
                                      unsigned solver_id)
 {
+    expr_ref cls(m);
+    // XXX now clause is only supported when pushing is enabled
+    SASSERT(clause.empty() || !m_use_push_bg);
     // current clients expect that flattening of HARD  is
     // done implicitly during check_assumptions
     expr_ref_vector hard(m);
@@ -360,7 +364,13 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
 
     // can be disabled if use_push_bg == true
     // solver::scoped_push _s_(*m_ctx);
-    if (!m_use_push_bg) { m_ctx->push(); }
+    if (!m_use_push_bg) {
+        m_ctx->push();
+        if (!clause.empty()) {
+            cls = mk_or(clause);
+            m_ctx->assert_expr(cls);
+        }
+    }
     iuc_solver::scoped_bg _b_(*m_ctx);
 
     for (unsigned i = 0; i < num_bg; ++i)
