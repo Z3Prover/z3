@@ -202,27 +202,6 @@ void solver::assert_expr(expr* f, expr* t) {
     assert_expr_core2(fml, a);    
 }
 
-lbool solver::check_sat(expr_ref_vector const& cube, expr_ref_vector const& clause, model_ref* mdl, expr_ref_vector* core, proof_ref* pr) {
-    ast_manager& m = clause.get_manager();
-    scoped_push _push(*this);
-    expr_ref disj = mk_or(clause);
-    assert_expr(disj);
-    lbool r = check_sat(cube);
-    switch (r) {
-    case l_false: 
-        if (core) get_unsat_core(*core);
-        if (pr) *pr = get_proof();
-        break;
-    case l_true: 
-        if (mdl) get_model(*mdl);
-        break;
-    default:
-        break;
-    }
-    return r;
-}
-
-
 void solver::collect_param_descrs(param_descrs & r) {
     r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: false) enforce model conversion when asserting formulas");
 }

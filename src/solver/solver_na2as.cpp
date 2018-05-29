@@ -67,6 +67,12 @@ lbool solver_na2as::check_sat(unsigned num_assumptions, expr * const * assumptio
     return check_sat_core(m_assumptions.size(), m_assumptions.c_ptr());
 }
 
+lbool solver_na2as::check_sat_cc(const expr_ref_vector &assumptions, const expr_ref_vector &clause) {
+    if (clause.empty()) return check_sat(assumptions.size(), assumptions.c_ptr());
+    append_assumptions app(m_assumptions, assumptions.size(), assumptions.c_ptr());
+    return check_sat_cc_core(m_assumptions, clause);
+}
+
 lbool solver_na2as::get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
     append_assumptions app(m_assumptions, asms.size(), asms.c_ptr());
     return get_consequences_core(m_assumptions, vars, consequences);

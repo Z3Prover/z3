@@ -152,7 +152,10 @@ public:
        The cube corresponds to auxiliary assumptions. The clause as an auxiliary disjunction that is also
        assumed for the check.
     */
-    virtual lbool check_sat(expr_ref_vector const& cube, expr_ref_vector const& clause, model_ref* mdl = nullptr, expr_ref_vector* core = nullptr, proof_ref* pr = nullptr);
+    virtual lbool check_sat_cc(expr_ref_vector const& cube, expr_ref_vector const& clause) {
+        if (clause.empty()) return check_sat(cube.size(), cube.c_ptr());
+        NOT_IMPLEMENTED_YET();
+    }
 
     /**
        \brief Set a progress callback procedure that is invoked by this solver during check_sat.
