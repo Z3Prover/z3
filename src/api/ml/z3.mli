@@ -3420,52 +3420,6 @@ sig
   val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
 end
 
-(** Interpolation *)
-module Interpolation :
-sig
-
-  (** Create an AST node marking a formula position for interpolation.
-      The expression must have Boolean sort. *)
-  val mk_interpolant : context -> Expr.expr -> Expr.expr
-
-  (** The interpolation context is suitable for generation of interpolants.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val mk_interpolation_context : (string * string) list -> context
-
-  (** Gets an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> Expr.expr list
-
-  (** Computes an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val compute_interpolant : context -> Expr.expr -> Params.params -> (Z3enums.lbool * Expr.expr list option * Model.model option)
-
-  (** Retrieves an interpolation profile.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolation_profile : context -> string
-
-  (** Read an interpolation problem from file.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val read_interpolation_problem : context -> string -> (Expr.expr list * int list * Expr.expr list)
-
-  (** Check the correctness of an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val check_interpolant : context -> int -> Expr.expr list -> int list -> Expr.expr list -> int -> Expr.expr list -> unit
-
-  (** Write an interpolation problem to file suitable for reading with
-      Z3_read_interpolation_problem.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val write_interpolation_problem : context -> int -> Expr.expr list -> int list -> string -> int -> Expr.expr list -> unit
-
-end
-
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.
 
     When a Z3 module is initialized it will use the value of these parameters
