@@ -2447,7 +2447,8 @@ sig
       The antecedents are proofs for equalities used as substitution rules.
       The object is also used in a few cases. The cases are:
       - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
-      - When converting bit-vectors to Booleans (BIT2BOOL=true)
+      - When converting bit-vectors to Booleans (BIT2BOOL=true) *)
+
   val is_rewrite_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pulling quantifiers out.
