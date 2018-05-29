@@ -1032,9 +1032,6 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 */
 
 
-// NSB: I get the following warning for this code:
-// c:\program files (x86)\microsoft visual studio\2017\enterprise\vc\tools\msvc\14.10.25017\include\type_traits(1569) : 
-// warning C4172: returning address of local variable or temporary
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
