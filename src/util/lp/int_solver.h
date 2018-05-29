@@ -96,6 +96,8 @@ private:
     const impq & get_value(unsigned j) const;
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
+    lia_move branch_or_sat();
+    int find_any_inf_int_column_basis_first();
     int find_inf_int_base_column();
     int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
     int get_kth_inf_int(unsigned) const;

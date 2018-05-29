@@ -618,21 +618,21 @@ lia_move int_solver::call_chase_cut_solver() {
 lia_move int_solver::gomory_cut() {
     TRACE("check_main_int", tout << "gomory";);
     if (move_non_basic_columns_to_bounds()) {
-        lp_status st = m_lar_solver->find_feasible_solution();
-        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
-            TRACE("arith_int", tout << "give_up\n";);
-            return lia_move::undef;
-        }
+#if Z3DEBUG 
+        lp_status st =
+#endif
+            m_lar_solver->find_feasible_solution();
+#if Z3DEBUG
+        lp_assert(st == lp_status::FEASIBLE || st == lp_status::OPTIMAL);
+#endif
     }
+        
     int j = find_inf_int_base_column(); 
     if (j == -1) {
         j = find_inf_int_nbasis_column();
         return j == -1? lia_move::sat : create_branch_on_column(j);
     }
-    lia_move r = proceed_with_gomory_cut(j);
-    if (r != lia_move::undef)
-        return r;
-    return create_branch_on_column(j);
+    return proceed_with_gomory_cut(j);
 }
 
 
@@ -721,17 +721,24 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     r = hnf_cut();
     if (r != lia_move::undef)
         return r;
-    
-    if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period == 0) {
-        return gomory_cut();
-    }
-    int j = find_inf_int_base_column();
-    if (j == -1) {
-        j = find_inf_int_nbasis_column();
-        if (j == -1)
-            return lia_move::sat;
-    }
-    return create_branch_on_column(j);
+
+    r = lia_move::undef;
+    if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period == 0)
+        r = gomory_cut();
+   
+    return r == lia_move::undef? branch_or_sat() : r;
+}
+
+lia_move int_solver::branch_or_sat() {
+    int j = find_any_inf_int_column_basis_first();
+    return j == -1? lia_move::sat : create_branch_on_column(j);
+}
+
+int int_solver::find_any_inf_int_column_basis_first() {
+   int j = find_inf_int_base_column();
+   if (j != -1)
+       return j;
+   return find_inf_int_nbasis_column();
 }
 
 bool int_solver::move_non_basic_column_to_bounds(unsigned j) {
