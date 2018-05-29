@@ -224,7 +224,8 @@ lbool prop_solver::mss(expr_ref_vector &hard, expr_ref_vector &soft) {
 /// Poor man's maxsat. No guarantees of maximum solution
 /// Runs maxsat loop on m_ctx Returns l_false if hard is unsat,
 /// otherwise reduces soft such that hard & soft is sat.
-lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft)
+lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
+                          const expr_ref_vector &clause)
 {
     // replace expressions by assumption literals
     iuc_solver::scoped_mk_proxy _p_(*m_ctx, hard);
@@ -232,7 +233,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft)
     // assume soft constraints are propositional literals (no need to proxy)
     hard.append(soft);
 
-    lbool res = m_ctx->check_sat(hard.size(), hard.c_ptr());
+    lbool res = m_ctx->check_sat_cc(hard, clause);
     // if hard constraints alone are unsat or there are no soft
     // constraints, we are done
     if (res != l_false || soft.empty()) { return res; }
@@ -266,7 +267,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft)
         }
 
         // check that the NEW constraints became sat
-        res = m_ctx->check_sat(hard.size(), hard.c_ptr());
+        res = m_ctx->check_sat_cc(hard, clause);
         if (res != l_false) { break; }
         // still unsat, update the core and repeat
         core.reset();
@@ -284,9 +285,9 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft)
     return res;
 }
 
-lbool prop_solver::internal_check_assumptions(
-    expr_ref_vector& hard_atoms,
-    expr_ref_vector& soft_atoms)
+lbool prop_solver::internal_check_assumptions(expr_ref_vector &hard_atoms,
+                                              expr_ref_vector &soft_atoms,
+                                              const expr_ref_vector &clause)
 {
     // XXX Turn model generation if m_model != 0
     SASSERT(m_ctx);
@@ -298,7 +299,7 @@ lbool prop_solver::internal_check_assumptions(
     }
 
     if (m_in_level) { assert_level_atoms(m_current_level); }
-    lbool result = maxsmt(hard_atoms, soft_atoms);
+    lbool result = maxsmt(hard_atoms, soft_atoms, clause);
     if (result != l_false && m_model) { m_ctx->get_model(*m_model); }
 
     SASSERT(result != l_false || soft_atoms.empty());
@@ -352,8 +353,6 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
                                      unsigned solver_id)
 {
     expr_ref cls(m);
-    // XXX now clause is only supported when pushing is enabled
-    SASSERT(clause.empty() || !m_use_push_bg);
     // current clients expect that flattening of HARD  is
     // done implicitly during check_assumptions
     expr_ref_vector hard(m);
@@ -364,13 +363,7 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
 
     // can be disabled if use_push_bg == true
     // solver::scoped_push _s_(*m_ctx);
-    if (!m_use_push_bg) {
-        m_ctx->push();
-        if (!clause.empty()) {
-            cls = mk_or(clause);
-            m_ctx->assert_expr(cls);
-        }
-    }
+    if (!m_use_push_bg) {m_ctx->push();}
     iuc_solver::scoped_bg _b_(*m_ctx);
 
     for (unsigned i = 0; i < num_bg; ++i)
@@ -379,7 +372,7 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
 
     unsigned soft_sz = soft.size();
     (void) soft_sz;
-    lbool res = internal_check_assumptions(hard, soft);
+    lbool res = internal_check_assumptions(hard, soft, clause);
     if (!m_use_push_bg) { m_ctx->pop(1); }
 
     TRACE("psolve_verbose",

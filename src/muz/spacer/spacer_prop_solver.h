@@ -64,9 +64,11 @@ private:
     void ensure_level(unsigned lvl);
 
     lbool internal_check_assumptions(expr_ref_vector &hard,
-                                     expr_ref_vector &soft);
+                                     expr_ref_vector &soft,
+                                     const expr_ref_vector &clause);
 
-    lbool maxsmt(expr_ref_vector &hard, expr_ref_vector &soft);
+    lbool maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
+                 const expr_ref_vector &clause);
     lbool mss(expr_ref_vector &hard, expr_ref_vector &soft);
 
 
