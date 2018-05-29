@@ -57,8 +57,8 @@ struct var_abs_rewriter : public default_rewriter_cfg {
         {
             bool contains_const_child = false;
             app* a = to_app(t);
-            for (unsigned i=0, sz = a->get_num_args(); i < sz; ++i) {
-                if (m_util.is_numeral(a->get_arg(i))) {
+            for (expr * arg : *a) {
+                if (m_util.is_numeral(arg)) {
                     contains_const_child = true;
                 }
             }

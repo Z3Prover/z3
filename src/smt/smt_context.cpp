@@ -3144,8 +3144,14 @@ namespace smt {
             mark_as_relevant(lit);
             m_clause_lits.push_back(get_literal(lit));
         }
-        if (m_clause_lits.size() > 2) 
-            m_clause = clause::mk(m_manager, m_clause_lits.size(), m_clause_lits.c_ptr(), CLS_AUX);
+        if (m_clause_lits.size() >= 2) {
+            justification* js = nullptr;
+            if (m_manager.proofs_enabled()) {
+                proof * pr = mk_clause_def_axiom(m_clause_lits.size(), m_clause_lits.c_ptr(), nullptr);
+                js = mk_justification(justification_proof_wrapper(*this, pr));
+            }
+            m_clause = clause::mk(m_manager, m_clause_lits.size(), m_clause_lits.c_ptr(), CLS_AUX, js);
+        }
     }
 
     lbool context::decide_clause() {
@@ -3163,38 +3169,12 @@ namespace smt {
                 return l_undef;
             }            
         }
-        for (unsigned i = m_assigned_literals.size(); i-- > 0; ) {
-            literal nlit = ~m_assigned_literals[i];
-            if (m_clause_lits.contains(nlit)) {
-                switch (m_clause_lits.size()) {
-                case 1: {
-                    b_justification js;
-                    set_conflict(js, ~nlit);
-                    break;
-                } 
-                case 2: {
-                    if (nlit == m_clause_lits[1]) {
-                        std::swap(m_clause_lits[0], m_clause_lits[1]);
-                    }
-                    b_justification js(~m_clause_lits[1]);
-                    set_conflict(js, ~nlit);
-                    break;
-                }
-                default: {
-                    for (unsigned j = 0, sz = m_clause->get_num_literals(); j < sz; ++j) {
-                        if (m_clause->get_literal(j) == nlit) {
-                            if (j > 0) m_clause->swap_lits(j, 0);
-                            break;
-                        }
-                    }
-                    b_justification js(m_clause);
-                    set_conflict(js, ~nlit);
-                    break;
-                }
-                }
-                break;
-            }
+        if (m_clause_lits.size() == 1) {
+            set_conflict(b_justification(), ~m_clause_lits[0]);
         }
+        else {
+            set_conflict(b_justification(m_clause), null_literal);
+        }		
         VERIFY(!resolve_conflict());
         return l_false;
     }

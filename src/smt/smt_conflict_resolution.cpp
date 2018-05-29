@@ -1033,6 +1033,7 @@ namespace smt {
             return pr;
         }
         SASSERT(js != 0);
+        TRACE("proof_gen_bug", tout << js << "\n";);
         m_todo_pr.push_back(tp_elem(js));
         return nullptr;
     }
