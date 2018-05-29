@@ -2223,16 +2223,7 @@ public:
 public:    
     void pop() { pop(1); }
     
-    chase_cut_solver(std::function<std::string (unsigned)> var_name_function,
-               std::function<void (unsigned, std::ostream &)> print_constraint_function,
-               std::function<unsigned ()>                     number_of_variables_function,         
-               std::function<const impq &(unsigned)>         var_value_function,         
-               lp_settings & settings
-               ) : m_var_name_function(var_name_function),
-                   m_print_constraint_function(print_constraint_function),
-                   m_number_of_variables_function(number_of_variables_function),
-                   m_var_value_function(var_value_function),
-                   m_settings(settings),
+    chase_cut_solver(lp_settings & settings) : m_settings(settings),
                    m_number_of_conflicts(0),
                    m_decision_level(0),
                    m_cancelled(false)

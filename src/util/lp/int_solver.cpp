@@ -1031,13 +1031,13 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0),
-    m_chase_cut_solver([this](unsigned j) {return m_lar_solver->get_column_name(j);},
-                       [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);},
-                       [this]() {return m_lar_solver->A_r().column_count();},
-                       [this](unsigned j) {return get_value(j);},
-                       settings()),
+    m_chase_cut_solver(settings()),
     m_hnf_cutter(settings())
 {
+    m_chase_cut_solver.m_var_name_function = [this](unsigned j) {return m_lar_solver->get_column_name(j);};
+    m_chase_cut_solver.m_print_constraint_function = [this](unsigned j, std::ostream &o) {m_lar_solver->print_constraint(j, o);};
+    m_chase_cut_solver.m_number_of_variables_function = [this]() {return m_lar_solver->A_r().column_count();};
+    m_chase_cut_solver.m_var_value_function = [this](unsigned j) {return get_value(j);};
     m_lar_solver->set_int_solver(this);
 }
 
