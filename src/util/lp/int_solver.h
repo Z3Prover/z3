@@ -154,7 +154,7 @@ public:
     void push();
     void copy_values_from_chase_cut_solver();
     bool left_branch_is_more_narrow_than_right(unsigned);
-    bool find_cube();
+    lia_move find_cube();
     bool tighten_terms_for_cube();
     bool tighten_term_for_cube(unsigned);
     unsigned column_count() const;

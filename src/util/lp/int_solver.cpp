@@ -536,9 +536,9 @@ bool int_solver::tighten_terms_for_cube() {
     return true;
 }
 
-bool int_solver::find_cube() {
+lia_move int_solver::find_cube() {
     if (m_branch_cut_counter % settings().m_int_find_cube_period != 0)
-        return false;
+        return lia_move::undef;
     
     settings().st().m_cube_calls++;
     TRACE("cube",
@@ -549,7 +549,7 @@ bool int_solver::find_cube() {
     m_lar_solver->push();
     if(!tighten_terms_for_cube()) {
         m_lar_solver->pop();
-        return false;
+        return lia_move::undef;
     }
 
     lp_status st = m_lar_solver->find_feasible_solution();
@@ -560,12 +560,13 @@ bool int_solver::find_cube() {
         find_feasible_solution();
         lp_assert(m_chase_cut_solver.cancel() || is_feasible());
         // it can happen that we found an integer solution here
-        return !m_lar_solver->r_basis_has_inf_int();
+        return !m_lar_solver->r_basis_has_inf_int()? lia_move::sat: lia_move::undef;
     }
     m_lar_solver->pop();
     m_lar_solver->round_to_integer_solution();
     lp_assert(m_chase_cut_solver.cancel() || is_feasible());
-    return true;
+    settings().st().m_cube_success++;
+    return lia_move::sat;
 }
 
 void int_solver::find_feasible_solution() {
@@ -616,7 +617,9 @@ lia_move int_solver::call_chase_cut_solver() {
 }
 
 lia_move int_solver::gomory_cut() {
-    TRACE("check_main_int", tout << "gomory";);
+    if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period != 0)
+        return lia_move::undef;
+
     if (move_non_basic_columns_to_bounds()) {
 #if Z3DEBUG 
         lp_status st =
@@ -698,35 +701,30 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     if (!has_inf_int())
         return lia_move::sat;
     m_t = &t;  m_k = &k;  m_ex = &ex; m_upper = &upper;
-    if (run_gcd_test() == lia_move::conflict)
-        return lia_move::conflict;
-    
+    lia_move r = run_gcd_test();
+    if (r != lia_move::undef) return r;
+
     pivoted_rows_tracking_control pc(m_lar_solver);
+
     if(settings().m_int_pivot_fixed_vars_from_basis)
         m_lar_solver->pivot_fixed_vars_from_basis();
 
-    if (patch_nbasic_columns() == lia_move::sat)
-        return lia_move::sat;
+    r = patch_nbasic_columns();
+    if (r != lia_move::undef) return r;
 
     ++m_branch_cut_counter;
-    if (find_cube()){
-        settings().st().m_cube_success++;
-        return lia_move::sat;
-    }
 
-    lia_move r = call_chase_cut_solver();
-    if (r != lia_move::undef)
-        return r;
+    r = find_cube();
+    if (r != lia_move::undef) return r;
+
+    r = call_chase_cut_solver();
+    if (r != lia_move::undef) return r;
 
     r = hnf_cut();
-    if (r != lia_move::undef)
-        return r;
+    if (r != lia_move::undef) return r;
 
-    r = lia_move::undef;
-    if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period == 0)
-        r = gomory_cut();
-   
-    return r == lia_move::undef? branch_or_sat() : r;
+    r = gomory_cut();
+    return (r == lia_move::undef)? branch_or_sat() : r;
 }
 
 lia_move int_solver::branch_or_sat() {
