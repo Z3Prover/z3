@@ -441,7 +441,7 @@ void derivation::premise::set_summary (expr * summary, bool must,
 lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(lvl),
+    m_zks(m), m_bindings(m), m_lvl(lvl), m_init_lvl(m_lvl),
     m_pob(nullptr), m_ctp(nullptr), m_external(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
@@ -450,7 +450,7 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
 lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()),
+    m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
     m_pob(p), m_ctp(nullptr), m_external(false) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
@@ -461,7 +461,7 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_ref_count(0),
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()),
+    m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
     m_pob(p), m_ctp(nullptr), m_external(false)
 {
     if (m_pob) {

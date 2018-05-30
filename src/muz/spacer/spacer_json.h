@@ -31,34 +31,29 @@ class ast_manager;
 
 namespace spacer {
 
-    class lemma;
-
-    typedef sref_vector<lemma> lemma_ref_vector;
-
-    class context;
-
-    class pob;
-
-    std::ostream &json_marshal(std::ostream &out, ast *t, ast_manager &m);
-
-    std::ostream &json_marshal(std::ostream &out, lemma *l);
-
-    std::ostream &json_marshal(std::ostream &out, lemma_ref_vector &lemmas);
+class lemma;
+typedef sref_vector<lemma> lemma_ref_vector;
+class context;
+class pob;
 
 
-    class json_marshaller {
-        context *m_ctx;
-        std::map<pob*, std::map<unsigned, lemma_ref_vector>> m_relations;
+class json_marshaller {
+    context *m_ctx;
+    bool m_old_style;
+    std::map<pob*, std::map<unsigned, lemma_ref_vector>> m_relations;
 
-    public:
-        json_marshaller(context *ctx) : m_ctx(ctx) {}
+    void marshal_lemmas_old(std::ostream &out) const;
+    void marshal_lemmas_new(std::ostream &out) const;
+public:
+    json_marshaller(context *ctx, bool old_style = false) :
+        m_ctx(ctx), m_old_style(old_style)  {}
 
-        void register_lemma(lemma *l);
+    void register_lemma(lemma *l);
 
-        void register_pob(pob *p);
+    void register_pob(pob *p);
 
-        std::ostream &marshal(std::ostream &out) const;
-    };
+    std::ostream &marshal(std::ostream &out) const;
+};
 
 }
 

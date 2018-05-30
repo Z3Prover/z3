@@ -24,56 +24,59 @@ Notes:
 
 namespace spacer {
 
-    std::ostream &json_marshal(std::ostream &out, ast *t, ast_manager &m) {
+static std::ostream &json_marshal(std::ostream &out, ast *t, ast_manager &m) {
 
-        mk_epp pp = mk_epp(t, m);
-        std::ostringstream ss;
-        ss << pp;
-        out << "\"";
-        for (auto &c:ss.str()) {
-            switch (c) {
-                case '"':
-                    out << "\\\"";
-                    break;
-                case '\\':
-                    out << "\\\\";
-                    break;
-                case '\b':
-                    out << "\\b";
-                    break;
-                case '\f':
-                    out << "\\f";
-                    break;
-                case '\n':
-                    out << "\\n";
-                    break;
-                case '\r':
-                    out << "\\r";
-                    break;
-                case '\t':
-                    out << "\\t";
-                    break;
-                default:
-                    if ('\x00' <= c && c <= '\x1f') {
-                        out << "\\u"
-                            << std::hex << std::setw(4) << std::setfill('0') << (int) c;
-                    } else {
-                        out << c;
-                    }
+    mk_epp pp = mk_epp(t, m);
+    std::ostringstream ss;
+    ss << pp;
+    out << "\"";
+    for (auto &c:ss.str()) {
+        switch (c) {
+        case '"':
+            out << "\\\"";
+            break;
+        case '\\':
+            out << "\\\\";
+            break;
+        case '\b':
+            out << "\\b";
+            break;
+        case '\f':
+            out << "\\f";
+            break;
+        case '\n':
+            out << "\\n";
+            break;
+        case '\r':
+            out << "\\r";
+            break;
+        case '\t':
+            out << "\\t";
+            break;
+        default:
+            if ('\x00' <= c && c <= '\x1f') {
+                out << "\\u"
+                    << std::hex << std::setw(4) << std::setfill('0') << (int) c;
+            } else {
+                out << c;
             }
         }
-        out << "\"";
-        return out;
     }
+    out << "\"";
+    return out;
+}
 
-    std::ostream &json_marshal(std::ostream &out, lemma *l) {
-        out << R"({"level":")" << l->level() << R"(", "expr":)";
-        json_marshal(out, l->get_expr(), l->get_ast_manager());
-        out << "}";
-        return out;
-    }
+static std::ostream &json_marshal(std::ostream &out, lemma *l) {
+    out << "{"
+        << R"("init_level":")" << l->init_level()
+        << R"(", "level":")" << l->level()
+        << R"(", "expr":)";
+    json_marshal(out, l->get_expr(), l->get_ast_manager());
+    out << "}";
+    return out;
+}
 
-    std::ostream &json_marshal(std::ostream &out, const lemma_ref_vector &lemmas) {
+static std::ostream &json_marshal(std::ostream &out, const lemma_ref_vector &lemmas) {
 
         std::ostringstream ls;
         for (auto l:lemmas) {
@@ -85,74 +88,103 @@ namespace spacer {
     }
 
 
-    void json_marshaller::register_lemma(lemma *l) {
-        if (l->has_pob()) {
-            m_relations[&*l->get_pob()][l->get_pob()->depth()].push_back(l);
+void json_marshaller::register_lemma(lemma *l) {
+    if (l->has_pob()) {
+        m_relations[&*l->get_pob()][l->get_pob()->depth()].push_back(l);
+    }
+}
+
+void json_marshaller::register_pob(pob *p) {
+    m_relations[p];
+}
+
+void json_marshaller::marshal_lemmas_old(std::ostream &out) const {
+    unsigned pob_id = 0;
+    for (auto &pob_map:m_relations) {
+        std::ostringstream pob_lemmas;
+        for (auto &depth_lemmas : pob_map.second) {
+            pob_lemmas << ((unsigned)pob_lemmas.tellp() == 0 ? "" : ",")
+                       << "\"" << depth_lemmas.first << "\":";
+            json_marshal(pob_lemmas, depth_lemmas.second);
         }
+        if (pob_lemmas.tellp()) {
+            out << ((unsigned)out.tellp() == 0 ? "" : ",\n");
+            out << "\"" << pob_id << "\":{" << pob_lemmas.str() << "}";
+        }
+        pob_id++;
     }
+}
+void json_marshaller::marshal_lemmas_new(std::ostream &out) const {
+    unsigned pob_id = 0;
+    for (auto &pob_map:m_relations) {
+        std::ostringstream pob_lemmas;
+        pob *n = pob_map.first;
+        for (auto *l : n->lemmas()) {
+            pob_lemmas << ((unsigned)pob_lemmas.tellp() == 0 ? "" : ",")
+                       << "\"0\":";
+            lemma_ref_vector lemmas_vec;
+            lemmas_vec.push_back(l);
+            json_marshal(pob_lemmas, lemmas_vec);
+        }
 
-    void json_marshaller::register_pob(pob *p) {
-        m_relations[p];
+        if (pob_lemmas.tellp()) {
+            out << ((unsigned)out.tellp() == 0 ? "" : ",\n");
+            out << "\"" << pob_id << "\":{" << pob_lemmas.str() << "}";
+        }
+        pob_id++;
     }
+}
 
-    std::ostream &spacer::json_marshaller::marshal(std::ostream &out) const {
-        std::ostringstream nodes;
-        std::ostringstream edges;
-        std::ostringstream lemmas;
+std::ostream &json_marshaller::marshal(std::ostream &out) const {
+    std::ostringstream nodes;
+    std::ostringstream edges;
+    std::ostringstream lemmas;
 
-        unsigned pob_id = 0;
+    if (m_old_style)
+        marshal_lemmas_old(lemmas);
+    else
+        marshal_lemmas_new(lemmas);
+
+    unsigned pob_id = 0;
+    unsigned depth = 0;
+    while (true) {
+        double root_expand_time = m_ctx->get_root().get_expand_time(depth);
+        bool a = false;
+        pob_id = 0;
         for (auto &pob_map:m_relations) {
-            std::ostringstream pob_lemmas;
-            for (auto &depth_lemmas : pob_map.second) {
-                pob_lemmas << ((unsigned)pob_lemmas.tellp() == 0 ? "" : ",") << "\"" << depth_lemmas.first << "\":";
-                json_marshal(pob_lemmas, depth_lemmas.second);
-            }
-            if (pob_lemmas.tellp()) {
-                lemmas << ((unsigned)lemmas.tellp() == 0 ? "" : ",\n");
-                lemmas << "\"" << pob_id << "\":{" << pob_lemmas.str() << "}";
+            pob *n = pob_map.first;
+            double expand_time = n->get_expand_time(depth);
+            if (expand_time > 0) {
+                a = true;
+                std::ostringstream pob_expr;
+                json_marshal(pob_expr, n->post(), n->get_ast_manager());
+
+                nodes << ((unsigned)nodes.tellp() == 0 ? "" : ",\n") <<
+                    "{\"id\":\"" << depth << n <<
+                    "\",\"relative_time\":\"" << expand_time / root_expand_time <<
+                    "\",\"absolute_time\":\"" << std::setprecision(2) << expand_time <<
+                    "\",\"predicate\":\"" << n->pt().head()->get_name() <<
+                    "\",\"expr_id\":\"" << n->post()->get_id() <<
+                    "\",\"pob_id\":\"" << pob_id <<
+                    "\",\"depth\":\"" << depth <<
+                    "\",\"expr\":" << pob_expr.str() << "}";
+                if (n->parent()) {
+                    edges << ((unsigned)edges.tellp() == 0 ? "" : ",\n") <<
+                        "{\"from\":\"" << depth << n->parent() <<
+                        "\",\"to\":\"" << depth << n << "\"}";
+                }
             }
             pob_id++;
         }
-
-        unsigned depth = 0;
-        while (true) {
-            double root_expand_time = m_ctx->get_root().get_expand_time(depth);
-            bool a = false;
-            pob_id = 0;
-            for (auto &pob_map:m_relations) {
-                pob *n = pob_map.first;
-                double expand_time = n->get_expand_time(depth);
-                if (expand_time > 0) {
-                    a = true;
-                    std::ostringstream pob_expr;
-                    json_marshal(pob_expr, n->post(), n->get_ast_manager());
-
-                    nodes << ((unsigned)nodes.tellp() == 0 ? "" : ",\n") <<
-                          "{\"id\":\"" << depth << n <<
-                          "\",\"relative_time\":\"" << expand_time / root_expand_time <<
-                          "\",\"absolute_time\":\"" << std::setprecision(2) << expand_time <<
-                          "\",\"predicate\":\"" << n->pt().head()->get_name() <<
-                          "\",\"expr_id\":\"" << n->post()->get_id() <<
-                          "\",\"pob_id\":\"" << pob_id <<
-                          "\",\"depth\":\"" << depth <<
-                          "\",\"expr\":" << pob_expr.str() << "}";
-                    if (n->parent()) {
-                        edges << ((unsigned)edges.tellp() == 0 ? "" : ",\n") <<
-                              "{\"from\":\"" << depth << n->parent() <<
-                              "\",\"to\":\"" << depth << n << "\"}";
-                    }
-                }
-                pob_id++;
-            }
-            if (!a) {
-                break;
-            }
-            depth++;
+        if (!a) {
+            break;
         }
-        out << "{\n\"nodes\":[\n" << nodes.str() << "\n],\n";
-        out << "\"edges\":[\n" << edges.str() << "\n],\n";
-        out << "\"lemmas\":{\n" << lemmas.str() << "\n}\n}\n";
-        return out;
+        depth++;
     }
+    out << "{\n\"nodes\":[\n" << nodes.str() << "\n],\n";
+    out << "\"edges\":[\n" << edges.str() << "\n],\n";
+    out << "\"lemmas\":{\n" << lemmas.str() << "\n}\n}\n";
+    return out;
+}
 
 }

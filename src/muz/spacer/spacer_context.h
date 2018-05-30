@@ -114,7 +114,8 @@ class lemma {
     expr_ref_vector m_cube;
     app_ref_vector m_zks;
     app_ref_vector m_bindings;
-    unsigned m_lvl;
+    unsigned m_lvl;            // current level of the lemma
+    unsigned m_init_lvl;       // level at which lemma was created
     pob_ref m_pob;
     model_ref m_ctp; // counter-example to pushing
     bool m_external;
@@ -150,6 +151,7 @@ public:
 
     bool is_inductive() const {return is_infty_level(m_lvl);}
     unsigned level () const {return m_lvl;}
+    unsigned init_level() const {return m_init_lvl;}
     void set_level (unsigned lvl);
     app_ref_vector& get_bindings() {return m_bindings;}
     bool has_binding(app_ref_vector const &binding);
