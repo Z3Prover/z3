@@ -96,6 +96,8 @@ private:
     const impq & get_value(unsigned j) const;
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
+    lia_move branch_or_sat();
+    int find_any_inf_int_column_basis_first();
     int find_inf_int_base_column();
     int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
     int get_kth_inf_int(unsigned) const;
@@ -152,7 +154,7 @@ public:
     void push();
     void copy_values_from_chase_cut_solver();
     bool left_branch_is_more_narrow_than_right(unsigned);
-    bool find_cube();
+    lia_move find_cube();
     bool tighten_terms_for_cube();
     bool tighten_term_for_cube(unsigned);
     unsigned column_count() const;
