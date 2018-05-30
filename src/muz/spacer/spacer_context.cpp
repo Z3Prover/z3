@@ -487,8 +487,10 @@ void lemma::mk_expr_core() {
     if (m_pob) {mk_cube_core();}
 
     SASSERT(!m_cube.empty());
-    m_body = ::push_not(::mk_and(m_cube));
+    m_body = ::mk_and(m_cube);
+    // normalize works better with a cube
     normalize(m_body, m_body);
+    m_body = ::push_not(m_body);
 
     if (!m_zks.empty() && has_zk_const(m_body)) {
             app_ref_vector zks(m);
