@@ -1838,7 +1838,7 @@ namespace pdr {
                     m_fparams.m_arith_eq2ineq = true;
                 }
                 else {
-                    m_fparams.m_arith_mode = AS_ARITH;
+                    m_fparams.m_arith_mode = AS_OLD_ARITH;
                     m_fparams.m_arith_eq2ineq = false;
                 }
             }
