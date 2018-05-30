@@ -1834,6 +1834,9 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
 
     // new_lemma is really new
     m_lemmas.push_back(new_lemma);
+    // XXX because m_lemmas is reduced, keep secondary vector of all lemmas
+    // XXX so that pob can refer to its lemmas without creating reference cycles
+    m_pinned_lemmas.push_back(new_lemma);
     m_sorted = false;
     m_pt.add_lemma_core(new_lemma);
 

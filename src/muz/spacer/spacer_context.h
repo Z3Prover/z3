@@ -198,12 +198,13 @@ class pred_transformer {
 #include "muz/spacer/spacer_legacy_frames.h"
     class frames {
     private:
-        pred_transformer &m_pt;
-        lemma_ref_vector m_lemmas;
-        unsigned m_size;
+        pred_transformer &m_pt;            // parent pred_transformer
+        lemma_ref_vector m_pinned_lemmas;  // all created lemmas
+        lemma_ref_vector m_lemmas;         // active lemmas
+        unsigned m_size;                   // num of frames
 
-        bool m_sorted;
-        lemma_lt_proc m_lt;
+        bool m_sorted;                     // true if m_lemmas is sorted by m_lt
+        lemma_lt_proc m_lt;                // sort order for m_lemmas
 
         void sort ();
 
