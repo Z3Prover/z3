@@ -298,9 +298,17 @@ public:
     static void clean_popped_elements(unsigned n, int_set& set);
 
     static void shrink_inf_set_after_pop(unsigned n, int_set & set);
-
     
     void pop(unsigned k);
+
+    class scoped_push {
+        lar_solver& m_solver;
+        bool m_pop;
+    public:
+        scoped_push(lar_solver& s):m_solver(s), m_pop(true) { s.push(); }
+        ~scoped_push() { if (m_pop) m_solver.pop(); }
+        void pop() { SASSERT(m_pop); m_solver.pop(); m_pop = false; }
+    };
     
     vector<constraint_index> get_all_constraint_indices() const;
 

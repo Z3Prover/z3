@@ -11,7 +11,6 @@ Abstract:
 
 Author:
     Lev Nachmanson (levnach)
-    Nikolaj Bjorner (nbjorner)
 
 Revision History:
 
@@ -35,7 +34,7 @@ class hnf_cutter {
     unsigned                   m_column_count;
     lp_settings &              m_settings;
 public:
-    hnf_cutter(lp_settings & settings) : m_settings(settings) {}
+    hnf_cutter(lp_settings & settings) : m_row_count(0), m_column_count(0), m_settings(settings) {}
 
     unsigned row_count() const {
         return m_row_count;
@@ -103,16 +102,8 @@ public:
         int ret = -1;
         int n = 0;
         for (int i = 0; i < static_cast<int>(b.size()); i++) {
-            if (!is_int(b[i])) {
-                if (n == 0 ) {
-                    lp_assert(ret == -1);
-                    n = 1;
-                    ret = i;
-                } else {
-                    if (m_settings.random_next() % (++n) == 0) {
-                       ret = i;
-                    }
-                }
+            if (!is_int(b[i]) && (m_settings.random_next() % (++n) == 0)) {
+                ret = i;
             }
         }
         return ret;
@@ -182,7 +173,7 @@ public:
         
         vector<mpq> b = create_b(basis_rows);
         lp_assert(m_A * x0 == b);
-        vector<mpq> bcopy = b;
+        vector<mpq> bcopy = b;  // debug
         find_h_minus_1_b(h.W(), b);
         lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         int cut_row = find_cut_row_index(b);

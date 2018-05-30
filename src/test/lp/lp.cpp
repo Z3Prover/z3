@@ -47,7 +47,6 @@
 #include "util/lp/stacked_unordered_set.h"
 #include "util/lp/int_set.h"
 #include "util/stopwatch.h"
-#include "util/lp/integer_domain.h"
 #include "util/lp/stacked_map.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
@@ -3121,152 +3120,6 @@ void get_random_interval(bool& neg_inf, bool& pos_inf, int& x, int &y) {
     lp_assert((neg_inf || (0 <= x && x <= 100)) && (pos_inf || (0 <= y && y <= 100)));
 }
 
-void test_integer_domain_intersection(integer_domain<int> & d) {
-    // int x, y; bool neg_inf, pos_inf;
-    // get_random_interval(neg_inf, pos_inf, x, y);
-    // if (neg_inf) {
-    //     if (!pos_inf) {
-    //         d.intersect_with_upper_bound(y);
-    //     }
-    // }
-    // else if (pos_inf)
-    //     d.intersect_with_lower_bound(x);
-    // else 
-    //     d.intersect_with_interval(x, y);
-}
-
-void test_integer_domain_union(integer_domain<int> & d) {
-    int x, y; bool neg_inf, pos_inf;
-    get_random_interval(neg_inf, pos_inf, x, y);
-    if (neg_inf) {
-        if (!pos_inf) {
-            d.unite_with_interval_neg_inf_x(y);
-        }
-        else
-            d.init_to_contain_all();
-    }
-    else if (pos_inf)
-        d.unite_with_interval_x_pos_inf(x);
-    else 
-        d.unite_with_interval(x, y);
-
-    lp_assert(d.is_correct());
-}
-
-
-void test_integer_domain_randomly(integer_domain<int> & d) {
-    int i = my_random() % 10;
-    if (i == 0)
-        test_integer_domain_intersection(d);
-    else
-        test_integer_domain_union(d);
-}
-
-void test_integer_domain() {
-#ifdef Z3DEBUG
-   
-    std::cout << "test_integer_domain\n";
-    unsigned e0 = 0;
-    unsigned e1 = 1;
-    unsigned e2 = 2;
-    unsigned e3 = 3; // these are explanations
-    unsigned e4 = 4;
-    unsigned e5 = 5;
-    integer_domain<unsigned> d;
-    unsigned l0 = 0, l1 = 1, l2 = 3;
-    unsigned u0 = 10, u1 = 9, u2 = 8;
-    d.push();
-    d.intersect_with_lower_bound(l0, e0);
-    unsigned b;
-    unsigned e;
-    bool r = d.get_lower_bound_with_expl(b, e);
-    lp_assert(r && b == l0 && e == e0);
-    d.push();
-    d.intersect_with_upper_bound(u0, e1);
-    r = d.get_upper_bound_with_expl(b, e);
-    lp_assert(r && b == u0 && e == e1);
-    r = d.get_lower_bound_with_expl(b, e);
-    lp_assert(r && b == l0 && e == e0);
-    d.pop();
-    r = d.get_upper_bound_with_expl(b, e);
-    lp_assert(!r);
-    d.intersect_with_upper_bound(u0, e1);
-    d.push();
-    d.intersect_with_lower_bound(l1, e2);
-    d.intersect_with_upper_bound(u1, e3);
-    d.push();
-    d.intersect_with_lower_bound(l2, e4);
-    d.intersect_with_upper_bound(u2, e5);
-    lp_assert(d.is_empty() == false);
-    d.print(std::cout);
-    d.pop();
-    r = d.get_lower_bound_with_expl(b, e);
-    lp_assert(r && b == l1 && e == e2);
-    d.print(std::cout);
-    d.pop(2);
-    d.print(std::cout);
-    lp_assert(d.has_neg_inf() && d.has_pos_inf());
-#endif
-    // integer_domain<int> d;
-    // std::vector<integer_domain<int>> stack;
-    // for (int i = 0; i < 10000; i++) {
-    //     test_integer_domain_randomly(d);
-    //     stack.push_back(d);
-    //     d.push();
-    //     if (i > 0 && i%100 == 0) {
-    //         if (stack.size() == 0) continue;
-    //         unsigned k = my_random() % stack.size();
-    //         if (k == 0)
-    //             k = 1;
-    //         d.pop(k);
-    //         d.restore_domain();
-    //         for (unsigned j = 0; j + 1 < k; j++) {
-    //             stack.pop_back();
-    //         }
-    //         std::cout<<"comparing i = " << i << std::endl;
-    //         lp_assert(d ==  *stack.rbegin());
-    //         stack.pop_back();
-    //     }
-    //     //d.print(std::cout);
-    // }
-}
-
-
-
-void test_resolve_with_tight_constraint(chase_cut_solver& cs,
-                                        lp::chase_cut_solver::polynomial&i ,
-                                        unsigned int j,
-                                        chase_cut_solver::polynomial& ti) {
-    
-    // std::cout << "resolve constraint ";
-    // cs.print_polynomial(std::cout, i);
-    // std::cout << " for " << cs.get_column_name(j) << " by using poly ";
-    // cs.print_polynomial(std::cout, ti);
-    // std::cout << std::endl;
-    // bool j_coeff_is_one = ti.coeff(j) == 1;
-    // chase_cut_solver::polynomial result;
-    // cs.resolve(i, j,  j_coeff_is_one, ti);
-    // std::cout << "resolve result is ";
-    // cs.print_polynomial(std::cout, i);
-    // std::cout << std::endl;
-}
-
-typedef chase_cut_solver::monomial mono;
-
-void test_resolve(chase_cut_solver& cs, unsigned constraint_index, unsigned i0)  {
-    var_index x = 0;
-    var_index y = 1;
-    var_index z = 2;
-    std::cout << "test_resolve\n";
-    
-    chase_cut_solver::polynomial i; i += mono(2, x);i += mono(-3,y);
-    i+= mono(4, z);
-    i.m_a = 5;
-    chase_cut_solver::polynomial ti; ti += mono(1, x); ti+= mono(1,y);ti.m_a = 3;
-    test_resolve_with_tight_constraint(cs, i, x, ti);
-    test_resolve_with_tight_constraint(cs, i, y ,ti);
-}
-
 
 void test_gomory_cut_0() {
     gomory_test g(
@@ -3762,10 +3615,6 @@ void test_lp_local(int argn, char**argv) {
     
     if (args_parser.option_is_used("-gomory")) {
         test_gomory_cut();
-        return finalize(0);
-    }
-    if (args_parser.option_is_used("-intd")) {
-        test_integer_domain();
         return finalize(0);
     }
 

@@ -2533,10 +2533,10 @@ public:
     struct scoped_arith_mode {
         smt_params& p;
         scoped_arith_mode(smt_params& p) : p(p) {
-            p.m_arith_mode = AS_ARITH;
+            p.m_arith_mode = AS_OLD_ARITH;
         }
         ~scoped_arith_mode() {
-            p.m_arith_mode = AS_LRA;
+            p.m_arith_mode = AS_NEW_ARITH;
         }
     };
 
@@ -2544,7 +2544,7 @@ public:
         if (dump_lemmas()) {
             ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
         }
-        if (m_arith_params.m_arith_mode != AS_LRA) return true;
+        if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
@@ -2559,7 +2559,7 @@ public:
         if (dump_lemmas()) {                
             ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
         }
-        if (m_arith_params.m_arith_mode != AS_LRA) return true;
+        if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         m_core.push_back(~lit);
@@ -2574,7 +2574,7 @@ public:
     }
 
     bool validate_eq(enode* x, enode* y) {
-        if (m_arith_params.m_arith_mode == AS_LRA) return true;
+        if (m_arith_params.m_arith_mode == AS_NEW_ARITH) return true;
         context nctx(m, ctx().get_fparams(), ctx().get_params());
         add_background(nctx);
         nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));

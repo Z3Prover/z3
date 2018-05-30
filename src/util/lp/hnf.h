@@ -20,7 +20,6 @@ $1$ at $i$-th position. Then we need to find the row vector $e_iU^{-1}=t$. Notic
 We find  $e_iH^{-1} = f$ by solving $e_i = fH$ and then $fA$ gives us $t$.
 
 Author:
-    Nikolaj Bjorner (nbjorner)
     Lev Nachmanson (levnach)
 
 Revision History:
@@ -502,9 +501,7 @@ private:
             m_W[k][j] -= u * m_W[k][m_i];
             //  m_W[k][j] = mod_R_balanced(m_W[k][j]);
         }
-    }
-
-    
+    }    
 
     bool is_unit_matrix(const M& u) const {
         unsigned m = u.row_count();
