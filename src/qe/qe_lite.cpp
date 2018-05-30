@@ -142,10 +142,10 @@ namespace eq {
                         }
                         else {
                             SASSERT(fr.second == 1);
-                            visiting.reset_mark(t);
+                                visiting.reset_mark(t);
                             if (!done.is_marked(t)) {
                                 if (definitions.get(vidx, nullptr) != nullptr)
-                                    order.push_back(vidx);
+                                order.push_back(vidx);
                                 done.mark(t);
                             }
                         }
@@ -444,7 +444,7 @@ namespace eq {
                 expr_ref r(m);
                 m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);
                 unsigned inx = sz - m_order[i]- 1;
-                SASSERT(m_subst_map[inx]==0);
+                SASSERT(m_subst_map[inx]==nullptr);
                 m_subst_map[inx] = r;
             }
         }
