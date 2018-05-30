@@ -142,10 +142,10 @@ namespace eq {
                         }
                         else {
                             SASSERT(fr.second == 1);
-                                visiting.reset_mark(t);
+                            visiting.reset_mark(t);
                             if (!done.is_marked(t)) {
                                 if (definitions.get(vidx, nullptr) != nullptr)
-                                order.push_back(vidx);
+                                    order.push_back(vidx);
                                 done.mark(t);
                             }
                         }
