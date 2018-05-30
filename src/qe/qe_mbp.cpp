@@ -592,9 +592,10 @@ public:
 
         flatten_and(fml);
 
-        do_qe_lite(vars, fml);
 
         while (!vars.empty()) {
+
+            do_qe_lite(vars, fml);
 
             do_qe_bool(mdl, vars, fml);
             
@@ -613,21 +614,19 @@ public:
             vars.reset ();
             
             // project arrays
-            if (!array_vars.empty()) {
-                qe::array_project_plugin ap(m);
-                ap(mdl, array_vars, fml, vars, m_reduce_all_selects);
-                SASSERT (array_vars.empty ());
-                m_rw (fml);
-                SASSERT (!m.is_false (fml));
-            }
-            
+            qe::array_project_plugin ap(m);
+            ap(mdl, array_vars, fml, vars, m_reduce_all_selects);
+            SASSERT (array_vars.empty ());
+            m_rw (fml);
+            SASSERT (!m.is_false (fml));
+
             TRACE ("qe",
                    tout << "extended model:\n";
                    model_pp (tout, mdl);
                    tout << "Vars: " << vars << "\n";
                    );            
-            
         }
+                        
         // project reals, ints and other variables.
         if (!other_vars.empty ()) {
             TRACE ("qe", tout << "Other vars: " << other_vars << "\n";
