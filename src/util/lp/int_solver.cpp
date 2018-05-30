@@ -33,13 +33,6 @@ void int_solver::trace_inf_rows() const {
           );
 }
 
-bool int_solver::all_columns_are_bounded() const {
-    for (unsigned j = 0; j < m_lar_solver->column_count(); j++)
-        if (m_lar_solver->column_is_bounded(j) == false)
-            return false;
-    return true;
-}
-
 bool int_solver::has_inf_int() const {
     return m_lar_solver->has_inf_int();
 }
