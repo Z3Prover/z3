@@ -1478,8 +1478,6 @@ bool lar_solver::strategy_is_undecided() const {
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     if (is_int)
         m_has_int_var = true;
-    if (is_int && !has_int_var())
-        catch_up_in_updating_int_solver();
         
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
     var_index i;

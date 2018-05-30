@@ -24,6 +24,7 @@ Revision History:
 #include <unordered_set>
 #include <set>
 #include <stack>
+#include <map>
 namespace lp {
 template<class A,
 		class B,
