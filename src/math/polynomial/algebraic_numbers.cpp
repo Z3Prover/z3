@@ -1909,7 +1909,7 @@ namespace algebraic_numbers {
 
         void get_polynomial(numeral const & a, vector<mpz> & r) {
             if (a.is_basic()) {
-                r.reserve(2);
+                r.expand(2);
                 if (is_zero(a)) {
                     qm().set(r[0], 0);
                     qm().set(r[1], 1);

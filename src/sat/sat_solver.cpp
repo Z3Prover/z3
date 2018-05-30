@@ -2815,7 +2815,7 @@ namespace sat {
        All literals in lits must be assigned.
     */
     unsigned solver::num_diff_levels(unsigned num, literal const * lits) {
-        m_diff_levels.reserve(scope_lvl() + 1, false);
+        m_diff_levels.expand(scope_lvl() + 1, false);
         unsigned r = 0;
         for (unsigned i = 0; i < num; i++) {
             SASSERT(value(lits[i]) != l_undef);
@@ -2832,7 +2832,7 @@ namespace sat {
     }
 
     bool solver::num_diff_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue) {
-        m_diff_levels.reserve(scope_lvl() + 1, false);
+        m_diff_levels.expand(scope_lvl() + 1, false);
         glue = 0;
         unsigned i = 0;
         for (; i < num && glue < max_glue; i++) {
@@ -2851,7 +2851,7 @@ namespace sat {
     }
 
     bool solver::num_diff_false_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue) {
-        m_diff_levels.reserve(scope_lvl() + 1, false);
+        m_diff_levels.expand(scope_lvl() + 1, false);
         glue = 0;
         unsigned i = 0;
         for (; i < num && glue < max_glue; i++) {

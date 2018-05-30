@@ -45,7 +45,7 @@ namespace sat {
             return;
         if (memory::get_allocation_size() > m_probing_cache_limit)
             return; // not enough memory to spare
-        m_cached_bins.reserve(l.index() + 1);
+        m_cached_bins.expand(l.index() + 1);
         cache_entry & entry = m_cached_bins[l.index()];
         entry.m_available = true;
         entry.m_lits.reset();

@@ -445,7 +445,7 @@ namespace eq {
             m_pos2var.reset();
             m_var2pos.reset();
             m_inx2var.reset();
-            m_pos2var.reserve(num_args, -1);
+            m_pos2var.expand(num_args, -1);
 
             // Find all definitions
             for (unsigned i = 0; i < num_args; i++) {
@@ -461,12 +461,12 @@ namespace eq {
                         if (t != ts.get(j)) m_new_exprs.push_back(t);
                         unsigned idx = v->get_idx();
                         if (m_map.get(idx, nullptr) == nullptr) {
-                            m_map.reserve(idx + 1, 0);
-                            m_inx2var.reserve(idx + 1, 0);
+                            m_map.expand(idx + 1, 0);
+                            m_inx2var.expand(idx + 1, 0);
                             m_map[idx] = t;
                             m_inx2var[idx] = v;
                             m_pos2var[i] = idx;
-                            m_var2pos.reserve(idx + 1, -1);
+                            m_var2pos.expand(idx + 1, -1);
                             m_var2pos[idx] = i;
                             def_count++;
                             largest_vinx = std::max(idx, largest_vinx);
@@ -918,7 +918,7 @@ namespace fm {
 
         void insert(constraint & c) {
             unsigned id  = c.m_id;
-            m_id2pos.reserve(id+1, UINT_MAX);
+            m_id2pos.expand(id+1, UINT_MAX);
             if (m_id2pos[id] != UINT_MAX)
                 return; // already in the set
             unsigned pos = m_set.size();

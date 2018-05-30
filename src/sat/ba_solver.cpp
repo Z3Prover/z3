@@ -1025,7 +1025,7 @@ namespace sat {
         SASSERT(offset > 0);
         bool_var v = l.var();
         SASSERT(v != null_bool_var);
-        m_coeffs.reserve(v + 1, 0);
+        m_coeffs.expand(v + 1, 0);
         TRACE("ba_verbose", tout << l << " " << offset << "\n";);
 
         int64_t coeff0 = m_coeffs[v];
@@ -1137,7 +1137,7 @@ namespace sat {
             }
             if (idx == 0 && !_debug_conflict) {
                 _debug_conflict = true;
-                _debug_var2position.reserve(s().num_vars());
+                _debug_var2position.expand(s().num_vars());
                 for (unsigned i = 0; i < lits.size(); ++i) {
                     _debug_var2position[lits[i].var()] = i;
                 }
@@ -3019,7 +3019,7 @@ namespace sat {
         if (s().is_assumption(l.var())) {
             return false;
         }
-        m_root_vars.reserve(s().num_vars(), false);
+        m_root_vars.expand(s().num_vars(), false);
         for (unsigned i = m_roots.size(); i < 2 * s().num_vars(); ++i) {
             m_roots.push_back(to_literal(i));
         }

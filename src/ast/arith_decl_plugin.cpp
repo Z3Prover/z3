@@ -40,7 +40,7 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
     unsigned mk_id(algebraic_numbers::anum const & val) {
         SASSERT(!m_amanager.is_rational(val));
         unsigned new_id = m_id_gen.mk();
-        m_nums.reserve(new_id+1);
+        m_nums.expand(new_id+1);
         m_amanager.set(m_nums[new_id], val);
         TRACE("algebraic2expr", tout << "mk_id -> " << new_id << "\n"; m_amanager.display(tout, val); tout << "\n";);
         return new_id;

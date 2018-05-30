@@ -71,7 +71,7 @@ namespace subpaving {
         unsynch_mpq_manager & qm() const override { return m_ctx.nm(); }
 
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
-            m_as.reserve(sz);
+            m_as.expand(sz);
             for (unsigned i = 0; i < sz; i++) {
                 m_ctx.nm().set(m_as[i], as[i]);
             }
@@ -114,7 +114,7 @@ namespace subpaving {
 
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
-                m_as.reserve(sz);
+                m_as.expand(sz);
                 for (unsigned i = 0; i < sz; i++) {
                     int2mpf(as[i], m_as[i]);
                 }
@@ -171,7 +171,7 @@ namespace subpaving {
 
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
-                m_as.reserve(sz);
+                m_as.expand(sz);
                 for (unsigned i = 0; i < sz; i++) {
                     int2hwf(as[i], m_as[i]);
                 }
@@ -229,7 +229,7 @@ namespace subpaving {
 
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
-                m_as.reserve(sz);
+                m_as.expand(sz);
                 for (unsigned i = 0; i < sz; i++) {
                     int2fpoint(as[i], m_as[i]);
                 }

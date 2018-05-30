@@ -809,7 +809,7 @@ class smt2_printer {
             unsigned lvl    = m_aliased_lvls_names[i].first;
             symbol   f_name = m_aliased_lvls_names[i].second;
             format * f_def[1] = { m_aliased_pps.get(i) };
-            decls.reserve(lvl+1);
+            decls.expand(lvl+1);
             ptr_vector<format> & lvl_decls = decls[lvl];
             lvl_decls.push_back(mk_seq1<format**, f2f>(m(), f_def, f_def+1, f2f(), f_name.str().c_str()));
         }

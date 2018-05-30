@@ -89,8 +89,7 @@ public:
     max_cliques() {}
 
     void add_edge(unsigned src, unsigned dst) {
-        m_next.reserve(std::max(src, dst) + 1);
-        m_next.reserve(std::max(negate(src), negate(dst)) + 1);
+        m_next.expand(std::max({src, dst, negate(src), negate(dst)}) + 1);
         m_next[src].push_back(dst);
         m_next[dst].push_back(src);
     }
@@ -103,8 +102,8 @@ public:
             unsigned np = negate(p);
             max = std::max(max, std::max(np, p) + 1);
         }
-        m_next.reserve(max);
-        m_tc.reserve(m_next.size());
+        m_next.expand(max);
+        m_tc.expand(m_next.size());
         unsigned_vector clique;
         uint_set vars;
         for (unsigned i = 0; i < num_ps; ++i) {

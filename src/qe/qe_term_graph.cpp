@@ -789,7 +789,7 @@ namespace qe {
                 func_decl* d = a->get_decl();
                 if (d->get_arity() == 0) continue;
                 unsigned id = d->get_decl_id();
-                m_decl2terms.reserve(id+1);
+                m_decl2terms.expand(id+1);
                 if (m_decl2terms[id].empty()) m_decls.push_back(d);
                 m_decl2terms[id].push_back(t);
             }

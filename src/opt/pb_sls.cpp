@@ -42,7 +42,7 @@ namespace smt {
         }
         
         void insert(unsigned idx) {
-            m_index.reserve(idx+1);
+            m_index.expand(idx+1);
             if (!contains(idx)) {
                 m_index[idx] = m_elems.size();
                 m_elems.push_back(idx);

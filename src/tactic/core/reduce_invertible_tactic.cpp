@@ -142,13 +142,13 @@ private:
         parent_collector(reduce_invertible_tactic& c):c(c) {}
         void operator()(app* n) {
             for (expr* arg : *n) {
-                c.m_parents.reserve(arg->get_id() + 1);
+                c.m_parents.expand(arg->get_id() + 1);
                 c.m_parents[arg->get_id()].set(n);
             }
         }
 
         void operator()(var* v) {
-            c.m_parents.reserve(v->get_id() + 1);
+            c.m_parents.expand(v->get_id() + 1);
         }
 
         void operator()(quantifier* q) {}

@@ -259,7 +259,7 @@ class tracked_uint_set {
 public:
     typedef vector<unsigned>::const_iterator iterator;
     void insert(unsigned v) {
-        m_in_set.reserve(v+1, false);
+        m_in_set.expand(v+1, false);
         if (m_in_set[v])
             return;
         m_in_set[v] = true;
@@ -343,8 +343,8 @@ public:
 
     void insert(unsigned x) {
         SASSERT(!contains(x));
-        m_index.reserve(x + 1, UINT_MAX);
-        m_elems.reserve(m_size + 1);
+        m_index.expand(x + 1, UINT_MAX);
+        m_elems.expand(m_size + 1);
         m_index[x] = m_size;
         m_elems[m_size] = x;
         m_size++;

@@ -233,7 +233,7 @@ public:
     buffvec& operator=(buffvec const& other) {
         if(this != &other) {
             clear();
-            _reserve(other.m_size);
+            reserve(other.m_size);
             m_size = other.m_size;
             buffvec_detail::copy_into(m_data, other.m_data, m_size);
         }
@@ -365,7 +365,7 @@ public:
     void resize(size_type count) {
         SASSERT(size() + count >= size() && "overflow check");
         if(size() + count > capacity()) {
-            _reserve(std::max(next_capacity(), size() + count));
+            reserve(std::max(next_capacity(), size() + count));
         }
         auto const ptr = this->ptr();
         auto const size = this->size();
@@ -379,7 +379,7 @@ public:
     void resize(size_type count, value_type const& value) {
         SASSERT(size() + count >= size() && "overflow check");
         if(size() + count > capacity()) {
-            _reserve(std::max(next_capacity(), size() + count));
+            reserve(std::max(next_capacity(), size() + count));
         }
         auto const ptr = this->ptr();
         auto const size = this->size();
@@ -391,8 +391,8 @@ public:
     }
 
 private:
-    // vector::reserve actually does a expand-only resize as per the old API
-    void _reserve(size_type new_capacity) {
+    // vector::reserve used to do an expand operation
+    void reserve(size_type new_capacity) {
         if(capacity() < new_capacity) {
             reallocate(new_capacity);
         }
@@ -505,7 +505,7 @@ public:
     void append(size_type count, T const * elements) {
         SASSERT(size() + count >= size() && "overflow check");
         if(size() + count > capacity()) {
-            _reserve(std::max(next_capacity(), size() + count));
+            reserve(std::max(next_capacity(), size() + count));
         }
         buffvec_detail::copy_into(ptr() + size(), elements, count);
         m_size += count;
@@ -664,7 +664,7 @@ public:
     void resize(size_type count) {
         SASSERT(size() + count >= size() && "overflow check");
         if(size() + count > capacity()) {
-            _reserve(std::max(next_capacity(), size() + count));
+            reserve(std::max(next_capacity(), size() + count));
         }
         buffvec_detail::destroy(ptr() + count, ptr() + size());
         for(size_type i = size(); i < count; ++i) {
@@ -676,7 +676,7 @@ public:
     void resize(size_type count, value_type const& value) {
         SASSERT(size() + count >= size() && "overflow check");
         if(size() + count > capacity()) {
-            _reserve(std::max(next_capacity(), size() + count));
+            reserve(std::max(next_capacity(), size() + count));
         }
         buffvec_detail::destroy(ptr() + count, ptr() + size());
         for(size_type i = size(); i < count; ++i) {
@@ -685,9 +685,9 @@ public:
         m_size = count;
     }
 
-    // vector::reserve actually does an enlarge-only resize as per the old API
 private:
-    void _reserve(size_type new_capacity) {
+    // vector::reserve used to do an expand operation
+    void reserve(size_type new_capacity) {
         if(new_capacity > capacity()) {
             reallocate(new_capacity);
         }
@@ -813,7 +813,7 @@ public:
         if(index >= size()) {
             SASSERT(index + 1 > 0 && "overflow check");
             if(index + 1 > capacity()) {
-                _reserve(std::max(next_capacity(), index + 1));
+                reserve(std::max(next_capacity(), index + 1));
             }
             for(size_type i = size(); i < index; ++i) {
                 ::new(ptr() + i) value_type(default_value);
@@ -837,13 +837,13 @@ public:
         return std::find(begin(), end(), value) != end();
     }
 
-    void reserve(size_type new_size) {
+    void expand(size_type new_size) {
         if(new_size > size()) {
             resize(new_size);
         }
     }
 
-    void reserve(size_type new_size, value_type const& new_value) {
+    void expand(size_type new_size, value_type const& new_value) {
         if(new_size > size()) {
             resize(new_size, new_value);
         }
@@ -857,7 +857,7 @@ public:
     void append(size_type count, T const * elements) {
         SASSERT(size() + count >= size() && "overflow check");
         if(size() + count > capacity()) {
-            _reserve(std::max(next_capacity(), size() + count));
+            reserve(std::max(next_capacity(), size() + count));
         }
         buffvec_detail::copy_into(ptr() + size(), elements, count);
         m_size += count;

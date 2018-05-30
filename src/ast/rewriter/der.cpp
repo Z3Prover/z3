@@ -164,15 +164,15 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
         m_pos2var.reset();
         m_inx2var.reset();
 
-        m_pos2var.reserve(num_args, -1);
+        m_pos2var.expand(num_args, -1);
 
         // Find all disequalities
         for (; i < num_args; i++) {
             if (is_var_diseq(to_app(e)->get_arg(i), num_decls, v, t)) {
                 unsigned idx = v->get_idx();
                 if(m_map.get(idx, 0) == 0) {
-                    m_map.reserve(idx + 1, 0);
-                    m_inx2var.reserve(idx + 1, 0);
+                    m_map.expand(idx + 1, 0);
+                    m_inx2var.expand(idx + 1, 0);
 
                     m_map[idx] = t;
                     m_inx2var[idx] = v;

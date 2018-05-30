@@ -48,7 +48,7 @@ namespace sat {
     void parallel::vector_pool::begin_add_vector(unsigned owner, unsigned n) {
         SASSERT(m_tail < m_size);
         unsigned capacity = n + 2;
-        m_vectors.reserve(m_size + capacity, 0);
+        m_vectors.expand(m_size + capacity, 0);
         IF_VERBOSE(3, verbose_stream() << owner << ": begin-add " << n << " tail: " << m_tail << " size: " << m_size << "\n";);
         for (unsigned i = 0; i < m_heads.size(); ++i) {
             while (m_tail < m_heads[i] && m_heads[i] < m_tail + capacity) {
@@ -211,7 +211,7 @@ namespace sat {
 
     void parallel::_set_phase(solver& s) {
         if (!m_phase.empty()) {
-            m_phase.reserve(s.num_vars(), l_undef);
+            m_phase.expand(s.num_vars(), l_undef);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
                 if (s.value(i) != l_undef) {
                     m_phase[i] = s.value(i);
@@ -256,7 +256,7 @@ namespace sat {
 
     void parallel::_get_phase(solver& s) {
         if (!m_phase.empty()) {
-            m_phase.reserve(s.num_vars(), l_undef);
+            m_phase.expand(s.num_vars(), l_undef);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
                 switch (m_phase[i]) {
                 case l_false: s.m_phase[i] = NEG_PHASE; break;
@@ -280,7 +280,7 @@ namespace sat {
                 s.set_phase(i, m_phase[i]);
                 m_phase[i] = l_undef;
             }
-            m_phase.reserve(s.num_vars(), l_undef);
+            m_phase.expand(s.num_vars(), l_undef);
         }
         return copied;
     }

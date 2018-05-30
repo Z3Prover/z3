@@ -45,7 +45,7 @@ public:
     }
 
     void insert(unsigned k, T * v) {
-        m_map.reserve(k+1);
+        m_map.expand(k+1);
         m_map[k] = v;
         SASSERT(contains(k));
     }

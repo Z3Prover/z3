@@ -333,7 +333,7 @@ class fm_tactic : public tactic {
         
         void insert(constraint & c) {
             unsigned id  = c.m_id;
-            m_id2pos.reserve(id+1, UINT_MAX);
+            m_id2pos.expand(id+1, UINT_MAX);
             if (m_id2pos[id] != UINT_MAX)
                 return; // already in the set
             unsigned pos = m_set.size();

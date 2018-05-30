@@ -42,7 +42,7 @@ namespace nlsat {
         void copy(assignment const& other) {
             m_assigned.reset();
             m_assigned.append(other.m_assigned);
-            m_values.reserve(m_assigned.size(), anum());
+            m_values.expand(m_assigned.size(), anum());
             for (unsigned i = 0; i < m_assigned.size(); ++i) {
                 if (is_assigned(i)) {
                     am().set(m_values[i], other.value(i));
@@ -51,14 +51,14 @@ namespace nlsat {
         }
 
         void set_core(var x, anum & v) {
-            m_values.reserve(x+1, anum());
-            m_assigned.reserve(x+1, false); 
+            m_values.expand(x+1, anum());
+            m_assigned.expand(x+1, false); 
             m_assigned[x] = true;
             am().swap(m_values[x], v); 
         }
         void set(var x, anum const & v) {
-            m_values.reserve(x+1, anum());
-            m_assigned.reserve(x+1, false); 
+            m_values.expand(x+1, anum());
+            m_assigned.expand(x+1, false); 
             m_assigned[x] = true;
             am().set(m_values[x], v); 
         }

@@ -1566,8 +1566,8 @@ namespace smt {
         zero_one_bits & bits1 = m_zero_one_bits[r1];
         unsigned bv_size = get_bv_size(r1);
         SASSERT(bv_size == get_bv_size(r2));
-        m_merge_aux[0].reserve(bv_size+1, null_theory_var);
-        m_merge_aux[1].reserve(bv_size+1, null_theory_var);
+        m_merge_aux[0].expand(bv_size+1, null_theory_var);
+        m_merge_aux[1].expand(bv_size+1, null_theory_var);
 
 #define RESET_MERGET_AUX()  for (auto & zo : bits1) m_merge_aux[zo.m_is_true][zo.m_idx] = null_theory_var; 
 

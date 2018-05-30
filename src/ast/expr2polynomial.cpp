@@ -514,7 +514,7 @@ bool default_expr2polynomial::is_int(polynomial::var x) const {
 
 polynomial::var default_expr2polynomial::mk_var(bool is_int) {
     polynomial::var x = pm().mk_var();
-    m_is_int.reserve(x+1, false);
+    m_is_int.expand(x+1, false);
     m_is_int[x] = is_int;
     return x;
 }

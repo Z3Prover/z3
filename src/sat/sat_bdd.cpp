@@ -30,7 +30,7 @@ namespace sat {
             for (BDD b = 0; b < 2; ++b) {
                 for (unsigned op = bdd_and_op; op < bdd_not_op; ++op) {                
                     unsigned index = a + 2*b + 4*op;
-                    m_apply_const.reserve(index+1);
+                    m_apply_const.expand(index+1);
                     m_apply_const[index] = apply_const(a, b, static_cast<bdd_op>(op));
                 }
             }
@@ -416,14 +416,14 @@ namespace sat {
             unsigned ac = make_node(lvl, a, c);
             if (is_new_node()) {
                 m_level2nodes[lvl].push_back(ac);
-                m_reorder_rc.reserve(ac+1);
+                m_reorder_rc.expand(ac+1);
                 reorder_incref(a);
                 reorder_incref(c);
             }
             unsigned bd = make_node(lvl, b, d);
             if (is_new_node()) {
                 m_level2nodes[lvl].push_back(bd);
-                m_reorder_rc.reserve(bd+1);
+                m_reorder_rc.expand(bd+1);
                 reorder_incref(b);
                 reorder_incref(d);
             }
@@ -494,7 +494,7 @@ namespace sat {
             if (n.is_internal()) continue;
             unsigned lvl = n.m_level;
             SASSERT(i == m_nodes[i].m_index);
-            m_level2nodes.reserve(lvl + 1);
+            m_level2nodes.expand(lvl + 1);
             m_level2nodes[lvl].push_back(i);
             reorder_incref(n.m_lo);
             reorder_incref(n.m_hi);
@@ -820,7 +820,7 @@ namespace sat {
     std::ostream& bdd_manager::display(std::ostream& out, bdd const& b) {
         init_mark();
         m_todo.push_back(b.root);
-        m_reorder_rc.reserve(m_nodes.size());
+        m_reorder_rc.expand(m_nodes.size());
         while (!m_todo.empty()) {
             BDD r = m_todo.back();
             if (is_marked(r)) {
@@ -876,7 +876,7 @@ namespace sat {
     }
 
     std::ostream& bdd_manager::display(std::ostream& out) {
-        m_reorder_rc.reserve(m_nodes.size());
+        m_reorder_rc.expand(m_nodes.size());
         for (unsigned i = 0; i < m_nodes.size(); ++i) {
             bdd_node const& n = m_nodes[i];
             if (n.is_internal()) continue;

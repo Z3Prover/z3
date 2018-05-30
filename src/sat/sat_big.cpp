@@ -180,7 +180,7 @@ namespace sat {
         unsigned idx = 0;
         unsigned elim = 0;
         m_del_bin.reset();
-        m_del_bin.reserve(s.m_watches.size());
+        m_del_bin.expand(s.m_watches.size());
         for (watch_list & wlist : s.m_watches) {
             if (s.inconsistent()) break;
             literal u = to_literal(idx++);

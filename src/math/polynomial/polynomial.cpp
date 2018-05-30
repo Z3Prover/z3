@@ -458,7 +458,7 @@ namespace polynomial {
     public:
         unsigned get(monomial const * m) {
             unsigned id = m->id();
-            m_m2pos.reserve(id+1, UINT_MAX);
+            m_m2pos.expand(id+1, UINT_MAX);
             return m_m2pos[id];
         }
 
@@ -470,7 +470,7 @@ namespace polynomial {
 
         void set(monomial const * m, unsigned pos) {
             unsigned id = m->id();
-            m_m2pos.reserve(id+1, UINT_MAX);
+            m_m2pos.expand(id+1, UINT_MAX);
             SASSERT(m_m2pos[id] == UINT_MAX);
             m_m2pos[id] = pos;
         }
@@ -1318,7 +1318,7 @@ namespace polynomial {
             for (unsigned i = start, j = 0; i < end; i++, j++) {
                 monomial * m = m_ms[i];
                 unsigned d = m->degree_of(x);
-                buckets.reserve(d+1);
+                buckets.expand(d+1);
                 buckets[d].push_back(j);
                 if (d > max_degree)
                     max_degree = d;
@@ -2485,7 +2485,7 @@ namespace polynomial {
             void * ms_mem   = static_cast<char*>(as_mem) + sizeof(numeral)*sz;
             unsigned id     = m_pid_gen.mk();
             polynomial * p  = new (mem) polynomial(m_manager, id, sz, as, ms, static_cast<numeral*>(as_mem), static_cast<monomial**>(ms_mem));
-            m_polynomials.reserve(id+1);
+            m_polynomials.expand(id+1);
             SASSERT(m_polynomials[id] == 0);
             m_polynomials[id] = p;
             return p;
@@ -3185,7 +3185,7 @@ namespace polynomial {
         vector<bool>  m_found_vars;
         void vars(polynomial const * p, var_vector & xs) {
             xs.reset();
-            m_found_vars.reserve(num_vars(), false);
+            m_found_vars.expand(num_vars(), false);
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
@@ -3216,7 +3216,7 @@ namespace polynomial {
         void var_degrees(polynomial const * p, power_buffer & pws) {
             pws.reset();
             unsigned_vector & var2pos = m_var_degrees_tmp;
-            var2pos.reserve(num_vars(), UINT_MAX);
+            var2pos.expand(num_vars(), UINT_MAX);
 
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
@@ -4748,7 +4748,7 @@ namespace polynomial {
             SASSERT(is_univariate(p));
             var x = max_var(p);
             unsigned n  = degree(p, x);
-            m_degree2pos.reserve(n+1, UINT_MAX);
+            m_degree2pos.expand(n+1, UINT_MAX);
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
@@ -6250,7 +6250,7 @@ namespace polynomial {
                 return const_cast<polynomial*>(p);
             scoped_numeral new_a(m_manager);
             scoped_numeral tmp(m_manager);
-            m_found_vars.reserve(num_vars(), false);
+            m_found_vars.expand(num_vars(), false);
             m_som_buffer.reset();
             som_buffer & R       = m_som_buffer;
             tmp_monomial & new_m = m_tmp1;

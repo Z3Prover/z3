@@ -148,8 +148,8 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, b
     if (!normalized) {
         for (unsigned i = 0; i < sz; i++) {
             var x = xs[i];
-            m_mark.reserve(x+1, false);
-            m_val_buffer.reserve(x+1);
+            m_mark.expand(x+1, false);
+            m_val_buffer.expand(x+1);
             
             if (m_mark[x]) {
                 m.add(m_val_buffer[x], as[i], m_val_buffer[x]);
@@ -180,7 +180,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, b
         DEBUG_CODE({
             for (unsigned i = 0; i < sz; i++) {
                 var x = xs[i];
-                m_mark.reserve(x+1, false);
+                m_mark.expand(x+1, false);
                 SASSERT(!m_mark[x]);
                 m_mark[x] = true;
             }
@@ -193,7 +193,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, b
     
     for (unsigned i = 0; i < sz; i++) {
         var x = xs[i];
-        m_val_buffer.reserve(x+1);
+        m_val_buffer.expand(x+1);
         m.swap(m_val_buffer[x], as[i]);
     }
     std::sort(xs, xs+sz);

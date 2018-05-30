@@ -968,7 +968,7 @@ namespace smt {
         euclidean_solver_bridge(theory_arith & _t):t(_t), m_solver(&t.m_es_num_manager), m_as(m_solver.m()) {}
         
         evar mk_var(theory_var v) {
-            m_tv2v.reserve(v+1, UINT_MAX);
+            m_tv2v.expand(v+1, UINT_MAX);
             if (m_tv2v[v] == UINT_MAX)
                 m_tv2v[v] = m_solver.mk_var();
             return m_tv2v[v];
@@ -1045,7 +1045,7 @@ namespace smt {
                 num.neg();
                 m.set(c, num.to_mpq().numerator());
                 ejustification j = m_solver.mk_justification();
-                m_j2v.reserve(j+1, null_theory_var);
+                m_j2v.expand(j+1, null_theory_var);
                 m_j2v[j] = v;
                 as.reset();
                 xs.reset();

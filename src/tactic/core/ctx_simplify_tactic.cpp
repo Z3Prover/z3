@@ -232,7 +232,7 @@ struct ctx_simplify_tactic::imp {
     void cache_core(expr * from, expr * to) {
         unsigned id = from->get_id();
         TRACE("ctx_simplify_tactic_cache", tout << "caching " << id << " @ " << scope_level() << "\n" << mk_ismt2_pp(from, m) << "\n--->\n" << mk_ismt2_pp(to, m) << "\n";);
-        m_cache.reserve(id+1);
+        m_cache.expand(id+1);
         cache_cell & cell = m_cache[id];
         void * mem = m_allocator.allocate(sizeof(cached_result));
         if (cell.m_from == nullptr) {
@@ -247,7 +247,7 @@ struct ctx_simplify_tactic::imp {
             cell.m_result = new (mem) cached_result(to, scope_level(), cell.m_result);
             m.inc_ref(to);
         }
-        m_cache_undo.reserve(scope_level()+1);
+        m_cache_undo.expand(scope_level()+1);
         m_cache_undo[scope_level()].push_back(from);
     }
 

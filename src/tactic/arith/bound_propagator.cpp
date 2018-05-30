@@ -140,13 +140,13 @@ void bound_propagator::reset_statistics() {
 }
 
 void bound_propagator::mk_var(var x, bool is_int) {
-    m_is_int.reserve(x+1, false);
-    m_dead.reserve(x+1, true);
-    m_lowers.reserve(x+1, 0);
-    m_uppers.reserve(x+1, 0);
-    m_lower_refinements.reserve(x+1, 0);
-    m_upper_refinements.reserve(x+1, 0);
-    m_watches.reserve(x+1);
+    m_is_int.expand(x+1, false);
+    m_dead.expand(x+1, true);
+    m_lowers.expand(x+1, 0);
+    m_uppers.expand(x+1, 0);
+    m_lower_refinements.expand(x+1, 0);
+    m_upper_refinements.expand(x+1, 0);
+    m_watches.expand(x+1);
 
     SASSERT(m_dead[x]);
 

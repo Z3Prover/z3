@@ -691,7 +691,7 @@ struct z3_replayer::imp {
     }
 
     void register_cmd(unsigned id, z3_replayer_cmd cmd, char const* name) {
-        m_cmds.reserve(id+1, 0);
+        m_cmds.expand(id+1, 0);
         while (static_cast<unsigned>(m_cmds_names.size()) <= id+1) {
             m_cmds_names.push_back("");
         }

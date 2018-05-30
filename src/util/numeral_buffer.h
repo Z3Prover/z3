@@ -81,8 +81,8 @@ public:
     Numeral* data() { return m_buffer.data(); }
     Numeral const* data() const { return m_buffer.data(); }
 
-    void reserve(unsigned sz) {
-        m_buffer.reserve(sz);
+    void expand(unsigned sz) {
+        m_buffer.expand(sz);
     }
 
     void swap(vector<Numeral> & other) {

@@ -194,7 +194,7 @@ namespace upolynomial {
             SASSERT(buffer.size() == sz);
             return;
         }
-        buffer.reserve(sz);
+        buffer.expand(sz);
         for (unsigned i = 0; i < sz; i++) {
             m().set(buffer[i], p[i]);
         }
@@ -202,7 +202,7 @@ namespace upolynomial {
     }
 
     void core_manager::set(unsigned sz, rational const * p, numeral_vector & buffer) {
-        buffer.reserve(sz);
+        buffer.expand(sz);
         for (unsigned i = 0; i < sz; i++) {
             SASSERT(p[i].is_int());
             m().set(buffer[i], p[i].to_mpq().numerator());
@@ -218,7 +218,7 @@ namespace upolynomial {
             set(f_sz, f, pp);
         }
         else {
-            pp.reserve(f_sz);
+            pp.expand(f_sz);
             for (unsigned i = 0; i < f_sz; i++) {
                 if (!m().is_zero(f[i])) {
                     m().div(f[i], cont, pp[i]);
@@ -241,7 +241,7 @@ namespace upolynomial {
     // buffer := -p
     void core_manager::neg_core(unsigned sz, numeral const * p, numeral_vector & buffer) {
         SASSERT(!is_alias(p, buffer));
-        buffer.reserve(sz);
+        buffer.expand(sz);
         for (unsigned i = 0; i < sz; i++) {
             m().set(buffer[i], p[i]);
             m().neg(buffer[i]);
@@ -261,7 +261,7 @@ namespace upolynomial {
         unsigned min_sz = std::min(sz1, sz2);
         unsigned max_sz = std::max(sz1, sz2);
         unsigned i = 0;
-        buffer.reserve(max_sz);
+        buffer.expand(max_sz);
         for (; i < min_sz; i++) {
             m().add(p1[i], p2[i], buffer[i]);
         }
@@ -286,7 +286,7 @@ namespace upolynomial {
         unsigned min_sz = std::min(sz1, sz2);
         unsigned max_sz = std::max(sz1, sz2);
         unsigned i = 0;
-        buffer.reserve(max_sz);
+        buffer.expand(max_sz);
         for (; i < min_sz; i++) {
             m().sub(p1[i], p2[i], buffer[i]);
         }
@@ -318,7 +318,7 @@ namespace upolynomial {
         }
         else {
             unsigned new_sz = sz1 + sz2 - 1;
-            buffer.reserve(new_sz);
+            buffer.expand(new_sz);
             for (unsigned i = 0; i < new_sz; i++) {
                 m().reset(buffer[i]);
             }
@@ -353,7 +353,7 @@ namespace upolynomial {
             reset(buffer);
             return;
         }
-        buffer.reserve(sz - 1);
+        buffer.expand(sz - 1);
         for (unsigned i = 1; i < sz; i++) {
             numeral d;
             m().set(d, i);
@@ -449,7 +449,7 @@ namespace upolynomial {
             return;
         unsigned qsz;
         if (sz1 >= sz2) {
-            q.reserve(sz1 - sz2 + 1);
+            q.expand(sz1 - sz2 + 1);
             qsz = sz1 - sz2 + 1;
         }
         else {
@@ -618,7 +618,7 @@ namespace upolynomial {
         numeral_vector & _r = m_exact_div_tmp;
         reset(_r);
         unsigned deg = sz1 - sz2;
-        _r.reserve(deg+1);
+        _r.expand(deg+1);
         numeral_vector & _p1 = m_div_tmp1;
         // std::cerr << "dividing with "; display(std::cerr, _p1); std::cerr << std::endl;
         TRACE("factor_bug", tout << "sz1: " << sz1 << " p1: " << p1 << ", _p1.c_ptr(): " << _p1.c_ptr() << ", _p1.size(): " << _p1.size() << "\n";);
@@ -993,7 +993,7 @@ namespace upolynomial {
     void core_manager::pw(unsigned sz, numeral const * p, unsigned k, numeral_vector & r) {
         if (k == 0) {
             SASSERT(sz != 0);
-            r.reserve(1);
+            r.expand(1);
             m().set(r[0], 1);
             set_size(1, r);
             return;
@@ -1287,7 +1287,7 @@ namespace upolynomial {
             i++;
         }
         unsigned new_sz = sz - i;
-        buffer.reserve(new_sz);
+        buffer.expand(new_sz);
         for (unsigned j = 0; j < new_sz; j++) {
             m().set(buffer[j], p[j + i]);
         }
@@ -2989,7 +2989,7 @@ namespace upolynomial {
         // p = cont*(2*a*x + b - disc_sqrt)*(2*a*x + b + disc_sqrt)
         scoped_numeral_vector f1(m());
         scoped_numeral_vector f2(m());
-        f1.reserve(2); f2.reserve(2);
+        f1.expand(2); f2.expand(2);
         m().sub(b, disc_sqrt, f1[0]);
         m().add(b, disc_sqrt, f2[0]);
         m().mul(a, numeral(2), f1[1]);

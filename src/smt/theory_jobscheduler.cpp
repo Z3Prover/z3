@@ -968,8 +968,8 @@ namespace smt {
      */
     void theory_jobscheduler::validate_assignment() {
         vector<vector<job_time>> start_times, end_times;
-        start_times.reserve(m_resources.size());
-        end_times.reserve(m_resources.size());
+        start_times.expand(m_resources.size());
+        end_times.expand(m_resources.size());
         for (unsigned j = 0; j < m_jobs.size(); ++j) {
             unsigned r = resource(j);
             start_times[r].push_back(job_time(j, start(j))); 

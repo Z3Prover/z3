@@ -152,12 +152,12 @@ struct static_features {
 
     bool arith_k_sum_is_small() const { return m_arith_k_sum < rational(INT_MAX / 8); }
 
-    void inc_num_apps(func_decl const * d) { unsigned id = d->get_decl_id(); m_num_apps.reserve(id+1, 0); m_num_apps[id]++; }
-    void inc_theory_terms(family_id fid) { m_num_theory_terms.reserve(fid+1, 0); m_num_theory_terms[fid]++; }
-    void inc_theory_atoms(family_id fid) { m_num_theory_atoms.reserve(fid+1, 0); m_num_theory_atoms[fid]++; }
-    void inc_theory_constants(family_id fid) { m_num_theory_constants.reserve(fid+1, 0); m_num_theory_constants[fid]++; }
-    void inc_theory_eqs(family_id fid) { m_num_theory_eqs.reserve(fid+1, 0); m_num_theory_eqs[fid]++; }
-    void inc_num_aliens(family_id fid) { m_num_aliens_per_family.reserve(fid+1, 0); m_num_aliens_per_family[fid]++; }
+    void inc_num_apps(func_decl const * d) { unsigned id = d->get_decl_id(); m_num_apps.expand(id+1, 0); m_num_apps[id]++; }
+    void inc_theory_terms(family_id fid) { m_num_theory_terms.expand(fid+1, 0); m_num_theory_terms[fid]++; }
+    void inc_theory_atoms(family_id fid) { m_num_theory_atoms.expand(fid+1, 0); m_num_theory_atoms[fid]++; }
+    void inc_theory_constants(family_id fid) { m_num_theory_constants.expand(fid+1, 0); m_num_theory_constants[fid]++; }
+    void inc_theory_eqs(family_id fid) { m_num_theory_eqs.expand(fid+1, 0); m_num_theory_eqs[fid]++; }
+    void inc_num_aliens(family_id fid) { m_num_aliens_per_family.expand(fid+1, 0); m_num_aliens_per_family[fid]++; }
     void update_core(expr * e);
     void update_core(sort * s);
     void process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx, unsigned stack_depth);

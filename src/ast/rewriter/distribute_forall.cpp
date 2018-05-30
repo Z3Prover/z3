@@ -78,7 +78,7 @@ void distribute_forall::reduce1_app(app * a) {
     unsigned num_args = a->get_num_args();
     unsigned j        = num_args;
     bool reduced      = false;
-    m_new_args.reserve(num_args);
+    m_new_args.expand(num_args);
     app * na = a;
 
     while(j > 0) {

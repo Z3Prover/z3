@@ -863,22 +863,22 @@ namespace smt {
         TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << " " << n->get_id() << "\n";);
         TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
-        m_bdata.reserve(v+1);
-        m_activity.reserve(v+1);
-        m_bool_var2expr.reserve(v+1);
+        m_bdata.expand(v+1);
+        m_activity.expand(v+1);
+        m_bool_var2expr.expand(v+1);
         m_bool_var2expr[v] = n;
         literal l(v, false);
         literal not_l(v, true);
         unsigned aux = std::max(l.index(), not_l.index()) + 1;
-        m_assignment.reserve(aux);
+        m_assignment.expand(aux);
         m_assignment[l.index()]     = l_undef;
         m_assignment[not_l.index()] = l_undef;
-        m_watches.reserve(aux);
+        m_watches.expand(aux);
         SASSERT(m_assignment.size() == m_watches.size());
         m_watches[l.index()]        .reset();
         m_watches[not_l.index()]    .reset();
         if (lit_occs_enabled()) {
-            m_lit_occs.reserve(aux);
+            m_lit_occs.expand(aux);
             m_lit_occs[l.index()]     .reset();
             m_lit_occs[not_l.index()] .reset();
         }

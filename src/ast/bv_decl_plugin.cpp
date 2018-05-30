@@ -440,9 +440,9 @@ func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameter
         return nullptr;
     }
     unsigned idx = parameters[0].get_int();
-    m_bit2bool.reserve(bv_size+1);
+    m_bit2bool.expand(bv_size+1);
     ptr_vector<func_decl> & v = m_bit2bool[bv_size];
-    v.reserve(bv_size, 0);
+    v.expand(bv_size, 0);
     if (v[idx] == 0) {
         v[idx] = m_manager->mk_func_decl(m_bit2bool_sym, domain[0], m_manager->mk_bool_sort(),
                                          func_decl_info(m_family_id, OP_BIT2BOOL, num_parameters, parameters));
@@ -459,7 +459,7 @@ func_decl * bv_decl_plugin::mk_mkbv(unsigned arity, sort * const * domain) {
         }
     }
     unsigned bv_size = arity;
-    m_mkbv.reserve(bv_size+1);
+    m_mkbv.expand(bv_size+1);
     if (m_mkbv[bv_size] == 0) {
         m_mkbv[bv_size] = m_manager->mk_func_decl(m_mkbv_sym, arity, domain, get_bv_sort(bv_size), func_decl_info(m_family_id, OP_MKBV));
         m_manager->inc_ref(m_mkbv[bv_size]);

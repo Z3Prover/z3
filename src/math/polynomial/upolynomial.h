@@ -406,7 +406,7 @@ namespace upolynomial {
             np = pm.normalize(p);
             unsigned sz  = pm.size(p);
             unsigned deg = pm.total_degree(p);
-            r.reserve(deg+1);
+            r.expand(deg+1);
             for (unsigned i = 0; i <= deg; i++) {
                 m().reset(r[i]);
             }
@@ -429,7 +429,7 @@ namespace upolynomial {
             np = pm.normalize(p);
             unsigned sz  = pm.size(p);
             unsigned deg = pm.degree(p, x);
-            r.reserve(deg+1);
+            r.expand(deg+1);
             for (unsigned i = 0; i <= deg; i++) {
                 m().reset(r[i]);
             }

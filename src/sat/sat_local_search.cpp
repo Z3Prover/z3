@@ -300,14 +300,14 @@ namespace sat {
             // IF_VERBOSE(0, verbose_stream() << "bin: " << ~c[0] << " + " << ~c[1] << " <= 1\n");
             for (unsigned i = 0; i < 2; ++i) {
                 literal t(c[i]), s(c[1-i]);
-                m_vars.reserve(t.var() + 1);
+                m_vars.expand(t.var() + 1);
                 m_vars[t.var()].m_bin[is_pos(t)].push_back(s);
             }
         }
         unsigned id = m_constraints.size();
         m_constraints.push_back(constraint(k, id));
         for (unsigned i = 0; i < sz; ++i) {
-            m_vars.reserve(c[i].var() + 1);
+            m_vars.expand(c[i].var() + 1);
             literal t(~c[i]);            
             m_vars[t.var()].m_watch[is_pos(t)].push_back(pbcoeff(id, 1));
             m_constraints.back().push(t);
@@ -324,7 +324,7 @@ namespace sat {
         unsigned id = m_constraints.size();
         m_constraints.push_back(constraint(k, id));
         for (unsigned i = 0; i < sz; ++i) {
-            m_vars.reserve(c[i].var() + 1);            
+            m_vars.expand(c[i].var() + 1);            
             literal t(c[i]);            
             m_vars[t.var()].m_watch[is_pos(t)].push_back(pbcoeff(id, coeffs[i]));
             m_constraints.back().push(t);
@@ -358,7 +358,7 @@ namespace sat {
         m_constraints.reset();
         m_units.reset();
         m_unsat_stack.reset();
-        m_vars.reserve(s.num_vars());
+        m_vars.expand(s.num_vars());
         m_config.set_config(s.get_config());
 
         if (m_config.phase_sticky()) {

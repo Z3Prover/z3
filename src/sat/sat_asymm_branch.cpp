@@ -230,7 +230,7 @@ namespace sat {
         const unsigned d = 4;
         const unsigned w = 20; // 1M variable cap        
         unsigned sz = lits.size();
-        m_tmp.reserve(sz);
+        m_tmp.expand(sz);
         for (unsigned p = 0; p < w/d; ++p) {
             unsigned on[16];
             memset(on, 0, 16*sizeof(unsigned));

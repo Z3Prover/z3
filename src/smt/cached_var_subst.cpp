@@ -42,7 +42,7 @@ void cached_var_subst::reset() {
 }
 
 void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::enode * const * bindings, expr_ref & result) {
-    m_new_keys.reserve(num_bindings+1, 0);
+    m_new_keys.expand(num_bindings+1, 0);
     key * new_key = m_new_keys[num_bindings];
     if (new_key == nullptr)
         new_key = static_cast<key*>(m_region.allocate(sizeof(key) + sizeof(expr*)*num_bindings));

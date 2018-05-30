@@ -31,9 +31,9 @@ namespace smt {
 
     void quick_checker::collector::init(quantifier * q) {
         m_num_vars = q->get_num_decls();
-        m_already_found.reserve(m_num_vars+1, false);
-        m_candidates.reserve(m_num_vars+1);
-        m_tmp_candidates.reserve(m_num_vars+1);
+        m_already_found.expand(m_num_vars+1, false);
+        m_candidates.expand(m_num_vars+1);
+        m_tmp_candidates.expand(m_num_vars+1);
         for (unsigned i = 0; i < m_num_vars; i++) {
             m_already_found[i] = false;
             m_candidates[i].reset();
@@ -120,7 +120,7 @@ namespace smt {
     }
 
     void quick_checker::collector::save_result(vector<enode_vector> & candidates) {
-        candidates.reserve(m_num_vars+1);
+        candidates.expand(m_num_vars+1);
         for (unsigned i = 0; i < m_num_vars; i++) {
             enode_vector & v        = candidates[i];
             v.reset();
@@ -181,7 +181,7 @@ namespace smt {
         // initialize m_candidates using the given set of candidates.
         m_candidate_vectors.reset();
         m_num_bindings = q->get_num_decls();
-        m_candidate_vectors.reserve(m_num_bindings+1);
+        m_candidate_vectors.expand(m_num_bindings+1);
         for (unsigned i = 0; i < m_num_bindings; i++) {
             m_candidate_vectors[i].reset();
             sort * s = q->get_decl_sort(i);
@@ -218,7 +218,7 @@ namespace smt {
                   tout << "\n";
               });
         bool result = false;
-        m_bindings.reserve(m_num_bindings+1, 0);
+        m_bindings.expand(m_num_bindings+1, 0);
         do {
             for (unsigned i = 0; i < m_num_bindings; i++)
                 m_bindings[m_num_bindings - i - 1] = m_candidate_vectors[i][it[i]];

@@ -51,7 +51,7 @@ fpa_decl_plugin::~fpa_decl_plugin() {
 
 unsigned fpa_decl_plugin::mk_id(mpf const & v) {
     unsigned new_id = m_id_gen.mk();
-    m_values.reserve(new_id+1);
+    m_values.expand(new_id+1);
     m_fm.set(m_values[new_id], v);
     unsigned old_id = m_value_table.insert_if_not_there(new_id);
     if (old_id != new_id) {

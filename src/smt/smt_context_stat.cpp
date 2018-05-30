@@ -103,7 +103,7 @@ namespace smt {
         unsigned_vector histogram;
         for (unsigned v = 0; v < num_vars; v++) {
             unsigned num_occs = var2num_occs[v];
-            histogram.reserve(num_occs+1, 0);
+            histogram.expand(num_occs+1, 0);
             histogram[num_occs]++;
         }
         out << "number of atoms having k occs:\n"; 

@@ -1940,7 +1940,7 @@ namespace smt {
                 while (n != first);
                 return false;
             default: {
-                m_args.reserve(num_args+1, 0);
+                m_args.expand(num_args+1, 0);
                 for (unsigned i = 0; i < num_args; i++)
                     m_args[i] = m_registers[pc->m_iregs[i]]->get_root();
                 SASSERT(n != 0);
@@ -1991,8 +1991,8 @@ namespace smt {
 
         void init(code_tree * t) {
             TRACE("mam_bug", tout << "preparing to match tree:\n" << *t << "\n";);
-            m_registers.reserve(t->get_num_regs(), 0);
-            m_bindings.reserve(t->get_num_regs(), 0);
+            m_registers.expand(t->get_num_regs(), 0);
+            m_bindings.expand(t->get_num_regs(), 0);
             if (m_backtrack_stack.size() < t->get_num_choices())
                 m_backtrack_stack.resize(t->get_num_choices());
         }
@@ -2637,7 +2637,7 @@ namespace smt {
 
         case GET_CGRN:
             m_num_args = static_cast<const get_cgr *>(m_pc)->m_num_args;
-            m_args.reserve(m_num_args, 0);
+            m_args.expand(m_num_args, 0);
             for (unsigned i = 0; i < m_num_args; i++)
                 m_args[i] = m_registers[static_cast<const get_cgr *>(m_pc)->m_iregs[i]];
             GET_CGR_COMMON();
@@ -2884,7 +2884,7 @@ namespace smt {
             app * p           = to_app(mp->get_arg(first_idx));
             func_decl * lbl   = p->get_decl();
             unsigned lbl_id   = lbl->get_decl_id();
-            m_trees.reserve(lbl_id+1, nullptr);
+            m_trees.expand(lbl_id+1, nullptr);
             if (m_trees[lbl_id] == nullptr) {
                 m_trees[lbl_id] = m_compiler.mk_tree(qa, mp, first_idx, false);
                 SASSERT(m_trees[lbl_id]->expected_num_args() == p->get_num_args());
@@ -3159,7 +3159,7 @@ namespace smt {
 
         void update_clbls(func_decl * lbl) {
             unsigned lbl_id = lbl->get_decl_id();
-            m_is_clbl.reserve(lbl_id+1, false);
+            m_is_clbl.expand(lbl_id+1, false);
             TRACE("trigger_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             TRACE("mam_bug", tout << "update_clbls: " << lbl->get_name() << " is already clbl: " << m_is_clbl[lbl_id] << "\n";);
             if (m_is_clbl[lbl_id])
@@ -3199,7 +3199,7 @@ namespace smt {
 
         void update_plbls(func_decl * lbl) {
             unsigned lbl_id = lbl->get_decl_id();
-            m_is_plbl.reserve(lbl_id+1, false);
+            m_is_plbl.expand(lbl_id+1, false);
             TRACE("trigger_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << ", lbl_id: " << lbl_id << "\n";
                   tout << "mam: " << this << "\n";);
             TRACE("mam_bug", tout << "update_plbls: " << lbl->get_name() << " is already plbl: " << m_is_plbl[lbl_id] << "\n";);
@@ -3720,7 +3720,7 @@ namespace smt {
                 func_decl *  lbl   = p->get_decl();
                 if (m_context.get_num_enodes_of(lbl) > 0) {
                     unsigned lbl_id = lbl->get_decl_id();
-                    m_tmp_trees.reserve(lbl_id+1, 0);
+                    m_tmp_trees.expand(lbl_id+1, 0);
                     if (m_tmp_trees[lbl_id] == 0) {
                         m_tmp_trees[lbl_id] = m_compiler.mk_tree(qa, mp, 0, false);
                         m_tmp_trees_to_delete.push_back(lbl);

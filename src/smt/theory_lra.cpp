@@ -2591,7 +2591,7 @@ public:
                 }
                 else {
                     unsigned w = m_var_index2theory_var[wi];
-                    m_use_list.reserve(w + 1, ptr_vector<lp_api::bound>());
+                    m_use_list.expand(w + 1, ptr_vector<lp_api::bound>());
                     m_use_list[w].push_back(b);
                 }
             }
