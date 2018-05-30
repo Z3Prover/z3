@@ -33,7 +33,7 @@ Revision History:
 namespace lp {
 namespace hnf_calc {
 
-    // d = u * a + b * b and the sum of abs(u) + abs(v) is minimal, d is positive
+    // d = u * a + v * b and the sum of abs(u) + abs(v) is minimal, d is positive
 inline
 void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq & v) {
     if (is_zero(a)) {
