@@ -631,6 +631,7 @@ namespace qe {
         void operator () (model& mdl, app_ref_vector& arr_vars, expr_ref& fml, app_ref_vector& aux_vars) {
             reset ();
             model_evaluator mev(mdl);
+            mev.set_model_completion(true);
             M = &mdl;
             m_mev = &mev;
 
@@ -857,6 +858,7 @@ namespace qe {
 
             reset ();
             model_evaluator mev(mdl);
+            mev.set_model_completion(true);
             M = &mdl;
             m_mev = &mev;
             m_reduce_all_selects = reduce_all_selects;
@@ -1167,6 +1169,7 @@ namespace qe {
                 TRACE ("qe", tout << "Failed to project arrays\n";);
             }
 
+            mev.set_model_completion(true);
             // dealloc
             for (auto & kv : m_sel_terms) dealloc(kv.m_value);
             m_sel_terms.reset ();
