@@ -608,8 +608,12 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
 
     r = patch_nbasic_columns();
     if (r != lia_move::undef) return r;
+
     ++m_branch_cut_counter;
 
+    r = find_cube();
+    if (r != lia_move::undef) return r;
+    
     r = hnf_cut();
     if (r != lia_move::undef) return r;
     
