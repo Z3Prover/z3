@@ -6645,7 +6645,8 @@ namespace smt {
         expr * sub1;
         expr * sub2;
         if (u.re.is_to_re(re, sub1)) {
-            SASSERT(u.str.is_string(sub1));
+            if (!u.str.is_string(sub1))
+                throw default_exception("regular expressions must be built from string literals");
             zstring str;
             u.str.is_string(sub1, str);
             return str.length();
@@ -6842,7 +6843,8 @@ namespace smt {
         expr * sub1;
         expr * sub2;
         if (u.re.is_to_re(re, sub1)) {
-            SASSERT(u.str.is_string(sub1));
+            if (!u.str.is_string(sub1))
+                throw default_exception("regular expressions must be built from string literals");
             zstring str;
             u.str.is_string(sub1, str);
             rational strlen(str.length());
