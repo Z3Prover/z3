@@ -119,9 +119,10 @@ void json_marshaller::marshal_lemmas_new(std::ostream &out) const {
     for (auto &pob_map:m_relations) {
         std::ostringstream pob_lemmas;
         pob *n = pob_map.first;
+        unsigned i = 0;
         for (auto *l : n->lemmas()) {
             pob_lemmas << ((unsigned)pob_lemmas.tellp() == 0 ? "" : ",")
-                       << "\"0\":";
+                       << "\"" << i++ << "\":";
             lemma_ref_vector lemmas_vec;
             lemmas_vec.push_back(l);
             json_marshal(pob_lemmas, lemmas_vec);
