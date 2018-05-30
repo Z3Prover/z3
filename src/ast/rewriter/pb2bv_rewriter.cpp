@@ -357,8 +357,8 @@ struct pb2bv_rewriter::imp {
 
         /**
            \brief MiniSat+ based encoding of PB constraints. 
-           The procedure is described in "Translating Pseudo-Boolean Constraints into SAT "
-           Niklas Een, Niklas Sörensson, JSAT 2006.
+           Translating Pseudo-Boolean Constraints into SAT,
+           Niklas Een, Niklas Soerensson, JSAT 2006.
          */
 
 

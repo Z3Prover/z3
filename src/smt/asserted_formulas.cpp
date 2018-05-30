@@ -500,6 +500,7 @@ unsigned asserted_formulas::propagate_values(unsigned i) {
 
 void asserted_formulas::update_substitution(expr* n, proof* pr) {
     expr* lhs, *rhs, *n1;
+    proof_ref pr1(m);
     if (is_ground(n) && (m.is_eq(n, lhs, rhs) || m.is_iff(n, lhs, rhs))) {
         compute_depth(lhs);
         compute_depth(rhs);
@@ -510,12 +511,12 @@ void asserted_formulas::update_substitution(expr* n, proof* pr) {
         }
         if (is_gt(rhs, lhs)) {
             TRACE("propagate_values", tout << "insert " << mk_pp(rhs, m) << " -> " << mk_pp(lhs, m) << "\n";);
-            m_scoped_substitution.insert(rhs, lhs, m.proofs_enabled() ? m.mk_symmetry(pr) : nullptr);
+            pr1 = m.proofs_enabled() ? m.mk_symmetry(pr) : nullptr;
+            m_scoped_substitution.insert(rhs, lhs, pr1);
             return;
         }
         TRACE("propagate_values", tout << "incompatible " << mk_pp(n, m) << "\n";);
     }
-    proof_ref pr1(m);
     if (m.is_not(n, n1)) {		
         pr1 = m.proofs_enabled() ? m.mk_iff_false(pr) : nullptr;
         m_scoped_substitution.insert(n1, m.mk_false(), pr1);
