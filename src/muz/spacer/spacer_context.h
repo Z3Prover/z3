@@ -486,7 +486,11 @@ class pob {
     /// derivation representing the position of this node in the parent's rule
     scoped_ptr<derivation>   m_derivation;
 
+    /// pobs created as children of this pob (at any time, not
+    /// necessarily currently active)
     ptr_vector<pob>  m_kids;
+    // lemmas created to block this pob (at any time, not necessarily active)
+    ptr_vector<lemma> m_lemmas;
 
     // depth -> watch
     std::map<unsigned, stopwatch> m_expand_watches;
@@ -542,8 +546,12 @@ public:
     bool is_closed () const { return !m_open; }
     void close();
 
+    const ptr_vector<pob> &children() {return m_kids;}
     void add_child (pob &v) {m_kids.push_back (&v);}
     void erase_child (pob &v) {m_kids.erase (&v);}
+
+    const ptr_vector<lemma> &lemmas() {return m_lemmas;}
+    void add_lemma(lemma* new_lemma) {m_lemmas.push_back(new_lemma);}
 
     bool is_ground () { return m_binding.empty (); }
     unsigned get_free_vars_size() { return m_binding.size(); }

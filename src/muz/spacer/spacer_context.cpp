@@ -70,7 +70,6 @@ pob::pob (pob* parent, pred_transformer& pt,
     }
 }
 
-
 void pob::set_post(expr* post) {
     app_ref_vector empty_binding(get_ast_manager());
     set_post(post, empty_binding);
@@ -1800,36 +1799,48 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
           << m_pt.head()->get_name() << " "
           << mk_pp(new_lemma->get_expr(), m_pt.get_ast_manager()) << "\n";);
 
-    for (unsigned i = 0, sz = m_lemmas.size(); i < sz; ++i) {
-        if (m_lemmas[i]->get_expr() == new_lemma->get_expr()) {
+    unsigned i = 0;
+    for (auto *old_lemma : m_lemmas) {
+        if (old_lemma->get_expr() == new_lemma->get_expr()) {
             m_pt.get_context().new_lemma_eh(m_pt, new_lemma);
+
+            // register existing lemma with the pob
+            if (new_lemma->has_pob()) {
+                pob_ref &pob = new_lemma->get_pob();
+                if (!pob->lemmas().contains(old_lemma))
+                    pob->add_lemma(old_lemma);
+            }
+
             // extend bindings if needed
             if (!new_lemma->get_bindings().empty()) {
-                m_lemmas[i]->add_binding(new_lemma->get_bindings());
+                old_lemma->add_binding(new_lemma->get_bindings());
             }
             // if the lemma is at a higher level, skip it,
-            if (m_lemmas[i]->level() >= new_lemma->level()) {
+            if (old_lemma->level() >= new_lemma->level()) {
                 TRACE("spacer", tout << "Already at a higher level: "
-                      << pp_level(m_lemmas[i]->level()) << "\n";);
+                      << pp_level(old_lemma->level()) << "\n";);
                 // but, since the instances might be new, assert the
                 // instances that have been copied into m_lemmas[i]
                 if (!new_lemma->get_bindings().empty()) {
-                    m_pt.add_lemma_core(m_lemmas[i], true);
+                    m_pt.add_lemma_core(old_lemma, true);
                 }
                 // no new lemma added
                 return false;
             }
 
             // update level of the existing lemma
-            m_lemmas[i]->set_level(new_lemma->level());
+            old_lemma->set_level(new_lemma->level());
             // assert lemma in the solver
-            m_pt.add_lemma_core(m_lemmas[i], false);
+            m_pt.add_lemma_core(old_lemma, false);
             // move the lemma to its new place to maintain sortedness
-            for (unsigned j = i; (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
+            unsigned sz = m_lemmas.size();
+            for (unsigned j = i;
+                 (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
                 m_lemmas.swap (j, j+1);
             }
             return true;
         }
+        i++;
     }
 
     // new_lemma is really new
@@ -1839,6 +1850,8 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
     m_pinned_lemmas.push_back(new_lemma);
     m_sorted = false;
     m_pt.add_lemma_core(new_lemma);
+
+    if (new_lemma->has_pob()) {new_lemma->get_pob()->add_lemma(new_lemma);}
 
     if (!new_lemma->external()) {
         m_pt.get_context().new_lemma_eh(m_pt, new_lemma);
