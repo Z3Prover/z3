@@ -209,6 +209,7 @@ void iuc_solver::collect_statistics (statistics &st) const
 {
     m_solver.collect_statistics (st);
     st.update ("time.iuc_solver.iuc_core", m_iuc_watch.get_seconds ());
+    st.update("iuc_solver.num_proxies", m_proxies.size());
 }
 
 void iuc_solver::reset_statistics ()
