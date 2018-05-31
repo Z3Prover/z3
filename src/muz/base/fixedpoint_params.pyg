@@ -203,4 +203,6 @@ def_module_params('fixedpoint',
                           ('spacer.print_json', SYMBOL, '', 'print pobs tree in JSON format to a given file'),
                           ('spacer.ctp', BOOL, False, 'enable counterexample-to-pushing technique'),
                           ('spacer.use_inc_clause', BOOL, False, 'Use incremental clause to represent trans'),
+                          ('spacer.dump_benchmarks', BOOL, False, 'Dump SMT queries as benchmarks'),
+                          ('spacer.dump_threshold', DOUBLE, 5.0, 'Threshold in seconds on dumping benchmarks'),
                           ))

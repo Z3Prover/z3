@@ -2342,13 +2342,12 @@ void context::init_global_smt_params() {
     }
     p.set_uint("random_seed", m_params.spacer_random_seed());
 
-    // fparams.m_dump_benchmarks = m_params.spacer_vs_dump_benchmarks();
-    // fparams.m_dump_min_time = m_params.spacer_vs_dump_min_time();
-    // fparams.m_dump_recheck = m_params.spacer_vs_recheck();
+    p.set_bool("dump_benchmarks", m_params.spacer_dump_benchmarks());
+    p.set_double("dump_threshold", m_params.spacer_dump_threshold());
+
 
     // mbqi
     p.set_bool("mbqi", m_params.spacer_mbqi());
-
     if (!m_params.spacer_ground_cti()) {
         p.set_uint("phase_selection", PS_CACHING_CONSERVATIVE2);
         p.set_uint("restart_strategy", RS_GEOMETRIC);
