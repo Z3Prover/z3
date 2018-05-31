@@ -1147,6 +1147,7 @@ namespace qe {
             if (arr_vars.empty()) return;
             reset ();
             model_evaluator mev(mdl);
+            mev.set_model_completion(true);
             M = &mdl;
             m_mev = &mev;
 
@@ -1169,7 +1170,6 @@ namespace qe {
                 TRACE ("qe", tout << "Failed to project arrays\n";);
             }
 
-            mev.set_model_completion(true);
             // dealloc
             for (auto & kv : m_sel_terms) dealloc(kv.m_value);
             m_sel_terms.reset ();
