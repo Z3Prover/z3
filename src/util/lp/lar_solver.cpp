@@ -2208,10 +2208,9 @@ void lar_solver::round_to_integer_solution() {
     }
 }
 
-bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term_index, mpq & rs, bool & has_bounds) const {
+bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term_index, mpq & rs) const {
     unsigned tj = term_index + m_terms_start_index;
     auto it = m_ext_vars_to_columns.find(tj);
-    has_bounds = false;
     if (it == m_ext_vars_to_columns.end())
         return false;
     unsigned j = it->second.internal_j();
@@ -2219,7 +2218,6 @@ bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term
     impq term_val;
     bool term_val_ready = false;
     if (slv.column_has_upper_bound(j)) {
-        has_bounds = true;
         const impq & b = slv.m_upper_bounds[j];
         lp_assert(is_zero(b.y) && is_int(b.x));
         term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
@@ -2230,7 +2228,6 @@ bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term
         }
     }
     if (slv.column_has_lower_bound(j)) {
-        has_bounds = true;
         if (!term_val_ready)
             term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
         const impq & b = slv.m_lower_bounds[j];

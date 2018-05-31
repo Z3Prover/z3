@@ -167,6 +167,7 @@ public:
                         const vector<mpq> & x0
                         #endif
                         ) {
+        // we suppose that x0 has at least one non integer element 
         init_matrix_A();
         svector<unsigned> basis_rows;
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
@@ -184,9 +185,11 @@ public:
         find_h_minus_1_b(h.W(), b);
         // lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         int cut_row = find_cut_row_index(b);
-        if (cut_row == -1) {
+        if (cut_row == -1)
             return lia_move::undef;
-        }
+        // the matrix is not square - we can get
+        // all integer in b's projection
+        // 
         // test region
         /*
         general_matrix U(m_A.column_count());
