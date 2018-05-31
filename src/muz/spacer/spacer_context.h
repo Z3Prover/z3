@@ -310,6 +310,7 @@ class pred_transformer {
     stopwatch                    m_initialize_watch;
     stopwatch                    m_must_reachable_watch;
     stopwatch                    m_ctp_watch;
+    stopwatch                    m_mbp_watch;
 
 
     /// Auxiliary variables to represent different disjunctive
@@ -457,6 +458,10 @@ public:
     bool is_blocked (pob &n, unsigned &uses_level);
     /// \brief Returns true if the obligation is already blocked by current quantified lemmas
     bool is_qblocked (pob &n);
+
+    /// \brief interface to Model Based Projection
+    void mbp(app_ref_vector &vars, expr_ref &fml, const model_ref &mdl,
+             bool reduce_all_selects = true);
 
 };
 
@@ -679,6 +684,7 @@ public:
     ast_manager &get_ast_manager () const {return m_parent.get_ast_manager ();}
     manager &get_manager () const {return m_parent.get_manager ();}
     context &get_context() const {return m_parent.get_context();}
+    pred_transformer &pt() const {return m_parent.pt();}
 };
 
 

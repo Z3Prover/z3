@@ -227,8 +227,6 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
     expr_ref_vector summaries (m);
     app_ref_vector vars (m);
 
-    bool use_native_mbp = get_context ().use_native_mbp ();
-    bool ground = get_context ().use_ground_cti ();
     // -- find first may premise
     while (m_active < m_premises.size() && m_premises[m_active].is_must()) {
         summaries.push_back (m_premises[m_active].get_summary ());
@@ -246,7 +244,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "create_next_child::qproject1",
                         verbose_stream ());
-        qe_project (m, vars, m_trans, mev.get_model (), true, use_native_mbp, !ground);
+        pt().mbp(vars, m_trans, mev.get_model());
         //qe::reduce_array_selects (*mev.get_model (), m_trans);
         // remember variables that need to be existentially quantified
         m_evars.append (vars);
@@ -274,7 +272,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         timeit _timer2 (is_trace_enabled("spacer_timeit"),
                         "create_next_child::qproject2",
                         verbose_stream ());
-        qe_project (m, vars, post, mev.get_model (), true, use_native_mbp, !ground);
+        pt().mbp(vars, post, mev.get_model());
         //qe::reduce_array_selects (*mev.get_model (), post);
 
         // remember variables that need to be existentially quantified
@@ -308,9 +306,6 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
 pob *derivation::create_next_child ()
 {
     if (m_active + 1 >= m_premises.size()) { return nullptr; }
-
-    bool use_native_mbp = get_context ().use_native_mbp ();
-    bool ground = get_context ().use_ground_cti ();
 
     // update the summary of the active node to some must summary
 
@@ -375,8 +370,7 @@ pob *derivation::create_next_child ()
         { vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); }
 
         if (!vars.empty ()) {
-            qe_project (m, vars, m_trans, mev.get_model (), true, use_native_mbp,
-                        !ground);
+            this->pt().mbp(vars, m_trans, mev.get_model());
             // keep track of implicitly quantified variables
             m_evars.append (vars);
         }
@@ -701,6 +695,7 @@ void pred_transformer::collect_statistics(statistics& st) const
     st.update ("time.spacer.solve.pt.must_reachable",
                m_must_reachable_watch.get_seconds ());
     st.update("time.spacer.ctp", m_ctp_watch.get_seconds());
+    st.update("time.spacer.mbp", m_mbp_watch.get_seconds());
 }
 
 void pred_transformer::reset_statistics()
@@ -711,6 +706,7 @@ void pred_transformer::reset_statistics()
     m_initialize_watch.reset ();
     m_must_reachable_watch.reset ();
     m_ctp_watch.reset();
+    m_mbp_watch.reset();
 }
 
 void pred_transformer::init_sig()
@@ -1253,6 +1249,14 @@ bool pred_transformer::is_qblocked (pob &n) {
     //     STRACE("spacer.expand-add", tout << "core: " << mk_epp(c,m) << "\n";);
     // }
     return res == l_false;
+}
+
+
+void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml,
+                           const model_ref &mdl, bool reduce_all_selects) {
+    scoped_watch _t_(m_mbp_watch);
+    qe_project(m, vars, fml, mdl, reduce_all_selects,
+               use_native_mbp(), !ctx.use_ground_cti());
 }
 
 //
@@ -3439,7 +3443,7 @@ reach_fact *pred_transformer::mk_reach_fact (pob& n, model_evaluator_util &mev,
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "mk_reach_fact::qe_project",
                         verbose_stream ());
-        qe_project (m, vars, res, mev.get_model (), false, ctx.use_native_mbp());
+        mbp(vars, res, mev.get_model(), false /*, false */);
     }
 
 
@@ -3517,8 +3521,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     n.get_skolems(vars);
 
     expr_ref phi1 = mk_and (Phi);
-    qe_project (m, vars, phi1, mev.get_model (), true,
-                m_use_native_mbp, !m_ground_cti);
+    n.pt().mbp(vars, phi1, mev.get_model ());
     //qe::reduce_array_selects (*mev.get_model (), phi1);
     SASSERT (!m_ground_cti || vars.empty ());
 
