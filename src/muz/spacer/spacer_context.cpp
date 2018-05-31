@@ -637,7 +637,7 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     pm(pm), m(pm.get_manager()),
     ctx(ctx), m_head(head, m),
     m_sig(m), m_solver(pm, ctx.get_params(), head->get_name()),
-    m_reach_ctx (pm.mk_solver2()),
+    m_reach_solver (pm.mk_solver2()),
     m_pobs(*this),
     m_frames(*this),
     m_reach_facts(), m_rf_init_sz(0),
@@ -739,12 +739,12 @@ bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
     // reachable using the init rule of the current transformer
     if (m_reach_facts.empty()) { return false; }
 
-    m_reach_ctx->push ();
-    m_reach_ctx->assert_expr (state);
-    m_reach_ctx->assert_expr (m.mk_not (m_reach_case_vars.back ()));
-    lbool res = m_reach_ctx->check_sat (0, nullptr);
-    if (model) { m_reach_ctx->get_model(*model); }
-    m_reach_ctx->pop (1);
+    m_reach_solver->push ();
+    m_reach_solver->assert_expr (state);
+    m_reach_solver->assert_expr (m.mk_not (m_reach_case_vars.back ()));
+    lbool res = m_reach_solver->check_sat (0, nullptr);
+    if (model) { m_reach_solver->get_model(*model); }
+    m_reach_solver->pop (1);
     return (res == l_true);
 }
 
@@ -1011,7 +1011,7 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
     if (fact->is_init()) {m_rf_init_sz++;}
 
 
-    // update m_reach_ctx
+    // update m_reach_solver
     expr_ref last_var (m);
     expr_ref new_var (m);
     expr_ref fml (m);
@@ -1029,7 +1029,7 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
     if (last_var) {fml = m.mk_or(m.mk_not(last_var), fact->get(), new_var);}
     else {fml = m.mk_or(fact->get(), new_var);}
 
-    m_reach_ctx->assert_expr (fml);
+    m_reach_solver->assert_expr (fml);
     TRACE ("spacer",
            tout << "updating reach ctx: " << mk_pp(fml, m) << "\n";);
 

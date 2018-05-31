@@ -291,7 +291,7 @@ class pred_transformer {
     ptr_vector<pred_transformer> m_use;             // places where 'this' is referenced.
     ptr_vector<datalog::rule>    m_rules;           // rules used to derive transformer
     prop_solver                  m_solver;          // solver context
-    solver*                      m_reach_ctx;       // context for reachability facts
+    ref<solver>                  m_reach_solver;       // context for reachability facts
     pobs                         m_pobs;            // proof obligations created so far
     frames                       m_frames;          // frames with lemmas
     reach_fact_ref_vector        m_reach_facts;     // reach facts
