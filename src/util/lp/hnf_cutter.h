@@ -102,8 +102,15 @@ public:
         int ret = -1;
         int n = 0;
         for (int i = 0; i < static_cast<int>(b.size()); i++) {
-            if (!is_int(b[i]) && (m_settings.random_next() % (++n) == 0)) {
+            if (is_int(b[i])) continue;
+            if (n == 0 ) {
+                lp_assert(ret == -1);
+                n = 1;
                 ret = i;
+            } else {
+                if (m_settings.random_next() % (++n) == 0) {
+                    ret = i;
+                }
             }
         }
         return ret;
@@ -173,9 +180,9 @@ public:
         
         vector<mpq> b = create_b(basis_rows);
         lp_assert(m_A * x0 == b);
-        vector<mpq> bcopy = b;  // debug
+        // vector<mpq> bcopy = b;
         find_h_minus_1_b(h.W(), b);
-        lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
+        // lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         int cut_row = find_cut_row_index(b);
         if (cut_row == -1) {
             return lia_move::undef;
