@@ -1019,7 +1019,7 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
     expr_ref fml (m);
 
     if (!m_reach_case_vars.empty()) {last_var = m_reach_case_vars.back();}
-    if (fact->is_init () || !ctx.get_params ().spacer_reach_as_init ())
+    if (fact->is_init ())
     {new_var = mk_fresh_reach_case_var();}
     else {
         new_var = extend_initial (fact->get ())->get_arg (0);
@@ -1308,7 +1308,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                     expr_ref a(m);
                     pm.formula_n2o(pt.get_last_reach_case_var (), a, i);
                     reach_assumps.push_back(m.mk_not (a));
-                } else if (ctx.get_params().spacer_init_reach_facts()) {
+                } else {
                     reach_assumps.push_back(m.mk_not (entry.m_key));
                     break;
                 }
