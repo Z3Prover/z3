@@ -1042,7 +1042,7 @@ mpq lar_solver::sum_of_right_sides_of_explanation(const vector<std::pair<mpq, un
     return ret;
 }
 
-bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
+bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const {
 
     if (var >= m_columns_to_ul_pairs.size()) {
         // TBD: bounds on terms could also be used, caller may have to track these.
@@ -1061,7 +1061,7 @@ bool lar_solver::has_lower_bound(var_index var, constraint_index& ci, mpq& value
     }
 }
     
-bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) {
+bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const {
 
     if (var >= m_columns_to_ul_pairs.size()) {
         // TBD: bounds on terms could also be used, caller may have to track these.
@@ -1725,7 +1725,7 @@ constraint_index lar_solver::add_constraint(const vector<std::pair<mpq, var_inde
     substitute_terms_in_linear_expression(left_side_with_terms, left_side, rs);
     unsigned term_index = add_term(left_side, zero_of_type<mpq>());
     constraint_index ci = m_constraints.size();
-    add_var_bound_on_constraint_for_term(term_index, kind_par, -rs, ci);
+    add_var_bound_on_constraint_for_term(term_index, kind_par, -rs, ci);
     return ci;
 }
 
@@ -2208,33 +2208,34 @@ void lar_solver::round_to_integer_solution() {
     }
 }
 
-bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term_index, mpq & rs) const {
+bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term_index, mpq & rs, constraint_index& ci) const {
     unsigned tj = term_index + m_terms_start_index;
     auto it = m_ext_vars_to_columns.find(tj);
     if (it == m_ext_vars_to_columns.end())
         return false;
     unsigned j = it->second.internal_j();
-    auto & slv = m_mpq_lar_core_solver.m_r_solver;
     impq term_val;
     bool term_val_ready = false;
-    if (slv.column_has_upper_bound(j)) {
-        const impq & b = slv.m_upper_bounds[j];
-        lp_assert(is_zero(b.y) && is_int(b.x));
+    mpq b;
+    bool is_strict;
+    if (has_upper_bound(j, ci, b, is_strict)) {
+        lp_assert(!is_strict);
+        lp_assert(b.is_int());
         term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
         term_val_ready = true;
-        if (term_val == b) {
-            rs = b.x;
+        if (term_val.x == b) {
+            rs = b;
             return true;
         }
     }
-    if (slv.column_has_lower_bound(j)) {
+    if (has_lower_bound(j, ci, b, is_strict)) {
+        lp_assert(!is_strict);
         if (!term_val_ready)
             term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
-        const impq & b = slv.m_lower_bounds[j];
-        lp_assert(is_zero(b.y) && is_int(b.x));
+        lp_assert(b.is_int());
         
-        if (term_val == b) {
-            rs = b.x;
+        if (term_val.x == b) {
+            rs = b;
             return true;
         }
     }

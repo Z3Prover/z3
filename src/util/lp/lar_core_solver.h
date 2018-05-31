@@ -26,7 +26,6 @@ Revision History:
 #include "util/lp/indexed_vector.h"
 #include "util/lp/binary_heap_priority_queue.h"
 #include "util/lp/breakpoint.h"
-#include "util/lp/stacked_unordered_set.h"
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/lar_solution_signature.h"

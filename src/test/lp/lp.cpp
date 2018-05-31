@@ -44,10 +44,8 @@
 #include "util/lp/numeric_pair.h"
 #include "util/lp/binary_heap_upair_queue.h"
 #include "util/lp/stacked_value.h"
-#include "util/lp/stacked_unordered_set.h"
 #include "util/lp/int_set.h"
 #include "util/stopwatch.h"
-#include "util/lp/stacked_map.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
 #include "util/lp/matrix.h"
@@ -1942,44 +1940,6 @@ void setup_args_parser(argument_parser & parser) {
 
 struct fff { int a; int b;};
 
-void test_stacked_map_itself() {
-    vector<int> v(3,0);
-    for(auto u : v)
-        std::cout << u << std::endl;    
-    
-    std::unordered_map<int, fff> foo;
-    fff l;
-    l.a = 0;
-    l.b =1;
-    foo[1] = l;
-    int r = 1;
-    int k = foo[r].a;
-    std::cout << k << std::endl;
-    
-    stacked_map<int, double> m;
-    m[0] = 3;
-    m[1] = 4;
-    m.push();
-    m[1] = 5;
-    m[2] = 2;
-    m.pop();
-    m.erase(2);
-    m[2] = 3;
-    m.erase(1);
-    m.push();
-    m[3] = 100;
-    m[4] = 200;
-    m.erase(1);
-    m.push();
-    m[5] = 300;
-    m[6] = 400;
-    m[5] = 301;
-    m.erase(5);
-    m[3] = 122;
-
-    m.pop(2);
-    m.pop();
-}
 
 void test_stacked_unsigned() {
     std::cout << "test stacked unsigned" << std::endl;
@@ -2038,36 +1998,10 @@ void test_stacked_vector() {
         
 }
 
-void test_stacked_set() {
-#ifdef Z3DEBUG
-    std::cout << "test_stacked_set" << std::endl;
-    stacked_unordered_set<int> s;
-    s.insert(1);
-    s.insert(2);
-    s.insert(3);
-    std::unordered_set<int> scopy = s();
-    s.push();
-    s.insert(4);
-    s.pop();
-    lp_assert(s() == scopy);
-    s.push();
-    s.push();
-    s.insert(4);
-    s.insert(5);
-    s.push();
-    s.insert(4);
-    s.pop(3);
-    lp_assert(s() == scopy);
-#endif
-}
 
 void test_stacked() {
-    std::cout << "test_stacked_map()" << std::endl;
-    test_stacked_map_itself();
     test_stacked_value();
     test_stacked_vector();
-    test_stacked_set();
-    
 }
 
 char * find_home_dir() {

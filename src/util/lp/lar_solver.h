@@ -36,7 +36,6 @@ Revision History:
 #include <stack>
 #include "util/lp/stacked_value.h"
 #include "util/lp/stacked_vector.h"
-#include "util/lp/stacked_unordered_set.h"
 #include "util/lp/implied_bound.h"
 #include "util/lp/bound_analyzer_on_row.h"
 #include "util/lp/conversion_helper.h"
@@ -435,9 +434,9 @@ public:
 
     mpq sum_of_right_sides_of_explanation(const vector<std::pair<mpq, unsigned>> & explanation) const;
 
-    bool has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict);
+    bool has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const;
     
-    bool has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict);
+    bool has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const;
 
 
     void get_infeasibility_explanation(vector<std::pair<mpq, constraint_index>> & explanation) const;
@@ -587,6 +586,6 @@ public:
     unsigned column_count() const { return A_r().column_count(); }
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
     const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
-    bool get_equality_and_right_side_for_term_on_corrent_x(unsigned i, mpq &rs) const;
+    bool get_equality_and_right_side_for_term_on_corrent_x(unsigned i, mpq &rs, constraint_index& ci) const;
 };
 }

@@ -542,8 +542,9 @@ bool int_solver::try_add_term_to_A_for_hnf(unsigned i, bool & have_non_integral_
         if (!local_have_non_integral_x)
             local_have_non_integral_x = ! get_value(p.var()).is_int();
     }
-    if (m_lar_solver->get_equality_and_right_side_for_term_on_corrent_x(i, rs)) {
-        m_hnf_cutter.add_term(t, rs);
+    constraint_index ci;
+    if (m_lar_solver->get_equality_and_right_side_for_term_on_corrent_x(i, rs, ci)) {
+        m_hnf_cutter.add_term(t, rs, ci);
         if (!have_non_integral_x)
             have_non_integral_x = local_have_non_integral_x;
         return true;
@@ -580,6 +581,9 @@ lia_move int_solver::make_hnf_cut() {
     if (r == lia_move::cut) {        
         lp_assert(current_solution_is_inf_on_cut());
         settings().st().m_hnf_cuts++;
+        for (unsigned i = 0; i < m_hnf_cutter.row_count(); i++) {
+            m_ex->push_justification(m_hnf_cutter.constraints_for_explanation()[i]);
+        }
     }
     return r;
 }
