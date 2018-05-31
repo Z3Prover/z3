@@ -1527,7 +1527,7 @@ public:
             return m_imp.bound_is_interesting(j, kind, v);
         }
 
-        virtual void consume(rational const& v, unsigned j) {
+        void consume(rational const& v, lp::constraint_index j) override {
             m_imp.set_evidence(j);
             m_imp.m_explanation.push_back(std::make_pair(v, j));
         }
