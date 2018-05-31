@@ -688,6 +688,9 @@ void pred_transformer::collect_statistics(statistics& st) const
     // -- number of proof obligations (0 if pobs are not reused)
     st.update("SPACER num pobs", m_pobs.size());
 
+    // -- number of reach facts created
+    st.update("SPACER num reach queries", m_stats.m_num_reach_queries);
+
     st.update("SPACER num ctp blocked", m_stats.m_num_ctp_blocked);
     st.update("SPACER num is_invariant", m_stats.m_num_is_invariant);
     st.update("SPACER num lemma jumped", m_stats.m_num_lemma_level_jump);
@@ -2345,9 +2348,9 @@ void context::init_global_smt_params() {
     p.set_bool("dump_benchmarks", m_params.spacer_dump_benchmarks());
     p.set_double("dump_threshold", m_params.spacer_dump_threshold());
 
-
     // mbqi
     p.set_bool("mbqi", m_params.spacer_mbqi());
+
     if (!m_params.spacer_ground_cti()) {
         p.set_uint("phase_selection", PS_CACHING_CONSERVATIVE2);
         p.set_uint("restart_strategy", RS_GEOMETRIC);
@@ -3018,7 +3021,7 @@ bool context::is_reachable(pob &n)
     mev.set_model(*model);
     // -- update must summary
     if (r && r->get_uninterpreted_tail_size () > 0) {
-        reach_fact_ref rf = mk_reach_fact (n, mev, *r);
+        reach_fact_ref rf = n.pt().mk_reach_fact (n, mev, *r);
         n.pt ().add_reach_fact (rf.get ());
     }
 
@@ -3158,7 +3161,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (is_concrete) {
             // -- update must summary
             if (r && r->get_uninterpreted_tail_size() > 0) {
-                reach_fact_ref rf = mk_reach_fact (n, mev, *r);
+                reach_fact_ref rf = n.pt().mk_reach_fact (n, mev, *r);
                 checkpoint ();
                 n.pt ().add_reach_fact (rf.get ());
                 checkpoint ();
@@ -3373,50 +3376,49 @@ bool context::propagate(unsigned min_prop_lvl,
     return false;
 }
 
-reach_fact *context::mk_reach_fact (pob& n, model_evaluator_util &mev,
-                                    const datalog::rule& r)
+reach_fact *pred_transformer::mk_reach_fact (pob& n, model_evaluator_util &mev,
+                                             const datalog::rule& r)
 {
+    SASSERT(&n.pt() == this);
     timeit _timer1 (is_trace_enabled("spacer_timeit"),
                     "mk_reach_fact",
                     verbose_stream ());
     expr_ref res(m);
     reach_fact_ref_vector child_reach_facts;
 
-    pred_transformer& pt = n.pt ();
-
     ptr_vector<func_decl> preds;
-    pt.find_predecessors (r, preds);
+    find_predecessors (r, preds);
 
     expr_ref_vector path_cons (m);
-    path_cons.push_back (pt.get_transition (r));
+    path_cons.push_back (get_transition (r));
     app_ref_vector vars (m);
 
     for (unsigned i = 0; i < preds.size (); i++) {
         func_decl* pred = preds[i];
-        pred_transformer& ch_pt = get_pred_transformer (pred);
+        pred_transformer& ch_pt = ctx.get_pred_transformer (pred);
         // get a reach fact of body preds used in the model
         expr_ref o_ch_reach (m);
         reach_fact *kid = ch_pt.get_used_origin_reach_fact (mev, i);
         child_reach_facts.push_back (kid);
-        m_pm.formula_n2o (kid->get (), o_ch_reach, i);
+        pm.formula_n2o (kid->get (), o_ch_reach, i);
         path_cons.push_back (o_ch_reach);
         // collect o-vars to eliminate
         for (unsigned j = 0; j < pred->get_arity (); j++)
-        { vars.push_back(m.mk_const(m_pm.o2o(ch_pt.sig(j), 0, i))); }
+        { vars.push_back(m.mk_const(pm.o2o(ch_pt.sig(j), 0, i))); }
 
         const ptr_vector<app> &v = kid->aux_vars ();
         for (unsigned j = 0, sz = v.size (); j < sz; ++j)
-        { vars.push_back(m.mk_const(m_pm.n2o(v [j]->get_decl(), i))); }
+        { vars.push_back(m.mk_const(pm.n2o(v [j]->get_decl(), i))); }
     }
     // collect aux vars to eliminate
-    ptr_vector<app>& aux_vars = pt.get_aux_vars (r);
-    bool elim_aux = get_params ().spacer_elim_aux ();
+    ptr_vector<app>& aux_vars = get_aux_vars (r);
+    bool elim_aux = ctx.get_params().spacer_elim_aux();
     if (elim_aux) { vars.append(aux_vars.size(), aux_vars.c_ptr()); }
 
     res = mk_and (path_cons);
 
     // -- pick an implicant from the path condition
-    if (get_params().spacer_reach_dnf()) {
+    if (ctx.get_params().spacer_reach_dnf()) {
         expr_ref_vector u(m), lits(m);
         u.push_back (res);
         compute_implicant_literals (mev, u, lits);
@@ -3437,7 +3439,7 @@ reach_fact *context::mk_reach_fact (pob& n, model_evaluator_util &mev,
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "mk_reach_fact::qe_project",
                         verbose_stream ());
-        qe_project (m, vars, res, mev.get_model (), false, m_use_native_mbp);
+        qe_project (m, vars, res, mev.get_model (), false, ctx.use_native_mbp());
     }
 
 
@@ -3601,8 +3603,6 @@ void context::collect_statistics(statistics& st) const
     // -- number of times a pob for some predicate transformer has
     // -- been created
     st.update("SPACER num queries", m_stats.m_num_queries);
-    // -- number of reach facts created
-    st.update("SPACER num reach queries", m_stats.m_num_reach_queries);
     // -- number of times a reach fact was true in some model
     st.update("SPACER num reuse reach facts", m_stats.m_num_reuse_reach);
     // -- maximum level at which any query was asked
@@ -3641,16 +3641,6 @@ void context::collect_statistics(statistics& st) const
     for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
         m_lemma_generalizers[i]->collect_statistics(st);
     }
-
-    // brunch out
-    verbose_stream () << "BRUNCH_STAT max_query_lvl " << m_stats.m_max_query_lvl << "\n";
-    verbose_stream () << "BRUNCH_STAT num_queries " << m_stats.m_num_queries << "\n";
-    verbose_stream () << "BRUNCH_STAT num_lemmas " << m_stats.m_num_lemmas << "\n";
-    verbose_stream () << "BRUNCH_STAT num_reach_queries " << m_stats.m_num_reach_queries << "\n";
-    verbose_stream () << "BRUNCH_STAT num_reach_reuse " << m_stats.m_num_reuse_reach << "\n";
-    verbose_stream () << "BRUNCH_STAT inductive_lvl " << m_inductive_lvl << "\n";
-    verbose_stream () << "BRUNCH_STAT max_depth " << m_stats.m_max_depth << "\n";
-    verbose_stream () << "BRUNCH_STAT cex_depth " << m_stats.m_cex_depth << "\n";
 }
 
 void context::reset_statistics()

@@ -192,6 +192,8 @@ class pred_transformer {
         unsigned m_num_ctp_blocked; // num of time ctp blocked lemma pushing
         unsigned m_num_is_invariant; // num of times lemmas are pushed
         unsigned m_num_lemma_level_jump; // lemma learned at higher level than expected
+        unsigned m_num_reach_queries;
+
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };
@@ -399,6 +401,8 @@ public:
 
     /// initialize reachability facts using initial rules
     void init_reach_facts ();
+    reach_fact *mk_reach_fact(pob &n, model_evaluator_util &mev,
+                              const datalog::rule &r);
     void add_reach_fact (reach_fact *fact);  // add reachability fact
     reach_fact* get_last_reach_fact () const { return m_reach_facts.back (); }
     expr* get_last_reach_case_var () const;
@@ -761,7 +765,6 @@ class context {
 
     struct stats {
         unsigned m_num_queries;
-        unsigned m_num_reach_queries;
         unsigned m_num_reuse_reach;
         unsigned m_max_query_lvl;
         unsigned m_max_depth;
@@ -816,8 +819,6 @@ class context {
                    unsigned full_prop_lvl);
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
-    reach_fact *mk_reach_fact(pob& n, model_evaluator_util &mev,
-                              datalog::rule const& r);
     bool create_children(pob& n, const datalog::rule &r,
                          model_evaluator_util &mdl,
                          const vector<bool>& reach_pred_used,
