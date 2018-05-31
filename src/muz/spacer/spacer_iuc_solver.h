@@ -54,7 +54,10 @@ private:
     unsigned m_first_assumption;
     bool m_is_proxied;
 
-    stopwatch m_iuc_watch;
+    stopwatch m_iuc_sw;
+    stopwatch m_hyp_reduce1_sw;
+    stopwatch m_hyp_reduce2_sw;
+    stopwatch m_learn_core_sw;
 
     expr_substitution m_elim_proxies_sub;
     bool m_split_literals;

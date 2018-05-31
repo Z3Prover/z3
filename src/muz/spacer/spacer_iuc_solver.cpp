@@ -208,13 +208,20 @@ bool iuc_solver::is_proxy(expr *e, app_ref &def)
 void iuc_solver::collect_statistics (statistics &st) const
 {
     m_solver.collect_statistics (st);
-    st.update ("time.iuc_solver.iuc_core", m_iuc_watch.get_seconds ());
+    st.update ("time.iuc_solver.get_iuc", m_iuc_sw.get_seconds());
+    st.update ("time.iuc_solver.get_iuc.hyp_reduce1", m_hyp_reduce1_sw.get_seconds());
+    st.update ("time.iuc_solver.get_iuc.hyp_reduce2", m_hyp_reduce2_sw.get_seconds());
+    st.update ("time.iuc_solver.get_iuc.learn_core", m_learn_core_sw.get_seconds());
+
     st.update("iuc_solver.num_proxies", m_proxies.size());
 }
 
 void iuc_solver::reset_statistics ()
 {
-    m_iuc_watch.reset ();
+    m_iuc_sw.reset();
+    m_hyp_reduce1_sw.reset();
+    m_hyp_reduce2_sw.reset();
+    m_learn_core_sw.reset();
 }
 
 void iuc_solver::get_unsat_core (ptr_vector<expr> &core)
@@ -275,7 +282,7 @@ void iuc_solver::elim_proxies (expr_ref_vector &v)
 
 void iuc_solver::get_iuc(expr_ref_vector &core)
 {
-    scoped_watch _t_ (m_iuc_watch);
+    scoped_watch _t_ (m_iuc_sw);
 
     typedef obj_hashtable<expr> expr_set;
     expr_set core_lits;
@@ -305,6 +312,7 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
 
         // -- old hypothesis reducer while the new one is broken
         if (m_old_hyp_reducer) {
+            scoped_watch _t_ (m_hyp_reduce1_sw);
             // AG: deprecated
             // pre-process proof in order to get a proof which is
             // better suited for unsat-core-extraction
@@ -326,6 +334,8 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
         // -- new hypothesis reducer
         else
         {
+            scoped_watch _t_ (m_hyp_reduce2_sw);
+
             // pre-process proof for better iuc extraction
             if (m_print_farkas_stats) {
                 iuc_proof iuc_before(m, res.get(), core_lits);
@@ -333,11 +343,19 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
                 iuc_before.dump_farkas_stats();
             }
 
-            theory_axiom_reducer ta_reducer(m);
-            proof_ref pr1(ta_reducer.reduce (res.get()), m);
+            proof_ref pr1(m);
+            {
+                scoped_watch _t_ (m_hyp_reduce1_sw);
+                theory_axiom_reducer ta_reducer(m);
+                pr1 = ta_reducer.reduce (res.get());
+            }
 
-            hypothesis_reducer hyp_reducer(m);
-            proof_ref pr2(hyp_reducer.reduce(pr1), m);
+            proof_ref pr2(m);
+            {
+                scoped_watch _t_ (m_hyp_reduce2_sw);
+                hypothesis_reducer hyp_reducer(m);
+                pr2 = hyp_reducer.reduce(pr1);
+            }
 
             res = pr2;
 
@@ -391,8 +409,11 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
             UNREACHABLE();
         }
 
-        // compute interpolating unsat core
-        learner.compute_unsat_core(core);
+        {
+            scoped_watch _t_ (m_learn_core_sw);
+            // compute interpolating unsat core
+            learner.compute_unsat_core(core);
+        }
 
         elim_proxies (core);
         // AG: this should be taken care of by minimizing the iuc cut
