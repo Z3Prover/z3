@@ -751,12 +751,14 @@ public:
         init_solver();
     }
         
-    bool internalize_atom(app * atom, bool gate_ctx) {
-        return internalize_atom_strict(atom, gate_ctx);
-            
+    void internalize_is_int(app * n) {
+        SASSERT(a.is_is_int(n));
+        (void) mk_enode(n);
+        if (!ctx().relevancy())
+            mk_is_int_axiom(n);        
     }
 
-    bool internalize_atom_strict(app * atom, bool gate_ctx) {
+    bool internalize_atom(app * atom, bool gate_ctx) {
         SASSERT(!ctx().b_internalized(atom));
         bool_var bv = ctx().mk_bool_var(atom);
         ctx().set_var_theory(bv, get_id());
@@ -772,6 +774,10 @@ public:
             v = internalize_def(to_app(n1));
             k = lp_api::lower_t;
         }    
+        else if (a.is_is_int(atom)) {
+            internalize_is_int(atom);
+            return true;
+        }
         else {
             TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_not_handled(atom);
@@ -1527,7 +1533,7 @@ public:
             return m_imp.bound_is_interesting(j, kind, v);
         }
 
-        virtual void consume(rational const& v, unsigned j) {
+        void consume(rational const& v, lp::constraint_index j) override {
             m_imp.set_evidence(j);
             m_imp.m_explanation.push_back(std::make_pair(v, j));
         }
@@ -2619,12 +2625,17 @@ public:
             coeff = rational::zero();
         }
         lp::impq term_max;
-        if (m_solver->maximize_term(coeffs, term_max)) {
+        lp::lp_status st = m_solver->maximize_term(coeffs, term_max);
+        if (st == lp::lp_status::OPTIMAL) {
             blocker = mk_gt(v);
             inf_rational val(term_max.x + coeff, term_max.y);
             return inf_eps(rational::zero(), val);
+        } if (st == lp::lp_status::FEASIBLE) {
+            lp_assert(false); // not implemented
+            // todo: what to return?
         }
         else {
+            SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE("arith", tout << "Unbounded " << v << "\n";);
             has_shared = false;
             blocker = m.mk_false();

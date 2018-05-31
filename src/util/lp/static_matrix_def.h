@@ -260,10 +260,6 @@ template <typename T, typename X>    void static_matrix<T, X>::check_consistency
 
     for (auto & t : by_rows) {
         auto ic = by_cols.find(t.first);
-        if (ic == by_cols.end()){
-            //std::cout << "rows have pair (" << t.first.first <<"," << t.first.second
-            //         << "), but columns don't " << std::endl;
-        }
         lp_assert(ic != by_cols.end());
         lp_assert(t.second == ic->second);
     }
@@ -347,7 +343,6 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
         std::unordered_set<unsigned> s;
         for (auto & rc : r) {
             if (s.find(rc.m_j) != s.end()) {
-                std::cout << "found column " << rc.m_j << " twice in a row " << i << std::endl;
                 return false;
             }
             s.insert(rc.m_j);
@@ -358,7 +353,6 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
             if (rc.get_val() != get_val(m_columns[rc.m_j][rc.m_offset]))
                 return false;
             if (is_zero(rc.get_val())) {
-                std::cout << "found zero column " << rc.m_j << " in row " << i << std::endl;
                 return false;
             }
             
@@ -370,7 +364,6 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
         std::unordered_set<unsigned> s;
         for (auto & cc : c) {
             if (s.find(cc.m_i) != s.end()) {
-                std::cout << "found row " << cc.m_i << " twice in a column " << j << std::endl;
                 return false;
             }
             s.insert(cc.m_i);

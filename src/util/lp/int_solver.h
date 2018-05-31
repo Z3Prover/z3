@@ -51,7 +51,9 @@ public:
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
     bool move_non_basic_column_to_bounds(unsigned j);
-    lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);
+    lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
+    bool is_base(unsigned j) const;
+    
 private:
 
     // how to tighten bounds for integer variables.
@@ -75,14 +77,12 @@ private:
                       mpq const & consts);
     void fill_explanation_from_fixed_columns(const row_strip<mpq> & row);
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
-    void patch_nbasic_column(unsigned j);
     lia_move patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
     bool is_int(unsigned j) const;
     bool is_real(unsigned j) const;
-    bool is_base(unsigned j) const;
     bool is_boxed(unsigned j) const;
     bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
@@ -156,6 +156,8 @@ public:
     lia_move make_hnf_cut();
     bool init_terms_for_hnf_cut();
     bool hnf_matrix_is_empty() const;
-    bool try_add_term_to_A_for_hnf(unsigned term_index);
+    void try_add_term_to_A_for_hnf(unsigned term_index);
+    bool hnf_has_non_integral_var() const;
+    void patch_nbasic_column(unsigned j);
 };
 }

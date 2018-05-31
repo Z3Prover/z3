@@ -32,7 +32,7 @@ Revision History:
 namespace lp {
 namespace hnf_calc {
 
-    // d = u * a + b * b and the sum of abs(u) + abs(v) is minimal, d is positive
+    // d = u * a + v * b and the sum of abs(u) + abs(v) is minimal, d is positive
 inline
 void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq & v) {
     if (is_zero(a)) {
@@ -47,7 +47,11 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
         d = a;
         return;
     }
+#if 1
+    d = gcd(a, b, u, v);
+#else
     extended_gcd(a, b, d, u, v);
+#endif
     if (is_neg(d)) {
         d = -d;
         u = -u;
@@ -103,7 +107,8 @@ void extended_gcd_minimal_uv(const mpq & a, const mpq & b, mpq & d, mpq & u, mpq
 
 
 
-template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
+template <typename M> 
+bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
     for (unsigned i = r; i < m.row_count(); i++) {
         for (unsigned j = r; j < m.column_count(); j++) {
             if (!is_zero(m[i][j])) {
@@ -120,13 +125,13 @@ template <typename M> bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
     return false;
 }
 
-template <typename M> void pivot_column_non_fractional(M &m, unsigned r) {
+template <typename M> 
+void pivot_column_non_fractional(M &m, unsigned r) {
     lp_assert(!is_zero(m[r][r]));
-    lp_assert(m.row_count() <= m.column_count());
     for (unsigned j = r + 1; j < m.column_count(); j++) {
         for (unsigned i = r + 1; i  < m.row_count(); i++) {
             m[i][j] =
-                (r > 0 )?
+                (r > 0) ?
                 (m[r][r]*m[i][j] - m[i][r]*m[r][j]) / m[r-1][r-1] :
                 (m[r][r]*m[i][j] - m[i][r]*m[r][j]);
             lp_assert(is_int(m[i][j]));
@@ -140,8 +145,8 @@ template <typename M> void pivot_column_non_fractional(M &m, unsigned r) {
 }
 
 // returns the rank of the matrix
-template <typename M> unsigned to_lower_triangle_non_fractional(M &m) {
-    lp_assert(m.row_count() <= m.column_count());
+template <typename M> 
+unsigned to_lower_triangle_non_fractional(M &m) {
     unsigned i = 0;
     for (; i < m.row_count(); i++) {
         if (!prepare_pivot_for_lower_triangle(m, i)) {
@@ -152,6 +157,8 @@ template <typename M> unsigned to_lower_triangle_non_fractional(M &m) {
     lp_assert(i == m.row_count());
     return i; 
 }
+
+// returns gcd of values below diagonal i,i
 template <typename M>
 mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
     mpq g = zero_of_type<mpq>();
@@ -170,28 +177,28 @@ mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
     return g;
 }
 
-
-// it fills "r" - the basic rows of m
-template <typename M> mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows) {
-    if (m.column_count() < m.row_count())
-        throw "not implemented"; // consider working with the transposed m, or create a "transposed" version if needed
-    // The plan is to transform m to the lower triangular form by using non-fractional Gaussian Elimination by columns.
-    // Then the elements of the following elements of the last non-zero row of the matrix
-    // m[r-1][r-1], m[r-1][r], ..., m[r-1]m[m.column_count() - 1] give the determinants of all minors of rank r.
-    // The gcd of these minors is the return value
-    auto mc = m;
-    unsigned rank = to_lower_triangle_non_fractional(mc);
+// It fills "r" - the basic rows of m.
+// The plan is to transform m to the lower triangular form by using non-fractional Gaussian Elimination by columns.
+// Then the trailing after the diagonal elements of the following elements of the last non-zero row of the matrix,
+// namely, m[r-1][r-1], m[r-1][r], ..., m[r-1]m[m.column_count() - 1] give the determinants of all minors of rank r.
+// The gcd of these minors is the return value.
+ 
+template <typename M> 
+mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows) {
+    auto m_copy = m;
+    unsigned rank = to_lower_triangle_non_fractional(m_copy);
     if (rank == 0)
         return one_of_type<mpq>();
 
     for (unsigned i = 0; i < rank; i++) {
-        basis_rows.push_back(mc.adjust_row(i));
+        basis_rows.push_back(m_copy.adjust_row(i));
     }
-    TRACE("hnf_calc", tout << "basis_rows = "; print_vector(basis_rows, tout); mc.print(tout, "mc = "););
-    return gcd_of_row_starting_from_diagonal(mc, rank - 1);
+    TRACE("hnf_calc", tout << "basis_rows = "; print_vector(basis_rows, tout); m_copy.print(tout, "m_copy = "););
+    return gcd_of_row_starting_from_diagonal(m_copy, rank - 1);
 }
 
-template <typename M> mpq determinant(const M& m) {
+template <typename M> 
+mpq determinant(const M& m) {
     lp_assert(m.row_count() == m.column_count());
     auto mc = m;
     svector<unsigned> basis_rows;
@@ -229,10 +236,8 @@ class hnf {
 
     mpq mod_R(const mpq & a) const {
        mpq t = a % m_R;
-       t = is_neg(t) ? t + m_R : t;
-       if(is_neg(t)){
-           std::cout << "a=" << a << ", m_R= " << m_R << std::endl;
-       }
+       t = is_neg(t) ? t + m_R : t;       
+       CTRACE("hnf", is_neg(t), tout << "a=" << a << ", m_R= " << m_R << std::endl;);
        return t;
            
     }
@@ -319,8 +324,8 @@ class hnf {
         }
     }
 
- void handle_column_ij_in_row_i(unsigned i, unsigned j) {
-     lp_assert(is_correct_modulo());
+    void handle_column_ij_in_row_i(unsigned i, unsigned j) {
+        lp_assert(is_correct_modulo());
         const mpq& aii = m_H[i][i];
         const mpq& aij = m_H[i][j];
         mpq p,q,r;
@@ -470,15 +475,14 @@ class hnf {
 
     bool is_correct_final() const {
         if (!is_correct()) {
-            std::cout << "m_H =            "; m_H.print(std::cout, 17);
-            
-            std::cout << "\nm_A_orig * m_U = ";  (m_A_orig * m_U).print(std::cout, 17);
-            
-            std::cout << "is_correct() does not hold" << std::endl;
+            TRACE("hnf_calc",
+                  tout << "m_H =            "; m_H.print(tout, 17);
+                  tout << "\nm_A_orig * m_U = ";  (m_A_orig * m_U).print(tout, 17);
+                  tout << "is_correct() does not hold" << std::endl;);
             return false;
         }
         if (!is_correct_form()) {
-            std::cout << "is_correct_form() does not hold" << std::endl;
+            TRACE("hnf_calc", tout << "is_correct_form() does not hold" << std::endl;);
             return false;
         }
         return true;
@@ -538,10 +542,6 @@ private:
         copy_buffer_to_col_i_W_modulo();
     }
 
-    void endl() const {
-        std::cout << std::endl;
-    }
-    
     void fix_row_under_diagonal_W_modulo() {
         mpq d, u, v;
         if (is_zero(m_W[m_i][m_i])) {
@@ -616,12 +616,11 @@ public:
 #endif
         calculate_by_modulo();
 #ifdef Z3DEBUG
-        if (m_H != m_W) {
-            std::cout << "A = "; m_A_orig.print(std::cout, 4); endl();
-            std::cout << "H = "; m_H.print(std::cout, 4); endl();
-            std::cout << "W = "; m_W.print(std::cout, 4); endl();
-            lp_assert(false);
-        }
+        CTRACE("hnf_calc", m_H != m_W,
+               tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
+               tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
+               tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
+        lp_assert (m_H == m_W);
 #endif
     }
 

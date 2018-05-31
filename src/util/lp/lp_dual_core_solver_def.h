@@ -535,12 +535,6 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::snap_runaway_n
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::problem_is_dual_feasible() const {
     for (unsigned j : this->non_basis()){
         if (!this->column_is_dual_feasible(j)) {
-            // std::cout << "column " << j << " is not dual feasible" << std::endl;
-            // std::cout << "m_d[" << j << "] = " << this->m_d[j] << std::endl;
-            // std::cout << "x[" << j << "] = " << this->m_x[j] << std::endl;
-            // std::cout << "type = " << column_type_to_string(this->m_column_type[j]) << std::endl;
-            // std::cout << "bounds = " << this->m_lower_bounds[j] << "," << this->m_upper_bounds[j] << std::endl;
-            // std::cout << "total_iterations = " << this->total_iterations() << std::endl;
             return false;
         }
     }

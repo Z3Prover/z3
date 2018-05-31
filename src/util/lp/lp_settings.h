@@ -214,7 +214,7 @@ public:
     
     lp_settings() : m_default_resource_limit(*this),
                     m_resource_limit(&m_default_resource_limit),
-                    m_debug_out( &std::cout),
+                    m_debug_out(&std::cout),
                     m_message_out(&std::cout),
                     reps_in_scaler(20),
                     pivot_epsilon(0.00000001),
@@ -231,7 +231,6 @@ public:
                     drop_tolerance ( 1e-14),
                     tolerance_for_artificials ( 1e-4),
                     can_be_taken_to_basis_tolerance ( 0.00001),
-                  
                     percent_of_entering_to_check ( 5),// we try to find a profitable column in a percentage of the columns
                     use_scaling ( true),
                     scaling_maximum ( 1),
@@ -265,7 +264,7 @@ public:
                     m_chase_cut_solver_cycle_on_var(10),
                     m_int_pivot_fixed_vars_from_basis(false),
                     m_int_patch_only_integer_values(true),
-                    limit_on_rows_for_hnf_cutter(100)
+                    limit_on_rows_for_hnf_cutter(75)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }

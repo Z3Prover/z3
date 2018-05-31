@@ -818,10 +818,7 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         default:
-            if (m_params.m_arith_int_only && int_only)
-                setup_i_arith();
-            else
-                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            setup_i_arith();
             break;
         }
     }

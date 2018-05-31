@@ -44,10 +44,8 @@
 #include "util/lp/numeric_pair.h"
 #include "util/lp/binary_heap_upair_queue.h"
 #include "util/lp/stacked_value.h"
-#include "util/lp/stacked_unordered_set.h"
 #include "util/lp/int_set.h"
 #include "util/stopwatch.h"
-#include "util/lp/stacked_map.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
 #include "util/lp/matrix.h"
@@ -55,8 +53,15 @@
 #include "util/lp/square_sparse_matrix_def.h"
 #include "util/lp/lu_def.h"
 #include "util/lp/general_matrix.h"
+#include "util/lp/bound_propagator.h"
 namespace lp {
 unsigned seed = 1;
+
+    class my_bound_propagator : public bound_propagator {
+    public:
+        my_bound_propagator(lar_solver & ls): bound_propagator(ls) {}
+        void consume(mpq const& v, lp::constraint_index j) override {}
+    };
 
 random_gen g_rand;
 static unsigned my_random() {
@@ -1942,44 +1947,6 @@ void setup_args_parser(argument_parser & parser) {
 
 struct fff { int a; int b;};
 
-void test_stacked_map_itself() {
-    vector<int> v(3,0);
-    for(auto u : v)
-        std::cout << u << std::endl;    
-    
-    std::unordered_map<int, fff> foo;
-    fff l;
-    l.a = 0;
-    l.b =1;
-    foo[1] = l;
-    int r = 1;
-    int k = foo[r].a;
-    std::cout << k << std::endl;
-    
-    stacked_map<int, double> m;
-    m[0] = 3;
-    m[1] = 4;
-    m.push();
-    m[1] = 5;
-    m[2] = 2;
-    m.pop();
-    m.erase(2);
-    m[2] = 3;
-    m.erase(1);
-    m.push();
-    m[3] = 100;
-    m[4] = 200;
-    m.erase(1);
-    m.push();
-    m[5] = 300;
-    m[6] = 400;
-    m[5] = 301;
-    m.erase(5);
-    m[3] = 122;
-
-    m.pop(2);
-    m.pop();
-}
 
 void test_stacked_unsigned() {
     std::cout << "test stacked unsigned" << std::endl;
@@ -2038,36 +2005,10 @@ void test_stacked_vector() {
         
 }
 
-void test_stacked_set() {
-#ifdef Z3DEBUG
-    std::cout << "test_stacked_set" << std::endl;
-    stacked_unordered_set<int> s;
-    s.insert(1);
-    s.insert(2);
-    s.insert(3);
-    std::unordered_set<int> scopy = s();
-    s.push();
-    s.insert(4);
-    s.pop();
-    lp_assert(s() == scopy);
-    s.push();
-    s.push();
-    s.insert(4);
-    s.insert(5);
-    s.push();
-    s.insert(4);
-    s.pop(3);
-    lp_assert(s() == scopy);
-#endif
-}
 
 void test_stacked() {
-    std::cout << "test_stacked_map()" << std::endl;
-    test_stacked_map_itself();
     test_stacked_value();
     test_stacked_vector();
-    test_stacked_set();
-    
 }
 
 char * find_home_dir() {
@@ -2815,7 +2756,7 @@ void test_bound_propagation_one_small_sample1() {
     vector<implied_bound> ev;
     ls.add_var_bound(a, LE, mpq(1));
     ls.solve();
-    bound_propagator bp(ls);
+    my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
     std::cout << " bound ev from test_bound_propagation_one_small_sample1" << std::endl;
     for (auto & be : bp.m_ibounds)  {
@@ -2868,7 +2809,7 @@ void test_bound_propagation_one_row() {
     vector<implied_bound> ev;
     ls.add_var_bound(x0, LE, mpq(1));
     ls.solve();
-    bound_propagator bp(ls);
+    my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 void test_bound_propagation_one_row_with_bounded_vars() {
@@ -2884,7 +2825,7 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     ls.add_var_bound(x0, LE, mpq(3));
     ls.add_var_bound(x0, LE, mpq(1));
     ls.solve();
-    bound_propagator bp(ls);
+    my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 }
 void test_bound_propagation_one_row_mixed() {
@@ -2898,7 +2839,7 @@ void test_bound_propagation_one_row_mixed() {
     vector<implied_bound> ev;
     ls.add_var_bound(x1, LE, mpq(1));
     ls.solve();
-    bound_propagator bp(ls);
+    my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 
@@ -2921,7 +2862,7 @@ void test_bound_propagation_two_rows() {
     vector<implied_bound> ev;
     ls.add_var_bound(y, LE, mpq(1));
     ls.solve();
-    bound_propagator bp(ls);
+    my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 } 
 
@@ -2941,7 +2882,7 @@ void test_total_case_u() {
     vector<implied_bound> ev;
     ls.add_var_bound(z, GE, zero_of_type<mpq>());
     ls.solve();
-    bound_propagator bp(ls);
+    my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
 }
 bool contains_j_kind(unsigned j, lconstraint_kind kind, const mpq & rs, const vector<implied_bound> & ev) {
@@ -2968,7 +2909,7 @@ void test_total_case_l(){
     vector<implied_bound> ev;
     ls.add_var_bound(z, LE, zero_of_type<mpq>());
     ls.solve();
-    bound_propagator bp(ls);
+    my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
     lp_assert(ev.size() == 4);
     lp_assert(contains_j_kind(x, GE, - one_of_type<mpq>(), ev));

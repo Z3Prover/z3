@@ -22,6 +22,6 @@ public:
                                       lp::lconstraint_kind kind,
                                       const rational & bval) {return true;}
     unsigned number_of_found_bounds() const { return m_ibounds.size(); }
-    virtual void consume(mpq const& v, unsigned j) { std::cout << "doh\n"; }
+    virtual void consume(mpq const& v, lp::constraint_index j) = 0;
 };
 }
