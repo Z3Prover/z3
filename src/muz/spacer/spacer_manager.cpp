@@ -176,19 +176,8 @@ static std::vector<std::string> state_suffixes() {
     return res;
 }
 
-manager::manager(unsigned max_num_contexts, ast_manager& manager) :
+manager::manager(ast_manager& manager) :
     m(manager), m_mux(m, state_suffixes()) {
-
-    ref<solver> pool0_base =
-        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
-    ref<solver> pool1_base =
-        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
-    ref<solver> pool2_base =
-        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
-
-    m_pool0 = alloc(solver_pool, pool0_base.get(), max_num_contexts);
-    m_pool1 = alloc(solver_pool, pool1_base.get(), max_num_contexts);
-    m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
 }
 
 

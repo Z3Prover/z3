@@ -40,9 +40,10 @@ Revision History:
 
 namespace spacer {
 
-prop_solver::prop_solver(spacer::manager& pm,
+prop_solver::prop_solver(ast_manager &m,
+                         solver *solver0, solver *solver1,
                          fixedpoint_params const& p, symbol const& name) :
-    m(pm.get_manager()),
+    m(m),
     m_name(name),
     m_ctx(nullptr),
     m_pos_level_atoms(m),
@@ -55,8 +56,8 @@ prop_solver::prop_solver(spacer::manager& pm,
     m_use_push_bg(p.spacer_keep_proxy())
 {
 
-    m_solvers[0] = pm.mk_solver0();
-    m_solvers[1] = pm.mk_solver1();
+    m_solvers[0] = solver0;
+    m_solvers[1] = solver1;
 
     m_contexts[0] = alloc(spacer::iuc_solver, *(m_solvers[0]),
                           p.spacer_iuc(),

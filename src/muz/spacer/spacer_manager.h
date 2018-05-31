@@ -79,10 +79,6 @@ class manager {
     // manager of multiplexed names
     sym_mux               m_mux;
 
-    // three solver pools for different queries
-    scoped_ptr<solver_pool> m_pool0;
-    scoped_ptr<solver_pool> m_pool1;
-    scoped_ptr<solver_pool> m_pool2;
 
     unsigned n_index() const { return 0; }
     unsigned o_index(unsigned i) const { return i + 1; }
@@ -90,7 +86,7 @@ class manager {
     void add_new_state(func_decl * s);
 
 public:
-    manager(unsigned max_num_contexts, ast_manager & manager);
+    manager(ast_manager & manager);
 
     ast_manager& get_manager() const { return m; }
 
@@ -152,29 +148,6 @@ public:
                      unsigned tgt_idx, bool homogenous = true) const
     {m_mux.conv_formula(src, o_index(src_idx), o_index(tgt_idx), tgt, homogenous);}
 
-
-    // three different solvers with three different sets of parameters
-    // different solvers are used for different types of queries in spacer
-    solver* mk_solver0() {return m_pool0->mk_solver();}
-    void updt_params0(const params_ref &p) {m_pool0->updt_params(p);}
-
-    solver* mk_solver1() {return m_pool1->mk_solver();}
-    void updt_params1(const params_ref &p) {m_pool1->updt_params(p);}
-
-    solver* mk_solver2() {return m_pool2->mk_solver();}
-    void updt_params2(const params_ref &p) {m_pool2->updt_params(p);}
-
-    void collect_statistics(statistics& st) const {
-        m_pool0->collect_statistics(st);
-        m_pool1->collect_statistics(st);
-        m_pool2->collect_statistics(st);
-    }
-
-    void reset_statistics() {
-        m_pool0->reset_statistics();
-        m_pool1->reset_statistics();
-        m_pool2->reset_statistics();
-    }
 };
 
 /** Skolem constants for quantified spacer */

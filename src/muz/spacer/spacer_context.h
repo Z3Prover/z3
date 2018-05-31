@@ -290,7 +290,7 @@ class pred_transformer {
     func_decl_ref_vector         m_sig;             // signature
     ptr_vector<pred_transformer> m_use;             // places where 'this' is referenced.
     ptr_vector<datalog::rule>    m_rules;           // rules used to derive transformer
-    prop_solver                  m_solver;          // solver context
+    scoped_ptr<prop_solver>      m_solver;          // solver context
     ref<solver>                  m_reach_solver;       // context for reachability facts
     pobs                         m_pobs;            // proof obligations created so far
     frames                       m_frames;          // frames with lemmas
@@ -796,6 +796,13 @@ class context {
     ast_manager&         m;
     datalog::context*    m_context;
     manager              m_pm;
+
+    // three solver pools for different queries
+    scoped_ptr<solver_pool> m_pool0;
+    scoped_ptr<solver_pool> m_pool1;
+    scoped_ptr<solver_pool> m_pool2;
+
+
     decl2rel             m_rels;         // Map from relation predicate to fp-operator.
     func_decl_ref        m_query_pred;
     pred_transformer*    m_query;
@@ -928,6 +935,13 @@ public:
     void new_pob_eh(pob *p);
 
     bool is_inductive();
+
+
+    // three different solvers with three different sets of parameters
+    // different solvers are used for different types of queries in spacer
+    solver* mk_solver0() {return m_pool0->mk_solver();}
+    solver* mk_solver1() {return m_pool1->mk_solver();}
+    solver* mk_solver2() {return m_pool2->mk_solver();}
 };
 
 inline bool pred_transformer::use_native_mbp () {return ctx.use_native_mbp ();}

@@ -29,19 +29,21 @@ Revision History:
 #include "smt/smt_kernel.h"
 #include "util/util.h"
 #include "util/vector.h"
-#include "muz/spacer/spacer_manager.h"
+#include "solver/solver.h"
 #include "muz/spacer/spacer_iuc_solver.h"
+#include "muz/spacer/spacer_util.h"
 
 struct fixedpoint_params;
 
 namespace spacer {
+typedef ptr_vector<func_decl> decl_vector;
 
 class prop_solver {
 
 private:
     ast_manager&        m;
     symbol              m_name;
-    solver*             m_solvers[2];
+    ref<solver>         m_solvers[2];
     scoped_ptr<iuc_solver>  m_contexts[2];
     iuc_solver *            m_ctx;
     decl_vector         m_level_preds;
@@ -73,7 +75,7 @@ private:
 
 
 public:
-    prop_solver(spacer::manager &manager,
+    prop_solver(ast_manager &m, solver *solver0, solver* solver1,
                 fixedpoint_params const& p, symbol const& name);
 
 
@@ -142,7 +144,7 @@ public:
         solver *sol;
         scoped_weakness(prop_solver &ps, unsigned solver_id, unsigned weakness)
             : sol(nullptr) {
-            sol = ps.m_solvers[solver_id == 0 ? 0 :  0 /* 1 */];
+            sol = ps.m_solvers[solver_id == 0 ? 0 :  0 /* 1 */].get();
             if (!sol) return;
             sol->push_params();
 

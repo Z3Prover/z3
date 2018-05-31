@@ -636,8 +636,8 @@ void lemma::mk_insts(expr_ref_vector &out, expr* e)
 pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     pm(pm), m(pm.get_manager()),
     ctx(ctx), m_head(head, m),
-    m_sig(m), m_solver(pm, ctx.get_params(), head->get_name()),
-    m_reach_solver (pm.mk_solver2()),
+    m_sig(m),
+    m_reach_solver (ctx.mk_solver2()),
     m_pobs(*this),
     m_frames(*this),
     m_reach_facts(), m_rf_init_sz(0),
@@ -645,6 +645,8 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_all_init(false),
     m_reach_case_vars(m)
 {
+    m_solver = alloc(prop_solver, m, ctx.mk_solver0(), ctx.mk_solver1(),
+                     ctx.get_params(), head->get_name());
     init_sig ();
     app_ref v(m);
     std::stringstream name;
@@ -670,7 +672,7 @@ std::ostream& pred_transformer::display(std::ostream& out) const
 
 void pred_transformer::collect_statistics(statistics& st) const
 {
-    m_solver.collect_statistics(st);
+    m_solver->collect_statistics(st);
 
     // -- number of times a lemma has been propagated to a higher level
     // -- during push
@@ -700,7 +702,7 @@ void pred_transformer::collect_statistics(statistics& st) const
 
 void pred_transformer::reset_statistics()
 {
-    m_solver.reset_statistics();
+    m_solver->reset_statistics();
     //m_reachable.reset_statistics();
     m_stats.reset();
     m_initialize_watch.reset ();
@@ -727,7 +729,7 @@ void pred_transformer::ensure_level(unsigned level)
 
     while (m_frames.size() <= level) {
         m_frames.add_frame ();
-        m_solver.add_level ();
+        m_solver->add_level ();
     }
 }
 
@@ -913,10 +915,10 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
     if (is_infty_level(lvl)) { m_stats.m_num_invariants++; }
 
     if (lemma->is_ground()) {
-        if (is_infty_level(lvl)) { m_solver.assert_expr(l); }
+        if (is_infty_level(lvl)) { m_solver->assert_expr(l); }
         else {
             ensure_level (lvl);
-            m_solver.assert_expr (l, lvl);
+            m_solver->assert_expr (l, lvl);
         }
     }
 
@@ -963,10 +965,10 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
             TRACE("spacer_detail", tout << "child property: "
                   << mk_pp(inst.get (j), m) << "\n";);
             if (is_infty_level(lvl)) {
-                m_solver.assert_expr(inst.get(j));
+                m_solver->assert_expr(inst.get(j));
             }
             else {
-                m_solver.assert_expr(inst.get(j), lvl);
+                m_solver->assert_expr(inst.get(j), lvl);
             }
         }
     }
@@ -1195,18 +1197,18 @@ void pred_transformer::propagate_to_infinity (unsigned level)
 bool pred_transformer::is_blocked (pob &n, unsigned &uses_level)
 {
     ensure_level (n.level ());
-    prop_solver::scoped_level _sl (m_solver, n.level ());
-    m_solver.set_core (nullptr);
-    m_solver.set_model (nullptr);
+    prop_solver::scoped_level _sl (*m_solver, n.level ());
+    m_solver->set_core (nullptr);
+    m_solver->set_model (nullptr);
 
     expr_ref_vector post(m), _aux(m);
     post.push_back (n.post ());
     // this only uses the lemmas at the current level
     // transition relation is irrelevant
     // XXX quic3: not all lemmas are asserted at the post-condition
-    lbool res = m_solver.check_assumptions (post, _aux, _aux,
+    lbool res = m_solver->check_assumptions (post, _aux, _aux,
                                             0, nullptr, 0);
-    if (res == l_false) { uses_level = m_solver.uses_level(); }
+    if (res == l_false) { uses_level = m_solver->uses_level(); }
     return res == l_false;
 }
 
@@ -1282,12 +1284,12 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     ensure_level(n.level());
 
     // prepare the solver
-    prop_solver::scoped_level _sl(m_solver, n.level());
-    prop_solver::scoped_subset_core _sc (m_solver, !n.use_farkas_generalizer ());
-    prop_solver::scoped_weakness _sw(m_solver, 0,
+    prop_solver::scoped_level _sl(*m_solver, n.level());
+    prop_solver::scoped_subset_core _sc (*m_solver, !n.use_farkas_generalizer ());
+    prop_solver::scoped_weakness _sw(*m_solver, 0,
                                      ctx.weak_abs() ? n.weakness() : UINT_MAX);
-    m_solver.set_core(core);
-    m_solver.set_model(model);
+    m_solver->set_core(core);
+    m_solver->set_model(model);
 
     expr_ref_vector post (m), reach_assumps (m);
     post.push_back (n.post ());
@@ -1327,7 +1329,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
     // result is either sat (with some reach assumps) or
     // unsat (even with no reach assumps)
     expr *bg = m_extend_lit.get ();
-    lbool is_sat = m_solver.check_assumptions (post, reach_assumps,
+    lbool is_sat = m_solver->check_assumptions (post, reach_assumps,
                                                m_transition_clause, 1, &bg, 0);
 
     TRACE ("spacer",
@@ -1362,7 +1364,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                    }
                }
             );
-        uses_level = m_solver.uses_level();
+        uses_level = m_solver->uses_level();
         return l_false;
     }
     UNREACHABLE();
@@ -1426,22 +1428,22 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
     conj.push_back(mk_not(m, lemma_expr));
     flatten_and (conj);
 
-    prop_solver::scoped_level _sl(m_solver, level);
-    prop_solver::scoped_subset_core _sc (m_solver, true);
-    prop_solver::scoped_weakness _sw (m_solver, 1,
+    prop_solver::scoped_level _sl(*m_solver, level);
+    prop_solver::scoped_subset_core _sc (*m_solver, true);
+    prop_solver::scoped_weakness _sw (*m_solver, 1,
                                       ctx.weak_abs() ? lem->weakness() : UINT_MAX);
     model_ref mdl;
     model_ref *mdl_ref_ptr = nullptr;
     if (ctx.get_params().spacer_ctp()) {mdl_ref_ptr = &mdl;}
-    m_solver.set_core(core);
-    m_solver.set_model(mdl_ref_ptr);
+    m_solver->set_core(core);
+    m_solver->set_model(mdl_ref_ptr);
     expr * bg = m_extend_lit.get ();
-    lbool r = m_solver.check_assumptions (conj, aux, m_transition_clause,
+    lbool r = m_solver->check_assumptions (conj, aux, m_transition_clause,
                                           1, &bg, 1);
     if (r == l_false) {
-        solver_level = m_solver.uses_level ();
+        solver_level = m_solver->uses_level ();
         lem->reset_ctp();
-        if (level < m_solver.uses_level()) {m_stats.m_num_lemma_level_jump++;}
+        if (level < m_solver->uses_level()) {m_stats.m_num_lemma_level_jump++;}
         SASSERT (level <= solver_level);
     }
     else if (r == l_true) {
@@ -1461,21 +1463,21 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
     states = mk_and(state);
     states = m.mk_not(states);
     mk_assumptions(head(), states, conj);
-    prop_solver::scoped_level _sl(m_solver, level);
-    prop_solver::scoped_subset_core _sc (m_solver, true);
-    prop_solver::scoped_weakness _sw (m_solver, 1,
+    prop_solver::scoped_level _sl(*m_solver, level);
+    prop_solver::scoped_subset_core _sc (*m_solver, true);
+    prop_solver::scoped_weakness _sw (*m_solver, 1,
                                       ctx.weak_abs() ? weakness : UINT_MAX);
-    m_solver.set_core(&core);
-    m_solver.set_model (nullptr);
+    m_solver->set_core(&core);
+    m_solver->set_model (nullptr);
     expr_ref_vector aux (m);
     conj.push_back (m_extend_lit);
-    lbool res = m_solver.check_assumptions (state, aux,
+    lbool res = m_solver->check_assumptions (state, aux,
                                             m_transition_clause,
                                             conj.size (), conj.c_ptr (), 1);
     if (res == l_false) {
         state.reset();
         state.append(core);
-        uses_level = m_solver.uses_level();
+        uses_level = m_solver->uses_level();
     }
     TRACE ("core_array_eq",
            tout << "check_inductive: "
@@ -1518,8 +1520,8 @@ void pred_transformer::initialize(decl2rel const& pts)
     rw(m_transition);
     rw(m_init);
 
-    m_solver.assert_expr (m_transition);
-    m_solver.assert_expr (m_init, 0);
+    m_solver->assert_expr (m_transition);
+    m_solver->assert_expr (m_init, 0);
     TRACE("spacer",
           tout << "Initial state: " << mk_pp(m_init, m) << "\n";
           tout << "Transition:    " << mk_pp(m_transition,  m) << "\n";);
@@ -1790,7 +1792,7 @@ app* pred_transformer::extend_initial (expr *e)
 
     // -- extend the initial condition
     ic = m.mk_or (m_extend_lit, e, v);
-    m_solver.assert_expr (ic);
+    m_solver->assert_expr (ic);
 
     // -- remember the new extend literal
     m_extend_lit = m.mk_not (v);
@@ -2076,7 +2078,7 @@ context::context(fixedpoint_params const&     params,
     m_params(params),
     m(m),
     m_context(nullptr),
-    m_pm(params.pdr_max_num_contexts(), m),
+    m_pm(m),
     m_query_pred(m),
     m_query(nullptr),
     m_pob_queue(),
@@ -2090,8 +2092,19 @@ context::context(fixedpoint_params const&     params,
     m_weak_abs(params.spacer_weak_abs()),
     m_use_restarts(params.spacer_restarts()),
     m_restart_initial_threshold(params.spacer_restart_initial_threshold()),
-    m_json_marshaller(this)
-{}
+    m_json_marshaller(this) {
+    ref<solver> pool0_base =
+        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    ref<solver> pool1_base =
+        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    ref<solver> pool2_base =
+        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+
+    unsigned max_num_contexts = params.pdr_max_num_contexts();
+    m_pool0 = alloc(solver_pool, pool0_base.get(), max_num_contexts);
+    m_pool1 = alloc(solver_pool, pool1_base.get(), max_num_contexts);
+    m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
+}
 
 context::~context()
 {
@@ -2370,9 +2383,9 @@ void context::init_global_smt_params() {
         // fparams.m_pi_use_database = true;
     }
 
-    m_pm.updt_params0(p);
-    m_pm.updt_params1(p);
-    m_pm.updt_params2(p);
+    m_pool0->updt_params(p);
+    m_pool1->updt_params(p);
+    m_pool2->updt_params(p);
 }
 void context::init_lemma_generalizers()
 {
@@ -3598,6 +3611,10 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
 void context::collect_statistics(statistics& st) const
 {
+    m_pool0->collect_statistics(st);
+    m_pool1->collect_statistics(st);
+    m_pool2->collect_statistics(st);
+
     decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
     for (it = m_rels.begin(); it != end; ++it) {
         it->m_value->collect_statistics(st);
@@ -3639,7 +3656,6 @@ void context::collect_statistics(statistics& st) const
     st.update("spacer.random_seed", m_params.spacer_random_seed());
     st.update("spacer.lemmas_imported", m_stats.m_num_lemmas_imported);
     st.update("spacer.lemmas_discarded", m_stats.m_num_lemmas_discarded);
-    m_pm.collect_statistics(st);
 
     for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
         m_lemma_generalizers[i]->collect_statistics(st);
@@ -3648,12 +3664,15 @@ void context::collect_statistics(statistics& st) const
 
 void context::reset_statistics()
 {
+    m_pool0->reset_statistics();
+    m_pool1->reset_statistics();
+    m_pool2->reset_statistics();
+
     decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
     for (it = m_rels.begin(); it != end; ++it) {
         it->m_value->reset_statistics();
     }
     m_stats.reset();
-    m_pm.reset_statistics();
 
     for (unsigned i = 0; i < m_lemma_generalizers.size(); ++i) {
         m_lemma_generalizers[i]->reset_statistics();
