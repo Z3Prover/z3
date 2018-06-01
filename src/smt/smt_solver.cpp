@@ -191,8 +191,8 @@ namespace smt {
         }
 
 
-        lbool check_sat_cc_core(expr_ref_vector const& cube, expr_ref_vector const& clause) override {
-            return m_context.check(cube, clause);
+        lbool check_sat_cc_core(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override {
+            return m_context.check(cube, clauses);
         }
 
         struct scoped_minimize_core {

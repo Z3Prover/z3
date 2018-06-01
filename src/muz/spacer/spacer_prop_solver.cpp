@@ -202,7 +202,7 @@ lbool prop_solver::mss(expr_ref_vector &hard, expr_ref_vector &soft) {
             res = m_ctx->check_sat(j+1, hard.c_ptr());
             if (res == l_false) {
                 // -- flip non-true literal to be false
-                hard[j] = m.mk_not(hard.get(j));
+                hard[j] = mk_not(m, hard.get(j));
             }
             else if (res == l_true) {
                 // -- get the model for the next iteration of the outer loop
@@ -218,7 +218,7 @@ lbool prop_solver::mss(expr_ref_vector &hard, expr_ref_vector &soft) {
     }
 
     // move sat soft constraints to the output vector
-    for (unsigned k = i; k < j; ++k) {soft.push_back(hard.get(k));}
+    for (unsigned k = i; k < j; ++k) { soft.push_back(hard.get(k)); }
     // cleanup hard constraints
     hard.resize(hard_sz);
     return l_true;
@@ -228,7 +228,7 @@ lbool prop_solver::mss(expr_ref_vector &hard, expr_ref_vector &soft) {
 /// Runs maxsat loop on m_ctx Returns l_false if hard is unsat,
 /// otherwise reduces soft such that hard & soft is sat.
 lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
-                          const expr_ref_vector &clause)
+                          vector<expr_ref_vector> const & clauses)
 {
     // replace expressions by assumption literals
     iuc_solver::scoped_mk_proxy _p_(*m_ctx, hard);
@@ -236,7 +236,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
     // assume soft constraints are propositional literals (no need to proxy)
     hard.append(soft);
 
-    lbool res = m_ctx->check_sat_cc(hard, clause);
+    lbool res = m_ctx->check_sat_cc(hard, clauses);
     // if hard constraints alone are unsat or there are no soft
     // constraints, we are done
     if (res != l_false || soft.empty()) { return res; }
@@ -270,7 +270,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
         }
 
         // check that the NEW constraints became sat
-        res = m_ctx->check_sat_cc(hard, clause);
+        res = m_ctx->check_sat_cc(hard, clauses);
         if (res != l_false) { break; }
         // still unsat, update the core and repeat
         core.reset();
@@ -290,7 +290,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
 
 lbool prop_solver::internal_check_assumptions(expr_ref_vector &hard_atoms,
                                               expr_ref_vector &soft_atoms,
-                                              const expr_ref_vector &clause)
+                                              vector<expr_ref_vector> const & clauses)
 {
     // XXX Turn model generation if m_model != 0
     SASSERT(m_ctx);
@@ -302,7 +302,7 @@ lbool prop_solver::internal_check_assumptions(expr_ref_vector &hard_atoms,
     }
 
     if (m_in_level) { assert_level_atoms(m_current_level); }
-    lbool result = maxsmt(hard_atoms, soft_atoms, clause);
+    lbool result = maxsmt(hard_atoms, soft_atoms, clauses);
     if (result != l_false && m_model) { m_ctx->get_model(*m_model); }
 
     SASSERT(result != l_false || soft_atoms.empty());
@@ -375,7 +375,9 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
 
     unsigned soft_sz = soft.size();
     (void) soft_sz;
-    lbool res = internal_check_assumptions(hard, soft, clause);
+    vector<expr_ref_vector> clauses;
+    clauses.push_back(clause);
+    lbool res = internal_check_assumptions(hard, soft, clauses);
     if (!m_use_push_bg) { m_ctx->pop(1); }
 
     TRACE("psolve_verbose",

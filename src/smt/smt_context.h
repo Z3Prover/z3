@@ -168,8 +168,8 @@ namespace smt {
         expr_ref_vector             m_units_to_reassert;
         svector<char>               m_units_to_reassert_sign;
         literal_vector              m_assigned_literals;
-        clause*                     m_clause;
-        literal_vector              m_clause_lits;
+        typedef std::pair<clause*, literal_vector> tmp_clause;
+        vector<tmp_clause>          m_tmp_clauses;
         unsigned                    m_qhead;
         unsigned                    m_simp_qhead;
         int                         m_simp_counter; //!< can become negative
@@ -1114,6 +1114,8 @@ namespace smt {
 
         lbool decide_clause();
 
+        void reset_tmp_clauses();
+
         void reset_assumptions();
 
         void reset_clause();
@@ -1505,7 +1507,7 @@ namespace smt {
 
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
 
-        lbool check(expr_ref_vector const& cube, expr_ref_vector const& clause);
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
 

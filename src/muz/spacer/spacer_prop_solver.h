@@ -67,10 +67,10 @@ private:
 
     lbool internal_check_assumptions(expr_ref_vector &hard,
                                      expr_ref_vector &soft,
-                                     const expr_ref_vector &clause);
+                                     vector<expr_ref_vector> const & clause);
 
     lbool maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
-                 const expr_ref_vector &clause);
+                 vector<expr_ref_vector> const & clauses);
     lbool mss(expr_ref_vector &hard, expr_ref_vector &soft);
 
 

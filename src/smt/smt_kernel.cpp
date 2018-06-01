@@ -115,7 +115,7 @@ namespace smt {
             return m_kernel.check(num_assumptions, assumptions);
         }
 
-        lbool check(expr_ref_vector const& cube, expr_ref_vector const& clause) {
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clause) {
             return m_kernel.check(cube, clause);
         }        
 
@@ -291,8 +291,8 @@ namespace smt {
         return r;
     }
 
-    lbool kernel::check(expr_ref_vector const& cube, expr_ref_vector const& clause) {
-        return m_imp->check(cube, clause);
+    lbool kernel::check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
+        return m_imp->check(cube, clauses);
     }
 
 

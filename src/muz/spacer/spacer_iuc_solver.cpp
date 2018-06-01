@@ -128,8 +128,8 @@ lbool iuc_solver::check_sat (unsigned num_assumptions, expr * const *assumptions
 }
 
 lbool iuc_solver::check_sat_cc(const expr_ref_vector &cube,
-                               const expr_ref_vector &clause) {
-    if (clause.empty()) {return check_sat(cube.size(), cube.c_ptr());}
+                               vector<expr_ref_vector> const & clauses) {
+    if (clauses.empty()) {return check_sat(cube.size(), cube.c_ptr());}
 
     // -- remove any old assumptions
     if (m_assumptions.size() > m_first_assumption)
@@ -144,7 +144,7 @@ lbool iuc_solver::check_sat_cc(const expr_ref_vector &cube,
     m_is_proxied = mk_proxies(m_assumptions, m_first_assumption);
 
     lbool res;
-    res = m_solver.check_sat_cc(m_assumptions, clause);
+    res = m_solver.check_sat_cc(m_assumptions, clauses);
     set_status (res);
     return res;
 }

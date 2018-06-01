@@ -61,7 +61,6 @@ namespace smt {
         m_dyn_ack_manager(*this, p),
         m_is_diseq_tmp(nullptr),
         m_units_to_reassert(m_manager),
-        m_clause(nullptr),
         m_qhead(0),
         m_simp_qhead(0),
         m_simp_counter(0),
@@ -1815,7 +1814,7 @@ namespace smt {
     */
     bool context::decide() {
 
-        if (at_search_level() && !m_clause_lits.empty()) {
+        if (at_search_level() && !m_tmp_clauses.empty()) {
             switch (decide_clause()) {
             case l_true:  // already satisfied
                 break;
@@ -2919,8 +2918,7 @@ namespace smt {
         del_clauses(m_aux_clauses, 0);
         del_clauses(m_lemmas, 0);
         del_justifications(m_justifications, 0);
-        if (m_clause) del_clause(m_clause);
-        m_clause = nullptr;
+        reset_tmp_clauses();
         if (m_is_diseq_tmp) {
             m_is_diseq_tmp->del_eh(m_manager, false);
             m_manager.dec_ref(m_is_diseq_tmp->get_owner());
@@ -3135,48 +3133,62 @@ namespace smt {
         return true;
     }
 
-    void context::init_clause(expr_ref_vector const& clause) {
-        if (m_clause) del_clause(m_clause);
-        m_clause = nullptr;
-        m_clause_lits.reset();
-        for (expr* lit : clause) {
+    void context::init_clause(expr_ref_vector const& _clause) {
+        literal_vector lits;
+        for (expr* lit : _clause) {
             internalize_formula(lit, true);
             mark_as_relevant(lit);
-            m_clause_lits.push_back(get_literal(lit));
+            lits.push_back(get_literal(lit));
         }
-        if (m_clause_lits.size() >= 2) {
+        clause* clausep = nullptr;
+        if (lits.size() >= 2) {
             justification* js = nullptr;
             if (m_manager.proofs_enabled()) {
-                proof * pr = mk_clause_def_axiom(m_clause_lits.size(), m_clause_lits.c_ptr(), nullptr);
+                proof * pr = mk_clause_def_axiom(lits.size(), lits.c_ptr(), nullptr);
                 js = mk_justification(justification_proof_wrapper(*this, pr));
             }
-            m_clause = clause::mk(m_manager, m_clause_lits.size(), m_clause_lits.c_ptr(), CLS_AUX, js);
+            clausep = clause::mk(m_manager, lits.size(), lits.c_ptr(), CLS_AUX, js);
         }
+        m_tmp_clauses.push_back(std::make_pair(clausep, lits));
+    }
+
+    void context::reset_tmp_clauses() {
+        for (auto& p : m_tmp_clauses) {
+            if (p.first) del_clause(p.first);
+        }
+        m_tmp_clauses.reset();
     }
 
     lbool context::decide_clause() {
-        if (m_clause_lits.empty()) return l_true;
-        shuffle(m_clause_lits.size(), m_clause_lits.c_ptr(), m_random);
-        for (literal l : m_clause_lits) {
-            switch (get_assignment(l)) {
-            case l_false:
-                break;
-            case l_true:
-                return l_true;
-            default:
-                push_scope();
-                assign(l, b_justification::mk_axiom(), true);
-                return l_undef;
-            }            
+        if (m_tmp_clauses.empty()) return l_true;
+        for (auto & tmp_clause : m_tmp_clauses) {
+            literal_vector& lits = tmp_clause.second;
+            for (literal l : lits) {
+                switch (get_assignment(l)) {
+                case l_false:
+                    break;
+                case l_true:
+                    goto next_clause;
+                default:
+                    shuffle(lits.size(), lits.c_ptr(), m_random);
+                    push_scope();
+                    assign(l, b_justification::mk_axiom(), true);
+                    return l_undef;
+                }         
+            }
+
+            if (lits.size() == 1) {
+                set_conflict(b_justification(), ~lits[0]);
+            }
+            else {
+                set_conflict(b_justification(tmp_clause.first), null_literal);
+            }		
+            VERIFY(!resolve_conflict());
+            return l_false;
+        next_clause:
+            ;
         }
-        if (m_clause_lits.size() == 1) {
-            set_conflict(b_justification(), ~m_clause_lits[0]);
-        }
-        else {
-            set_conflict(b_justification(m_clause), null_literal);
-        }		
-        VERIFY(!resolve_conflict());
-        return l_false;
+        return l_true;
     }
 
     void context::init_assumptions(expr_ref_vector const& asms) {
@@ -3277,10 +3289,7 @@ namespace smt {
             m_last_search_failure = MEMOUT;
             return false;
         }
-        
-        if (m_clause) del_clause(m_clause);
-        m_clause = nullptr;
-        m_clause_lits.reset();
+        reset_tmp_clauses();
         m_unsat_core.reset();
         m_stats.m_num_checks++;
         pop_to_base_lvl();
@@ -3387,17 +3396,17 @@ namespace smt {
         return r;
     }
 
-    lbool context::check(expr_ref_vector const& cube, expr_ref_vector const& clause) {
+    lbool context::check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
         if (!check_preamble(true)) return l_undef;
         TRACE("before_search", display(tout););
         setup_context(false);
         expr_ref_vector asms(cube);
         add_theory_assumptions(asms);
         if (!validate_assumptions(asms)) return l_undef;
-        if (!validate_assumptions(clause)) return l_undef;
+        for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
         internalize_assertions();
         init_assumptions(asms);
-        init_clause(clause);
+        for (auto const& clause : clauses) init_clause(clause);
         lbool r = search();   
         r = mk_unsat_core(r);             
         r = check_finalize(r);

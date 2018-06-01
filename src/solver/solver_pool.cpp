@@ -144,14 +144,14 @@ public:
 
         if (m_dump_benchmarks && sw.get_seconds() >= m_dump_threshold) {
             expr_ref_vector cube(m, num_assumptions, assumptions);
-            expr_ref_vector clause(m);
-            dump_benchmark(cube, clause, res, sw.get_seconds());
+            vector<expr_ref_vector> clauses;
+            dump_benchmark(cube, clauses, res, sw.get_seconds());
         }
         return res;
     }
 
-    lbool check_sat_cc_core(const expr_ref_vector &cube,
-                            const expr_ref_vector &clause) override {
+    lbool check_sat_cc_core(expr_ref_vector const & cube,
+                            vector<expr_ref_vector> const & clauses) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         m_proof.reset();
         scoped_watch _t_(m_pool.m_check_watch);
@@ -160,7 +160,7 @@ public:
         stopwatch sw;
         sw.start();
         internalize_assertions();
-        lbool res = m_base->check_sat_cc(cube, clause);
+        lbool res = m_base->check_sat_cc(cube, clauses);
         sw.stop();
         switch (res) {
         case l_true:
@@ -177,7 +177,7 @@ public:
         set_status(res);
 
         if (m_dump_benchmarks && sw.get_seconds() >= m_dump_threshold) {
-            dump_benchmark(cube, clause, res, sw.get_seconds());
+            dump_benchmark(cube, clauses, res, sw.get_seconds());
         }
         return res;
     }
@@ -265,7 +265,7 @@ public:
 
 private:
 
-    void dump_benchmark(const expr_ref_vector &cube, const expr_ref_vector &clause,
+    void dump_benchmark(const expr_ref_vector &cube, vector<expr_ref_vector> const & clauses,
                         lbool last_status, double last_time) {
         std::string file_name = mk_file_name();
         std::ofstream out(file_name);
@@ -276,7 +276,7 @@ private:
 
         out << "(set-info :status " << lbool2status(last_status) << ")\n";
         m_base->display(out, cube.size(), cube.c_ptr());
-        if (!clause.empty()) {
+        for (auto const& clause : clauses) {
             out << ";; extra clause\n";
             out << "(assert (or ";
             for (auto *lit : clause) out << mk_pp(lit, m) << " ";
