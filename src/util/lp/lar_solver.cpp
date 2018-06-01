@@ -1703,7 +1703,7 @@ constraint_index lar_solver::add_constraint(const vector<std::pair<mpq, var_inde
     substitute_terms_in_linear_expression(left_side_with_terms, left_side, rs);
     unsigned term_index = add_term(left_side, zero_of_type<mpq>());
     constraint_index ci = m_constraints.size();
-    add_var_bound_on_constraint_for_term(term_index, kind_par, -rs, ci);
+    add_var_bound_on_constraint_for_term(term_index, kind_par, -rs, ci);
     return ci;
 }
 
@@ -2186,7 +2186,7 @@ void lar_solver::round_to_integer_solution() {
     }
 }
 
-bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term_index, mpq & rs, constraint_index& ci) const {
+bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci) const {
     unsigned tj = term_index + m_terms_start_index;
     auto it = m_ext_vars_to_columns.find(tj);
     if (it == m_ext_vars_to_columns.end())

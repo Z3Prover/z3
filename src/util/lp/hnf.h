@@ -482,7 +482,7 @@ class hnf {
             return false;
         }
         if (!is_correct_form()) {
-            tout << "is_correct_form() does not hold" << std::endl;
+            TRACE("hnf_calc", tout << "is_correct_form() does not hold" << std::endl;);
             return false;
         }
         return true;
@@ -616,13 +616,11 @@ public:
 #endif
         calculate_by_modulo();
 #ifdef Z3DEBUG
-        if (m_H != m_W) {
-            TRACE("hnf_calc",
-                  tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
-                  tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
-                  tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
-            lp_assert(false);
-        }
+        CTRACE("hnf_calc", m_H != m_W,
+               tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
+               tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
+               tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
+        lp_assert (m_H == m_W);
 #endif
     }
 

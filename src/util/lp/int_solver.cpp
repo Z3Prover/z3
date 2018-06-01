@@ -543,7 +543,7 @@ bool int_solver::try_add_term_to_A_for_hnf(unsigned i, bool & have_non_integral_
             local_have_non_integral_x = ! get_value(p.var()).is_int();
     }
     constraint_index ci;
-    if (m_lar_solver->get_equality_and_right_side_for_term_on_corrent_x(i, rs, ci)) {
+    if (m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci)) {
         m_hnf_cutter.add_term(t, rs, ci);
         if (!have_non_integral_x)
             have_non_integral_x = local_have_non_integral_x;
