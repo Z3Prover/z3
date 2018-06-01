@@ -2765,6 +2765,8 @@ def _py2expr(a, ctx=None):
         return IntVal(a, ctx)
     if isinstance(a, float):
         return RealVal(a, ctx)
+    if is_expr(a):
+        return a
     if __debug__:
         _z3_assert(False, "Python bool, int, long or float expected")
 
@@ -4398,6 +4400,117 @@ def is_store(a):
     True
     """
     return is_app_of(a, Z3_OP_STORE)
+
+#########################################
+#
+# Sets
+#
+#########################################
+
+
+def SetSort(s):
+    """ Create a set sort over element sort s"""
+    return ArraySort(s, BoolSort())
+
+def EmptySet(s):
+    """Create the empty set
+    >>> EmptySet(IntSort())
+    K(Int, False)
+    """
+    ctx = s.ctx
+    return ArrayRef(Z3_mk_empty_set(ctx.ref(), s.ast), ctx)
+
+def FullSet(s):
+    """Create the full set
+    >>> FullSet(IntSort())
+    K(Int, True)
+    """
+    ctx = s.ctx
+    return ArrayRef(Z3_mk_full_set(ctx.ref(), s.ast), ctx)
+
+def SetUnion(*args):
+    """ Take the union of sets
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> b = Const('b', SetSort(IntSort()))
+    >>> SetUnion(a, b)
+    union(a, b)
+    """
+    args = _get_args(args)
+    ctx = _ctx_from_ast_arg_list(args)
+    _args, sz = _to_ast_array(args)
+    return ArrayRef(Z3_mk_set_union(ctx.ref(), sz, _args), ctx)
+
+def SetIntersect(*args):
+    """ Take the union of sets
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> b = Const('b', SetSort(IntSort()))
+    >>> SetIntersect(a, b)
+    intersect(a, b)
+    """
+    args = _get_args(args)
+    ctx = _ctx_from_ast_arg_list(args)
+    _args, sz = _to_ast_array(args)
+    return ArrayRef(Z3_mk_set_intersect(ctx.ref(), sz, _args), ctx)
+
+def SetAdd(s, e):
+    """ Add element e to set s
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> SetAdd(a, 1)
+    Store(a, 1, True)
+    """
+    ctx = _ctx_from_ast_arg_list([s,e])
+    e = _py2expr(e, ctx)
+    return ArrayRef(Z3_mk_set_add(ctx.ref(), s.as_ast(), e.as_ast()), ctx)
+
+def SetDel(s, e):
+    """ Remove element e to set s
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> SetDel(a, 1)
+    Store(a, 1, False)
+    """
+    ctx = _ctx_from_ast_arg_list([s,e])
+    e = _py2expr(e, ctx)
+    return ArrayRef(Z3_mk_set_del(ctx.ref(), s.as_ast(), e.as_ast()), ctx)
+
+def SetComplement(s):
+    """ The complement of set s
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> SetComplement(a)
+    complement(a)
+    """
+    ctx = s.ctx
+    return ArrayRef(Z3_mk_set_complement(ctx.ref(), s.as_ast()), ctx)
+
+def SetDifference(a, b):
+    """ The set difference of a and b
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> b = Const('b', SetSort(IntSort()))
+    >>> SetDifference(a, b)
+    difference(a, b)
+    """
+    ctx = _ctx_from_ast_arg_list([a, b])
+    return ArrayRef(Z3_mk_set_difference(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
+      
+def IsMember(e, s):
+    """ Check if e is a member of set s
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> IsMember(1, a)
+    a[1]
+    """
+    ctx = _ctx_from_ast_arg_list([s,e])
+    e = _py2expr(e, ctx)
+    return BoolRef(Z3_mk_set_member(ctx.ref(), e.as_ast(), s.as_ast()), ctx)
+    
+def IsSubset(a, b):
+    """ Check if a is a subset of b
+    >>> a = Const('a', SetSort(IntSort()))
+    >>> b = Const('b', SetSort(IntSort()))
+    >>> IsSubset(a, b)
+    subset(a, b)
+    """
+    ctx = _ctx_from_ast_arg_list([a, b])
+    return BoolRef(Z3_mk_set_subset(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
+
 
 #########################################
 #
