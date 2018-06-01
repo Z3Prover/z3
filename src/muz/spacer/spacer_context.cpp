@@ -244,7 +244,8 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "create_next_child::qproject1",
                         verbose_stream ());
-        pt().mbp(vars, m_trans, mev.get_model());
+        pt().mbp(vars, m_trans, mev.get_model(),
+                 true, pt().get_context().use_ground_cti());
         //qe::reduce_array_selects (*mev.get_model (), m_trans);
         // remember variables that need to be existentially quantified
         m_evars.append (vars);
@@ -272,7 +273,8 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         timeit _timer2 (is_trace_enabled("spacer_timeit"),
                         "create_next_child::qproject2",
                         verbose_stream ());
-        pt().mbp(vars, post, mev.get_model());
+        pt().mbp(vars, post, mev.get_model(),
+                 true, pt().get_context().use_ground_cti());
         //qe::reduce_array_selects (*mev.get_model (), post);
 
         // remember variables that need to be existentially quantified
@@ -370,7 +372,8 @@ pob *derivation::create_next_child ()
         { vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); }
 
         if (!vars.empty ()) {
-            this->pt().mbp(vars, m_trans, mev.get_model());
+            this->pt().mbp(vars, m_trans, mev.get_model(),
+                           true, this->pt().get_context().use_ground_cti());
             // keep track of implicitly quantified variables
             m_evars.append (vars);
         }
@@ -1244,11 +1247,10 @@ bool pred_transformer::is_qblocked (pob &n) {
 }
 
 
-void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml,
-                           const model_ref &mdl, bool reduce_all_selects) {
+void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml, const model_ref &mdl,
+                           bool reduce_all_selects, bool force) {
     scoped_watch _t_(m_mbp_watch);
-    qe_project(m, vars, fml, mdl, reduce_all_selects,
-               use_native_mbp(), !ctx.use_ground_cti());
+    qe_project(m, vars, fml, mdl, reduce_all_selects, use_native_mbp(), !force);
 }
 
 //
@@ -3523,7 +3525,7 @@ reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "mk_rf::qe_project",
                         verbose_stream ());
-        mbp(vars, res, mev.get_model(), false /*, false */);
+        mbp(vars, res, mev.get_model(), false, true /* force or skolemize */);
     }
 
 
@@ -3601,7 +3603,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     n.get_skolems(vars);
 
     expr_ref phi1 = mk_and (Phi);
-    n.pt().mbp(vars, phi1, mev.get_model ());
+    n.pt().mbp(vars, phi1, mev.get_model (), true, use_ground_cti());
     //qe::reduce_array_selects (*mev.get_model (), phi1);
     SASSERT (!m_ground_cti || vars.empty ());
 

@@ -463,7 +463,7 @@ public:
 
     /// \brief interface to Model Based Projection
     void mbp(app_ref_vector &vars, expr_ref &fml, const model_ref &mdl,
-             bool reduce_all_selects = true);
+             bool reduce_all_selects, bool force = false);
 
     void updt_solver(prop_solver *solver);
 
