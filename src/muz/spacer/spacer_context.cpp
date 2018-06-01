@@ -335,7 +335,7 @@ pob *derivation::create_next_child ()
     mev.set_model (*model);
     // find must summary used
 
-    reach_fact *rf = pt.get_used_reach_fact (mev, true);
+    reach_fact *rf = pt.get_used_rf (mev, true);
 
     // get an implicant of the summary
     expr_ref_vector u(m), lits (m);
@@ -759,7 +759,7 @@ bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
 
 
 
-reach_fact* pred_transformer::get_used_reach_fact (model_evaluator_util& mev,
+reach_fact* pred_transformer::get_used_rf (model_evaluator_util& mev,
                                                    bool all) {
     expr_ref v (m);
 
@@ -772,7 +772,7 @@ reach_fact* pred_transformer::get_used_reach_fact (model_evaluator_util& mev,
     return nullptr;
 }
 
-reach_fact *pred_transformer::get_used_origin_reach_fact (model_evaluator_util& mev,
+reach_fact *pred_transformer::get_used_origin_rf (model_evaluator_util& mev,
                                                           unsigned oidx) {
     expr_ref b(m), v(m);
 
@@ -830,10 +830,10 @@ const datalog::rule *pred_transformer::find_rule(model &model,
                 bool used = false;
                 func_decl* d = r->get_tail(i)->get_decl();
                 const pred_transformer &pt = ctx.get_pred_transformer(d);
-                if (!pt.has_reach_facts()) {is_concrete = false;}
+                if (!pt.has_rfs()) {is_concrete = false;}
                 else {
                     expr_ref v(m);
-                    pm.formula_n2o(pt.get_last_reach_tag (), v, i);
+                    pm.formula_n2o(pt.get_last_rf_tag (), v, i);
                     model.eval(to_app (v.get ())->get_decl (), vl);
                     used = m.is_false (vl);
                     is_concrete = is_concrete && used;
@@ -971,7 +971,7 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
 
 }
 
-app_ref pred_transformer::mk_fresh_reach_tag ()
+app_ref pred_transformer::mk_fresh_rf_tag ()
 {
     std::stringstream name;
     func_decl_ref decl(m);
@@ -982,19 +982,19 @@ app_ref pred_transformer::mk_fresh_reach_tag ()
     return app_ref(m.mk_const (pm.get_n_pred (decl)), m);
 }
 
-void pred_transformer::add_reach_fact (reach_fact *rf)
+void pred_transformer::add_rf (reach_fact *rf)
 {
     timeit _timer (is_trace_enabled("spacer_timeit"),
-                   "spacer::pred_transformer::add_reach_fact",
+                   "spacer::pred_transformer::add_rf",
                    verbose_stream ());
 
     TRACE ("spacer",
-           tout << "add_reach_fact: " << head()->get_name() << " "
+           tout << "add_rf: " << head()->get_name() << " "
            << (rf->is_init () ? "INIT " : "")
            << mk_pp(rf->get (), m) << "\n";);
 
     // -- avoid duplicates
-    if (!rf || get_reach_fact(rf->get())) {return;}
+    if (!rf || get_rf(rf->get())) {return;}
 
     // all initial facts are grouped together
     SASSERT (!rf->is_init () || m_reach_facts.empty () ||
@@ -1007,7 +1007,7 @@ void pred_transformer::add_reach_fact (reach_fact *rf)
 
     if (!m_reach_facts.empty()) {last_tag = m_reach_facts.back()->tag();}
     if (rf->is_init ())
-        new_tag = mk_fresh_reach_tag();
+        new_tag = mk_fresh_rf_tag();
     else
         // side-effect: updates m_solver with rf
         new_tag = to_app(extend_initial(rf->get())->get_arg(0));
@@ -1070,7 +1070,7 @@ expr_ref pred_transformer::get_reachable()
     return res;
 }
 
-expr* pred_transformer::get_last_reach_tag () const
+expr* pred_transformer::get_last_rf_tag () const
 {return m_reach_facts.empty() ? nullptr : m_reach_facts.back()->tag();}
 
 expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
@@ -1134,7 +1134,7 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
         // -- no auxiliary variables in lemmas
         *aux = nullptr;
     } else { // find must summary to use
-        reach_fact *f = get_used_origin_reach_fact (mev, oidx);
+        reach_fact *f = get_used_origin_rf (mev, oidx);
         summary.push_back (f->get ());
         *aux = &f->aux_vars ();
     }
@@ -1294,9 +1294,9 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
             for (unsigned i = 0; i < m_predicates.size(); i++) {
                 const pred_transformer &pt =
                     ctx.get_pred_transformer(m_predicates[i]);
-                if (pt.has_reach_facts()) {
+                if (pt.has_rfs()) {
                     expr_ref a(m);
-                    pm.formula_n2o(pt.get_last_reach_tag(), a, i);
+                    pm.formula_n2o(pt.get_last_rf_tag(), a, i);
                     reach_assumps.push_back(m.mk_not (a));
                 } else {
                     reach_assumps.push_back(m.mk_not (entry.m_key));
@@ -1521,7 +1521,7 @@ void pred_transformer::initialize(decl2rel const& pts)
 
 }
 
-void pred_transformer::init_reach_facts ()
+void pred_transformer::init_rfs ()
 {
     expr_ref_vector v(m);
     reach_fact_ref fact;
@@ -1531,7 +1531,7 @@ void pred_transformer::init_reach_facts ()
         if (r->get_uninterpreted_tail_size() == 0) {
             fact = alloc (reach_fact, m, *r, m_rule2transition.find(r),
                           get_aux_vars(*r), true);
-            add_reach_fact(fact.get ());
+            add_rf(fact.get ());
         }
     }
 }
@@ -2164,7 +2164,7 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
     }
 
     // initialize reach facts
-    for (auto &entry : rels) {entry.m_value->init_reach_facts();}
+    for (auto &entry : rels) {entry.m_value->init_rfs();}
 }
 
 void context::inherit_lemmas(const decl2rel &rels) {
@@ -2505,7 +2505,7 @@ unsigned context::get_cex_depth()
     pred_transformer* pt;
 
     // get and discard query rule
-    fact = m_query->get_last_reach_fact ();
+    fact = m_query->get_last_rf ();
     r = &fact->get_rule ();
 
     unsigned cex_depth = 0;
@@ -2580,7 +2580,7 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
     pred_transformer* pt;
 
     // get query rule
-    fact = m_query->get_last_reach_fact ();
+    fact = m_query->get_last_rf ();
     r = &fact->get_rule ();
     rules.push_back (const_cast<datalog::rule *> (r));
     TRACE ("spacer",
@@ -2687,7 +2687,7 @@ expr_ref context::get_ground_sat_answer()
     datalog::rule const* r;
 
     // get and discard query rule
-    reach_fact = m_query->get_last_reach_fact ();
+    reach_fact = m_query->get_last_rf ();
     r = &reach_fact->get_rule ();
 
     // initialize queues
@@ -3028,8 +3028,8 @@ bool context::is_reachable(pob &n)
     mev.set_model(*model);
     // -- update must summary
     if (r && r->get_uninterpreted_tail_size () > 0) {
-        reach_fact_ref rf = n.pt().mk_reach_fact (n, mev, *r);
-        n.pt ().add_reach_fact (rf.get ());
+        reach_fact_ref rf = n.pt().mk_rf (n, mev, *r);
+        n.pt ().add_rf (rf.get ());
     }
 
     // if n has a derivation, create a new child and report l_undef
@@ -3168,9 +3168,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (is_concrete) {
             // -- update must summary
             if (r && r->get_uninterpreted_tail_size() > 0) {
-                reach_fact_ref rf = n.pt().mk_reach_fact (n, mev, *r);
+                reach_fact_ref rf = n.pt().mk_rf (n, mev, *r);
                 checkpoint ();
-                n.pt ().add_reach_fact (rf.get ());
+                n.pt ().add_rf (rf.get ());
                 checkpoint ();
             }
 
@@ -3383,12 +3383,12 @@ bool context::propagate(unsigned min_prop_lvl,
     return false;
 }
 
-reach_fact *pred_transformer::mk_reach_fact (pob& n, model_evaluator_util &mev,
+reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
                                              const datalog::rule& r)
 {
     SASSERT(&n.pt() == this);
     timeit _timer1 (is_trace_enabled("spacer_timeit"),
-                    "mk_reach_fact",
+                    "mk_rf",
                     verbose_stream ());
     expr_ref res(m);
     reach_fact_ref_vector child_reach_facts;
@@ -3405,7 +3405,7 @@ reach_fact *pred_transformer::mk_reach_fact (pob& n, model_evaluator_util &mev,
         pred_transformer& ch_pt = ctx.get_pred_transformer (pred);
         // get a reach fact of body preds used in the model
         expr_ref o_ch_reach (m);
-        reach_fact *kid = ch_pt.get_used_origin_reach_fact (mev, i);
+        reach_fact *kid = ch_pt.get_used_origin_rf (mev, i);
         child_reach_facts.push_back (kid);
         pm.formula_n2o (kid->get (), o_ch_reach, i);
         path_cons.push_back (o_ch_reach);
@@ -3444,7 +3444,7 @@ reach_fact *pred_transformer::mk_reach_fact (pob& n, model_evaluator_util &mev,
 
     {
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
-                        "mk_reach_fact::qe_project",
+                        "mk_rf::qe_project",
                         verbose_stream ());
         mbp(vars, res, mev.get_model(), false /*, false */);
     }

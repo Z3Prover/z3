@@ -339,14 +339,14 @@ class pred_transformer {
 
     void add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r);
 
-    app_ref mk_fresh_reach_tag ();
+    app_ref mk_fresh_rf_tag ();
 
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
     ~pred_transformer();
 
     inline bool use_native_mbp ();
-    reach_fact *get_reach_fact (expr *v) {
+    reach_fact *get_rf (expr *v) {
         for (auto *rf : m_reach_facts) {
             if (v == rf->get()) {return rf;}
         }
@@ -379,9 +379,9 @@ public:
     bool is_must_reachable(expr* state, model_ref* model = nullptr);
     /// \brief Returns reachability fact active in the given model
     /// all determines whether initial reachability facts are included as well
-    reach_fact *get_used_reach_fact(model_evaluator_util& mev, bool all = true);
+    reach_fact *get_used_rf(model_evaluator_util& mev, bool all = true);
     /// \brief Returns reachability fact active in the origin of the given model
-    reach_fact* get_used_origin_reach_fact(model_evaluator_util &mev, unsigned oidx);
+    reach_fact* get_used_origin_rf(model_evaluator_util &mev, unsigned oidx);
     expr_ref get_origin_summary(model_evaluator_util &mev,
                                 unsigned level, unsigned oidx, bool must,
                                 const ptr_vector<app> **aux);
@@ -400,15 +400,15 @@ public:
     bool add_lemma(expr * lemma, unsigned lvl);
     bool add_lemma(lemma* lem) {return m_frames.add_lemma(lem);}
     expr* get_reach_case_var (unsigned idx) const;
-    bool has_reach_facts () const { return !m_reach_facts.empty () ;}
+    bool has_rfs () const { return !m_reach_facts.empty () ;}
 
     /// initialize reachability facts using initial rules
-    void init_reach_facts ();
-    reach_fact *mk_reach_fact(pob &n, model_evaluator_util &mev,
+    void init_rfs ();
+    reach_fact *mk_rf(pob &n, model_evaluator_util &mev,
                               const datalog::rule &r);
-    void add_reach_fact (reach_fact *fact);  // add reachability fact
-    reach_fact* get_last_reach_fact () const { return m_reach_facts.back (); }
-    expr* get_last_reach_tag () const;
+    void add_rf (reach_fact *fact);  // add reachability fact
+    reach_fact* get_last_rf () const { return m_reach_facts.back (); }
+    expr* get_last_rf_tag () const;
 
     pob* mk_pob(pob *parent, unsigned level, unsigned depth,
                 expr *post, app_ref_vector const &b){
