@@ -64,7 +64,6 @@ void permutation_matrix<T, X>::apply_from_left(vector<X> & w, lp_settings & ) {
     // L * deb_w = clone_vector<L>(w, row_count());
     // deb.apply_from_left(deb_w);
 #endif
-    // std::cout << " apply_from_left " << std::endl;
     lp_assert(m_X_buffer.size() == w.size());
     unsigned i = size();
     while (i-- > 0) {

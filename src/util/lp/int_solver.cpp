@@ -530,33 +530,38 @@ lia_move int_solver::gomory_cut() {
 }
 
 
-bool int_solver::try_add_term_to_A_for_hnf(unsigned i) {
+bool int_solver::try_add_term_to_A_for_hnf(unsigned i, bool & have_non_integral_x) {
     mpq rs;
     const lar_term* t = m_lar_solver->terms()[i];
+    bool local_have_non_integral_x = false;
     for (const auto & p : *t) {
         if (!is_int(p.var())) {
             lp_assert(false); 
             return false; // todo : the mix case!
         }
+        if (!local_have_non_integral_x)
+            local_have_non_integral_x = ! get_value(p.var()).is_int();
     }
-    bool has_bounds;
-    if (m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, has_bounds)) {
-        m_hnf_cutter.add_term(t, rs);
+    constraint_index ci;
+    if (m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci)) {
+        m_hnf_cutter.add_term(t, rs, ci);
+        if (!have_non_integral_x)
+            have_non_integral_x = local_have_non_integral_x;
         return true;
     }
-    return !has_bounds;
+    return false;
 }
 
 bool int_solver::hnf_matrix_is_empty() const { return true; }
 
 bool int_solver::init_terms_for_hnf_cut() {
+    bool have_non_integral_x = false;
     m_hnf_cutter.clear();
     for (unsigned i = 0; i < m_lar_solver->terms().size(); i++) {
-        try_add_term_to_A_for_hnf(i);
+        try_add_term_to_A_for_hnf(i, have_non_integral_x);
     }
-    return m_hnf_cutter.row_count() < settings().limit_on_rows_for_hnf_cutter;
+    return have_non_integral_x && m_hnf_cutter.row_count() < settings().limit_on_rows_for_hnf_cutter;
 }
-
 
 lia_move int_solver::make_hnf_cut() {
     if (!init_terms_for_hnf_cut()) {
@@ -576,6 +581,9 @@ lia_move int_solver::make_hnf_cut() {
     if (r == lia_move::cut) {        
         lp_assert(current_solution_is_inf_on_cut());
         settings().st().m_hnf_cuts++;
+        for (unsigned i = 0; i < m_hnf_cutter.row_count(); i++) {
+            m_ex->push_justification(m_hnf_cutter.constraints_for_explanation()[i]);
+        }
     }
     return r;
 }
