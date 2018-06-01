@@ -125,6 +125,8 @@ void prop_solver::assert_expr(expr * form)
 
 void prop_solver::assert_expr(expr * form, unsigned level)
 {
+    if (is_infty_level(level)) {assert_expr(form);return;}
+
     ensure_level(level);
     app * lev_atom = m_pos_level_atoms[level].get();
     app_ref lform(m.mk_or(form, lev_atom), m);

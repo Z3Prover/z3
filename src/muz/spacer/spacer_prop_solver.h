@@ -93,6 +93,13 @@ public:
     void assert_expr(expr * form);
     void assert_expr(expr * form, unsigned level);
 
+    void assert_exprs(const expr_ref_vector &fmls) {
+        for (auto *f : fmls) assert_expr(f);
+    }
+    void assert_exprs(const expr_ref_vector &fmls, unsigned level) {
+        for (auto *f : fmls) assert_expr(f, level);
+    }
+
     /**
      * check assumptions with a background formula
      */

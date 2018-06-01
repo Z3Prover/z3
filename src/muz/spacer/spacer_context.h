@@ -223,7 +223,8 @@ class pred_transformer {
         ~frames() {}
         void simplify_formulas ();
 
-        pred_transformer& pt () {return m_pt;}
+        pred_transformer& pt() const {return m_pt;}
+        const lemma_ref_vector &lemmas() const {return m_lemmas;}
 
 
         void get_frame_lemmas (unsigned level, expr_ref_vector &out) const {
