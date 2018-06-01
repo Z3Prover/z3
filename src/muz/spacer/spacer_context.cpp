@@ -641,18 +641,24 @@ pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     m_pobs(*this),
     m_frames(*this),
     m_reach_facts(), m_rf_init_sz(0),
-    m_transition_clause(m), m_transition(m), m_init(m), m_extend_lit(m),
-    m_all_init(false),
-    m_reach_case_vars(m)
+    m_transition_clause(m), m_transition(m), m_init(m),
+    m_extend_lit0(m), m_extend_lit(m),
+    m_all_init(false)
 {
     m_solver = alloc(prop_solver, m, ctx.mk_solver0(), ctx.mk_solver1(),
                      ctx.get_params(), head->get_name());
     init_sig ();
+
+    m_extend_lit = mk_extend_lit();
+    m_extend_lit0 = m_extend_lit;
+}
+
+app_ref pred_transformer::mk_extend_lit() {
     app_ref v(m);
     std::stringstream name;
     name << m_head->get_name () << "_ext0";
     v = m.mk_const (symbol(name.str().c_str()), m.mk_bool_sort());
-    m_extend_lit = m.mk_not (m.mk_const (pm.get_n_pred (v->get_decl ())));
+    return app_ref(m.mk_not (m.mk_const (pm.get_n_pred (v->get_decl ()))), m);
 }
 
 pred_transformer::~pred_transformer() {
@@ -743,7 +749,7 @@ bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
 
     m_reach_solver->push ();
     m_reach_solver->assert_expr (state);
-    m_reach_solver->assert_expr (m.mk_not (m_reach_case_vars.back ()));
+    m_reach_solver->assert_expr (m.mk_not (m_reach_facts.back()->tag()));
     lbool res = m_reach_solver->check_sat (0, nullptr);
     if (model) { m_reach_solver->get_model(*model); }
     m_reach_solver->pop (1);
@@ -754,39 +760,29 @@ bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
 
 
 reach_fact* pred_transformer::get_used_reach_fact (model_evaluator_util& mev,
-                                                   bool all)
-{
+                                                   bool all) {
     expr_ref v (m);
 
-    for (unsigned i = all ? 0 : m_rf_init_sz, sz = m_reach_case_vars.size ();
-         i < sz; i++) {
-        VERIFY (mev.eval (m_reach_case_vars.get (i), v, false));
-        if (m.is_false (v)) {
-            return m_reach_facts.get (i);
-        }
+    for (auto *rf : m_reach_facts) {
+        if (!all && rf->is_init()) continue;
+        VERIFY(mev.eval (rf->tag(), v, false));
+        if (m.is_false(v)) return rf;
     }
-
-    UNREACHABLE ();
+    UNREACHABLE();
     return nullptr;
 }
 
 reach_fact *pred_transformer::get_used_origin_reach_fact (model_evaluator_util& mev,
-                                                          unsigned oidx)
-{
+                                                          unsigned oidx) {
     expr_ref b(m), v(m);
-    reach_fact *res = nullptr;
 
-    for (unsigned i = 0, sz = m_reach_case_vars.size (); i < sz; i++) {
-        pm.formula_n2o (m_reach_case_vars.get (i), v, oidx);
+    for (auto *rf : m_reach_facts) {
+        pm.formula_n2o (rf->tag(), v, oidx);
         VERIFY(mev.eval (v, b, false));
-
-        if (m.is_false (b)) {
-            res = m_reach_facts.get (i);
-            break;
-        }
+        if (m.is_false (b)) return rf;
     }
-    SASSERT (res);
-    return res;
+    UNREACHABLE();
+    return nullptr;
 }
 
 const datalog::rule *pred_transformer::find_rule(model &model) {
@@ -837,7 +833,7 @@ const datalog::rule *pred_transformer::find_rule(model &model,
                 if (!pt.has_reach_facts()) {is_concrete = false;}
                 else {
                     expr_ref v(m);
-                    pm.formula_n2o(pt.get_last_reach_case_var (), v, i);
+                    pm.formula_n2o(pt.get_last_reach_tag (), v, i);
                     model.eval(to_app (v.get ())->get_decl (), vl);
                     used = m.is_false (vl);
                     is_concrete = is_concrete && used;
@@ -975,23 +971,18 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
 
 }
 
-expr* pred_transformer::mk_fresh_reach_case_var ()
+app_ref pred_transformer::mk_fresh_reach_tag ()
 {
     std::stringstream name;
     func_decl_ref decl(m);
 
-    name << head ()->get_name () << "#reach_case_" << m_reach_case_vars.size ();
+    name << head ()->get_name () << "#reach_tag_" << m_reach_facts.size ();
     decl = m.mk_func_decl (symbol (name.str ().c_str ()), 0,
                            (sort*const*)nullptr, m.mk_bool_sort ());
-    m_reach_case_vars.push_back (m.mk_const (pm.get_n_pred (decl)));
-    return m_reach_case_vars.back ();
+    return app_ref(m.mk_const (pm.get_n_pred (decl)), m);
 }
 
-expr* pred_transformer::get_reach_case_var (unsigned idx) const
-{return m_reach_case_vars.get (idx);}
-
-
-void pred_transformer::add_reach_fact (reach_fact *fact)
+void pred_transformer::add_reach_fact (reach_fact *rf)
 {
     timeit _timer (is_trace_enabled("spacer_timeit"),
                    "spacer::pred_transformer::add_reach_fact",
@@ -999,46 +990,45 @@ void pred_transformer::add_reach_fact (reach_fact *fact)
 
     TRACE ("spacer",
            tout << "add_reach_fact: " << head()->get_name() << " "
-           << (fact->is_init () ? "INIT " : "")
-           << mk_pp(fact->get (), m) << "\n";);
+           << (rf->is_init () ? "INIT " : "")
+           << mk_pp(rf->get (), m) << "\n";);
 
     // -- avoid duplicates
-    if (fact == nullptr || get_reach_fact(fact->get())) {return;}
+    if (!rf || get_reach_fact(rf->get())) {return;}
 
     // all initial facts are grouped together
-    SASSERT (!fact->is_init () || m_reach_facts.empty () ||
+    SASSERT (!rf->is_init () || m_reach_facts.empty () ||
              m_reach_facts.back ()->is_init ());
 
-    m_reach_facts.push_back (fact);
-    if (fact->is_init()) {m_rf_init_sz++;}
+    // create tags
+    app_ref last_tag(m);
+    app_ref new_tag(m);
+    expr_ref fml(m);
 
+    if (!m_reach_facts.empty()) {last_tag = m_reach_facts.back()->tag();}
+    if (rf->is_init ())
+        new_tag = mk_fresh_reach_tag();
+    else
+        // side-effect: updates m_solver with rf
+        new_tag = to_app(extend_initial(rf->get())->get_arg(0));
+    rf->set_tag(new_tag);
+
+    // add to m_reach_facts
+    m_reach_facts.push_back (rf);
+    if (rf->is_init()) {m_rf_init_sz++;}
 
     // update m_reach_solver
-    expr_ref last_var (m);
-    expr_ref new_var (m);
-    expr_ref fml (m);
-
-    if (!m_reach_case_vars.empty()) {last_var = m_reach_case_vars.back();}
-    if (fact->is_init ())
-    {new_var = mk_fresh_reach_case_var();}
-    else {
-        new_var = extend_initial (fact->get ())->get_arg (0);
-        m_reach_case_vars.push_back (new_var);
-    }
-
-    SASSERT (m_reach_facts.size () == m_reach_case_vars.size ());
-
-    if (last_var) {fml = m.mk_or(m.mk_not(last_var), fact->get(), new_var);}
-    else {fml = m.mk_or(fact->get(), new_var);}
-
+    if (last_tag) {fml = m.mk_or(m.mk_not(last_tag), rf->get(), rf->tag());}
+    else {fml = m.mk_or(rf->get(), rf->tag());}
     m_reach_solver->assert_expr (fml);
-    TRACE ("spacer",
-           tout << "updating reach ctx: " << mk_pp(fml, m) << "\n";);
+    TRACE ("spacer", tout << "updating reach ctx: " << fml << "\n";);
 
-    lemma lem(m, fml, infty_level());
+    // update solvers of other pred_transformers
+    // XXX wrap rf into a lemma to fit the API
+    lemma fake_lemma(m, fml, infty_level());
     // update users; reach facts are independent of levels
     for (auto use : m_use)
-    {use->add_lemma_from_child (*this, &lem, infty_level());}
+        use->add_lemma_from_child (*this, &fake_lemma, infty_level());
 }
 
 expr_ref pred_transformer::get_reachable()
@@ -1080,8 +1070,8 @@ expr_ref pred_transformer::get_reachable()
     return res;
 }
 
-expr* pred_transformer::get_last_reach_case_var () const
-{return m_reach_case_vars.empty () ? nullptr : m_reach_case_vars.back ();}
+expr* pred_transformer::get_last_reach_tag () const
+{return m_reach_facts.empty() ? nullptr : m_reach_facts.back()->tag();}
 
 expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
 {
@@ -1306,7 +1296,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                     ctx.get_pred_transformer(m_predicates[i]);
                 if (pt.has_reach_facts()) {
                     expr_ref a(m);
-                    pm.formula_n2o(pt.get_last_reach_case_var (), a, i);
+                    pm.formula_n2o(pt.get_last_reach_tag(), a, i);
                     reach_assumps.push_back(m.mk_not (a));
                 } else {
                     reach_assumps.push_back(m.mk_not (entry.m_key));

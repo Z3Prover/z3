@@ -68,6 +68,9 @@ class reach_fact {
     const datalog::rule &m_rule;
     reach_fact_ref_vector m_justification;
 
+    // variable used to tag this reach fact in an incremental disjunction
+    app_ref m_tag;
+
     bool m_init;
 
 public:
@@ -75,10 +78,10 @@ public:
                 expr* fact, const ptr_vector<app> &aux_vars,
                 bool init = false) :
         m_ref_count (0), m_fact (fact, m), m_aux_vars (aux_vars),
-        m_rule(rule), m_init (init) {}
+        m_rule(rule), m_tag(m), m_init (init) {}
     reach_fact (ast_manager &m, const datalog::rule &rule,
                 expr* fact, bool init = false) :
-        m_ref_count (0), m_fact (fact, m), m_rule(rule), m_init (init) {}
+        m_ref_count (0), m_fact (fact, m), m_rule(rule), m_tag(m), m_init (init) {}
 
     bool is_init () {return m_init;}
     const datalog::rule& get_rule () {return m_rule;}
@@ -88,6 +91,9 @@ public:
 
     expr *get () {return m_fact.get ();}
     const ptr_vector<app> &aux_vars () {return m_aux_vars;}
+
+    app* tag() const {SASSERT(m_tag); return m_tag;}
+    void set_tag(app* tag) {m_tag = tag;}
 
     void inc_ref () {++m_ref_count;}
     void dec_ref ()
@@ -303,7 +309,8 @@ class pred_transformer {
     expr_ref_vector              m_transition_clause; // extra clause for trans
     expr_ref                     m_transition;      // transition relation
     expr_ref                     m_init;            // initial condition
-    app_ref                      m_extend_lit;      // literal to extend initial state
+    app_ref                      m_extend_lit0;     // first literal used to extend initial state
+    app_ref                      m_extend_lit;      // current literal to extend initial state
     bool                         m_all_init;        // true if the pt has no uninterpreted body in any rule
     ptr_vector<func_decl>        m_predicates;      // temp vector used with find_predecessors()
     stats                        m_stats;
@@ -312,13 +319,8 @@ class pred_transformer {
     stopwatch                    m_ctp_watch;
     stopwatch                    m_mbp_watch;
 
-
-    /// Auxiliary variables to represent different disjunctive
-    /// cases of must summaries. Stored over 'n' (a.k.a. new)
-    /// versions of the variables
-    expr_ref_vector              m_reach_case_vars;
-
     void init_sig();
+    app_ref mk_extend_lit();
     void ensure_level(unsigned level);
     void add_lemma_core (lemma *lemma, bool ground_only = false);
     void add_lemma_from_child (pred_transformer &child, lemma *lemma,
@@ -337,7 +339,7 @@ class pred_transformer {
 
     void add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r);
 
-    expr* mk_fresh_reach_case_var ();
+    app_ref mk_fresh_reach_tag ();
 
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
@@ -406,7 +408,7 @@ public:
                               const datalog::rule &r);
     void add_reach_fact (reach_fact *fact);  // add reachability fact
     reach_fact* get_last_reach_fact () const { return m_reach_facts.back (); }
-    expr* get_last_reach_case_var () const;
+    expr* get_last_reach_tag () const;
 
     pob* mk_pob(pob *parent, unsigned level, unsigned depth,
                 expr *post, app_ref_vector const &b){
