@@ -31,16 +31,10 @@ class hnf_cutter {
     vector<const lar_term*>    m_terms;
     svector<constraint_index>  m_constraints_for_explanation;
     vector<mpq>                m_right_sides;
-    unsigned                   m_row_count;
-    unsigned                   m_column_count;
     lp_settings &              m_settings;
     
 public:
-    hnf_cutter(lp_settings & settings) : m_row_count(0), m_column_count(0), m_settings(settings) {}
-
-    unsigned row_count() const {
-        return m_row_count;
-    }
+    hnf_cutter(lp_settings & settings) : m_settings(settings) {}
 
     const vector<const lar_term*>& terms() const { return m_terms; }
     const svector<unsigned>& constraints_for_explanation() const {
@@ -53,7 +47,6 @@ public:
         m_terms.clear();
         m_constraints_for_explanation.clear();
         m_right_sides.clear();        
-        m_row_count = m_column_count = 0;
     }
     void add_term(const lar_term* t, const mpq &rs, constraint_index ci) {
         m_terms.push_back(t);
@@ -62,11 +55,6 @@ public:
         }
         m_right_sides.push_back(rs);
         m_constraints_for_explanation.push_back(ci);
-        if (m_terms.size() <= m_var_register.size()) { // capture the maximal acceptable sizes
-            m_row_count = m_terms.size();
-            m_column_count = m_var_register.size();
-        }
-        
     }
     void print(std::ostream & out) {
         out << "terms = " << m_terms.size() << ", var = " << m_var_register.size() << std::endl;
@@ -77,10 +65,10 @@ public:
     }
 
     void init_matrix_A() {
-        m_A = general_matrix(m_row_count, m_column_count);
+        m_A = general_matrix(m_terms.size(), m_var_register.size());
         // use the last suitable counts to make the number
         // of rows less than or equal to the number of columns
-        for (unsigned i = 0; i < m_row_count; i++)
+        for (unsigned i = 0; i < m_terms.size(); i++)
             initialize_row(i);
     }
 
@@ -157,11 +145,13 @@ public:
                 t.add_monomial(row[j], m_var_register.local_var_to_user_var(j));
         }
     }
+
+    unsigned row_count() const { return m_terms.size(); }
+    
 #ifdef Z3DEBUG
     vector<mpq> transform_to_local_columns(const vector<impq> & x) const {
         vector<mpq> ret;
-        lp_assert(m_column_count <= m_var_register.size());
-        for (unsigned j = 0; j < m_column_count;j++) {
+        for (unsigned j = 0; j < m_var_register.size();j++) {
             lp_assert(is_zero(x[m_var_register.local_var_to_user_var(j)].y));
             ret.push_back(x[m_var_register.local_var_to_user_var(j)].x);
         }
