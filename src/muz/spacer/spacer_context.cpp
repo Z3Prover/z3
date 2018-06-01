@@ -864,7 +864,7 @@ void pred_transformer::simplify_formulas()
 {m_frames.simplify_formulas ();}
 
 
-expr_ref pred_transformer::get_formulas(unsigned level)
+expr_ref pred_transformer::get_formulas(unsigned level) const
 {
     expr_ref_vector res(m);
     m_frames.get_frame_geq_lemmas (level, res);
@@ -1790,6 +1790,83 @@ app* pred_transformer::extend_initial (expr *e)
     return m_extend_lit;
 }
 
+
+/// \brief Update a given solver with all constraints representing
+/// this pred_transformer
+void pred_transformer::updt_solver(prop_solver *solver) {
+
+    m_solver->assert_expr(m_transition);
+    m_solver->assert_expr(m_init, 0);
+
+    // -- facts derivable at the head
+    expr_ref last_tag(m);
+    last_tag = m_extend_lit0;
+    for (auto *rf : m_reach_facts) {
+        if (rf->is_init()) continue;
+        m_solver->assert_expr(m.mk_or(last_tag, rf->get(), rf->tag()));
+        last_tag = m.mk_not(rf->tag());
+    }
+
+
+    for (auto &entry : m_tag2rule) {
+        const datalog::rule *r = entry.m_value;
+        if (!r) continue;
+        find_predecessors(*r, m_predicates);
+        if (m_predicates.empty()) continue;
+
+        for (unsigned i = 0, sz = m_predicates.size(); i < sz; ++i) {
+            const pred_transformer &pt = ctx.get_pred_transformer(m_predicates[i]);
+            // assert lemmas of pt
+            updt_solver_with_lemmas(solver, pt, to_app(entry.m_key), i);
+            // assert rfs of pt
+            update_solver_with_rfs(solver, pt, to_app(entry.m_key), i);
+        }
+    }
+}
+
+void pred_transformer::updt_solver_with_lemmas(prop_solver *solver,
+                                               const pred_transformer &pt,
+                                               app* rule_tag, unsigned pos) {
+    expr_ref not_rule_tag(m);
+    not_rule_tag = m.mk_not(rule_tag);
+
+    // XXX deal with quantified instantiations
+    // XXX perhaps expose lemmas, which gives better idea of what is active
+    expr_ref_vector fmls(m);
+    for (unsigned i = 0, sz = pt.get_num_levels(); i <= sz; ++i) {
+        expr_ref tmp(m);
+        if (i == sz) i = infty_level();
+        tmp = pt.get_formulas(i);
+        flatten_and(tmp, fmls);
+
+        for (expr *f : fmls) {
+            tmp = m.mk_or(not_rule_tag, f);
+            pm.formula_n2o(tmp, tmp, pos, !is_quantifier(f));
+            m_solver->assert_expr(tmp, i);
+        }
+    }
+}
+
+void pred_transformer::update_solver_with_rfs(prop_solver *solver,
+                                              const pred_transformer &pt,
+                                              app *rule_tag, unsigned pos) {
+    expr_ref last_tag(m);
+    expr_ref not_rule_tag(m);
+    not_rule_tag = m.mk_not(rule_tag);
+
+    for (auto *rf : pt.m_reach_facts) {
+        expr_ref e(m);
+        if (last_tag) {
+            expr *args[4] = { m.mk_not(rule_tag), last_tag, rf->get(), rf->tag() };
+            e = m.mk_or(4, args);
+        }
+        else
+            e = m.mk_or(m.mk_not(rule_tag), rf->get(), rf->tag());
+        last_tag = m.mk_not(rf->tag());
+        pm.formula_n2o(e.get(), e, pos);
+        solver->assert_expr(e);
+    }
+}
 
 /// pred_transformer::frames
 

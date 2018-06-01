@@ -226,14 +226,14 @@ class pred_transformer {
         pred_transformer& pt () {return m_pt;}
 
 
-        void get_frame_lemmas (unsigned level, expr_ref_vector &out) {
+        void get_frame_lemmas (unsigned level, expr_ref_vector &out) const {
             for (auto &lemma : m_lemmas) {
                 if (lemma->level() == level) {
                     out.push_back(lemma->get_expr());
                 }
             }
         }
-        void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out) {
+        void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out) const {
             for (auto &lemma : m_lemmas) {
                 if(lemma->level() >= level) {
                     out.push_back(lemma->get_expr());
@@ -366,7 +366,7 @@ public:
     expr*  transition() const {return m_transition;}
     expr*  init() const {return m_init;}
     expr*  rule2tag(datalog::rule const* r) {return m_rule2tag.find(r);}
-    unsigned get_num_levels() {return m_frames.size ();}
+    unsigned get_num_levels() const {return m_frames.size ();}
     expr_ref get_cover_delta(func_decl* p_orig, int level);
     void     add_cover(unsigned level, expr* property);
     expr_ref get_reachable();
@@ -438,7 +438,7 @@ public:
     bool check_inductive(unsigned level, expr_ref_vector& state,
                          unsigned& assumes_level, unsigned weakness = UINT_MAX);
 
-    expr_ref get_formulas(unsigned level);
+    expr_ref get_formulas(unsigned level) const;
 
     void simplify_formulas();
 
@@ -464,6 +464,15 @@ public:
     /// \brief interface to Model Based Projection
     void mbp(app_ref_vector &vars, expr_ref &fml, const model_ref &mdl,
              bool reduce_all_selects = true);
+
+    void updt_solver(prop_solver *solver);
+
+    void updt_solver_with_lemmas(prop_solver *solver,
+                                 const pred_transformer &pt,
+                                 app *rule_tag, unsigned pos);
+    void update_solver_with_rfs(prop_solver *solver,
+                              const pred_transformer &pt,
+                              app *rule_tag, unsigned pos);
 
 };
 
@@ -566,8 +575,8 @@ public:
     const ptr_vector<lemma> &lemmas() {return m_lemmas;}
     void add_lemma(lemma* new_lemma) {m_lemmas.push_back(new_lemma);}
 
-    bool is_ground () { return m_binding.empty (); }
-    unsigned get_free_vars_size() { return m_binding.size(); }
+    bool is_ground () const { return m_binding.empty (); }
+    unsigned get_free_vars_size() const { return m_binding.size(); }
     app_ref_vector const &get_binding() const {return m_binding;}
     /*
      * Returns a map from variable id to skolems that implicitly
@@ -718,9 +727,9 @@ public:
     void set_root(pob& n);
     bool is_root (pob& n) const {return m_root.get () == &n;}
 
-    unsigned max_level() {return m_max_level;}
-    unsigned min_depth() {return m_min_depth;}
-    size_t size() {return m_obligations.size();}
+    unsigned max_level() const {return m_max_level;}
+    unsigned min_depth() const {return m_min_depth;}
+    size_t size() const {return m_obligations.size();}
 };
 
 
