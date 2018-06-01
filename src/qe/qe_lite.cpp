@@ -40,14 +40,16 @@ Revision History:
 namespace eq {
 
     bool occurs_var(unsigned idx, expr* e) {
+        if (is_ground(e)) return false;
         ptr_buffer<expr> todo;
-        todo.push_back(e);        
+        todo.push_back(e);
         ast_mark mark;
         while (!todo.empty()) {
             expr* e = todo.back();
             todo.pop_back();
             if (mark.is_marked(e)) continue;
             mark.mark(e, true);
+            if (is_ground(e)) continue;
             if (is_var(e)) {
                 if (to_var(e)->get_idx() == idx) return true;
             }
@@ -67,7 +69,8 @@ namespace eq {
         arith_util      a;
         datatype_util   dt;
         is_variable_proc* m_is_variable;
-        var_subst       m_subst;
+        beta_reducer    m_subst;
+        expr_ref_vector m_subst_map;
         expr_ref_vector m_new_exprs;
 
         ptr_vector<expr> m_map;
@@ -75,7 +78,6 @@ namespace eq {
         int_vector       m_var2pos;
         ptr_vector<var>  m_inx2var;
         unsigned_vector  m_order;
-        expr_ref_vector  m_subst_map;
         expr_ref_buffer  m_new_args;
         th_rewriter      m_rewriter;
         params_ref       m_params;
@@ -149,7 +151,7 @@ namespace eq {
                                 done.mark(t);
                             }
                         }
-                        done.mark(t);
+                            done.mark(t);
                         todo.pop_back();
                         break;
                     case AST_QUANTIFIER:
@@ -426,26 +428,29 @@ namespace eq {
 
             TRACE("qe_lite",
                   tout << "Elimination m_order:" << std::endl;
-                  for(unsigned i=0; i<m_order.size(); i++)
-                      {
-                          if (i != 0) tout << ",";
-                          tout << m_order[i];
-                      }
-                  tout << std::endl;
+                  tout << m_order << std::endl;
                   );
         }
 
         void create_substitution(unsigned sz) {
             m_subst_map.reset();
             m_subst_map.resize(sz, nullptr);
-            for (unsigned i = 0; i < m_order.size(); i++) {
-                expr_ref cur(m_map[m_order[i]], m);
+            m_subst.reset();
+            m_subst.set_inv_bindings(sz, m_subst_map.c_ptr());
+            for (unsigned idx : m_order) {
                 // do all the previous substitutions before inserting
+                expr* cur = m_map[idx];
                 expr_ref r(m);
-                m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);
-                unsigned inx = sz - m_order[i]- 1;
-                SASSERT(m_subst_map[inx]==nullptr);
+                if (is_ground(cur)) r = cur; else m_subst(cur, r);
+                unsigned inx = sz - idx - 1;
+                CTRACE("topo_sort", m_subst_map.get(inx) != nullptr,
+                       tout << "inx is " << inx << "\n"
+                       << "idx is " << idx << "\n"
+                       << "sz is " << sz << "\n"
+                       << "subst_map[inx]: " << mk_pp(m_subst_map.get(inx), m) << "\n";);
+                SASSERT(m_subst_map.get(inx) == nullptr);
                 m_subst_map[inx] = r;
+                m_subst.update_inv_binding_at(inx, r);
             }
         }
 
@@ -487,20 +492,20 @@ namespace eq {
                 rw.mk_and(m_new_args.size(), m_new_args.c_ptr(), t);
             }
             expr_ref new_e(m);
-            m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
+            m_subst(t, new_e);
 
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
             expr_ref_buffer  new_no_patterns(m);
             for (unsigned j = 0; j < q->get_num_patterns(); j++) {
                 expr_ref new_pat(m);
-                m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_pat);
+                m_subst(q->get_pattern(j), new_pat);
                 new_patterns.push_back(new_pat);
             }
 
             for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
                 expr_ref new_nopat(m);
-                m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_nopat);
+                m_subst(q->get_no_pattern(j), new_nopat);
                 new_no_patterns.push_back(new_nopat);
             }
 
@@ -748,7 +753,7 @@ namespace eq {
                     expr_ref r(m), new_r(m);
                     r = m.mk_and(conjs.size(), conjs.c_ptr());
                     create_substitution(largest_vinx + 1);
-                    m_subst(r, m_subst_map.size(), m_subst_map.c_ptr(), new_r);
+                    m_subst(r, new_r);
                     m_rewriter(new_r);
                     conjs.reset();
                     flatten_and(new_r, conjs);
@@ -776,8 +781,8 @@ namespace eq {
             dt(m),
             m_is_variable(nullptr),
             m_subst(m),
-            m_new_exprs(m),
             m_subst_map(m),
+            m_new_exprs(m),
             m_new_args(m),
             m_rewriter(m),
             m_params(p) {}
