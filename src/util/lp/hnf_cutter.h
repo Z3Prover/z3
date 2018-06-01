@@ -195,21 +195,7 @@ public:
         if (cut_row == -1)
             return lia_move::undef;
         // the matrix is not square - we can get
-        // all integer in b's projection
-        // 
-        // test region
-        /*
-        general_matrix U(m_A.column_count());
-        vector<mpq> rt(m_A.column_count());
-        for (unsigned i = 0; i < U.row_count(); i++) {
-            get_ei_H_minus_1(i, h.W(), rt);
-            vector<mpq> ft = rt * A_orig;
-            for (unsigned j = 0; j < ft.size(); j++)
-                U[i][j] = ft[j];
-        }
-        std::cout << "U reverse = "; U.print(std::cout, 12); std::cout << std::endl;
-        */
-        // end test region
+        // all integers in b's projection
         
         vector<mpq> row(m_A.column_count());
         get_ei_H_minus_1(cut_row, h.W(), row);

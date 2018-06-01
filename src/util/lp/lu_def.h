@@ -144,8 +144,6 @@ lu<M>::lu(const M& A,
     m_row_eta_work_vector(A.row_count()),
     m_refactor_counter(0) {
     lp_assert(A.row_count() == A.column_count());
-    std::cout << "m_U = \n";
-    print_matrix(&m_U, std::cout);
     create_initial_factorization();
 #ifdef Z3DEBUG
     lp_assert(is_correct());
@@ -659,13 +657,10 @@ template <typename M>
 bool lu<M>::is_correct() {
 #ifdef Z3DEBUG
     if (get_status() != LU_status::OK) {
-        std::cout << " status" << std::endl;
         return false;
     }
     dense_matrix<T, X> left_side = get_left_side();
-    std::cout << "ls = "; print_matrix(left_side, std::cout);
     dense_matrix<T, X> right_side = get_right_side();
-    std::cout << "rs = "; print_matrix(right_side, std::cout);
     return left_side == right_side;
 #else
     return true;

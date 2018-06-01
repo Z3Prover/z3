@@ -228,11 +228,6 @@ A_mult_x_is_off() const {
 		for (unsigned i = 0; i < m_m(); i++) {
             X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
             if (delta != numeric_traits<X>::zero()) {
-                std::cout << "precise x is off (";
-                std::cout << "m_b[" << i << "] = " << m_b[i] << " ";
-                std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-                std::cout << "delta = " << delta << ' ';
-                std::cout << "iters = " << total_iterations() << ")" << std::endl;
                 return true;
             }
         }
@@ -265,11 +260,6 @@ A_mult_x_is_off_on_index(const vector<unsigned> & index) const {
     for (unsigned i : index) {
         X delta = m_b[i] - m_A.dot_product_with_row(i, m_x);
         if (delta != numeric_traits<X>::zero()) {
-            // std::cout << "x is off (";
-            // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-            // std::cout << "left side = " << m_A.dot_product_with_row(i, m_x) << ' ';
-            // std::cout << "delta = " << delta << ' ';
-            // std::cout << "iters = " << total_iterations() << ")" << std::endl;
             return true;
         }
     }
@@ -416,13 +406,10 @@ column_is_dual_feasible(unsigned j) const {
     case column_type::lower_bound:
         return x_is_at_lower_bound(j) && d_is_not_negative(j);
     case column_type::upper_bound:
-        LP_OUT(m_settings,  "upper_bound type should be switched to lower_bound" << std::endl);
         lp_assert(false); // impossible case
     case column_type::free_column:
         return numeric_traits<X>::is_zero(m_d[j]);
     default:
-        LP_OUT(m_settings,  "column = " << j << std::endl);
-        LP_OUT(m_settings,  "unexpected column type = " << column_type_to_string(m_column_types[j]) << std::endl);
         lp_unreachable();
     }
     lp_unreachable();
@@ -530,9 +517,6 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_set_is_cor
         bool is_feas = column_is_feasible(j);
     
         if (is_feas == belongs_to_set) {
-            print_column_info(j, std::cout);
-            std::cout << "belongs_to_set = " << belongs_to_set << std::endl;
-            std::cout <<( is_feas? "feas":"inf") << std::endl;
             return false;
         }
     }
@@ -714,22 +698,18 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::
     lp_assert(m_basis.size() == m_A.row_count());
     lp_assert(m_nbasis.size() <= m_A.column_count() - m_A.row_count()); // for the dual the size of non basis can be smaller
     if (!basis_has_no_doubles()) {
-        //        std::cout << "basis_has_no_doubles" << std::endl;
         return false;
     }
 
     if (!non_basis_has_no_doubles()) {
-        // std::cout << "non_basis_has_no_doubles" << std::endl;
         return false;
     }
 
     if (!basis_is_correctly_represented_in_heading()) {
-        // std::cout << "basis_is_correctly_represented_in_heading" << std::endl;
         return false;
     }
 
     if (!non_basis_is_correctly_represented_in_heading()) {
-        // std::cout << "non_basis_is_correctly_represented_in_heading" << std::endl;
         return false;
     }
 
@@ -996,13 +976,9 @@ lp_core_solver_base<T, X>::infeasibility_costs_are_correct() const {
     lp_assert(costs_on_nbasis_are_zeros());
     for (unsigned j :this->m_basis) {
         if (!infeasibility_cost_is_correct_for_column(j)) {
-            std::cout << "infeasibility_cost_is_correct_for_column does not hold\n";
-            print_column_info(j, std::cout);
             return false;
         }
         if (!is_zero(m_d[j])) {
-            std::cout << "m_d is not zero\n";
-            print_column_info(j, std::cout);
             return false;
         }
     }

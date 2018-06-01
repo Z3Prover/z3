@@ -303,7 +303,6 @@ class mps_reader {
         do {
             read_line();
             if (m_line.find("RHS") == 0) {
-                //  cout << "found RHS" << std::endl;
                 break;
             }
             if (m_line.size() < 22) {

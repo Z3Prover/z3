@@ -479,15 +479,14 @@ class hnf {
 
     bool is_correct_final() const {
         if (!is_correct()) {
-            std::cout << "m_H =            "; m_H.print(std::cout, 17);
-            
-            std::cout << "\nm_A_orig * m_U = ";  (m_A_orig * m_U).print(std::cout, 17);
-            
-            std::cout << "is_correct() does not hold" << std::endl;
+            TRACE("hnf_calc",
+                  tout << "m_H =            "; m_H.print(tout, 17);
+                  tout << "\nm_A_orig * m_U = ";  (m_A_orig * m_U).print(tout, 17);
+                  tout << "is_correct() does not hold" << std::endl;);
             return false;
         }
         if (!is_correct_form()) {
-            std::cout << "is_correct_form() does not hold" << std::endl;
+            tout << "is_correct_form() does not hold" << std::endl;
             return false;
         }
         return true;
@@ -547,10 +546,6 @@ private:
         copy_buffer_to_col_i_W_modulo();
     }
 
-    void endl() const {
-        std::cout << std::endl;
-    }
-    
     void fix_row_under_diagonal_W_modulo() {
         mpq d, u, v;
         if (is_zero(m_W[m_i][m_i])) {
@@ -626,9 +621,10 @@ public:
         calculate_by_modulo();
 #ifdef Z3DEBUG
         if (m_H != m_W) {
-            std::cout << "A = "; m_A_orig.print(std::cout, 4); endl();
-            std::cout << "H = "; m_H.print(std::cout, 4); endl();
-            std::cout << "W = "; m_W.print(std::cout, 4); endl();
+            TRACE("hnf_calc",
+                  tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
+                  tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
+                  tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
             lp_assert(false);
         }
 #endif

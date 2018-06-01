@@ -791,18 +791,11 @@ void lar_solver::add_last_rows_to_lu(lp_primal_core_solver<K,L> & s) {
     
 bool lar_solver::x_is_correct() const {
     if (m_mpq_lar_core_solver.m_r_x.size() != A_r().column_count()) {
-        //            std::cout << "the size is off " << m_r_solver.m_x.size() << ", " << A().column_count() << std::endl;
         return false;
     }
     for (unsigned i = 0; i < A_r().row_count(); i++) {
         numeric_pair<mpq> delta =  A_r().dot_product_with_row(i, m_mpq_lar_core_solver.m_r_x);
         if (!delta.is_zero()) {
-            // std::cout << "x is off (";
-            // std::cout << "m_b[" << i  << "] = " << m_b[i] << " ";
-            // std::cout << "left side = " << A().dot_product_with_row(i, m_r_solver.m_x) << ' ';
-            // std::cout << "delta = " << delta << ' ';
-            // std::cout << "iters = " << total_iterations() << ")" << std::endl;
-            // std::cout << "row " << i << " is off" << std::endl;
             return false;
         }
     }
@@ -905,7 +898,6 @@ bool lar_solver::all_constraints_hold() const {
     
     for (unsigned i = 0; i < m_constraints.size(); i++) {
         if (!constraint_holds(*m_constraints[i], var_map)) {
-            print_constraint(i, std::cout);
             return false;
         }
     }
@@ -972,13 +964,6 @@ bool lar_solver::the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned
     }
 
     if (!coeff_map.empty()) {
-        std::cout << "left side = ";
-        vector<std::pair<mpq, var_index>> t;
-        for (auto & it : coeff_map) {
-            t.push_back(std::make_pair(it.second, it.first));
-        }
-        print_linear_combination_of_column_indices(t, std::cout);
-        std::cout << std::endl;
         return false;
     }
 
@@ -1581,7 +1566,6 @@ bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & co
     bool g_is_set = false;
     for (const auto & p : coeffs) {
         if (!p.first.is_int()) {
-            std::cout << "p.first = " << p.first << " is not an int\n";
             return false;
         }
         if (!g_is_set) {
@@ -1594,9 +1578,6 @@ bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & co
     if (g == one_of_type<mpq>())
         return true;
 
-    std::cout << "term is not ok: g = " << g << std::endl;
-    this->print_linear_combination_of_column_indices_only(coeffs, std::cout);
-    std::cout << " rs = " << v << std::endl;
     return false;
 }
 #endif
