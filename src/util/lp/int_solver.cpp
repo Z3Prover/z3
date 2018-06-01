@@ -540,7 +540,7 @@ bool int_solver::try_add_term_to_A_for_hnf(unsigned i) {
         }
     }
     bool has_bounds;
-    if (m_lar_solver->get_equality_and_right_side_for_term_on_corrent_x(i, rs, has_bounds)) {
+    if (m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, has_bounds)) {
         m_hnf_cutter.add_term(t, rs);
         return true;
     }

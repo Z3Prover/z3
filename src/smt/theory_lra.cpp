@@ -751,12 +751,14 @@ public:
         init_solver();
     }
         
-    bool internalize_atom(app * atom, bool gate_ctx) {
-        return internalize_atom_strict(atom, gate_ctx);
-            
+    void internalize_is_int(app * n) {
+        SASSERT(a.is_is_int(n));
+        (void) mk_enode(n);
+        if (!ctx().relevancy())
+            mk_is_int_axiom(n);        
     }
 
-    bool internalize_atom_strict(app * atom, bool gate_ctx) {
+    bool internalize_atom(app * atom, bool gate_ctx) {
         SASSERT(!ctx().b_internalized(atom));
         bool_var bv = ctx().mk_bool_var(atom);
         ctx().set_var_theory(bv, get_id());
@@ -772,6 +774,10 @@ public:
             v = internalize_def(to_app(n1));
             k = lp_api::lower_t;
         }    
+        else if (a.is_is_int(atom)) {
+            internalize_is_int(atom);
+            return true;
+        }
         else {
             TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_not_handled(atom);

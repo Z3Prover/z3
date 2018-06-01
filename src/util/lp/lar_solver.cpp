@@ -2208,7 +2208,7 @@ void lar_solver::round_to_integer_solution() {
     }
 }
 
-bool lar_solver::get_equality_and_right_side_for_term_on_corrent_x(unsigned term_index, mpq & rs, bool & has_bounds) const {
+bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, bool & has_bounds) const {
     unsigned tj = term_index + m_terms_start_index;
     auto it = m_ext_vars_to_columns.find(tj);
     has_bounds = false;
