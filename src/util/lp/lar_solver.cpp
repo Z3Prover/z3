@@ -1467,9 +1467,6 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
     var_index i;
     lp_assert(ext_j < m_terms_start_index);
-
-    if (ext_j >= m_terms_start_index)
-        throw 0; // todo : what is the right way to exit?
     auto it = m_ext_vars_to_columns.find(ext_j);
     if (it != m_ext_vars_to_columns.end()) {
         return it->second.internal_j();

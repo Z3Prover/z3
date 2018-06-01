@@ -128,7 +128,6 @@ bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
 template <typename M> 
 void pivot_column_non_fractional(M &m, unsigned r) {
     lp_assert(!is_zero(m[r][r]));
-    lp_assert(m.row_count() <= m.column_count());
     for (unsigned j = r + 1; j < m.column_count(); j++) {
         for (unsigned i = r + 1; i  < m.row_count(); i++) {
             m[i][j] =
@@ -148,7 +147,6 @@ void pivot_column_non_fractional(M &m, unsigned r) {
 // returns the rank of the matrix
 template <typename M> 
 unsigned to_lower_triangle_non_fractional(M &m) {
-    lp_assert(m.row_count() <= m.column_count());
     unsigned i = 0;
     for (; i < m.row_count(); i++) {
         if (!prepare_pivot_for_lower_triangle(m, i)) {
@@ -179,26 +177,24 @@ mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
     return g;
 }
 
-// it fills "r" - the basic rows of m
+// It fills "r" - the basic rows of m.
 // The plan is to transform m to the lower triangular form by using non-fractional Gaussian Elimination by columns.
-// Then the elements of the following elements of the last non-zero row of the matrix
-// m[r-1][r-1], m[r-1][r], ..., m[r-1]m[m.column_count() - 1] give the determinants of all minors of rank r.
-// The gcd of these minors is the return value
+// Then the trailing after the diagonal elements of the following elements of the last non-zero row of the matrix,
+// namely, m[r-1][r-1], m[r-1][r], ..., m[r-1]m[m.column_count() - 1] give the determinants of all minors of rank r.
+// The gcd of these minors is the return value.
  
 template <typename M> 
 mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows) {
-    if (m.column_count() < m.row_count())
-        throw default_exception("not implemented");
-    auto mc = m;
-    unsigned rank = to_lower_triangle_non_fractional(mc);
+    auto m_copy = m;
+    unsigned rank = to_lower_triangle_non_fractional(m_copy);
     if (rank == 0)
         return one_of_type<mpq>();
 
     for (unsigned i = 0; i < rank; i++) {
-        basis_rows.push_back(mc.adjust_row(i));
+        basis_rows.push_back(m_copy.adjust_row(i));
     }
-    TRACE("hnf_calc", tout << "basis_rows = "; print_vector(basis_rows, tout); mc.print(tout, "mc = "););
-    return gcd_of_row_starting_from_diagonal(mc, rank - 1);
+    TRACE("hnf_calc", tout << "basis_rows = "; print_vector(basis_rows, tout); m_copy.print(tout, "m_copy = "););
+    return gcd_of_row_starting_from_diagonal(m_copy, rank - 1);
 }
 
 template <typename M> 
