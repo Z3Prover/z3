@@ -750,7 +750,7 @@ namespace realclosure {
            That is, after the call p is the 0 polynomial.
         */
         void reset_p(polynomial & p) {
-            dec_ref(p.size(), p.c_ptr());
+            dec_ref(p.size(), p.data());
             p.finalize(allocator());
         }
 
@@ -802,7 +802,7 @@ namespace realclosure {
 
         void del_sign_det(sign_det * sd) {
             mm().del(sd->M_s);
-            del_sign_conditions(sd->m_sign_conditions.size(), sd->m_sign_conditions.c_ptr());
+            del_sign_conditions(sd->m_sign_conditions.size(), sd->m_sign_conditions.data());
             sd->m_sign_conditions.finalize(allocator());
             finalize(sd->m_prs);
             sd->m_taqrs.finalize(allocator());
@@ -3096,7 +3096,7 @@ namespace realclosure {
                 bool struct_eq(value * a, value * b)
         */
         bool struct_eq(polynomial const & p_a, polynomial const & p_b) const {
-            return struct_eq(p_a.size(), p_a.c_ptr(), p_b.size(), p_b.c_ptr());
+            return struct_eq(p_a.size(), p_a.data(), p_b.size(), p_b.data());
         }
 
         // ---------------------------------
@@ -3137,7 +3137,7 @@ namespace realclosure {
            \brief See comment at has_clean_denominators(value * a)
          */
         bool has_clean_denominators(polynomial const & p) const {
-            return has_clean_denominators(p.size(), p.c_ptr());
+            return has_clean_denominators(p.size(), p.data());
         }
 
         /**
@@ -3301,7 +3301,7 @@ namespace realclosure {
         }
 
         void clean_denominators_core(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
-            clean_denominators_core(p.size(), p.c_ptr(), norm_p, d);
+            clean_denominators_core(p.size(), p.data(), norm_p, d);
         }
 
         void clean_denominators(value * a, value_ref & p, value_ref & q) {
@@ -3325,7 +3325,7 @@ namespace realclosure {
         }
 
         void clean_denominators(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
-            clean_denominators(p.size(), p.c_ptr(), norm_p, d);
+            clean_denominators(p.size(), p.data(), norm_p, d);
         }
 
         void clean_denominators(numeral const & a, numeral & p, numeral & q) {
@@ -3396,7 +3396,7 @@ namespace realclosure {
            \brief See comment in gcd_int_coeffs(value * a, mpz & g)
         */
         bool gcd_int_coeffs(polynomial const & p, mpz & g) {
-            return gcd_int_coeffs(p.size(), p.c_ptr(), g);
+            return gcd_int_coeffs(p.size(), p.data(), g);
         }
 
         /**
@@ -4099,7 +4099,7 @@ namespace realclosure {
            \brief Refine the interval for each coefficient of in the polynomial p.
         */
         bool refine_coeffs_interval(polynomial const & p, unsigned prec) {
-            return refine_coeffs_interval(p.size(), p.c_ptr(), prec);
+            return refine_coeffs_interval(p.size(), p.data(), prec);
         }
 
         /**
@@ -4264,7 +4264,7 @@ namespace realclosure {
                         scoped_mpbq m(bqm());
                         bqm().add(a_i.lower(), a_i.upper(), m);
                         bqm().div2(m);
-                        int mid_sign   = eval_sign_at(a->p().size(), a->p().c_ptr(), m);
+                        int mid_sign   = eval_sign_at(a->p().size(), a->p().data(), m);
                         if (mid_sign == 0) {
                             // found the actual root
                             // set interval [m, m]
@@ -4276,7 +4276,7 @@ namespace realclosure {
                             SASSERT(mid_sign == 1 || mid_sign == -1);
                             if (lower_sign == INT_MIN) {
                                 // initialize lower_sign
-                                lower_sign = eval_sign_at(a->p().size(), a->p().c_ptr(), a_i.lower());
+                                lower_sign = eval_sign_at(a->p().size(), a->p().data(), a_i.lower());
                             }
                             SASSERT(lower_sign == 1 || lower_sign == -1);
                             if (mid_sign == lower_sign) {
@@ -4524,7 +4524,7 @@ namespace realclosure {
            That is, q(x) does not depend on infinitesimal values.
         */
         bool depends_on_infinitesimals(polynomial const & q, algebraic * x) {
-            return x->depends_on_infinitesimals() || depends_on_infinitesimals(q.size(), q.c_ptr());
+            return x->depends_on_infinitesimals() || depends_on_infinitesimals(q.size(), q.data());
         }
 
         /**
@@ -4579,7 +4579,7 @@ namespace realclosure {
             int num_roots = x->num_roots_inside_interval();
             SASSERT(x->sdt() != 0 || num_roots == 1);
             polynomial const & p = x->p();
-            int taq_p_q = TaQ(p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->iso_interval());
+            int taq_p_q = TaQ(p.size(), p.data(), q.size(), q.data(), x->iso_interval());
             if (num_roots == 1 && taq_p_q == 0)
                 return false; // q(x) is zero
             if (taq_p_q == num_roots) {
@@ -4605,7 +4605,7 @@ namespace realclosure {
                 SASSERT(x->sdt() != 0);
                 int q_eq_0, q_gt_0, q_lt_0;
                 value_ref_buffer q2(*this);
-                count_signs_at_zeros_core(taq_p_q, p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->iso_interval(), num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
+                count_signs_at_zeros_core(taq_p_q, p.size(), p.data(), q.size(), q.data(), x->iso_interval(), num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
                 if (q_eq_0 > 0 && q_gt_0 == 0 && q_lt_0 == 0) {
                     // q(x) is zero
                     return false;
@@ -4648,12 +4648,12 @@ namespace realclosure {
                         // Add TaQ(p, prs[i] * 1; x->iso_interval())
                         new_taqrs.push_back(taqrs[i]);
                         // Add TaQ(p, prs[i] * q; x->iso_interval())
-                        mul(prs[i].size(), prs[i].c_ptr(), q.size(), q.c_ptr(), prq);
-                        new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->iso_interval()));
+                        mul(prs[i].size(), prs[i].data(), q.size(), q.data(), prq);
+                        new_taqrs.push_back(TaQ(p.size(), p.data(), prq.size(), prq.c_ptr(), x->iso_interval()));
                         if (use_q2) {
                             // Add TaQ(p, prs[i] * q^2; x->iso_interval())
-                            mul(prs[i].size(), prs[i].c_ptr(), q2.size(), q2.c_ptr(), prq);
-                            new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->iso_interval()));
+                            mul(prs[i].size(), prs[i].data(), q2.size(), q2.c_ptr(), prq);
+                            new_taqrs.push_back(TaQ(p.size(), p.data(), prq.size(), prq.c_ptr(), x->iso_interval()));
                         }
                     }
                     int_buffer   sc_cardinalities;
@@ -4910,7 +4910,7 @@ namespace realclosure {
         void normalize_algebraic(algebraic * x, unsigned sz1, value * const * p1, value_ref_buffer & new_p1) {
             polynomial const & p = x->p();
             if (!m_lazy_algebraic_normalization || !m_in_aux_values || is_monic(p)) {
-                rem(sz1, p1, p.size(), p.c_ptr(), new_p1);
+                rem(sz1, p1, p.size(), p.data(), new_p1);
             }
             else {
                 new_p1.reset();
@@ -4956,9 +4956,9 @@ namespace realclosure {
             polynomial const & one = a->den();
             SASSERT(an.size() > 1);
             value_ref_buffer new_num(*this);
-            add(an.size(), an.c_ptr(), b, new_num);
+            add(an.size(), an.data(), b, new_num);
             SASSERT(new_num.size() == an.size());
-            mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
+            mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.data(), r);
         }
 
         /**
@@ -4975,15 +4975,15 @@ namespace realclosure {
                 SASSERT(!a->ext()->is_algebraic());
                 polynomial const & ad = a->den();
                 // b_ad <- b * ad
-                mul(b, ad.size(), ad.c_ptr(), b_ad);
+                mul(b, ad.size(), ad.data(), b_ad);
                 // num <- a + b * ad
-                add(an.size(), an.c_ptr(), b_ad.size(), b_ad.c_ptr(), num);
+                add(an.size(), an.data(), b_ad.size(), b_ad.c_ptr(), num);
                 if (num.empty())
                     r = nullptr;
                 else {
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
-                    normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                    normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.data(), new_num, new_den);
                     SASSERT(!new_num.empty());
                     mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
@@ -5001,7 +5001,7 @@ namespace realclosure {
             polynomial const & one = a->den();
             polynomial const & bn  = b->num();
             value_ref_buffer new_num(*this);
-            add(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), new_num);
+            add(an.size(), an.data(), bn.size(), bn.data(), new_num);
             if (new_num.empty())
                 r = nullptr;
             else {
@@ -5010,7 +5010,7 @@ namespace realclosure {
                 // That is, their degrees are < degree of the polynomial defining x.
                 // Moreover, when we add polynomials, the degree can only decrease.
                 // So, degree of new_num must be < degree of x's defining polynomial.
-                mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
+                mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.data(), r);
             }
         }
 
@@ -5030,8 +5030,8 @@ namespace realclosure {
                 polynomial const & bd = b->den();
                 value_ref_buffer an_bd(*this);
                 value_ref_buffer bn_ad(*this);
-                mul(an.size(), an.c_ptr(), bd.size(), bd.c_ptr(), an_bd);
-                mul(bn.size(), bn.c_ptr(), ad.size(), ad.c_ptr(), bn_ad);
+                mul(an.size(), an.data(), bd.size(), bd.data(), an_bd);
+                mul(bn.size(), bn.data(), ad.size(), ad.data(), bn_ad);
                 value_ref_buffer num(*this);
                 add(an_bd.size(), an_bd.c_ptr(), bn_ad.size(), bn_ad.c_ptr(), num);
                 if (num.empty()) {
@@ -5039,7 +5039,7 @@ namespace realclosure {
                 }
                 else {
                     value_ref_buffer den(*this);
-                    mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
+                    mul(ad.size(), ad.data(), bd.size(), bd.data(), den);
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
                     normalize_fraction(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
@@ -5109,10 +5109,10 @@ namespace realclosure {
             polynomial const & an = a->num();
             polynomial const & ad = a->den();
             value_ref_buffer new_num(*this);
-            neg(an.size(), an.c_ptr(), new_num);
+            neg(an.size(), an.data(), new_num);
             scoped_mpbqi ri(bqim());
             bqim().neg(interval(a), ri);
-            r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), ad.size(), ad.c_ptr());
+            r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), ad.size(), ad.data());
             swap(r->interval(), ri);
             SASSERT(!contains_zero(r->interval()));
         }
@@ -5171,9 +5171,9 @@ namespace realclosure {
             polynomial const & one = a->den();
             SASSERT(an.size() > 1);
             value_ref_buffer new_num(*this);
-            mul(b, an.size(), an.c_ptr(), new_num);
+            mul(b, an.size(), an.data(), new_num);
             SASSERT(new_num.size() == an.size());
-            mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
+            mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.data(), r);
         }
 
         /**
@@ -5189,11 +5189,11 @@ namespace realclosure {
                 polynomial const & ad = a->den();
                 value_ref_buffer num(*this);
                 // num <- b * an
-                mul(b, an.size(), an.c_ptr(), num);
+                mul(b, an.size(), an.data(), num);
                 SASSERT(num.size() == an.size());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.data(), new_num, new_den);
                 SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
@@ -5210,17 +5210,17 @@ namespace realclosure {
             polynomial const & one = a->den();
             polynomial const & bn  = b->num();
             value_ref_buffer new_num(*this);
-            mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), new_num);
+            mul(an.size(), an.data(), bn.size(), bn.data(), new_num);
             SASSERT(!new_num.empty());
             extension * x = a->ext();
             if (x->is_algebraic()) {
                 value_ref_buffer new_num2(*this);
                 normalize_algebraic(to_algebraic(x), new_num.size(), new_num.c_ptr(), new_num2);
                 SASSERT(!new_num.empty());
-                mk_mul_value(a, b, new_num2.size(), new_num2.c_ptr(), one.size(), one.c_ptr(), r);
+                mk_mul_value(a, b, new_num2.size(), new_num2.c_ptr(), one.size(), one.data(), r);
             }
             else {
-                mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
+                mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.data(), r);
             }
         }
 
@@ -5240,8 +5240,8 @@ namespace realclosure {
                 polynomial const & bd = b->den();
                 value_ref_buffer num(*this);
                 value_ref_buffer den(*this);
-                mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), num);
-                mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
+                mul(an.size(), an.data(), bn.size(), bn.data(), num);
+                mul(ad.size(), ad.data(), bd.size(), bd.data(), den);
                 SASSERT(!num.empty()); SASSERT(!den.empty());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
@@ -5412,10 +5412,10 @@ namespace realclosure {
             polynomial const & p = alpha->p();
             value_ref_buffer norm_q(*this);
             // since p(alpha) = 0, we have that q(alpha) = rem(q, p)(alpha)
-            rem(q.size(), q.c_ptr(), p.size(), p.c_ptr(), norm_q);
+            rem(q.size(), q.data(), p.size(), p.data(), norm_q);
             SASSERT(norm_q.size() < p.size());
             value_ref_buffer new_num(*this), g(*this);
-            if (inv_algebraic(norm_q.size(), norm_q.c_ptr(), p.size(), p.c_ptr(), g, new_num)) {
+            if (inv_algebraic(norm_q.size(), norm_q.c_ptr(), p.size(), p.data(), g, new_num)) {
                 if (new_num.size() == 1) {
                     r = new_num[0];
                 }
@@ -5438,7 +5438,7 @@ namespace realclosure {
                 // And try again :)
 
                 value_ref_buffer new_p(*this);
-                div(p.size(), p.c_ptr(), g.size(), g.c_ptr(), new_p);
+                div(p.size(), p.data(), g.size(), g.c_ptr(), new_p);
                 if (m_clean_denominators) {
                     value_ref_buffer tmp(*this);
                     value_ref d(*this);
@@ -5456,7 +5456,7 @@ namespace realclosure {
                     div(alpha_val, new_p[1], alpha_val);
                     // Thus, a is equal to q(alpha_val)
                     value_ref new_a(*this);
-                    mk_polynomial_value(q.size(), q.c_ptr(), alpha_val, new_a);
+                    mk_polynomial_value(q.size(), q.data(), alpha_val, new_a);
                     // Remark new_a does not depend on alpha anymore
                     // r == 1/inv(new_a)
                     inv(new_a, r);
@@ -5515,7 +5515,7 @@ namespace realclosure {
 
                     // copy new_alpha->m_p
                     reset_p(alpha->m_p);
-                    set_p(alpha->m_p, new_alpha->m_p.size(), new_alpha->m_p.c_ptr());
+                    set_p(alpha->m_p, new_alpha->m_p.size(), new_alpha->m_p.data());
                     // copy new_alpha->m_sign_det
                     inc_ref_sign_det(new_alpha->m_sign_det);
                     dec_ref_sign_det(alpha->m_sign_det);
@@ -5544,7 +5544,7 @@ namespace realclosure {
                 // The GCD of an and ad is one, we may use a simpler version of normalize
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize_fraction(ad.size(), ad.c_ptr(), an.size(), an.c_ptr(), new_num, new_den);
+                normalize_fraction(ad.size(), ad.data(), an.size(), an.data(), new_num, new_den);
                 r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr());
                 swap(r->interval(), ri);
                 SASSERT(!contains_zero(r->interval()));
@@ -5819,7 +5819,7 @@ namespace realclosure {
 
         template<typename DisplayVar>
         void display_polynomial(std::ostream & out, polynomial const & p, DisplayVar const & display_var, bool compact, bool pp) const {
-            display_polynomial(out, p.size(), p.c_ptr(), display_var, compact, pp);
+            display_polynomial(out, p.size(), p.data(), display_var, compact, pp);
         }
 
         struct display_free_var_proc {

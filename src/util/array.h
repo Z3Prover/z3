@@ -70,9 +70,9 @@ private:
     }
 
 public:
-    typedef T data;
-    typedef T * iterator;
-    typedef const T * const_iterator;
+    using value_type = T;
+    using iterator = T*;
+    using const_iterator = T const*;
 
     array():m_data(nullptr) {}
 
@@ -182,8 +182,8 @@ public:
         return m_data + size(); 
     }
 
-    T const * c_ptr() const { return m_data; }
-    T * c_ptr() { return m_data; }
+    T const * data() const { return m_data; }
+    T * data() { return m_data; }
 
     void swap(array & other) {
         std::swap(m_data, other.m_data);
