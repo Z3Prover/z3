@@ -411,6 +411,8 @@ struct pivoted_rows_tracking_control {
     }
 };
 
+
+
 impq int_solver::get_cube_delta_for_term(const lar_term& t) const {
     if (t.size() == 2) {
         bool seen_minus = false;
@@ -609,7 +611,6 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
 
     r = patch_nbasic_columns();
     if (r != lia_move::undef) return r;
-
     ++m_branch_cut_counter;
 
     r = find_cube();
