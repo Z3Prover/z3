@@ -18,6 +18,7 @@ Revision History:
 
 --*/
 #pragma once
+#include <functional>
 namespace lp {
 class general_matrix {
     // fields

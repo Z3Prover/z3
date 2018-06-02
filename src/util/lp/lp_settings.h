@@ -214,7 +214,7 @@ public:
     
     lp_settings() : m_default_resource_limit(*this),
                     m_resource_limit(&m_default_resource_limit),
-                    m_debug_out( &std::cout),
+                    m_debug_out(&std::cout),
                     m_message_out(&std::cout),
                     reps_in_scaler(20),
                     pivot_epsilon(0.00000001),
@@ -231,7 +231,6 @@ public:
                     drop_tolerance ( 1e-14),
                     tolerance_for_artificials ( 1e-4),
                     can_be_taken_to_basis_tolerance ( 0.00001),
-                  
                     percent_of_entering_to_check ( 5),// we try to find a profitable column in a percentage of the columns
                     use_scaling ( true),
                     scaling_maximum ( 1),

@@ -1690,6 +1690,7 @@ namespace smt {
         m_nl_gb_exhausted(false),
         m_nl_new_exprs(m),
         m_bound_watch(null_bool_var) {
+            UNREACHABLE();
     }
 
     template<typename Ext>

@@ -214,7 +214,6 @@ template <typename T, typename X>    void scaler<T, X>::scale_rows() {
 }
 
 template <typename T, typename X>    void scaler<T, X>::scale_row(unsigned i) {
-    std::cout << "t" << "\n";
     T row_max = std::max(m_A.get_max_abs_in_row(i), abs(convert_struct<T, X>::convert(m_b[i])));
     T alpha = numeric_traits<T>::one();
     if (numeric_traits<T>::is_zero(row_max)) {
@@ -244,7 +243,6 @@ template <typename T, typename X>    void scaler<T, X>::scale_column(unsigned i)
     if (numeric_traits<T>::is_zero(column_max)){
         return; // the column has zeros only
     }
-    std::cout << "f";
     if (column_max < m_scaling_minimum) {
         do {
             alpha *= 2;

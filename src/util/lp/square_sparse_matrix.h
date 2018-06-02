@@ -254,11 +254,7 @@ public:
     void delete_column(int i);
 
     void swap_columns(unsigned a, unsigned b) {
-        // cout << "swaapoiiin" << std::endl;
-        // dense_matrix<T, X> d(*this);
         m_column_permutation.transpose_from_left(a, b);
-        // d.swap_columns(a, b);
-        // lp_assert(*this == d);
     }
 
     void swap_rows(unsigned a, unsigned b) {

@@ -315,6 +315,72 @@ unsigned mpq_manager<SYNCH>::prev_power_of_two(mpq const & a) {
     return prev_power_of_two(_tmp);
 }
 
+template<bool SYNCH>
+void mpq_manager<SYNCH>::rat_add(mpq const & a, mpq const & b, mpq & c) {
+    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
+#if 0
+    if (SYNCH) {
+        mpz tmp1, tmp2;
+        mul(a.m_num, b.m_den, tmp1);
+        mul(b.m_num, a.m_den, tmp2);
+        mul(a.m_den, b.m_den, c.m_den);
+        add(tmp1, tmp2, c.m_num);
+        normalize(c);
+        del(tmp1);
+        del(tmp2);
+    }
+    else {
+        mul(a.m_num, b.m_den, m_add_tmp1);
+        mul(b.m_num, a.m_den, m_add_tmp2);
+        mul(a.m_den, b.m_den, c.m_den);
+        add(m_add_tmp1, m_add_tmp2, c.m_num);
+        normalize(c);
+    }
+#else
+    if (SYNCH) {
+        mpz tmp1, tmp2, tmp3, g;
+        gcd(a.m_den, b.m_den, g);     
+        if (is_one(g)) {
+            mul(a.m_num, b.m_den, tmp1);
+            mul(b.m_num, a.m_den, tmp2);
+            add(tmp1, tmp2, c.m_num);
+            mul(a.m_den, b.m_den, c.m_den);            
+        }
+        else {
+            div(a.m_den, g, tmp3);
+            mul(tmp3, b.m_den, c.m_den);
+            mul(tmp3, b.m_num, tmp1);
+            div(b.m_den, g, tmp3);
+            mul(tmp3, a.m_num, tmp2);
+            add(tmp1, tmp2, tmp3);
+            gcd(tmp3, g, tmp1);
+            if (is_one(tmp1)) {
+                set(c.m_num, tmp3);               
+            }
+            else {
+                div(tmp3, tmp1, c.m_num);
+                div(c.m_den, tmp1, c.m_den);
+            }
+        }
+        del(tmp1);
+        del(tmp2);
+        del(tmp3);
+        del(g);
+    }
+    else {
+        // TBD:
+        gcd(a.m_den, b.m_den, m_n_tmp);             
+        mul(a.m_num, b.m_den, m_add_tmp1);
+        mul(b.m_num, a.m_den, m_add_tmp2);
+        mul(a.m_den, b.m_den, m_addmul_tmp.m_den);
+        add(m_add_tmp1, m_add_tmp2, m_addmul_tmp.m_num);
+        div(m_addmul_tmp.m_den, m_n_tmp, c.m_den);
+        div(m_addmul_tmp.m_num, m_n_tmp, c.m_num);
+    }
+#endif
+    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+}
+
 template class mpq_manager<true>;
 template class mpq_manager<false>;
 

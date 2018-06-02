@@ -74,27 +74,7 @@ class mpq_manager : public mpz_manager<SYNCH> {
         }
     }
 
-    void rat_add(mpq const & a, mpq const & b, mpq & c) {
-        STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
-        if (SYNCH) {
-            mpz tmp1, tmp2;
-            mul(a.m_num, b.m_den, tmp1);
-            mul(b.m_num, a.m_den, tmp2);
-            mul(a.m_den, b.m_den, c.m_den);
-            add(tmp1, tmp2, c.m_num);
-            normalize(c);
-            del(tmp1);
-            del(tmp2);
-        }
-        else {
-            mul(a.m_num, b.m_den, m_add_tmp1);
-            mul(b.m_num, a.m_den, m_add_tmp2);
-            mul(a.m_den, b.m_den, c.m_den);
-            add(m_add_tmp1, m_add_tmp2, c.m_num);
-            normalize(c);
-        }
-        STRACE("rat_mpq", tout << to_string(c) << "\n";);
-    }
+    void rat_add(mpq const & a, mpq const & b, mpq & c);
 
     void rat_add(mpq const & a, mpz const & b, mpq & c) {
         STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 

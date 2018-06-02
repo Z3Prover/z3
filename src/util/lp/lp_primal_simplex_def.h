@@ -278,7 +278,6 @@ template <typename T, typename X> bool lp_primal_simplex<T, X>::bounds_hold(std:
         }
 
         if (!it.second->bounds_hold(sol_it->second)) {
-            //            std::cout << "bounds do not hold for " << it.second->get_name() << std::endl;
             it.second->bounds_hold(sol_it->second);
             return false;
         }

@@ -115,7 +115,6 @@ public :
                 }
             }
         default:
-            // std::cout << " got an upper bound with " << T_to_string(l) << "\n";
             m_implied_bounds.push_back(implied_bound(l, j, false, is_pos(m_coeffs[i]), m_row_or_term_index, strict));
         }
     }
@@ -207,7 +206,6 @@ public :
                 }
             }
         default:
-            // std::cout << " got a lower bound with " << T_to_string(l) << "\n";
             m_implied_bounds.push_back(implied_bound(l, j, true, is_pos(m_coeffs[i]), m_row_or_term_index, strict));
         }
     }

@@ -26,7 +26,6 @@ Revision History:
 #include "util/lp/indexed_vector.h"
 #include "util/lp/binary_heap_priority_queue.h"
 #include "util/lp/breakpoint.h"
-#include "util/lp/stacked_unordered_set.h"
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/lar_solution_signature.h"
@@ -611,7 +610,6 @@ public:
         }
 
         if (no_r_lu()) { // it is the case where m_d_solver gives a degenerated basis, we need to roll back
-            //            std::cout << "no_r_lu" << std::endl;
             catch_up_in_lu_in_reverse(changes_of_basis, m_r_solver);
             m_r_solver.find_feasible_solution();
             m_d_basis = m_r_basis;
