@@ -57,7 +57,7 @@ void sym_mux::register_decl(func_decl *fdecl) {
     m_muxes.insert(entry->m_variants.get(0), std::make_pair(entry, 0));
     m_muxes.insert(entry->m_variants.get(1), std::make_pair(entry, 1));
 }
-void sym_mux::ensure_capacity(sym_mux_entry &entry, unsigned sz) {
+void sym_mux::ensure_capacity(sym_mux_entry &entry, unsigned sz) const {
     while (entry.m_variants.size() < sz) {
         unsigned idx = entry.m_variants.size();
         entry.m_variants.push_back (mk_variant(entry.m_main, idx));
@@ -71,7 +71,7 @@ bool sym_mux::find_idx(func_decl * sym, unsigned & idx) const {
     return false;
 }
 
-func_decl * sym_mux::find_by_decl(func_decl* fdecl, unsigned idx) {
+func_decl * sym_mux::find_by_decl(func_decl* fdecl, unsigned idx) const {
     sym_mux_entry *entry = nullptr;
     if (m_entries.find(fdecl, entry)) {
         ensure_capacity(*entry, idx+1);
@@ -85,6 +85,7 @@ func_decl * sym_mux::shift_decl(func_decl * decl,
     std::pair<sym_mux_entry*,unsigned> entry;
     if (m_muxes.find(decl, entry)) {
         SASSERT(entry.second == src_idx);
+        ensure_capacity(*entry.first, tgt_idx + 1);
         return entry.first->m_variants.get(tgt_idx);
     }
     UNREACHABLE();

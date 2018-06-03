@@ -42,11 +42,11 @@ private:
     typedef obj_map<func_decl, std::pair<sym_mux_entry*, unsigned> > mux2entry_map;
 
     ast_manager &m;
-    decl2entry_map m_entries;
-    mux2entry_map m_muxes;
+    mutable decl2entry_map m_entries;
+    mutable mux2entry_map m_muxes;
 
     func_decl_ref mk_variant(func_decl *fdecl, unsigned i) const;
-    void ensure_capacity(sym_mux_entry &entry, unsigned sz) ;
+    void ensure_capacity(sym_mux_entry &entry, unsigned sz) const;
 
 public:
     sym_mux(ast_manager & m);
@@ -58,12 +58,13 @@ public:
     bool has_index(func_decl * sym, unsigned idx) const
     {unsigned v; return find_idx(sym, v) && idx == v;}
 
+    bool is_muxed(func_decl *fdecl) const {return m_muxes.contains(fdecl);}
 
     /**
        \brief Return symbol created from prefix, or 0 if the prefix
         was never used.
     */
-    func_decl * find_by_decl(func_decl* fdecl, unsigned idx);
+    func_decl * find_by_decl(func_decl* fdecl, unsigned idx) const;
 
     /**
        \brief Return true if the only multiplexed symbols which e contains are
