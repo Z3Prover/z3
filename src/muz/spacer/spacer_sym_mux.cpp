@@ -55,7 +55,12 @@ std::string sym_mux::get_suffix(unsigned i) const
     return m_suffixes[i];
 }
 
-void sym_mux::create_tuple(func_decl* prefix, unsigned arity, sort * const * domain, sort * range,
+/**
+    populates a vector called tuple with func_decl's
+    tuple[0] is called primary and is used as key in various maps
+ */
+void sym_mux::create_tuple(func_decl* prefix, unsigned arity,
+                           sort * const * domain, sort * range,
                            unsigned tuple_length, decl_vector & tuple)
 {
     SASSERT(tuple_length > 0);
@@ -63,16 +68,18 @@ void sym_mux::create_tuple(func_decl* prefix, unsigned arity, sort * const * dom
         tuple.push_back(0);
     }
     SASSERT(tuple.size() == tuple_length);
-    std::string pre = prefix->get_name().str();
     for (unsigned i = 0; i < tuple_length; i++) {
 
         if (tuple[i] != 0) {
             SASSERT(tuple[i]->get_arity() == arity);
             SASSERT(tuple[i]->get_range() == range);
-            //domain should match as well, but we won't bother checking an array equality
+            //domain should match as well, but we won't bother
+            //checking an array equality
         } else {
-            std::string name = pre + get_suffix(i);
-            tuple[i] = m.mk_func_decl(symbol(name.c_str()), arity, domain, range);
+            std::string name = prefix->get_name().str();
+            name += get_suffix(i);
+            tuple[i] = m.mk_func_decl(symbol(name.c_str()), arity,
+                                      domain, range);
         }
         m_ref_holder.push_back(tuple[i]);
         m_sym2idx.insert(tuple[i], i);
@@ -85,6 +92,9 @@ void sym_mux::create_tuple(func_decl* prefix, unsigned arity, sort * const * dom
     m_ref_holder.push_back(prefix);
 }
 
+/**
+   extends a tuple in which prim is primary to the given size
+*/
 void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz) const
 {
     SASSERT(m_prim2all.contains(prim));
@@ -98,8 +108,9 @@ void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz) const
     std::string prefix_name = prefix->get_name().bare_str();
     for (unsigned i = tuple.size(); i < sz; ++i) {
         std::string name = prefix_name + get_suffix(i);
-        func_decl * new_sym = m.mk_func_decl(symbol(name.c_str()), prefix->get_arity(),
-                                             prefix->get_domain(), prefix->get_range());
+        func_decl * new_sym =
+            m.mk_func_decl(symbol(name.c_str()), prefix->get_arity(),
+                           prefix->get_domain(), prefix->get_range());
 
         tuple.push_back(new_sym);
         m_ref_holder.push_back(new_sym);
@@ -108,8 +119,9 @@ void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz) const
     }
 }
 
-func_decl * sym_mux::conv(func_decl * sym, unsigned src_idx, unsigned tgt_idx) const
-{
+/** given a func_decl with src_idx returns its version with tgt_idx */
+func_decl * sym_mux::conv(func_decl * sym,
+                          unsigned src_idx, unsigned tgt_idx) const {
     if (src_idx == tgt_idx) { return sym; }
     func_decl * prim = (src_idx == 0) ? sym : get_primary(sym);
     if (tgt_idx > src_idx) {
@@ -121,15 +133,10 @@ func_decl * sym_mux::conv(func_decl * sym, unsigned src_idx, unsigned tgt_idx) c
 }
 
 
-
-
-
 struct sym_mux::formula_checker {
-    formula_checker(const sym_mux & parent, bool all, unsigned idx) :
-        m_parent(parent), m_all(all), m_idx(idx),
-        m_found_what_needed(false)
-    {
-    }
+    formula_checker(const sym_mux & parent, unsigned idx) :
+        m_parent(parent), m_idx(idx),
+        m_found_what_needed(false) {}
 
     void operator()(expr * e)
     {
@@ -140,28 +147,15 @@ struct sym_mux::formula_checker {
         if (!m_parent.try_get_index(sym, sym_idx)) { return; }
 
         bool have_idx = sym_idx == m_idx;
-
-        if (m_all ? (!have_idx) : have_idx) {
-            m_found_what_needed = true;
-        }
+        m_found_what_needed = !have_idx;
 
     }
 
-    bool all_have_idx() const
-    {
-        SASSERT(m_all); //we were looking for the queried property
-        return !m_found_what_needed;
-    }
+    bool all_have_idx() const {return !m_found_what_needed;}
 
-    bool some_with_idx() const
-    {
-        SASSERT(!m_all); //we were looking for the queried property
-        return m_found_what_needed;
-    }
 
 private:
     const sym_mux & m_parent;
-    bool m_all;
     unsigned m_idx;
 
     /**
@@ -176,7 +170,7 @@ private:
 bool sym_mux::is_homogenous_formula(expr * e, unsigned idx) const
 {
     expr_mark visited;
-    formula_checker chck(*this, true, idx);
+    formula_checker chck(*this, idx);
     for_each_expr(chck, visited, e);
     return chck.all_have_idx();
 }
@@ -189,7 +183,8 @@ private:
     unsigned m_to_idx;
     bool m_homogenous;
 public:
-    conv_rewriter_cfg(const sym_mux & parent, unsigned from_idx, unsigned to_idx, bool homogenous)
+    conv_rewriter_cfg(const sym_mux & parent, unsigned from_idx,
+                      unsigned to_idx, bool homogenous)
         : m(parent.get_manager()),
           m_parent(parent),
           m_from_idx(from_idx),
