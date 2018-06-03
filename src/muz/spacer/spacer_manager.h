@@ -96,35 +96,6 @@ public:
     func_decl * get_o_pred(func_decl * s, unsigned idx);
     func_decl * get_n_pred(func_decl * s);
 
-    void get_o_index(func_decl* p, unsigned& idx) const {
-        m_mux.try_get_index(p, idx);
-        SASSERT(idx != n_index());
-        idx--;  // m_mux has indices starting at 1
-    }
-
-    bool is_o(func_decl * p, unsigned idx) const
-    {return m_mux.has_index(p, o_index(idx));}
-    bool is_o(func_decl * p) const {
-        unsigned idx;
-        return m_mux.try_get_index(p, idx) && idx != n_index();
-    }
-    bool is_o(expr* e) const
-    {return is_app(e) && is_o(to_app(e)->get_decl());}
-    bool is_o(expr* e, unsigned idx) const
-    {return is_app(e) && is_o(to_app(e)->get_decl(), idx);}
-    bool is_n(func_decl * p) const
-    {return m_mux.has_index(p, n_index());}
-    bool is_n(expr* e) const
-    {return is_app(e) && is_n(to_app(e)->get_decl());}
-
-
-    /** true if f doesn't contain any n predicates */
-    bool is_o_formula(expr * f) const
-    {return !m_mux.contains(f, n_index());}
-    /** true if f contains only o state preds of index o_idx */
-    bool is_o_formula(expr * f, unsigned o_idx) const
-    {return m_mux.is_homogenous_formula(f, o_index(o_idx));}
-    /** true if f doesn't contain any o predicates */
     bool is_n_formula(expr * f) const
     {return m_mux.is_homogenous_formula(f, n_index());}
 
@@ -135,18 +106,22 @@ public:
     func_decl * n2o(func_decl * p, unsigned o_idx) const
     {return m_mux.conv(p, n_index(), o_index(o_idx));}
 
-    void formula_o2n(expr * f, expr_ref & result, unsigned o_idx, bool homogenous = true) const
+    void formula_o2n(expr * f, expr_ref & result, unsigned o_idx,
+                     bool homogenous = true) const
     {m_mux.conv_formula(f, o_index(o_idx), n_index(), result, homogenous);}
 
-    void formula_n2o(expr * f, expr_ref & result, unsigned o_idx, bool homogenous = true) const
+    void formula_n2o(expr * f, expr_ref & result, unsigned o_idx,
+                     bool homogenous = true) const
     {m_mux.conv_formula(f, n_index(), o_index(o_idx), result, homogenous);}
 
     void formula_n2o(unsigned o_idx, bool homogenous, expr_ref & result) const
-    {m_mux.conv_formula(result.get(), n_index(), o_index(o_idx), result, homogenous);}
+    {m_mux.conv_formula(result.get(), n_index(), o_index(o_idx),
+                        result, homogenous);}
 
     void formula_o2o(expr * src, expr_ref & tgt, unsigned src_idx,
                      unsigned tgt_idx, bool homogenous = true) const
-    {m_mux.conv_formula(src, o_index(src_idx), o_index(tgt_idx), tgt, homogenous);}
+    {m_mux.conv_formula(src, o_index(src_idx), o_index(tgt_idx),
+                        tgt, homogenous);}
 
 };
 

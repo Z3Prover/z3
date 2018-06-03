@@ -7,7 +7,8 @@ Module Name:
 
 Abstract:
 
-    A symbol multiplexer that helps with having multiple versions of each of a set of symbols.
+    A symbol multiplexer that helps with having multiple versions of
+    each of a set of symbols.
 
 Author:
 
@@ -20,18 +21,17 @@ Revision History:
 #ifndef _SYM_MUX_H_
 #define _SYM_MUX_H_
 
+#include <vector>
+#include <string>
+
 #include "ast/ast.h"
 #include "util/map.h"
 #include "util/vector.h"
-#include <vector>
 
 class model_core;
 
 namespace spacer {
 class sym_mux {
-public:
-    typedef ptr_vector<app> app_vector;
-    typedef ptr_vector<func_decl> decl_vector;
 private:
     typedef obj_map<func_decl, unsigned> sym2u;
     typedef obj_map<func_decl, decl_vector> sym2dv;
@@ -41,7 +41,6 @@ private:
 
     ast_manager &           m;
     mutable ast_ref_vector  m_ref_holder;
-    mutable expr_mark       m_visited;
 
     mutable unsigned       m_next_sym_suffix_idx;
     mutable symbols        m_used_suffixes;
@@ -75,24 +74,15 @@ private:
     */
     sym2sym     m_prim2prefix;
 
-    decl_vector m_prim_preds;
 
-    obj_hashtable<func_decl> m_non_model_syms;
 
     struct formula_checker;
     struct conv_rewriter_cfg;
-    struct shifting_rewriter_cfg;
-    class decl_idx_comparator;
-    class hmg_checker;
-    class nonmodel_sym_checker;
-    class index_renamer_cfg;
-    class index_collector;
-    class variable_collector;
 
     std::string get_suffix(unsigned i) const;
     void ensure_tuple_size(func_decl * prim, unsigned sz) const;
 
-    expr_ref isolate_o_idx(expr* e, unsigned idx) const;
+    // expr_ref isolate_o_idx(expr* e, unsigned idx) const;
 public:
     sym_mux(ast_manager & m, const std::vector<std::string> & suffixes);
 
@@ -101,9 +91,7 @@ public:
     bool is_muxed(func_decl * sym) const { return m_sym2idx.contains(sym); }
 
     bool try_get_index(func_decl * sym, unsigned & idx) const
-    {
-        return m_sym2idx.find(sym, idx);
-    }
+    {return m_sym2idx.find(sym, idx);}
 
     bool has_index(func_decl * sym, unsigned idx) const
     {
@@ -144,30 +132,6 @@ public:
     }
 
     /**
-    Marks symbol as non-model which means it will not appear in models collected by
-    get_muxed_cube_from_model function.
-    This is to take care of auxiliary symbols introduced by the disjunction relations
-    to relativize lemmas coming from disjuncts.
-    */
-    void mark_as_non_model(func_decl * sym)
-    {
-        SASSERT(is_muxed(sym));
-        m_non_model_syms.insert(get_primary(sym));
-    }
-
-    func_decl * get_or_create_symbol_by_prefix(func_decl* prefix, unsigned idx,
-            unsigned arity, sort * const * domain, sort * range);
-
-
-
-    bool is_muxed_lit(expr * e, unsigned idx) const;
-
-    bool is_non_model_sym(func_decl * s) const
-    {
-        return is_muxed(s) && m_non_model_syms.contains(get_primary(s));
-    }
-
-    /**
     Create a multiplexed tuple of propositional constants.
     Symbols may be suplied in the tuple vector,
     those beyond the size of the array and those with corresponding positions
@@ -181,27 +145,7 @@ public:
     Return true if the only multiplexed symbols which e contains are of index idx.
     */
     bool is_homogenous_formula(expr * e, unsigned idx) const;
-    bool is_homogenous(const expr_ref_vector & vect, unsigned idx) const;
 
-    /**
-    Return true if all multiplexed symbols which e contains are of one index.
-    */
-    bool is_homogenous_formula(expr * e) const;
-
-    /**
-    Return true if expression e contains a muxed symbol of index idx.
-    */
-    bool contains(expr * e, unsigned idx) const;
-
-    /**
-        Collect indices used in expression.
-    */
-    void collect_indices(expr* e, unsigned_vector& indices) const;
-
-    /**
-        Collect used variables of each index.
-    */
-    void collect_variables(expr* e, vector<ptr_vector<app> >& vars) const;
 
     /**
     Convert symbol sym which has to be of src_idx variant into variant tgt_idx.
@@ -213,43 +157,10 @@ public:
     Convert src_idx symbols in formula f variant into tgt_idx.
     If homogenous is true, formula cannot contain symbols of other variants.
     */
-    void conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx, expr_ref & res, bool homogenous = true) const;
-    void conv_formula_vector(const expr_ref_vector & vect, unsigned src_idx, unsigned tgt_idx,
-                             expr_ref_vector & res) const;
+    void conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx,
+                      expr_ref & res, bool homogenous = true) const;
 
-    /**
-    Shifts the muxed symbols in f by dist. Dist can be negative, but it should never shift
-    symbol index to a negative value.
-    */
-    void shift_formula(expr * f, int dist, expr_ref & res) const;
 
-    /**
-    Remove from vect literals (atoms or negations of atoms) of symbols
-    that contain multiplexed symbols with indexes other than idx.
-
-    Each of the literals can contain only symbols multiplexed with one index
-    (this trivially holds if the literals are propositional).
-
-    Order of elements in vect may be modified by this function
-    */
-    void filter_idx(expr_ref_vector & vect, unsigned idx) const;
-
-    /**
-        Partition literals into o_literals and others.
-    */
-    void partition_o_idx(expr_ref_vector const& lits,
-                         expr_ref_vector& o_lits,
-                         expr_ref_vector& other, unsigned idx) const;
-
-    bool has_nonmodel_symbol(expr * e) const;
-    void filter_non_model_lits(expr_ref_vector & vect) const;
-
-    func_decl * const * begin_prim_preds() const { return m_prim_preds.begin(); }
-    func_decl * const * end_prim_preds() const { return m_prim_preds.end(); }
-
-    void get_muxed_cube_from_model(const model_core & model, expr_ref_vector & res) const;
-
-    std::string pp_model(const model_core & mdl) const;
 };
 }
 
