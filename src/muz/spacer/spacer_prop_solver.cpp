@@ -376,7 +376,7 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
     unsigned soft_sz = soft.size();
     (void) soft_sz;
     vector<expr_ref_vector> clauses;
-    clauses.push_back(clause);
+    if (!clause.empty()) clauses.push_back(clause);
     lbool res = internal_check_assumptions(hard, soft, clauses);
     if (!m_use_push_bg) { m_ctx->pop(1); }
 
