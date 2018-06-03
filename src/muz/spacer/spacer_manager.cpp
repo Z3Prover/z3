@@ -170,42 +170,25 @@ void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::
 }
 
 
-static std::vector<std::string> state_suffixes() {
-    std::vector<std::string> res;
-    res.push_back("_n");
-    return res;
-}
 
-manager::manager(ast_manager& manager) :
-    m(manager), m_mux(m, state_suffixes()) {
-}
+manager::manager(ast_manager& manager) : m(manager), m_mux(m) {}
 
-
-void manager::add_new_state(func_decl * s)
-{
-    SASSERT(s->get_arity() == 0); //we currently don't support non-constant states
-    decl_vector vect;
-
-    SASSERT(o_index(0) == 1); //we assume this in the number of retrieved symbols
-    m_mux.create_tuple(s, s->get_arity(), s->get_domain(), s->get_range(), 2, vect);
-}
-
-func_decl * manager::get_o_pred(func_decl* s, unsigned idx)
-{
-    func_decl * res = m_mux.try_get_by_prefix(s, o_index(idx));
-    if (res) { return res; }
-    add_new_state(s);
-    res = m_mux.try_get_by_prefix(s, o_index(idx));
+func_decl * manager::get_o_pred(func_decl* s, unsigned idx) {
+    func_decl * res = m_mux.find_by_decl(s, o_index(idx));
+    if (!res) {
+        m_mux.register_decl(s);
+        res = m_mux.find_by_decl(s, o_index(idx));
+    }
     SASSERT(res);
     return res;
 }
 
-func_decl * manager::get_n_pred(func_decl* s)
-{
-    func_decl * res = m_mux.try_get_by_prefix(s, n_index());
-    if (res) { return res; }
-    add_new_state(s);
-    res = m_mux.try_get_by_prefix(s, n_index());
+func_decl * manager::get_n_pred(func_decl* s) {
+    func_decl * res = m_mux.find_by_decl(s, n_index());
+    if (!res) {
+        m_mux.register_decl(s);
+        res = m_mux.find_by_decl(s, n_index());
+    }
     SASSERT(res);
     return res;
 }

@@ -83,8 +83,6 @@ class manager {
     unsigned n_index() const { return 0; }
     unsigned o_index(unsigned i) const { return i + 1; }
 
-    void add_new_state(func_decl * s);
-
 public:
     manager(ast_manager & manager);
 
@@ -100,27 +98,27 @@ public:
     {return m_mux.is_homogenous_formula(f, n_index());}
 
     func_decl * o2n(func_decl * p, unsigned o_idx) const
-    {return m_mux.conv(p, o_index(o_idx), n_index());}
+    {return m_mux.shift_decl(p, o_index(o_idx), n_index());}
     func_decl * o2o(func_decl * p, unsigned src_idx, unsigned tgt_idx) const
-    {return m_mux.conv(p, o_index(src_idx), o_index(tgt_idx));}
+    {return m_mux.shift_decl(p, o_index(src_idx), o_index(tgt_idx));}
     func_decl * n2o(func_decl * p, unsigned o_idx) const
-    {return m_mux.conv(p, n_index(), o_index(o_idx));}
+    {return m_mux.shift_decl(p, n_index(), o_index(o_idx));}
 
     void formula_o2n(expr * f, expr_ref & result, unsigned o_idx,
                      bool homogenous = true) const
-    {m_mux.conv_formula(f, o_index(o_idx), n_index(), result, homogenous);}
+    {m_mux.shift_expr(f, o_index(o_idx), n_index(), result, homogenous);}
 
     void formula_n2o(expr * f, expr_ref & result, unsigned o_idx,
                      bool homogenous = true) const
-    {m_mux.conv_formula(f, n_index(), o_index(o_idx), result, homogenous);}
+    {m_mux.shift_expr(f, n_index(), o_index(o_idx), result, homogenous);}
 
     void formula_n2o(unsigned o_idx, bool homogenous, expr_ref & result) const
-    {m_mux.conv_formula(result.get(), n_index(), o_index(o_idx),
+    {m_mux.shift_expr(result.get(), n_index(), o_index(o_idx),
                         result, homogenous);}
 
     void formula_o2o(expr * src, expr_ref & tgt, unsigned src_idx,
                      unsigned tgt_idx, bool homogenous = true) const
-    {m_mux.conv_formula(src, o_index(src_idx), o_index(tgt_idx),
+    {m_mux.shift_expr(src, o_index(src_idx), o_index(tgt_idx),
                         tgt, homogenous);}
 
 };

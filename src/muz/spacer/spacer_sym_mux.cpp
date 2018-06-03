@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2011 Microsoft Corporation
+Copyright (c) 2018 Arie Gurfinkel and Microsoft Corporation
 
 Module Name:
 
@@ -7,10 +7,12 @@ Module Name:
 
 Abstract:
 
-    A symbol multiplexer that helps with having multiple versions of each of a set of symbols.
+    A symbol multiplexer that helps with having multiple versions of
+    each of a set of symbols.
 
 Author:
 
+    Arie Gurfinkel
     Krystof Hoder (t-khoder) 2011-9-8.
 
 Revision History:
@@ -22,166 +24,114 @@ Revision History:
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 
-#include "model/model.h"
-
 #include "muz/spacer/spacer_util.h"
 #include "muz/spacer/spacer_sym_mux.h"
 
 using namespace spacer;
 
-sym_mux::sym_mux(ast_manager & m, const std::vector<std::string> & suffixes)
-    : m(m), m_ref_holder(m), m_next_sym_suffix_idx(0), m_suffixes(suffixes)
-{
-    for (std::string const& s : m_suffixes) {
-        m_used_suffixes.insert(symbol(s.c_str()));
+sym_mux::sym_mux(ast_manager & m) : m(m) {}
+sym_mux::~sym_mux() {
+    for (auto &entry : m_entries) {
+        dealloc(entry.m_value);
     }
 }
 
-std::string sym_mux::get_suffix(unsigned i) const
-{
-    while (m_suffixes.size() <= i) {
-        std::string new_suffix;
-        symbol new_syffix_sym;
-        do {
-            std::stringstream stm;
-            stm << '_' << m_next_sym_suffix_idx;
-            m_next_sym_suffix_idx++;
-            new_suffix = stm.str();
-            new_syffix_sym = symbol(new_suffix.c_str());
-        } while (m_used_suffixes.contains(new_syffix_sym));
-        m_used_suffixes.insert(new_syffix_sym);
-        m_suffixes.push_back(new_suffix);
-    }
-    return m_suffixes[i];
+func_decl_ref sym_mux::mk_variant(func_decl *fdecl, unsigned i) const {
+    func_decl_ref v(m);
+    std::string name = fdecl->get_name().str();
+    std::string suffix = "_";
+    suffix += i == 0 ? "n" : std::to_string(i - 1);
+    name += suffix;
+    v =  m.mk_func_decl(symbol(name.c_str()), fdecl->get_arity(),
+                        fdecl->get_domain(), fdecl->get_range());
+    return v;
 }
 
-/**
-    populates a vector called tuple with func_decl's
-    tuple[0] is called primary and is used as key in various maps
- */
-void sym_mux::create_tuple(func_decl* prefix, unsigned arity,
-                           sort * const * domain, sort * range,
-                           unsigned tuple_length, decl_vector & tuple)
-{
-    SASSERT(tuple_length > 0);
-    while (tuple.size() < tuple_length) {
-        tuple.push_back(0);
-    }
-    SASSERT(tuple.size() == tuple_length);
-    for (unsigned i = 0; i < tuple_length; i++) {
+void sym_mux::register_decl(func_decl *fdecl) {
+    sym_mux_entry *entry = alloc(sym_mux_entry, m);
+    entry->m_main = fdecl;
+    entry->m_variants.push_back(mk_variant(fdecl, 0));
+    entry->m_variants.push_back(mk_variant(fdecl, 1));
 
-        if (tuple[i] != 0) {
-            SASSERT(tuple[i]->get_arity() == arity);
-            SASSERT(tuple[i]->get_range() == range);
-            //domain should match as well, but we won't bother
-            //checking an array equality
-        } else {
-            std::string name = prefix->get_name().str();
-            name += get_suffix(i);
-            tuple[i] = m.mk_func_decl(symbol(name.c_str()), arity,
-                                      domain, range);
-        }
-        m_ref_holder.push_back(tuple[i]);
-        m_sym2idx.insert(tuple[i], i);
-        m_sym2prim.insert(tuple[i], tuple[0]);
-    }
-
-    m_prim2all.insert(tuple[0], tuple);
-    m_prefix2prim.insert(prefix, tuple[0]);
-    m_prim2prefix.insert(tuple[0], prefix);
-    m_ref_holder.push_back(prefix);
+    m_entries.insert(fdecl, entry);
+    m_muxes.insert(entry->m_variants.get(0), std::make_pair(entry, 0));
+    m_muxes.insert(entry->m_variants.get(1), std::make_pair(entry, 1));
 }
-
-/**
-   extends a tuple in which prim is primary to the given size
-*/
-void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz) const
-{
-    SASSERT(m_prim2all.contains(prim));
-    decl_vector& tuple = m_prim2all.find_core(prim)->get_data().m_value;
-    SASSERT(tuple[0] == prim);
-
-    if (sz <= tuple.size()) { return; }
-
-    func_decl * prefix;
-    TRUSTME(m_prim2prefix.find(prim, prefix));
-    std::string prefix_name = prefix->get_name().bare_str();
-    for (unsigned i = tuple.size(); i < sz; ++i) {
-        std::string name = prefix_name + get_suffix(i);
-        func_decl * new_sym =
-            m.mk_func_decl(symbol(name.c_str()), prefix->get_arity(),
-                           prefix->get_domain(), prefix->get_range());
-
-        tuple.push_back(new_sym);
-        m_ref_holder.push_back(new_sym);
-        m_sym2idx.insert(new_sym, i);
-        m_sym2prim.insert(new_sym, prim);
+void sym_mux::ensure_capacity(sym_mux_entry &entry, unsigned sz) {
+    while (entry.m_variants.size() < sz) {
+        unsigned idx = entry.m_variants.size();
+        entry.m_variants.push_back (mk_variant(entry.m_main, idx));
+        m_muxes.insert(entry.m_variants.back(), std::make_pair(&entry, idx));
     }
 }
 
-/** given a func_decl with src_idx returns its version with tgt_idx */
-func_decl * sym_mux::conv(func_decl * sym,
-                          unsigned src_idx, unsigned tgt_idx) const {
-    if (src_idx == tgt_idx) { return sym; }
-    func_decl * prim = (src_idx == 0) ? sym : get_primary(sym);
-    if (tgt_idx > src_idx) {
-        ensure_tuple_size(prim, tgt_idx + 1);
-    }
-    decl_vector & sym_vect = m_prim2all.find_core(prim)->get_data().m_value;
-    SASSERT(sym_vect[src_idx] == sym);
-    return sym_vect[tgt_idx];
+bool sym_mux::find_idx(func_decl * sym, unsigned & idx) const {
+    std::pair<sym_mux_entry *, unsigned> entry;
+    if (m_muxes.find(sym, entry)) {idx = entry.second; return true;}
+    return false;
 }
 
+func_decl * sym_mux::find_by_decl(func_decl* fdecl, unsigned idx) {
+    sym_mux_entry *entry = nullptr;
+    if (m_entries.find(fdecl, entry)) {
+        ensure_capacity(*entry, idx+1);
+        return entry->m_variants.get(idx);
+    }
+    return nullptr;
+}
 
-struct sym_mux::formula_checker {
+func_decl * sym_mux::shift_decl(func_decl * decl,
+                                unsigned src_idx, unsigned tgt_idx) const {
+    std::pair<sym_mux_entry*,unsigned> entry;
+    if (m_muxes.find(decl, entry)) {
+        SASSERT(entry.second == src_idx);
+        return entry.first->m_variants.get(tgt_idx);
+    }
+    UNREACHABLE();
+    return nullptr;
+}
+
+namespace {
+struct formula_checker {
     formula_checker(const sym_mux & parent, unsigned idx) :
-        m_parent(parent), m_idx(idx),
-        m_found_what_needed(false) {}
+        m_parent(parent), m_idx(idx), m_found(false) {}
 
-    void operator()(expr * e)
-    {
-        if (m_found_what_needed || !is_app(e)) { return; }
+    void operator()(expr * e) {
+        if (m_found || !is_app(e)) { return; }
 
         func_decl * sym = to_app(e)->get_decl();
         unsigned sym_idx;
-        if (!m_parent.try_get_index(sym, sym_idx)) { return; }
+        if (!m_parent.find_idx(sym, sym_idx)) { return; }
 
         bool have_idx = sym_idx == m_idx;
-        m_found_what_needed = !have_idx;
-
+        m_found = !have_idx;
     }
 
-    bool all_have_idx() const {return !m_found_what_needed;}
-
+    bool all_have_idx() const {return !m_found;}
 
 private:
     const sym_mux & m_parent;
     unsigned m_idx;
-
-    /**
-    If we check whether all muxed symbols are of given index, we look for
-    counter-examples, checking whether form contains a muxed symbol of an index,
-    we look for symbol of index m_idx.
-    */
-    bool m_found_what_needed;
+    bool m_found;
 };
-
-
-bool sym_mux::is_homogenous_formula(expr * e, unsigned idx) const
-{
-    expr_mark visited;
-    formula_checker chck(*this, idx);
-    for_each_expr(chck, visited, e);
-    return chck.all_have_idx();
 }
 
-struct sym_mux::conv_rewriter_cfg : public default_rewriter_cfg {
+bool sym_mux::is_homogenous_formula(expr * e, unsigned idx) const {
+    expr_mark visited;
+    formula_checker fck(*this, idx);
+    for_each_expr(fck, visited, e);
+    return fck.all_have_idx();
+}
+
+namespace {
+struct conv_rewriter_cfg : public default_rewriter_cfg {
 private:
     ast_manager & m;
     const sym_mux & m_parent;
     unsigned m_from_idx;
     unsigned m_to_idx;
     bool m_homogenous;
+    expr_ref_vector m_pinned;
 public:
     conv_rewriter_cfg(const sym_mux & parent, unsigned from_idx,
                       unsigned to_idx, bool homogenous)
@@ -189,7 +139,7 @@ public:
           m_parent(parent),
           m_from_idx(from_idx),
           m_to_idx(to_idx),
-          m_homogenous(homogenous) {}
+          m_homogenous(homogenous), m_pinned(m) {(void) m_homogenous;}
 
     bool get_subst(expr * s, expr * & t, proof * & t_pr)
     {
@@ -197,24 +147,23 @@ public:
         app * a = to_app(s);
         func_decl * sym = a->get_decl();
         if (!m_parent.has_index(sym, m_from_idx)) {
-            (void) m_homogenous;
             SASSERT(!m_homogenous || !m_parent.is_muxed(sym));
             return false;
         }
-        func_decl * tgt = m_parent.conv(sym, m_from_idx, m_to_idx);
-
+        func_decl * tgt = m_parent.shift_decl(sym, m_from_idx, m_to_idx);
         t = m.mk_app(tgt, a->get_args());
+        m_pinned.push_back(t);
         return true;
     }
 };
+}
 
-void sym_mux::conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx,
-                           expr_ref & res, bool homogenous) const {
-    if (src_idx == tgt_idx) {
-        res = f;
-        return;
+void sym_mux::shift_expr(expr * f, unsigned src_idx, unsigned tgt_idx,
+                         expr_ref & res, bool homogenous) const {
+    if (src_idx == tgt_idx) {res = f;}
+    else {
+        conv_rewriter_cfg r_cfg(*this, src_idx, tgt_idx, homogenous);
+        rewriter_tpl<conv_rewriter_cfg> rwr(m, false, r_cfg);
+        rwr(f, res);
     }
-    conv_rewriter_cfg r_cfg(*this, src_idx, tgt_idx, homogenous);
-    rewriter_tpl<conv_rewriter_cfg> rwr(m, false, r_cfg);
-    rwr(f, res);
 }
