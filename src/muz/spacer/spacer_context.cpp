@@ -191,8 +191,7 @@ void derivation::add_premise (pred_transformer &pt,
 
 
 
-pob *derivation::create_first_child (model_evaluator_util &mev)
-{
+pob *derivation::create_first_child (model_evaluator_util &mev) {
     if (m_premises.empty()) { return nullptr; }
     m_active = 0;
     return create_next_child(mev);
@@ -262,9 +261,8 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
                         verbose_stream ());
         pt().mbp(vars, m_trans, mev.get_model(),
                  true, pt().get_context().use_ground_cti());
-        //qe::reduce_array_selects (*mev.get_model (), m_trans);
-        // remember variables that need to be existentially quantified
         m_evars.append (vars);
+        vars.reset();
     }
 
     if (!mev.is_true (m_premises[m_active].get_summary())) {
@@ -273,28 +271,28 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
     }
 
 
-    // create the post condition by compute post-image over summaries
+    // create the post-condition by computing a post-image over summaries
     // that precede currently active premise
-    vars.reset ();
     for (unsigned i = m_active + 1; i < m_premises.size(); ++i) {
         summaries.push_back (m_premises [i].get_summary ());
         vars.append (m_premises [i].get_ovars ());
     }
     summaries.push_back (m_trans);
-
     expr_ref post(m);
-    post = mk_and (summaries);
+    post = mk_and(summaries);
     summaries.reset ();
+
     if (!vars.empty()) {
-        timeit _timer2 (is_trace_enabled("spacer_timeit"),
-                        "create_next_child::qproject2",
-                        verbose_stream ());
+        timeit _timer2(is_trace_enabled("spacer_timeit"),
+                       "create_next_child::qproject2",
+                       verbose_stream ());
         pt().mbp(vars, post, mev.get_model(),
                  true, pt().get_context().use_ground_cti());
         //qe::reduce_array_selects (*mev.get_model (), post);
 
         // remember variables that need to be existentially quantified
-        m_evars.append (vars);
+        m_evars.append(vars);
+        vars.reset();
     }
 
     if (!m_evars.empty()) {
@@ -647,6 +645,7 @@ void lemma::mk_insts(expr_ref_vector &out, expr* e)
         inst.reset();
     }
 }
+
 
 
 // ----------------
@@ -3633,8 +3632,8 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
     compute_implicant_literals (mev, forms, lits);
     expr_ref phi = mk_and (lits);
-    // primed variables of the head
 
+    // primed variables of the head
     app_ref_vector vars(m);
     for (unsigned i = 0, sz = pt.head()->get_arity(); i < sz; ++i) {
         vars.push_back(m.mk_const(m_pm.o2n(pt.sig(i), 0)));
@@ -3643,9 +3642,8 @@ bool context::create_children(pob& n, datalog::rule const& r,
     ptr_vector<app>& aux_vars = pt.get_aux_vars(r);
     vars.append(aux_vars.size(), aux_vars.c_ptr());
 
-    n.get_skolems(vars);
-    n.get_skolems(vars);
     // skolems of the pob
+    n.get_skolems(vars);
 
     n.pt().mbp(vars, phi, mev.get_model (), true, use_ground_cti());
     //qe::reduce_array_selects (*mev.get_model (), phi1);
@@ -3666,9 +3664,9 @@ bool context::create_children(pob& n, datalog::rule const& r,
     kid_order.resize(preds.size(), 0);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) kid_order[i] = i;
     if (get_params().spacer_order_children() == 1) kid_order.reverse();
+
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
         unsigned j = kid_order[i];
-
 
         pred_transformer &pt = get_pred_transformer(preds.get(j));
 
