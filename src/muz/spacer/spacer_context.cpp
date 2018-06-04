@@ -288,24 +288,26 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         timeit _timer2(is_trace_enabled("spacer_timeit"),
                        "create_next_child::qproject2",
                        verbose_stream ());
+        // include m_evars in case they can eliminated now as well
         vars.append(m_evars);
-        m_evars.reset();
         pt().mbp(vars, post, mev.get_model(),
                  true, pt().get_context().use_ground_cti());
         //qe::reduce_array_selects (*mev.get_model (), post);
-
-        // remember variables that need to be existentially quantified
-        m_evars.append(vars);
-        vars.reset();
+    }
+    else {
+        // if no variables to eliminate, don't forget about m_evars
+        // that occur in m_trans
+        vars.append(m_evars);
     }
 
-    if (!m_evars.empty()) {
-        // existentially quantify out m_evars from post and skolemize the result
-        exist_skolemize(post.get(), m_evars, post);
+    if (!vars.empty()) {
+        // existentially quantify out vars from post and skolemize the result
+        exist_skolemize(post.get(), vars, post);
     }
 
     get_manager ().formula_o2n (post.get (), post,
-                                m_premises [m_active].get_oidx (), m_evars.empty());
+                                m_premises [m_active].get_oidx (),
+                                vars.empty());
 
 
     /* The level and depth are taken from the parent, not the sibling.
@@ -313,7 +315,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
        and lower level is a better starting point. */
     pob *n = m_premises[m_active].pt().mk_pob(&m_parent,
                                               prev_level (m_parent.level ()),
-                                              m_parent.depth (), post, m_evars);
+                                              m_parent.depth (), post, vars);
     IF_VERBOSE (1, verbose_stream ()
                 << "\n\tcreate_child: " << n->pt ().head ()->get_name ()
                 << " (" << n->level () << ", " << n->depth () << ") "
