@@ -58,6 +58,8 @@ namespace opt {
             rational    m_value;        // value of m_vars + m_coeff under interpretation of m_var2value.
             bool        m_alive;        // rows can be marked dead if they have been processed.
             void reset() { m_vars.reset(); m_coeff.reset(); m_value.reset(); }
+
+            void neg() { for (var & v : m_vars) v.m_coeff.neg(); m_coeff.neg(); m_value.neg(); }
         };
 
     private:
@@ -84,6 +86,8 @@ namespace opt {
         rational get_row_value(row const& r) const;
 
         void resolve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
+
+        void solve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
 
         void mul_add(bool same_sign, unsigned row_id1, rational const& c, unsigned row_id2);
 
