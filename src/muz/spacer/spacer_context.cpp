@@ -3612,93 +3612,71 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
     scoped_watch _w_ (m_create_children_watch);
     pred_transformer& pt = n.pt();
-    expr* const T   = pt.get_transition(r);
-    expr* const phi = n.post();
 
     TRACE("spacer",
           tout << "Model:\n";
           model_smt2_pp(tout, m, *mev.get_model (), 0);
           tout << "\n";
-          tout << "Transition:\n" << mk_pp(T, m) << "\n";
-          tout << "Phi:\n" << mk_pp(phi, m) << "\n";);
+          tout << "Transition:\n" << mk_pp(pt.get_transition(r), m) << "\n";
+          tout << "Pob:\n" << mk_pp(n.post(), m) << "\n";);
 
     SASSERT (r.get_uninterpreted_tail_size () > 0);
 
     ptr_vector<func_decl> preds;
     pt.find_predecessors(r, preds);
 
-    ptr_vector<pred_transformer> pred_pts;
-
-    for (ptr_vector<func_decl>::iterator it = preds.begin ();
-         it != preds.end (); it++) {
-        pred_pts.push_back (&get_pred_transformer (*it));
-    }
-
-    expr_ref_vector forms(m), Phi(m);
 
     // obtain all formulas to consider for model generalization
-    forms.push_back(T);
-    forms.push_back(phi);
+    expr_ref_vector forms(m), lits(m);
+    forms.push_back(pt.get_transition(r));
+    forms.push_back(n.post());
 
-    compute_implicant_literals (mev, forms, Phi);
-
-    //pt.remove_predecessors (Phi);
+    compute_implicant_literals (mev, forms, lits);
+    expr_ref phi = mk_and (lits);
+    // primed variables of the head
 
     app_ref_vector vars(m);
-    unsigned sig_size = pt.head()->get_arity();
-    for (unsigned i = 0; i < sig_size; ++i) {
+    for (unsigned i = 0, sz = pt.head()->get_arity(); i < sz; ++i) {
         vars.push_back(m.mk_const(m_pm.o2n(pt.sig(i), 0)));
     }
+    // local variables of the rule
     ptr_vector<app>& aux_vars = pt.get_aux_vars(r);
     vars.append(aux_vars.size(), aux_vars.c_ptr());
 
     n.get_skolems(vars);
+    n.get_skolems(vars);
+    // skolems of the pob
 
-    expr_ref phi1 = mk_and (Phi);
-    n.pt().mbp(vars, phi1, mev.get_model (), true, use_ground_cti());
+    n.pt().mbp(vars, phi, mev.get_model (), true, use_ground_cti());
     //qe::reduce_array_selects (*mev.get_model (), phi1);
     SASSERT (!m_ground_cti || vars.empty ());
 
     TRACE ("spacer",
-           tout << "Implicant\n";
-           tout << mk_and (Phi) << "\n";
-           tout << "Projected Implicant\n" << mk_pp (phi1, m) << "\n";
+           tout << "Implicant:\n";
+           tout << lits << "\n";
+           tout << "After MBP:\n" << phi << "\n";
            if (!vars.empty())
-               tout << "could not eliminate: " << vars << "\n";
+               tout << "Failed to eliminate: " << vars << "\n";
         );
 
-    // expand literals. Ideally, we do not want to split aliasing
-    // equalities. Unfortunately, the interface does not allow for
-    // that yet.
-    // XXX This mixes up with derivation. Needs more thought.
-    // Phi.reset ();
-    // flatten_and (phi1, Phi);
-    // if (!Phi.empty ())
-    // {
-    //   expand_literals (m, Phi);
-    //   phi1 = m_pm.mk_and (Phi);
-    // }
+    derivation *deriv = alloc(derivation, n, r, phi, vars);
 
-
-    derivation *deriv = alloc (derivation, n, r, phi1, vars);
+    // pick an order to process children
+    unsigned_vector kid_order;
+    kid_order.resize(preds.size(), 0);
+    for (unsigned i = 0, sz = preds.size(); i < sz; ++i) kid_order[i] = i;
+    if (get_params().spacer_order_children() == 1) kid_order.reverse();
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
-        unsigned j;
-        if (get_params ().spacer_order_children () == 1)
-            // -- reverse order
-        { j = sz - i - 1; }
-        else
-            // -- default order
-        { j = i; }
+        unsigned j = kid_order[i];
 
-        pred_transformer &pt = get_pred_transformer (preds [j]);
+
+        pred_transformer &pt = get_pred_transformer(preds.get(j));
 
         const ptr_vector<app> *aux = nullptr;
         expr_ref sum(m);
-        // XXX This is a bit confusing. The summary is returned over
-        // XXX o-variables. But it is simpler if it is returned over n-variables instead.
-        sum = pt.get_origin_summary (mev, prev_level (n.level ()),
-                                     j, reach_pred_used [j], &aux);
-        deriv->add_premise (pt, j, sum, reach_pred_used [j], aux);
+        sum = pt.get_origin_summary (mev, prev_level(n.level()),
+                                     j, reach_pred_used[j], &aux);
+        deriv->add_premise (pt, j, sum, reach_pred_used[j], aux);
     }
 
     // create post for the first child and add to queue
@@ -3719,7 +3697,8 @@ bool context::create_children(pob& n, datalog::rule const& r,
     // -- not satisfy 'T && phi'. It is possible to recover from
     // -- that more gracefully. For now, we just remove the
     // -- derivation completely forcing it to be recomputed
-    if (m_weak_abs && (!mev.is_true(T) || !mev.is_true(phi)))
+    if (m_weak_abs && (!mev.is_true(pt.get_transition(r)) ||
+                       !mev.is_true(n.post())))
     { kid->reset_derivation(); }
 
     out.push_back(kid);
