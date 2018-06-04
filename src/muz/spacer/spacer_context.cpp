@@ -240,7 +240,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
 
     ast_manager &m = get_ast_manager ();
     expr_ref_vector summaries (m);
-    app_ref_vector vars (m);
+    app_ref_vector vars(m);
 
     // -- find first may premise
     while (m_active < m_premises.size() && m_premises[m_active].is_must()) {
@@ -259,6 +259,8 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "create_next_child::qproject1",
                         verbose_stream ());
+        vars.append(m_evars);
+        m_evars.reset();
         pt().mbp(vars, m_trans, mev.get_model(),
                  true, pt().get_context().use_ground_cti());
         m_evars.append (vars);
@@ -286,6 +288,8 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         timeit _timer2(is_trace_enabled("spacer_timeit"),
                        "create_next_child::qproject2",
                        verbose_stream ());
+        vars.append(m_evars);
+        m_evars.reset();
         pt().mbp(vars, post, mev.get_model(),
                  true, pt().get_context().use_ground_cti());
         //qe::reduce_array_selects (*mev.get_model (), post);
@@ -386,10 +390,13 @@ pob *derivation::create_next_child ()
         { vars.push_back(m.mk_const(pm.o2n(pt.sig(i), 0))); }
 
         if (!vars.empty ()) {
+            vars.append(m_evars);
+            m_evars.reset();
             this->pt().mbp(vars, m_trans, mev.get_model(),
                            true, this->pt().get_context().use_ground_cti());
             // keep track of implicitly quantified variables
             m_evars.append (vars);
+            vars.reset();
         }
     }
 
@@ -1972,13 +1979,6 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
             // update level of the existing lemma
             old_lemma->set_level(new_lemma->level());
             // assert lemma in the solver
-            return true;
-        }
-        i++;
-    }
-
-    // new_lemma is really new
-    m_lemmas.push_back(new_lemma);
             m_pt.add_lemma_core(old_lemma, false);
             // move the lemma to its new place to maintain sortedness
             unsigned sz = m_lemmas.size();
@@ -1986,6 +1986,13 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
                  (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
                 m_lemmas.swap (j, j+1);
             }
+            return true;
+        }
+        i++;
+    }
+
+    // new_lemma is really new
+    m_lemmas.push_back(new_lemma);
     // XXX because m_lemmas is reduced, keep secondary vector of all lemmas
     // XXX so that pob can refer to its lemmas without creating reference cycles
     m_pinned_lemmas.push_back(new_lemma);
