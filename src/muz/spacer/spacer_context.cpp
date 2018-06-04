@@ -453,7 +453,7 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(lvl), m_init_lvl(m_lvl),
-    m_pob(nullptr), m_ctp(nullptr), m_external(false) {
+    m_pob(nullptr), m_ctp(nullptr), m_external(false), m_bumped(0) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -462,7 +462,7 @@ lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false) {
+    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -473,7 +473,7 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false)
+    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0)
 {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
@@ -1955,6 +1955,16 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
                 if (!new_lemma->get_bindings().empty()) {
                     m_pt.add_lemma_core(old_lemma, true);
                 }
+                if(is_infty_level(old_lemma->level())) {
+                    old_lemma->bump();
+                    if (old_lemma->get_bumped() >= 100) {
+                        IF_VERBOSE(1, verbose_stream() << "Adding lemma to oo "
+                                   << old_lemma->get_bumped() << " "
+                                   << mk_pp(old_lemma->get_expr(),
+                                            m_pt.get_ast_manager()) << "\n";);
+                        throw default_exception("Stuck on a lemma");
+                    }
+                }
                 // no new lemma added
                 return false;
             }
@@ -1962,13 +1972,6 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
             // update level of the existing lemma
             old_lemma->set_level(new_lemma->level());
             // assert lemma in the solver
-            m_pt.add_lemma_core(old_lemma, false);
-            // move the lemma to its new place to maintain sortedness
-            unsigned sz = m_lemmas.size();
-            for (unsigned j = i;
-                 (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
-                m_lemmas.swap (j, j+1);
-            }
             return true;
         }
         i++;
@@ -1976,6 +1979,13 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
 
     // new_lemma is really new
     m_lemmas.push_back(new_lemma);
+            m_pt.add_lemma_core(old_lemma, false);
+            // move the lemma to its new place to maintain sortedness
+            unsigned sz = m_lemmas.size();
+            for (unsigned j = i;
+                 (j + 1) < sz && m_lt(m_lemmas[j + 1], m_lemmas[j]); ++j) {
+                m_lemmas.swap (j, j+1);
+            }
     // XXX because m_lemmas is reduced, keep secondary vector of all lemmas
     // XXX so that pob can refer to its lemmas without creating reference cycles
     m_pinned_lemmas.push_back(new_lemma);

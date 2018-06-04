@@ -125,6 +125,7 @@ class lemma {
     pob_ref m_pob;
     model_ref m_ctp; // counter-example to pushing
     bool m_external;
+    unsigned m_bumped;
 
     void mk_expr_core();
     void mk_cube_core();
@@ -140,6 +141,9 @@ public:
     bool has_ctp() {return !is_inductive() && m_ctp;}
     void set_ctp(model_ref &v) {m_ctp = v;}
     void reset_ctp() {m_ctp.reset();}
+
+    void bump() {m_bumped++;}
+    unsigned get_bumped() {return m_bumped;}
 
     expr *get_expr();
     bool is_false();
