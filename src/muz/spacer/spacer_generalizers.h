@@ -83,6 +83,8 @@ public:
 };
 
 class lemma_array_eq_generalizer : public lemma_generalizer {
+private:
+    bool is_array_eq(ast_manager &m, expr *e);
 public:
     lemma_array_eq_generalizer(context &ctx) : lemma_generalizer(ctx) {}
     ~lemma_array_eq_generalizer() override {}

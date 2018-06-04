@@ -21,6 +21,7 @@ Revision History:
 
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_generalizers.h"
+#include "ast/ast_util.h"
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/for_each_expr.h"
@@ -205,103 +206,108 @@ public:
 };
 }
 
+bool lemma_array_eq_generalizer::is_array_eq (ast_manager &m, expr* e) {
+
+    expr *e1 = nullptr, *e2 = nullptr;
+    if (m.is_eq(e, e1, e2) && is_app(e1) && is_app(e2)) {
+        app *a1 = to_app(e1);
+        app *a2 = to_app(e2);
+        array_util au(m);
+        if (a1->get_family_id() == null_family_id &&
+            a2->get_family_id() == null_family_id &&
+            au.is_array(a1) && au.is_array(a2))
+            return true;
+    }
+    return false;
+}
+
 void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
 {
-    TRACE("core_array_eq", tout << "Looking for equalities\n";);
 
-    // -- find array constants
     ast_manager &m = lemma->get_ast_manager();
-    manager &pm = m_ctx.get_manager();
-    (void)pm;
 
-    unsigned weakness = lemma->weakness();
 
     expr_ref_vector core(m);
     expr_ref v(m);
     func_decl_set symb;
     collect_array_proc cap(m, symb);
 
+
+    // -- find array constants
     core.append (lemma->get_cube());
     v = mk_and(core);
     for_each_expr(cap, v);
 
-    TRACE("core_array_eq",
+    CTRACE("core_array_eq", symb.size() > 1 && symb.size() <= 8,
           tout << "found " << symb.size() << " array variables in: \n"
-          << mk_pp(v, m) << "\n";);
+          << v << "\n";);
 
-    // too few constants
-    if (symb.size() <= 1) { return; }
-    // too many constants, skip this
-    if (symb.size() >= 8) { return; }
+    // too few constants or too many constants
+    if (symb.size() <= 1 || symb.size() > 8) { return; }
 
 
-    // -- for every pair of variables, try an equality
-    typedef func_decl_set::iterator iterator;
+    // -- for every pair of constants (A, B), check whether the
+    // -- equality (A=B) generalizes a literal in the lemma
+
     ptr_vector<func_decl> vsymbs;
-    for (iterator it = symb.begin(), end = symb.end();
-            it != end; ++it)
-    { vsymbs.push_back(*it); }
+    for (auto * fdecl : symb) {vsymbs.push_back(fdecl);}
 
+    // create all equalities
     expr_ref_vector eqs(m);
+    for (unsigned i = 0, sz = vsymbs.size(); i < sz; ++i) {
+        for (unsigned j = i + 1; j < sz; ++j) {
+            eqs.push_back(m.mk_eq(m.mk_const(vsymbs.get(i)),
+                                  m.mk_const(vsymbs.get(j))));
+        }
+    }
 
-    for (unsigned i = 0, sz = vsymbs.size(); i < sz; ++i)
-        for (unsigned j = i + 1; j < sz; ++j)
-        { eqs.push_back(m.mk_eq(m.mk_const(vsymbs.get(i)),
-                                m.mk_const(vsymbs.get(j)))); }
-
+    // smt-solver to check whether a literal is generalized.  using
+    // default params. There has to be a simpler way to approximate
+    // this check
     ref<solver> sol = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    // literals of the new lemma
     expr_ref_vector lits(m);
-    for (unsigned i = 0, core_sz = core.size(); i < core_sz; ++i) {
-        SASSERT(lits.size() == i);
-        sol->push();
-        sol->assert_expr(core.get(i));
-        for (unsigned j = 0, eqs_sz = eqs.size(); j < eqs_sz; ++j) {
-            sol->push();
-            sol->assert_expr(eqs.get(j));
+    lits.append(core);
+    expr *t = nullptr;
+    bool dirty = false;
+    for (unsigned i = 0, sz = core.size(); i < sz; ++i) {
+        // skip a literal is it is already an array equality
+        if (m.is_not(lits.get(i), t) && is_array_eq(m, t)) continue;
+        solver::scoped_push _pp_(*sol);
+        sol->assert_expr(lits.get(i));
+        for (auto *e : eqs) {
+            solver::scoped_push _p_(*sol);
+            sol->assert_expr(e);
             lbool res = sol->check_sat(0, nullptr);
-            sol->pop(1);
 
             if (res == l_false) {
                 TRACE("core_array_eq",
-                      tout << "strengthened " << mk_pp(core.get(i), m)
-                      << " with " << mk_pp(m.mk_not(eqs.get(j)), m) << "\n";);
-                lits.push_back(m.mk_not(eqs.get(j)));
+                      tout << "strengthened " << mk_pp(lits.get(i), m)
+                      << " with " << mk_pp(mk_not(m, e), m) << "\n";);
+                lits[i] = mk_not(m, e);
+                dirty = true;
                 break;
             }
         }
-        sol->pop(1);
-        if (lits.size() == i) { lits.push_back(core.get(i)); }
     }
 
-    /**
-       HACK: if the first 3 arguments of pt are boolean, assume
-       they correspond to SeaHorn encoding and condition the equality on them.
-    */
-    // pred_transformer &pt = n.pt ();
-    // if (pt.sig_size () >= 3 &&
-    //     m.is_bool (pt.sig (0)->get_range ()) &&
-    //     m.is_bool (pt.sig (1)->get_range ()) &&
-    //     m.is_bool (pt.sig (2)->get_range ()))
-    // {
-    //   lits.push_back (m.mk_const (pm.o2n(pt.sig (0), 0)));
-    //   lits.push_back (m.mk_not (m.mk_const (pm.o2n(pt.sig (1), 0))));
-    //   lits.push_back (m.mk_not (m.mk_const (pm.o2n(pt.sig (2), 0))));
-    // }
+    // nothing changed
+    if (!dirty) return;
 
-    TRACE("core_array_eq", tout << "new possible core "
-          << mk_and(lits) << "\n";);
+    TRACE("core_array_eq",
+           tout << "new possible core " << mk_and(lits) << "\n";);
 
 
     pred_transformer &pt = lemma->get_pob()->pt();
-    // -- check if it is consistent with the transition relation
+    // -- check if the generalized result is consistent with trans
     unsigned uses_level1;
-    if (pt.check_inductive(lemma->level(), lits, uses_level1, weakness)) {
+    if (pt.check_inductive(lemma->level(), lits, uses_level1, lemma->weakness())) {
         TRACE("core_array_eq", tout << "Inductive!\n";);
-        lemma->update_cube(lemma->get_pob(),lits);
+        lemma->update_cube(lemma->get_pob(), lits);
         lemma->set_level(uses_level1);
-        return;
-    } else
-    { TRACE("core_array_eq", tout << "Not-Inductive!\n";);}
+    }
+    else
+    {TRACE("core_array_eq", tout << "Not-Inductive!\n";);}
 }
 
 void lemma_eq_generalizer::operator() (lemma_ref &lemma)
