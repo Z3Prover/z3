@@ -1142,7 +1142,7 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
     expr_ref v(m);
 
     if (!must) { // use may summary
-        summary.push_back (get_formulas (level));
+        summary.push_back (get_formulas(level));
         // -- no auxiliary variables in lemmas
         *aux = nullptr;
     } else { // find must summary to use
@@ -1160,10 +1160,10 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
     }
 
     // -- pick an implicant
-    expr_ref_vector literals (m);
-    compute_implicant_literals (mev, summary, literals);
+    expr_ref_vector lits(m);
+    compute_implicant_literals (mev, summary, lits);
 
-    return mk_and(literals);
+    return mk_and(lits);
 }
 
 
