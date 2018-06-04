@@ -30,45 +30,38 @@ public:
         m_parts(parts), m_current_part(UINT_MAX)
         {m_mev.set_model_completion(true);}
 
-    br_status reduce_app(func_decl *f, unsigned num, expr * const * args,
-                         expr_ref &result, proof_ref & result_pr) {
+    bool get_subst(expr *s, expr * & t, proof * & t_pr) {
+        if (!is_app(s)) return false;
         unsigned part = UINT_MAX;
-        // not a constant
-        if (num != 0) return BR_FAILED;
+
         // not in partition map
-        if (!m_pmap.find(f, part)) return BR_FAILED;
+        if (!m_pmap.find (to_app(s)->get_decl(), part)) return false;
 
         // first part element, remember it
         if (!found_partition()) {
             set_partition(part);
-            return BR_FAILED;
+            return false;
+        }
+
+        // already in our substitution map
+        expr *tmp = nullptr;
+        if (m_subs.find(s, tmp)) {
+            t = tmp;
+            return true;
         }
 
         // decide value based on model
-        expr_ref e(m), val(m);
-        e = m.mk_app(f, num, args);
-
-        // already in our substitution map
-        expr *t = nullptr;
-        if (m_subs.find(e, t)) {
-            result = t;
-            return BR_DONE;
-        }
+        expr_ref val(m);
 
         // eval in the model
-        m_mev.eval(e, val, true);
+        m_mev.eval(s, val, true);
 
-        // store decided equality
-        m_parts[part].push_back(m.mk_eq(e, val));
+        // store decided equality (also keeps ref to s and val
+        m_parts[part].push_back(m.mk_eq(s, val));
         // store substitution
-        m_subs.insert(e, val);
-
-        result = val;
-        return BR_DONE;
-    }
-
-    bool get_subst(expr * s, expr * & t, proof * & t_pr) {
-        return m_subs.find(s, t);
+        m_subs.insert(s, val);
+        t = val;
+        return true;
     }
 
     void reset_partition() {m_current_part = UINT_MAX;}
