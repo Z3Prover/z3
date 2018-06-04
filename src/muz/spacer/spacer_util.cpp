@@ -923,11 +923,10 @@ class implicant_picker {
   }
 
   void compute_implicant_literals (model_evaluator_util &mev, expr_ref_vector &formula,
-                                   expr_ref_vector &res)
-  {
+                                   expr_ref_vector &res) {
       // XXX what is the point of flattening?
       flatten_and (formula);
-    if (formula.empty()) { return; }
+      if (formula.empty()) { return; }
 
       implicant_picker ipick (mev);
       ipick (formula, res);
