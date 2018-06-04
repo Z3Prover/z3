@@ -2241,6 +2241,9 @@ context::context(fixedpoint_params const&     params,
     m_pool0 = alloc(solver_pool, pool0_base.get(), max_num_contexts);
     m_pool1 = alloc(solver_pool, pool1_base.get(), max_num_contexts);
     m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
+
+    m_random.set_seed(m_params.spacer_random_seed());
+    m_children_order = static_cast<spacer_children_order>(m_params.spacer_order_children());
 }
 
 context::~context()
@@ -3680,7 +3683,12 @@ bool context::create_children(pob& n, datalog::rule const& r,
     unsigned_vector kid_order;
     kid_order.resize(preds.size(), 0);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) kid_order[i] = i;
-    if (get_params().spacer_order_children() == 1) kid_order.reverse();
+    if (m_children_order == CO_REV_RULE) {
+        kid_order.reverse();
+    }
+    else if (m_children_order == CO_RANDOM) {
+        shuffle(kid_order.size(), kid_order.c_ptr(), m_random);
+    }
 
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
         unsigned j = kid_order[i];

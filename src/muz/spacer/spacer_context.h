@@ -782,6 +782,12 @@ public:
 
 };
 
+// order in which children are processed
+enum spacer_children_order {
+    CO_RULE,        // same order as in the rule
+    CO_REV_RULE,    // reverse order of the rule
+    CO_RANDOM       // random shuffle
+};
 
 class context {
 
@@ -819,6 +825,8 @@ class context {
     scoped_ptr<solver_pool> m_pool2;
 
 
+    random_gen           m_random;
+    spacer_children_order m_children_order;
     decl2rel             m_rels;         // Map from relation predicate to fp-operator.
     func_decl_ref        m_query_pred;
     pred_transformer*    m_query;
