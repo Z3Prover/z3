@@ -911,17 +911,12 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
           << " " << mk_pp (l, m) << "\n";);
 
     STRACE ("spacer.expand-add",
-            tout << "add-lemma: " << pp_level (lvl) << " "
+            tout << "** add-lemma: " << pp_level (lvl) << " "
             << head ()->get_name () << " "
             << mk_epp (l, m) << "\n";
 
             if (!lemma->is_ground()) {
-                expr_ref_vector inst(m);
-                lemma->mk_insts(inst);
-                for (unsigned i = 0, sz = inst.size(); i < sz; ++i) {
-                    tout << mk_epp(inst.get(i), m) << "\n";
-                }
-
+                tout << "Bindings: " << lemma->get_bindings() << "\n";
             }
             tout << "\n";
         );
@@ -965,8 +960,6 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
             lemma->mk_insts(inst, l);
             // -- take ground instance of the current lemma
             ground_expr(to_quantifier(l)->get_expr(), grnd_lemma, tmp);
-            STRACE("spacer.expand-add",
-                   tout << "Adding instance: " << mk_epp(grnd_lemma, m) << "\n";);
             inst.push_back(grnd_lemma);
         }
         for (unsigned j=0; j < inst.size(); j++) {
@@ -3239,7 +3232,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
            << mk_pp(n.post(), m) << "\n";);
 
     STRACE ("spacer.expand-add",
-            tout << "expand-pob: " << n.pt().head()->get_name()
+            tout << "** expand-pob: " << n.pt().head()->get_name()
             << " level: " << n.level()
             << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
             << mk_epp(n.post(), m) << "\n\n";);
