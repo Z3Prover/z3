@@ -203,7 +203,23 @@ void derivation::exist_skolemize(expr* fml, app_ref_vector &vars, expr_ref &res)
     if (vars.empty()) {res = fml; return;}
     if (m.is_true(fml) || m.is_false(fml)) {res = fml; return;}
 
-    std::sort (vars.c_ptr(), vars.c_ptr() + vars.size(), sk_lt_proc());
+    {
+        std::stable_sort (vars.c_ptr(), vars.c_ptr() + vars.size(), sk_lt_proc());
+        unsigned i, j, end;
+        app_ref v(m);
+        for (i = 1, j = 1, end = vars.size(); i < end; ++i) {
+            if (vars.get(j-1) != vars.get(i)) {
+                v = vars.get(i);   // keep ref
+                vars.set(j++, v);
+            }
+        }
+        vars.shrink(j);
+    }
+
+    TRACE("spacer", tout << "Skolemizing: ";
+          for (auto v : vars) tout << " " << mk_pp(v, m) << " ";
+          tout << "\nfrom " << mk_pp(fml, m) << "\n";
+        );
 
     app_ref_vector pinned(m);
 
