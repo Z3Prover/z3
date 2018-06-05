@@ -145,7 +145,9 @@ class mpz_manager {
     unsigned                m_init_cell_capacity;
     mpz                     m_int_min;
     
-    static unsigned cell_size(unsigned capacity) { return sizeof(mpz_cell) + sizeof(digit_t) * capacity; }
+    static unsigned cell_size(unsigned capacity) { 
+        return sizeof(mpz_cell) + sizeof(digit_t) * capacity; 
+    }
 
     mpz_cell * allocate(unsigned capacity) {
         SASSERT(capacity >= m_init_cell_capacity);
@@ -319,17 +321,14 @@ class mpz_manager {
 #else
     // GMP code
 
-    // TBD replace this by local class that takes care of reservation
-    // and potential deallocation.
-    void get_arg(mpz const& a, mpz_t * & result, mpz_t * reserve) {
-        if (is_small(a)) {
-            result = reserve;
-            mpz_set_si(*result, a.m_val);
-        }
-        else {
-            result = a.m_ptr;
-        }
-    }
+    class ensure_mpz_t {
+        mpz_t m_local;
+        mpz_t* m_result;
+    public:
+        ensure_mpz_t(mpz const& a);
+        ~ensure_mpz_t();
+        mpz_t& operator()() { return *m_result; }
+    };
     
     void mk_big(mpz & a) {
         if (a.m_ptr == null) {
@@ -339,6 +338,8 @@ class mpz_manager {
         }
         a.m_kind = mpz_ptr;
     }
+
+
 #endif 
 
 #ifndef _MP_GMP
@@ -390,210 +391,45 @@ public:
 
     static mpz mk_z(int val) { return mpz(val); }
     
-    void del(mpz & a) { 
-        if (a.m_ptr) {
-            deallocate(a.m_owner == mpz_self, a.m_ptr); 
-            a.m_ptr = nullptr;
-            a.m_kind = mpz_small;
-            a.m_owner = mpz_self;
-        } 
-    }
+    void del(mpz & a);
     
-    void add(mpz const & a, mpz const & b, mpz & c) {
-        STRACE("mpz", tout << "[mpz] " << to_string(a) << " + " << to_string(b) << " == ";); 
-        if (is_small(a) && is_small(b)) {
-            set_i64(c, i64(a) + i64(b));
-        }
-        else {
-            big_add(a, b, c);
-        }
-        STRACE("mpz", tout << to_string(c) << "\n";);
-    }
+    void add(mpz const & a, mpz const & b, mpz & c);
 
-    void sub(mpz const & a, mpz const & b, mpz & c) {
-        STRACE("mpz", tout << "[mpz] " << to_string(a) << " - " << to_string(b) << " == ";); 
-        if (is_small(a) && is_small(b)) {
-            set_i64(c, i64(a) - i64(b));
-        }
-        else {
-            big_sub(a, b, c);
-        }
-        STRACE("mpz", tout << to_string(c) << "\n";);
-    }
+    void sub(mpz const & a, mpz const & b, mpz & c);
     
     void inc(mpz & a) { add(a, mpz(1), a); }
 
     void dec(mpz & a) { add(a, mpz(-1), a); }
 
-    void mul(mpz const & a, mpz const & b, mpz & c) {
-        STRACE("mpz", tout << "[mpz] " << to_string(a) << " * " << to_string(b) << " == ";); 
-        if (is_small(a) && is_small(b)) {
-            set_i64(c, i64(a) * i64(b));
-        }
-        else {
-            big_mul(a, b, c);
-        }
-        STRACE("mpz", tout << to_string(c) << "\n";);
-    }
+    void mul(mpz const & a, mpz const & b, mpz & c);
 
     // d <- a + b*c
-    void addmul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
-        if (is_one(b)) {
-            add(a, c, d);
-        }
-        else if (is_minus_one(b)) {
-            sub(a, c, d);
-        }
-        else {
-            mpz tmp;
-            mul(b,c,tmp);
-            add(a,tmp,d);
-            del(tmp);
-        }
-    }
-
+    void addmul(mpz const & a, mpz const & b, mpz const & c, mpz & d);
 
     // d <- a - b*c
-    void submul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
-        if (is_one(b)) {
-            sub(a, c, d);
-        }
-        else if (is_minus_one(b)) {
-            add(a, c, d);
-        }
-        else {
-            mpz tmp;
-            mul(b,c,tmp);
-            sub(a,tmp,d);
-            del(tmp);
-        }
-    }
+    void submul(mpz const & a, mpz const & b, mpz const & c, mpz & d);
 
+    void machine_div_rem(mpz const & a, mpz const & b, mpz & q, mpz & r);
 
-    void machine_div_rem(mpz const & a, mpz const & b, mpz & q, mpz & r) {
-        STRACE("mpz", tout << "[mpz-ext] divrem(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
-        if (is_small(a) && is_small(b)) {
-            int64 _a = i64(a);
-            int64 _b = i64(b);
-            set_i64(q, _a / _b);
-            set_i64(r, _a % _b);
-        }
-        else {
-            big_div_rem(a, b, q, r);
-        }
-        STRACE("mpz", tout << "(" << to_string(q) << ", " << to_string(r) << ")\n";);
-    }
+    void machine_div(mpz const & a, mpz const & b, mpz & c);
 
-    void machine_div(mpz const & a, mpz const & b, mpz & c) {
-        STRACE("mpz", tout << "[mpz-ext] machine-div(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
-        if (is_small(a) && is_small(b)) {
-            set_i64(c, i64(a) / i64(b));
-        }
-        else {
-            big_div(a, b, c);
-        }
-        STRACE("mpz", tout << to_string(c) << "\n";);
-    }
-
-    void rem(mpz const & a, mpz const & b, mpz & c) {
-        STRACE("mpz", tout << "[mpz-ext] rem(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
-        if (is_small(a) && is_small(b)) {
-            set_i64(c, i64(a) % i64(b));
-        }
-        else {
-            big_rem(a, b, c);
-        }
-        STRACE("mpz", tout << to_string(c) << "\n";);
-    }
+    void rem(mpz const & a, mpz const & b, mpz & c);
 
     void div_gcd(mpz const & a, mpz const & b, mpz & c);
 
     void div(mpz const & a, mpz const & b, mpz & c);
 
-    void mod(mpz const & a, mpz const & b, mpz & c) {
-        STRACE("mpz", tout << "[mpz-ext] mod(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
-        rem(a, b, c);
-        if (is_neg(c)) {
-            if (is_pos(b))
-                add(c, b, c);
-            else
-                sub(c, b, c);
-        }
-        STRACE("mpz", tout << to_string(c) << "\n";);
-    }
+    void mod(mpz const & a, mpz const & b, mpz & c);
 
-    void neg(mpz & a) {
-        STRACE("mpz", tout << "[mpz] 0 - " << to_string(a) << " == ";); 
-        if (is_small(a) && a.m_val == INT_MIN) {
-            // neg(INT_MIN) is not a small int
-            set_big_i64(a, - static_cast<long long>(INT_MIN)); 
-            return;
-        }
-#ifndef _MP_GMP
-        a.m_val = -a.m_val;
-#else
-        if (is_small(a)) {
-            a.m_val = -a.m_val;
-        }
-        else {
-            mpz_neg(*a.m_ptr, *a.m_ptr);
-        }
-#endif
-        STRACE("mpz", tout << to_string(a) << "\n";); 
-    }
+    void neg(mpz & a);
 
-    void abs(mpz & a) {
-        if (is_small(a)) {
-            if (a.m_val < 0) {
-                if (a.m_val == INT_MIN) {
-                    // abs(INT_MIN) is not a small int
-                    set_big_i64(a, - static_cast<long long>(INT_MIN)); 
-                }
-                else
-                    a.m_val = -a.m_val;
-            }
-        }
-        else {
-#ifndef _MP_GMP
-            a.m_val = 1;
-#else
-            mpz_abs(*a.m_ptr, *a.m_ptr);
-#endif
-        }
-    }
+    void abs(mpz & a);
 
-    static bool is_pos(mpz const & a) { 
-#ifndef _MP_GMP
-        return a.m_val > 0; 
-#else
-        if (is_small(a))
-            return a.m_val > 0;
-        else
-            return mpz_sgn(*a.m_ptr) > 0;
-#endif
-    }
+    static bool is_pos(mpz const & a) { return sign(a) > 0; }
 
-    static bool is_neg(mpz const & a) { 
-#ifndef _MP_GMP
-        return a.m_val < 0; 
-#else
-        if (is_small(a))
-            return a.m_val < 0;
-        else
-            return mpz_sgn(*a.m_ptr) < 0;
-#endif
-    }
+    static bool is_neg(mpz const & a) { return sign(a) < 0; }
     
-    static bool is_zero(mpz const & a) { 
-#ifndef _MP_GMP
-        return a.m_val == 0; 
-#else
-        if (is_small(a))
-            return a.m_val == 0;
-        else
-            return mpz_sgn(*a.m_ptr) == 0;
-#endif
-    }
+    static bool is_zero(mpz const & a) { return sign(a) == 0; }
 
     static int sign(mpz const & a) {
 #ifndef _MP_GMP
