@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 namespace lp {
 struct explanation {
+    void clear() { m_explanation.clear(); }
     vector<std::pair<mpq, constraint_index>> m_explanation;
     void push_justification(constraint_index j, const mpq& v) {
         m_explanation.push_back(std::make_pair(v, j));

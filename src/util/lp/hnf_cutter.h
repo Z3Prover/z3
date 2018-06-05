@@ -57,16 +57,15 @@ public:
     }
     void add_term(const lar_term* t, const mpq &rs, constraint_index ci) {
         m_terms.push_back(t);
+        m_right_sides.push_back(rs);
+        m_constraints_for_explanation.push_back(ci);
         for (const auto &p : *t) {
             m_var_register.add_var(p.var());
         }
-        m_right_sides.push_back(rs);
-        m_constraints_for_explanation.push_back(ci);
         if (m_terms.size() <= m_var_register.size()) { // capture the maximal acceptable sizes
             m_row_count = m_terms.size();
             m_column_count = m_var_register.size();
         }
-        
     }
     void print(std::ostream & out) {
         out << "terms = " << m_terms.size() << ", var = " << m_var_register.size() << std::endl;
@@ -100,8 +99,9 @@ public:
         if (basis_rows.size() == m_right_sides.size())
             return m_right_sides;
         vector<mpq> b;
-        for (unsigned i : basis_rows)
+        for (unsigned i : basis_rows) {
             b.push_back(m_right_sides[i]);
+        }
         return b;
     }
 
@@ -168,6 +168,14 @@ public:
         return ret;
     }
 #endif
+    void shrink_explanation(const svector<unsigned>& basis_rows) {
+        svector<unsigned> new_expl;
+        for (unsigned i : basis_rows) {
+            new_expl.push_back(m_constraints_for_explanation[i]);
+        }
+        m_constraints_for_explanation = new_expl;
+    }
+
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper
                         #ifdef Z3DEBUG
                         ,
@@ -180,8 +188,10 @@ public:
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
         if (m_settings.get_cancel_flag())
             return lia_move::undef;
-        if (basis_rows.size() < m_A.row_count())
+        if (basis_rows.size() < m_A.row_count()) {
             m_A.shrink_to_rank(basis_rows);
+            shrink_explanation(basis_rows);
+        }
         
         hnf<general_matrix> h(m_A, d);
         //  general_matrix A_orig = m_A;
@@ -205,5 +215,7 @@ public:
         upper = true;
         return lia_move::cut;
     }
+
+    svector<unsigned> vars() const { return m_var_register.vars(); }
 };
 }
