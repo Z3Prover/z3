@@ -50,18 +50,22 @@ Revision History:
 #include <immintrin.h> 
 
 #define _trailing_zeros32(x) _tzcnt_u32(x)
+
+#ifdef _AMD64_
 #define _trailing_zeros64(x) _tzcnt_u64(x)
+#else
+inline uint64 _trailing_zeros64(uint64 x) {
+    uint64 r = 0;
+    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
+    return r;
+}
+#endif
 
 #else
 
 inline unsigned _trailing_zeros32(unsigned x) {
     unsigned r = 0;
     for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
-inline uint64 _trailing_zeros32(uint64 x) {
-    uint64 r = 0;
-    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
 #endif
