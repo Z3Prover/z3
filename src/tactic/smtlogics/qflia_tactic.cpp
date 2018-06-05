@@ -215,7 +215,7 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
 
 
     tactic * st = using_params(and_then(preamble_st,
-#if 1
+#if 0
                                         mk_smt_tactic()),
 #else
                                         or_else(mk_ilp_model_finder_tactic(m),
