@@ -26,6 +26,7 @@ z3_add_component(spacer
   spacer_json.cpp
   spacer_iuc_proof.cpp
   spacer_mbc.cpp
+  spacer_pdr.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics
