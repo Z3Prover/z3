@@ -504,7 +504,8 @@ public:
         }
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta );
-        lp_assert(this->m_x[leaving] == new_val_for_leaving);
+        X xleaving = this->m_x[leaving];
+        lp_assert(xleaving == new_val_for_leaving);
         if (this->current_x_is_feasible())
             this->set_status(lp_status::OPTIMAL);
     }
