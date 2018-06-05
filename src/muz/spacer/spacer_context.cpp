@@ -2244,14 +2244,18 @@ context::context(fixedpoint_params const&     params,
     m_pool1 = alloc(solver_pool, pool1_base.get(), max_num_contexts);
     m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
 
-    m_random.set_seed(m_params.spacer_random_seed());
-    m_children_order = static_cast<spacer_children_order>(m_params.spacer_order_children());
+    updt_params()
 }
 
 context::~context()
 {
     reset_lemma_generalizers();
     reset();
+}
+
+void context::updt_params() {
+    m_random.set_seed(m_params.spacer_random_seed());
+    m_children_order = static_cast<spacer_children_order>(m_params.spacer_order_children());
 }
 
 void context::reset()

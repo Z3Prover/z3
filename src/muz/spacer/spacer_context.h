@@ -897,6 +897,7 @@ class context {
 
     void predecessor_eh();
 
+    void updt_params();
 public:
     /**
        Initial values of predicates are stored in corresponding relations in dctx.
@@ -904,6 +905,7 @@ public:
     */
     context(fixedpoint_params const&  params, ast_manager& m);
     ~context();
+
 
     const fixedpoint_params &get_params() const { return m_params; }
     bool use_native_mbp () {return m_use_native_mbp;}
