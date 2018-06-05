@@ -34,6 +34,8 @@ public:
         return ret;
     }
 
+    const svector<unsigned> & vars() const { return m_local_vars_to_external; }
+    
     unsigned local_var_to_user_var(unsigned local_var) const {
         return m_local_vars_to_external[local_var];
     }

@@ -156,6 +156,7 @@ public:
     lia_move make_hnf_cut();
     bool init_terms_for_hnf_cut();
     bool hnf_matrix_is_empty() const;
-    bool try_add_term_to_A_for_hnf(unsigned term_index, bool & have_non_integral_x);
+    void try_add_term_to_A_for_hnf(unsigned term_index);
+    bool hnf_has_non_integral_var() const;
 };
 }
