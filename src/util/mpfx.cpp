@@ -705,7 +705,7 @@ template<bool SYNCH>
 void mpfx_manager::to_mpz_core(mpfx const & n, mpz_manager<SYNCH> & m, mpz & t) {
     SASSERT(is_int(n));
     unsigned * w = words(n);
-    m.set(t, m_int_part_sz, w+m_frac_part_sz);
+    m.set_digits(t, m_int_part_sz, w+m_frac_part_sz);
     if (is_neg(n))
         m.neg(t);
 }
