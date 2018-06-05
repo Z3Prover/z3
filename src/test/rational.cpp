@@ -27,7 +27,6 @@ static void tst1() {
     rational r1(1);
     rational r2(1,2);
     rational r3(2,4);
-    std::cout << r2 << " " << r3 << "\n";
     ENSURE(r2 == r3);
     ENSURE(r1 != r2);
     ENSURE(r2 + r3 == r1);
@@ -49,15 +48,12 @@ static void tst1() {
     --r2;
     ENSURE(r2 == -r3);
     r2.neg();
-    std::cout << "neg: " << r2 << " " << r3 << "\n";
     ENSURE(r2 == r3);
     --r2;
     r2 = abs(r2);
-    std::cout << "abs: " << r2 << " " << r3 << "\n";
     ENSURE(r2 == r3);
     --r2;
     ++r2;
-    std::cout << "inc-dec: " << r2 << " " << r3 << "\n";
     ENSURE(r2 == r3);
     ENSURE(r2 == abs(r2));
     ENSURE(r4 * rational(1) == r4);
