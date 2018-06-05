@@ -50,18 +50,22 @@ Revision History:
 #include <immintrin.h> 
 
 #define _trailing_zeros32(x) _tzcnt_u32(x)
+
+#ifdef _AMD64_
 #define _trailing_zeros64(x) _tzcnt_u64(x)
+#else
+inline uint64 _trailing_zeros64(uint64 x) {
+    uint64 r = 0;
+    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
+    return r;
+}
+#endif
 
 #else
 
 inline unsigned _trailing_zeros32(unsigned x) {
     unsigned r = 0;
     for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
-inline uint64 _trailing_zeros32(uint64 x) {
-    uint64 r = 0;
-    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
 #endif
@@ -1280,6 +1284,7 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
         return;
     target.m_val = source.m_val;
     if (target.m_ptr == nullptr) {
+<<<<<<< HEAD
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
@@ -1289,11 +1294,25 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
     }
     else if (capacity(target) < size(source)) {
         deallocate(target);
+=======
+>>>>>>> dc8e4f3e43c1cb724852fb7c46c6d4fd2571c150
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
         target.m_kind = mpz_ptr;
         target.m_owner = mpz_self;
+<<<<<<< HEAD
+=======
+        memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
+    }
+    else if (capacity(target) < size(source)) {
+        deallocate(target);
+        target.m_ptr = allocate(capacity(source));
+        target.m_ptr->m_size     = size(source);
+        target.m_ptr->m_capacity = capacity(source);
+        target.m_kind = mpz_ptr;
+        target.m_owner = mpz_self;
+>>>>>>> dc8e4f3e43c1cb724852fb7c46c6d4fd2571c150
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
     }
     else {
