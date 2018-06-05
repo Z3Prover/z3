@@ -203,4 +203,5 @@ def_module_params('fixedpoint',
                           ('spacer.use_inc_clause', BOOL, False, 'Use incremental clause to represent trans'),
                           ('spacer.dump_benchmarks', BOOL, False, 'Dump SMT queries as benchmarks'),
                           ('spacer.dump_threshold', DOUBLE, 5.0, 'Threshold in seconds on dumping benchmarks'),
+                          ('spacer.gpdr', BOOL, False, 'Use GPDR solving strategy for non-linear CHC'),
                           ))

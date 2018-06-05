@@ -42,6 +42,8 @@ namespace datalog {
 
 namespace spacer {
 
+class model_search;
+
 class pred_transformer;
 class derivation;
 class pob_queue;
@@ -847,6 +849,10 @@ class context {
     unsigned             m_restart_initial_threshold;
     scoped_ptr_vector<spacer_callback> m_callbacks;
     json_marshaller      m_json_marshaller;
+
+    // Solve using gpdr strategy
+    lbool gpdr_solve_core();
+    bool gpdr_check_reachability(unsigned lvl, model_search &ms);
 
     // Functions used by search.
     lbool solve_core(unsigned from_lvl = 0);

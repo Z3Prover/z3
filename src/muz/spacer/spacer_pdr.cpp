@@ -19,9 +19,10 @@ Notes:
 
 --*/
 #include "muz/spacer/spacer_pdr.h"
+#include "muz/base/dl_context.h"
 
 namespace spacer {
-model_node::model_node(model_node* parent, pob_ref &pob):
+model_node::model_node(model_node* parent, class pob *pob):
     m_pob(pob), m_parent(parent), m_next(nullptr), m_prev(nullptr),
     m_orig_level(m_pob->level()), m_depth(0),
     m_closed(false) {
@@ -30,7 +31,7 @@ model_node::model_node(model_node* parent, pob_ref &pob):
 }
 
 void model_node::add_child(model_node &kid) {
-    m_children.push_back(this);
+    m_children.push_back(&kid);
     SASSERT(level() == kid.level() + 1);
     SASSERT(level() > 0);
     kid.m_depth = m_depth + 1;
@@ -67,7 +68,7 @@ void model_node::set_open() {
 }
 
 void model_node::detach(model_node*& qhead) {
-    if (!in_queue()) return;
+    SASSERT(in_queue());
     SASSERT(children().empty());
     if (this == m_next) {
         SASSERT(m_prev == this);
@@ -103,13 +104,13 @@ void model_node::insert_after(model_node* n) {
 }
 
 void model_search::reset() {
-    m_cache.reset();
     if (m_root) {
         erase_children(*m_root, false);
         remove_node(*m_root, false);
         dealloc(m_root);
         m_root = nullptr;
     }
+    m_cache.reset();
 }
 
 model_node* model_search::pop_front() {
@@ -135,6 +136,7 @@ void model_search::add_leaf(model_node& n) {
 
 void model_search::enqueue_leaf(model_node& n) {
     SASSERT(n.is_open());
+    SASSERT(!n.in_queue());
     // queue is empty, initialize it with n
     if (!m_qhead) {
         m_qhead  = &n;
@@ -157,10 +159,7 @@ void model_search::set_root(model_node* root) {
     m_root = root;
     SASSERT(m_root);
     SASSERT(m_root->children().empty());
-    SASSERT(cache(*root).empty());
-    // XXX Don't get why 1 is legal here
-    cache(*root).insert(root->post(), 1);
-    enqueue_leaf(*root);
+    add_leaf(*root);
 }
 
 void model_search::backtrack_level(bool uses_level, model_node& n) {
@@ -189,8 +188,8 @@ void model_search::erase_children(model_node& n, bool backtrack) {
     ptr_vector<model_node> todo, nodes;
     todo.append(n.children());
     // detach n from queue
-    n.detach(m_qhead);
-    n.reset();
+    if (n.in_queue()) n.detach(m_qhead);
+    n.reset_children();
     while (!todo.empty()) {
         model_node* m = todo.back();
         todo.pop_back();
@@ -205,7 +204,7 @@ void model_search::erase_children(model_node& n, bool backtrack) {
 void model_search::remove_node(model_node& n, bool backtrack) {
     model_nodes& nodes = cache(n).find(n.post());
     nodes.erase(&n);
-    n.detach(m_qhead);
+    if (n.in_queue()) n.detach(m_qhead);
     // TBD: siblings would also fail if n is not a goal.
     if (!nodes.empty() && backtrack &&
         nodes[0]->children().empty() && nodes[0]->is_closed()) {
@@ -218,4 +217,69 @@ void model_search::remove_node(model_node& n, bool backtrack) {
 }
 
 
+lbool context::gpdr_solve_core() {
+    scoped_watch _w_(m_solve_watch);
+    //if there is no query predicate, abort
+    if (!m_rels.find(m_query_pred, m_query)) { return l_false; }
+
+    model_search ms(true);
+    unsigned lvl = 0;
+    unsigned max_level = get_params ().spacer_max_level ();
+    for (lvl = 0; lvl < max_level; ++lvl) {
+        checkpoint();
+        IF_VERBOSE(1,verbose_stream() << "GPDR Entering level "<< lvl << "\n";);
+        STRACE("spacer.expand-add", tout << "\n* LEVEL " << lvl << "\n";);
+        m_expanded_lvl = infty_level();
+        m_stats.m_max_query_lvl = lvl;
+        if (gpdr_check_reachability(lvl, ms)) {return l_true;}
+        if (lvl > 0) {
+            if (propagate(m_expanded_lvl, lvl, UINT_MAX)) {return l_false;}
+        }
+    }
+
+    // communicate failure to datalog::context
+    if (m_context) { m_context->set_status(datalog::BOUNDED); }
+    return l_undef;
+
 }
+
+bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
+    pob_ref root_pob = m_query->mk_pob(nullptr, lvl, 0, m.mk_true());
+    model_node *root_node = alloc(model_node, nullptr, root_pob.get());
+
+    ms.set_root(root_node);
+    pob_ref_buffer new_pobs;
+
+    while (model_node *node = ms.pop_front()) {
+        IF_VERBOSE(2, verbose_stream() << "Expand node: "
+                   << node->level() << "\n";);
+        new_pobs.reset();
+        checkpoint();
+        switch (expand_pob(*node->pob(), new_pobs)){
+        case l_true:
+            node->set_closed();
+            if (node == root_node) return true;
+            break;
+        case l_false:
+            ms.backtrack_level(false, *node);
+            if (node == root_node) return false;
+            break;
+        case l_undef:
+            SASSERT(!new_pobs.empty());
+            for (auto pob : new_pobs) {
+                TRACE("spacer_pdr",
+                      tout << "looking at pob at level " << pob->level() << " "
+                      << mk_pp(pob->post(), m) << "\n";);
+                if (pob == node->pob()) {continue;}
+                model_node *kid = alloc(model_node, node, pob);
+                ms.add_leaf(*kid);
+            }
+            node->check_pre_closed();
+            break;
+        }
+    }
+
+    return root_node->is_closed();
+}
+
+} // spacer

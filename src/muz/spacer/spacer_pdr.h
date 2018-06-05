@@ -35,7 +35,7 @@ class model_node {
     unsigned               m_depth;          //
     bool                   m_closed;         // whether the pob is derivable
 public:
-    model_node(model_node* parent, pob_ref &pob);
+    model_node(model_node* parent, pob* pob);
     void add_child(model_node &kid);
 
     expr *post() const {return m_pob->post();}
@@ -43,7 +43,7 @@ public:
     unsigned orig_level() const { return m_orig_level; }
     unsigned depth() const { return m_depth; }
     void  increase_level() { m_pob->inc_level(); }
-    const pob_ref &pob() const { return m_pob; }
+    pob_ref &pob() { return m_pob; }
     ptr_vector<model_node> const& children() { return m_children; }
     pred_transformer& pt() const { return m_pob->pt(); }
     model_node* parent() const { return m_parent; }
@@ -66,7 +66,7 @@ public:
 
     void set_closed() {m_closed = true;}
     void set_open();
-    void reset() {m_children.reset();}
+    void reset_children() {m_children.reset();}
 
     /// queue
 

@@ -2591,7 +2591,14 @@ lbool context::solve(unsigned from_lvl)
 {
     m_last_result = l_undef;
     try {
-        m_last_result = solve_core (from_lvl);
+        if (m_params.spacer_gpdr()) {
+            SASSERT(from_lvl == 0);
+            m_last_result = gpdr_solve_core();
+        }
+        else {
+            m_last_result = solve_core (from_lvl);
+        }
+
         if (m_last_result == l_false) {
             simplify_formulas();
             m_last_result = l_false;
@@ -2967,7 +2974,7 @@ lbool context::solve_core (unsigned from_lvl)
 
     unsigned max_level = get_params ().spacer_max_level ();
 
-    for (unsigned i = 0; i < max_level; ++i) {
+    for (unsigned i = from_lvl; i < max_level; ++i) {
         checkpoint();
         m_expanded_lvl = infty_level ();
         m_stats.m_max_query_lvl = lvl;
@@ -3244,6 +3251,7 @@ void context::predecessor_eh()
 /// out contains new pobs to add to the queue in case the result is l_undef
 lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 {
+    SASSERT(out.empty());
     pob::on_expand_event _evt(n);
     TRACE ("spacer",
            tout << "expand-pob: " << n.pt().head()->get_name()
@@ -3630,7 +3638,6 @@ bool context::create_children(pob& n, datalog::rule const& r,
                               const vector<bool> &reach_pred_used,
                               pob_ref_buffer &out)
 {
-
     scoped_watch _w_ (m_create_children_watch);
     pred_transformer& pt = n.pt();
 
