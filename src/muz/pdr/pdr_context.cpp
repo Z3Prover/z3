@@ -210,7 +210,7 @@ namespace pdr {
     void pred_transformer::simplify_formulas() {
         tactic_ref us = mk_unit_subsumption_tactic(m);
         simplify_formulas(*us, m_invariants);
-        for (auto & fmls : m_levels) 
+        for (auto & fmls : m_levels)
             simplify_formulas(*us, fmls);
     }
 
@@ -876,6 +876,7 @@ namespace pdr {
         return out;
     }
 
+    // return order of this node in the children of its parent
     unsigned model_node::index() const {
         model_node* p = parent();
         if (!p) return 0;
@@ -886,7 +887,8 @@ namespace pdr {
         return 0;
     }
 
-
+    // detach this node from a queue with the head root
+    // requires: root is a head of a queue
     void model_node::dequeue(model_node*& root) {
         TRACE("pdr", tout << this << " root: " << root << " " << state() << "\n";);
         if (!m_next && !m_prev) return;
@@ -912,6 +914,8 @@ namespace pdr {
     }
 
 
+    // insert node n after this in the queue
+    // requires: this is in a queue or this == n
     void model_node::enqueue(model_node* n) {
         TRACE("pdr", tout << n << " " << n->state() << "\n";);
         SASSERT(!n->m_next);
@@ -963,6 +967,7 @@ namespace pdr {
     }
 
     void model_search::set_leaf(model_node& n) {
+        // remove all children that n might have
         erase_children(n, true);
         SASSERT(n.is_open());
         enqueue_leaf(&n);
@@ -971,13 +976,16 @@ namespace pdr {
     void model_search::enqueue_leaf(model_node* n) {
         TRACE("pdr_verbose", tout << "node: " << n << " " << n->state() << " goal: " << m_goal << "\n";);
         SASSERT(n->is_open());
+        // queue is empty, initialize it with n
         if (!m_goal) {
             m_goal = n;
             m_goal->enqueue(n);
         }
+        // insert n after m_goal
         else if (m_bfs) {
             m_goal->enqueue(n);
         }
+        // insert n after m_goal()->next()
         else {
             m_goal->next()->enqueue(n);
         }
@@ -1002,7 +1010,9 @@ namespace pdr {
     void model_search::erase_children(model_node& n, bool backtrack) {
         ptr_vector<model_node> todo, nodes;
         todo.append(n.children());
+        // detach n from queue
         remove_goal(n);
+        // removes children
         n.reset();
         while (!todo.empty()) {
             model_node* m = todo.back();
@@ -1014,10 +1024,12 @@ namespace pdr {
         std::for_each(nodes.begin(), nodes.end(), delete_proc<model_node>());
     }
 
+    // removes node from the search tree and from the cache
     void model_search::remove_node(model_node& n, bool backtrack) {
         TRACE("pdr_verbose", tout << "remove: " << n.level() << ": " << &n << " " << n.state() << "\n";);
         model_nodes& nodes = cache(n).find(n.state());
         nodes.erase(&n);
+        // detach n from m_goals
         remove_goal(n);
         // TBD: siblings would also fail if n is not a goal.
         if (!nodes.empty() && backtrack && nodes[0]->children().empty() && nodes[0]->is_closed()) {
@@ -1036,6 +1048,7 @@ namespace pdr {
         }
     }
 
+    // detach node n from the queue m_goal
     void model_search::remove_goal(model_node& n) {
         n.dequeue(m_goal);
     }
@@ -1913,7 +1926,7 @@ namespace pdr {
                     verbose_stream() << ex.to_string();
                 });
 
-            // upgrade invariants that are known to be inductive.            
+            // upgrade invariants that are known to be inductive.
             decl2rel::iterator it = m_rels.begin (), end = m_rels.end ();
             for (; m_inductive_lvl > 0 && it != end; ++it) {
                 if (it->m_value->head() != m_query_pred) {
