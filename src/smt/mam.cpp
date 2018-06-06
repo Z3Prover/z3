@@ -2399,7 +2399,7 @@ namespace smt {
             SASSERT(m_n2 != 0);
             if (m_n1->get_root() != m_n2->get_root())
                 goto backtrack;
-            
+
             m_used_enodes.push_back(std::make_tuple(m_n1, m_n2));
 
             m_pc = m_pc->m_next;

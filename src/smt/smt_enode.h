@@ -42,9 +42,9 @@ namespace smt {
        \brief Indicates whether the proof for membership in an equivalence class is already logged.
     */
     enum logged_status {
-        NOT_LOGGED,
-        BEING_LOGGED,
-        LOGGED
+        NOT_LOGGED, //!< Proof is not logged or logged information is not up-to-date.
+        BEING_LOGGED, //!< We are currently in the process of logging all relevant information. This is used to prevent looping when logging congruence steps.
+        LOGGED //!< Proof is logged and logged information is still up-to-date.
     };
 
     /** \ brief Use sparse maps in SMT solver.

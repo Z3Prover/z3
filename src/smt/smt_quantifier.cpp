@@ -104,12 +104,16 @@ namespace smt {
             return m_plugin->is_shared(n);
         }
 
-        void log_transitive_justification(std::ostream & log, enode *en) {
+        /**
+           \brief Ensures that all relevant proof steps to explain why the enode is equal to the root of its
+           equivalence class are in the log and up-to-date.
+        */
+        void log_justification_to_root(std::ostream & log, enode *en) {
             enode *root = en->get_root();
             for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
                 if (it->m_proof_logged_status == smt::logged_status::NOT_LOGGED) {
                     it->m_proof_logged_status = smt::logged_status::BEING_LOGGED;
-                    print_justification(log, it);
+                    log_single_justification(log, it);
                     it->m_proof_logged_status = smt::logged_status::LOGGED;
                 } else if (it->m_proof_logged_status != smt::logged_status::BEING_LOGGED && it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
 
@@ -119,8 +123,8 @@ namespace smt {
                     enode *target = it->get_trans_justification().m_target;
 
                     for (unsigned i = 0; i < num_args; ++i) {
-                        log_transitive_justification(log, it->get_arg(i));
-                        log_transitive_justification(log, target->get_arg(i));
+                        log_justification_to_root(log, it->get_arg(i));
+                        log_justification_to_root(log, target->get_arg(i));
                     }
                     it->m_proof_logged_status = smt::logged_status::LOGGED;
                 }
@@ -131,7 +135,11 @@ namespace smt {
             }
         }
 
-        void print_justification(std::ostream & out, enode *en) {
+        /**
+          \brief Logs a single equality explanation step and, if necessary, recursively calls log_justification_to_root to log
+          equalities needed by the step (e.g. argument equalities for congruence steps).
+        */
+        void log_single_justification(std::ostream & out, enode *en) {
             smt::literal lit;
             unsigned num_args;
             enode *target = en->get_trans_justification().m_target;
@@ -149,10 +157,9 @@ namespace smt {
                 if (!en->get_trans_justification().m_justification.used_commutativity()) {
                     num_args = en->get_num_args();
 
-                    for (unsigned i = 0; i < num_args; i++) {
-                        
-                        log_transitive_justification(out, en->get_arg(i));
-                        log_transitive_justification(out, target->get_arg(i));
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        log_justification_to_root(out, en->get_arg(i));
+                        log_justification_to_root(out, target->get_arg(i));
                     }
 
                     out << "[eq-expl] #" << en->get_owner_id() << " cg";
@@ -160,7 +167,7 @@ namespace smt {
                         out << " (#" << en->get_arg(i)->get_owner_id() << " #" << target->get_arg(i)->get_owner_id() << ")";
                     }
                     out << " ; #" << target->get_owner_id() << "\n";
-                    
+
                     break;
                 } else {
                     out << "[eq-expl] #" << en->get_owner_id() << " nyi ; #" << target->get_owner_id() << "\n";
@@ -172,7 +179,7 @@ namespace smt {
                     symbol const theory = m().get_family_name(th_id);
                     out << "[eq-expl] #" << en->get_owner_id() << " th " << theory.str() << " ; #" << target->get_owner_id() << "\n";
                 } else {
-                    out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";    
+                    out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
                 }
                 break;
             default:
@@ -198,14 +205,14 @@ namespace smt {
                 if (has_trace_stream()) {
                     std::ostream & out = trace_stream();
                     for (unsigned i = 0; i < num_bindings; ++i) {
-                        log_transitive_justification(out, bindings[i]);
+                        log_justification_to_root(out, bindings[i]);
                     }
                     for (auto n : used_enodes) {
                         enode *orig = std::get<0>(n);
                         enode *substituted = std::get<1>(n);
                         if (orig != nullptr) {
-                            log_transitive_justification(out, orig);
-                            log_transitive_justification(out, substituted);
+                            log_justification_to_root(out, orig);
+                            log_justification_to_root(out, substituted);
                         }
                     }
                     out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id() << " #" << pat->get_id();
