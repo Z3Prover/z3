@@ -818,7 +818,7 @@ void mpz_manager<SYNCH>::big_rem(mpz const & a, mpz const & b, mpz & c) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
     static_assert(sizeof(a.m_val) == sizeof(int), "size mismatch");
-    static_assert(sizeof(mpz) == 16, "mpz size overflow");
+    static_assert(sizeof(mpz) <= 16, "mpz size overflow");
     if (is_small(a) && is_small(b) && a.m_val != INT_MIN && b.m_val != INT_MIN) {
         int _a = a.m_val;
         int _b = b.m_val;
@@ -1446,7 +1446,6 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
         return;
     target.m_val = source.m_val;
     if (target.m_ptr == nullptr) {
-<<<<<<< HEAD
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
@@ -1456,25 +1455,11 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
     }
     else if (capacity(target) < size(source)) {
         deallocate(target);
-=======
->>>>>>> dc8e4f3e43c1cb724852fb7c46c6d4fd2571c150
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
         target.m_kind = mpz_ptr;
         target.m_owner = mpz_self;
-<<<<<<< HEAD
-=======
-        memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
-    }
-    else if (capacity(target) < size(source)) {
-        deallocate(target);
-        target.m_ptr = allocate(capacity(source));
-        target.m_ptr->m_size     = size(source);
-        target.m_ptr->m_capacity = capacity(source);
-        target.m_kind = mpz_ptr;
-        target.m_owner = mpz_self;
->>>>>>> dc8e4f3e43c1cb724852fb7c46c6d4fd2571c150
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
     }
     else {
