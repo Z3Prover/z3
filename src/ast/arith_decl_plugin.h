@@ -244,6 +244,8 @@ public:
         return false;
     }
 
+    bool is_int_expr(expr const * e) const;
+
     bool is_le(expr const * n) const { return is_app_of(n, m_afid, OP_LE); }
     bool is_ge(expr const * n) const { return is_app_of(n, m_afid, OP_GE); }
     bool is_lt(expr const * n) const { return is_app_of(n, m_afid, OP_LT); }
@@ -533,4 +535,3 @@ inline app_ref operator>(app_ref const& x, app_ref const& y) {
 }
 
 #endif /* ARITH_DECL_PLUGIN_H_ */
-
