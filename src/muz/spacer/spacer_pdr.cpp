@@ -318,20 +318,17 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
     vector<expr_ref_vector> res(preds.size(), expr_ref_vector(m));
     _mbc(pmap, lits, *mdl.get(), res);
 
+    // pick an order to process children
+    unsigned_vector kid_order;
+    kid_order.resize(preds.size(), 0);
+    for (unsigned i = 0, sz = preds.size(); i < sz; ++i) kid_order[i] = i;
+    if (m_children_order == CO_REV_RULE) {
+        kid_order.reverse();
+    }
+    else if (m_children_order == CO_RANDOM) {
+        shuffle(kid_order.size(), kid_order.c_ptr(), m_random);
+    }
 
-    for (unsigned i = 0, sz = res.size(); i < sz; ++i) {
-        expr_ref post(m);
-        pred_transformer &ppt = *ppts.get(i);
-        post = mk_and(res.get(i));
-        m_pm.formula_o2n(post.get(), post, i, true);
-        pob * k = ppt.mk_pob(&n, prev_level(n.level()), n.depth(), post);
-        out.push_back(k);
-        IF_VERBOSE (1, verbose_stream()
-                    << "\n\tcreate_child: " << k->pt().head()->get_name()
-                    << " (" << k->level() << ", " << k->depth() << ") "
-                    << (k->use_farkas_generalizer() ? "FAR " : "SUB ")
-                    << k->post()->get_id();
-                    verbose_stream().flush(););
         TRACE ("spacer",
                tout << "create-pob: " << k->pt().head()->get_name()
                << " level: " << k->level()
@@ -346,4 +343,19 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
 }
 
 
+
+    for (unsigned i = 0, sz = res.size(); i < sz; ++i) {
+        unsigned j = kid_order[i];
+        expr_ref post(m);
+        pred_transformer &ppt = *ppts.get(j);
+        post = mk_and(res.get(j));
+        m_pm.formula_o2n(post.get(), post, j, true);
+        pob * k = ppt.mk_pob(&n, prev_level(n.level()), n.depth(), post);
+        out.push_back(k);
+        IF_VERBOSE (1, verbose_stream()
+                    << "\n\tcreate_child: " << k->pt().head()->get_name()
+                    << " (" << k->level() << ", " << k->depth() << ") "
+                    << (k->use_farkas_generalizer() ? "FAR " : "SUB ")
+                    << k->post()->get_id();
+                    verbose_stream().flush(););
 } // spacer
