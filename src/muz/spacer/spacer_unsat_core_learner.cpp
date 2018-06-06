@@ -44,8 +44,7 @@ void unsat_core_learner::compute_unsat_core(expr_ref_vector& unsat_core) {
         if (m.get_num_parents(currentNode) > 0) {
             bool need_to_mark_closed = true;
 
-            for (unsigned i = 0; i < m.get_num_parents(currentNode); ++i) {
-                proof* premise = m.get_parent(currentNode, i);
+            for (proof* premise : m.get_parents(currentNode)) {
                 need_to_mark_closed &= (!m_pr.is_b_marked(premise) || m_closed.is_marked(premise));
             }
 

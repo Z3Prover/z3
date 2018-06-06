@@ -37,8 +37,6 @@ namespace spacer {
     unsat_core_plugin::unsat_core_plugin(unsat_core_learner& learner): 
         m(learner.m), m_learner(learner) {};
     
-
-
     void unsat_core_plugin_lemma::compute_partial_core(proof* step) {
         SASSERT(m_learner.m_pr.is_a_marked(step));
         SASSERT(m_learner.m_pr.is_b_marked(step));
@@ -103,12 +101,10 @@ namespace spacer {
         func_decl* d = step->get_decl();
         symbol sym;
         if (!m_learner.is_closed(step) && // if step is not already interpolated
-           step->get_decl_kind() == PR_TH_LEMMA && // and step is a Farkas lemma
-           d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
-           d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
-           d->get_parameter(1).is_symbol(sym) && sym == "farkas" &&
-            d->get_num_parameters() >= m.get_num_parents(step) + 2) { // the following parameters are the Farkas coefficients
+            is_farkas_lemma(m, step)) { 
+            // weaker check: d->get_num_parameters() >= m.get_num_parents(step) + 2 
             
+            SASSERT(d->get_num_parameters() == m.get_num_parents(step) + 2);
             SASSERT(m.has_fact(step));
             
             coeff_lits_t coeff_lits;
@@ -142,12 +138,10 @@ namespace spacer {
             STRACE("spacer.farkas",
                    verbose_stream() << "Farkas input: "<< "\n";
                    for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
-                       proof * prem = m.get_parent(step, i);
-                       
-                       rational coef = params[i].get_rational();
-                       
+                       proof * prem = m.get_parent(step, i);                       
+                       rational coef = params[i].get_rational();                       
                        bool b_pure = m_learner.m_pr.is_b_pure (prem);
-                   verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m_learner.m) << "\n";
+                       verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m) << "\n";
                    }
                    );
             
@@ -197,11 +191,11 @@ namespace spacer {
                     }
                     SASSERT(m.get_num_parents(step) + 2 + num_args == d->get_num_parameters());
                     
-                    bool_rewriter brw(m_learner.m);
+                    bool_rewriter brw(m);
                     for (unsigned i = 0; i < num_args; ++i) {
                         expr* premise = args[i];
 
-                        expr_ref negatedPremise(m_learner.m);
+                        expr_ref negatedPremise(m);
                         brw.mk_not(premise, negatedPremise);
                         pinned.push_back(negatedPremise);
                         rational coefficient = params[i].get_rational();
@@ -235,8 +229,7 @@ namespace spacer {
             return util.get();
         }
         else {
-            expr_ref negated_linear_combination = util.get();
-            return expr_ref(mk_not(m, negated_linear_combination), m);
+            return expr_ref(mk_not(m, util.get()), m);
         }
     }
 
@@ -248,15 +241,11 @@ namespace spacer {
         func_decl* d = step->get_decl();
         symbol sym;
         if(!m_learner.is_closed(step) && // if step is not already interpolated
-           step->get_decl_kind() == PR_TH_LEMMA && // and step is a Farkas lemma
-           d->get_num_parameters() >= 2 && // the Farkas coefficients are saved in the parameters of step
-           d->get_parameter(0).is_symbol(sym) && sym == "arith" && // the first two parameters are "arith", "farkas",
-           d->get_parameter(1).is_symbol(sym) && sym == "farkas" &&
-           d->get_num_parameters() >= m.get_num_parents(step) + 2) // the following parameters are the Farkas coefficients
-        {
+           is_farkas_lemma(m, step)) {
+            SASSERT(d->get_num_parameters() == m.get_num_parents(step) + 2);
             SASSERT(m.has_fact(step));
 
-            vector<std::pair<app*,rational> > linear_combination; // collects all summands of the linear combination
+            coeff_lits_t linear_combination; // collects all summands of the linear combination
 
             parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
 
@@ -264,9 +253,7 @@ namespace spacer {
                    verbose_stream() << "Farkas input: "<< "\n";
                    for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
                        proof * prem = m.get_parent(step, i);
-
-                       rational coef = params[i].get_rational();
-                       
+                       rational coef = params[i].get_rational();                       
                        bool b_pure = m_learner.m_pr.is_b_pure (prem);
                        verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m_learner.m) << "\n";
                    }
@@ -284,8 +271,7 @@ namespace spacer {
                     {
                         rational coefficient = params[i].get_rational();
                         linear_combination.push_back
-                            (std::make_pair(to_app(m.get_fact(premise)),
-                                            abs(coefficient)));
+                            (std::make_pair(abs(coefficient), to_app(m.get_fact(premise))));
                     }
                     else
                     {
@@ -308,15 +294,15 @@ namespace spacer {
 
     struct farkas_optimized_less_than_pairs
     {
-        inline bool operator() (const std::pair<app*,rational>& pair1, const std::pair<app*,rational>& pair2) const
+        inline bool operator() (const std::pair<rational, app*>& pair1, const std::pair<rational, app*>& pair2) const
         {
-            return (pair1.first->get_id() < pair2.first->get_id());
+            return (pair1.second->get_id() < pair2.second->get_id());
         }
     };
 
     void unsat_core_plugin_farkas_lemma_optimized::finalize()
     {
-        if(m_linear_combinations.empty())
+        if (m_linear_combinations.empty())
         {
             return;
         }
@@ -331,9 +317,9 @@ namespace spacer {
         unsigned counter = 0;
         for (const auto& linear_combination : m_linear_combinations) {
             for (const auto& pair : linear_combination) {
-                if (!map.contains(pair.first)) {
-                    ordered_basis.push_back(pair.first);
-                    map.insert(pair.first, counter++);
+                if (!map.contains(pair.second)) {
+                    ordered_basis.push_back(pair.second);
+                    map.insert(pair.second, counter++);
                 }
             }
         }
@@ -344,7 +330,7 @@ namespace spacer {
         for (unsigned i = 0; i < m_linear_combinations.size(); ++i) {
             auto linear_combination = m_linear_combinations[i];
             for (const auto& pair : linear_combination) {
-                matrix.set(i, map[pair.first], pair.second);
+                matrix.set(i, map[pair.second], pair.first);
             }
         }
 
@@ -368,9 +354,7 @@ namespace spacer {
 
     }
 
-    expr_ref unsat_core_plugin_farkas_lemma_optimized::compute_linear_combination(const coeff_lits_t& coeff_lits)
-     {
-         
+    expr_ref unsat_core_plugin_farkas_lemma_optimized::compute_linear_combination(const coeff_lits_t& coeff_lits) {         
          smt::farkas_util util(m);
          for (auto const & p : coeff_lits) {
              util.add(p.first, p.second);
@@ -387,7 +371,7 @@ namespace spacer {
         }
         DEBUG_CODE(
             for (auto& linear_combination : m_linear_combinations) {
-                SASSERT(linear_combination.size() > 0);
+                SASSERT(!linear_combination.empty());
             });
 
         // 1. construct ordered basis
@@ -396,9 +380,9 @@ namespace spacer {
         unsigned counter = 0;
         for (const auto& linear_combination : m_linear_combinations) {
             for (const auto& pair : linear_combination) {
-                if (!map.contains(pair.first)) {
-                    ordered_basis.push_back(pair.first);
-                    map.insert(pair.first, counter++);
+                if (!map.contains(pair.second)) {
+                    ordered_basis.push_back(pair.second);
+                    map.insert(pair.second, counter++);
                 }
             }
         }
@@ -409,7 +393,7 @@ namespace spacer {
         for (unsigned i=0; i < m_linear_combinations.size(); ++i) {
             auto linear_combination = m_linear_combinations[i];
             for (const auto& pair : linear_combination) {
-                matrix.set(i, map[pair.first], pair.second);
+                matrix.set(i, map[pair.second], pair.first);
             }
         }
         matrix.print_matrix();
@@ -695,14 +679,12 @@ namespace spacer {
      * computes min-cut on the graph constructed by compute_partial_core-method
      * and adds the corresponding lemmas to the core
      */
-void unsat_core_plugin_min_cut::finalize()
-{
+    void unsat_core_plugin_min_cut::finalize() {
         unsigned_vector cut_nodes;
         m_min_cut.compute_min_cut(cut_nodes);
-
-        for (unsigned cut_node : cut_nodes)
-        {
+        
+        for (unsigned cut_node : cut_nodes)   {
             m_learner.add_lemma_to_core(m_node_to_formula[cut_node]);
-                }
-            }
+        }
+    }
 }
