@@ -262,7 +262,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         vars.append(m_evars);
         m_evars.reset();
         pt().mbp(vars, m_trans, mev.get_model(),
-                 true, pt().get_context().use_ground_cti());
+                 true, pt().get_context().use_ground_pob());
         m_evars.append (vars);
         vars.reset();
     }
@@ -291,7 +291,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
         // include m_evars in case they can eliminated now as well
         vars.append(m_evars);
         pt().mbp(vars, post, mev.get_model(),
-                 true, pt().get_context().use_ground_cti());
+                 true, pt().get_context().use_ground_pob());
         //qe::reduce_array_selects (*mev.get_model (), post);
     }
     else {
@@ -395,7 +395,7 @@ pob *derivation::create_next_child ()
             vars.append(m_evars);
             m_evars.reset();
             this->pt().mbp(vars, m_trans, mev.get_model(),
-                           true, this->pt().get_context().use_ground_cti());
+                           true, this->pt().get_context().use_ground_pob());
             // keep track of implicitly quantified variables
             m_evars.append (vars);
             vars.reset();
@@ -2224,13 +2224,6 @@ context::context(fixedpoint_params const&     params,
     m_last_result(l_undef),
     m_inductive_lvl(0),
     m_expanded_lvl(0),
-    m_use_native_mbp(params.spacer_native_mbp ()),
-    m_ground_cti (params.spacer_ground_cti ()),
-    m_instantiate (params.spacer_q3_instantiate ()),
-    m_use_qlemmas (params.spacer_q3()),
-    m_weak_abs(params.spacer_weak_abs()),
-    m_use_restarts(params.spacer_restarts()),
-    m_restart_initial_threshold(params.spacer_restart_initial_threshold()),
     m_json_marshaller(this) {
     ref<solver> pool0_base =
         mk_smt_solver(m, params_ref::get_empty(), symbol::null);
@@ -2281,6 +2274,12 @@ void context::updt_params() {
     m_use_gpdr = m_params.spacer_gpdr();
     m_simplify_formulas_pre = m_params.pdr_simplify_formulas_pre();
     m_simplify_formulas_post = m_params.pdr_simplify_formulas_post();
+    m_use_native_mbp = m_params.spacer_native_mbp ();
+    m_instantiate = m_params.spacer_q3_instantiate ();
+    m_use_qlemmas = m_params.spacer_q3();
+    m_weak_abs = m_params.spacer_weak_abs();
+    m_use_restarts = m_params.spacer_restarts();
+    m_restart_initial_threshold = m_params.spacer_restart_initial_threshold();
 
 
     if (m_use_gpdr) {
@@ -3716,9 +3715,9 @@ bool context::create_children(pob& n, datalog::rule const& r,
     // skolems of the pob
     n.get_skolems(vars);
 
-    n.pt().mbp(vars, phi, mev.get_model (), true, use_ground_cti());
+    n.pt().mbp(vars, phi, mev.get_model (), true, use_ground_pob());
     //qe::reduce_array_selects (*mev.get_model (), phi1);
-    SASSERT (!m_ground_cti || vars.empty ());
+    SASSERT (!m_ground_pob || vars.empty ());
 
     TRACE ("spacer",
            tout << "Implicant:\n";

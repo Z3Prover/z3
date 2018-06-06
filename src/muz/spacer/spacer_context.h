@@ -841,7 +841,6 @@ class context {
     model_converter_ref  m_mc;
     proof_converter_ref  m_pc;
     bool                 m_use_native_mbp;
-    bool                 m_ground_cti;
     bool                 m_instantiate;
     bool                 m_use_qlemmas;
     bool                 m_weak_abs;
@@ -935,7 +934,7 @@ public:
 
     const fixedpoint_params &get_params() const { return m_params; }
     bool use_native_mbp () {return m_use_native_mbp;}
-    bool use_ground_cti () {return m_ground_cti;}
+    bool use_ground_pob () {return m_ground_pob;}
     bool use_instantiate () {return m_instantiate;}
     bool weak_abs() {return m_weak_abs;}
     bool use_qlemmas () {return m_use_qlemmas;}
