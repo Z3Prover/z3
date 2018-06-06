@@ -325,8 +325,8 @@ public:
                                              impq &term_max);    
     // starting from a given feasible state look for the maximum of the term
     // return true if found and false if unbounded
-    bool maximize_term(const vector<std::pair<mpq, var_index>> & term,
-                       impq &term_max);
+    lp_status maximize_term(const vector<std::pair<mpq, var_index>> & term,
+                            impq &term_max);
     
 
     
@@ -587,5 +587,6 @@ public:
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
     const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
     bool get_equality_and_right_side_for_term_on_current_x(unsigned i, mpq &rs, constraint_index& ci) const;
+    bool remove_from_basis(unsigned);
 };
 }

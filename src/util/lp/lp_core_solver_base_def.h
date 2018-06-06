@@ -969,6 +969,17 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
     }
 }
 
+template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis(unsigned basic_j) {
+    indexed_vector<T> w(m_basis.size()); // the buffer
+    unsigned i = m_basis_heading[basic_j];
+    for (auto &c : m_A.m_rows[i]) {
+        if (pivot_column_general(c.var(), basic_j, w))
+            return true;
+    }
+    return false;
+}
+
+
 template <typename T, typename X> bool 
 lp_core_solver_base<T, X>::infeasibility_costs_are_correct() const {
     if (! this->m_using_infeas_costs)
@@ -1028,9 +1039,9 @@ void lp_core_solver_base<T, X>::calculate_pivot_row(unsigned i) {
     m_pivot_row.clear();
     m_pivot_row.resize(m_n());
     if (m_settings.use_tableau()) {
-        unsigned basis_j = m_basis[i];
+        unsigned basic_j = m_basis[i];
         for (auto & c : m_A.m_rows[i]) {
-            if (c.m_j != basis_j)
+            if (c.m_j != basic_j)
                 m_pivot_row.set_value(c.get_val(), c.m_j);
         }
         return;

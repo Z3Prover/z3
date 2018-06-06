@@ -264,7 +264,7 @@ public:
                     m_chase_cut_solver_cycle_on_var(10),
                     m_int_pivot_fixed_vars_from_basis(false),
                     m_int_patch_only_integer_values(true),
-                    limit_on_rows_for_hnf_cutter(100)
+                    limit_on_rows_for_hnf_cutter(75)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
