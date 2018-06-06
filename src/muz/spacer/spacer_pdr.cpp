@@ -264,6 +264,20 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
                    << node->level() << "\n";);
         new_pobs.reset();
         checkpoint();
+        pred_transformer &pt = node->pt();
+
+        // check reachable cache
+        if (pt.is_must_reachable(node->pob()->post(), nullptr)) {
+            TRACE("spacer",
+                  tout << "must-reachable: " << pt.head()->get_name() << " level: "
+                  << node->level() << " depth: " << node->depth () << "\n";
+                  tout << mk_pp(node->pob()->post(), m) << "\n";);
+
+            node->set_closed();
+            if (node == root_node) return true;
+            continue;
+        }
+
         switch (expand_pob(*node->pob(), new_pobs)){
         case l_true:
             node->set_closed();
@@ -329,20 +343,6 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
         shuffle(kid_order.size(), kid_order.c_ptr(), m_random);
     }
 
-        TRACE ("spacer",
-               tout << "create-pob: " << k->pt().head()->get_name()
-               << " level: " << k->level()
-               << " depth: " << k->depth ()
-               << " fvsz: " << k->get_free_vars_size() << "\n"
-               << mk_pp(k->post(), m) << "\n";);
-
-
-    }
-
-    return true;
-}
-
-
 
     for (unsigned i = 0, sz = res.size(); i < sz; ++i) {
         unsigned j = kid_order[i];
@@ -358,4 +358,18 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
                     << (k->use_farkas_generalizer() ? "FAR " : "SUB ")
                     << k->post()->get_id();
                     verbose_stream().flush(););
+        TRACE ("spacer",
+               tout << "create-pob: " << k->pt().head()->get_name()
+               << " level: " << k->level()
+               << " depth: " << k->depth ()
+               << " fvsz: " << k->get_free_vars_size() << "\n"
+               << mk_pp(k->post(), m) << "\n";);
+
+
+    }
+
+    return true;
+}
+
+
 } // spacer
