@@ -3727,6 +3727,11 @@ bool context::create_children(pob& n, datalog::rule const& r,
                tout << "Failed to eliminate: " << vars << "\n";
         );
 
+    if (m_use_gpdr && preds.size() > 1) {
+        SASSERT(vars.empty());
+        return gpdr_create_split_children(n, r, phi, mev.get_model(), out);
+    }
+
     derivation *deriv = alloc(derivation, n, r, phi, vars);
 
     // pick an order to process children

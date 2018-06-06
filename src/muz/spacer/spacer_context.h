@@ -878,6 +878,10 @@ class context {
     // Solve using gpdr strategy
     lbool gpdr_solve_core();
     bool gpdr_check_reachability(unsigned lvl, model_search &ms);
+    bool gpdr_create_split_children(pob &n, const datalog::rule &r,
+                                    expr *trans,
+                                    model_ref &mdl,
+                                    pob_ref_buffer &out);
 
     // Functions used by search.
     lbool solve_core(unsigned from_lvl = 0);

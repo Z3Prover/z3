@@ -20,6 +20,7 @@ Notes:
 --*/
 #include "muz/spacer/spacer_pdr.h"
 #include "muz/base/dl_context.h"
+#include "muz/spacer/spacer_mbc.h"
 
 namespace spacer {
 model_node::model_node(model_node* parent, class pob *pob):
@@ -90,7 +91,9 @@ void model_node::detach(model_node*& qhead) {
 // insert node n after this in the queue
 // requires: this is in a queue or this == n
 void model_node::insert_after(model_node* n) {
-    SASSERT(!in_queue());
+    SASSERT(this == n || in_queue());
+    SASSERT(n);
+    SASSERT(!n->in_queue());
     if (this == n) {
         m_next = n;
         m_prev = n;
@@ -281,5 +284,54 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
 
     return root_node->is_closed();
 }
+
+bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
+                                         expr *trans,
+                                         model_ref &mdl,
+                                         pob_ref_buffer &out) {
+    pred_transformer &pt = n.pt();
+    ptr_vector<func_decl> preds;
+    pt.find_predecessors(r, preds);
+    SASSERT(preds.size() > 1);
+
+    ptr_vector<pred_transformer> ppts;
+    for (auto *p : preds) ppts.push_back(&get_pred_transformer(p));
+
+    mbc::partition_map pmap;
+    for (unsigned i = 0, sz = preds.size(); i < sz; ++i) {
+        func_decl *p = preds.get(i);
+        pred_transformer &ppt = *ppts.get(i);
+        for (unsigned j = 0, jsz = p->get_arity(); j < jsz; ++j) {
+            pmap.insert(m_pm.o2o(ppt.sig(j), 0, i), i);
+        }
+    }
+
+
+    spacer::mbc _mbc(m);
+    expr_ref_vector lits(m);
+    flatten_and(trans, lits);
+    vector<expr_ref_vector> res(preds.size(), expr_ref_vector(m));
+    _mbc(pmap, lits, *mdl.get(), res);
+
+
+    for (unsigned i = 0, sz = res.size(); i < sz; ++i) {
+        expr_ref post(m);
+        pred_transformer &ppt = *ppts.get(i);
+        post = mk_and(res.get(i));
+        m_pm.formula_o2n(post.get(), post, i, true);
+        pob * k = ppt.mk_pob(&n, prev_level(n.level()), n.depth(), post);
+        out.push_back(k);
+        IF_VERBOSE (1, verbose_stream()
+                    << "\n\tcreate_child: " << k->pt().head()->get_name()
+                    << " (" << k->level() << ", " << k->depth() << ") "
+                    << (k->use_farkas_generalizer() ? "FAR " : "SUB ")
+                    << k->post()->get_id();
+                    verbose_stream().flush(););
+
+    }
+
+    return true;
+}
+
 
 } // spacer
