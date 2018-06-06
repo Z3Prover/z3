@@ -84,7 +84,7 @@ void proof_checker::hyp_decl_plugin::get_sort_names(svector<builtin_name> & sort
 }
 
 proof_checker::proof_checker(ast_manager& m) : m(m), m_todo(m), m_marked(), m_pinned(m), m_nil(m),
-                                               m_dump_lemmas(false), m_logic("AUFLIA"), m_proof_lemma_id(0) {
+                                               m_dump_lemmas(false), m_logic("AUFLIRA"), m_proof_lemma_id(0) {
     symbol fam_name("proof_hypothesis");
     if (!m.has_plugin(fam_name)) {
         m.register_plugin(fam_name, alloc(hyp_decl_plugin));
@@ -1245,9 +1245,9 @@ void proof_checker::dump_proof(proof const* pr) {
 void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecedents, expr * consequent) {
     char buffer[128];
 #ifdef _WINDOWS
-    sprintf_s(buffer, ARRAYSIZE(buffer), "proof_lemma_%d.smt", m_proof_lemma_id);
+    sprintf_s(buffer, ARRAYSIZE(buffer), "proof_lemma_%d.smt2", m_proof_lemma_id);
 #else
-    sprintf(buffer, "proof_lemma_%d.smt", m_proof_lemma_id);
+    sprintf(buffer, "proof_lemma_%d.smt2", m_proof_lemma_id);
 #endif
     std::ofstream out(buffer);
     ast_smt_pp pp(m);
@@ -1278,6 +1278,10 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
     SASSERT(lit->get_num_args() == 2);
     sort* s = m.get_sort(lit->get_arg(0));
     bool is_int = a.is_int(s);
+    if (!is_int && a.is_int_expr(lit->get_arg(0))) {
+        is_int = true;
+        s = a.mk_int();
+    }
 
     if (!is_int && is_pos && (a.is_gt(lit) || a.is_lt(lit))) {
         is_strict = true;
@@ -1394,7 +1398,6 @@ bool proof_checker::check_arith_proof(proof* p) {
             return false;
         }
     }
-
     if (m.is_or(fact)) {
         app* disj = to_app(fact);
         unsigned num_args = disj->get_num_args();
