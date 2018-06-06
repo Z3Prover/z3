@@ -17,16 +17,17 @@ class mbc_rewriter_cfg : public default_rewriter_cfg {
 
     ast_manager &m;
     const mbc::partition_map &m_pmap;
+    obj_map<expr,expr*> &m_subs;
     model &m_mdl;
     model_evaluator m_mev;
     vector<expr_ref_vector> &m_parts;
     unsigned m_current_part;
 
-    obj_map<expr,expr*> m_subs;
 public:
     mbc_rewriter_cfg(ast_manager &m, const mbc::partition_map &pmap,
+                     obj_map<expr,expr*> &subs,
                      model &mdl, vector<expr_ref_vector> &parts) :
-        m(m), m_pmap(pmap), m_mdl(mdl), m_mev(m_mdl),
+        m(m), m_pmap(pmap), m_subs(subs), m_mdl(mdl), m_mev(m_mdl),
         m_parts(parts), m_current_part(UINT_MAX)
         {m_mev.set_model_completion(true);}
 
@@ -56,7 +57,7 @@ public:
         // eval in the model
         m_mev.eval(s, val, true);
 
-        // store decided equality (also keeps ref to s and val
+        // store decided equality (also keeps ref to s and val)
         m_parts[part].push_back(m.mk_eq(s, val));
         // store substitution
         m_subs.insert(s, val);
@@ -64,6 +65,8 @@ public:
         return true;
     }
 
+
+    void reset() {reset_partition();};
     void reset_partition() {m_current_part = UINT_MAX;}
     unsigned partition() {return m_current_part;}
     bool found_partition() {return m_current_part < UINT_MAX;}
@@ -75,13 +78,14 @@ void mbc::operator()(const partition_map &pmap, expr_ref_vector &lits,
                      model &mdl, vector<expr_ref_vector> &res) {
     scoped_no_proof _sp (m);
 
-    mbc_rewriter_cfg cfg(m, pmap, mdl, res);
+    obj_map<expr,expr*> subs;
+    mbc_rewriter_cfg cfg(m, pmap, subs, mdl, res);
     rewriter_tpl<mbc_rewriter_cfg> rw(m, false, cfg);
     th_rewriter thrw(m);
 
     for (auto *lit : lits) {
         expr_ref new_lit(m);
-        cfg.reset_partition();
+        rw.reset();
         rw(lit, new_lit);
         thrw(new_lit);
         if (cfg.found_partition()) {
@@ -89,6 +93,10 @@ void mbc::operator()(const partition_map &pmap, expr_ref_vector &lits,
             res[cfg.partition()].push_back(new_lit);
         }
     }
+
+    TRACE("mbc", tout << "Input: " << lits << "\n"
+          << "Output: \n";
+          for (auto &vec : res) tout << vec << "\n==================\n";);
 }
 
 }
