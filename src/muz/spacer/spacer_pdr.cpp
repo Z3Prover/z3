@@ -246,8 +246,8 @@ lbool context::gpdr_solve_core() {
     }
 
     // communicate failure to datalog::context
-    if (m_context) { 
-        m_context->set_status(datalog::BOUNDED); 
+    if (m_context) {
+        m_context->set_status(datalog::BOUNDED);
     }
     return l_undef;
 }
@@ -279,7 +279,7 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
                 TRACE("spacer_pdr",
                       tout << "looking at pob at level " << pob->level() << " "
                       << mk_pp(pob->post(), m) << "\n";);
-                if (pob != node->pob()) 
+                if (pob != node->pob())
                     ms.add_leaf(alloc(model_node, node, pob));
             }
             node->check_pre_closed();
@@ -332,6 +332,13 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
                     << (k->use_farkas_generalizer() ? "FAR " : "SUB ")
                     << k->post()->get_id();
                     verbose_stream().flush(););
+        TRACE ("spacer",
+               tout << "create-pob: " << k->pt().head()->get_name()
+               << " level: " << k->level()
+               << " depth: " << k->depth ()
+               << " fvsz: " << k->get_free_vars_size() << "\n"
+               << mk_pp(k->post(), m) << "\n";);
+
 
     }
 
