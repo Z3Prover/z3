@@ -77,8 +77,8 @@ void pob::set_post(expr* post) {
 
 void pob::set_post(expr* post, app_ref_vector const &binding) {
     normalize(post, m_post,
-              m_pt.get_context().get_params().spacer_simplify_pob(),
-              m_pt.get_context().get_params().spacer_use_eqclass());
+              m_pt.get_context().simplify_pob(),
+              m_pt.get_context().use_eqclass());
 
     m_binding.reset();
     if (!binding.empty()) {m_binding.append(binding);}
@@ -1382,7 +1382,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
 /// returns true if lemma is blocked by an existing model
 bool pred_transformer::is_ctp_blocked(lemma *lem) {
-    if (!ctx.get_params().spacer_ctp()) {return false;}
+    if (!ctx.use_ctp()) {return false;}
 
     if (!lem->has_ctp()) {return false;}
     scoped_watch _t_(m_ctp_watch);
@@ -1443,7 +1443,7 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
                                       ctx.weak_abs() ? lem->weakness() : UINT_MAX);
     model_ref mdl;
     model_ref *mdl_ref_ptr = nullptr;
-    if (ctx.get_params().spacer_ctp()) {mdl_ref_ptr = &mdl;}
+    if (ctx.use_ctp()) {mdl_ref_ptr = &mdl;}
     m_solver->set_core(core);
     m_solver->set_model(mdl_ref_ptr);
     expr * bg = m_extend_lit.get ();
@@ -1582,7 +1582,7 @@ void pred_transformer::init_rules(decl2rel const& pts) {
         m_transition_clause.push_back(m_extend_lit->get_arg(0));
         m_transition_clause.push_back(tag);
 
-        if (!ctx.get_params().spacer_use_inc_clause()) {
+        if (!ctx.use_inc_clause()) {
             transitions.push_back(mk_or(m_transition_clause));
             m_transition_clause.reset();
         }
@@ -1605,7 +1605,7 @@ void pred_transformer::init_rules(decl2rel const& pts) {
             if (!is_init[i]) {init_conds.push_back (m.mk_not (tag));}
         }
 
-        if (!ctx.get_params().spacer_use_inc_clause()) {
+        if (!ctx.use_inc_clause()) {
             transitions.push_back(mk_or(m_transition_clause));
             m_transition_clause.reset();
         }
@@ -1671,7 +1671,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
     // rewrite and simplify
     th_rewriter rw(m);
     rw(fml);
-    if (ctx.get_params().spacer_blast_term_ite()) {blast_term_ite(fml); rw(fml);}
+    if (ctx.blast_term_ite()) {blast_term_ite(fml); rw(fml);}
     TRACE("spacer", tout << mk_pp(fml, m) << "\n";);
 
     // allow quantifiers in init rule
@@ -2170,7 +2170,7 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
                                     unsigned level, unsigned depth,
                                     expr *post, app_ref_vector const &b) {
 
-    if (!m_pt.ctx.get_params().spacer_reuse_pobs()) {
+    if (!m_pt.ctx.reuse_pobs()) {
         pob* n = alloc(pob, parent, m_pt, level, depth);
         n->set_post(post, b);
         return n;
@@ -2244,7 +2244,7 @@ context::context(fixedpoint_params const&     params,
     m_pool1 = alloc(solver_pool, pool1_base.get(), max_num_contexts);
     m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
 
-    updt_params()
+    updt_params();
 }
 
 context::~context()
@@ -2256,7 +2256,45 @@ context::~context()
 void context::updt_params() {
     m_random.set_seed(m_params.spacer_random_seed());
     m_children_order = static_cast<spacer_children_order>(m_params.spacer_order_children());
+    m_simplify_pob = m_params.spacer_simplify_pob();
+    m_use_eqclass = m_params.spacer_use_eqclass();
+    m_use_ctp = m_params.spacer_ctp();
+    m_use_inc_clause = m_params.spacer_use_inc_clause();
+    m_blast_term_ite = m_params.spacer_blast_term_ite();
+    m_reuse_pobs = m_params.spacer_reuse_pobs();
+    m_use_ind_gen = m_params.pdr_use_inductive_generalizer();
+    m_use_array_eq_gen = m_params.spacer_use_array_eq_generalizer();
+    m_check_lemmas = m_params.spacer_lemma_sanity_check();
+    m_max_level = m_params.spacer_max_level ();
+    m_skip_propagate = m_params.spacer_skip_propagate ();
+    m_reset_obligation_queue = m_params.spacer_reset_obligation_queue();
+    m_flexible_trace = m_params.pdr_flexible_trace();
+    m_flexible_trace_depth = m_params.pdr_flexible_trace_depth();
+    m_use_lemma_as_pob = m_params.spacer_use_lemma_as_cti();
+    m_elim_aux = m_params.spacer_elim_aux();
+    m_reach_dnf = m_params.spacer_reach_dnf();
+    m_use_derivations = m_params.spacer_use_derivations();
+    m_validate_result = m_params.pdr_validate_result();
+    m_use_eq_prop = m_params.spacer_eq_prop();
+    m_ground_pob = m_params.spacer_ground_cti();
+    m_q3_qgen = m_params.spacer_q3_use_qgen();
+    m_use_gpdr = m_params.spacer_gpdr();
+    m_simplify_formulas_pre = m_params.pdr_simplify_formulas_pre();
+    m_simplify_formulas_post = m_params.pdr_simplify_formulas_post();
+
+
+    if (m_use_gpdr) {
+        // set options to be compatible with GPDR
+        m_weak_abs = false;
+        m_flexible_trace = false;
+        m_use_qlemmas = false;
+        m_ground_pob = true;
+        m_reset_obligation_queue = false;
+        m_use_derivations = false;
+        m_use_lemma_as_pob = false;
+    }
 }
+
 
 void context::reset()
 {
@@ -2403,7 +2441,7 @@ expr_ref context::get_reachable(func_decl *p)
 
 bool context::validate()
 {
-    if (!m_params.pdr_validate_result()) { return true; }
+    if (!m_validate_result) { return true; }
 
     std::stringstream msg;
 
@@ -2500,7 +2538,7 @@ void context::reset_lemma_generalizers()
 void context::init_global_smt_params() {
     m.toggle_proof_mode(PGM_ENABLED);
     params_ref p;
-    if (!m_params.spacer_eq_prop()) {
+    if (!m_use_eq_prop) {
         p.set_uint("arith.propagation_mode", BP_NONE);
         p.set_bool("arith.auto_config_simplex", true);
         p.set_bool("arith.propagate_eqs", false);
@@ -2514,7 +2552,7 @@ void context::init_global_smt_params() {
     // mbqi
     p.set_bool("mbqi", m_params.spacer_mbqi());
 
-    if (!m_params.spacer_ground_cti()) {
+    if (!m_ground_pob) {
         p.set_uint("phase_selection", PS_CACHING_CONSERVATIVE2);
         p.set_uint("restart_strategy", RS_GEOMETRIC);
         p.set_double("restart_factor", 1.5);
@@ -2537,29 +2575,29 @@ void context::init_lemma_generalizers()
 {
     reset_lemma_generalizers();
 
-    if (m_params.spacer_q3_use_qgen()) {
+    if (m_q3_qgen) {
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer,
                                              *this, 0, true));
         m_lemma_generalizers.push_back(alloc(lemma_quantifier_generalizer, *this,
                                              m_params.spacer_q3_qgen_normalize()));
     }
 
-    if (get_params().spacer_use_eqclass()) {
+    if (use_eqclass()) {
         m_lemma_generalizers.push_back (alloc(lemma_eq_generalizer, *this));
     }
 
     // -- AG: commented out because it is causing performance issues at the moment
     //m_lemma_generalizers.push_back (alloc (unsat_core_generalizer, *this));
 
-    if (m_params.pdr_use_inductive_generalizer()) {
+    if (m_use_ind_gen) {
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0));
     }
 
-    if (m_params.spacer_use_array_eq_generalizer()) {
+    if (m_use_array_eq_gen) {
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
     }
 
-    if (get_params().spacer_lemma_sanity_check()) {
+    if (m_check_lemmas) {
         m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
     }
 
@@ -2595,7 +2633,7 @@ lbool context::solve(unsigned from_lvl)
 {
     m_last_result = l_undef;
     try {
-        if (m_params.spacer_gpdr()) {
+        if (m_use_gpdr) {
             SASSERT(from_lvl == 0);
             m_last_result = gpdr_solve_core();
         }
@@ -2976,7 +3014,7 @@ lbool context::solve_core (unsigned from_lvl)
     pob *root = m_query->mk_pob(nullptr,from_lvl,0,m.mk_true());
     m_pob_queue.set_root (*root);
 
-    unsigned max_level = get_params ().spacer_max_level ();
+    unsigned max_level = m_max_level;
 
     for (unsigned i = from_lvl; i < max_level; ++i) {
         checkpoint();
@@ -2985,7 +3023,7 @@ lbool context::solve_core (unsigned from_lvl)
 
         if (check_reachability()) { return l_true; }
 
-        if (lvl > 0 && !get_params ().spacer_skip_propagate ())
+        if (lvl > 0 && !m_skip_propagate)
             if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { dump_json(); return l_false; }
 
         dump_json();
@@ -3032,7 +3070,7 @@ bool context::check_reachability ()
 
     pob_ref_buffer new_pobs;
 
-    if (get_params().spacer_reset_obligation_queue()) { m_pob_queue.reset(); }
+    if (m_reset_obligation_queue) { m_pob_queue.reset(); }
 
     unsigned initial_size = m_stats.m_num_lemmas;
     unsigned threshold = m_restart_initial_threshold;
@@ -3132,8 +3170,8 @@ bool context::check_reachability ()
 
 /// returns true if the given pob can be re-scheduled
 bool context::is_requeue(pob &n) {
-    if (!get_params().pdr_flexible_trace()) {return false;}
-    unsigned max_depth = get_params().pdr_flexible_trace_depth();
+    if (!m_flexible_trace) {return false;}
+    unsigned max_depth = m_flexible_trace_depth;
     return (n.level() >= m_pob_queue.max_level() ||
             m_pob_queue.max_level() - n.level() <= max_depth);
 }
@@ -3299,7 +3337,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     unsigned num_reuse_reach = 0;
 
 
-    if (get_params().pdr_flexible_trace() && n.pt().is_blocked(n, uses_level)) {
+    if (m_flexible_trace && n.pt().is_blocked(n, uses_level)) {
         // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
@@ -3418,7 +3456,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (v) { m_stats.m_num_lemmas++; }
 
         // Optionally update the node to be the negation of the lemma
-        if (v && get_params().spacer_use_lemma_as_cti()) {
+        if (v && m_use_lemma_as_pob) {
             n.new_post (mk_and(lemma->get_cube()));
             n.set_farkas_generalizer (false);
             // XXX hack while refactoring is in progress
@@ -3494,7 +3532,7 @@ bool context::propagate(unsigned min_prop_lvl,
 
     if (full_prop_lvl < max_prop_lvl) { full_prop_lvl = max_prop_lvl; }
 
-    if (m_params.pdr_simplify_formulas_pre()) {
+    if (m_simplify_formulas_pre) {
         simplify_formulas();
     }
     STRACE ("spacer.expand-add", tout << "Propagating\n";);
@@ -3539,7 +3577,7 @@ bool context::propagate(unsigned min_prop_lvl,
             return true;
         } else if (all_propagated && lvl > max_prop_lvl) { break; }
     }
-    if (m_params.pdr_simplify_formulas_post()) {
+    if (m_simplify_formulas_post) {
         simplify_formulas();
     }
 
@@ -3583,13 +3621,13 @@ reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
     }
     // collect aux vars to eliminate
     ptr_vector<app>& aux_vars = get_aux_vars (r);
-    bool elim_aux = ctx.get_params().spacer_elim_aux();
+    bool elim_aux = ctx.elim_aux();
     if (elim_aux) { vars.append(aux_vars.size(), aux_vars.c_ptr()); }
 
     res = mk_and (path_cons);
 
     // -- pick an implicant from the path condition
-    if (ctx.get_params().spacer_reach_dnf()) {
+    if (ctx.reach_dnf()) {
         expr_ref_vector u(m), lits(m);
         u.push_back (res);
         compute_implicant_literals (mev, u, lits);
@@ -3727,7 +3765,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     kid->set_derivation (deriv);
 
     // Optionally disable derivation optimization
-    if (!get_params().spacer_use_derivations()) { kid->reset_derivation(); }
+    if (!m_use_derivations) { kid->reset_derivation(); }
 
     // -- deriviation is abstract if the current weak model does
     // -- not satisfy 'T && phi'. It is possible to recover from

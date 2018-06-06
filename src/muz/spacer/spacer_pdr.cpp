@@ -224,7 +224,7 @@ lbool context::gpdr_solve_core() {
 
     model_search ms(true);
     unsigned lvl = 0;
-    unsigned max_level = get_params ().spacer_max_level ();
+    unsigned max_level = m_max_level;
     for (lvl = 0; lvl < max_level; ++lvl) {
         checkpoint();
         IF_VERBOSE(1,verbose_stream() << "GPDR Entering level "<< lvl << "\n";);

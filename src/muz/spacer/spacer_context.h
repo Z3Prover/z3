@@ -846,6 +846,32 @@ class context {
     bool                 m_use_qlemmas;
     bool                 m_weak_abs;
     bool                 m_use_restarts;
+    bool                 m_simplify_pob;
+    bool                 m_use_eqclass;
+    bool                 m_use_ctp;
+    bool                 m_use_inc_clause;
+    bool                 m_blast_term_ite;
+    bool                 m_reuse_pobs;
+    bool                 m_use_ind_gen;
+    bool                 m_use_array_eq_gen;
+    bool                 m_check_lemmas;
+    bool                 m_skip_propagate;
+    bool                 m_reset_obligation_queue;
+    bool                 m_flexible_trace;
+    bool                 m_use_lemma_as_pob;
+    bool                 m_elim_aux;
+    bool                 m_reach_dnf;
+    bool                 m_use_derivations;
+    bool                 m_validate_result;
+    bool                 m_use_eq_prop;
+    bool                 m_ground_pob;
+    bool                 m_q3_qgen;
+    bool                 m_use_gpdr;
+    bool                 m_simplify_formulas_pre;
+    bool                 m_simplify_formulas_post;
+
+    unsigned             m_flexible_trace_depth;
+    unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
     scoped_ptr_vector<spacer_callback> m_callbacks;
     json_marshaller      m_json_marshaller;
@@ -913,6 +939,14 @@ public:
     bool use_instantiate () {return m_instantiate;}
     bool weak_abs() {return m_weak_abs;}
     bool use_qlemmas () {return m_use_qlemmas;}
+    bool use_eqclass() { return m_use_eqclass;}
+    bool simplify_pob() {return m_simplify_pob;}
+    bool use_ctp() {return m_use_ctp;}
+    bool use_inc_clause() {return m_use_inc_clause;}
+    bool blast_term_ite() {return m_blast_term_ite;}
+    bool reuse_pobs() {return m_reuse_pobs;}
+    bool elim_aux() {return m_elim_aux;}
+    bool reach_dnf() {return m_reach_dnf;}
 
     ast_manager&      get_ast_manager() const {return m;}
     manager&          get_manager() {return m_pm;}
