@@ -47,7 +47,7 @@ public:
     virtual ~check_sat_result() {}
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
-    void set_status(lbool r) { m_status = r; }
+    lbool set_status(lbool r) { return m_status = r; }
     lbool status() const { return m_status; }
     virtual void collect_statistics(statistics & st) const = 0;
     virtual void get_unsat_core(ptr_vector<expr> & r) = 0;

@@ -176,7 +176,7 @@ public:
     void dec_ref () {
         SASSERT (m_ref_count > 0);
         --m_ref_count;
-        if(m_ref_count == 0) {dealloc(this);}
+        if (m_ref_count == 0) {dealloc(this);}
     }
 };
 
@@ -242,7 +242,7 @@ class pred_transformer {
         }
         void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out) const {
             for (auto &lemma : m_lemmas) {
-                if(lemma->level() >= level) {
+                if (lemma->level() >= level) {
                     out.push_back(lemma->get_expr());
                 }
             }
@@ -362,7 +362,7 @@ public:
     void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
 
     void add_rule(datalog::rule* r) {m_rules.push_back(r);}
-    void add_use(pred_transformer* pt) {if(!m_use.contains(pt)) {m_use.insert(pt);}}
+    void add_use(pred_transformer* pt) {if (!m_use.contains(pt)) {m_use.insert(pt);}}
     void initialize(decl2rel const& pts);
 
     func_decl* head() const {return m_head;}
@@ -528,7 +528,7 @@ public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
 
-    ~pob() {if(m_parent) { m_parent->erase_child(*this); }}
+    ~pob() {if (m_parent) { m_parent->erase_child(*this); }}
 
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
@@ -564,7 +564,7 @@ public:
     void set_post(expr *post, app_ref_vector const &binding);
 
     /// indicate that a new post should be set for the node
-    void new_post(expr *post) {if(post != m_post) {m_new_post = post;}}
+    void new_post(expr *post) {if (post != m_post) {m_new_post = post;}}
     /// true if the node needs to be updated outside of the priority queue
     bool is_dirty () {return m_new_post;}
     /// clean a dirty node
@@ -592,14 +592,14 @@ public:
      */
     void get_skolems(app_ref_vector& v);
 
-    void on_expand() { m_expand_watches[m_depth].start(); if(m_parent.get()){m_parent.get()->on_expand();} }
-    void off_expand() { m_expand_watches[m_depth].stop(); if(m_parent.get()){m_parent.get()->off_expand();} };
+    void on_expand() { m_expand_watches[m_depth].start(); if (m_parent.get()){m_parent.get()->on_expand();} }
+    void off_expand() { m_expand_watches[m_depth].stop(); if (m_parent.get()){m_parent.get()->off_expand();} };
     double get_expand_time(unsigned depth) { return m_expand_watches[depth].get_seconds();}
 
     void inc_ref () {++m_ref_count;}
     void dec_ref () {
         --m_ref_count;
-        if(m_ref_count == 0) {dealloc(this);}
+        if (m_ref_count == 0) {dealloc(this);}
     }
 
     class on_expand_event
@@ -727,7 +727,7 @@ public:
         SASSERT (!m_obligations.empty () || m_root);
         m_max_level++;
         m_min_depth++;
-        if(m_root && m_obligations.empty()) { m_obligations.push(m_root); }
+        if (m_root && m_obligations.empty()) { m_obligations.push(m_root); }
     }
 
     pob& get_root() const {return *m_root.get ();}

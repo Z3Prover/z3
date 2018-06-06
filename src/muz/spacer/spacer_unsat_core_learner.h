@@ -6,7 +6,8 @@ Module Name:
     spacer_unsat_core_learner.h
 
 Abstract:
-   itp cores
+
+    itp cores
 
 Author:
     Bernhard Gleiss
@@ -27,8 +28,7 @@ namespace spacer {
 
     class unsat_core_plugin;
     class iuc_proof;
-    class unsat_core_learner
-    {
+    class unsat_core_learner {
         typedef obj_hashtable<expr> expr_set;
 
     public:
@@ -37,7 +37,7 @@ namespace spacer {
         virtual ~unsat_core_learner();
 
         ast_manager& m;
-        iuc_proof& m_pr;
+        iuc_proof&   m_pr;
 
         /*
          * register a plugin for computation of partial unsat cores
@@ -56,7 +56,6 @@ namespace spacer {
          *  - a node is closed, iff it has already been interpolated, i.e. its contribution is
          *    already covered by the unsat-core.
          */
-
         bool is_closed(proof* p);
         void set_closed(proof* p, bool value);
 
@@ -67,14 +66,14 @@ namespace spacer {
          */
         void add_lemma_to_core(expr* lemma);
 
-
-
     private:
         ptr_vector<unsat_core_plugin> m_plugins;
         ast_mark m_closed;
 
-        // collects the lemmas of the unsat-core
-        // will at the end be inserted into unsat_core.
+        /*
+         * collects the lemmas of the unsat-core
+         * will at the end be inserted into unsat_core.
+         */
         expr_ref_vector m_unsat_core;
 
         /*
@@ -86,9 +85,7 @@ namespace spacer {
          * finalize computation of unsat-core
          */
         void finalize();
-
     };
-
 }
 
 #endif

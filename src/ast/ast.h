@@ -1744,6 +1744,14 @@ public:
                             arity, domain);
     }
 
+    func_decl * mk_const_decl(const char* name, sort * s) {
+        return mk_func_decl(symbol(name), static_cast<unsigned>(0), nullptr, s);
+    }
+
+    func_decl * mk_const_decl(std::string const& name, sort * s) {
+        return mk_func_decl(symbol(name.c_str()), static_cast<unsigned>(0), nullptr, s);
+    }
+
     func_decl * mk_const_decl(symbol const & name, sort * s) {
         return mk_func_decl(name, static_cast<unsigned>(0), nullptr, s);
     }
@@ -1807,6 +1815,14 @@ public:
     }
 
     app * mk_const(symbol const & name, sort * s) {
+        return mk_const(mk_const_decl(name, s));
+    }
+
+    app * mk_const(std::string const & name, sort * s) {
+        return mk_const(mk_const_decl(name, s));
+    }
+
+    app * mk_const(char const* name, sort * s) {
         return mk_const(mk_const_decl(name, s));
     }
 
@@ -2150,6 +2166,23 @@ public:
         return n > 0 && get_sort(p->get_arg(n - 1)) != m_proof_sort;
     }
     expr * get_fact(proof const * p) const { SASSERT(is_proof(p)); SASSERT(has_fact(p)); return p->get_arg(p->get_num_args() - 1); }
+    
+    class proof_parents {
+        ast_manager& m;
+        proof * m_proof;
+    public:
+        proof_parents(ast_manager& m, proof * p): m(m), m_proof(p) {}
+        proof * const * begin() const { return (proof* const*)(m_proof->begin()); }
+        proof * const * end() const { 
+            unsigned n = m_proof->get_num_args();
+            return (proof* const*)(begin() + (m.has_fact(m_proof) ?  n - 1 : n));
+        }
+    };
+
+    proof_parents get_parents(proof* p) {
+        return proof_parents(*this, p);
+    }
+
     unsigned get_num_parents(proof const * p) const {
         SASSERT(is_proof(p));
         unsigned n = p->get_num_args();

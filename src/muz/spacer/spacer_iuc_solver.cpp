@@ -99,8 +99,9 @@ void iuc_solver::pop_bg (unsigned n)
 {
     if (n == 0) { return; }
 
-    if (m_assumptions.size () > m_first_assumption)
-    { m_assumptions.shrink(m_first_assumption); }
+    if (m_assumptions.size () > m_first_assumption) { 
+        m_assumptions.shrink(m_first_assumption); 
+    }
     m_first_assumption = m_first_assumption > n ? m_first_assumption - n : 0;
     m_assumptions.shrink (m_first_assumption);
 }
@@ -110,9 +111,8 @@ unsigned iuc_solver::get_num_bg () {return m_first_assumption;}
 lbool iuc_solver::check_sat (unsigned num_assumptions, expr * const *assumptions)
 {
     // -- remove any old assumptions
-    if (m_assumptions.size () > m_first_assumption)
-    { m_assumptions.shrink(m_first_assumption); }
-
+    m_assumptions.shrink(m_first_assumption); 
+    
     // -- replace theory literals in background assumptions with proxies
     mk_proxies (m_assumptions);
     // -- in case mk_proxies added new literals, they are all background
@@ -121,20 +121,17 @@ lbool iuc_solver::check_sat (unsigned num_assumptions, expr * const *assumptions
     m_assumptions.append (num_assumptions, assumptions);
     m_is_proxied = mk_proxies (m_assumptions, m_first_assumption);
 
-    lbool res;
-    res = m_solver.check_sat (m_assumptions.size (), m_assumptions.c_ptr ());
-    set_status (res);
-    return res;
+    return set_status (m_solver.check_sat (m_assumptions));
 }
 
 lbool iuc_solver::check_sat_cc(const expr_ref_vector &cube,
                                vector<expr_ref_vector> const & clauses) {
-    if (clauses.empty()) {return check_sat(cube.size(), cube.c_ptr());}
-
+    if (clauses.empty()) 
+        return check_sat(cube.size(), cube.c_ptr());
+    
     // -- remove any old assumptions
-    if (m_assumptions.size() > m_first_assumption)
-    { m_assumptions.shrink(m_first_assumption); }
-
+    m_assumptions.shrink(m_first_assumption); 
+    
     // -- replace theory literals in background assumptions with proxies
     mk_proxies(m_assumptions);
     // -- in case mk_proxies added new literals, they are all background
@@ -143,28 +140,24 @@ lbool iuc_solver::check_sat_cc(const expr_ref_vector &cube,
     m_assumptions.append(cube);
     m_is_proxied = mk_proxies(m_assumptions, m_first_assumption);
 
-    lbool res;
-    res = m_solver.check_sat_cc(m_assumptions, clauses);
-    set_status (res);
-    return res;
+    return set_status (m_solver.check_sat_cc(m_assumptions, clauses));
 }
 
 
 app* iuc_solver::def_manager::mk_proxy (expr *v)
 {
     app* r;
-    if (m_expr2proxy.find(v, r)) { return r; }
+    if (m_expr2proxy.find(v, r)) 
+        return r; 
 
     ast_manager &m = m_parent.m;
-    app_ref proxy(m);
-    app_ref def(m);
-    proxy = m_parent.fresh_proxy ();
-    def = m.mk_or (m.mk_not (proxy), v);
+    app* proxy = m_parent.fresh_proxy ();
+    app* def = m.mk_or (m.mk_not (proxy), v);
     m_defs.push_back (def);
     m_expr2proxy.insert (v, proxy);
     m_proxy2def.insert (proxy, def);
 
-    m_parent.assert_expr (def.get ());
+    m_parent.assert_expr (def);
     return proxy;
 }
 
@@ -191,18 +184,16 @@ bool iuc_solver::def_manager::is_proxy_def (expr *v)
 
 bool iuc_solver::is_proxy(expr *e, app_ref &def)
 {
-    if (!is_uninterp_const(e)) { return false; }
+    if (!is_uninterp_const(e)) 
+        return false; 
 
-    app *a = to_app (e);
+    app* a = to_app (e);
 
-    for (int i = m_defs.size (); i > 0; --i)
-        if (m_defs[i-1].is_proxy (a, def))
-        { return true; }
+    for (int i = m_defs.size (); i-- > 0; )
+        if (m_defs[i].is_proxy (a, def))
+            return true; 
 
-    if (m_base_defs.is_proxy (a, def))
-    { return true; }
-
-    return false;
+    return m_base_defs.is_proxy (a, def);
 }
 
 void iuc_solver::collect_statistics (statistics &st) const
@@ -233,21 +224,25 @@ void iuc_solver::undo_proxies_in_core (ptr_vector<expr> &r)
 {
     app_ref e(m);
     expr_fast_mark1 bg;
-    for (unsigned i = 0; i < m_first_assumption; ++i)
-    { bg.mark(m_assumptions.get(i)); }
+    for (unsigned i = 0; i < m_first_assumption; ++i) { 
+        bg.mark(m_assumptions.get(i)); 
+    }
 
     // expand proxies
     unsigned j = 0;
-    for (unsigned i = 0, sz = r.size(); i < sz; ++i) {
+    for (expr* rr : r) {
         // skip background assumptions
-        if (bg.is_marked(r[i])) { continue; }
+        if (bg.is_marked(rr)) 
+            continue;
 
         // -- undo proxies, but only if they were introduced in check_sat
-        if (m_is_proxied && is_proxy(r[i], e)) {
+        if (m_is_proxied && is_proxy(rr, e)) {
             SASSERT (m.is_or (e));
-            r[j] = e->get_arg (1);
-        } else if (i != j) { r[j] = r[i]; }
-        j++;
+            r[j++] = e->get_arg (1);
+        } 
+        else {
+            r[j++] = rr;
+        }
     }
     r.shrink (j);
 }
@@ -370,65 +365,66 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
 
         unsat_core_learner learner(m, iuc_pf);
 
+        unsat_core_plugin* plugin;
         // -- register iuc plugins
-        if (m_iuc_arith == 0 || m_iuc_arith == 1) {
-            unsat_core_plugin_farkas_lemma* plugin =
+        switch (m_iuc_arith) {
+        case 0:
+        case 1: 
+            plugin =
                 alloc(unsat_core_plugin_farkas_lemma,
                       learner, m_split_literals,
                       (m_iuc_arith == 1) /* use constants from A */);
             learner.register_plugin(plugin);
-        }
-        else if (m_iuc_arith == 2) {
+            break;
+        case 2:
             SASSERT(false && "Broken");
-            unsat_core_plugin_farkas_lemma_optimized* plugin =
-                alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m);
+            plugin = alloc(unsat_core_plugin_farkas_lemma_optimized, learner, m);
             learner.register_plugin(plugin);
-        }
-        else if(m_iuc_arith == 3) {
-            unsat_core_plugin_farkas_lemma_bounded* plugin =
-                alloc(unsat_core_plugin_farkas_lemma_bounded, learner, m);
+            break;
+        case 3:
+            plugin = alloc(unsat_core_plugin_farkas_lemma_bounded, learner, m);
             learner.register_plugin(plugin);
-        }
-        else {
+            break;
+        default:
             UNREACHABLE();
+            break;
         }
 
-        if (m_iuc == 1) {
+        switch (m_iuc) {
+        case 1:
             // -- iuc based on the lowest cut in the proof
-            unsat_core_plugin_lemma* plugin =
-                alloc(unsat_core_plugin_lemma, learner);
+            plugin = alloc(unsat_core_plugin_lemma, learner);
             learner.register_plugin(plugin);
-        }
-        else if (m_iuc == 2) {
+            break;
+        case 2:
             // -- iuc based on the smallest cut in the proof
-            unsat_core_plugin_min_cut* plugin =
-                alloc(unsat_core_plugin_min_cut, learner, m);
+            plugin = alloc(unsat_core_plugin_min_cut, learner, m);
             learner.register_plugin(plugin);
-        }
-        else {
+            break;
+        default:
             UNREACHABLE();
+            break;
         }
-
+        
         {
             scoped_watch _t_ (m_learn_core_sw);
             // compute interpolating unsat core
             learner.compute_unsat_core(core);
         }
-
+        
         elim_proxies (core);
         // AG: this should be taken care of by minimizing the iuc cut
         simplify_bounds (core);
     }
-
+    
     IF_VERBOSE(2,
-               verbose_stream () << "IUC Core:\n"
-               << mk_and(core) << "\n";);
+               verbose_stream () << "IUC Core:\n" << core << "\n";);
 }
 
 void iuc_solver::refresh ()
 {
     // only refresh in non-pushed state
-    SASSERT (m_defs.size () == 0);
+    SASSERT (m_defs.empty());
     expr_ref_vector assertions (m);
     for (unsigned i = 0, e = m_solver.get_num_assertions(); i < e; ++i) {
         expr* a = m_solver.get_assertion (i);

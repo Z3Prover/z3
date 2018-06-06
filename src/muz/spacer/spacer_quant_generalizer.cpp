@@ -132,13 +132,12 @@ void lemma_quantifier_generalizer::find_candidates(expr *e,
                << " in " << mk_pp(e, m) << "\n";);
         extra.push_back(index);
         if (m_arith.is_add(index)) {
-        for (unsigned j = 0, asz = index->get_num_args(); j < asz; j++) {
-            expr *arg = index->get_arg(j);
-            if (!is_app(arg) || marked_args.is_marked(arg)) {continue;}
-            marked_args.mark(arg);
-            candidates.push_back (to_app(arg));
+            for (expr * arg : *index) {
+                if (!is_app(arg) || marked_args.is_marked(arg)) {continue;}
+                marked_args.mark(arg);
+                candidates.push_back (to_app(arg));
+            }
         }
-    }
     }
 
     std::sort(candidates.c_ptr(), candidates.c_ptr() + candidates.size(),
@@ -214,15 +213,15 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector
             bool found = false;
             expr_ref_vector kids(m);
             expr_ref_vector kids_bind(m);
-            for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-                if (a->get_arg(i) == sk) {
+            for (expr* arg : *a) {
+                if (arg == sk) {
                     found = true;
-                    kids.push_back(a->get_arg(i));
+                    kids.push_back(arg);
                     kids_bind.push_back(bind);
                 }
                 else {
-                    kids.push_back (times_minus_one(a->get_arg(i), arith));
-                    kids_bind.push_back (times_minus_one(a->get_arg(i), arith));
+                    kids.push_back (times_minus_one(arg, arith));
+                    kids_bind.push_back (times_minus_one(arg, arith));
                 }
             }
             if (!found) continue;
@@ -292,7 +291,7 @@ void lemma_quantifier_generalizer::mk_abs_cube(lemma_ref &lemma, app *term, var 
             gnd_cube.push_back(lit);
         }
         else {
-        expr *e1, *e2;
+            expr *e1, *e2;
             // generalize v=num into v>=num
             if (m.is_eq(abs_lit, e1, e2) && (e1 == var || e2 == var)) {
             if (m_arith.is_numeral(e1)) {
@@ -310,12 +309,12 @@ void lemma_quantifier_generalizer::mk_abs_cube(lemma_ref &lemma, app *term, var 
 
             if (!lb && is_lb(var, abs_lit)) {
                 lb = abs_lit;
-        }
+            }
             else if (!ub && is_ub(var, abs_lit)) {
                 ub = abs_lit;
+            }
         }
     }
-}
 }
 
 // -- returns true if e is an upper bound for var
@@ -348,38 +347,34 @@ bool lemma_quantifier_generalizer::is_ub(var *var, expr *e) {
     if ((m_arith.is_le(e, e1, e2) || m_arith.is_lt(e, e1, e2)) &&
         m_arith.is_add(e1)) {
         app *a = to_app(e1);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
-            if (arg == var) {return true;}
+        for (expr* arg : *a) {
+            if (arg == var) return true;
         }
     }
     // t1 <= t2 + -1*var
     if ((m_arith.is_le(e, e1, e2) || m_arith.is_lt(e, e1, e2)) &&
         m_arith.is_add(e2)) {
         app *a = to_app(e2);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
+        for (expr* arg : *a) {
             if (m_arith.is_times_minus_one(arg, arg) && arg == var)
-            {return true;}
+                return true;
         }
     }
     // t1 >= t2 + var
     if ((m_arith.is_ge(e, e1, e2) || m_arith.is_gt(e, e1, e2)) &&
         m_arith.is_add(e2)) {
         app *a = to_app(e2);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
-            if (arg == var) {return true;}
+        for (expr * arg : *a) {
+            if (arg == var) return true;
         }
     }
     // -1*var + t1 >= t2
     if ((m_arith.is_ge(e, e1, e2) || m_arith.is_gt(e, e1, e2)) &&
         m_arith.is_add(e1)) {
         app *a = to_app(e1);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
+        for (expr * arg : *a) {
             if (m_arith.is_times_minus_one(arg, arg) && arg == var)
-            {return true;}
+                return true;
         }
     }
     return false;
@@ -414,38 +409,34 @@ bool lemma_quantifier_generalizer::is_lb(var *var, expr *e) {
     if ((m_arith.is_ge(e, e1, e2) || m_arith.is_gt(e, e1, e2)) &&
         m_arith.is_add(e1)) {
         app *a = to_app(e1);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
-            if (arg == var) {return true;}
+        for (expr * arg : *a) {
+            if (arg == var) return true;
         }
     }
     // t1 >= t2 + -1*var
     if ((m_arith.is_ge(e, e1, e2) || m_arith.is_gt(e, e1, e2)) &&
         m_arith.is_add(e2)) {
         app *a = to_app(e2);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
+        for (expr * arg : *a) {
             if (m_arith.is_times_minus_one(arg, arg) && arg == var)
-            {return true;}
+                return true;
         }
     }
     // t1 <= t2 + var
     if ((m_arith.is_le(e, e1, e2) || m_arith.is_lt(e, e1, e2)) &&
         m_arith.is_add(e2)) {
         app *a = to_app(e2);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
-            if (arg == var) {return true;}
+        for (expr * arg : *a) {
+            if (arg == var) return true;
         }
     }
     // -1*var + t1 <= t2
     if ((m_arith.is_le(e, e1, e2) || m_arith.is_lt(e, e1, e2)) &&
         m_arith.is_add(e1)) {
         app *a = to_app(e1);
-        for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
-            expr *arg = a->get_arg(i);
+        for (expr * arg : *a) {
             if (m_arith.is_times_minus_one(arg, arg) && arg == var)
-            {return true;}
+                return true;
         }
     }
 
@@ -470,22 +461,22 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
           tout << "lb = ";
           if (lb) tout << mk_pp(lb, m); else tout << "none";
           tout << "\n";
-
           tout << "ub = ";
           if (ub) tout << mk_pp(ub, m); else tout << "none";
           tout << "\n";);
 
-    if (!lb && !ub) {return false;}
+    if (!lb && !ub) 
+        return false;
 
     // -- guess lower or upper bound if missing
     if (!lb) {
         abs_cube.push_back (m_arith.mk_ge (var, term));
         lb = abs_cube.back();
-                }
+    }
     if (!ub) {
         abs_cube.push_back (m_arith.mk_lt(var, term));
         ub = abs_cube.back();
-            }
+    }
 
     rational init;
     expr_ref constant(m);
@@ -511,7 +502,7 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
     flatten_and(gnd, gnd_cube);
 
     TRACE("spacer_qgen",
-          tout << "New CUBE is: " << mk_pp(mk_and(gnd_cube),m) << "\n";);
+          tout << "New CUBE is: " << gnd_cube << "\n";);
 
     // check if the result is a true lemma
     unsigned uses_level = 0;
@@ -519,8 +510,8 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
     if (pt.check_inductive(lemma->level(), gnd_cube, uses_level, lemma->weakness())) {
         TRACE("spacer_qgen",
               tout << "Quantifier Generalization Succeeded!\n"
-              << "New CUBE is: " << mk_pp(mk_and(gnd_cube),m) << "\n";);
-        SASSERT(zks.size() >= m_offset);
+              << "New CUBE is: " << gnd_cube << "\n";);
+        SASSERT(zks.size() >= static_cast<unsigned>(m_offset));
 
                 // lift quantified variables to top of select
         expr_ref ext_bind(m);
@@ -541,7 +532,7 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
         }
 
         lemma->update_cube(lemma->get_pob(), gnd_cube);
-                lemma->set_level(uses_level);
+        lemma->set_level(uses_level);
 
         SASSERT(var->get_idx() < zks.size());
         SASSERT(is_app(ext_bind));
@@ -570,8 +561,7 @@ bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &c, expr_ref &pat
     if (is_var(p_index)) return false;
 
     std::vector<unsigned> instances;
-    for (unsigned i=0; i < c.size(); i++) {
-        expr *lit = c.get(i);
+    for (expr* lit : c) {
 
         if (!contains_selects(lit, m))
             continue;
@@ -589,16 +579,17 @@ bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &c, expr_ref &pat
         unsigned matched = 0;
         for (unsigned p=0; p < size; p++) {
             expr *arg = p_index->get_arg(p);
-            if (is_var(arg))
-            {
+            if (is_var(arg)) {
                 rational val;
-                if (p < candidate->get_num_args() && m_arith.is_numeral(candidate->get_arg(p), val)) {
+                if (p < candidate->get_num_args() && 
+                    m_arith.is_numeral(candidate->get_arg(p), val) && 
+                    val.is_unsigned()) {
                     instances.push_back(val.get_unsigned());
                 }
             }
             else {
-                for (unsigned j=0; j < candidate->get_num_args(); j++) {
-                    if (candidate->get_arg(j) == arg) {
+                for (expr* cand : *candidate) {
+                    if (cand == arg) {
                         matched++;
                         break;
                     }

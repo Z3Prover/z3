@@ -28,14 +28,14 @@ model_node::model_node(model_node* parent, class pob *pob):
     m_orig_level(m_pob->level()), m_depth(0),
     m_closed(false) {
     SASSERT(m_pob);
-    if (m_parent) m_parent->add_child(*this);
+    if (m_parent) m_parent->add_child(this);
 }
 
-void model_node::add_child(model_node &kid) {
-    m_children.push_back(&kid);
-    SASSERT(level() == kid.level() + 1);
+void model_node::add_child(model_node* kid) {
+    m_children.push_back(kid);
+    SASSERT(level() == kid->level() + 1);
     SASSERT(level() > 0);
-    kid.m_depth = m_depth + 1;
+    kid->m_depth = m_depth + 1;
     if (is_closed()) set_open();
 }
 
@@ -109,7 +109,7 @@ void model_node::insert_after(model_node* n) {
 void model_search::reset() {
     if (m_root) {
         erase_children(*m_root, false);
-        remove_node(*m_root, false);
+        remove_node(m_root, false);
         dealloc(m_root);
         m_root = nullptr;
     }
@@ -117,24 +117,28 @@ void model_search::reset() {
 }
 
 model_node* model_search::pop_front() {
-    if (!m_qhead) return nullptr;
     model_node *res = m_qhead;
-    res->detach(m_qhead);
+    if (res) {
+        res->detach(m_qhead);
+    }
     return res;
 }
 
-void model_search::add_leaf(model_node& n) {
+void model_search::add_leaf(model_node* _n) {
+    model_node& n = *_n;
     SASSERT(n.children().empty());
     model_nodes ns;
     model_nodes& nodes = cache(n).insert_if_not_there2(n.post(), ns)->get_data().m_value;
     if (nodes.contains(&n)) return;
 
-    nodes.push_back(&n);
+    nodes.push_back(_n);
     if (nodes.size() == 1) {
         SASSERT(n.is_open());
         enqueue_leaf(n);
     }
-    else n.set_pre_closed();
+    else {
+        n.set_pre_closed();
+    }
 }
 
 void model_search::enqueue_leaf(model_node& n) {
@@ -162,7 +166,7 @@ void model_search::set_root(model_node* root) {
     m_root = root;
     SASSERT(m_root);
     SASSERT(m_root->children().empty());
-    add_leaf(*root);
+    add_leaf(root);
 }
 
 void model_search::backtrack_level(bool uses_level, model_node& n) {
@@ -198,15 +202,16 @@ void model_search::erase_children(model_node& n, bool backtrack) {
         todo.pop_back();
         nodes.push_back(m);
         todo.append(m->children());
-        remove_node(*m, backtrack);
+        remove_node(m, backtrack);
     }
     std::for_each(nodes.begin(), nodes.end(), delete_proc<model_node>());
 }
 
 // removes node from the search tree and from the cache
-void model_search::remove_node(model_node& n, bool backtrack) {
+void model_search::remove_node(model_node* _n, bool backtrack) {
+    model_node& n = *_n;
     model_nodes& nodes = cache(n).find(n.post());
-    nodes.erase(&n);
+    nodes.erase(_n);
     if (n.in_queue()) n.detach(m_qhead);
     // TBD: siblings would also fail if n is not a goal.
     if (!nodes.empty() && backtrack &&
@@ -241,9 +246,10 @@ lbool context::gpdr_solve_core() {
     }
 
     // communicate failure to datalog::context
-    if (m_context) { m_context->set_status(datalog::BOUNDED); }
+    if (m_context) { 
+        m_context->set_status(datalog::BOUNDED); 
+    }
     return l_undef;
-
 }
 
 bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
@@ -273,9 +279,8 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
                 TRACE("spacer_pdr",
                       tout << "looking at pob at level " << pob->level() << " "
                       << mk_pp(pob->post(), m) << "\n";);
-                if (pob == node->pob()) {continue;}
-                model_node *kid = alloc(model_node, node, pob);
-                ms.add_leaf(*kid);
+                if (pob != node->pob()) 
+                    ms.add_leaf(alloc(model_node, node, pob));
             }
             node->check_pre_closed();
             break;

@@ -1500,11 +1500,9 @@ void pred_transformer::mk_assumptions(func_decl* head, expr* fml,
                                       expr_ref_vector& result)
 {
     expr_ref tmp1(m), tmp2(m);
-    obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(),
-        end = m_tag2rule.end();
-    for (; it != end; ++it) {
-        expr* tag = it->m_key;
-        datalog::rule const* r = it->m_value;
+    for (auto& kv : m_tag2rule) {
+        expr* tag = kv.m_key;
+        datalog::rule const* r = kv.m_value;
         if (!r) { continue; }
         find_predecessors(*r, m_predicates);
         for (unsigned i = 0; i < m_predicates.size(); i++) {
@@ -2338,7 +2336,6 @@ void context::init_rules(datalog::rule_set& rules, decl2rel& rels)
     }
 
     // Initialize use list dependencies
-    // for (auto it = rels.begin(), end = rels.end(); it != end; ++it) {
     for (auto &entry : rels) {
         func_decl* pred = entry.m_key;
         pred_transformer* pt = entry.m_value, *pt_user = nullptr;
@@ -2464,14 +2461,13 @@ bool context::validate()
         get_level_property(m_inductive_lvl, refs, rs);
         inductive_property ex(m, mc, rs);
         ex.to_model(model);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         var_subst vs(m, false);
-        for (; it != end; ++it) {
-            ptr_vector<datalog::rule> const& rules = it->m_value->rules();
-            TRACE ("spacer", tout << "PT: " << it->m_value->head ()->get_name ().str ()
+        for (auto& kv : m_rels) {
+            ptr_vector<datalog::rule> const& rules = kv.m_value->rules();
+            TRACE ("spacer", tout << "PT: " << kv.m_value->head ()->get_name ().str ()
                    << "\n";);
-            for (unsigned i = 0; i < rules.size(); ++i) {
-                datalog::rule& r = *rules[i];
+            for (auto* rp : rules) {
+                datalog::rule& r = *rp;
 
                 TRACE ("spacer",
                        get_datalog_context ().
@@ -2603,11 +2599,9 @@ void context::init_lemma_generalizers()
 }
 
 void context::get_level_property(unsigned lvl, expr_ref_vector& res,
-                                 vector<relation_info>& rs) const
-{
-    decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-    for (; it != end; ++it) {
-        pred_transformer* r = it->m_value;
+                                 vector<relation_info>& rs) const {
+    for (auto const& kv : m_rels) {
+        pred_transformer* r = kv.m_value;
         if (r->head() == m_query_pred) {
             continue;
         }
@@ -2619,12 +2613,9 @@ void context::get_level_property(unsigned lvl, expr_ref_vector& res,
     }
 }
 
-void context::simplify_formulas()
-{
-    decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-    for (; it != end; ++it) {
-        pred_transformer* r = it->m_value;
-        r->simplify_formulas();
+void context::simplify_formulas() {
+    for (auto& kv : m_rels) {
+        kv.m_value->simplify_formulas();
     }
 }
 
@@ -3549,18 +3540,17 @@ bool context::propagate(unsigned min_prop_lvl,
                 tout << "In full propagation\n";);
 
         bool all_propagated = true;
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-        for (; it != end; ++it) {
+        for (auto & kv : m_rels) {
             checkpoint();
-            pred_transformer& r = *it->m_value;
+            pred_transformer& r = *kv.m_value;
             all_propagated = r.propagate_to_next_level(lvl) && all_propagated;
         }
         //CASSERT("spacer", check_invariant(lvl));
 
         if (all_propagated) {
-            for (it = m_rels.begin(); it != end; ++it) {
+            for (auto& kv : m_rels) {
                 checkpoint ();
-                pred_transformer& r = *it->m_value;
+                pred_transformer& r = *kv.m_value;
                 r.propagate_to_infinity (lvl);
             }
             if (lvl <= max_prop_lvl) {
@@ -3793,9 +3783,8 @@ void context::collect_statistics(statistics& st) const
     m_pool1->collect_statistics(st);
     m_pool2->collect_statistics(st);
 
-    decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-    for (it = m_rels.begin(); it != end; ++it) {
-        it->m_value->collect_statistics(st);
+    for (auto const& kv : m_rels) {
+        kv.m_value->collect_statistics(st);
     }
 
     // -- number of times a pob for some predicate transformer has
@@ -3846,9 +3835,8 @@ void context::reset_statistics()
     m_pool1->reset_statistics();
     m_pool2->reset_statistics();
 
-    decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-    for (it = m_rels.begin(); it != end; ++it) {
-        it->m_value->reset_statistics();
+    for (auto & kv : m_rels) {
+        kv.m_value->reset_statistics();
     }
     m_stats.reset();
 
@@ -3897,9 +3885,8 @@ expr_ref context::get_constraints (unsigned level)
     expr_ref res(m);
     expr_ref_vector constraints(m);
 
-    decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-    for (; it != end; ++it) {
-        pred_transformer& r = *it->m_value;
+    for (auto & kv : m_rels) {
+        pred_transformer& r = *kv.m_value;
         expr_ref c = r.get_formulas(level);
 
         if (m.is_true(c)) { continue; }

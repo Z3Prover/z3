@@ -36,9 +36,9 @@ class model_node {
     bool                   m_closed;         // whether the pob is derivable
 public:
     model_node(model_node* parent, pob* pob);
-    void add_child(model_node &kid);
+    void add_child(model_node* kid);
 
-    expr *post() const {return m_pob->post();}
+    expr *post() const { return m_pob->post(); }
     unsigned level() const { return m_pob->level(); }
     unsigned orig_level() const { return m_orig_level; }
     unsigned depth() const { return m_depth; }
@@ -57,24 +57,25 @@ public:
     bool is_1closed() {
         if (is_closed()) return true;
         if (m_children.empty()) return false;
-        for (auto kid : m_children) {if (kid->is_open()) return false;}
+        for (auto kid : m_children) 
+            if (kid->is_open()) return false;
         return true;
     }
 
     void check_pre_closed();
-    void set_pre_closed() {m_closed = true;}
+    void set_pre_closed() { m_closed = true; }
 
-    void set_closed() {m_closed = true;}
+    void set_closed() { m_closed = true; }
     void set_open();
-    void reset_children() {m_children.reset();}
+    void reset_children() { m_children.reset(); }
 
     /// queue
 
     // remove this node from the given queue
     void detach(model_node*& qhead);
     void insert_after(model_node* n);
-    model_node* next() const {return m_next;}
-    bool in_queue() {return m_next && m_prev;}
+    model_node* next() const { return m_next; }
+    bool in_queue() { return m_next && m_prev; }
 };
 
 class model_search {
@@ -85,8 +86,7 @@ class model_search {
     vector<obj_map<expr, model_nodes > > m_cache;
     obj_map<expr, model_nodes>& cache(model_node const& n);
     void erase_children(model_node& n, bool backtrack);
-    void remove_node(model_node& n, bool backtrack);
-    void add_leaf(model_node* n); // add leaf to priority queue.
+    void remove_node(model_node* _n, bool backtrack);
 
 public:
     model_search(bool bfs): m_bfs(bfs), m_root(nullptr), m_qhead(nullptr) {}
@@ -96,7 +96,7 @@ public:
 
     void reset();
     model_node* pop_front();
-    void add_leaf(model_node& n); // add fresh node.
+    void add_leaf(model_node* n); // add fresh node.
     model_node& get_root() const { return *m_root; }
     void backtrack_level(bool uses_level, model_node& n);
     void remove_goal(model_node& n);
