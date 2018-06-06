@@ -818,7 +818,7 @@ void mpz_manager<SYNCH>::big_rem(mpz const & a, mpz const & b, mpz & c) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
     static_assert(sizeof(a.m_val) == sizeof(int), "size mismatch");
-    static_assert(sizeof(mpz) == 16, "mpz size overflow");
+    static_assert(sizeof(mpz) <= 16, "mpz size overflow");
     if (is_small(a) && is_small(b) && a.m_val != INT_MIN && b.m_val != INT_MIN) {
         int _a = a.m_val;
         int _b = b.m_val;
