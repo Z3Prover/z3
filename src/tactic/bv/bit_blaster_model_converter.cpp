@@ -21,6 +21,7 @@ Notes:
 #include "tactic/model_converter.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_util.h"
 
 /**
    If TO_BOOL == true, then bit-vectors of size n were blasted into n-tuples of Booleans.
@@ -30,20 +31,25 @@ template<bool TO_BOOL>
 struct bit_blaster_model_converter : public model_converter {
     func_decl_ref_vector      m_vars;
     expr_ref_vector           m_bits;
+    func_decl_ref_vector      m_newbits;
 
     ast_manager & m() const { return m_vars.get_manager(); }
     
-    bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits):m_vars(m), m_bits(m) {
-        obj_map<func_decl, expr*>::iterator it  = const2bits.begin();
-        obj_map<func_decl, expr*>::iterator end = const2bits.end();
-        for (; it != end; ++it) {
-            func_decl * v = it->m_key;
-            expr * bits   = it->m_value;
+    bit_blaster_model_converter(
+        ast_manager & m, 
+        obj_map<func_decl, expr*> const & const2bits, 
+        ptr_vector<func_decl> const& newbits):
+        m_vars(m), m_bits(m), m_newbits(m) {
+        for (auto const& kv : const2bits) {
+            func_decl * v = kv.m_key;
+            expr * bits   = kv.m_value;
             SASSERT(!TO_BOOL || is_app_of(bits, m.get_family_id("bv"), OP_MKBV));
             SASSERT(TO_BOOL  || is_app_of(bits, m.get_family_id("bv"), OP_CONCAT));
             m_vars.push_back(v);
             m_bits.push_back(bits);
         }
+        for (func_decl* f : newbits) 
+            m_newbits.push_back(f);
     }
     
     ~bit_blaster_model_converter() override {
@@ -117,7 +123,6 @@ struct bit_blaster_model_converter : public model_converter {
                     SASSERT(is_uninterp_const(bit));
                     func_decl * bit_decl = to_app(bit)->get_decl();
                     expr * bit_val = old_model->get_const_interp(bit_decl);
-                    // remark: if old_model does not assign bit_val, then assume it is false.
                     if (bit_val != nullptr && m().is_true(bit_val))
                         val++;
                 }
@@ -142,8 +147,30 @@ struct bit_blaster_model_converter : public model_converter {
         }
     }
 
-    void operator()(model_ref & md, unsigned goal_idx) override {
-        SASSERT(goal_idx == 0);
+    app_ref mk_bv(expr* bs, model& old_model) {
+        bv_util util(m());
+        unsigned bv_sz = to_app(bs)->get_num_args();
+        expr_ref_vector args(m());
+        app_ref result(m());
+        for (expr * bit : *to_app(bs)) {
+            SASSERT(is_uninterp_const(bit));
+            func_decl * bit_decl = to_app(bit)->get_decl();
+            expr * bit_val = old_model.get_const_interp(bit_decl);
+            args.push_back(bit_val ? bit_val : bit);
+        }
+
+        if (TO_BOOL) {
+            SASSERT(is_app_of(bs, m().get_family_id("bv"), OP_MKBV));
+            result = util.mk_bv(bv_sz, args.c_ptr());
+        }
+        else {
+            SASSERT(is_app_of(bs, m().get_family_id("bv"), OP_CONCAT));
+            result = util.mk_concat(bv_sz, args.c_ptr());
+        }
+        return result;
+    }
+
+    void operator()(model_ref & md) override {
         model * new_model = alloc(model, m());
         obj_hashtable<func_decl> bits;
         collect_bits(bits);
@@ -152,41 +179,58 @@ struct bit_blaster_model_converter : public model_converter {
         md = new_model;
     }
 
-    void operator()(model_ref & md) override {
-        operator()(md, 0);
+    /**
+       \brief simplisic expansion operator for formulas.
+       It just adds back bit-vector definitions to the formula whether they are used or not.
+
+     */
+    void operator()(expr_ref& fml) override {
+        unsigned sz = m_vars.size();
+        if (sz == 0) return;
+        expr_ref_vector fmls(m());
+        fmls.push_back(fml);
+        for (unsigned i = 0; i < sz; i++) {
+            fmls.push_back(m().mk_eq(m().mk_const(m_vars.get(i)), m_bits.get(i)));
+        }        
+        m_vars.reset();
+        m_bits.reset();
+        fml = mk_and(fmls);
     }
     
     void display(std::ostream & out) override {
-        out << "(bit-blaster-model-converter";
+        for (func_decl * f : m_newbits) 
+            display_del(out, f);
         unsigned sz = m_vars.size();
-        for (unsigned i = 0; i < sz; i++) {
-            out << "\n  (" << m_vars.get(i)->get_name() << " ";
-            unsigned indent = m_vars.get(i)->get_name().size() + 4;
-            out << mk_ismt2_pp(m_bits.get(i), m(), indent) << ")";
-        }   
-        out << ")" << std::endl;
+        for (unsigned i = 0; i < sz; i++) 
+            display_add(out, m(), m_vars.get(i), m_bits.get(i));
+    }
+
+    void get_units(obj_map<expr, bool>& units) override {
+        // no-op
     }
 
 protected:
-    bit_blaster_model_converter(ast_manager & m):m_vars(m), m_bits(m) { }
+    bit_blaster_model_converter(ast_manager & m):m_vars(m), m_bits(m), m_newbits(m) { }
 public:
 
     model_converter * translate(ast_translation & translator) override {
         bit_blaster_model_converter * res = alloc(bit_blaster_model_converter, translator.to());
-        for (unsigned i = 0; i < m_vars.size(); i++)
-            res->m_vars.push_back(translator(m_vars[i].get()));
-        for (unsigned i = 0; i < m_bits.size(); i++)
-            res->m_bits.push_back(translator(m_bits[i].get()));
+        for (func_decl * v : m_vars) 
+            res->m_vars.push_back(translator(v));
+        for (expr* b : m_bits)
+            res->m_bits.push_back(translator(b));
+        for (func_decl* f : m_newbits)
+            res->m_newbits.push_back(translator(f));
         return res;
     }
 };
 
-model_converter * mk_bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits) {
-    return alloc(bit_blaster_model_converter<true>, m, const2bits);
+model_converter * mk_bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits) {
+    return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<true>, m, const2bits, newbits);
 }
 
-model_converter * mk_bv1_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits) {
-    return alloc(bit_blaster_model_converter<false>, m, const2bits);
+model_converter * mk_bv1_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits) {
+    return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<false>, m, const2bits, newbits);
 }
 
 

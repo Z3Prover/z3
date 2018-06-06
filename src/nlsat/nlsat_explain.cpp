@@ -1463,6 +1463,7 @@ namespace nlsat {
 
 
         void project(var x, unsigned num, literal const * ls, scoped_literal_vector & result) {
+            
             m_result = &result;
             svector<literal> lits;
             TRACE("nlsat", tout << "project x" << x << "\n"; m_solver.display(tout););
@@ -1643,6 +1644,7 @@ namespace nlsat {
                     ++num_lub;
                 }
             }
+            TRACE("nlsat_explain", tout << ps << "\n";);
 
             if (num_lub == 0) {
                 project_plus_infinity(x, ps);
@@ -1668,7 +1670,7 @@ namespace nlsat {
                 unsigned d = degree(p, x);
                 lc = m_pm.coeff(p, x, d);
                 if (!is_const(lc)) {                    
-                    unsigned s = sign(p);
+                    int s = sign(p);
                     SASSERT(s != 0);
                     atom::kind k = (s > 0)?(atom::GT):(atom::LT);
                     add_simple_assumption(k, lc);
@@ -1683,7 +1685,8 @@ namespace nlsat {
                 unsigned d = degree(p, x);
                 lc = m_pm.coeff(p, x, d);
                 if (!is_const(lc)) {
-                    unsigned s = sign(p);
+                    int s = sign(p);
+                    TRACE("nlsat_explain", tout << "degree: " << d << " " << lc << " sign: " << s << "\n";);
                     SASSERT(s != 0);
                     atom::kind k;
                     if (s > 0) {

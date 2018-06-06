@@ -51,7 +51,7 @@ Notes:
 --*/
 #include "tactic/tactical.h"
 #include "tactic/goal_shared_occs.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "tactic/core/simplify_tactic.h"
 #include "util/cooperate.h"
@@ -80,7 +80,7 @@ class tseitin_cnf_tactic : public tactic {
             frame(app * n):m_t(n), m_first(true) {}
         };
         
-        typedef filter_model_converter mc;
+        typedef generic_model_converter mc;
         
         ast_manager &              m;
         svector<frame>             m_frame_stack;
@@ -344,7 +344,7 @@ class tseitin_cnf_tactic : public tactic {
             app * v = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             m_fresh_vars.push_back(v);
             if (m_mc)
-                m_mc->insert(v->get_decl());
+                m_mc->hide(v->get_decl());
             return v;
         }
         
@@ -799,12 +799,8 @@ class tseitin_cnf_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("tseitin-cnf", *g);
             fail_if_proof_generation("tseitin-cnf", g);
             m_produce_models      = g->models_enabled();
@@ -817,7 +813,7 @@ class tseitin_cnf_tactic : public tactic {
             m_frame_stack.reset();
             m_clauses.reset();
             if (m_produce_models)
-                m_mc = alloc(filter_model_converter, m);
+                m_mc = alloc(generic_model_converter, m, "tseitin");
             else
                 m_mc = nullptr;
 
@@ -843,9 +839,7 @@ class tseitin_cnf_tactic : public tactic {
                     g->assert_expr(cls);
             }
             if (m_produce_models && !m_fresh_vars.empty()) 
-                mc = m_mc.get();
-            else
-                mc = nullptr;
+                g->add(m_mc.get());
             g->inc_depth();
             result.push_back(g.get());
             TRACE("tseitin_cnf", g->display(tout););
@@ -883,12 +877,8 @@ public:
         r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
         report_tactic_progress(":cnf-aux-vars", m_imp->m_num_aux_vars);
     }
     

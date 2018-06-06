@@ -37,7 +37,7 @@ Notes:
 namespace opt {
 
     opt_solver::opt_solver(ast_manager & mgr, params_ref const & p, 
-                           filter_model_converter& fm):
+                           generic_model_converter& fm):
         solver_na2as(mgr),
         m_params(p),
         m_context(mgr, m_params),
@@ -80,7 +80,7 @@ namespace opt {
         m_context.collect_statistics(st);
     }
     
-    void opt_solver::assert_expr(expr * t) {
+    void opt_solver::assert_expr_core(expr * t) {
         if (has_quantifiers(t)) {
             m_params.m_relevancy_lvl = 2;
         }
@@ -301,7 +301,7 @@ namespace opt {
         }
     }
 
-    void opt_solver::get_model(model_ref & m) {
+    void opt_solver::get_model_core(model_ref & m) {
         m_context.get_model(m);
         if (!m) m = m_model; else m_model = m;
     }

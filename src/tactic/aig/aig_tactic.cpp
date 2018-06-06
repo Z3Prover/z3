@@ -67,7 +67,6 @@ public:
 
     void operator()(goal_ref const & g) {
         SASSERT(g->is_well_sorted());
-        tactic_report report("aig", *g);
 
         mk_aig_manager mk(*this, g->m());
         if (m_aig_per_assertion) {
@@ -90,15 +89,12 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         fail_if_proof_generation("aig", g);
-        mc = nullptr; pc = nullptr; core = nullptr;
+        tactic_report report("aig", *g);
         operator()(g);
         g->inc_depth();
+        TRACE("aig", g->display(tout););
         result.push_back(g.get());
     }
 

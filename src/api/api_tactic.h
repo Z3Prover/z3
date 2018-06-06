@@ -50,7 +50,6 @@ struct Z3_apply_result_ref : public api::object {
     goal_ref_buffer      m_subgoals;
     model_converter_ref  m_mc;
     proof_converter_ref  m_pc;
-    expr_dependency_ref  m_core;
     Z3_apply_result_ref(api::context& c, ast_manager & m);
     ~Z3_apply_result_ref() override {}
 };

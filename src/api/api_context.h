@@ -114,7 +114,7 @@ namespace api {
         ~context();
         ast_manager & m() const { return *(m_manager.get()); }
 
-        context_params & params() { return m_params; }
+        context_params & params() { m_params.updt_params(); return m_params; }
         scoped_ptr<cmd_context>& cmd() { return m_cmd; }
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }

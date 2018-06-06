@@ -23,13 +23,13 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "tactic/core/occf_tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 
 class occf_tactic : public tactic {
     struct     imp {
         ast_manager &            m;
-        filter_model_converter * m_mc;
+        generic_model_converter * m_mc;
         
         imp(ast_manager & _m):
             m(_m) {
@@ -115,7 +115,7 @@ class occf_tactic : public tactic {
             SASSERT(!c2b.contains(cnstr));
             expr * bvar = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             if (produce_models)
-                m_mc->insert(to_app(bvar)->get_decl());
+                m_mc->hide(to_app(bvar)->get_decl());
             c2b.insert(cnstr, bvar_info(bvar, sign));
             if (sign) {
                 g->assert_expr(m.mk_or(bvar, m.mk_not(cnstr)), nullptr, nullptr);
@@ -128,13 +128,8 @@ class occf_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
-
             fail_if_proof_generation("occf", g);
 
             bool produce_models = g->models_enabled();
@@ -157,8 +152,8 @@ class occf_tactic : public tactic {
                 if (!is_target(cls))
                     continue;
                 if (produce_models && !m_mc) {
-                    m_mc = alloc(filter_model_converter, m);
-                    mc = m_mc;
+                    m_mc = alloc(generic_model_converter, m, "occf");
+                    g->add(m_mc);
                 }
                 expr * keep = nullptr;
                 new_lits.reset();
@@ -210,12 +205,9 @@ public:
     void updt_params(params_ref const & p) override {}
     void collect_param_descrs(param_descrs & r) override {}
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
     void cleanup() override {

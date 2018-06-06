@@ -16,4 +16,3 @@ make c_example
 git clone https://github.com/z3prover/z3test.git z3test
 ls
 python z3test/scripts/test_benchmarks.py ./z3 ./z3test/regressions/smt2
-

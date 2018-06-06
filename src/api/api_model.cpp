@@ -421,34 +421,7 @@ extern "C" {
         expr * r = to_func_entry(e)->m_func_entry->get_arg(i);
         RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(nullptr);
-    }
-   
-    // ----------------------------
-    //
-    // DEPRECATED API
-    //
-    // ----------------------------
-
-    void Z3_API Z3_del_model(Z3_context c, Z3_model  m) {
-        Z3_model_dec_ref(c, m);
-    }
-
-    unsigned Z3_API Z3_get_model_num_constants(Z3_context c, Z3_model m) {
-        return Z3_model_get_num_consts(c, m);
-    }
-
-    Z3_func_decl Z3_API Z3_get_model_constant(Z3_context c, Z3_model m, unsigned i) {
-        return Z3_model_get_const_decl(c, m, i);
-    }
-
-    unsigned Z3_API Z3_get_model_num_funcs(Z3_context c, Z3_model m) {
-        return Z3_model_get_num_funcs(c, m);
-    }
-
-    Z3_func_decl Z3_API Z3_get_model_func_decl(Z3_context c, Z3_model m, unsigned i) {
-        return Z3_model_get_func_decl(c, m, i);
-    }
-    
+    }    
 
     unsigned get_model_func_num_entries_core(Z3_context c, Z3_model m, unsigned i) {
         RESET_ERROR_CODE();

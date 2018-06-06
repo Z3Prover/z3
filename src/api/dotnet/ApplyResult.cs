@@ -56,19 +56,6 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Convert a model for the subgoal <paramref name="i"/> into a model for the original 
-        /// goal <c>g</c>, that the ApplyResult was obtained from. 
-        /// </summary>
-        /// <returns>A model for <c>g</c></returns>
-        public Model ConvertModel(uint i, Model m)
-        {
-            Contract.Requires(m != null);
-            Contract.Ensures(Contract.Result<Model>() != null);
-
-            return new Model(Context, Native.Z3_apply_result_convert_model(Context.nCtx, NativeObject, i, m.NativeObject));
-        }
-
-        /// <summary>
         /// A string representation of the ApplyResult.
         /// </summary>
         public override string ToString()

@@ -19,16 +19,17 @@ Notes:
 #define OPT_CONTEXT_H_
 
 #include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "tactic/model_converter.h"
+#include "tactic/tactic.h"
+#include "qe/qsat.h"
 #include "opt/opt_solver.h"
 #include "opt/opt_pareto.h"
 #include "opt/optsmt.h"
 #include "opt/maxsmt.h"
-#include "tactic/model_converter.h"
-#include "tactic/tactic.h"
-#include "ast/arith_decl_plugin.h"
-#include "ast/bv_decl_plugin.h"
 #include "cmd_context/cmd_context.h"
-#include "qe/qsat.h"
+
 
 namespace opt {
 
@@ -45,7 +46,7 @@ namespace opt {
 
     class maxsat_context {
     public:        
-        virtual filter_model_converter& fm() = 0;   // converter that removes fresh names introduced by simplification.
+        virtual generic_model_converter& fm() = 0;   // converter that removes fresh names introduced by simplification.
         virtual bool sat_enabled() const = 0;       // is using th SAT solver core enabled?
         virtual solver& get_solver() = 0;           // retrieve solver object (SAT or SMT solver)
         virtual ast_manager& get_manager() const = 0;      
@@ -145,7 +146,7 @@ namespace opt {
         ref<opt_solver>     m_opt_solver;
         ref<solver>         m_solver;
         ref<solver>         m_sat_solver;
-        scoped_ptr<pareto_base> m_pareto;
+        scoped_ptr<pareto_base>  m_pareto;
         bool                 m_pareto1;
         scoped_ptr<qe::qmax> m_qmax;
         sref_vector<model>  m_box_models;
@@ -155,9 +156,10 @@ namespace opt {
         map_t               m_maxsmts;
         scoped_state        m_scoped_state;
         vector<objective>   m_objectives;
-        model_ref           m_model;        
+        model_ref           m_model;         
         model_converter_ref          m_model_converter;
-        filter_model_converter       m_fm;
+        generic_model_converter_ref  m_fm;
+        sref_vector<model>           m_model_fixed;
         unsigned                     m_model_counter;
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;
@@ -187,7 +189,7 @@ namespace opt {
         void set_hard_constraints(ptr_vector<expr> & hard) override;
         lbool optimize() override;
         void set_model(model_ref& _m) override { m_model = _m; }
-        void get_model(model_ref& _m) override;
+        void get_model_core(model_ref& _m) override;
         void get_box_model(model_ref& _m, unsigned index) override;
         void fix_model(model_ref& _m) override;
         void collect_statistics(statistics& stats) const override;
@@ -200,6 +202,7 @@ namespace opt {
         void display_assignment(std::ostream& out) override;
         bool is_pareto() override { return m_pareto.get() != nullptr; }
         void set_logic(symbol const& s) override { m_logic = s; }
+
         void set_clausal(bool f) { m_is_clausal = f; }
 
         void display(std::ostream& out);
@@ -221,8 +224,8 @@ namespace opt {
         expr_ref mk_ge(unsigned i, model_ref& model) override;
         expr_ref mk_le(unsigned i, model_ref& model) override;
 
+        generic_model_converter& fm() override { return *m_fm; }
         smt::context& smt_context() override { return m_opt_solver->get_context(); }
-        filter_model_converter& fm() override { return m_fm; }
         bool sat_enabled() const override { return nullptr != m_sat_solver.get(); }
         solver& get_solver() override;
         ast_manager& get_manager() const override { return this->m; }
@@ -259,7 +262,7 @@ namespace opt {
                        vector<rational>& weights, rational& offset, bool& neg, 
                        symbol& id, expr_ref& orig_term, unsigned& index);
         void  purify(app_ref& term);
-        app* purify(filter_model_converter_ref& fm, expr* e);
+        app* purify(generic_model_converter_ref& fm, expr* e);
         bool is_mul_const(expr* e);
         expr* mk_maximize(unsigned index, app* t);
         expr* mk_minimize(unsigned index, app* t);
@@ -296,12 +299,13 @@ namespace opt {
         void display_objective(std::ostream& out, objective const& obj) const;
         void display_bounds(std::ostream& out, bounds_t const& b) const;
 
-        std::string to_string(expr_ref_vector const& hard, vector<objective> const& objectives) const;
+        std::string to_string(bool is_internal, expr_ref_vector const& hard, vector<objective> const& objectives) const;
         std::string to_string_internal() const;
 
 
         void validate_lex();
         void validate_maxsat(symbol const& id);
+        void validate_model();
 
         void display_benchmark();
 

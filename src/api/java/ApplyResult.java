@@ -47,19 +47,6 @@ public class ApplyResult extends Z3Object {
     }
 
     /**
-     * Convert a model for the subgoal {@code i} into a model for the
-     * original goal {@code g}, that the ApplyResult was obtained from.
-     * 
-     * @return A model for {@code g}
-     * @throws Z3Exception
-     **/
-    public Model convertModel(int i, Model m)
-    {
-        return new Model(getContext(), 
-            Native.applyResultConvertModel(getContext().nCtx(), getNativeObject(), i, m.getNativeObject()));
-    }
-
-    /**
      * A string representation of the ApplyResult.
      **/
     @Override

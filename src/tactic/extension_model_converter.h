@@ -35,7 +35,7 @@ public:
 
     ast_manager & m() const { return m_vars.get_manager(); }
 
-    void operator()(model_ref & md, unsigned goal_idx) override;
+    void operator()(model_ref & md) override;
 
     void display(std::ostream & out) override;
 

@@ -99,6 +99,7 @@ struct smt_params : public preprocessor_params,
     unsigned         m_phase_caching_off;
     bool             m_minimize_lemmas;
     unsigned         m_max_conflicts;
+    unsigned         m_restart_max;
     bool             m_simplify_clauses;
     unsigned         m_tick;
     bool             m_display_features;

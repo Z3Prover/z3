@@ -52,7 +52,7 @@ public:
     void updt_params(params_ref const & p) override;
     void collect_param_descrs(param_descrs & r) override {}
 
-    void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override;
     
     void cleanup() override;
 };
@@ -527,14 +527,11 @@ void propagate_ineqs_tactic::updt_params(params_ref const & p) {
 }
 
 void propagate_ineqs_tactic::operator()(goal_ref const & g, 
-                                        goal_ref_buffer & result, 
-                                        model_converter_ref & mc, 
-                                        proof_converter_ref & pc,
-                                        expr_dependency_ref & core) {
+                                        goal_ref_buffer & result) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("propagate-ineqs", g);
     fail_if_unsat_core_generation("propagate-ineqs", g);
-    mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+    result.reset();
     goal_ref r;
     (*m_imp)(g.get(), r);
     result.push_back(r.get());

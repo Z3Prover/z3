@@ -144,12 +144,8 @@ class injectivity_tactic : public tactic {
         }
 
         void operator()(goal_ref const & goal,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(goal->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("injectivity", *goal);
             fail_if_unsat_core_generation("injectivity", goal); // TODO: Support UNSAT cores
             fail_if_proof_generation("injectivity", goal);
@@ -271,11 +267,8 @@ public:
     }
 
     void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_finder)(g, result, mc, pc, core);
+                    goal_ref_buffer & result) override {
+        (*m_finder)(g, result);
 
         for (unsigned i = 0; i < g->size(); ++i) {
             expr*     curr = g->form(i);

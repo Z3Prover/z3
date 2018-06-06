@@ -23,7 +23,7 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -249,12 +249,8 @@ class fix_dl_var_tactic : public tactic {
         }
                 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("fix-dl-var", *g);
             bool produce_proofs = g->proofs_enabled();
             m_produce_models    = g->models_enabled();
@@ -270,9 +266,9 @@ class fix_dl_var_tactic : public tactic {
                 m_rw.set_substitution(&subst);
             
                 if (m_produce_models) {
-                    extension_model_converter * _mc = alloc(extension_model_converter, m);
-                    _mc->insert(var->get_decl(), zero);
-                    mc = _mc;
+                    generic_model_converter * mc = alloc(generic_model_converter, m, "fix_dl");
+                    mc->add(var, zero);
+                    g->add(mc);
                 }
                 
                 expr_ref   new_curr(m);
@@ -320,13 +316,10 @@ public:
         th_rewriter::get_param_descrs(r);
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
-            (*m_imp)(in, result, mc, pc, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

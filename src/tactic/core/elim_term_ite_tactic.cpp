@@ -20,7 +20,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 
 class elim_term_ite_tactic : public tactic {
@@ -28,7 +28,7 @@ class elim_term_ite_tactic : public tactic {
     struct rw_cfg : public default_rewriter_cfg {
         ast_manager &               m;
         defined_names               m_defined_names;
-        ref<filter_model_converter> m_mc;
+        ref<generic_model_converter> m_mc;
         goal *                      m_goal;
         unsigned long long          m_max_memory; // in bytes
         bool                        m_produce_models;
@@ -55,8 +55,8 @@ class elim_term_ite_tactic : public tactic {
                 m_num_fresh++;
                 if (m_produce_models) {
                     if (!m_mc)
-                        m_mc = alloc(filter_model_converter, m);
-                    m_mc->insert(_result->get_decl());
+                        m_mc = alloc(generic_model_converter, m, "elim_term_ite");
+                    m_mc->hide(_result->get_decl());
                 }
             }
             result = _result.get();
@@ -100,12 +100,8 @@ class elim_term_ite_tactic : public tactic {
         }
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("elim-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
             m_rw.cfg().m_produce_models = g->models_enabled();
@@ -124,7 +120,7 @@ class elim_term_ite_tactic : public tactic {
                 }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
-            mc = m_rw.m_cfg.m_mc.get();
+            g->add(m_rw.m_cfg.m_mc.get());
             report_tactic_progress(":elim-term-ite-consts", m_rw.m_cfg.m_num_fresh);
             g->inc_depth();
             result.push_back(g.get());
@@ -140,13 +136,13 @@ public:
         m_params(p) {
         m_imp = alloc(imp, m, p);
     }
-
-    tactic * translate(ast_manager & m) override {
-        return alloc(elim_term_ite_tactic, m, m_params);
-    }
         
     ~elim_term_ite_tactic() override {
         dealloc(m_imp);
+    }
+
+    tactic * translate(ast_manager & m) override {
+        return alloc(elim_term_ite_tactic, m, m_params);
     }
 
     void updt_params(params_ref const & p) override {
@@ -161,12 +157,9 @@ public:
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
     void cleanup() override {

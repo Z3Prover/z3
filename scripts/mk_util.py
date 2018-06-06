@@ -1932,8 +1932,14 @@ class MLComponent(Component):
             OCAML_FLAGS = ''
             if DEBUG_MODE:
                 OCAML_FLAGS += '-g'
-            OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
-            OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
+
+            if OCAMLFIND:
+                # Load Big_int, which is no longer part of the standard library, via the num package: https://github.com/ocaml/num
+                OCAMLCF = OCAMLFIND + ' ' + 'ocamlc -package num' + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLFIND + ' ' + 'ocamlopt -package num' + ' ' + OCAML_FLAGS
+            else:
+                OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
 
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
@@ -2505,6 +2511,7 @@ def mk_config():
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+            SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
@@ -2803,6 +2810,7 @@ def get_header_files_for_components(component_src_dirs):
 def mk_install_tactic_cpp(cnames, path):
     component_src_dirs = []
     for cname in cnames:
+        print("Component %s" % cname)
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
     h_files_full_path = get_header_files_for_components(component_src_dirs)

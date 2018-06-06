@@ -39,8 +39,9 @@ public:
 
     ~ackr_model_converter() override { }
 
-    void operator()(model_ref & md, unsigned goal_idx) override {
-        SASSERT(goal_idx == 0);
+    void get_units(obj_map<expr, bool>& units) override { units.reset(); }
+
+    void operator()(model_ref & md) override {
         SASSERT(!fixed_model || md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));
         model_ref& old_model = fixed_model ? abstr_model : md;
         SASSERT(old_model.get());
@@ -48,8 +49,6 @@ public:
         convert(old_model.get(), new_model);
         md = new_model;
     }
-
-    void operator()(model_ref & md) override { operator()(md, 0); }
 
     model_converter * translate(ast_translation & translator) override {
         ackr_info_ref retv_info = info->translate(translator);
@@ -60,6 +59,10 @@ public:
         else {
             return alloc(ackr_model_converter, translator.to(), retv_info);
         }
+    }
+
+    void display(std::ostream & out) override {
+        out << "(ackr-model-converter)\n";
     }
 
 protected:
@@ -144,6 +147,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
     else {
         TRACE("ackr_model", tout << "entry already present\n";);
     }
+
 }
 
 model_converter * mk_ackr_model_converter(ast_manager & m, const ackr_info_ref& info) {

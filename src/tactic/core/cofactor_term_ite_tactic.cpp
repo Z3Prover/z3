@@ -54,16 +54,11 @@ public:
     void updt_params(params_ref const & p) override { m_params = p; m_elim_ite.updt_params(p); }
     void collect_param_descrs(param_descrs & r) override { m_elim_ite.collect_param_descrs(r); }
     
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void  operator()(goal_ref const & g, goal_ref_buffer& result) override {
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("cofactor-term-ite", g);
         fail_if_unsat_core_generation("cofactor-term-ite", g);
         tactic_report report("cofactor-term-ite", *g);
-        mc = nullptr; pc = nullptr; core = nullptr;
         process(*(g.get()));
         g->inc_depth();
         result.push_back(g.get());

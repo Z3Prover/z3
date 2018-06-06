@@ -35,8 +35,8 @@ public:
 
     ~equiv_proof_converter() override {}
 
-    void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
-        m_replace(m, num_source, source, result);
+    proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
+        return m_replace(m, num_source, source);
     }
 
     proof_converter * translate(ast_translation & translator) override {
@@ -47,6 +47,7 @@ public:
 
     ast_manager& get_manager() { return m; }
 
+    void display(std::ostream & out) override {}
 };
 
 #endif

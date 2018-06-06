@@ -188,7 +188,7 @@ namespace datalog {
         if (m_trail.get_num_scopes() == 0) {
             throw default_exception("there are no backtracking points to pop to");
         }
-        if (m_engine.get() && get_engine() != DUALITY_ENGINE) {
+        if (m_engine.get()) {
             throw default_exception("pop operation is only supported by duality engine");
         }
         m_trail.pop_scope(1); 
@@ -601,11 +601,6 @@ namespace datalog {
             m_rule_properties.check_existential_tail();
             m_rule_properties.check_for_negated_predicates();
             break;
-        case DUALITY_ENGINE:
-            m_rule_properties.collect(r);
-            m_rule_properties.check_existential_tail();
-            m_rule_properties.check_for_negated_predicates();
-            break;
         case CLP_ENGINE:
             m_rule_properties.collect(r);
             m_rule_properties.check_existential_tail();
@@ -828,9 +823,6 @@ namespace datalog {
         else if (e == symbol("clp")) {
             m_engine_type = CLP_ENGINE;
         }
-        else if (e == symbol("duality")) {
-            m_engine_type = DUALITY_ENGINE;
-        }
         else if (e == symbol("ddnf")) {
             m_engine_type = DDNF_ENGINE;
         }
@@ -874,11 +866,6 @@ namespace datalog {
         case CLP_ENGINE:
         case DDNF_ENGINE:
             flush_add_rules();
-            break;
-        case DUALITY_ENGINE:
-            // this lets us use duality with SAS 2013 abstraction
-            if(quantify_arrays())
-              flush_add_rules();
             break;
         default:
             UNREACHABLE();

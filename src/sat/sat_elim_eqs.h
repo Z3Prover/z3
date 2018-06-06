@@ -25,11 +25,18 @@ namespace sat {
     class solver;
     
     class elim_eqs {
+        struct bin {
+            literal l1, l2;
+            bool learned;
+            bin(literal l1, literal l2, bool learned): l1(l1), l2(l2), learned(learned) {}
+        };
+        svector<bin> m_new_bin;
         solver & m_solver;
         void save_elim(literal_vector const & roots, bool_var_vector const & to_elim);
         void cleanup_clauses(literal_vector const & roots, clause_vector & cs);
         void cleanup_bin_watches(literal_vector const & roots);
         bool check_clauses(literal_vector const & roots) const;
+        bool check_clause(clause const& c, literal_vector const& roots) const;
     public:
         elim_eqs(solver & s);
         void operator()(literal_vector const & roots, bool_var_vector const & to_elim);

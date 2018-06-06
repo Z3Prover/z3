@@ -2203,9 +2203,8 @@ static void check_error(z3::context& ctx) {
 static void display_tptp(std::ostream& out) {
     // run SMT2 parser, pretty print TFA format.
     z3::context ctx;
-    Z3_ast _fml = Z3_parse_smtlib2_file(ctx, g_input_file, 0, 0, 0, 0, 0, 0);
-    check_error(ctx);
-    z3::expr fml(ctx, _fml);
+    z3::expr_vector fmls = ctx.parse_file(g_input_file);
+    z3::expr fml = z3::mk_and(fmls);
 
     pp_tptp pp(ctx);
     pp.collect_decls(fml);

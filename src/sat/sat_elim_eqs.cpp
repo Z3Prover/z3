@@ -33,19 +33,18 @@ namespace sat {
             return roots[l.var()];
     }
 
-    void elim_eqs::cleanup_bin_watches(literal_vector const & roots) {
-        vector<watch_list>::iterator it  = m_solver.m_watches.begin();
-        vector<watch_list>::iterator end = m_solver.m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            watch_list & wlist = *it;
-            literal l1 = ~to_literal(l_idx);
+    void elim_eqs::cleanup_bin_watches(literal_vector const & roots) {        
+        unsigned l_idx = 0;
+        m_new_bin.reset();
+        for (watch_list & wlist : m_solver.m_watches) {
+            literal l1 = ~to_literal(l_idx++);
             literal r1 = norm(roots, l1);
-            watch_list::iterator it2    = wlist.begin();
-            watch_list::iterator itprev = it2;
-            watch_list::iterator end2   = wlist.end();
-            for (; it2 != end2; ++it2) {
-                if (it2->is_binary_clause()) {
-                    literal l2 = it2->get_literal();
+            watch_list::iterator it     = wlist.begin();
+            watch_list::iterator itprev = it;
+            watch_list::iterator end    = wlist.end();
+            for (; it != end; ++it) {
+                if (it->is_binary_clause()) {
+                    literal l2 = it->get_literal();
                     literal r2 = norm(roots, l2);
                     if (r1 == r2) {
                         m_solver.assign(r1, justification());
@@ -58,18 +57,33 @@ namespace sat {
                         // consume tautology
                         continue;
                     }
+#if 0
                     if (l1 != r1) {
                         // add half r1 => r2, the other half ~r2 => ~r1 is added when traversing l2 
-                        m_solver.m_watches[(~r1).index()].push_back(watched(r2, it2->is_learned()));
+                        m_solver.m_watches[(~r1).index()].push_back(watched(r2, it->is_learned()));
                         continue;
                     }
-                    it2->set_literal(r2); // keep it
+                    it->set_literal(r2); // keep it.
+#else
+                    if (l1 != r1 || l2 != r2) {
+                        if (r1.index() < r2.index()) {
+                            m_new_bin.push_back(bin(r1, r2, it->is_learned()));
+                        }
+                        continue;
+                    }
+                    // keep it
+#endif
                 }
-                *itprev = *it2;
+                *itprev = *it;
                 itprev++;
             }
             wlist.set_end(itprev);
         }
+
+        for (auto const& b : m_new_bin) {
+            m_solver.mk_bin_clause(b.l1, b.l2, b.learned);
+        }
+        m_new_bin.reset();
     }
 
     void elim_eqs::cleanup_clauses(literal_vector const & roots, clause_vector & cs) {
@@ -78,7 +92,7 @@ namespace sat {
         clause_vector::iterator end = cs.end();
         for (; it != end; ++it) {
             clause & c     = *(*it);
-            TRACE("elim_eqs", tout << "processing: " << c << "\n";);
+            TRACE("sats", tout << "processing: " << c << "\n";);
             unsigned sz    = c.size();
             unsigned i;
             for (i = 0; i < sz; i++) {
@@ -96,12 +110,20 @@ namespace sat {
             if (!c.frozen())
                 m_solver.detach_clause(c);
             // apply substitution
-            for (i = 0; i < sz; i++) {
-                SASSERT(!m_solver.was_eliminated(c[i].var()));
-                c[i] = norm(roots, c[i]);
+            for (i = 0; i < sz; i++) {   
+                literal lit = c[i];
+                c[i] = norm(roots, lit);
+                VERIFY(c[i] == norm(roots, c[i]));
+                VERIFY(!m_solver.was_eliminated(c[i].var()) || lit == c[i]);
             }
             std::sort(c.begin(), c.end());
-            TRACE("elim_eqs", tout << "after normalization/sorting: " << c << "\n";);
+            for (literal l : c) VERIFY(l == norm(roots, l));
+            TRACE("sats", tout << "after normalization/sorting: " << c << "\n"; tout.flush(););
+            DEBUG_CODE({
+                    for (literal l : c) {
+                        CTRACE("sat", l != norm(roots, l), tout << l << " " << norm(roots, l) << "\n"; tout.flush(););
+                        SASSERT(l == norm(roots, l));
+                    } });
             // remove duplicates, and check if it is a tautology
             literal l_prev = null_literal;
             unsigned j = 0;
@@ -117,11 +139,11 @@ namespace sat {
                     break; // clause was satisfied
                 if (val == l_false)
                     continue; // skip
-                c[j] = l;
+                c[j] = l;                
                 j++;
             }
             if (i < sz) {
-                // clause is a tautology or was simplified
+                // clause is a tautology or was simplified to true
                 m_solver.del_clause(c);
                 continue; 
             }
@@ -136,16 +158,7 @@ namespace sat {
                 return;
             }
             TRACE("elim_eqs", tout << "after removing duplicates: " << c << " j: " << j << "\n";);
-            if (j < sz)
-                c.shrink(j);
-            else
-                c.update_approx();
-            SASSERT(c.size() == j);
-            DEBUG_CODE({
-                for (unsigned i = 0; i < c.size(); i++) {
-                    SASSERT(c[i] == norm(roots, c[i]));
-                }
-            });
+
             SASSERT(j >= 1);
             switch (j) {
             case 1:
@@ -158,10 +171,21 @@ namespace sat {
                 break;
             default:
                 SASSERT(*it == &c);
+                if (j < sz) {
+                    if (m_solver.m_config.m_drat) m_solver.m_drat.del(c); 
+                    c.shrink(j);
+                    if (m_solver.m_config.m_drat) m_solver.m_drat.add(c, true); 
+                }
+                else
+                    c.update_approx();
+
+                DEBUG_CODE(for (literal l : c) VERIFY(l == norm(roots, l)););
+                
                 *it2 = *it;
                 it2++;
-                if (!c.frozen())
+                if (!c.frozen()) {
                     m_solver.attach_clause(c);
+                }
                 break;
             }
         }
@@ -170,14 +194,12 @@ namespace sat {
 
     void elim_eqs::save_elim(literal_vector const & roots, bool_var_vector const & to_elim) {
         model_converter & mc = m_solver.m_mc;
-        bool_var_vector::const_iterator it  = to_elim.begin();
-        bool_var_vector::const_iterator end = to_elim.end();
-        for (; it != end; ++it) {
-            bool_var v = *it;
+        for (bool_var v : to_elim) {
             literal  l(v, false);
             literal r  = roots[v];
             SASSERT(v != r.var());
-            if (m_solver.is_external(v)) {
+            bool root_ok = !m_solver.is_external(v) || m_solver.set_root(l, r);
+            if (m_solver.is_assumption(v) || (m_solver.is_external(v) && (m_solver.is_incremental() || !root_ok))) {
                 // cannot really eliminate v, since we have to notify extension of future assignments
                 m_solver.mk_bin_clause(~l, r, false);
                 m_solver.mk_bin_clause(l, ~r, false);
@@ -190,28 +212,34 @@ namespace sat {
                 mc.insert(e,  l, ~r);
             }
         }
+        m_solver.flush_roots();
     }
 
-    bool elim_eqs::check_clauses(literal_vector const & roots) const {
-        clause_vector * vs[2] = { &m_solver.m_clauses, &m_solver.m_learned };
-        for (unsigned i = 0; i < 2; i++) {
-            clause_vector & cs  = *(vs[i]);
-            clause_vector::iterator it  = cs.begin();
-            clause_vector::iterator end = cs.end();
-            for (; it != end; ++it) {
-                clause & c  = *(*it);
-                unsigned sz = c.size();
-                for (unsigned i = 0; i < sz; i++) {
-                    CTRACE("elim_eqs_bug", m_solver.was_eliminated(c[i].var()), tout << "lit: " << c[i] << " " << norm(roots, c[i]) << "\n";
-                           tout << c << "\n";);
-                    SASSERT(!m_solver.was_eliminated(c[i].var()));
-                }
+    bool elim_eqs::check_clause(clause const& c, literal_vector const& roots) const {
+        for (literal l : c) {
+            CTRACE("elim_eqs_bug", m_solver.was_eliminated(l.var()), tout << "lit: " << l << " " << norm(roots, l) << "\n";
+                   tout << c << "\n";);
+            if (m_solver.was_eliminated(l.var())) {
+                IF_VERBOSE(0, verbose_stream() << c << " contains eliminated literal " << l << " " << norm(roots, l) << "\n";);
+                UNREACHABLE();
             }
         }
         return true;
     }
 
+
+    bool elim_eqs::check_clauses(literal_vector const & roots) const {
+        for (clause * cp : m_solver.m_clauses)
+            if (!check_clause(*cp, roots)) 
+                return false;
+        for (clause * cp : m_solver.m_learned)
+            if (!check_clause(*cp, roots)) 
+                return false;
+        return true;
+    }
+
     void elim_eqs::operator()(literal_vector const & roots, bool_var_vector const & to_elim) {
+        TRACE("elim_eqs", tout << "before bin cleanup\n"; m_solver.display(tout););
         cleanup_bin_watches(roots);
         TRACE("elim_eqs", tout << "after bin cleanup\n"; m_solver.display(tout););
         cleanup_clauses(roots, m_solver.m_clauses);
@@ -221,5 +249,6 @@ namespace sat {
         save_elim(roots, to_elim);
         m_solver.propagate(false);
         SASSERT(check_clauses(roots));
+        TRACE("elim_eqs", tout << "after full cleanup\n"; m_solver.display(tout););
     }
 };

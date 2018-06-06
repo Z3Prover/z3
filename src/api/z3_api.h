@@ -83,14 +83,14 @@ typedef const char * Z3_string;
 typedef Z3_string * Z3_string_ptr;
 
 /**
-   \brief True value. It is just an alias for \c 1.
+   \brief True value. It is just an alias for \c true.
 */
-#define Z3_TRUE  1
+#define Z3_TRUE  true
 
 /**
-   \brief False value. It is just an alias for \c 0.
+   \brief False value. It is just an alias for \c false.
 */
-#define Z3_FALSE 0
+#define Z3_FALSE false
 
 /**
    \brief Lifted Boolean type: \c false, \c undefined, \c true.
@@ -211,8 +211,6 @@ typedef enum
 
    - Z3_OP_OEQ Binary equivalence modulo namings. This binary predicate is used in proof terms.
         It captures equisatisfiability and equivalence modulo renamings.
-
-   - Z3_OP_INTERP Marks a sub-formula for interpolation.
 
    - Z3_OP_ANUM Arithmetic numeral.
 
@@ -991,7 +989,6 @@ typedef enum {
     Z3_OP_NOT,
     Z3_OP_IMPLIES,
     Z3_OP_OEQ,
-    Z3_OP_INTERP,
 
     // Arithmetic
     Z3_OP_ANUM = 0x200,
@@ -5175,9 +5172,9 @@ extern "C" {
        It returns a formula comprising of the conjunction of assertions in the scope
        (up to push/pop) at the end of the string.
 
-       def_API('Z3_parse_smtlib2_string', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
+       def_API('Z3_parse_smtlib2_string', AST_VECTOR, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_string(Z3_context c,
+    Z3_ast_vector Z3_API Z3_parse_smtlib2_string(Z3_context c,
                                           Z3_string str,
                                           unsigned num_sorts,
                                           Z3_symbol const sort_names[],
@@ -5189,9 +5186,9 @@ extern "C" {
     /**
        \brief Similar to #Z3_parse_smtlib2_string, but reads the benchmark from a file.
 
-       def_API('Z3_parse_smtlib2_file', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
+       def_API('Z3_parse_smtlib2_file', AST_VECTOR, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_file(Z3_context c,
+    Z3_ast_vector Z3_API Z3_parse_smtlib2_file(Z3_context c,
                                         Z3_string file_name,
                                         unsigned num_sorts,
                                         Z3_symbol const sort_names[],
@@ -5451,11 +5448,27 @@ extern "C" {
     Z3_goal Z3_API Z3_goal_translate(Z3_context source, Z3_goal g, Z3_context target);
 
     /**
+       \brief Convert a model of the formulas of a goal to a model of an original goal.
+       The model may be null, in which case the returned model is valid if the goal was
+       established satisfiable.
+
+       def_API('Z3_goal_convert_model', MODEL, (_in(CONTEXT), _in(GOAL), _in(MODEL)))
+    */
+    Z3_model Z3_API Z3_goal_convert_model(Z3_context c, Z3_goal g, Z3_model m);
+
+    /**
        \brief Convert a goal into a string.
 
        def_API('Z3_goal_to_string', STRING, (_in(CONTEXT), _in(GOAL)))
     */
     Z3_string Z3_API Z3_goal_to_string(Z3_context c, Z3_goal g);
+
+    /**
+       \brief Convert a goal into a DIMACS formatted string.
+
+       def_API('Z3_goal_to_dimacs_string', STRING, (_in(CONTEXT), _in(GOAL)))
+    */
+    Z3_string Z3_API Z3_goal_to_dimacs_string(Z3_context c, Z3_goal g);
 
     /*@}*/
 
@@ -5809,14 +5822,6 @@ extern "C" {
     */
     Z3_goal Z3_API Z3_apply_result_get_subgoal(Z3_context c, Z3_apply_result r, unsigned i);
 
-    /**
-       \brief Convert a model for the subgoal \c Z3_apply_result_get_subgoal(c, r, i) into a model for the original goal \c g.
-       Where \c g is the goal used to create \c r using \c Z3_tactic_apply(c, t, g).
-
-       def_API('Z3_apply_result_convert_model', MODEL, (_in(CONTEXT), _in(APPLY_RESULT), _in(UINT), _in(MODEL)))
-    */
-    Z3_model Z3_API Z3_apply_result_convert_model(Z3_context c, Z3_apply_result r, unsigned i, Z3_model m);
-
     /*@}*/
 
     /** @name Solvers*/
@@ -5915,6 +5920,13 @@ extern "C" {
        def_API('Z3_solver_translate', SOLVER, (_in(CONTEXT), _in(SOLVER), _in(CONTEXT)))
     */
     Z3_solver Z3_API Z3_solver_translate(Z3_context source, Z3_solver s, Z3_context target);
+
+    /**
+       \brief Ad-hoc method for importing model convertion from solver.
+       
+       def_API('Z3_solver_import_model_converter', VOID, (_in(CONTEXT), _in(SOLVER), _in(SOLVER)))
+     */
+    void Z3_API Z3_solver_import_model_converter(Z3_context ctx, Z3_solver src, Z3_solver dst);
 
     /**
        \brief Return a string describing all solver available parameters.
@@ -6017,13 +6029,6 @@ extern "C" {
     void Z3_API Z3_solver_assert_and_track(Z3_context c, Z3_solver s, Z3_ast a, Z3_ast p);
 
     /**
-       \brief Return the set of asserted formulas on the solver.
-
-       def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
-    */
-    Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s);
-
-    /**
        \brief load solver assertions from a file.
 
        def_API('Z3_solver_from_file', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
@@ -6036,6 +6041,20 @@ extern "C" {
        def_API('Z3_solver_from_string', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
     */
     void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string file_name);
+
+    /**
+       \brief Return the set of asserted formulas on the solver.
+
+       def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
+    */
+    Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s);
+
+    /**
+       \brief Return the set of units modulo model conversion.
+
+       def_API('Z3_solver_get_units', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
+    */
+    Z3_ast_vector Z3_API Z3_solver_get_units(Z3_context c, Z3_solver s);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
@@ -6104,6 +6123,28 @@ extern "C" {
                                                Z3_ast_vector assumptions,
                                                Z3_ast_vector variables,
                                                Z3_ast_vector consequences);
+
+
+    /**
+       \brief extract a next cube for a solver. The last cube is the constant \c true or \c false.
+       The number of (non-constant) cubes is by default 1. For the sat solver cubing is controlled
+       using parameters sat.lookahead.cube.cutoff and sat.lookahead.cube.fraction.
+       
+       The third argument is a vector of variables that may be used for cubing.
+       The contents of the vector is only used in the first call. The initial list of variables
+       is used in subsequent calls until it returns the unsatisfiable cube. 
+       The vector is modified to contain a set of Autarky variables that occor in clauses that
+       are affected by the (last literal in the) cube. These variables could be used by a different
+       cuber (on a different solver object) for further recursive cubing. 
+
+       The last argument is a backtracking level. It instructs the cube process to backtrack below
+       the indicated level for the next cube.
+       
+       def_API('Z3_solver_cube', AST_VECTOR, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(UINT)))
+    */
+
+    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, Z3_ast_vector vars, unsigned backtrack_level);
+
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
 

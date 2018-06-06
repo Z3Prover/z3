@@ -121,7 +121,7 @@ namespace subpaving {
                 int2mpf(c, m_c);
                 return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
@@ -135,7 +135,7 @@ namespace subpaving {
                 m.set(m_c, k);
                 return reinterpret_cast<ineq*>(m_ctx.mk_ineq(x, m_c, lower, open));
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
@@ -178,7 +178,7 @@ namespace subpaving {
                 int2hwf(c, m_c);
                 return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
@@ -192,7 +192,7 @@ namespace subpaving {
                 m.set(m_c, k);
                 return reinterpret_cast<ineq*>(m_ctx.mk_ineq(x, m_c, lower, open));
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
@@ -236,7 +236,7 @@ namespace subpaving {
                 int2fpoint(c, m_c);
                 return this->m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
             }
-            catch (typename context_fpoint::numeral_manager::exception) {
+            catch (const typename context_fpoint::numeral_manager::exception &) {
                 throw subpaving::exception();
             }
         }
@@ -251,7 +251,7 @@ namespace subpaving {
                 m.set(m_c, m_qm, k);
                 return reinterpret_cast<ineq*>(this->m_ctx.mk_ineq(x, m_c, lower, open));
             }
-            catch (typename context_fpoint::numeral_manager::exception) {
+            catch (const typename context_fpoint::numeral_manager::exception &) {
                 throw subpaving::exception();
             }
         }

@@ -111,11 +111,7 @@ class add_bounds_tactic : public tactic {
         };
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = nullptr; pc = nullptr; core = nullptr;
+                        goal_ref_buffer & result) {
             tactic_report report("add-bounds", *g);
             bound_manager bm(m);
             expr_fast_mark1 visited;
@@ -160,12 +156,9 @@ public:
         r.insert("add_bound_upper", CPK_NUMERAL, "(default: 2) upper bound to be added to unbounded variables.");
     }
     
-    void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(g, result, mc, pc, core);
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(g, result);
     }
     
     void cleanup() override {

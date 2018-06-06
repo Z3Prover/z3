@@ -32,8 +32,8 @@ public:
     pb2bv_model_converter(ast_manager & _m, obj_map<func_decl, expr*> const & c2bit, bound_manager const & bm);
     ~pb2bv_model_converter() override;
     void operator()(model_ref & md) override;
-    void operator()(model_ref & md, unsigned goal_idx) override;
     void display(std::ostream & out) override;
+    void get_units(obj_map<expr, bool>& units) override;
     model_converter * translate(ast_translation & translator) override;
 };
 

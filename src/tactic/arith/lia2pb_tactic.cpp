@@ -20,8 +20,7 @@ Revision History:
 #include "tactic/arith/bound_manager.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/for_each_expr.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -189,15 +188,12 @@ class lia2pb_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("lia2pb", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+            result.reset();
             tactic_report report("lia2pb", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -224,12 +220,9 @@ class lia2pb_tactic : public tactic {
             if (!check_num_bits())
                 throw tactic_exception("lia2pb failed, number of necessary bits exceeds specified threshold (use option :lia2pb-total-bits to increase threshold)");
             
-            extension_model_converter * mc1 = nullptr;
-            filter_model_converter    * mc2 = nullptr;
+            ref<generic_model_converter> gmc;
             if (m_produce_models) {
-                mc1 = alloc(extension_model_converter, m);
-                mc2 = alloc(filter_model_converter, m);
-                mc  = concat(mc2, mc1);
+                gmc = alloc(generic_model_converter, m, "lia2pb");
             }
             
             expr_ref zero(m);
@@ -259,7 +252,7 @@ class lia2pb_tactic : public tactic {
                         else
                             def_args.push_back(m_util.mk_mul(m_util.mk_numeral(a, true), x_prime));
                         if (m_produce_models)
-                            mc2->insert(x_prime->get_decl());
+                            gmc->hide(x_prime->get_decl());
                         a *= rational(2);
                     }
                     SASSERT(def_args.size() > 1);
@@ -273,7 +266,7 @@ class lia2pb_tactic : public tactic {
                     TRACE("lia2pb", tout << mk_ismt2_pp(x, m) << " -> " << dep << "\n";);
                     subst.insert(x, def, nullptr, dep);
                     if (m_produce_models) {
-                        mc1->insert(to_app(x)->get_decl(), def);
+                        gmc->add(x, def);
                     }
                 }
             }
@@ -299,6 +292,7 @@ class lia2pb_tactic : public tactic {
                 g->update(idx, new_curr, new_pr, dep);
             }
             g->inc_depth();
+            g->add(gmc.get());
             result.push_back(g.get());
             TRACE("lia2pb", g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -332,13 +326,10 @@ public:
         r.insert("lia2pb_total_bits", CPK_UINT, "(default: 2048) total number of bits to be used (per problem) in lia2pb.");
     }
 
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
-            (*m_imp)(in, result, mc, pc, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());

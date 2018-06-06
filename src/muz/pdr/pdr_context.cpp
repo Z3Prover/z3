@@ -199,11 +199,8 @@ namespace pdr {
     void pred_transformer::simplify_formulas(tactic& tac, expr_ref_vector& v) {
         goal_ref g(alloc(goal, m, false, false, false));
         for (expr* e : v) g->assert_expr(e);
-        model_converter_ref mc;
-        proof_converter_ref pc;
-        expr_dependency_ref core(m);
         goal_ref_buffer result;
-        tac(g, result, mc, pc, core);
+        tac(g, result);
         SASSERT(result.size() == 1);
         goal* r = result[0];
         v.reset();
@@ -387,7 +384,7 @@ namespace pdr {
             md->register_decl(m_head, fi);
         }
         model_converter_ref mc = ctx.get_model_converter();
-        apply(mc, md, 0);
+        apply(mc, md);
         if (p_orig->get_arity() == 0) {
             result = md->get_const_interp(p_orig);
         }

@@ -53,6 +53,10 @@ namespace datalog {
             return alloc(qa_model_converter, m);
         }
 
+        void display(std::ostream& out) override { display_add(out, m); }
+
+        void get_units(obj_map<expr, bool>& units) override { units.reset(); }        
+
         void insert(func_decl* old_p, func_decl* new_p, expr_ref_vector& sub, sort_ref_vector& sorts, svector<bool> const& bound) {
             m_old_funcs.push_back(old_p);
             m_new_funcs.push_back(new_p);
@@ -81,7 +85,11 @@ namespace datalog {
                     SASSERT(body);                    
                 }
                 else {
-                    body = m.mk_false();  
+                    expr_ref_vector args(m);
+                    for (unsigned i = 0; i < p->get_arity(); ++i) {
+                        args.push_back(m.mk_var(i, p->get_domain(i)));
+                    }
+                    body = m.mk_app(p, args.size(), args.c_ptr());
                 }
                 // Create quantifier wrapper around body.
 

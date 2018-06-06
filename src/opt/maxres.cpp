@@ -52,17 +52,18 @@ Notes:
 
 --*/
 
-#include "solver/solver.h"
-#include "opt/maxsmt.h"
-#include "opt/maxres.h"
 #include "ast/ast_pp.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/ast_util.h"
+#include "model/model_smt2_pp.h"
+#include "solver/solver.h"
 #include "solver/mus.h"
 #include "sat/sat_solver/inc_sat_solver.h"
-#include "opt/opt_context.h"
-#include "ast/pb_decl_plugin.h"
-#include "opt/opt_params.hpp"
-#include "ast/ast_util.h"
 #include "smt/smt_solver.h"
+#include "opt/opt_context.h"
+#include "opt/opt_params.hpp"
+#include "opt/maxsmt.h"
+#include "opt/maxres.h"
 
 using namespace opt;
 
@@ -282,11 +283,13 @@ public:
             m_last_index = 0;
             bool first = index > 0;
             SASSERT(index < asms.size() || asms.empty());
+            IF_VERBOSE(10, verbose_stream() << "start hill climb " << index << " asms: " << asms.size() << "\n";);
             while (index < asms.size() && is_sat == l_true) {
                 while (!first && asms.size() > 20*(index - m_last_index) && index < asms.size()) {
                     index = next_index(asms, index);
                 }
                 first = false;
+                IF_VERBOSE(3, verbose_stream() << "hill climb " << index << "\n";);
                 // IF_VERBOSE(3, verbose_stream() << "weight: " << get_weight(asms[0].get()) << " " << get_weight(asms[index-1].get()) << " num soft: " << index << "\n";);
                 m_last_index = index;
                 is_sat = check_sat(index, asms.c_ptr());
@@ -322,6 +325,7 @@ public:
         m_upper = m_lower;
         m_found_feasible_optimum = true;
     }
+
 
     virtual lbool operator()() {
         m_defs.reset();
@@ -363,6 +367,7 @@ public:
                 m_lower = m_upper;
                 return l_true;
             }
+            split_core(core);
             cores.push_back(core);
             if (core.size() >= m_max_core_size) {
                 break;
@@ -489,7 +494,7 @@ public:
         expr_ref fml(m);
         remove_core(core);
         SASSERT(!core.empty());
-        rational w = split_core(core);
+        rational w = core_weight(core);
         TRACE("opt", display_vec(tout << "minimized core: ", core););
         IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););
         max_resolve(core, w);
@@ -555,19 +560,24 @@ public:
         return m_asm2weight.find(e);
     }
 
-    rational split_core(exprs const& core) {
+    rational core_weight(exprs const& core) {
         if (core.empty()) return rational(0);
         // find the minimal weight:
         rational w = get_weight(core[0]);
         for (unsigned i = 1; i < core.size(); ++i) {
             w = std::min(w, get_weight(core[i]));
         }
+        return w;
+    }
+
+    rational split_core(exprs const& core) {
+        rational w = core_weight(core);
         // add fresh soft clauses for weights that are above w.
-        for (unsigned i = 0; i < core.size(); ++i) {
-            rational w2 = get_weight(core[i]);
+        for (expr* e : core) {
+            rational w2 = get_weight(e);
             if (w2 > w) {
                 rational w3 = w2 - w;
-                new_assumption(core[i], w3);
+                new_assumption(e, w3);
             }
         }        
         return w;
@@ -726,11 +736,13 @@ public:
         m_model = mdl;
         m_c.model_updated(mdl);
 
+        TRACE("opt", model_smt2_pp(tout << "updated model\n", m, *m_model, 0););
+
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
         }
        
-        DEBUG_CODE(verify_assignment(););
+        // DEBUG_CODE(verify_assignment(););
 
         m_upper = upper;
         trace();
@@ -769,6 +781,9 @@ public:
     bool is_true(expr_ref_vector const& es) {
         unsigned i = 0;
         for (; i < es.size() && is_true(es[i]); ++i) { }
+        CTRACE("opt", i < es.size(), tout << mk_pp(es[i], m) << "\n";
+               model_smt2_pp(tout, m, *m_model, 0);
+               );
         return i == es.size();
     }
 
@@ -865,6 +880,7 @@ public:
         if (is_sat == l_false) {
             IF_VERBOSE(0, verbose_stream() << "assignment is infeasible\n";);
         }
+        IF_VERBOSE(1, verbose_stream() << "verified\n";);        
     }
 };
 

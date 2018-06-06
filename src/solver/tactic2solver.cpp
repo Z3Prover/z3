@@ -36,6 +36,7 @@ class tactic2solver : public solver_na2as {
     unsigned_vector              m_scopes;
     ref<simple_check_sat_result> m_result;
     tactic_ref                   m_tactic;
+    ref<model_converter>         m_mc;
     symbol                       m_logic;
     bool                         m_produce_models;
     bool                         m_produce_proofs;
@@ -53,16 +54,16 @@ public:
 
     void set_produce_models(bool f) override { m_produce_models = f; }
 
-    void assert_expr(expr * t) override;
+    void assert_expr_core(expr * t) override;
+    ast_manager& get_manager() const override;
 
     void push_core() override;
     void pop_core(unsigned n) override;
     lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
 
-
     void collect_statistics(statistics & st) const override;
     void get_unsat_core(ptr_vector<expr> & r) override;
-    void get_model(model_ref & m) override;
+    void get_model_core(model_ref & m) override;
     proof * get_proof() override;
     std::string reason_unknown() const override;
     void set_reason_unknown(char const* msg) override;
@@ -73,7 +74,13 @@ public:
     unsigned get_num_assertions() const override;
     expr * get_assertion(unsigned idx) const override;
 
-    ast_manager& get_manager() const override;
+
+    expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
+        return expr_ref_vector(get_manager());
+    }
+
+    model_converter_ref get_model_converter() const override { return m_mc; }
+
 };
 
 ast_manager& tactic2solver::get_manager() const { return m_assertions.get_manager(); }
@@ -103,10 +110,11 @@ void tactic2solver::collect_param_descrs(param_descrs & r) {
         m_tactic->collect_param_descrs(r);
 }
 
-void tactic2solver::assert_expr(expr * t) {
+void tactic2solver::assert_expr_core(expr * t) {
     m_assertions.push_back(t);
     m_result = nullptr;
 }
+
 
 void tactic2solver::push_core() {
     m_scopes.push_back(m_assertions.size());
@@ -142,7 +150,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     }
 
     model_ref           md;
-    proof_ref           pr(m);
+    proof_ref           pr(m);    
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
     labels_vec labels;
@@ -158,8 +166,14 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
             m_result->set_status(l_undef);
             if (reason_unknown != "")
                 m_result->m_unknown = reason_unknown;
+            if (num_assumptions == 0) {
+                m_assertions.reset();
+                g->get_formulas(m_assertions);
+            }
             break;
         }
+        m_mc = g->mc();
+        TRACE("tactic", if (m_mc) m_mc->display(tout););
     }
     catch (z3_error & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
@@ -211,9 +225,10 @@ void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
     }
 }
 
-void tactic2solver::get_model(model_ref & m) {
-    if (m_result.get())
-        m_result->get_model(m);
+void tactic2solver::get_model_core(model_ref & m) {
+    if (m_result.get()) {
+        m_result->get_model_core(m);
+    }
 }
 
 proof * tactic2solver::get_proof() {

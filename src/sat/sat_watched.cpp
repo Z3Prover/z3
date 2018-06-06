@@ -27,10 +27,10 @@ namespace sat {
         for (; it != end; ++it) {                              
             if (it->is_clause() && it->get_clause_offset() == c) {                                        
                 watch_list::iterator it2 = it;                 
-                ++it;                                          
-                for (; it != end; ++it) {                      
+                ++it;    
+                for (; it != end; ++it, ++it2) {                      
+                    SASSERT(!((it->is_clause() && it->get_clause_offset() == c)));
                     *it2 = *it;                                
-                    ++it2;
                 }                    
                 wlist.set_end(it2);
                 return true;                                  
@@ -39,33 +39,90 @@ namespace sat {
         return false;                                           
     }
 
-    void display(std::ostream & out, clause_allocator const & ca, watch_list const & wlist) {
-        watch_list::const_iterator it  = wlist.begin();
-        watch_list::const_iterator end = wlist.end();
-        for (bool first = true; it != end; ++it) {
+    watched* find_binary_watch(watch_list & wlist, literal l) {
+        for (watched& w : wlist) {
+            if (w.is_binary_clause() && w.get_literal() == l) return &w;
+        }
+        return nullptr;
+    }
+
+    watched const* find_binary_watch(watch_list const& wlist, literal l) {
+        for (watched const& w : wlist) {
+            if (w.is_binary_clause() && w.get_literal() == l) return &w;
+        }
+        return nullptr;
+    }
+    
+    void erase_binary_watch(watch_list& wlist, literal l) {
+        watch_list::iterator it = wlist.begin(), end = wlist.end();
+        watch_list::iterator it2 = it;
+        bool found = false;
+        for (; it != end; ++it) {
+            if (it->is_binary_clause() && it->get_literal() == l && !found) {
+                found = true;
+            }
+            else {
+                *it2 = *it;
+                ++it2;
+            }
+        }
+        wlist.set_end(it2);
+        VERIFY(found);
+    }
+
+    void erase_ternary_watch(watch_list& wlist, literal l1, literal l2) {
+        watched w(l1, l2);
+        watch_list::iterator it = wlist.begin(), end = wlist.end();
+        watch_list::iterator it2 = it;
+        bool found = false;
+        for (; it != end; ++it) {
+            if (!found && w == *it) {
+                found = true;
+            }
+            else {
+                *it2 = *it;
+                ++it2;    
+            }    
+        }
+        wlist.set_end(it2);
+        //VERIFY(found);
+    }
+
+    void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist) {
+        watch_list::iterator end = wlist.end();
+        for (; it != end; ++it, ++it2) 
+            *it2 = *it; 
+        wlist.set_end(it2);
+    }
+
+
+    std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist) {
+        bool first = true;
+        for (watched const& w : wlist) {
             if (first)
                 first = false;
             else
                 out << " ";
-            switch (it->get_kind()) {
+            switch (w.get_kind()) {
             case watched::BINARY:
-                out << it->get_literal();
-                if (it->is_learned())
+                out << w.get_literal();
+                if (w.is_learned())
                     out << "*";
                 break;
             case watched::TERNARY:
-                out << "(" << it->get_literal1() << " " << it->get_literal2() << ")";
+                out << "(" << w.get_literal1() << " " << w.get_literal2() << ")";
                 break;
             case watched::CLAUSE:
-                out << "(" << it->get_blocked_literal() << " " << *(ca.get_clause(it->get_clause_offset())) << ")";
+                out << "(" << w.get_blocked_literal() << " " << *(ca.get_clause(w.get_clause_offset())) << ")";
                 break;
             case watched::EXT_CONSTRAINT:
-                out << it->get_ext_constraint_idx();
+                out << "ext: " << w.get_ext_constraint_idx();
                 break;
             default: 
                 UNREACHABLE();
             }
         }
+        return out;
     }
 
 };

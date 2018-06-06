@@ -89,7 +89,7 @@ namespace eq {
                 var * v  = vars[i];
                 expr * t = definitions[i];
                 if (t == nullptr || has_quantifiers(t) || occurs_var(v->get_idx(), t))
-                    definitions[i] = 0;
+                    definitions[i] = nullptr;
                 else
                     found = true; // found at least one candidate
             }
@@ -106,7 +106,7 @@ namespace eq {
             unsigned vidx, num;
 
             for (unsigned i = 0; i < definitions.size(); i++) {
-                if (definitions[i] == 0)
+                if (definitions[i] == nullptr)
                     continue;
                 var * v = vars[i];
                 SASSERT(v->get_idx() == i);
@@ -116,7 +116,7 @@ namespace eq {
                 start:
                     frame & fr = todo.back();
                     expr * t   = fr.first;
-                    if (t->get_ref_count() > 1 && done.is_marked(t)) {
+                    if (done.is_marked(t)) {
                         todo.pop_back();
                         continue;
                     }
@@ -126,11 +126,11 @@ namespace eq {
                         if (fr.second == 0) {
                             CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
                             // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
-                            if (definitions.get(vidx, 0) != 0) {
+                            if (definitions.get(vidx, nullptr) != nullptr) {
                                 if (visiting.is_marked(t)) {
                                     // cycle detected: remove t
                                     visiting.reset_mark(t);
-                                    definitions[vidx] = 0;
+                                    definitions[vidx] = nullptr;
                                 }
                                 else {
                                     visiting.mark(t);
@@ -142,17 +142,14 @@ namespace eq {
                         }
                         else {
                             SASSERT(fr.second == 1);
-                            if (definitions.get(vidx, 0) != 0) {
-                                visiting.reset_mark(t);
-                                order.push_back(vidx);
-                            }
-                            else {
-                                // var was removed from the list of candidate vars to elim cycle
-                                // do nothing
+                            visiting.reset_mark(t);
+                            if (!done.is_marked(t)) {
+                                if (definitions.get(vidx, nullptr) != nullptr)
+                                    order.push_back(vidx);
+                                done.mark(t);
                             }
                         }
-                        if (t->get_ref_count() > 1)
-                            done.mark(t);
+                        done.mark(t);
                         todo.pop_back();
                         break;
                     case AST_QUANTIFIER:
@@ -164,13 +161,11 @@ namespace eq {
                         while (fr.second < num) {
                             expr * arg = to_app(t)->get_arg(fr.second);
                             fr.second++;
-                            if (arg->get_ref_count() > 1 && done.is_marked(arg))
-                                continue;
+                            if (done.is_marked(arg)) continue;
                             todo.push_back(frame(arg, 0));
                             goto start;
                         }
-                        if (t->get_ref_count() > 1)
-                            done.mark(t);
+                        done.mark(t);
                         todo.pop_back();
                         break;
                     default:
@@ -574,12 +569,15 @@ namespace eq {
                 checkpoint();
                 ptr_vector<var> vs;
                 expr_ref_vector ts(m);
+                expr_ref t(m);
                 if (is_var_def(is_exists, args[i], vs, ts)) {
                     for (unsigned j = 0; j < vs.size(); ++j) {
                         var* v = vs[j];
-                        expr* t = ts[j].get();
+                        t = ts.get(j);
+                        m_rewriter(t);
+                        if (t != ts.get(j)) m_new_exprs.push_back(t);
                         unsigned idx = v->get_idx();
-                        if (m_map.get(idx, 0) == 0) {
+                        if (m_map.get(idx, nullptr) == nullptr) {
                             m_map.reserve(idx + 1, 0);
                             m_inx2var.reserve(idx + 1, 0);
                             m_map[idx] = t;
@@ -2461,9 +2459,7 @@ public:
             fmls[index] = fml;
             return;
         }
-        TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) {
-                tout << mk_pp(fmls[i].get(), m) << "\n";
-            });
+        TRACE("qe_lite", tout << fmls << "\n";);
         is_variable_test is_var(index_set, index_of_bound);
         m_der.set_is_variable_proc(is_var);
         m_fm.set_is_variable_proc(is_var);
@@ -2555,12 +2551,8 @@ class qe_lite_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("qe-lite", *g);
             proof_ref new_pr(m);
             expr_ref new_f(m);
@@ -2626,11 +2618,8 @@ public:
     }
 
     void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
 
 

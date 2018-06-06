@@ -174,6 +174,21 @@ namespace Microsoft.Z3
             get { return Native.Z3_goal_is_decided_unsat(Context.nCtx, NativeObject) != 0; }
         }
 
+	/// <summary>
+	/// Convert a model for the goal into a model of the
+        /// original goal from which this goal was derived.
+        /// </summary>
+        /// <returns>A model for <c>g</c></returns>
+        public Model ConvertModel(Model m)
+        {
+            Contract.Ensures(Contract.Result<Model>() != null);
+            if (m != null)
+               return new Model(Context, Native.Z3_goal_convert_model(Context.nCtx, NativeObject, m.NativeObject));
+            else
+               return new Model(Context, Native.Z3_goal_convert_model(Context.nCtx, NativeObject, IntPtr.Zero));
+        }
+
+
         /// <summary>
         /// Translates (copies) the Goal to the target Context <paramref name="ctx"/>.
         /// </summary>
@@ -206,6 +221,15 @@ namespace Microsoft.Z3
         public override string ToString()
         {
             return Native.Z3_goal_to_string(Context.nCtx, NativeObject);
+        }
+
+        /// <summary>
+        /// Goal to DIMACS formatted string conversion.
+        /// </summary>
+        /// <returns>A string representation of the Goal.</returns>
+        public string ToDimacs()
+        {
+            return Native.Z3_goal_to_dimacs_string(Context.nCtx, NativeObject);
         }
 
         /// <summary>

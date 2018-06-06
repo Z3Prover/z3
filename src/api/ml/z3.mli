@@ -2362,7 +2362,7 @@ sig
 
   (** Indicates whether the term is a proof by condensed transitivity of a relation
 
-      Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+      Condensed transitivity proof.
       It combines several symmetry and transitivity proofs.
       Example:
       T1: (R a b)
@@ -2443,14 +2443,11 @@ sig
   (** Indicates whether the term is a proof by rewriting
 
       A proof for rewriting an expression t into an expression s.
-      This proof object is used if the parameter PROOF_MODE is 1.
       This proof object can have n antecedents.
       The antecedents are proofs for equalities used as substitution rules.
-      The object is also used in a few cases if the parameter PROOF_MODE is 2.
-      The cases are:
+      The object is also used in a few cases. The cases are:
       - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
-      - When converting bit-vectors to Booleans (BIT2BOOL=true)
-      - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true) *)
+      - When converting bit-vectors to Booleans (BIT2BOOL=true) *)
   val is_rewrite_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pulling quantifiers out.
@@ -2967,11 +2964,6 @@ sig
     (** Retrieves a subgoal from the apply_result. *)
     val get_subgoal : apply_result -> int -> Goal.goal
 
-    (** Convert a model for a subgoal into a model for the original
-        goal [g], that the ApplyResult was obtained from.
-        #return A model for [g] *)
-    val convert_model : apply_result -> int -> Model.model -> Model.model
-
     (** A string representation of the ApplyResult. *)
     val to_string : apply_result -> string
   end
@@ -3427,51 +3419,6 @@ sig
   val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
 end
 
-(** Interpolation *)
-module Interpolation :
-sig
-
-  (** Create an AST node marking a formula position for interpolation.
-      The expression must have Boolean sort. *)
-  val mk_interpolant : context -> Expr.expr -> Expr.expr
-
-  (** The interpolation context is suitable for generation of interpolants.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val mk_interpolation_context : (string * string) list -> context
-
-  (** Gets an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> Expr.expr list
-
-  (** Computes an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val compute_interpolant : context -> Expr.expr -> Params.params -> (Z3enums.lbool * Expr.expr list option * Model.model option)
-
-  (** Retrieves an interpolation profile.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolation_profile : context -> string
-
-  (** Read an interpolation problem from file.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val read_interpolation_problem : context -> string -> (Expr.expr list * int list * Expr.expr list)
-
-  (** Check the correctness of an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val check_interpolant : context -> int -> Expr.expr list -> int list -> Expr.expr list -> int -> Expr.expr list -> unit
-
-  (** Write an interpolation problem to file suitable for reading with
-      Z3_read_interpolation_problem.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val write_interpolation_problem : context -> int -> Expr.expr list -> int list -> string -> int -> Expr.expr list -> unit
-
-end
 
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.
 

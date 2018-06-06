@@ -174,11 +174,15 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result) {
             m_kernel.get_guessed_literals(result);
         }
-        
+
+        expr* next_decision() {
+            return m_kernel.next_decision();
+        }
+                
         void collect_statistics(::statistics & st) const {
             m_kernel.collect_statistics(st);
         }
-        
+
         void reset_statistics() {
         }
 
@@ -342,6 +346,10 @@ namespace smt {
     void kernel::get_guessed_literals(expr_ref_vector & result) {
         m_imp->get_guessed_literals(result);
     }
+
+    expr* kernel::next_decision() {
+        return m_imp->next_decision();
+    }        
 
     void kernel::display(std::ostream & out) const {
         m_imp->display(out);

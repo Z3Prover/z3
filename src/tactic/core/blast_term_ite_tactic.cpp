@@ -19,7 +19,6 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
 #include "util/cooperate.h"
 #include "ast/scoped_proof.h"
 
@@ -114,13 +113,8 @@ class blast_term_ite_tactic : public tactic {
             m_rw.cfg().updt_params(p);
         }
         
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("blast-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -172,12 +166,8 @@ public:
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
     void cleanup() override {

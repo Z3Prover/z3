@@ -628,6 +628,9 @@ public:
     sort * const * get_domain() const { return m_domain; }
     sort * get_range() const { return m_range; }
     unsigned get_size() const { return get_obj_size(m_arity); }
+    sort * const * begin() const { return get_domain(); }
+    sort * const * end() const { return get_domain() + get_arity(); }
+
 };
 
 // -----------------------------------
@@ -1038,7 +1041,7 @@ enum basic_sort_kind {
 };
 
 enum basic_op_kind {
-    OP_TRUE, OP_FALSE, OP_EQ, OP_DISTINCT, OP_ITE, OP_AND, OP_OR, OP_IFF, OP_XOR, OP_NOT, OP_IMPLIES, OP_OEQ, OP_INTERP, LAST_BASIC_OP,
+    OP_TRUE, OP_FALSE, OP_EQ, OP_DISTINCT, OP_ITE, OP_AND, OP_OR, OP_IFF, OP_XOR, OP_NOT, OP_IMPLIES, OP_OEQ, LAST_BASIC_OP,
 
     PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO,
     PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT,
@@ -1060,7 +1063,6 @@ protected:
     func_decl * m_iff_decl;
     func_decl * m_xor_decl;
     func_decl * m_not_decl;
-    func_decl * m_interp_decl;
     func_decl * m_implies_decl;
     ptr_vector<func_decl> m_eq_decls;  // cached eqs
     ptr_vector<func_decl> m_ite_decls; // cached ites
@@ -1450,6 +1452,8 @@ public:
     typedef expr_dependency_array_manager::ref expr_dependency_array;
 
     void show_id_gen();
+
+    void update_fresh_id(ast_manager const& other);
 
 protected:
     reslimit                  m_limit;
@@ -2049,7 +2053,6 @@ public:
     app * mk_true() const { return m_true; }
     app * mk_false() const { return m_false; }
     app * mk_bool_val(bool b) { return b?m_true:m_false; }
-    app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
 
 
     func_decl* mk_and_decl() {

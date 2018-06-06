@@ -321,10 +321,10 @@ namespace smt {
         //
         // -----------------------------------
 
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val);
         inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
         inf_eps value(theory_var v) override;
         theory_var add_objective(app* term) override;
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val);
 
         bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 

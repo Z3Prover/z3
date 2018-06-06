@@ -271,11 +271,12 @@ namespace datalog {
             m_renaming.insert(orig_rule, unsigned_vector(sz, renaming));
         }
 
-        void operator()(ast_manager& m, unsigned num_source, proof * const * source, proof_ref & result) override {
+        proof_ref operator()(ast_manager& m, unsigned num_source, proof * const * source) override {
             SASSERT(num_source == 1);
-            result = source[0];
+            proof_ref result(source[0], m);
             init_form2rule();
             translate_proof(result);
+            return result;
         }        
 
         proof_converter * translate(ast_translation & translator) override {
@@ -283,6 +284,8 @@ namespace datalog {
             // this would require implementing translation for the dl_context.
             return nullptr;
         }
+
+        void display(std::ostream& out) override { out << "(slice-proof-converter)\n"; }
     };
 
     class mk_slice::slice_model_converter : public model_converter {
@@ -304,6 +307,8 @@ namespace datalog {
             m_pinned.push_back(f);
             m_sliceable.insert(f, bv);
         }
+
+        void get_units(obj_map<expr, bool>& units) override {}
 
         void operator()(model_ref & md) override {
             if (m_slice2old.empty()) {
@@ -395,6 +400,8 @@ namespace datalog {
             UNREACHABLE();
             return nullptr;
         }
+
+        void display(std::ostream& out) override { out << "(slice-model-converter)\n"; }
 
     };
    

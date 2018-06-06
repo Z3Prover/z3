@@ -22,7 +22,7 @@ Notes:
 
 #include "smt/smt_theory.h"
 #include "smt/smt_clause.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace smt {
     class theory_wmaxsat : public theory {
@@ -32,7 +32,7 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };        
-        filter_model_converter&     m_mc;
+        generic_model_converter&     m_mc;
         mutable unsynch_mpz_manager m_mpz;
         app_ref_vector           m_vars;        // Auxiliary variables per soft clause
         expr_ref_vector          m_fmls;        // Formulas per soft clause
@@ -56,7 +56,7 @@ namespace smt {
         svector<bool>            m_assigned, m_enabled;
         stats                    m_stats;
     public:
-        theory_wmaxsat(ast_manager& m, filter_model_converter& mc);
+        theory_wmaxsat(ast_manager& m, generic_model_converter& mc);
         ~theory_wmaxsat() override;
         void get_assignment(svector<bool>& result);
         expr* assert_weighted(expr* fml, rational const& w);

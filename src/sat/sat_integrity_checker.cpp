@@ -34,13 +34,11 @@ namespace sat {
     
     // for nary clauses
     static bool contains_watched(watch_list const & wlist, clause const & c, clause_offset cls_off) {
-        watch_list::const_iterator it  = wlist.begin();
-        watch_list::const_iterator end = wlist.end();
-        for (; it != end; ++it) {
-            if (it->is_clause()) {
-                if (it->get_clause_offset() == cls_off) {
+        for (watched const& w : wlist) {
+            if (w.is_clause()) {
+                if (w.get_clause_offset() == cls_off) {
                     // the blocked literal must be in the clause.
-                    SASSERT(c.contains(it->get_blocked_literal()));
+                    VERIFY(c.contains(w.get_blocked_literal()));
                     return true;
                 }
             }
@@ -52,12 +50,12 @@ namespace sat {
     bool integrity_checker::check_clause(clause const & c) const {
         SASSERT(!c.was_removed());
         for (unsigned i = 0; i < c.size(); i++) {
-            SASSERT(c[i].var() <= s.num_vars());
+            VERIFY(c[i].var() <= s.num_vars());
             CTRACE("sat_bug", s.was_eliminated(c[i].var()),
                    tout << "l: " << c[i].var() << "\n";
                    tout << "c: " << c << "\n";
                    s.display(tout););
-            SASSERT(!s.was_eliminated(c[i].var()));
+            VERIFY(!s.was_eliminated(c[i].var()));
         }
 
         SASSERT(c.check_approx());
@@ -68,7 +66,7 @@ namespace sat {
         if (c.size() == 3) {
             CTRACE("sat_ter_watch_bug", !contains_watched(s.get_wlist(~c[0]), c[1], c[2]), tout << c << "\n";
                    tout << "watch_list:\n";
-                   sat::display(tout, s.m_cls_allocator, s.get_wlist(~c[0]));
+                   s.display_watch_list(tout, s.get_wlist(~c[0]));
                    tout << "\n";);
             VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
             VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
@@ -90,7 +88,7 @@ namespace sat {
                         CTRACE("sat_bug", s.value(c[i]) != l_false,
                                tout << c << " status: " << s.status(c) << "\n";
                                for (unsigned i = 0; i < c.size(); i++) tout << "val(" << i << "): " << s.value(c[i]) << "\n";);
-                        SASSERT(s.value(c[i]) == l_false);
+                        VERIFY(s.value(c[i]) == l_false);
                     }
                 }
             }
@@ -102,9 +100,9 @@ namespace sat {
         return true;
     }
 
-    bool integrity_checker::check_clauses(clause * const * begin, clause * const * end) const {
+    bool integrity_checker::check_clauses(clause * const * begin, clause * const * end) const {        
         for (clause * const * it = begin; it != end; ++it) {
-            SASSERT(check_clause(*(*it)));
+            VERIFY(check_clause(*(*it)));
         }
         return true;
     }
@@ -130,95 +128,94 @@ namespace sat {
     }
 
     bool integrity_checker::check_bool_vars() const {
-        SASSERT(s.m_watches.size() == s.num_vars() * 2);
-        SASSERT(s.m_assignment.size() == s.num_vars() * 2);
-        SASSERT(s.m_lit_mark.size() == s.num_vars() * 2);
-        SASSERT(s.m_justification.size() == s.num_vars());
-        SASSERT(s.m_decision.size() == s.num_vars());
-        SASSERT(s.m_eliminated.size() == s.num_vars());
-        SASSERT(s.m_external.size() == s.num_vars());
-        SASSERT(s.m_level.size() == s.num_vars());
-        SASSERT(s.m_mark.size() == s.num_vars());
-        SASSERT(s.m_activity.size() == s.num_vars());
-        SASSERT(s.m_phase.size() == s.num_vars());
-        SASSERT(s.m_prev_phase.size() == s.num_vars());
-        SASSERT(s.m_assigned_since_gc.size() == s.num_vars());
+        VERIFY(s.m_watches.size() == s.num_vars() * 2);
+        VERIFY(s.m_assignment.size() == s.num_vars() * 2);
+        VERIFY(s.m_lit_mark.size() == s.num_vars() * 2);
+        VERIFY(s.m_justification.size() == s.num_vars());
+        VERIFY(s.m_decision.size() == s.num_vars());
+        VERIFY(s.m_eliminated.size() == s.num_vars());
+        VERIFY(s.m_external.size() == s.num_vars());
+        VERIFY(s.m_level.size() == s.num_vars());
+        VERIFY(s.m_mark.size() == s.num_vars());
+        VERIFY(s.m_activity.size() == s.num_vars());
+        VERIFY(s.m_phase.size() == s.num_vars());
+        VERIFY(s.m_prev_phase.size() == s.num_vars());
+        VERIFY(s.m_assigned_since_gc.size() == s.num_vars());
         for (bool_var v = 0; v < s.num_vars(); v++) {
             if (s.was_eliminated(v)) {
-                SASSERT(s.get_wlist(literal(v, false)).empty());
-                SASSERT(s.get_wlist(literal(v, true)).empty());
+                VERIFY(s.get_wlist(literal(v, false)).empty());
+                VERIFY(s.get_wlist(literal(v, true)).empty());
+            }
+        }
+        return true;
+    }
+
+    bool integrity_checker::check_watches(literal l) const {
+        return check_watches(l, s.get_wlist(~l));
+    }
+
+    bool integrity_checker::check_watches(literal l, watch_list const& wlist) const {
+        for (watched const& w : wlist) {
+            switch (w.get_kind()) {
+            case watched::BINARY:
+                VERIFY(!s.was_eliminated(w.get_literal().var()));
+                CTRACE("sat_watched_bug", !s.get_wlist(~(w.get_literal())).contains(watched(l, w.is_learned())),
+                       tout << "l: " << l << " l2: " << w.get_literal() << "\n"; 
+                       tout << "was_eliminated1: " << s.was_eliminated(l.var());
+                       tout << " was_eliminated2: " << s.was_eliminated(w.get_literal().var());
+                       tout << " learned: " << w.is_learned() << "\n";
+                       s.display_watch_list(tout, wlist);
+                       tout << "\n";
+                       s.display_watch_list(tout, s.get_wlist(~(w.get_literal())));
+                       tout << "\n";);
+                VERIFY(find_binary_watch(s.get_wlist(~(w.get_literal())), l));
+                break;
+            case watched::TERNARY:
+                VERIFY(!s.was_eliminated(w.get_literal1().var()));
+                VERIFY(!s.was_eliminated(w.get_literal2().var()));
+                VERIFY(w.get_literal1().index() < w.get_literal2().index());
+                break;
+            case watched::CLAUSE:
+                VERIFY(!s.get_clause(w.get_clause_offset()).was_removed());
+                break;
+            default:
+                break;
             }
         }
         return true;
     }
 
     bool integrity_checker::check_watches() const {
-        DEBUG_CODE(            
-        vector<watch_list>::const_iterator it  = s.m_watches.begin();
-        vector<watch_list>::const_iterator end = s.m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            literal l = ~to_literal(l_idx);            
-            watch_list const & wlist = *it;
+        unsigned l_idx = 0;
+        for (watch_list const& wlist : s.m_watches) {
+            literal l = ~to_literal(l_idx++);            
             CTRACE("sat_bug", 
                    s.was_eliminated(l.var()) && !wlist.empty(),
                    tout << "l: " << l << "\n";
                    s.display_watches(tout);
                    s.display(tout););
-            SASSERT(!s.was_eliminated(l.var()) || wlist.empty());
-            for (watched const& w : wlist) {
-                switch (w.get_kind()) {
-                case watched::BINARY:
-                    SASSERT(!s.was_eliminated(w.get_literal().var()));
-                    CTRACE("sat_watched_bug", !s.get_wlist(~(w.get_literal())).contains(watched(l, w.is_learned())),
-                           tout << "l: " << l << " l2: " << w.get_literal() << "\n"; 
-                           tout << "was_eliminated1: " << s.was_eliminated(l.var());
-                           tout << " was_eliminated2: " << s.was_eliminated(w.get_literal().var());
-                           tout << " learned: " << w.is_learned() << "\n";
-                           sat::display(tout, s.m_cls_allocator, wlist);
-                           tout << "\n";
-                           sat::display(tout, s.m_cls_allocator, s.get_wlist(~(w.get_literal())));
-                           tout << "\n";);
-                        SASSERT(s.get_wlist(~(w.get_literal())).contains(watched(l, w.is_learned())));
-                    break;
-                case watched::TERNARY:
-                    SASSERT(!s.was_eliminated(w.get_literal1().var()));
-                    SASSERT(!s.was_eliminated(w.get_literal2().var()));
-                    SASSERT(w.get_literal1().index() < w.get_literal2().index());
-                    break;
-                case watched::CLAUSE:
-                    SASSERT(!s.m_cls_allocator.get_clause(w.get_clause_offset())->was_removed());
-                    break;
-                default:
-                    break;
-                }
-            }
-        });
+            VERIFY(!s.was_eliminated(l.var()) || wlist.empty());
+            if (!check_watches(l, wlist)) 
+                return false;
+        }        
         return true;
     }
 
     bool integrity_checker::check_reinit_stack() const {
-        clause_wrapper_vector::const_iterator it  = s.m_clauses_to_reinit.begin();
-        clause_wrapper_vector::const_iterator end = s.m_clauses_to_reinit.end();
-        for (; it != end; ++it) {
-            if (it->is_binary())
-                continue;
-            SASSERT(it->get_clause()->on_reinit_stack());
+        for (auto const& c : s.m_clauses_to_reinit) {
+            VERIFY(c.is_binary() || c.get_clause()->on_reinit_stack());
         }
         return true;
     }
 
     bool integrity_checker::check_disjoint_clauses() const {
         uint_set ids;
-        clause_vector::const_iterator it  = s.m_clauses.begin();
-        clause_vector::const_iterator end = s.m_clauses.end();
-        for (; it != end; ++it) {
-            ids.insert((*it)->id());
+        for (clause* cp : s.m_clauses) {
+            ids.insert(cp->id());
         }
-        it = s.m_learned.begin();
-        end = s.m_learned.end();
-        for (; it != end; ++it) {
-            if (ids.contains((*it)->id())) {
-                TRACE("sat", tout << "Repeated clause: " << (*it)->id() << "\n";);
+        for (clause* cp : s.m_learned) {
+            if (ids.contains(cp->id())) {
+                TRACE("sat", tout << "Repeated clause: " << cp->id() << "\n";);
                 return false;
             }
         }
@@ -228,12 +225,12 @@ namespace sat {
     bool integrity_checker::operator()() const {
         if (s.inconsistent())
             return true;
-        SASSERT(check_clauses());
-        SASSERT(check_learned_clauses());
-        SASSERT(check_watches());
-        SASSERT(check_bool_vars());
-        SASSERT(check_reinit_stack());
-        SASSERT(check_disjoint_clauses());
+        VERIFY(check_clauses());
+        VERIFY(check_learned_clauses());
+        VERIFY(check_watches());
+        VERIFY(check_bool_vars());
+        VERIFY(check_reinit_stack());
+        VERIFY(check_disjoint_clauses());
         return true;
     }
 };

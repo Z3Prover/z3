@@ -23,7 +23,7 @@ Revision History:
 #include "smt/theory_arith.h"
 #include "smt/smt_farkas_util.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace smt {
 
@@ -1117,14 +1117,14 @@ namespace smt {
       This allows to handle inequalities with non-standard numbers.
     */
     template<typename Ext>
-    expr_ref theory_arith<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val) {
+    expr_ref theory_arith<Ext>::mk_ge(generic_model_converter& fm, theory_var v, inf_numeral const& val) {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
         strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
         app* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
         if (!ctx.b_internalized(b)) {
-            fm.insert(b->get_decl());
+            fm.hide(b->get_decl());
             bool_var bv = ctx.mk_bool_var(b);
             ctx.set_var_theory(bv, get_id());
             // ctx.set_enode_flag(bv, true);

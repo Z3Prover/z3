@@ -38,7 +38,6 @@ class decl_collector {
 
     void visit_sort(sort* n);
     bool is_bool(sort* s);
-    void visit_func(func_decl* n);
 
     typedef obj_hashtable<sort> sort_set;
     sort_set* collect_deps(sort* s);
@@ -48,9 +47,10 @@ class decl_collector {
 
 public:
     // if preds == true, then predicates are stored in a separate collection.
-    decl_collector(ast_manager & m, bool preds=true);
+    decl_collector(ast_manager & m, bool preds = true);
     ast_manager & m() { return m_manager; }
 
+    void visit_func(func_decl* n);
     void visit(ast * n);
     void visit(unsigned n, expr* const* es);
     void visit(expr_ref_vector const& es);

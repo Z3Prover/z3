@@ -23,20 +23,21 @@ Notes:
 
 #include<sstream>
 #include<vector>
-#include "ast/ast.h"
-#include "ast/ast_printer.h"
-#include "cmd_context/pdecl.h"
-#include "util/dictionary.h"
-#include "solver/solver.h"
-#include "ast/datatype_decl_plugin.h"
 #include "util/stopwatch.h"
 #include "util/cmd_context_types.h"
 #include "util/event_handler.h"
 #include "util/sexpr.h"
+#include "util/dictionary.h"
+#include "util/scoped_ptr_vector.h"
+#include "ast/ast.h"
+#include "ast/ast_printer.h"
+#include "ast/datatype_decl_plugin.h"
+#include "tactic/generic_model_converter.h"
+#include "solver/solver.h"
+#include "solver/progress_callback.h"
+#include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
 #include "cmd_context/check_logic.h"
-#include "solver/progress_callback.h"
-#include "util/scoped_ptr_vector.h"
 #include "cmd_context/context_params.h"
 
 
@@ -194,6 +195,7 @@ protected:
 
     static std::ostringstream    g_error_stream;
 
+    generic_model_converter_ref  m_mc0;
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
@@ -323,6 +325,7 @@ public:
     void set_numeral_as_real(bool f) { m_numeral_as_real = f; }
     void set_interactive_mode(bool flag) { m_interactive_mode = flag; }
     void set_ignore_check(bool flag) { m_ignore_check = flag; }
+    bool ignore_check() const { return m_ignore_check; }
     void set_exit_on_error(bool flag) { m_exit_on_error = flag; }
     bool exit_on_error() const { return m_exit_on_error; }
     bool interactive_mode() const { return m_interactive_mode; }
@@ -363,7 +366,7 @@ public:
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
-    void complete_model();
+    void complete_model(model_ref& mdl) const;
     void validate_model();
     void display_model(model_ref& mdl);
 
@@ -382,6 +385,8 @@ public:
     void insert_user_tactic(symbol const & s, sexpr * d);
     void insert_aux_pdecl(pdecl * p);
     void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
+    void model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t);
+    void model_del(func_decl* f);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                unsigned arity, sort * const * domain, sort * range) const;
@@ -441,7 +446,9 @@ public:
 
     dictionary<macro_decls> const & get_macros() const { return m_macros; }
 
-    bool is_model_available() const;
+    model_converter* get_model_converter() { return m_mc0.get(); }
+
+    bool is_model_available(model_ref& md) const;
 
     double get_seconds() const { return m_watch.get_seconds(); }
 

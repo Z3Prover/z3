@@ -84,7 +84,6 @@ struct lar_term_constraint: public lar_base_constraint {
 class lar_constraint : public lar_base_constraint {
 public:
     vector<std::pair<mpq, var_index>> m_coeffs;
-    lar_constraint() {} 
     lar_constraint(const vector<std::pair<mpq, var_index>> & left_side, lconstraint_kind kind, const mpq & right_side)
         :  lar_base_constraint(kind, right_side), m_coeffs(left_side) {}
     

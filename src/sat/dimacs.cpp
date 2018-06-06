@@ -24,10 +24,12 @@ Revision History:
 class stream_buffer {
     std::istream & m_stream;
     int            m_val;
+    unsigned       m_line;
 public:
     
     stream_buffer(std::istream & s):
-        m_stream(s) {
+        m_stream(s),
+        m_line(0) {
         m_val = m_stream.get();
     }
 
@@ -37,7 +39,10 @@ public:
 
     void operator ++() { 
         m_val = m_stream.get();
+        if (m_val == '\n') ++m_line;
     }
+
+    unsigned line() const { return m_line; }
 };
 
 template<typename Buffer>
@@ -76,7 +81,7 @@ int parse_int(Buffer & in) {
     }
 
     if (*in < '0' || *in > '9') {
-        std::cerr << "(error, \"unexpected char: " << *in << "\")\n";
+        std::cerr << "(error, \"unexpected char: " << *in << " line: " << in.line() << "\")\n";
         exit(3);
         exit(ERR_PARSER);
     }

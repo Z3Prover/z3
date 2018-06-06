@@ -19,13 +19,13 @@ Notes:
 
 #include "solver/solver.h"
 #include "tactic/tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "solver/solver2tactic.h"
 #include "ast/ast_util.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
-void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<filter_model_converter>& fmc) {
+void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<generic_model_converter>& fmc) {
     expr2expr_map dep2bool;
     ptr_vector<expr> deps;
     ast_manager& m = g->m();
@@ -65,9 +65,9 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
                         bool2dep.insert(b, d);
                         assumptions.push_back(b);
                         if (!fmc) {
-                            fmc = alloc(filter_model_converter, m);
+                            fmc = alloc(generic_model_converter, m, "solver2tactic");
                         }
-                        fmc->insert(to_app(b)->get_decl());
+                        fmc->hide(to_app(b)->get_decl());
                     }
                     clause.push_back(m.mk_not(b));
                 }
@@ -101,16 +101,12 @@ public:
         m_solver->collect_param_descrs(r);
     }
 
-    void operator()(/* in */  goal_ref const & in,
-                    /* out */ goal_ref_buffer & result,
-                    /* out */ model_converter_ref & mc,
-                    /* out */ proof_converter_ref & pc,
-                    /* out */ expr_dependency_ref & core) override {
-        pc = nullptr; mc = nullptr; core = nullptr;
+    void operator()(/* in */  goal_ref const & in, 
+                    /* out */ goal_ref_buffer & result) override {
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
-        ref<filter_model_converter> fmc;
+        ref<generic_model_converter> fmc;
         extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
         ref<solver> local_solver = m_solver->translate(m, m_params);
         local_solver->assert_expr(clauses);
@@ -120,37 +116,50 @@ public:
             if (in->models_enabled()) {
                 model_ref mdl;
                 local_solver->get_model(mdl);
+                model_converter_ref mc;
                 mc = model2model_converter(mdl.get());
                 mc = concat(fmc.get(), mc.get());
+                mc = concat(local_solver->mc0(), mc.get());
+                in->add(mc.get());
             }
             in->reset();
             result.push_back(in.get());
             break;
         case l_false: {
             in->reset();
+            expr_dependency_ref lcore(m);
             proof* pr = nullptr;
-            expr_dependency* lcore = nullptr;
             if (in->proofs_enabled()) {
                 pr = local_solver->get_proof();
-                pc = proof2proof_converter(m, pr);
+                in->set(proof2proof_converter(m, pr));
             }
             if (in->unsat_core_enabled()) {
                 ptr_vector<expr> core;
                 local_solver->get_unsat_core(core);
-                for (unsigned i = 0; i < core.size(); ++i) {
-                    lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(core[i])));
+                for (expr* c : core) {
+                    lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(c)));
                 }
             }
             in->assert_expr(m.mk_false(), pr, lcore);
             result.push_back(in.get());
-            core = lcore;
+            in->set(dependency_converter::unit(lcore));
             break;
         }
         case l_undef:
             if (m.canceled()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
-            throw tactic_exception(local_solver->reason_unknown().c_str());
+            model_converter_ref mc;
+            mc = local_solver->get_model_converter();                
+            mc = concat(fmc.get(), mc.get());            
+            in->reset();
+            in->add(mc.get());
+            unsigned sz = local_solver->get_num_assertions();
+            for (unsigned i = 0; i < sz; ++i) {
+                in->assert_expr(local_solver->get_assertion(i));
+            }
+            result.push_back(in.get());
+            break;
         }
         local_solver->collect_statistics(m_st);
     }

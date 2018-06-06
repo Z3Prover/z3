@@ -204,6 +204,14 @@ public:
 
     unsigned long long get_num_collision() const { return m_table.get_num_collision(); }
 
+    void get_collisions(Key * k, vector<Key*>& collisions) {
+        vector<key_data> cs;
+        m_table.get_collisions(key_data(k), cs);
+        for (key_data const& kd : cs) {
+            collisions.push_back(kd.m_key);
+        }
+    }
+
     void swap(obj_map & other) {
         m_table.swap(other.m_table);
     }

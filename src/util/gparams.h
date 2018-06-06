@@ -106,7 +106,8 @@ public:
     /**
        \brief Return the global parameter set (i.e., parameters that are not associated with any particular module).
     */
-    static params_ref get();
+
+    static params_ref const& get_ref();
 
     /**
        \brief Dump information about available parameters in the given output stream.

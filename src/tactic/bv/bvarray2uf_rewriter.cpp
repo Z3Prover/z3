@@ -37,7 +37,6 @@ bvarray2uf_rewriter_cfg::bvarray2uf_rewriter_cfg(ast_manager & m, params_ref con
     m_bindings(m),
     m_bv_util(m),
     m_array_util(m),
-    m_emc(nullptr),
     m_fmc(nullptr),
     extra_assertions(m) {
     updt_params(p);
@@ -115,12 +114,11 @@ func_decl_ref bvarray2uf_rewriter_cfg::mk_uf_for_array(expr * e) {
             bv_f = m_manager.mk_fresh_func_decl("f_t", "", 1, &domain, range);
             TRACE("bvarray2uf_rw", tout << "for " << mk_ismt2_pp(e, m_manager) << " new func_decl is " << mk_ismt2_pp(bv_f, m_manager) << std::endl; );
             if (is_uninterp_const(e)) {
-                if (m_emc)
-                    m_emc->insert(to_app(e)->get_decl(),
-                                  m_array_util.mk_as_array(bv_f));
+                if (m_fmc)
+                    m_fmc->add(e, m_array_util.mk_as_array(bv_f));
             }
             else if (m_fmc)
-                m_fmc->insert(bv_f);
+                m_fmc->hide(bv_f);
             m_arrays_fs.insert(e, bv_f);
             m_manager.inc_ref(e);
             m_manager.inc_ref(bv_f);
@@ -191,12 +189,11 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
             bv_f = m_manager.mk_fresh_func_decl("f_t", "", 1, &domain, range);
             TRACE("bvarray2uf_rw", tout << mk_ismt2_pp(e, m_manager) << " -> " << bv_f->get_name() << std::endl; );
             if (is_uninterp_const(e)) {
-                if (m_emc)
-                    m_emc->insert(e->get_decl(),
-                        m_array_util.mk_as_array(bv_f));
+                if (m_fmc)
+                    m_fmc->add(e, m_array_util.mk_as_array(bv_f));
             }
             else if (m_fmc)
-                m_fmc->insert(bv_f);
+                m_fmc->hide(bv_f);
             m_arrays_fs.insert(e, bv_f);
             m_manager.inc_ref(e);
             m_manager.inc_ref(bv_f);

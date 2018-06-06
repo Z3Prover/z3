@@ -33,7 +33,7 @@ endif()
 # Project version
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 7)
+set(Z3_VERSION_MINOR 8)
 set(Z3_VERSION_PATCH 0)
 set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
@@ -218,12 +218,17 @@ include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 ################################################################################
 # C++ language version
 ################################################################################
-# FIXME: Use CMake's own mechanism for selecting language version
-if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-  z3_add_cxx_flag("-std=c++11" REQUIRED)
-else()
-  message(AUTHOR_WARNING "Not setting C++ language version for compiler")
-endif()
+if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
+  # FIXME: Drop this when we upgrade to newer CMake versions.
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+    z3_add_cxx_flag("-std=c++11" REQUIRED)
+  else()
+    message(AUTHOR_WARNING "Not setting C++ language version for compiler")
+  endif()
+else ()
+  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif ()
 
 ################################################################################
 # Platform detection

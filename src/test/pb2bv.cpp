@@ -37,7 +37,7 @@ static void test1() {
         expr_ref fml(m), result(m);
         proof_ref proof(m);
         fml = pb.mk_at_least_k(vars.size(), vars.c_ptr(), k);
-        rw(fml, result, proof);
+        rw(true, fml, result, proof);
         std::cout << fml << " |-> " << result << "\n";
     }
     expr_ref_vector lemmas(m);
@@ -60,9 +60,10 @@ static void test_semantics(ast_manager& m, expr_ref_vector const& vars, vector<r
     case 1: fml1 = pb.mk_le(vars.size(), coeffs.c_ptr(), vars.c_ptr(), rational(k)); break;
     default: fml1 = pb.mk_eq(vars.size(), coeffs.c_ptr(), vars.c_ptr(), rational(k)); break;
     }
-    rw(fml1, result1, proof);
+    rw(true, fml1, result1, proof);
     rw.flush_side_constraints(lemmas);
-    std::cout << lemmas << "\n";
+    std::cout << "lemmas: " << lemmas << "\n";
+    std::cout << "simplified: " << result1 << "\n";
     for (unsigned values = 0; values < static_cast<unsigned>(1 << N); ++values) {
         smt_params fp;
         smt::kernel solver(m, fp);
@@ -86,6 +87,12 @@ static void test_semantics(ast_manager& m, expr_ref_vector const& vars, vector<r
         VERIFY(res == l_true);
         solver.assert_expr(m.is_true(result2) ? m.mk_not(result1) : result1.get());
         res = solver.check();
+        if (res != l_false) {
+            IF_VERBOSE(0, solver.display(verbose_stream());
+                       verbose_stream() << vars << " k: " << k << " kind: " << kind << "\n";
+                       for (auto const& c : coeffs) verbose_stream() << c << "\n";
+                       );
+        }
         VERIFY(res == l_false);
     }
 }

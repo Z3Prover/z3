@@ -105,18 +105,18 @@ public:
     char const * get_descr(cmd_context & ctx) const override {
         return "retrieve model for the last check-sat command.\nSupply optional index if retrieving a model corresponding to a box optimization objective";
     }
+
     unsigned get_arity() const override { return VAR_ARITY; }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_UINT; }
     void set_next_arg(cmd_context & ctx, unsigned index) override { m_index = index; }
     void execute(cmd_context & ctx) override {
-        if (!ctx.is_model_available() || ctx.get_check_sat_result() == nullptr)
-            throw cmd_exception("model is not available");
         model_ref m;
+        if (ctx.ignore_check())
+            return;
+        if (!ctx.is_model_available(m) || !ctx.get_check_sat_result())
+            throw cmd_exception("model is not available");
         if (m_index > 0 && ctx.get_opt()) {
             ctx.get_opt()->get_box_model(m, m_index);
-        }
-        else {
-            ctx.get_check_sat_result()->get_model(m);
         }
         ctx.display_model(m);
     }
@@ -127,10 +127,9 @@ public:
 
 
 ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
-    if (!ctx.is_model_available() || ctx.get_check_sat_result() == 0)
-        throw cmd_exception("model is not available");
     model_ref m;
-    ctx.get_check_sat_result()->get_model(m);
+    if (!ctx.is_model_available(m) || ctx.get_check_sat_result() == 0)
+        throw cmd_exception("model is not available");
     ctx.regular_stream() << "(";
     dictionary<macro_decls> const & macros = ctx.get_macros();
     bool first = true;
@@ -395,7 +394,7 @@ class set_option_cmd : public set_get_option_cmd {
             env_params::updt_params();
             ctx.global_params_updated();
         }
-        catch (gparams::exception ex) {
+        catch (const gparams::exception & ex) {
             throw cmd_exception(ex.msg());
         }
     }
@@ -620,7 +619,7 @@ public:
             try {
                 ctx.regular_stream() << gparams::get_value(opt) << std::endl;
             }
-            catch (gparams::exception ex) {
+            catch (const gparams::exception &) {
                 ctx.print_unsupported(opt, m_line, m_pos);
             }
         }

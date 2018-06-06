@@ -341,10 +341,7 @@ namespace smt {
     }
 
     void context::display_parent_eqs(std::ostream & out, enode * n) const {
-        enode_vector::iterator it  = n->begin_parents();
-        enode_vector::iterator end = n->end_parents();
-        for (; it != end; ++it) {
-            enode * parent = *it;
+        for (enode* parent : n->get_parents()) {
             if (parent->is_eq())
                 display_eq_detail(out, parent);
         }
@@ -586,7 +583,7 @@ namespace smt {
         case b_justification::CLAUSE: {
             clause * cls = j.get_clause();
             out << "clause ";
-            if (cls) display_literals(out, cls->get_num_literals(), cls->begin_literals());
+            if (cls) out << literal_vector(cls->get_num_literals(), cls->begin_literals());
             break;
         }
         case b_justification::JUSTIFICATION: {

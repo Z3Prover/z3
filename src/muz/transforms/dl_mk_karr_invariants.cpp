@@ -120,6 +120,8 @@ namespace datalog {
             }
         }
 
+        void get_units(obj_map<expr, bool>& units) override {}
+
         void operator()(model_ref & mr) override {
             for (unsigned i = 0; i < m_funcs.size(); ++i) {
                 func_decl* p = m_funcs[i].get();
@@ -148,6 +150,10 @@ namespace datalog {
                 mc->add(translator(m_funcs[i].get()), m_invs[i].get());
             }
             return mc;
+        }
+
+        void display(std::ostream& out) override { 
+            out << "(add-invariant-model-converter)\n"; 
         }
 
     private:

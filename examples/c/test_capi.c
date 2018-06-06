@@ -378,7 +378,7 @@ void assert_comm_axiom(Z3_context ctx, Z3_solver s, Z3_func_decl f)
 {
     Z3_sort t;
     Z3_symbol f_name, t_name;
-    Z3_ast q;
+    Z3_ast_vector q;
 
     t = Z3_get_range(ctx, f);
 
@@ -394,13 +394,14 @@ void assert_comm_axiom(Z3_context ctx, Z3_solver s, Z3_func_decl f)
     /* Inside the parser, type t will be referenced using the symbol 'T'. */
     t_name = Z3_mk_string_symbol(ctx, "T");
 
-
     q = Z3_parse_smtlib2_string(ctx,
                            "(assert (forall ((x T) (y T)) (= (f x y) (f y x))))",
                            1, &t_name, &t,
                            1, &f_name, &f);
-    printf("assert axiom:\n%s\n", Z3_ast_to_string(ctx, q));
-    Z3_solver_assert(ctx, s, q);
+    printf("assert axiom:\n%s\n", Z3_ast_vector_to_string(ctx, q));
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, q); ++i) {
+        Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, q, i));
+    }
 }
 
 /**
@@ -1642,7 +1643,7 @@ void parser_example2()
     Z3_ast x, y;
     Z3_symbol         names[2];
     Z3_func_decl decls[2];
-    Z3_ast f;
+    Z3_ast_vector f;
 
     printf("\nparser_example2\n");
     LOG_MSG("parser_example2");
@@ -1665,8 +1666,11 @@ void parser_example2()
                            0, 0, 0,
                            /* 'x' and 'y' declarations are inserted as 'a' and 'b' into the parser symbol table. */
                            2, names, decls);
-    printf("formula: %s\n", Z3_ast_to_string(ctx, f));
-    Z3_solver_assert(ctx, s, f);
+    printf("formula: %s\n", Z3_ast_vector_to_string(ctx, f));
+    printf("assert axiom:\n%s\n", Z3_ast_vector_to_string(ctx, f));
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, f); ++i) {
+        Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, f, i));
+    }
     check(ctx, s, Z3_L_TRUE);
 
     del_solver(ctx, s);
@@ -1685,7 +1689,7 @@ void parser_example3()
     Z3_symbol     g_name;
     Z3_sort       g_domain[2];
     Z3_func_decl  g;
-    Z3_ast        thm;
+    Z3_ast_vector thm;
 
     printf("\nparser_example3\n");
     LOG_MSG("parser_example3");
@@ -1710,8 +1714,8 @@ void parser_example3()
                            "(assert (forall ((x Int) (y Int)) (=> (= x y) (= (g x 0) (g 0 y)))))",
                            0, 0, 0,
                            1, &g_name, &g);
-    printf("formula: %s\n", Z3_ast_to_string(ctx, thm));
-    prove(ctx, s, thm, Z3_TRUE);
+    printf("formula: %s\n", Z3_ast_vector_to_string(ctx, thm));
+    prove(ctx, s, Z3_ast_vector_get(ctx, thm, 0), Z3_TRUE);
 
     del_solver(ctx, s);
     Z3_del_context(ctx);
@@ -2286,46 +2290,6 @@ void unsat_core_and_proof_example() {
     Z3_del_context(ctx);
 }
 
-void interpolation_example() {
-    Z3_context ctx = mk_context();
-    Z3_ast pa = mk_bool_var(ctx, "PredA");
-    Z3_ast pb = mk_bool_var(ctx, "PredB");
-    Z3_ast pc = mk_bool_var(ctx, "PredC");
-    Z3_ast args1[2] = {pa,pb}, args2[2] = {Z3_mk_not(ctx,pb),pc};
-    Z3_ast args3[2] = {Z3_mk_interpolant(ctx,Z3_mk_and(ctx,2,args1)),Z3_mk_and(ctx,2,args2)};
-    Z3_ast f = Z3_mk_and(ctx,2,args3);
-    Z3_ast_vector interpolant = 0;
-    Z3_model m = 0;
-    Z3_lbool result = Z3_L_UNDEF;
-
-    printf("\ninterpolation_example\n");
-    LOG_MSG("interpolation_example");
-
-    result = Z3_compute_interpolant(ctx,f,0,&interpolant,&m);
-
-    switch (result) {
-    case Z3_L_FALSE:
-        printf("unsat\n");
-        printf("interpolant: %s\n", Z3_ast_to_string(ctx, Z3_ast_vector_get(ctx, interpolant, 0)));
-        printf("\n");
-        break;
-    case Z3_L_UNDEF:
-        printf("unknown\n");
-        printf("potential model:\n");
-	if (m) Z3_model_inc_ref(ctx, m);
-        display_model(ctx, stdout, m);
-        break;
-    case Z3_L_TRUE:
-        printf("sat\n");
-	if (m) Z3_model_inc_ref(ctx, m);
-        display_model(ctx, stdout, m);
-        break;
-    }
-
-    /* delete logical context */
-    if (m) Z3_model_dec_ref(ctx, m);
-    Z3_del_context(ctx);
-}
 
 #define MAX_RETRACTABLE_ASSERTIONS 1024
 
@@ -2576,13 +2540,15 @@ void reference_counter_example() {
 */
 void smt2parser_example() {
     Z3_context ctx;
-    Z3_ast fs;
+    Z3_ast_vector fs;
     printf("\nsmt2parser_example\n");
     LOG_MSG("smt2parser_example");
 
     ctx = mk_context();
     fs  = Z3_parse_smtlib2_string(ctx, "(declare-fun a () (_ BitVec 8)) (assert (bvuge a #x10)) (assert (bvule a #xf0))", 0, 0, 0, 0, 0, 0);
-    printf("formulas: %s\n", Z3_ast_to_string(ctx, fs));
+    Z3_ast_vector_inc_ref(ctx, fs);
+    printf("formulas: %s\n", Z3_ast_vector_to_string(ctx, fs));
+    Z3_ast_vector_dec_ref(ctx, fs);
 
     Z3_del_context(ctx);
 }
@@ -3008,7 +2974,6 @@ int main() {
     binary_tree_example();
     enum_example();
     unsat_core_and_proof_example();
-    interpolation_example();
     incremental_example1();
     reference_counter_example();
     smt2parser_example();

@@ -800,7 +800,52 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         result = m_util.mk_numeral(div(v1, v2), is_int);
         return BR_DONE;
     }
+    expr_ref quot(m());
+    if (divides(arg1, arg2, quot)) {
+        result = m_util.mk_mul(quot, m_util.mk_idiv(arg1, arg1));
+        return BR_REWRITE2;
+    }
     return BR_FAILED;
+}
+
+bool arith_rewriter::divides(expr* d, expr* n, expr_ref& quot) {
+    if (d == n) {
+        quot = m_util.mk_numeral(rational(1), m_util.is_int(d));
+        return true;
+    }
+    if (m_util.is_mul(n)) {
+        expr_ref_vector muls(m());
+        muls.push_back(n);
+        expr* n1, *n2;
+        rational r1, r2;
+        for (unsigned i = 0; i < muls.size(); ++i) {
+            if (m_util.is_mul(muls[i].get(), n1, n2)) {
+                muls[i] = n1;
+                muls.push_back(n2);
+                --i;
+            }
+        }
+        if (m_util.is_numeral(d, r1) && !r1.is_zero()) {
+            for (unsigned i = 0; i < muls.size(); ++i) {
+                if (m_util.is_numeral(muls[i].get(), r2) && (r2 / r1).is_int()) {
+                    muls[i] = m_util.mk_numeral(r2 / r1, m_util.is_int(d));
+                    quot = m_util.mk_mul(muls.size(), muls.c_ptr());
+                    return true;
+                }            
+            }
+        }
+        else {
+            for (unsigned i = 0; i < muls.size(); ++i) {
+                if (d == muls[i].get()) {
+                    muls[i] = muls.back();
+                    muls.pop_back();
+                    quot = m_util.mk_mul(muls.size(), muls.c_ptr());
+                    return true;
+                }            
+            }
+        }
+    }
+    return false;
 }
 
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {

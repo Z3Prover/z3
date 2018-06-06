@@ -57,7 +57,7 @@ namespace Microsoft.Z3
             }
         }
 
-        /// <summary>
+	/// <summary>
 	/// Sets parameter on the solver
 	/// </summary>
 	public void Set(string name, bool value) { Parameters = Context.MkParams().Add(name, value); }
@@ -267,6 +267,20 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Currently inferred units.
+        /// </summary>
+        public BoolExpr[] Units
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
+
+                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_units(Context.nCtx, NativeObject));
+                return assertions.ToBoolExprArray();
+            }
+        }
+
+        /// <summary>
         /// Checks whether the assertions in the solver are consistent or not.
         /// </summary>
         /// <remarks>
@@ -331,10 +345,10 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// The model of the last <c>Check</c>.
+        /// The model of the last <c>Check(params Expr[] assumptions)</c>.
         /// </summary>
         /// <remarks>
-        /// The result is <c>null</c> if <c>Check</c> was not invoked before,
+        /// The result is <c>null</c> if <c>Check(params Expr[] assumptions)</c> was not invoked before,
         /// if its results was not <c>SATISFIABLE</c>, or if model production is not enabled.
         /// </remarks>
         public Model Model
@@ -350,10 +364,10 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// The proof of the last <c>Check</c>.
+        /// The proof of the last <c>Check(params Expr[] assumptions)</c>.
         /// </summary>
         /// <remarks>    
-        /// The result is <c>null</c> if <c>Check</c> was not invoked before,
+        /// The result is <c>null</c> if <c>Check(params Expr[] assumptions)</c> was not invoked before,
         /// if its results was not <c>UNSATISFIABLE</c>, or if proof production is disabled.
         /// </remarks>
         public Expr Proof
@@ -400,6 +414,42 @@ namespace Microsoft.Z3
             }
         }
 
+	/// <summary>
+	/// Backtrack level that can be adjusted by conquer process
+	/// </summary>
+        public uint BacktrackLevel { get; set; }
+
+	/// <summary>
+	/// Variables available and returned by the cuber.
+	/// </summary>
+	public BoolExpr[] CubeVariables { get; set; }
+        
+
+	/// <summary>
+	/// Return a set of cubes.
+	/// </summary>
+	public IEnumerable<BoolExpr[]> Cube()
+	{
+             ASTVector cv = new ASTVector(Context);
+             if (CubeVariables != null) 
+                foreach (var b in CubeVariables) cv.Push(b);
+
+	     while (true) {
+                var lvl = BacktrackLevel;
+                BacktrackLevel = uint.MaxValue;
+                ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, cv.NativeObject, lvl));
+                var v = r.ToBoolExprArray();
+                CubeVariables = cv.ToBoolExprArray();
+                if (v.Length == 1 && v[0].IsFalse) {
+                   break;
+                }
+                yield return v; 
+                if (v.Length == 0) {
+                   break;
+                }
+	     }
+	}
+
         /// <summary>
         /// Create a clone of the current solver with respect to <c>ctx</c>.
         /// </summary>
@@ -410,6 +460,13 @@ namespace Microsoft.Z3
              return new Solver(ctx, Native.Z3_solver_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
 
+	/// <summary>
+	/// Import model converter from other solver. 
+	/// </summary>
+	public void ImportModelConverter(Solver src) 
+	{
+	     Native.Z3_solver_import_model_converter(Context.nCtx, src.NativeObject, NativeObject);
+	}
 
         /// <summary>
         /// Solver statistics.
@@ -437,6 +494,7 @@ namespace Microsoft.Z3
             : base(ctx, obj)
         {
             Contract.Requires(ctx != null);
+            this.BacktrackLevel = uint.MaxValue;
         }
 
         internal class DecRefQueue : IDecRefQueue

@@ -34,7 +34,7 @@ public:
 
     ~replace_proof_converter() override {}
 
-    void operator()(ast_manager & _m, unsigned num_source, proof * const * source, proof_ref & result) override;
+    proof_ref operator()(ast_manager & _m, unsigned num_source, proof * const * source) override;
 
     proof_converter * translate(ast_translation & translator) override;
 
@@ -44,6 +44,8 @@ public:
 
     // run the replacements the inverse direction.
     void invert() { m_proofs.reverse(); }
+
+    void display(std::ostream & out) override {}
 
 };
 
