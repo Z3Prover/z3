@@ -2625,12 +2625,17 @@ public:
             coeff = rational::zero();
         }
         lp::impq term_max;
-        if (m_solver->maximize_term(coeffs, term_max)) {
+        lp::lp_status st = m_solver->maximize_term(coeffs, term_max);
+        if (st == lp::lp_status::OPTIMAL) {
             blocker = mk_gt(v);
             inf_rational val(term_max.x + coeff, term_max.y);
             return inf_eps(rational::zero(), val);
+        } if (st == lp::lp_status::FEASIBLE) {
+            lp_assert(false); // not implemented
+            // todo: what to return?
         }
         else {
+            SASSERT(st == lp::lp_status::UNBOUNDED);
             TRACE("arith", tout << "Unbounded " << v << "\n";);
             has_shared = false;
             blocker = m.mk_false();

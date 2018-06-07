@@ -507,14 +507,45 @@ bool lar_solver::maximize_term_on_corrected_r_solver(const vector<std::pair<mpq,
         lp_unreachable(); // wrong mode
     }
     return false;
-}    
+}
+
+
+bool lar_solver::remove_from_basis(unsigned j) {
+    return m_mpq_lar_core_solver.m_r_solver.remove_from_basis(j);
+}
+
+
 // starting from a given feasible state look for the maximum of the term
 // return true if found and false if unbounded
-bool lar_solver::maximize_term(const vector<std::pair<mpq, var_index>> & term,
+lp_status lar_solver::maximize_term(const vector<std::pair<mpq, var_index>> & term,
                                impq &term_max) {
     lp_assert(m_mpq_lar_core_solver.m_r_solver.current_x_is_feasible());
     m_mpq_lar_core_solver.m_r_solver.m_look_for_feasible_solution_only = false;
-    return maximize_term_on_corrected_r_solver(term, term_max);
+    if (!maximize_term_on_corrected_r_solver(term, term_max))
+        return lp_status::UNBOUNDED;
+
+    bool change = false;
+    for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_x.size(); j++) {
+        if (!column_is_int(j))
+            continue;
+        if (column_value_is_integer(j))
+            continue;
+        if (m_int_solver->is_base(j)) {
+            if (!remove_from_basis(j)) // consider a special version of remove_from_basis that would not remove inf_int columns
+                return lp_status::FEASIBLE; // it should not happen
+        }
+        m_int_solver->patch_nbasic_column(j);
+        if (!column_value_is_integer(j))
+            return lp_status::FEASIBLE;
+        change = true;
+    }
+    if (change) {
+        term_max = zero_of_type<impq>();
+        for (const auto& p : term) {
+            term_max += p.first * m_mpq_lar_core_solver.m_r_x[p.second];
+        }
+    }
+    return lp_status::OPTIMAL;
 }
     
 
