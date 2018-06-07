@@ -1673,7 +1673,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
     // rewrite and simplify
     th_rewriter rw(m);
     rw(fml);
-    if (ctx.blast_term_ite()) {blast_term_ite(fml); rw(fml);}
+    if (ctx.blast_term_ite()) {blast_term_ite(fml, 3); rw(fml);}
     TRACE("spacer", tout << mk_pp(fml, m) << "\n";);
 
     // allow quantifiers in init rule
