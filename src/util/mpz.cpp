@@ -49,9 +49,13 @@ Revision History:
 #if 1
 #include <immintrin.h> 
 
-#define _trailing_zeros32(x) _tzcnt_u32(x)
+#if defined(__GNUC__)
+#define _trailing_zeros32(X) __builtin_ctz(X)
+#else
+#define _trailing_zeros32(X) _tzcnt_u32(X)
+#endif
 
-#ifdef _AMD64_
+#if defined(_AMD64_) && !defined(__GNUC__)
 #define _trailing_zeros64(x) _tzcnt_u64(x)
 #else
 inline uint64 _trailing_zeros64(uint64 x) {
