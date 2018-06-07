@@ -58,8 +58,8 @@ Revision History:
 #if defined(_AMD64_) && !defined(__GNUC__)
 #define _trailing_zeros64(x) _tzcnt_u64(x)
 #else
-inline uint64 _trailing_zeros64(uint64 x) {
-    uint64 r = 0;
+inline uint64_t _trailing_zeros64(uint64_t x) {
+    uint64_t r = 0;
     for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
