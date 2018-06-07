@@ -84,8 +84,12 @@ private:
     // during  proof transformation
     obj_map<proof, expr_set*> m_parent_hyps;
 
+    expr_mark m_hyp_mark;
+
     void reset();
 
+    /// true if p is an ancestor of q
+    bool is_ancestor(proof *p, proof *q);
     // compute active_hyps and parent_hyps for a given proof node and
     // all its ancestors
     void compute_hypsets(proof* pr);

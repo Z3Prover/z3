@@ -201,10 +201,11 @@ void hypothesis_reducer::reset() {
     for (auto t : m_pinned_active_hyps) dealloc(t);
     m_pinned_active_hyps.reset();
     m_pinned.reset();
+    m_hyp_mark.reset();
 }
 
 void hypothesis_reducer::compute_hypsets(proof *pr) {
-    ptr_vector<proof> todo;
+    ptr_buffer<proof> todo;
     todo.push_back(pr);
 
     while (!todo.empty()) {
@@ -243,6 +244,7 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
         if (m.is_hypothesis(p)) {
             active_hyps->insert(p);
             parent_hyps->insert(m.get_fact(p));
+            m_hyp_mark.mark(m.get_fact(p));
         }
         else {
             for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
@@ -260,8 +262,6 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
 // collect all units that are hyp-free and are used as hypotheses somewhere
 // requires that m_active_hyps and m_parent_hyps have been computed
 void hypothesis_reducer::collect_units(proof* pr) {
-    expr_set* all_hyps = m_parent_hyps.find(pr);
-    SASSERT(all_hyps);
 
     proof_post_order pit(pr, m);
     while (pit.hasNext()) {
@@ -273,12 +273,19 @@ void hypothesis_reducer::collect_units(proof* pr) {
             // collect units that are hyp-free and are used as
             // hypotheses in the proof pr
             if (active_hyps->empty() && m.has_fact(p) &&
-                all_hyps->contains(m.get_fact(p)))
+                m_hyp_mark.is_marked(m.get_fact(p)))
                 m_units.insert(m.get_fact(p), p);
         }
     }
 }
 
+/**
+   \brief returns true if p is an ancestor of q
+ */
+bool hypothesis_reducer::is_ancestor(proof *p, proof *q) {
+    expr_set* parent_hyps = m_parent_hyps.find(q);
+    return parent_hyps->contains(m.get_fact(p));
+}
 
 proof* hypothesis_reducer::reduce_core(proof* pf) {
     SASSERT(m.is_false(m.get_fact(pf)));
@@ -334,8 +341,7 @@ proof* hypothesis_reducer::reduce_core(proof* pf) {
                 SASSERT(m_parent_hyps.contains(proof_of_unit));
 
                 // if the transformation doesn't create a cycle, perform it
-                expr_set* parent_hyps = m_parent_hyps.find(proof_of_unit);
-                if (!parent_hyps->contains(p)) {
+                if (!is_ancestor(p, proof_of_unit)) {
                     res = proof_of_unit;
                 }
                 else {
