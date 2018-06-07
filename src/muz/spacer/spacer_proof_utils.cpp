@@ -192,12 +192,9 @@ proof_ref hypothesis_reducer::reduce(proof* pr) {
 }
 
 void hypothesis_reducer::reset() {
-    m_parent_hyps.reset();
     m_active_hyps.reset();
     m_units.reset();
     m_cache.reset();
-    for (auto t : m_pinned_parent_hyps) dealloc(t);
-    m_pinned_parent_hyps.reset();
     for (auto t : m_pinned_active_hyps) dealloc(t);
     m_pinned_active_hyps.reset();
     m_pinned.reset();
@@ -237,22 +234,16 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
         m_pinned_active_hyps.insert(active_hyps);
         m_active_hyps.insert(p, active_hyps);
 
-        expr_set* parent_hyps = alloc(expr_set);
-        m_pinned_parent_hyps.insert(parent_hyps);
-        m_parent_hyps.insert(p, parent_hyps);
-
         // fill both sets
         if (m.is_hypothesis(p)) {
             active_hyps->insert(p);
             m_open_mark.mark(p);
 
-            parent_hyps->insert(m.get_fact(p));
             m_hyp_mark.mark(m.get_fact(p));
         }
         else {
             for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
                 proof* parent = m.get_parent(p, i);
-                set_union(*parent_hyps, *m_parent_hyps.find(parent));
 
                 if (!m.is_lemma(p)) {
                     // lemmas clear all hypotheses
@@ -265,7 +256,7 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
 }
 
 // collect all units that are hyp-free and are used as hypotheses somewhere
-// requires that m_active_hyps and m_parent_hyps have been computed
+// requires that m_active_hyps has been computed
 void hypothesis_reducer::collect_units(proof* pr) {
 
     proof_post_order pit(pr, m);
@@ -285,8 +276,26 @@ void hypothesis_reducer::collect_units(proof* pr) {
    \brief returns true if p is an ancestor of q
  */
 bool hypothesis_reducer::is_ancestor(proof *p, proof *q) {
-    expr_set* parent_hyps = m_parent_hyps.find(q);
-    return parent_hyps->contains(m.get_fact(p));
+    if (p == q) return true;
+    ptr_vector<proof> todo;
+    todo.push_back(q);
+
+    expr_mark visited;
+    while (!todo.empty()) {
+        proof *cur;
+        cur = todo.back();
+        todo.pop_back();
+
+        if (visited.is_marked(cur)) continue;
+
+        if (cur == p) return true;
+        visited.mark(cur);
+
+        for (unsigned i = 0, sz = m.get_num_parents(cur); i < sz; ++i) {
+            todo.push_back(m.get_parent(cur, i));
+        }
+    }
+    return false;
 }
 
 proof* hypothesis_reducer::reduce_core(proof* pf) {
@@ -340,7 +349,6 @@ proof* hypothesis_reducer::reduce_core(proof* pf) {
                 // make sure hypsets for the unit are computed
                 // AG: is this needed?
                 compute_hypsets(proof_of_unit);
-                SASSERT(m_parent_hyps.contains(proof_of_unit));
 
                 // if the transformation doesn't create a cycle, perform it
                 if (!is_ancestor(p, proof_of_unit)) {

@@ -67,8 +67,6 @@ private:
 
     // created sets of active hypothesis
     ptr_vector<proof_set> m_pinned_active_hyps;
-    // created sets of parent hypothesis
-    ptr_vector<expr_set> m_pinned_parent_hyps;
 
     // maps a proof to the transformed proof
     obj_map<proof, proof*> m_cache;
@@ -78,11 +76,6 @@ private:
 
     // maps a proof node to the set of its  active (i.e., in scope) hypotheses
     obj_map<proof, proof_set*> m_active_hyps;
-
-    // maps a proof node to the set of all hypothesis-facts (active or
-    // not) that can reach it. Used for cycle detection and avoidance
-    // during  proof transformation
-    obj_map<proof, expr_set*> m_parent_hyps;
 
     /// marks if an expression is ever used as a hypothesis in a proof
     expr_mark m_hyp_mark;
