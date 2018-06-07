@@ -74,7 +74,6 @@ inline unsigned _trailing_zeros32(unsigned x) {
 #define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))
 
 
-
 unsigned u_gcd(unsigned u, unsigned v) { 
     if (u == 0) return v;
     if (v == 0) return u;
@@ -121,11 +120,11 @@ unsigned u_gcd(unsigned u, unsigned v) {
     return u << shift;
 }
 
-uint64 u64_gcd(uint64 u, uint64 v) { 
+uint64_t u64_gcd(uint64_t u, uint64_t v) { 
     if (u == 0) return v;
     if (v == 0) return u;
     if (u == 1 || v == 1) return 1;
-    uint64 shift = _trailing_zeros64(u | v);
+    auto shift = _trailing_zeros64(u | v);
     u >>= _trailing_zeros64(u);
     do {
         v >>= _trailing_zeros64(v);        
