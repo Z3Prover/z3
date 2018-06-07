@@ -229,28 +229,42 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
 
         m_visited.mark(p);
 
-        // create active_hyps-set and parent_hyps-set for step p
-        proof_set* active_hyps = alloc(proof_set);
-        m_pinned_active_hyps.insert(active_hyps);
-        m_active_hyps.insert(p, active_hyps);
 
+        proof_ptr_vector* active_hyps = nullptr;
         // fill both sets
         if (m.is_hypothesis(p)) {
-            active_hyps->insert(p);
+            // create active_hyps-set for step p
+            proof_ptr_vector* active_hyps = alloc(proof_ptr_vector);
+            m_pinned_active_hyps.insert(active_hyps);
+            m_active_hyps.insert(p, active_hyps);
+            active_hyps->push_back(p);
             m_open_mark.mark(p);
-
             m_hyp_mark.mark(m.get_fact(p));
+            continue;
         }
-        else {
-            for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
-                proof* parent = m.get_parent(p, i);
 
-                if (!m.is_lemma(p)) {
-                    // lemmas clear all hypotheses
-                    set_union(*active_hyps, *m_active_hyps.find(parent));
-                    m_open_mark.mark(p, !active_hyps->empty());
+        ast_fast_mark1 seen;
+
+        active_hyps = alloc(proof_ptr_vector);
+        for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
+            proof* parent = m.get_parent(p, i);
+            // lemmas clear all hypotheses above them
+            if (m.is_lemma(p)) continue;
+            for (auto *x : *m_active_hyps.find(parent)) {
+                if (!seen.is_marked(x)) {
+                    seen.mark(x);
+                    active_hyps->push_back(x);
+                    m_open_mark.mark(p);
                 }
             }
+        }
+        if (active_hyps->empty()) {
+            dealloc(active_hyps);
+            m_active_hyps.insert(p, &m_empty_vector);
+        }
+        else {
+            m_pinned_active_hyps.push_back(active_hyps);
+            m_active_hyps.insert(p, active_hyps);
         }
     }
 }
@@ -404,7 +418,7 @@ proof* hypothesis_reducer::mk_lemma_core(proof* premise, expr *fact) {
     SASSERT(m.is_false(m.get_fact(premise)));
     SASSERT(m_active_hyps.contains(premise));
 
-    proof_set* active_hyps = m_active_hyps.find(premise);
+    proof_ptr_vector* active_hyps = m_active_hyps.find(premise);
 
     // if there is no active hypothesis return the premise
     if (!m_open_mark.is_marked(premise)) {

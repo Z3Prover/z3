@@ -57,16 +57,17 @@ public:
     proof_ref reduce(proof* pf);
 
 private:
-    typedef obj_hashtable<expr> expr_set;
-    typedef obj_hashtable<proof> proof_set;
+    typedef ptr_vector<proof> proof_ptr_vector;
 
     ast_manager &m;
+
+    proof_ptr_vector m_empty_vector;
 
     // created expressions
     expr_ref_vector m_pinned;
 
     // created sets of active hypothesis
-    ptr_vector<proof_set> m_pinned_active_hyps;
+    ptr_vector<proof_ptr_vector> m_pinned_active_hyps;
 
     // maps a proof to the transformed proof
     obj_map<proof, proof*> m_cache;
@@ -75,7 +76,7 @@ private:
     obj_map<expr, proof*> m_units;
 
     // maps a proof node to the set of its  active (i.e., in scope) hypotheses
-    obj_map<proof, proof_set*> m_active_hyps;
+    obj_map<proof, proof_ptr_vector*> m_active_hyps;
 
     /// marks if an expression is ever used as a hypothesis in a proof
     expr_mark m_hyp_mark;
