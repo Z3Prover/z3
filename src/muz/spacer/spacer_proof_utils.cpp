@@ -427,6 +427,8 @@ proof* hypothesis_reducer::mk_lemma_core(proof* premise, expr *fact) {
         return premise;
     }
 
+    // add some stability
+    std::stable_sort(active_hyps->begin(), active_hyps->end(), ast_lt_proc());
     // otherwise, build a disjunction of the negated active hypotheses
     // and add a lemma proof step
     expr_ref_buffer args(m);
