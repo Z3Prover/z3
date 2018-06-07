@@ -45,27 +45,24 @@ Revision History:
 #define LEHMER_GCD
 #endif
 
-
-#if 1
 #include <immintrin.h> 
 
-#define _trailing_zeros32(x) _tzcnt_u32(x)
-
-#ifdef _AMD64_
-#define _trailing_zeros64(x) _tzcnt_u64(x)
+#if defined(__GNUC__)
+#define _trailing_zeros32(X) __builtin_ctz(X)
 #else
-inline uint64 _trailing_zeros64(uint64 x) {
-    uint64 r = 0;
-    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
-    return r;
-}
+#define _trailing_zeros32(X) _tzcnt_u32(X)
 #endif
 
+#if defined(_AMD64_) 
+ #if defined(__GNUC__)
+ #define _trailing_zeros64(X) __builtin_ctzll(X)
+ #else
+ #define _trailing_zeros64(X) _tzcnt_u64(X)
+ #endif
 #else
-
-inline unsigned _trailing_zeros32(unsigned x) {
-    unsigned r = 0;
-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
+inline uint64_t _trailing_zeros64(uint64_t x) {
+    uint64_t r = 0;
+    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
 #endif
@@ -106,6 +103,15 @@ unsigned u_gcd(unsigned u, unsigned v) {
         if (u > v) std::swap(u, v);
         v -= u;        
 #endif
+#if 0
+        unsigned d1 = u - v;
+        unsigned d2 = v - u;
+        unsigned md21 = d2 & (unsigned)((int)d1 >> 31);
+        unsigned md12 = d1 & (unsigned)((int)d2 >> 31);
+        u = _bit_min(u, v);
+        v = md12 | md21;
+#endif
+
         v >>= _trailing_zeros32(v);        
     }
     while (v != 0);
