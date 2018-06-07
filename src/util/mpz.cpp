@@ -79,10 +79,10 @@ unsigned u_gcd(unsigned u, unsigned v) {
     if (v == 0) return u;
     unsigned shift = _trailing_zeros32(u | v);
     u >>= _trailing_zeros32(u);
-    v >>= _trailing_zeros32(v);        
     if (u == 1 || v == 1) return 1 << shift; 
     if (u == v) return u << shift;
     do {
+        v >>= _trailing_zeros32(v);        
 #if 1
         unsigned diff = u - v;
         unsigned mdiff = diff & (unsigned)((int)diff >> 31);
@@ -113,8 +113,6 @@ unsigned u_gcd(unsigned u, unsigned v) {
         u = _bit_min(u, v);
         v = md12 | md21;
 #endif
-
-        v >>= _trailing_zeros32(v);        
     }
     while (v != 0);
     return u << shift;
