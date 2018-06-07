@@ -84,7 +84,11 @@ private:
     // during  proof transformation
     obj_map<proof, expr_set*> m_parent_hyps;
 
+    /// marks if an expression is ever used as a hypothesis in a proof
     expr_mark m_hyp_mark;
+    /// marks a proof as open, i.e., has a non-discharged hypothesis as ancestor
+    expr_mark m_open_mark;
+    expr_mark m_visited;
 
     void reset();
 

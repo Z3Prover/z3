@@ -202,6 +202,8 @@ void hypothesis_reducer::reset() {
     m_pinned_active_hyps.reset();
     m_pinned.reset();
     m_hyp_mark.reset();
+    m_open_mark.reset();
+    m_visited.reset();
 }
 
 void hypothesis_reducer::compute_hypsets(proof *pr) {
@@ -211,8 +213,7 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
     while (!todo.empty()) {
         proof* p = todo.back();
 
-        if (m_active_hyps.contains(p)) {
-            SASSERT(m_parent_hyps.contains(p));
+        if (m_visited.is_marked(p)) {
             todo.pop_back();
             continue;
         }
@@ -222,14 +223,14 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
             SASSERT(m.is_proof(p->get_arg(i)));
             proof *parent = to_app(p->get_arg(i));
 
-            if (!m_active_hyps.contains(parent)) {
-                SASSERT(!m_parent_hyps.contains(parent));
+            if (!m_visited.is_marked(parent))
                 todo.push_back(parent);
-            }
         }
         if (todo.size() > todo_sz) continue;
 
         todo.pop_back();
+
+        m_visited.mark(p);
 
         // create active_hyps-set and parent_hyps-set for step p
         proof_set* active_hyps = alloc(proof_set);
@@ -243,6 +244,8 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
         // fill both sets
         if (m.is_hypothesis(p)) {
             active_hyps->insert(p);
+            m_open_mark.mark(p);
+
             parent_hyps->insert(m.get_fact(p));
             m_hyp_mark.mark(m.get_fact(p));
         }
@@ -251,9 +254,11 @@ void hypothesis_reducer::compute_hypsets(proof *pr) {
                 proof* parent = m.get_parent(p, i);
                 set_union(*parent_hyps, *m_parent_hyps.find(parent));
 
-                if (!m.is_lemma(p))
+                if (!m.is_lemma(p)) {
                     // lemmas clear all hypotheses
                     set_union(*active_hyps, *m_active_hyps.find(parent));
+                    m_open_mark.mark(p, !active_hyps->empty());
+                }
             }
         }
     }
@@ -267,12 +272,9 @@ void hypothesis_reducer::collect_units(proof* pr) {
     while (pit.hasNext()) {
         proof* p = pit.next();
         if (!m.is_hypothesis(p)) {
-            proof_set* active_hyps = m_active_hyps.find(p);
-            SASSERT(active_hyps);
-
             // collect units that are hyp-free and are used as
             // hypotheses in the proof pr
-            if (active_hyps->empty() && m.has_fact(p) &&
+            if (!m_open_mark.is_marked(p) && m.has_fact(p) &&
                 m_hyp_mark.is_marked(m.get_fact(p)))
                 m_units.insert(m.get_fact(p), p);
         }
@@ -383,9 +385,7 @@ proof* hypothesis_reducer::reduce_core(proof* pf) {
         m_cache.insert(p, res);
 
         // bail out as soon as found a sub-proof of false
-        SASSERT(m_active_hyps.contains(res));
-        proof_set* active_hyps = m_active_hyps.find(res);
-        if (active_hyps->empty() && m.has_fact(res) && m.is_false(m.get_fact(res)))
+        if (!m_open_mark.is_marked(res) && m.has_fact(res) && m.is_false(m.get_fact(res)))
             return res;
     }
     UNREACHABLE();
@@ -399,7 +399,7 @@ proof* hypothesis_reducer::mk_lemma_core(proof* premise, expr *fact) {
     proof_set* active_hyps = m_active_hyps.find(premise);
 
     // if there is no active hypothesis return the premise
-    if (active_hyps->empty()) {
+    if (!m_open_mark.is_marked(premise)) {
         // XXX just in case premise might go away
         m_pinned.push_back(premise);
         return premise;
