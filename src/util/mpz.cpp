@@ -55,8 +55,12 @@ Revision History:
 #define _trailing_zeros32(X) _tzcnt_u32(X)
 #endif
 
-#if defined(_AMD64_) && !defined(__GNUC__)
-#define _trailing_zeros64(x) _tzcnt_u64(x)
+#if defined(_AMD64_) 
+ #if defined(__GNUC__)
+ #define _trailing_zeros64(X) __builtin_ctzll(X)
+ #else
+ #define _trailing_zeros64(X) _tzcnt_u64(X)
+ #endif
 #else
 inline uint64_t _trailing_zeros64(uint64_t x) {
     uint64_t r = 0;
