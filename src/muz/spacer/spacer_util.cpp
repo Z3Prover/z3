@@ -87,7 +87,7 @@ namespace spacer {
             m_mev = nullptr;
         }
         m_model = model;
-        if (m_model) 
+        if (m_model)
             m_mev = alloc(model_evaluator, *m_model);
     }
 
@@ -149,7 +149,7 @@ namespace spacer {
 
         out << "(define-fun mbp_benchmark_fml () Bool\n  ";
         out << mk_pp(fml, m) << ")\n\n";
-        
+
         out << "(push)\n"
             << "(assert mbp_benchmark_fml)\n"
             << "(check-sat)\n"
@@ -166,13 +166,13 @@ namespace spacer {
         params_ref p;
         p.set_bool("reduce_all_selects", reduce_all_selects);
         p.set_bool("dont_sub", dont_sub);
-        
+
         qe::mbp mbp(m, p);
         // TODO: deal with const
         model *mdl = const_cast<model*>(M.get());
         mbp.spacer(vars, *mdl, fml);
     }
-    
+
     /*
      * eliminate simple equalities using qe_lite
      * then, MBP for Booleans (substitute), reals (based on LW), ints (based on Cooper), and arrays
@@ -209,14 +209,14 @@ namespace spacer {
             qe_lite qe(m, p, false);
             qe (vars, fml);
             rw (fml);
-            
+
             TRACE ("spacer_mbp",
                    tout << "After qe_lite:\n";
                    tout << mk_pp (fml, m) << "\n";
                    tout << "Vars:\n" << vars;);
-            
+
             SASSERT (!m.is_false (fml));
-            
+
 
             // sort out vars into bools, arith (int/real), and arrays
             for (app* v : vars) {
@@ -231,7 +231,7 @@ namespace spacer {
                     arith_vars.push_back (v);
                 }
             }
-            
+
             // substitute Booleans
             if (!bool_sub.empty()) {
                 bool_sub (fml);
@@ -241,13 +241,13 @@ namespace spacer {
                 TRACE ("spacer_mbp", tout << "Projected Booleans:\n" << fml << "\n"; );
                 bool_sub.reset ();
             }
-            
+
             TRACE ("spacer_mbp",
                    tout << "Array vars:\n";
                    tout << array_vars;);
-            
+
             vars.reset ();
-            
+
             // project arrays
             {
                 scoped_no_proof _sp (m);
@@ -258,17 +258,17 @@ namespace spacer {
                 srw (fml);
                 SASSERT (!m.is_false (fml));
             }
-            
+
             TRACE ("spacer_mbp",
                    tout << "extended model:\n";
                    model_pp (tout, *M);
                    tout << "Auxiliary variables of index and value sorts:\n";
                    tout << vars;
                    );
-            
+
             if (vars.empty()) { break; }
         }
-        
+
         // project reals and ints
         if (!arith_vars.empty ()) {
             TRACE ("spacer_mbp", tout << "Arith vars:\n" << arith_vars;);
@@ -435,7 +435,7 @@ namespace {
                 // -- (not (xor a b)) == (= a b)
                 if (m.is_xor(nres, f1, f2))
                     { res = m.mk_eq(f1, f2); }
-                
+
                 // -- split arithmetic inequality
                 else if (m.is_eq (nres, f1, f2) && m_arith.is_int_real (f1)) {
                     expr_ref u(m);
@@ -447,8 +447,8 @@ namespace {
                 }
             }
 
-            if (!m_mev.is_true (res)) { 
-                verbose_stream() << "Bad literal: " << mk_pp(res, m) << "\n"; 
+            if (!m_mev.is_true (res)) {
+                verbose_stream() << "Bad literal: " << mk_pp(res, m) << "\n";
             }
             SASSERT (m_mev.is_true (res));
             out.push_back (res);
@@ -460,35 +460,38 @@ namespace {
             expr_ref v(m);
             m_mev.eval (a, v, false);
             bool is_true = m.is_true(v);
-            
+
             if (!is_true && !m.is_false(v)) return;
-            
+
             expr *na, *f1, *f2, *f3;
-            
-            if (a->get_family_id() != m.get_basic_family_id()) { 
-                add_literal(a, out); 
+
+            if (m.is_true(a) || m.is_false(a)) {
+                // noop
             }
-            else if (is_uninterp_const(a)) { 
-                add_literal(a, out); 
+            else if (a->get_family_id() != m.get_basic_family_id()) {
+                add_literal(a, out);
             }
-            else if (m.is_not(a, na)) { 
-                m_todo.push_back(na); 
+            else if (is_uninterp_const(a)) {
+                add_literal(a, out);
+            }
+            else if (m.is_not(a, na)) {
+                m_todo.push_back(na);
             }
             else if (m.is_distinct(a)) {
                 if (!is_true) {
                     f1 = qe::project_plugin::pick_equality(m, *m_mev.get_model(), a);
                     m_todo.push_back(f1);
                 }
-                else if (a->get_num_args() == 2) { 
-                    add_literal(a, out); 
+                else if (a->get_num_args() == 2) {
+                    add_literal(a, out);
                 }
                 else {
                     m_todo.push_back(m.mk_distinct_expanded(a->get_num_args(), a->get_args()));
                 }
-            } 
+            }
             else if (m.is_and(a)) {
-                if (is_true) { 
-                    m_todo.append(a->get_num_args(), a->get_args()); 
+                if (is_true) {
+                    m_todo.append(a->get_num_args(), a->get_args());
                 }
                 else {
                     for (expr* e : *a) {
@@ -498,10 +501,10 @@ namespace {
                         }
                     }
                 }
-            } 
+            }
             else if (m.is_or(a)) {
                 if (!is_true)
-                    m_todo.append(a->get_num_args(), a->get_args()); 
+                    m_todo.append(a->get_num_args(), a->get_args());
                 else {
                     for (expr * e : *a) {
                         if (m_mev.is_true(e)) {
@@ -510,59 +513,59 @@ namespace {
                         }
                     }
                 }
-            } 
+            }
             else if (m.is_eq(a, f1, f2) || (is_true && m.is_not(a, na) && m.is_xor (na, f1, f2))) {
                 if (!m.are_equal(f1, f2) && !m.are_distinct(f1, f2)) {
                     if (m.is_bool(f1) && (!is_uninterp_const(f1) || !is_uninterp_const(f2)))
-                        m_todo.append(a->get_num_args(), a->get_args()); 
+                        m_todo.append(a->get_num_args(), a->get_args());
                     else
-                        add_literal(a, out); 
+                        add_literal(a, out);
                 }
-            } 
+            }
             else if (m.is_ite(a, f1, f2, f3)) {
-                if (m.are_equal(f2, f3)) { 
-                    m_todo.push_back(f2); 
+                if (m.are_equal(f2, f3)) {
+                    m_todo.push_back(f2);
                 }
                 else if (m_mev.is_true (f2) && m_mev.is_true (f3)) {
                     m_todo.push_back(f2);
                     m_todo.push_back(f3);
-                } 
+                }
                 else if (m_mev.is_false(f2) && m_mev.is_false(f3)) {
                     m_todo.push_back(f2);
                     m_todo.push_back(f3);
-                } 
+                }
                 else if (m_mev.is_true(f1)) {
                     m_todo.push_back(f1);
                     m_todo.push_back(f2);
-                } 
+                }
                 else if (m_mev.is_false(f1)) {
                     m_todo.push_back(f1);
                     m_todo.push_back(f3);
                 }
-            } 
-            else if (m.is_xor(a, f1, f2)) { 
-                m_todo.append(a->get_num_args(), a->get_args()); 
+            }
+            else if (m.is_xor(a, f1, f2)) {
+                m_todo.append(a->get_num_args(), a->get_args());
             }
             else if (m.is_implies(a, f1, f2)) {
                 if (is_true) {
-                    if (m_mev.is_true(f2)) 
-                        m_todo.push_back(f2); 
-                    else if (m_mev.is_false(f1)) 
-                        m_todo.push_back(f1); 
-                } 
-                else 
-                    m_todo.append(a->get_num_args(), a->get_args()); 
-            } 
+                    if (m_mev.is_true(f2))
+                        m_todo.push_back(f2);
+                    else if (m_mev.is_false(f1))
+                        m_todo.push_back(f1);
+                }
+                else
+                    m_todo.append(a->get_num_args(), a->get_args());
+            }
             else {
                 IF_VERBOSE(0, verbose_stream () << "Unexpected expression: " << mk_pp(a, m) << "\n");
                 UNREACHABLE();
             }
         }
-        
+
         void pick_literals(expr *e, expr_ref_vector &out)  {
             SASSERT(m_todo.empty());
-            if (m_visited.is_marked(e) || !is_app(e)) return; 
-            
+            if (m_visited.is_marked(e) || !is_app(e)) return;
+
             m_todo.push_back(e);
             do {
                 e = m_todo.back();
@@ -573,14 +576,14 @@ namespace {
                 m_visited.mark(a, true);
             } while (!m_todo.empty());
         }
-        
+
         bool pick_implicant(const expr_ref_vector &in, expr_ref_vector &out) {
             m_visited.reset();
             bool is_true = m_mev.is_true (in);
-            
+
             for (expr* e : in) {
                 if (is_true || m_mev.is_true(e)) {
-                    pick_literals(e, out); 
+                    pick_literals(e, out);
                 }
             }
             m_visited.reset ();
@@ -591,7 +594,7 @@ namespace {
 
         implicant_picker (model_evaluator_util &mev) :
             m_mev (mev), m (m_mev.get_ast_manager ()), m_arith(m), m_todo(m) {}
-        
+
         void operator() (expr_ref_vector &in, expr_ref_vector& out) {
             pick_implicant (in, out);
         }
@@ -605,17 +608,17 @@ namespace {
     }
 
     void simplify_bounds_old(expr_ref_vector& cube) {
-        ast_manager& m = cube.m();        
+        ast_manager& m = cube.m();
         scoped_no_proof _no_pf_(m);
-        goal_ref g(alloc(goal, m, false, false, false));        
-        for (expr* c : cube) 
+        goal_ref g(alloc(goal, m, false, false, false));
+        for (expr* c : cube)
             g->assert_expr(c);
-        
+
         goal_ref_buffer result;
         tactic_ref simplifier = mk_arith_bounds_tactic(m);
         (*simplifier)(g, result);
         SASSERT(result.size() == 1);
-        goal* r = result[0];        
+        goal* r = result[0];
         cube.reset();
         for (unsigned i = 0; i < r->size(); ++i) {
             cube.push_back(r->form(i));
@@ -624,19 +627,19 @@ namespace {
 
     void simplify_bounds_new (expr_ref_vector &cube) {
         ast_manager &m = cube.m();
-        scoped_no_proof _no_pf_(m);        
+        scoped_no_proof _no_pf_(m);
         goal_ref g(alloc(goal, m, false, false, false));
-        for (expr* c : cube) 
+        for (expr* c : cube)
             g->assert_expr(c);
 
         goal_ref_buffer goals;
         tactic_ref prop_values = mk_propagate_values_tactic(m);
         tactic_ref prop_bounds = mk_propagate_ineqs_tactic(m);
         tactic_ref t = and_then(prop_values.get(), prop_bounds.get());
-        
+
         (*t)(g, goals);
         SASSERT(goals.size() == 1);
-        
+
         g = goals[0];
         cube.reset();
         for (unsigned i = 0; i < g->size(); ++i) {
@@ -652,26 +655,26 @@ namespace {
     struct adhoc_rewriter_cfg : public default_rewriter_cfg {
         ast_manager &m;
         arith_util m_util;
-        
+
         adhoc_rewriter_cfg (ast_manager &manager) : m(manager), m_util(m) {}
-        
+
         bool is_le(func_decl const * n) const { return m_util.is_le(n); }
         bool is_ge(func_decl const * n) const { return m_util.is_ge(n); }
-        
+
         br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
                               expr_ref & result, proof_ref & result_pr) {
             expr * e;
-            if (is_le(f)) 
+            if (is_le(f))
                 return mk_le_core (args[0], args[1], result);
-            if (is_ge(f)) 
+            if (is_ge(f))
                 return mk_ge_core (args[0], args[1], result);
             if (m.is_not(f) && m.is_not (args[0], e)) {
                 result = e;
                 return BR_DONE;
-            }        
+            }
             return BR_FAILED;
         }
-        
+
         br_status mk_le_core (expr *arg1, expr * arg2, expr_ref & result) {
             // t <= -1  ==> t < 0 ==> ! (t >= 0)
             if (m_util.is_int (arg1) && m_util.is_minus_one (arg2)) {
@@ -683,7 +686,7 @@ namespace {
         br_status mk_ge_core (expr * arg1, expr * arg2, expr_ref & result) {
             // t >= 1 ==> t > 0 ==> ! (t <= 0)
             if (m_util.is_int (arg1) && is_one (arg2)) {
-                
+
                 result = m.mk_not (m_util.mk_le (arg1, mk_zero ()));
                 return BR_DONE;
             }
@@ -699,7 +702,7 @@ namespace {
                     bool use_simplify_bounds,
                     bool use_factor_eqs)
     {
-        
+
         params_ref params;
         // arith_rewriter
         params.set_bool ("sort_sums", true);
@@ -708,11 +711,11 @@ namespace {
         // poly_rewriter
         params.set_bool ("som", true);
         params.set_bool ("flat", true);
-        
+
         // apply rewriter
         th_rewriter rw(out.m(), params);
         rw (e, out);
-        
+
         adhoc_rewriter_cfg adhoc_cfg(out.m ());
         rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw (out.m (), false, adhoc_cfg);
         adhoc_rw (out.get (), out);
@@ -720,11 +723,11 @@ namespace {
         if (out.m().is_and(out)) {
             expr_ref_vector v(out.m());
             flatten_and (out, v);
-            
+
             if (v.size() > 1) {
                 // sort arguments of the top-level and
                 std::stable_sort (v.c_ptr(), v.c_ptr() + v.size(), ast_lt_proc());
-                
+
                 if (use_simplify_bounds) {
                     // remove redundant inequalities
                     simplify_bounds (v);
@@ -736,7 +739,7 @@ namespace {
                     v.reset();
                     egraph.to_lits(v);
                 }
-                
+
                 TRACE("spacer_normalize",
                       tout << "Normalized:\n"
                       << out << "\n"
@@ -756,21 +759,21 @@ namespace {
     struct adhoc_rewriter_rpp : public default_rewriter_cfg {
         ast_manager &m;
         arith_util m_arith;
-        
+
         adhoc_rewriter_rpp (ast_manager &manager) : m(manager), m_arith(m) {}
-        
+
         bool is_le(func_decl const * n) const { return m_arith.is_le(n); }
         bool is_ge(func_decl const * n) const { return m_arith.is_ge(n); }
         bool is_lt(func_decl const * n) const { return m_arith.is_lt(n); }
         bool is_gt(func_decl const * n) const { return m_arith.is_gt(n); }
         bool is_zero (expr const * n) const {rational val; return m_arith.is_numeral(n, val) && val.is_zero();}
-        
+
         br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
                               expr_ref & result, proof_ref & result_pr)
         {
             br_status st = BR_FAILED;
             expr *e1, *e2, *e3, *e4;
-            
+
             // rewrites (= (+ A (* -1 B)) 0) into (= A B)
             if (m.is_eq (f) && is_zero (args [1]) &&
                 m_arith.is_add (args[0], e1, e2) &&
@@ -826,23 +829,23 @@ namespace {
         mk_pp (t, m, m_epp_params, indent, num_vars, var_prefix), m_epp_expr(m) {
         m_epp_params.set_uint("min_alias_size", UINT_MAX);
         m_epp_params.set_uint("max_depth", UINT_MAX);
-        
+
         if (is_expr (m_ast)) {
             rw(to_expr(m_ast), m_epp_expr);
             m_ast = m_epp_expr;
         }
     }
-    
+
     void mk_epp::rw(expr *e, expr_ref &out) {
         adhoc_rewriter_rpp cfg(out.m());
         rewriter_tpl<adhoc_rewriter_rpp> arw(out.m(), false, cfg);
         arw(e, out);
     }
-    
+
     void ground_expr(expr *e, expr_ref &out, app_ref_vector &vars) {
         expr_free_vars fv;
         ast_manager &m = out.get_manager();
-        
+
         fv(e);
         if (vars.size() < fv.size()) {
             vars.resize(fv.size());
@@ -871,7 +874,7 @@ namespace {
                     if ((m.is_eq(n) || i > 0) && m_var != arg) m_res.push_back (arg);
                     ++i;
                 }
-            } 
+            }
         }
     };
 
@@ -890,7 +893,7 @@ namespace {
 
         TRACE ("mbqi_project_verbose",
                tout << "terms:\n" << terms << "\n";);
-        
+
         for (expr * term : terms) {
             expr_ref tval (m);
             mev.eval (term, tval, false);
@@ -928,8 +931,8 @@ namespace {
         tmp.reset ();
 
         unsigned j = 0;
-        for (app* v : vars) 
-            if (!mbqi_project_var (mev, v, fml)) 
+        for (app* v : vars)
+            if (!mbqi_project_var (mev, v, fml))
                 vars[j++] = v;
         vars.shrink(j);
     }
@@ -958,11 +961,11 @@ namespace {
         array_util      a;
         collect_indices(app_ref_vector& indices): m_indices(indices), a(indices.get_manager()) {}
         void operator()(expr* n) {}
-        void operator()(app* n) { 
-            if (a.is_select (n)) 
-                for (unsigned i = 1; i < n->get_num_args(); ++i) 
-                    if (is_app(n->get_arg(i))) 
-                        m_indices.push_back(to_app(n->get_arg(i)));            
+        void operator()(app* n) {
+            if (a.is_select (n))
+                for (unsigned i = 1; i < n->get_num_args(); ++i)
+                    if (is_app(n->get_arg(i)))
+                        m_indices.push_back(to_app(n->get_arg(i)));
         }
     };
 
@@ -970,15 +973,15 @@ namespace {
         collect_indices ci(indices);
         for_each_expr(ci, fml);
     }
-  
+
     struct collect_decls {
         app_ref_vector& m_decls;
         std::string&    prefix;
         collect_decls(app_ref_vector& decls, std::string& p): m_decls(decls), prefix(p) {}
         void operator()(expr* n) {}
-        void operator()(app* n) { 
+        void operator()(app* n) {
             if (n->get_decl()->get_name().str().find(prefix) != std::string::npos)
-                m_decls.push_back(n); 
+                m_decls.push_back(n);
         }
     };
 
