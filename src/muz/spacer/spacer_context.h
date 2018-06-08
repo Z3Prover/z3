@@ -970,7 +970,8 @@ public:
      * get bottom-up (from query) sequence of ground predicate instances
      * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
      */
-    expr_ref          get_ground_sat_answer ();
+    expr_ref get_ground_sat_answer ();
+    proof_ref get_ground_refutation();
     void get_rules_along_trace (datalog::rule_ref_vector& rules);
 
     void collect_statistics(statistics& st) const;

@@ -36,6 +36,7 @@ Notes:
 #include "muz/base/dl_rule_set.h"
 #include "smt/tactic/unit_subsumption_tactic.h"
 #include "model/model_smt2_pp.h"
+#include "model/model_evaluator.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -52,6 +53,9 @@ Notes:
 #include "ast/expr_abstract.h"
 
 #include "smt/smt_solver.h"
+
+#include "muz/spacer/spacer_sat_answer.h"
+
 namespace spacer {
 
 /// pob -- proof obligation
@@ -2857,19 +2861,31 @@ expr_ref context::mk_unsat_answer() const
     return ex.to_expr();
 }
 
+
+proof_ref context::get_ground_refutation() {
+    if (m_last_result != l_true) {
+        IF_VERBOSE(0, verbose_stream()
+                   << "Sat answer unavailable when result is false\n";);
+        return proof_ref(m);
+    }
+
+    ground_sat_answer_op op(*this);
+    return op(*m_query);
+}
 expr_ref context::get_ground_sat_answer()
 {
     if (m_last_result != l_true) {
-        verbose_stream () << "Sat answer unavailable when result is false\n";
-        return expr_ref (m);
+        IF_VERBOSE(0, verbose_stream()
+                   << "Sat answer unavailable when result is false\n";);
+        return expr_ref(m);
     }
 
     // treat the following as queues: read from left to right and insert at the right
     reach_fact_ref_vector reach_facts;
     ptr_vector<func_decl> preds;
     ptr_vector<pred_transformer> pts;
-    expr_ref_vector cex (m), // pre-order list of ground instances of predicates
-        cex_facts (m); // equalities for the ground cex using signature constants
+    expr_ref_vector cex (m); // pre-order list of ground instances of predicates
+    expr_ref_vector cex_facts (m); // equalities for the ground cex using signature constants
 
     // temporary
     reach_fact *reach_fact;
@@ -2921,6 +2937,7 @@ expr_ref context::get_ground_sat_answer()
         // get child pts
         preds.reset();
         pt->find_predecessors(*r, preds);
+
         for (unsigned j = 0; j < preds.size (); j++) {
             child_pts.push_back (&(get_pred_transformer (preds[j])));
         }
@@ -2936,12 +2953,11 @@ expr_ref context::get_ground_sat_answer()
         SASSERT (child_reach_facts.size () == u_tail_sz);
         for (unsigned i = 0; i < u_tail_sz; i++) {
             expr_ref ofml (m);
-            child_pts.get (i)->get_manager ().formula_n2o
-                (child_reach_facts[i]->get (), ofml, i);
+            m_pm.formula_n2o(child_reach_facts[i]->get(), ofml, i);
             cex_ctx->assert_expr (ofml);
         }
-        cex_ctx->assert_expr (pt->transition ());
-        cex_ctx->assert_expr (pt->rule2tag (r));
+        cex_ctx->assert_expr(pt->transition());
+        cex_ctx->assert_expr(pt->rule2tag(r));
         lbool res = cex_ctx->check_sat(0, nullptr);
         CTRACE("cex", res == l_false,
                tout << "Cex fact: " << mk_pp(cex_fact, m) << "\n";
@@ -2956,40 +2972,35 @@ expr_ref context::get_ground_sat_answer()
         cex_ctx->get_model (local_mdl);
         cex_ctx->pop (1);
 
-        model_evaluator_util mev (m);
-        mev.set_model (*local_mdl);
-        for (unsigned i = 0; i < child_pts.size (); i++) {
-            pred_transformer& ch_pt = *(child_pts.get (i));
-            unsigned sig_size = ch_pt.sig_size ();
-            expr_ref_vector ground_fact_conjs (m);
-            expr_ref_vector ground_arg_vals (m);
+        model_evaluator mev(*local_mdl);
+        for (unsigned i = 0; i < child_pts.size(); i++) {
+            pred_transformer& ch_pt = *(child_pts.get(i));
+            unsigned sig_size = ch_pt.sig_size();
+            expr_ref_vector ground_fact_conjs(m);
+            expr_ref_vector ground_arg_vals(m);
             for (unsigned j = 0; j < sig_size; j++) {
-                expr_ref sig_arg (m), sig_val (m);
-                sig_arg = m.mk_const (ch_pt.get_manager ().o2o (ch_pt.sig (j), 0, i));
+                expr_ref sig_arg(m), sig_val(m);
+                sig_arg = m.mk_const (m_pm.o2o(ch_pt.sig(j), 0, i));
                 VERIFY(mev.eval (sig_arg, sig_val, true));
-                ground_fact_conjs.push_back (m.mk_eq (sig_arg, sig_val));
-                ground_arg_vals.push_back (sig_val);
+                ground_fact_conjs.push_back(m.mk_eq(sig_arg, sig_val));
+                ground_arg_vals.push_back(sig_val);
             }
             if (ground_fact_conjs.size () > 0) {
-                expr_ref ground_fact (m);
-                ground_fact = m.mk_and (ground_fact_conjs.size (), ground_fact_conjs.c_ptr ());
-                ch_pt.get_manager ().formula_o2n (ground_fact, ground_fact, i);
+                expr_ref ground_fact(m);
+                ground_fact = mk_and(ground_fact_conjs);
+                m_pm.formula_o2n(ground_fact, ground_fact, i);
                 cex_facts.push_back (ground_fact);
             } else {
                 cex_facts.push_back (m.mk_true ());
             }
-            cex.push_back (m.mk_app (ch_pt.head (), sig_size, ground_arg_vals.c_ptr ()));
+            cex.push_back(m.mk_app(ch_pt.head(),
+                                   sig_size, ground_arg_vals.c_ptr()));
         }
     }
 
-    TRACE ("spacer",
-           tout << "ground cex\n";
-           for (unsigned i = 0; i < cex.size (); i++) {
-               tout << mk_pp (cex.get (i), m) << "\n";
-           }
-        );
+    TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
 
-    return expr_ref (m.mk_and (cex.size (), cex.c_ptr ()), m);
+    return expr_ref(m.mk_and(cex.size(), cex.c_ptr()), m);
 }
 
 ///this is where everything starts
