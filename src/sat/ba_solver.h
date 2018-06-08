@@ -124,8 +124,8 @@ namespace sat {
         protected:
             unsigned       m_k;
         public:
-            pb_base(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): constraint(t, id, l, sz, osz), m_k(k) {}
-            virtual void set_k(unsigned k) { m_k = k; }
+            pb_base(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): constraint(t, id, l, sz, osz), m_k(k) { VERIFY(k < 4000000000); }
+            virtual void set_k(unsigned k) { VERIFY(k < 4000000000);  m_k = k; }
             virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
             unsigned k() const { return m_k; }
             virtual bool well_formed() const;
@@ -157,7 +157,6 @@ namespace sat {
             unsigned       m_num_watch;
             unsigned       m_max_sum;
             wliteral       m_wlits[0];
-            void update_max_sum();
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
             pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
@@ -171,10 +170,11 @@ namespace sat {
             void set_slack(unsigned s) { m_slack = s; }
             unsigned num_watch() const { return m_num_watch; }
             unsigned max_sum() const { return m_max_sum; }
+            void update_max_sum();
             void set_num_watch(unsigned s) { m_num_watch = s; }
             bool is_cardinality() const;
             virtual void negate();                       
-            virtual void set_k(unsigned k) { m_k = k; update_max_sum(); }
+            virtual void set_k(unsigned k) { m_k = k; VERIFY(k < 4000000000); update_max_sum(); }
             virtual void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
             virtual literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
             virtual bool is_watching(literal l) const;
