@@ -53,7 +53,7 @@ ground_sat_answer_op::ground_sat_answer_op(context &ctx) :
 proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
 
 
-    vector<frame> todo;
+    vector<frame> todo, new_todo;
 
     // -- find substitution for a query if query is not nullary
     expr_ref_vector qsubst(m);
@@ -73,29 +73,32 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         }
     }
 
-    frame root(query.get_last_rf(), query, qsubst);
-    todo.push_back(root);
+    todo.push_back(frame(query.get_last_rf(), query, qsubst));
+    expr_ref root_fact(m);
+    root_fact = todo.back().fact();
 
     while (!todo.empty()) {
         frame &curr = todo.back();
-        if (m_cache.contains(curr.fact()))
-        {
+        if (m_cache.contains(curr.fact())) {
             todo.pop_back();
             continue;
         }
 
         if (curr.m_visit == 0) {
-            mk_children(curr, todo);
+            new_todo.reset();
+            mk_children(curr, new_todo);
             curr.m_visit = 1;
+            // curr becomes invalid
+            todo.append(new_todo);
         }
         else {
             proof* pf = mk_proof_step(curr);
+            m_pinned.push_back(curr.fact());
             m_cache.insert(curr.fact(), pf);
             todo.pop_back();
         }
-
     }
-    return proof_ref(m_cache.find(root.fact()), m);
+    return proof_ref(m_cache.find(root_fact), m);
 }
 
 
@@ -120,7 +123,7 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
 
     lbool res = m_solver->check_sat(0, nullptr);
     (void)res;
-    SASSERT(res == l_true);
+    VERIFY(res == l_true);
 
     model_ref mdl;
     m_solver->get_model(mdl);
@@ -155,9 +158,16 @@ proof *ground_sat_answer_op::mk_proof_step(frame &fr) {
     datalog::rule_manager &rm = m_ctx.get_datalog_context().get_rule_manager();
     expr_ref rule_fml(m);
     rm.to_formula(fr.rule(), rule_fml);
+    // premises.push_back(fr.rule().get_proof());
     premises.push_back(m.mk_asserted(rule_fml));
     for (auto &k : fr.m_kids) {premises.push_back(m_cache.find(k));}
 
+    for (unsigned i = 0; i < premises.size(); i++) {
+        positions.push_back(std::make_pair(0,i));
+    }
+    for (unsigned i = 0; i <= premises.size(); i++) {
+        substs.push_back(expr_ref_vector(m));
+    }
     m_pinned.push_back(m.mk_hyper_resolve(premises.size(),
                                           premises.c_ptr(),
                                           fr.fact(),
