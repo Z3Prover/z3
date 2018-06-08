@@ -126,33 +126,35 @@ bool prepare_pivot_for_lower_triangle(M &m, unsigned r) {
 }
 
 template <typename M> 
-void pivot_column_non_fractional(M &m, unsigned r) {
+void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & big_number) {
     lp_assert(!is_zero(m[r][r]));
     for (unsigned j = r + 1; j < m.column_count(); j++) {
-        for (unsigned i = r + 1; i  < m.row_count(); i++) {
+        for (unsigned i = r + 1; i  < m.row_count(); i++) {            
             m[i][j] =
                 (r > 0) ?
                 (m[r][r]*m[i][j] - m[i][r]*m[r][j]) / m[r-1][r-1] :
                 (m[r][r]*m[i][j] - m[i][r]*m[r][j]);
+            if (m[i][j] >= big_number) {
+                overflow = true;
+                return;
+            }
+                
             lp_assert(is_int(m[i][j]));
         }
     }
-    // debug
-    for (unsigned k = r + 1; k < m.row_count(); k++) {
-        m[k][r] = zero_of_type<mpq>();
-    }
-    
 }
 
 // returns the rank of the matrix
 template <typename M> 
-unsigned to_lower_triangle_non_fractional(M &m) {
+unsigned to_lower_triangle_non_fractional(M &m, bool & overflow, const mpq& big_number) {
     unsigned i = 0;
     for (; i < m.row_count(); i++) {
         if (!prepare_pivot_for_lower_triangle(m, i)) {
             return i;
         }
-        pivot_column_non_fractional(m, i);
+        pivot_column_non_fractional(m, i, overflow, big_number);
+        if (overflow)
+            return 0;
     }
     lp_assert(i == m.row_count());
     return i; 
@@ -184,9 +186,12 @@ mpq gcd_of_row_starting_from_diagonal(const M& m, unsigned i) {
 // The gcd of these minors is the return value.
  
 template <typename M> 
-mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows) {
+mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows, const mpq& big_number) {
     auto m_copy = m;
-    unsigned rank = to_lower_triangle_non_fractional(m_copy);
+    bool overflow = false;
+    unsigned rank = to_lower_triangle_non_fractional(m_copy, overflow, big_number);
+    if (overflow)
+        return big_number;
     if (rank == 0)
         return one_of_type<mpq>();
 
@@ -216,9 +221,8 @@ class hnf {
     M            m_H;
     M            m_U;
     M            m_U_reverse;
-#endif
-
     M            m_A_orig;
+#endif
     M            m_W;
     vector<mpq>  m_buffer;
     unsigned     m_m;
@@ -529,14 +533,14 @@ private:
     // with some changes related to that we create a low triangle matrix
     // with non-positive elements under the diagonal
     void process_column_in_row_modulo() {
-        mpq& aii = m_W[m_i][m_i];
+        const mpq& aii = m_W[m_i][m_i];
         const mpq& aij = m_W[m_i][m_j];
         mpq d, p,q;
         hnf_calc::extended_gcd_minimal_uv(aii, aij, d, p, q);
         if (is_zero(d))
             return;
-        mpq aii_over_d = aii / d;
-        mpq aij_over_d = aij / d;
+        mpq aii_over_d = mod_R(aii / d);
+        mpq aij_over_d = mod_R(aij / d);
         buffer_p_col_i_plus_q_col_j_W_modulo(p, q);
         pivot_column_i_to_column_j_W_modulo(- aij_over_d, aii_over_d);
         copy_buffer_to_col_i_W_modulo();

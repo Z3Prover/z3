@@ -416,6 +416,8 @@ impq int_solver::get_cube_delta_for_term(const lar_term& t) const {
         bool seen_minus = false;
         bool seen_plus = false;
         for(const auto & p : t) {
+            if (!is_int(p.var()))
+                goto usual_delta;
             const mpq & c = p.coeff();
             if (c == one_of_type<mpq>()) {
                 seen_plus = true;
@@ -431,9 +433,10 @@ impq int_solver::get_cube_delta_for_term(const lar_term& t) const {
     }
  usual_delta:
     mpq delta = zero_of_type<mpq>();
-    for (const auto & p : t) {
-        delta += abs(p.coeff());
-    }
+    for (const auto & p : t)
+        if (is_int(p.var()))
+            delta += abs(p.coeff());
+    
     delta *= mpq(1, 2);
     return impq(delta);
 }
@@ -443,7 +446,6 @@ bool int_solver::tighten_term_for_cube(unsigned i) {
     if (!m_lar_solver->term_is_used_as_row(ti))
         return true;
     const lar_term* t = m_lar_solver->terms()[i];
-    
     impq delta = get_cube_delta_for_term(*t);
     TRACE("cube", m_lar_solver->print_term_as_indices(*t, tout); tout << ", delta = " << delta;);
     if (is_zero(delta))
@@ -533,20 +535,28 @@ lia_move int_solver::gomory_cut() {
 void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     mpq rs;
     const lar_term* t = m_lar_solver->terms()[i];
-#if Z3DEBUG
-    for (const auto & p : *t) {
-        if (!is_int(p.var())) {
-            lp_assert(false); 
-        }
-    }
-#endif
     constraint_index ci;
-    if (m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci)) {
+    if (!hnf_cutter_is_full() && m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci)) {
         m_hnf_cutter.add_term(t, rs, ci);
     }
 }
 
-bool int_solver::hnf_has_non_integral_var() const {
+bool int_solver::hnf_cutter_is_full() const {
+    return
+        m_hnf_cutter.terms_count() >= settings().limit_on_rows_for_hnf_cutter
+                                     ||
+        m_hnf_cutter.vars().size() >= settings().limit_on_columns_for_hnf_cutter;
+}
+
+lp_settings& int_solver::settings() {
+    return m_lar_solver->settings();
+}
+
+const lp_settings& int_solver::settings() const {
+    return m_lar_solver->settings();
+}
+
+bool int_solver::hnf_has_var_with_non_integral_value() const {
     for (unsigned j : m_hnf_cutter.vars())
         if (get_value(j).is_int() == false)
             return true;
@@ -555,10 +565,10 @@ bool int_solver::hnf_has_non_integral_var() const {
 
 bool int_solver::init_terms_for_hnf_cut() {
     m_hnf_cutter.clear();
-    for (unsigned i = 0; i < m_lar_solver->terms().size() && m_hnf_cutter.row_count() < settings().limit_on_rows_for_hnf_cutter; i++) {
+    for (unsigned i = 0; i < m_lar_solver->terms().size() && !hnf_cutter_is_full(); i++) {
         try_add_term_to_A_for_hnf(i);
     }
-    return hnf_has_non_integral_var();
+    return hnf_has_var_with_non_integral_value();
 }
 
 lia_move int_solver::make_hnf_cut() {
@@ -583,7 +593,7 @@ lia_move int_solver::make_hnf_cut() {
         for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
              m_ex->push_justification(i);
         }
-    }
+    } 
     return r;
 }
 
@@ -609,7 +619,6 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     r = patch_nbasic_columns();
     if (r != lia_move::undef) return r;
     ++m_branch_cut_counter;
-
     r = find_cube();
     if (r != lia_move::undef) return r;
     
@@ -697,14 +706,12 @@ void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
     m_lar_solver->change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
-void int_solver::patch_nbasic_column(unsigned j) {
+void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver; 
     impq & val = lcs.m_r_x[j];
     bool val_is_int = val.is_int();
-    if (settings().m_int_patch_only_integer_values) {
-        if (!val_is_int)
+    if (patch_only_int_vals && !val_is_int)
             return;
-    }
         
     bool inf_l, inf_u;
     impq l, u;
@@ -754,7 +761,7 @@ lia_move int_solver::patch_nbasic_columns() {
     settings().st().m_patches++;
     lp_assert(is_feasible());
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
-        patch_nbasic_column(j);
+        patch_nbasic_column(j, settings().m_int_patch_only_integer_values);
     }
     lp_assert(is_feasible());
     if (!has_inf_int()) {
@@ -1126,12 +1133,6 @@ bool int_solver::at_upper(unsigned j) const {
     default:
         return false;
     }
-}
-
-
-
-lp_settings& int_solver::settings() {
-    return m_lar_solver->settings();
 }
 
 void int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {

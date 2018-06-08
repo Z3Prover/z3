@@ -50,6 +50,7 @@ public:
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
+    lia_move check_(lar_term& t, mpq& k, explanation& ex, bool & upper);
     bool move_non_basic_column_to_bounds(unsigned j);
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
@@ -100,6 +101,7 @@ private:
     int find_inf_int_boxed_base_column_with_smallest_range(unsigned&);
     int get_kth_inf_int(unsigned) const;
     lp_settings& settings();
+    const lp_settings& settings() const;
     bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
     lia_move mk_gomory_cut(unsigned inf_col, const row_strip<mpq>& row);
@@ -157,7 +159,8 @@ public:
     bool init_terms_for_hnf_cut();
     bool hnf_matrix_is_empty() const;
     void try_add_term_to_A_for_hnf(unsigned term_index);
-    bool hnf_has_non_integral_var() const;
-    void patch_nbasic_column(unsigned j);
+    bool hnf_has_var_with_non_integral_value() const;
+    bool hnf_cutter_is_full() const;
+    void patch_nbasic_column(unsigned j, bool patch_only_int_vals);
 };
 }

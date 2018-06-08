@@ -200,6 +200,7 @@ public:
     bool             m_int_pivot_fixed_vars_from_basis;
     bool             m_int_patch_only_integer_values;
     unsigned         limit_on_rows_for_hnf_cutter;
+    unsigned         limit_on_columns_for_hnf_cutter;
 
     unsigned random_next() { return m_rand(); }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
@@ -219,10 +220,10 @@ public:
                     reps_in_scaler(20),
                     pivot_epsilon(0.00000001),
                     positive_price_epsilon(1e-7),
-                    entering_diag_epsilon ( 1e-8),
-                    c_partial_pivoting ( 10), // this is the constant c from page 410
-                    depth_of_rook_search ( 4),
-                    using_partial_pivoting ( true),
+                    entering_diag_epsilon (1e-8),
+                    c_partial_pivoting (10), // this is the constant c from page 410
+                    depth_of_rook_search (4),
+                    using_partial_pivoting (true),
                     // dissertation of Achim Koberstein
                     // if Bx - b is different at any component more that refactor_epsilon then we refactor
                     refactor_tolerance ( 1e-4),
@@ -264,7 +265,8 @@ public:
                     m_chase_cut_solver_cycle_on_var(10),
                     m_int_pivot_fixed_vars_from_basis(false),
                     m_int_patch_only_integer_values(true),
-                    limit_on_rows_for_hnf_cutter(75)
+                    limit_on_rows_for_hnf_cutter(75),
+                    limit_on_columns_for_hnf_cutter(150)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }

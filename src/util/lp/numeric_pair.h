@@ -285,7 +285,9 @@ class numeric_traits<lp::numeric_pair<T>> {
         return numeric_traits<T>::is_neg(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_neg(p.y));
     }
-
+    static bool is_int(const numeric_pair<T> & p) {
+        return numeric_traits<T>::is_int(p.x) && numeric_traits<T>::is_zero(p.y);
+    }
 };
 
 template <>

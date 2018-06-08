@@ -319,7 +319,8 @@ class theory_lra::imp {
     void ensure_nra() {
         if (!m_nra) {
             m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
-            for (unsigned i = 0; i < m_scopes.size(); ++i) {
+            for (auto const& _s : m_scopes) {
+                (void)_s;
                 m_nra->push();
             }
         }
@@ -418,14 +419,63 @@ class theory_lra::imp {
                 terms[index] = n1;
             }
             else if (is_app(n) && a.get_family_id() == to_app(n)->get_family_id()) {
+                bool is_first = !ctx().e_internalized(n);
                 app* t = to_app(n);
-                found_not_handled(n);
                 internalize_args(t);
                 mk_enode(t);
+				
                 theory_var v = mk_var(n);
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
                 ++index;
+                if (!is_first) {
+                    // skip recursive internalization
+                }
+                else if (a.is_to_int(n, n1)) {
+                    if (!ctx().relevancy())
+                        mk_to_int_axiom(t);
+                }
+                else if (a.is_to_real(n, n1)) {
+                    theory_var v1 = mk_var(n1);
+                    internalize_eq(v, v1);                    
+                }
+                else if (a.is_idiv(n, n1, n2)) {
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    app * mod = a.mk_mod(n1, n2);
+                    ctx().internalize(mod, false);
+                    if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
+                }
+                else if (a.is_mod(n, n1, n2)) {
+                    bool is_num = a.is_numeral(n2, r) && !r.is_zero();
+                    if (!is_num) {
+                        found_not_handled(n);
+                    }
+                    else {
+                        app_ref div(a.mk_idiv(n1, n2), m);
+                        mk_enode(div);
+                        theory_var w = mk_var(div);
+                        theory_var u = mk_var(n1);
+                        // add axioms: 
+                        // u = v + r*w
+                        // abs(r) > v >= 0
+                        assert_idiv_mod_axioms(u, v, w, r);
+                    }
+                    if (!ctx().relevancy() && !is_num) mk_idiv_mod_axioms(n1, n2);                    
+                }
+                else if (a.is_rem(n, n1, n2)) {
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
+                }
+                else if (a.is_div(n, n1, n2)) {
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
+                }
+                else if (a.is_power(n)) {
+                    found_not_handled(n);
+                }
+                else {
+                    found_not_handled(n);
+                }
             }
             else {
                 if (is_app(n)) {
@@ -629,6 +679,11 @@ class theory_lra::imp {
         ++m_stats.m_add_rows;
         TRACE("arith", m_solver->print_constraint(index, tout); tout << "\n";);
     }
+
+    void add_def_constraint(lp::constraint_index index) {
+        m_constraint_sources.setx(index, definition_source, null_source);
+        ++m_stats.m_add_rows;
+    }
         
     void add_def_constraint(lp::constraint_index index, theory_var v) {
         m_constraint_sources.setx(index, definition_source, null_source);
@@ -639,13 +694,12 @@ class theory_lra::imp {
     void internalize_eq(theory_var v1, theory_var v2) {                  
         enode* n1 = get_enode(v1);
         enode* n2 = get_enode(v2);
-        scoped_internalize_state st(*this);
-        st.vars().push_back(v1);
-        st.vars().push_back(v2);
-        st.coeffs().push_back(rational::one());
-        st.coeffs().push_back(rational::minus_one());
-        init_left_side(st);
-        add_eq_constraint(m_solver->add_constraint(m_left_side, lp::EQ, rational::zero()), n1, n2);
+        expr* o1 = n1->get_owner();
+        expr* o2 = n2->get_owner();
+        app_ref term(a.mk_sub(o1, o2), m);
+        theory_var z = internalize_def(term);
+        lp::var_index vi = get_var_index(z);
+        add_eq_constraint(m_solver->add_var_bound(vi, lp::EQ, rational::zero()), n1, n2);
         TRACE("arith", 
               tout << "v" << v1 << " = " << "v" << v2 << ": "
               << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";);
@@ -947,6 +1001,23 @@ public:
         mk_axiom(is_int, ~eq);
     }
 
+    // create axiom for 
+    //    u = v + r*w,
+    ///   abs(r) > r >= 0
+    void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r) {
+        app_ref term(m);
+        term = a.mk_sub(get_enode(u)->get_owner(), 
+                        a.mk_add(get_enode(v)->get_owner(),
+                                 a.mk_mul(a.mk_numeral(r, true), 
+                                          get_enode(w)->get_owner())));
+        theory_var z = internalize_def(term);
+        lp::var_index vi = get_var_index(z);
+        add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero()));
+        add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero()));
+        add_def_constraint(m_solver->add_var_bound(get_var_index(v), lp::GE, rational::zero()));
+        add_def_constraint(m_solver->add_var_bound(get_var_index(v), lp::LT, abs(r)));
+    }
+
     void mk_idiv_mod_axioms(expr * p, expr * q) {
         if (a.is_zero(q)) {
             return;
@@ -966,6 +1037,7 @@ public:
         // q <= 0 or (p mod q) >= 0
         // q <= 0 or (p mod q) <  q
         // q >= 0 or (p mod q) < -q
+        // enable_trace("mk_bool_var");
         mk_axiom(q_ge_0, eq);
         mk_axiom(q_le_0, eq);
         mk_axiom(q_ge_0, mod_ge_0);
@@ -1001,26 +1073,22 @@ public:
         ctx().mk_th_axiom(get_id(), l1, l2);
         if (ctx().relevancy()) {
             ctx().mark_as_relevant(l1);
-            expr_ref e(m);
-            ctx().literal2expr(l2, e);
-            ctx().add_rel_watch(~l1, e);
+            ctx().add_rel_watch(~l1, ctx().bool_var2expr(l2.var()));
         }
     }
 
     void mk_axiom(literal l1, literal l2, literal l3) {
         ctx().mk_th_axiom(get_id(), l1, l2, l3);
         if (ctx().relevancy()) {
-            expr_ref e(m);
             ctx().mark_as_relevant(l1);
-            ctx().literal2expr(l2, e);
-            ctx().add_rel_watch(~l1, e);
-            ctx().literal2expr(l3, e);
-            ctx().add_rel_watch(~l2, e);
+            ctx().add_rel_watch(~l1, ctx().bool_var2expr(l2.var()));
+            ctx().add_rel_watch(~l2, ctx().bool_var2expr(l3.var()));
         }
     }
 
     literal mk_literal(expr* e) {
         expr_ref pinned(e, m);
+        TRACE("mk_bool_var", tout << pinned << " " << pinned->get_id() << "\n";);
         if (!ctx().e_internalized(e)) {
             ctx().internalize(e, false);
         }
@@ -2606,33 +2674,15 @@ public:
     }
 
     theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
-        lp::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
-        vector<std::pair<rational, lp::var_index> > coeffs;
-        rational coeff(0);
-        //
-        // TBD: change API for maximize_term to take a proper term as input.
-        // 
-        if (m_solver->is_term(vi)) {
-            const lp::lar_term& term = m_solver->get_term(vi);
-            for (auto & ti : term.m_coeffs) {
-                SASSERT(!m_solver->is_term(ti.first));
-                coeffs.push_back(std::make_pair(ti.second, ti.first));
-            }
-            coeff = term.m_v;
-        }
-        else {
-            coeffs.push_back(std::make_pair(rational::one(), vi));
-            coeff = rational::zero();
-        }
         lp::impq term_max;
-        lp::lp_status st = m_solver->maximize_term(coeffs, term_max);
+        lp::lp_status st = m_solver->maximize_term(v, term_max);
+        inf_rational val(term_max.x, term_max.y);
         if (st == lp::lp_status::OPTIMAL) {
             blocker = mk_gt(v);
-            inf_rational val(term_max.x + coeff, term_max.y);
             return inf_eps(rational::zero(), val);
         } if (st == lp::lp_status::FEASIBLE) {
-            lp_assert(false); // not implemented
-            // todo: what to return?
+            // todo , TODO , not sure what happens here
+            return inf_eps(rational::zero(), val);
         }
         else {
             SASSERT(st == lp::lp_status::UNBOUNDED);

@@ -973,6 +973,8 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_ba
     indexed_vector<T> w(m_basis.size()); // the buffer
     unsigned i = m_basis_heading[basic_j];
     for (auto &c : m_A.m_rows[i]) {
+        if (c.var() == basic_j)
+            continue;
         if (pivot_column_general(c.var(), basic_j, w))
             return true;
     }

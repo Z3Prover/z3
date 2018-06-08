@@ -31,15 +31,18 @@ class hnf_cutter {
     vector<const lar_term*>    m_terms;
     svector<constraint_index>  m_constraints_for_explanation;
     vector<mpq>                m_right_sides;
-    unsigned                   m_row_count;
-    unsigned                   m_column_count;
     lp_settings &              m_settings;
-    
+    mpq                        m_abs_max;
+    bool                       m_overflow;
 public:
-    hnf_cutter(lp_settings & settings) : m_row_count(0), m_column_count(0), m_settings(settings) {}
 
-    unsigned row_count() const {
-        return m_row_count;
+    const mpq & abs_max() const { return m_abs_max; }
+    
+    hnf_cutter(lp_settings & settings) : m_settings(settings),
+                                         m_abs_max(zero_of_type<mpq>()) {}
+
+    unsigned terms_count() const {
+        return m_terms.size();
     }
 
     const vector<const lar_term*>& terms() const { return m_terms; }
@@ -52,8 +55,9 @@ public:
         m_var_register.clear();
         m_terms.clear();
         m_constraints_for_explanation.clear();
-        m_right_sides.clear();        
-        m_row_count = m_column_count = 0;
+        m_right_sides.clear();
+        m_abs_max = zero_of_type<mpq>();
+        m_overflow = false;
     }
     void add_term(const lar_term* t, const mpq &rs, constraint_index ci) {
         m_terms.push_back(t);
@@ -61,12 +65,12 @@ public:
         m_constraints_for_explanation.push_back(ci);
         for (const auto &p : *t) {
             m_var_register.add_var(p.var());
-        }
-        if (m_terms.size() <= m_var_register.size()) { // capture the maximal acceptable sizes
-            m_row_count = m_terms.size();
-            m_column_count = m_var_register.size();
+            mpq t = abs(ceil(p.coeff()));
+            if (t > m_abs_max)
+                m_abs_max = t;
         }
     }
+    
     void print(std::ostream & out) {
         out << "terms = " << m_terms.size() << ", var = " << m_var_register.size() << std::endl;
     }
@@ -76,10 +80,8 @@ public:
     }
 
     void init_matrix_A() {
-        m_A = general_matrix(m_row_count, m_column_count);
-        // use the last suitable counts to make the number
-        // of rows less than or equal to the number of columns
-        for (unsigned i = 0; i < m_row_count; i++)
+        m_A = general_matrix(terms_count(), vars().size());
+        for (unsigned i = 0; i < terms_count(); i++)
             initialize_row(i);
     }
 
@@ -123,7 +125,6 @@ public:
         return ret;
     }
 
-
     // fills e_i*H_minus_1
     void get_ei_H_minus_1(unsigned i, const general_matrix& H, vector<mpq> & row) {
         // we solve x = ei * H_min_1
@@ -141,29 +142,28 @@ public:
             row[k] = -t / H[k][k]; 
         }
 
-        // test region
-        vector<mpq> ei(H.row_count(), zero_of_type<mpq>());
-        ei[i] = one_of_type<mpq>();
-        vector<mpq> pr = row * H;
-        pr.shrink(ei.size());
-        lp_assert(ei == pr);
-        // end test region
+        // // test region
+        // vector<mpq> ei(H.row_count(), zero_of_type<mpq>());
+        // ei[i] = one_of_type<mpq>();
+        // vector<mpq> pr = row * H;
+        // pr.shrink(ei.size());
+        // lp_assert(ei == pr);
+        // // end test region
         
     }
 
     void fill_term(const vector<mpq> & row, lar_term& t) {
         for (unsigned j = 0; j < row.size(); j++) {
             if (!is_zero(row[j]))
-                t.add_monomial(row[j], m_var_register.local_var_to_user_var(j));
+                t.add_monomial(row[j], m_var_register.local_to_external(j));
         }
     }
 #ifdef Z3DEBUG
     vector<mpq> transform_to_local_columns(const vector<impq> & x) const {
         vector<mpq> ret;
-        lp_assert(m_column_count <= m_var_register.size());
-        for (unsigned j = 0; j < m_column_count;j++) {
-            lp_assert(is_zero(x[m_var_register.local_var_to_user_var(j)].y));
-            ret.push_back(x[m_var_register.local_var_to_user_var(j)].x);
+        for (unsigned j = 0; j < vars().size(); j++) {
+            lp_assert(is_zero(x[m_var_register.local_to_external(j)].y));
+            ret.push_back(x[m_var_register.local_to_external(j)].x);
         }
         return ret;
     }
@@ -176,6 +176,8 @@ public:
         m_constraints_for_explanation = new_expl;
     }
 
+    bool overflow() const { return m_overflow; }
+    
     lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper
                         #ifdef Z3DEBUG
                         ,
@@ -185,7 +187,16 @@ public:
         // we suppose that x0 has at least one non integer element 
         init_matrix_A();
         svector<unsigned> basis_rows;
-        mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows);
+        mpq big_number = m_abs_max.expt(3);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows, big_number);
+        
+        //        std::cout << "max = " << m_abs_max << ", d = " << d << ", d/max = " << ceil (d /m_abs_max) << std::endl;
+        //std::cout << "max cube " << m_abs_max * m_abs_max * m_abs_max << std::endl;
+
+        if (d >= big_number) {
+            return lia_move::undef;
+        }
+        
         if (m_settings.get_cancel_flag())
             return lia_move::undef;
         if (basis_rows.size() < m_A.row_count()) {

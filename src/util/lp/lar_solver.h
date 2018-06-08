@@ -47,15 +47,6 @@ namespace lp {
 
 
 class lar_solver : public column_namer {
-    class ext_var_info {
-        unsigned m_internal_j; // the internal index
-        bool m_is_integer;
-    public:
-        ext_var_info(unsigned j, var_index internal_j): ext_var_info(j, false) {}
-        ext_var_info(unsigned j , bool is_int) : m_internal_j(j), m_is_integer(is_int) {}
-        unsigned internal_j() const { return m_internal_j;}
-        bool is_integer() const {return m_is_integer;}
-    };
 #if Z3DEBUG_CHECK_UNIQUE_TERMS
     struct term_hasher {
         std::size_t operator()(const lar_term *t) const
@@ -100,8 +91,7 @@ class lar_solver : public column_namer {
     lp_settings                                         m_settings;
     lp_status                                           m_status;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
-    std::unordered_map<unsigned, ext_var_info>          m_ext_vars_to_columns;
-    vector<unsigned>                                    m_columns_to_ext_vars_or_term_indices;
+    var_register m_var_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     vector<lar_base_constraint*>                        m_constraints;
 private:
@@ -119,8 +109,6 @@ public:
     lar_core_solver                                     m_mpq_lar_core_solver;
 private:
     int_solver *                                        m_int_solver;
-    bool                                                m_has_int_var;
-
     
 public :
     unsigned terms_start_index() const { return m_terms_start_index; }
@@ -311,21 +299,21 @@ public:
     
     vector<constraint_index> get_all_constraint_indices() const;
 
-    bool maximize_term_on_tableau(const vector<std::pair<mpq, var_index>> & term,
+    bool maximize_term_on_tableau(const lar_term & term,
                                   impq &term_max);
 
     bool costs_are_zeros_for_r_solver() const;
     bool reduced_costs_are_zeroes_for_r_solver() const;
     
-    void set_costs_to_zero(const vector<std::pair<mpq, var_index>> & term);
+    void set_costs_to_zero(const lar_term & term);
 
-    void prepare_costs_for_r_solver(const vector<std::pair<mpq, var_index>> & term);
+    void prepare_costs_for_r_solver(const lar_term & term);
     
-    bool maximize_term_on_corrected_r_solver(const vector<std::pair<mpq, var_index>> & term,
+    bool maximize_term_on_corrected_r_solver(lar_term & term,
                                              impq &term_max);    
     // starting from a given feasible state look for the maximum of the term
     // return true if found and false if unbounded
-    lp_status maximize_term(const vector<std::pair<mpq, var_index>> & term,
+    lp_status maximize_term(unsigned ext_j ,
                             impq &term_max);
     
 
@@ -578,7 +566,7 @@ public:
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
-    var_index to_var_index(unsigned ext_j) const;
+    var_index to_column(unsigned ext_j) const;
     bool tighten_term_bounds_by_delta(unsigned, const impq&);
     void round_to_integer_solution();
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
@@ -588,5 +576,6 @@ public:
     const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
     bool get_equality_and_right_side_for_term_on_current_x(unsigned i, mpq &rs, constraint_index& ci) const;
     bool remove_from_basis(unsigned);
+    lar_term get_term_to_maximize(unsigned ext_j) const;
 };
 }

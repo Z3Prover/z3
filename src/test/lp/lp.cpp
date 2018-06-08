@@ -1943,6 +1943,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--test_mpq", "test rationals");
     parser.add_option_with_help_string("--test_mpq_np", "test rationals");
     parser.add_option_with_help_string("--test_mpq_np_plus", "test rationals using plus instead of +=");
+    parser.add_option_with_help_string("--maximize_term", "test maximize_term()");
 }
 
 struct fff { int a; int b;};
@@ -2491,6 +2492,8 @@ void test_lar_solver(argument_parser & args_parser) {
             test_lar_on_file(fn, args_parser);
         return;
     }
+
+    std::cout << "give option --file or --filelist to test_lar_solver\n";
 }
 
 void test_numeric_pair() {
@@ -3302,7 +3305,7 @@ void test_determinant() {
         M[2][0] = 0; M[2][1] =  1; M[2][2] = 4;
         svector<unsigned> r;
         std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
-        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r, mpq((int)100000));
         std::cout << "det M = " << d  << std::endl;
         std::cout << "rank = " << r.size() << std::endl;
     }
@@ -3314,7 +3317,7 @@ void test_determinant() {
         M[3][0] = 6; M[3][1] = -2; M[3][2] = 2; M[3][3] = 2; M[3][4] = 6; M[3][5] =  -2;
         svector<unsigned> r;
         std::cout << "M = "; M.print(std::cout, 4); endl(std::cout);
-        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(M, r, mpq((int)1000000));
         std::cout << "det M = " << d  << std::endl;
         std::cout << "rank = " << r.size() << std::endl;
     }
@@ -3333,7 +3336,7 @@ void fill_general_matrix(general_matrix & M) {
 
 void call_hnf(general_matrix& A) {
     svector<unsigned> r;
-    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r);
+    mpq d = hnf_calc::determinant_of_rectangular_matrix(A, r, mpq((int)1000000000));
     A.shrink_to_rank(r);
     hnf<general_matrix> h(A, d);
 }
@@ -3509,7 +3512,50 @@ void test_larger_generated_hnf() {
     call_hnf(A);
     std::cout << "test_larger_generated_rank_hnf passed" << std::endl;
 }
-
+#endif
+void test_maximize_term() {
+    std::cout << "test_maximize_term\n";
+    lar_solver solver;
+    int_solver i_solver(&solver); // have to create it too
+    unsigned _x = 0;
+    unsigned _y = 1;
+    var_index x = solver.add_var(_x, false);
+    var_index y = solver.add_var(_y, true);
+    vector<std::pair<mpq, var_index>> term_ls;
+    term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
+    term_ls.push_back(std::pair<mpq, var_index>((int)-1, y));
+    unsigned term_x_min_y = solver.add_term(term_ls, mpq(0));
+    term_ls.clear();
+    term_ls.push_back(std::pair<mpq, var_index>((int)2, x));
+    term_ls.push_back(std::pair<mpq, var_index>((int)2, y));
+    
+    unsigned term_2x_pl_2y = solver.add_term(term_ls, mpq(0));
+    solver.add_var_bound(term_x_min_y,  LE, zero_of_type<mpq>());
+    solver.add_var_bound(term_2x_pl_2y, LE, mpq((int)5));
+    solver.find_feasible_solution();
+    lp_assert(solver.get_status() == lp_status::OPTIMAL);
+    solver.print_constraints(std::cout);
+    std::unordered_map<var_index, mpq> model;
+    solver.get_model(model);
+    for (auto p : model) {
+        std::cout<< "v[" << p.first << "] = " << p.second << std::endl;
+    }
+    std::cout << "calling int_solver\n";
+    lar_term t; mpq k; explanation ex; bool upper;
+    lia_move lm = i_solver.check(t, k, ex, upper);
+    lp_assert(lm == lia_move::sat);
+    impq term_max;
+    lp_status st = solver.maximize_term(term_2x_pl_2y, term_max);
+    
+    std::cout << "status = " << lp_status_to_string(st) << std::endl;
+    std::cout << "term_max = " << term_max << std::endl;
+    solver.get_model(model);
+    for (auto p : model) {
+        std::cout<< "v[" << p.first << "] = " << p.second << std::endl;
+    }
+    
+}
+#ifdef Z3DEBUG
 void test_hnf() {
     test_larger_generated_hnf();
     test_small_generated_hnf();
@@ -3662,7 +3708,12 @@ void test_lp_local(int argn, char**argv) {
         ret = 0;
         return finalize(ret);
     }
-        
+
+    if (args_parser.option_is_used("--maximize_term")) {
+        test_maximize_term();
+        ret = 0;
+        return finalize(ret);
+    }
     
     if (args_parser.option_is_used("--test_lp_0")) {
         test_lp_0();
