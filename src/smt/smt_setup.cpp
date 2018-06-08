@@ -576,17 +576,18 @@ namespace smt {
         m_params.m_nnf_cnf             = false;
         m_params.m_propagate_booleans  = true;
         m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AX() {
+        TRACE("setup", tout << "QF_AX\n";);
         m_params.m_array_mode          = AR_SIMPLE;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AX(static_features const & st) {
-        m_params.m_array_mode          = AR_SIMPLE;
+        m_params.m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
         m_params.m_nnf_cnf             = false;
         if (st.m_num_clauses == st.m_num_units) {
             m_params.m_relevancy_lvl       = 0;
@@ -595,7 +596,7 @@ namespace smt {
         else {
             m_params.m_relevancy_lvl       = 2;
         }
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AUFLIA() {
@@ -607,11 +608,11 @@ namespace smt {
         m_params.m_restart_factor      = 1.5;
         m_params.m_phase_selection     = PS_CACHING_CONSERVATIVE2;
         setup_i_arith();
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AUFLIA(static_features const & st) {
-        m_params.m_array_mode          = AR_SIMPLE;
+        m_params.m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
         if (st.m_has_real)
             throw default_exception("Benchmark has real variables but it is marked as QF_AUFLIA (arrays, uninterpreted functions and linear integer arithmetic).");
         m_params.m_nnf_cnf             = false;
@@ -631,7 +632,7 @@ namespace smt {
         //    m_context.register_plugin(new smt::theory_si_arith(m_manager, m_params));
         // else 
         setup_i_arith();
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_AUFLIA(bool simple_array) {
@@ -992,17 +993,17 @@ namespace smt {
         }
 
         if (st.num_theories() == 1 && st.m_has_arrays) {
-            setup_QF_AX();
+            setup_QF_AX(st);
             return;
         }
 
-        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_bv) {
+        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && !st.m_has_ext_arrays && st.m_has_bv) {
             setup_QF_AUFBV();
             return;
         }
 
         if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_int) {
-            setup_QF_AUFLIA();
+            setup_QF_AUFLIA(st);
             return;
         }
 

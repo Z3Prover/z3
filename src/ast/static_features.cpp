@@ -81,6 +81,7 @@ void static_features::reset() {
     m_has_str                              = false;
     m_has_seq_non_str                      = false;
     m_has_arrays                           = false;
+    m_has_ext_arrays                       = false;
     m_arith_k_sum                          .reset();
     m_num_arith_terms                      = 0;
     m_num_arith_eqs                        = 0;
@@ -271,8 +272,11 @@ void static_features::update_core(expr * e) {
         m_has_bv = true;
     if (!m_has_fpa && (m_fpautil.is_float(e) || m_fpautil.is_rm(e)))
         m_has_fpa = true;
-    if (!m_has_arrays && m_arrayutil.is_array(e))
+    if (!m_has_arrays && m_arrayutil.is_array(e)) 
         m_has_arrays = true;
+    if (!m_has_ext_arrays && m_arrayutil.is_array(e) && 
+        !m_arrayutil.is_select(e) && !m_arrayutil.is_store(e)) 
+        m_has_ext_arrays = true;
     if (!m_has_str && m_sequtil.str.is_string_term(e))
         m_has_str = true;
     if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) {
