@@ -1901,13 +1901,17 @@ def is_quantifier(a):
 
 def _mk_quantifier(is_forall, vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     if __debug__:
-        _z3_assert(is_bool(body), "Z3 expression expected")
+        _z3_assert(is_bool(body) or is_app(vs) or (len(vs) > 0 and is_app(vs[0])), "Z3 expression expected")
         _z3_assert(is_const(vs) or (len(vs) > 0 and all([ is_const(v) for v in vs])), "Invalid bounded variable(s)")
         _z3_assert(all([is_pattern(a) or is_expr(a) for a in patterns]), "Z3 patterns expected")
-        _z3_assert(all([is_expr(p) for p in no_patterns]), "no patterns are Z3 expressions")
-    ctx = body.ctx
+        _z3_assert(all([is_expr(p) for p in no_patterns]), "no patterns are Z3 expressions")    
     if is_app(vs):
+        ctx = vs.ctx
         vs = [vs]
+    else:
+        ctx = vs[0].ctx
+    if not is_expr(body):
+       body = BoolVal(body, ctx)
     num_vars = len(vs)
     if num_vars == 0:
         return body
