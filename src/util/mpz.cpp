@@ -45,43 +45,93 @@ Revision History:
 #define LEHMER_GCD
 #endif
 
-template<typename T>
-static T gcd_core(T u, T v) {
-    if (u == 0) 
-        return v;
-    if (v == 0)
-        return u;
 
-    int k;
-    
-    for (k = 0; ((u | v) & 1) == 0; ++k) {
-        u >>= 1;
-        v >>= 1;
-    }
- 
-    while ((u & 1) == 0)
-        u >>= 1;
- 
+#include <immintrin.h> 
+
+#if defined(__GNUC__)
+#define _trailing_zeros32(X) __builtin_ctz(X)
+#else
+#define _trailing_zeros32(X) _tzcnt_u32(X)
+#endif
+
+#if defined(_AMD64_) 
+ #if defined(__GNUC__)
+ #define _trailing_zeros64(X) __builtin_ctzll(X)
+ #else
+ #define _trailing_zeros64(X) _tzcnt_u64(X)
+ #endif
+#else
+inline uint64_t _trailing_zeros64(uint64_t x) {
+    uint64_t r = 0;
+    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
+    return r;
+}
+#endif
+
+
+#define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
+#define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))
+
+
+unsigned u_gcd(unsigned u, unsigned v) { 
+    if (u == 0) return v;
+    if (v == 0) return u;
+    unsigned shift = _trailing_zeros32(u | v);
+    u >>= _trailing_zeros32(u);
+    if (u == 1 || v == 1) return 1 << shift; 
+    if (u == v) return u << shift;
     do {
-        while ((v & 1) == 0) 
-            v >>= 1;
- 
-        if (u < v) {
-            v -= u;
-        } 
-        else {
-            T diff = u - v;
-            u = v;
-            v = diff;
-        }
-        v >>= 1;
-    } while (v != 0);
- 
-    return u << k;
+        v >>= _trailing_zeros32(v);        
+#if 1
+        unsigned diff = u - v;
+        unsigned mdiff = diff & (unsigned)((int)diff >> 31);
+        u = v + mdiff; // min
+        v = diff - 2 * mdiff;   // if v <= u: u - v, if v > u: v - u = u - v - 2 * (u - v)
+#endif
+#if 0
+        unsigned t = _bit_max(u, v);
+        u = _bit_min(u, v);
+        v = t;
+        v -= u;        
+#endif
+#if 0
+        unsigned t = std::max(u, v);
+        u = std::min(u,v);
+        v = t;
+        v -= u;        
+#endif
+#if 0
+        if (u > v) std::swap(u, v);
+        v -= u;        
+#endif
+#if 0
+        unsigned d1 = u - v;
+        unsigned d2 = v - u;
+        unsigned md21 = d2 & (unsigned)((int)d1 >> 31);
+        unsigned md12 = d1 & (unsigned)((int)d2 >> 31);
+        u = _bit_min(u, v);
+        v = md12 | md21;
+#endif
+    }
+    while (v != 0);
+    return u << shift;
 }
 
-unsigned u_gcd(unsigned u, unsigned v) { return gcd_core(u, v); }
-uint64_t u64_gcd(uint64_t u, uint64_t v) { return gcd_core(u, v); }
+uint64_t u64_gcd(uint64_t u, uint64_t v) { 
+    if (u == 0) return v;
+    if (v == 0) return u;
+    if (u == 1 || v == 1) return 1;
+    auto shift = _trailing_zeros64(u | v);
+    u >>= _trailing_zeros64(u);
+    do {
+        v >>= _trailing_zeros64(v);        
+        if (u > v) std::swap(u, v);
+        v -= u;        
+    }
+    while (v != 0);
+    return u << shift;
+}
+
 
 template<bool SYNCH>
 mpz_manager<SYNCH>::mpz_manager():
