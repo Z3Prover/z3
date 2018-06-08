@@ -46,7 +46,6 @@ Revision History:
 #endif
 
 
-#if 1
 #include <immintrin.h> 
 
 #if defined(__GNUC__)
@@ -69,14 +68,6 @@ inline uint64_t _trailing_zeros64(uint64_t x) {
 }
 #endif
 
-#else
-
-inline unsigned _trailing_zeros32(unsigned x) {
-    unsigned r = 0;
-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
-#endif
 
 #define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
 #define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))
