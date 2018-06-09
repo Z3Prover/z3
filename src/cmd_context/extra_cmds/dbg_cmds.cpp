@@ -429,6 +429,8 @@ public:
         params_ref p;
         solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        sA->assert_expr(a);
+        sB->assert_expr(b);
         qe::prop_mbi_plugin pA(sA.get());
         qe::prop_mbi_plugin pB(sB.get());
         lbool res = mbi.binary(pA, pB, vars, itp);

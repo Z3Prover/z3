@@ -104,6 +104,7 @@ namespace qe {
     /** --------------------------------------------------------------
      * ping-pong interpolation of Gurfinkel & Vizel
      * compute a binary interpolant.
+     * TBD: also implement the one-sided versions that create clausal interpolants.
      */
     lbool interpolator::binary(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
         ast_manager& m = vars.get_manager();
@@ -126,14 +127,18 @@ namespace qe {
                     itp = nullptr;
                     return l_true;
                 }
+                TRACE("mbi", tout << "new lits " << lits << "\n";);
                 break; // continue
             case mbi_unsat: {
                 if (lits.empty()) {
-                    itp = mk_and(itps[turn]);
+                    // TBD, either a => itp and itp => !b 
+                    // or          b => itp and itp => !a
+                    itp = mk_and(itps[!turn]);
                     return l_false;
                 }
                 t2->block(lits);
                 expr_ref lemma(mk_not(mk_and(lits)));
+                TRACE("mbi", tout << lemma << "\n";);
                 blocks[turn].push_back(lemma);
                 itp = m.mk_implies(mk_and(blocks[!turn]), lemma);
                 // TBD: compute closure over variables not in vars
