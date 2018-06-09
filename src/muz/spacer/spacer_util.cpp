@@ -603,6 +603,14 @@ namespace {
 
     void compute_implicant_literals (model_evaluator_util &mev, expr_ref_vector &formula,
                                      expr_ref_vector &res) {
+        // flatten the formula and remove all trivial literals
+
+        // TBD: not clear why there is a dependence on it (other than
+        // not handling of Boolean constants by implicant_picker), however,
+        // it was a source of a problem on a benchmark
+        flatten_and(formula);
+        if (formula.empty()) {return;}
+
         implicant_picker ipick (mev);
         ipick (formula, res);
     }
