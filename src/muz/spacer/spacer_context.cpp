@@ -659,10 +659,18 @@ void lemma::mk_insts(expr_ref_vector &out, expr* e)
     }
 }
 
-
-
 // ----------------
 // pred_tansformer
+pred_transformer::pt_rule &pred_transformer::pt_rules::mk_rule(const pred_transformer::pt_rule &v) {
+    pt_rule *p = nullptr;
+    if (find_by_rule(v.rule(), p))
+        return *p;
+
+    p = alloc(pt_rule, v);
+    m_rules.insert(&p->rule(), p);
+    if (p->tag()) m_tags.insert(p->tag(), p);
+    return *p;
+}
 
 pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head):
     pm(pm), m(pm.get_manager()),
@@ -692,9 +700,6 @@ app_ref pred_transformer::mk_extend_lit() {
     return app_ref(m.mk_not (m.mk_const (pm.get_n_pred (v->get_decl ()))), m);
 }
 
-pred_transformer::~pred_transformer() {
-    for (auto &entry : m_rule2transition) {m.dec_ref(entry.m_value);}
-}
 
 std::ostream& pred_transformer::display(std::ostream& out) const
 {
@@ -819,10 +824,10 @@ reach_fact *pred_transformer::get_used_origin_rf (model_evaluator_util& mev,
 const datalog::rule *pred_transformer::find_rule(model &model) {
     expr_ref val(m);
 
-    for (auto &entry : m_tag2rule) {
-        app *tag = to_app(entry.m_key);
+    for (auto &kv : m_pt_rules) {
+        app *tag = kv.m_value->tag();
         if (model.eval(tag->get_decl(), val) && m.is_true(val)) {
-            return entry.m_value;
+            return &kv.m_value->rule();
         }
     }
     return nullptr;
@@ -833,26 +838,16 @@ const datalog::rule *pred_transformer::find_rule(model &model,
                                                  vector<bool>& reach_pred_used,
                                                  unsigned& num_reuse_reach)
 {
-    TRACE ("spacer_verbose",
-           datalog::rule_manager& rm = ctx.get_datalog_context().get_rule_manager();
-           for (auto &entry : m_tag2rule) {
-               expr* pred = entry.m_key;
-               tout << mk_pp(pred, m) << ":\n";
-               if (entry.m_value) {
-                   rm.display_smt2(*(entry.m_value), tout) << "\n";
-               }
-           }
-        );
-
     // find a rule whose tag is true in the model;
     // prefer a rule where the model intersects with reach facts of all predecessors;
     // also find how many predecessors' reach facts are true in the model
     expr_ref vl(m);
     const datalog::rule *r = ((datalog::rule*)nullptr);
-    for (auto &entry : m_tag2rule) {
-        expr* tag = entry.m_key;
-        if (model.eval(to_app(tag)->get_decl(), vl) && m.is_true(vl)) {
-            r = entry.m_value;
+    //for (auto &entry : m_tag2rule) {
+    for (auto &kv : m_pt_rules) {
+        app* tag = kv.m_value->tag();
+        if (model.eval(tag->get_decl(), vl) && m.is_true(vl)) {
+            r = &kv.m_value->rule();
             is_concrete = true;
             num_reuse_reach = 0;
             reach_pred_used.reset();
@@ -1309,9 +1304,8 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     // populate reach_assumps
     if (n.level () > 0 && !m_all_init) {
-        for (auto &entry : m_tag2rule) {
-            datalog::rule const* r = entry.m_value;
-            if (!r) {continue;}
+        for (auto &kv : m_pt_rules) {
+            datalog::rule const* r = &kv.m_value->rule();
             find_predecessors(*r, m_predicates);
             if (m_predicates.empty()) {continue;}
             for (unsigned i = 0; i < m_predicates.size(); i++) {
@@ -1322,7 +1316,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
                     pm.formula_n2o(pt.get_last_rf_tag(), a, i);
                     reach_assumps.push_back(m.mk_not (a));
                 } else {
-                    reach_assumps.push_back(m.mk_not (entry.m_key));
+                    reach_assumps.push_back(m.mk_not (kv.m_value->tag()));
                     break;
                 }
             }
@@ -1504,11 +1498,10 @@ void pred_transformer::mk_assumptions(func_decl* head, expr* fml,
                                       expr_ref_vector& result)
 {
     expr_ref tmp1(m), tmp2(m);
-    for (auto& kv : m_tag2rule) {
-        expr* tag = kv.m_key;
-        datalog::rule const* r = kv.m_value;
-        if (!r) { continue; }
-        find_predecessors(*r, m_predicates);
+    for (auto& kv : m_pt_rules) {
+        expr* tag = kv.m_value->tag();
+        datalog::rule const& r = kv.m_value->rule();
+        find_predecessors(r, m_predicates);
         for (unsigned i = 0; i < m_predicates.size(); i++) {
             func_decl* d = m_predicates[i];
             if (d == head) {
@@ -1545,79 +1538,52 @@ void pred_transformer::init_rfs ()
     expr_ref_vector v(m);
     reach_fact_ref fact;
 
-    for (auto &entry : m_rule2tag) {
-        const datalog::rule* r = entry.m_key;
-        if (r->get_uninterpreted_tail_size() == 0) {
-            fact = alloc (reach_fact, m, *r, m_rule2transition.find(r),
-                          get_aux_vars(*r), true);
-            add_rf(fact.get ());
+    for (auto &kv : m_pt_rules) {
+        pt_rule &ptr = *kv.m_value;
+        const datalog::rule& r = ptr.rule();
+        if (ptr.is_init()) {
+            fact = alloc(reach_fact, m, r, ptr.trans(), ptr.auxs(), true);
+            add_rf(fact.get());
         }
     }
 }
 
 void pred_transformer::init_rules(decl2rel const& pts) {
-    expr_ref_vector transitions(m);
-    ptr_vector<const datalog::rule> tr_rules;
-    datalog::rule const* rule;
-    expr_ref_vector init_conds (m);
+    expr_ref_vector transitions(m), not_inits(m);
     app_ref tag(m);
-    vector<bool> is_init;
-    for (auto r : m_rules) {init_rule(pts, *r, is_init, tr_rules, transitions);}
-    SASSERT (is_init.size () == transitions.size ());
+    for (auto r : m_rules) {
+        init_rule(pts, *r);
+    }
 
-    std::string name;
-    switch(transitions.size()) {
-    case 0:
+    if (m_pt_rules.empty()) {
         m_transition = m.mk_false();
         m_transition_clause.reset();
-        break;
-    case 1:
-        // create a dummy tag.
-        name  = head()->get_name().str() + "_dummy";
-        tag = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
-
-        rule = tr_rules[0];
-        m_tag2rule.insert(tag, rule);
-        m_rule2tag.insert(rule, tag);
-        transitions[0] = m.mk_implies (tag, transitions.get(0));
-
-        m_transition_clause.push_back(m_extend_lit->get_arg(0));
-        m_transition_clause.push_back(tag);
-
-        if (!ctx.use_inc_clause()) {
-            transitions.push_back(mk_or(m_transition_clause));
-            m_transition_clause.reset();
-        }
-
-        if (!is_init[0]) {init_conds.push_back(m.mk_not(tag));}
-
-        m_transition = mk_and(transitions);
-        break;
-    default:
-        m_transition_clause.push_back (m_extend_lit->get_arg(0));
-        for (unsigned i = 0; i < transitions.size(); ++i) {
-            name = head()->get_name().str() + "__tr" + std::to_string(i);
-            tag = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
-            rule = tr_rules[i];
-            m_tag2rule.insert(tag, rule);
-            m_rule2tag.insert(rule, tag);
-            m_transition_clause.push_back(tag);
-            transitions[i] = m.mk_implies(tag, transitions.get(i));
-            // update init conds
-            if (!is_init[i]) {init_conds.push_back (m.mk_not (tag));}
-        }
-
-        if (!ctx.use_inc_clause()) {
-            transitions.push_back(mk_or(m_transition_clause));
-            m_transition_clause.reset();
-        }
-        m_transition = mk_and(transitions);
-        break;
     }
-    // mk init condition
-    m_init = mk_and(init_conds);
+    else {
+        unsigned i = 0;
+        expr_ref_vector transitions(m);
+        m_transition_clause.push_back (m_extend_lit->get_arg(0));
+        for (auto &kv : m_pt_rules) {
+            pt_rule &r = *kv.m_value;
+            std::string name = head()->get_name().str() + "__tr" + std::to_string(i);
+            tag = m.mk_const(symbol(name.c_str()), m.mk_bool_sort());
+            m_pt_rules.set_tag(tag, r);
+            m_transition_clause.push_back(tag);
+            transitions.push_back(m.mk_implies(r.tag(), r.trans()));
+            if (!r.is_init()) {not_inits.push_back(m.mk_not(tag));}
+            ++i;
+        }
+
+        if (!ctx.use_inc_clause()) {
+            transitions.push_back(mk_or(m_transition_clause));
+            m_transition_clause.reset();
+        }
+        m_transition = mk_and(transitions);
+    }
+    // mk init condition -- disables all non-initial transitions
+    m_init = mk_and(not_inits);
     // no rule has uninterpreted tail
-    if (init_conds.empty ()) {m_all_init = true;}
+    if (not_inits.empty ()) {m_all_init = true;}
 }
 
 static bool is_all_non_null(app_ref_vector const& v)
@@ -1628,10 +1594,7 @@ static bool is_all_non_null(app_ref_vector const& v)
     return true;
 }
 
-void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
-                                 vector<bool>&  is_init,
-                                 ptr_vector<datalog::rule const>& rules,
-                                 expr_ref_vector& transitions) {
+void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule) {
     scoped_watch _t_(m_initialize_watch);
 
     // Predicates that are variable representatives. Other predicates at
@@ -1652,46 +1615,42 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule,
         init_atom(pts, rule.get_tail(i), var_reprs, side, i);
     }
     // -- substitute free variables
-    expr_ref fml(m);
+    expr_ref trans(m);
     {
         expr_ref_vector tail(m);
         for (unsigned i = ut_size; i < t_size; ++i)
-        {tail.push_back(rule.get_tail(i));}
-        fml = mk_and (tail);
+            tail.push_back(rule.get_tail(i));
+        trans= mk_and (tail);
 
-        ground_free_vars(fml, var_reprs, aux_vars, ut_size == 0);
+        ground_free_vars(trans, var_reprs, aux_vars, ut_size == 0);
         SASSERT(is_all_non_null(var_reprs));
 
         expr_ref tmp(m);
-        var_subst(m, false)(fml, var_reprs.size (),
+        var_subst(m, false)(trans, var_reprs.size (),
                             (expr*const*)var_reprs.c_ptr(), tmp);
         flatten_and (tmp, side);
-        fml = mk_and(side);
+        trans = mk_and(side);
         side.reset ();
     }
 
     // rewrite and simplify
     th_rewriter rw(m);
-    rw(fml);
-    if (ctx.blast_term_ite()) {blast_term_ite(fml, 3); rw(fml);}
-    TRACE("spacer", tout << mk_pp(fml, m) << "\n";);
+    rw(trans);
+    if (ctx.blast_term_ite()) {blast_term_ite(trans, 3); rw(trans);}
+    TRACE("spacer_init_rule", tout << mk_pp(trans, m) << "\n";);
 
     // allow quantifiers in init rule
-    SASSERT(ut_size == 0 || is_ground(fml));
-    if (!m.is_false(fml)) {
-        is_init.push_back (ut_size == 0);
-        transitions.push_back(fml);
-        rules.push_back(&rule);
-
-        m.inc_ref(fml);
-        m_rule2transition.insert(&rule, fml);
+    SASSERT(ut_size == 0 || is_ground(trans));
+    if (!m.is_false(trans)) {
+        pt_rule &ptr = m_pt_rules.mk_rule(m, rule);
+        ptr.set_trans(trans);
+        ptr.set_auxs(aux_vars);
+        ptr.set_reps(var_reprs);
     }
-    // AG: shouldn't this be under the if-statement above?
-    m_rule2vars.insert(&rule, aux_vars);
 
-    TRACE("spacer",
-          tout << rule.get_decl()->get_name() << "\n";
-          tout << var_reprs << "\n";);
+    // TRACE("spacer",
+    //       tout << rule.get_decl()->get_name() << "\n";
+    //       tout << var_reprs << "\n";);
 }
 
 
@@ -1857,18 +1816,17 @@ void pred_transformer::updt_solver(prop_solver *solver) {
     }
 
     // -- lemmas and rfs from other predicates
-    for (auto &entry : m_tag2rule) {
-        const datalog::rule *r = entry.m_value;
-        if (!r) continue;
-        find_predecessors(*r, m_predicates);
+    for (auto &kv : m_pt_rules) {
+        const datalog::rule &r = kv.m_value->rule();
+        find_predecessors(r, m_predicates);
         if (m_predicates.empty()) continue;
 
         for (unsigned i = 0, sz = m_predicates.size(); i < sz; ++i) {
             const pred_transformer &pt = ctx.get_pred_transformer(m_predicates[i]);
             // assert lemmas of pt
-            updt_solver_with_lemmas(solver, pt, to_app(entry.m_key), i);
+            updt_solver_with_lemmas(solver, pt, to_app(kv.m_value->tag()), i);
             // assert rfs of pt
-            update_solver_with_rfs(solver, pt, to_app(entry.m_key), i);
+            update_solver_with_rfs(solver, pt, to_app(kv.m_value->tag()), i);
         }
     }
 }
@@ -2447,8 +2405,17 @@ bool context::validate()
 
     switch(m_last_result) {
     case l_true: {
+#if 0
         expr_ref cex(m);
         cex = get_ground_sat_answer();
+        if (!cex.get()) {
+            IF_VERBOSE(0, verbose_stream() << "Cex validation failed\n";);
+            throw default_exception("Cex validation failed\n");
+            return false;
+        }
+#endif
+        proof_ref cex(m);
+        cex = get_ground_refutation();
         if (!cex.get()) {
             IF_VERBOSE(0, verbose_stream() << "Cex validation failed\n";);
             throw default_exception("Cex validation failed\n");

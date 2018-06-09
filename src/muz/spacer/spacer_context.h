@@ -292,6 +292,64 @@ class pred_transformer {
 
     };
 
+    class pt_rule {
+        const datalog::rule &m_rule;
+        expr_ref m_trans;        // ground version of m_rule
+        ptr_vector<app> m_auxs;  // auxiliary variables in m_trans
+        app_ref_vector m_reps;   // map from fv in m_rule to ground constants
+        app_ref m_tag;           // a unique tag for the rule
+
+    public:
+        pt_rule(ast_manager &m, const datalog::rule &r) :
+            m_rule(r), m_trans(m), m_reps(m), m_tag(m) {}
+
+        const datalog::rule &rule() const {return m_rule;}
+
+        void set_tag(expr *tag) {SASSERT(is_app(tag)); set_tag(to_app(tag));}
+        void set_tag(app* tag) {m_tag = tag;}
+        app* tag() const {return m_tag;}
+        ptr_vector<app> &auxs() {return m_auxs;}
+        void set_auxs(ptr_vector<app> &v) {m_auxs.reset(); m_auxs.append(v);}
+        void set_reps(app_ref_vector &v) {m_reps.reset(); m_reps.append(v);}
+
+        void set_trans(expr_ref &v) {m_trans=v;}
+        expr* trans() const {return m_trans;}
+        bool is_init() const {return m_rule.get_uninterpreted_tail_size() == 0;}
+    };
+
+    class pt_rules {
+        typedef obj_map<datalog::rule const, pt_rule*> rule2ptrule;
+        typedef obj_map<const expr, pt_rule*> tag2ptrule;
+        typedef rule2ptrule::iterator iterator;
+        rule2ptrule m_rules;
+        tag2ptrule m_tags;
+    public:
+        pt_rules() {}
+        ~pt_rules() {for (auto &kv : m_rules) {dealloc(kv.m_value);}}
+
+        bool find_by_rule(const datalog::rule &r, pt_rule* &ptr) {
+            return m_rules.find(&r, ptr);
+        }
+        bool find_by_tag(const expr* tag, pt_rule* &ptr) {
+            return m_tags.find(tag, ptr);
+        }
+        pt_rule &mk_rule(ast_manager &m, const datalog::rule &r) {
+            return mk_rule(pt_rule(m, r));
+        }
+        pt_rule &mk_rule(const pt_rule &v);
+        void set_tag(expr* tag, pt_rule &v) {
+            pt_rule *p;
+            VERIFY(find_by_rule(v.rule(), p));
+            p->set_tag(tag);
+            m_tags.insert(tag, p);
+        }
+
+        bool empty() {return m_rules.empty();}
+        iterator begin() {return m_rules.begin();}
+        iterator end() {return m_rules.end();}
+
+    };
+
     typedef obj_map<datalog::rule const, expr*> rule2expr;
     typedef obj_map<datalog::rule const, ptr_vector<app> > rule2apps;
     typedef obj_map<expr, datalog::rule const*> expr2rule;
@@ -302,6 +360,7 @@ class pred_transformer {
     func_decl_ref                m_head;            // predicate
     func_decl_ref_vector         m_sig;             // signature
     ptr_vector<pred_transformer> m_use;             // places where 'this' is referenced.
+    pt_rules                     m_pt_rules;           // pt rules used to derive transformer
     ptr_vector<datalog::rule>    m_rules;           // rules used to derive transformer
     scoped_ptr<prop_solver>      m_solver;          // solver context
     ref<solver>                  m_reach_solver;       // context for reachability facts
@@ -309,10 +368,6 @@ class pred_transformer {
     frames                       m_frames;          // frames with lemmas
     reach_fact_ref_vector        m_reach_facts;     // reach facts
     unsigned                     m_rf_init_sz;      // number of reach fact from INIT
-    expr2rule                    m_tag2rule;        // map tag predicate to rule.
-    rule2expr                    m_rule2tag;        // map rule to predicate tag.
-    rule2expr                    m_rule2transition; // map rules to transition
-    rule2apps                    m_rule2vars;       // map rule to auxiliary variables
     expr_ref_vector              m_transition_clause; // extra clause for trans
     expr_ref                     m_transition;      // transition relation
     expr_ref                     m_init;            // initial condition
@@ -337,8 +392,7 @@ class pred_transformer {
 
     // Initialization
     void init_rules(decl2rel const& pts);
-    void init_rule(decl2rel const& pts, datalog::rule const& rule, vector<bool>& is_init,
-                   ptr_vector<datalog::rule const>& rules, expr_ref_vector& transition);
+    void init_rule(decl2rel const& pts, datalog::rule const& rule);
     void init_atom(decl2rel const& pts, app * atom, app_ref_vector& var_reprs,
                    expr_ref_vector& side, unsigned tail_idx);
 
@@ -350,7 +404,7 @@ class pred_transformer {
 
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
-    ~pred_transformer();
+    ~pred_transformer() {}
 
     inline bool use_native_mbp ();
     reach_fact *get_rf (expr *v) {
@@ -372,7 +426,10 @@ public:
     unsigned  sig_size() const {return m_sig.size();}
     expr*  transition() const {return m_transition;}
     expr*  init() const {return m_init;}
-    expr*  rule2tag(datalog::rule const* r) {return m_rule2tag.find(r);}
+    expr*  rule2tag(datalog::rule const* r) {
+        pt_rule *p;
+        return m_pt_rules.find_by_rule(*r, p) ? p->tag() : nullptr;
+    }
     unsigned get_num_levels() const {return m_frames.size ();}
     expr_ref get_cover_delta(func_decl* p_orig, int level);
     void     add_cover(unsigned level, expr* property);
@@ -398,8 +455,15 @@ public:
     const datalog::rule *find_rule(model &mev, bool& is_concrete,
                                    vector<bool>& reach_pred_used,
                                    unsigned& num_reuse_reach);
-    expr* get_transition(datalog::rule const& r) { return m_rule2transition.find(&r); }
-    ptr_vector<app>& get_aux_vars(datalog::rule const& r) { return m_rule2vars.find(&r); }
+    expr* get_transition(datalog::rule const& r) {
+        pt_rule *p;
+        return m_pt_rules.find_by_rule(r, p) ? p->trans() : nullptr;
+    }
+    ptr_vector<app>& get_aux_vars(datalog::rule const& r) {
+        pt_rule *p = nullptr;
+        VERIFY(m_pt_rules.find_by_rule(r, p));
+        return p->auxs();
+    }
 
     bool propagate_to_next_level(unsigned level);
     void propagate_to_infinity(unsigned level);
