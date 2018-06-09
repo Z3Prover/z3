@@ -18,6 +18,7 @@ z3_add_component(qe
     qe_mbi.cpp
     qe_sat_tactic.cpp
     qe_tactic.cpp
+    qe_term_graph.cpp
     qsat.cpp
   COMPONENT_DEPENDENCIES
     nlsat_tactic

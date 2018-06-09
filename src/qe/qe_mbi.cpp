@@ -76,22 +76,23 @@ namespace qe {
             lits.reset();
             m_solver->get_unsat_core(lits);
             return mbi_unsat;
-        case l_true:
+        case l_true: {
+            expr_ref_vector fmls(m);
             m_solver->get_model(mdl);
             lits.reset();
-            for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
-                func_decl* c = mdl->get_constant(i);
-                if (vars.contains(c)) {
-                    if (m.is_true(mdl->get_const_interp(c))) {
-                        lits.push_back(m.mk_const(c));
-                    }
-                    else {
-                        lits.push_back(m.mk_not(m.mk_const(c)));
-                    }
-                }
-            }
+            // 1. extract formulas from solver
+            // 2. extract implicant over formulas
+            // 3. extract equalities or other assignments over the congruence classes
+            m_solver->get_assertions(fmls);
+            NOT_IMPLEMENTED_YET();
             return mbi_sat;
+        }
         default:
+            // TBD: if not running solver to completion, then:
+            // 1. extract unit literals from m_solver.
+            // 2. run a cc over the units
+            // 3. extract equalities or other assignments over the congruence classes
+            // 4. ensure that at least some progress is made over original lits.
             return mbi_undef;
         }
     }

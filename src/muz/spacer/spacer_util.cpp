@@ -65,7 +65,7 @@ Notes:
 #include "tactic/arith/arith_bounds_tactic.h"
 
 #include "ast/factor_equivs.h"
-#include "muz/spacer/spacer_term_graph.h"
+#include "qe/qe_term_graph.h"
 
 namespace spacer {
 
@@ -742,7 +742,7 @@ namespace {
                 }
                 if (use_factor_eqs) {
                     // -- refactor equivalence classes and choose a representative
-                    spacer::term_graph egraph(out.m());
+                    qe::term_graph egraph(out.m());
                     egraph.add_lits (v);
                     v.reset();
                     egraph.to_lits(v);
@@ -754,7 +754,7 @@ namespace {
                       << "to\n"
                       << mk_and(v) << "\n";);
                 TRACE("spacer_normalize",
-                      spacer::term_graph egraph(out.m());
+                      qe::term_graph egraph(out.m());
                       for (expr* e : v) egraph.add_lit (to_app(e));
                       tout << "Reduced app:\n"
                       << mk_pp(egraph.to_app(), out.m()) << "\n";);

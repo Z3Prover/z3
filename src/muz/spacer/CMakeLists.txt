@@ -19,7 +19,6 @@ z3_add_component(spacer
   spacer_antiunify.cpp
   spacer_mev_array.cpp
   spacer_qe_project.cpp
-  spacer_term_graph.cpp
   spacer_sem_matcher.cpp
   spacer_quant_generalizer.cpp
   spacer_callback.cpp

@@ -26,11 +26,11 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "ast/for_each_expr.h"
 #include "ast/factor_equivs.h"
-#include "muz/spacer/spacer_term_graph.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/substitution/matcher.h"
 #include "ast/expr_functors.h"
 #include "smt/smt_solver.h"
+#include "qe/qe_term_graph.h"
 
 namespace spacer {
 void lemma_sanity_checker::operator()(lemma_ref &lemma) {
@@ -317,7 +317,7 @@ void lemma_eq_generalizer::operator() (lemma_ref &lemma)
     if (lemma->get_cube().empty()) return;
 
     ast_manager &m = m_ctx.get_ast_manager();
-    spacer::term_graph egraph(m);
+    qe::term_graph egraph(m);
     egraph.add_lits(lemma->get_cube());
 
     // -- expand the cube with all derived equalities
