@@ -350,9 +350,6 @@ class pred_transformer {
 
     };
 
-    typedef obj_map<datalog::rule const, expr*> rule2expr;
-    typedef obj_map<datalog::rule const, ptr_vector<app> > rule2apps;
-    typedef obj_map<expr, datalog::rule const*> expr2rule;
     manager&                     pm;                // spacer::manager
     ast_manager&                 m;                 // ast_manager
     context&                     ctx;               // spacer::context

@@ -1166,6 +1166,10 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
         summary[i] = v;
     }
 
+    // bail out of if the model is insufficient
+    if (!mev.is_true(summary))
+        return expr_ref(m);
+
     // -- pick an implicant
     expr_ref_vector lits(m);
     compute_implicant_literals (mev, summary, lits);
@@ -3722,6 +3726,10 @@ bool context::create_children(pob& n, datalog::rule const& r,
         expr_ref sum(m);
         sum = pt.get_origin_summary (mev, prev_level(n.level()),
                                      j, reach_pred_used[j], &aux);
+        if (!sum) {
+            dealloc(deriv);
+            return false;
+        }
         deriv->add_premise (pt, j, sum, reach_pred_used[j], aux);
     }
 
