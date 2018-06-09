@@ -39,11 +39,11 @@ namespace qe {
     };
     
     class term_graph {
-        ast_manager &    m;
-        ptr_vector<term> m_terms;
-        app_ref_vector   m_lits;
-        u_map<term* >    m_app2term;        
-        app_ref_vector   m_pinned;
+        ast_manager &     m;
+        ptr_vector<term>  m_terms;
+        app_ref_vector    m_lits; // NSB: expr_ref_vector?
+        u_map<term* >     m_app2term;        
+        ast_ref_vector    m_pinned;
         u_map<expr*>      m_term2app;
         
         plugin_manager<term_graph_plugin> m_plugins;
@@ -55,9 +55,9 @@ namespace qe {
         
         term *internalize_term(expr *t);
         void internalize_eq(expr *a1, expr *a2);
-        void internalize_lit(app *lit);
+        void internalize_lit(expr *lit);
         
-        bool is_internalized(app *a);
+        bool is_internalized(expr *a);
         
         bool term_le(term const &t1, term const &t2);
         void pick_root (term &t);
@@ -77,16 +77,16 @@ namespace qe {
         
         ast_manager& get_ast_manager() const { return m;}
         
-        void add_lit(app *lit);
+        void add_lit(app *lit); // NSB: replace by expr*
         void add_lits(expr_ref_vector const &lits) {
             for (expr* e : lits) add_lit(::to_app(e));
         }
         void add_eq(expr* a, expr* b);
         
         void reset();
-        void to_lits(app_ref_vector &lits, bool all_equalities = false);
+        void to_lits(app_ref_vector &lits, bool all_equalities = false);  // NSB: swap roles
         void to_lits(expr_ref_vector &lits, bool all_equalities = false);
-        app_ref to_app();
+        app_ref to_app(); 
 
         /**
          * Return literals obtained by projecting added literals 

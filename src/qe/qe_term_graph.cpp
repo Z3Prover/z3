@@ -18,6 +18,7 @@ Notes:
 --*/
 
 #include "util/util.h"
+#include "util/uint_set.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
@@ -344,7 +345,7 @@ void term_graph::add_lit(app *l) {
     internalize_lit(lit);
 }
 
-bool term_graph::is_internalized(app *a) {
+bool term_graph::is_internalized(expr *a) {
     return m_app2term.contains(a->get_id());
 }
 
@@ -365,14 +366,24 @@ term *term_graph::mk_term(expr *a) {
 }
 
 term *term_graph::internalize_term(expr *t) {
-    term *res = get_term(t);
-
-    if (!res) {
+    ptr_buffer<expr> todo;
+    todo.push_back(t);
+    term* res = nullptr;
+    while (!todo.empty()) {
+        term* res = get_term(t);
+        if (res) {
+            todo.pop_back();
+            continue;
+        }
+        unsigned sz = todo.size();
         if (is_app(t)) {
             for (expr * arg : *::to_app(t)) {
-                internalize_term(arg);
+                if (!get_term(arg)) 
+                    todo.push_back(arg);
             }
         }
+        if (sz < todo.size()) continue;
+        todo.pop_back();
         res = mk_term(t);
     }
     return res;
@@ -384,7 +395,7 @@ void term_graph::internalize_eq(expr *a1, expr* a2) {
     merge(get_term(a1)->get_root(), get_term(a2)->get_root());
 }
 
-void term_graph::internalize_lit(app* lit) {
+void term_graph::internalize_lit(expr* lit) {
     expr *e1 = nullptr, *e2 = nullptr;
     if (m.is_eq (lit, e1, e2)) {        
         internalize_eq (e1, e2);
@@ -590,15 +601,51 @@ void term_graph::reset() {
 }
 
 expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
-    obj_hashtable<func_decl> _decls;
-    for (func_decl* f : decls) _decls.insert(f);
+    uint_set _decls;
+    for (func_decl* f : decls) _decls.insert(f->get_id());
     // . propagate representatives up over parents.
     //   use work-list + marking to propagate.
     // . produce equalities over represented classes.
     // . produce other literals over represented classes 
     //    (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
-    
+    ptr_vector<term> worklist(m_terms);
+    while (!worklist.empty()) {
+        term* t = worklist.back();
+        worklist.pop_back();
+        if (t->get_root().is_marked()) continue;
+        // if exclude = true,  but t in decls, then skip
+        // if exclude = false, but t not in decls, then skip
+        if (exclude != _decls.contains(t->get_decl_id())) {
+            continue;
+        }
+        //
+        // if all children roots are marked
+        // then mark this as well, reorganize root
+        // and add parents to worklist
+        // 
+        bool all_marked = true;
+        for (term* ch : term::children(t)) {
+            all_marked &= ch->get_root().is_marked();
+        }
+        if (!all_marked) continue;
+
+        // make this the new root.
+        term* r = t;
+        do {
+            r->set_root(*t);
+            for (term* p : term::parents(r)) {
+                worklist.push_back(p);
+            }        
+            r = &r->get_next();
+        }
+        while (t != r);    
+        t->set_mark(true);
+    }
+    // Now, marked roots in m_terms can be used in projection
+
     expr_ref_vector result(m);
+    
+    reset_marks();
     NOT_IMPLEMENTED_YET();
     return result;
 }

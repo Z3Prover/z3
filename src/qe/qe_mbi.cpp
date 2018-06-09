@@ -50,7 +50,7 @@ namespace qe {
                         lits.push_back(m.mk_const(c));
                     }
                     else if (m.is_false(mdl->get_const_interp(c))) {
-                        lits.push_back(m.mk_const(c));
+                        lits.push_back(m.mk_not(m.mk_const(c)));
                     }
                 }
             }
