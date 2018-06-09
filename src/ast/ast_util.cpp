@@ -195,6 +195,11 @@ expr * mk_not(ast_manager & m, expr * arg) {
         return m.mk_not(arg);
 }
 
+expr_ref mk_not(expr_ref& e) {
+    return expr_ref(mk_not(e.m(), e), e.m());
+}
+
+
 expr_ref push_not(const expr_ref& e) {
     ast_manager& m = e.get_manager();
     if (!is_app(e)) {
