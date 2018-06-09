@@ -3067,6 +3067,41 @@ namespace smt {
         return m_asserted_formulas.inconsistent();
     }
 
+    static bool is_valid_assumption(ast_manager & m, expr * assumption) {
+        expr* arg;
+        if (!m.is_bool(assumption))
+            return false;
+        if (is_uninterp_const(assumption))
+            return true;
+        if (m.is_not(assumption, arg) && is_uninterp_const(arg))
+            return true;
+        if (!is_app(assumption))
+            return false;
+        if (to_app(assumption)->get_num_args() == 0)
+            return true;
+        if (m.is_not(assumption, arg) && is_app(arg) && to_app(arg)->get_num_args() == 0)
+            return true;
+        return false;
+    }
+
+    void context::internalize_proxies(expr_ref_vector const& asms, vector<std::pair<expr*,expr_ref>>& asm2proxy) {
+        for (expr* e : asms) {
+            if (is_valid_assumption(m_manager, e)) {
+                asm2proxy.push_back(std::make_pair(e, expr_ref(e, m_manager)));
+            }
+            else {
+                expr_ref proxy(m_manager), fml(m_manager);
+                proxy = m_manager.mk_fresh_const("proxy", m_manager.mk_bool_sort());
+                fml = m_manager.mk_implies(proxy, e);
+                m_asserted_formulas.assert_expr(fml);
+                asm2proxy.push_back(std::make_pair(e, proxy));
+            }
+        }
+        // The new assertions are of the form 'proxy => assumption'
+        // so clause simplification is sound even as these are removed after pop_scope.
+        internalize_assertions();
+    }
+
     void context::internalize_assertions() {
         if (get_cancel_flag()) return;
         TRACE("internalize_assertions", tout << "internalize_assertions()...\n";);
@@ -3100,23 +3135,6 @@ namespace smt {
         TRACE("internalize_assertions", tout << "after internalize_assertions()...\n";
               tout << "inconsistent: " << inconsistent() << "\n";);
         TRACE("after_internalize_assertions", display(tout););
-    }
-
-    bool is_valid_assumption(ast_manager & m, expr * assumption) {
-        expr* arg;
-        if (!m.is_bool(assumption))
-            return false;
-        if (is_uninterp_const(assumption))
-            return true;
-        if (m.is_not(assumption, arg) && is_uninterp_const(arg))
-            return true;
-        if (!is_app(assumption))
-            return false;
-        if (to_app(assumption)->get_num_args() == 0)
-            return true;
-        if (m.is_not(assumption, arg) && is_app(arg) && to_app(arg)->get_num_args() == 0)
-            return true;
-        return false;
     }
 
     /**
@@ -3205,17 +3223,21 @@ namespace smt {
             if (get_cancel_flag())
                 return;
             push_scope();
-            for (expr * curr_assumption : asms) {
+            vector<std::pair<expr*,expr_ref>> asm2proxy;
+            internalize_proxies(asms, asm2proxy);
+            for (auto const& p: asm2proxy) {
+                expr_ref curr_assumption = p.second;
+                expr* orig_assumption = p.first;
                 if (m_manager.is_true(curr_assumption)) continue;
                 SASSERT(is_valid_assumption(m_manager, curr_assumption));
                 proof * pr = m_manager.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
                 literal l = get_literal(curr_assumption);
-                m_literal2assumption.insert(l.index(), curr_assumption);
+                m_literal2assumption.insert(l.index(), orig_assumption);
                 // mark_as_relevant(l); <<< not needed
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
-                TRACE("assumptions", tout << l << ":" << mk_pp(curr_assumption, m_manager) << "\n";);
+                TRACE("assumptions", tout << l << ":" << curr_assumption << " " << mk_pp(orig_assumption, m_manager) << "\n";);
                 if (m_manager.proofs_enabled())
                     assign(l, mk_justification(justification_proof_wrapper(*this, pr)));
                 else
@@ -3386,7 +3408,7 @@ namespace smt {
         setup_context(false);
         expr_ref_vector asms(m_manager, num_assumptions, assumptions);
         if (!already_did_theory_assumptions) add_theory_assumptions(asms);                
-        if (!validate_assumptions(asms)) return l_undef;
+        // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
         TRACE("unsat_core_bug", tout << asms << "\n";);        
         internalize_assertions();
         init_assumptions(asms);
@@ -3402,7 +3424,7 @@ namespace smt {
         setup_context(false);
         expr_ref_vector asms(cube);
         add_theory_assumptions(asms);
-        if (!validate_assumptions(asms)) return l_undef;
+        // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
         for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
         internalize_assertions();
         init_assumptions(asms);

@@ -31,6 +31,7 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "util/gparams.h"
 #include "qe/qe_mbp.h"
+#include "qe/qe_mbi.h"
 
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
@@ -358,7 +359,7 @@ class mbp_cmd : public cmd {
     ptr_vector<expr> m_vars;
 public:
     mbp_cmd():cmd("mbp") {}
-    char const * get_usage() const override { return "<expr>"; }
+    char const * get_usage() const override { return "<expr> (<vars>)"; }
     char const * get_descr(cmd_context & ctx) const override { return "perform model based projection"; }
     unsigned get_arity() const override { return 2; }
     cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
@@ -390,6 +391,52 @@ public:
     }
 };
 
+class mbi_cmd : public cmd {
+    expr* m_a;
+    expr* m_b;
+    ptr_vector<func_decl> m_vars;
+public:
+    mbi_cmd():cmd("mbi") {}
+    char const * get_usage() const override { return "<expr> <expr> (vars)"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform model based interpolation"; }
+    unsigned get_arity() const override { return 3; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        if (m_a == nullptr) return CPK_EXPR; 
+        if (m_b == nullptr) return CPK_EXPR; 
+        return CPK_FUNC_DECL_LIST;
+    }
+    void set_next_arg(cmd_context& ctx, expr * arg) override { 
+        if (m_a == nullptr) 
+            m_a = arg; 
+        else 
+            m_b = arg; 
+    }
+    void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
+        m_vars.append(num, ts);
+    }
+    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr; m_vars.reset(); }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        func_decl_ref_vector vars(m);
+        for (func_decl* v : m_vars) {
+            vars.push_back(v);
+        }
+        qe::interpolator mbi;
+        expr_ref a(m_a, m);
+        expr_ref b(m_b, m);
+        expr_ref itp(m);
+        solver_factory& sf = ctx.get_solver_factory();
+        params_ref p;
+        solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        qe::prop_mbi_plugin pA(sA.get());
+        qe::prop_mbi_plugin pB(sB.get());
+        lbool res = mbi.binary(pA, pB, vars, itp);
+        ctx.regular_stream() << res << " " << itp << "\n";
+    }
+
+};
+
 
 void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(print_dimacs_cmd));
@@ -416,4 +463,5 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(instantiate_nested_cmd));
     ctx.insert(alloc(set_next_id));
     ctx.insert(alloc(mbp_cmd));
+    ctx.insert(alloc(mbi_cmd));
 }

@@ -1536,6 +1536,8 @@ namespace smt {
 
         void internalize_assertion(expr * n, proof * pr, unsigned generation);
 
+        void internalize_proxies(expr_ref_vector const& asms, vector<std::pair<expr*,expr_ref>>& asm2proxy);
+
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
             internalize_assertion(body, pr, generation);
             if (relevancy())

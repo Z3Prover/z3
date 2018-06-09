@@ -18,17 +18,22 @@ Revision History:
 
 --*/
 
+#include "ast/ast_util.h"
+#include "solver/solver.h"
+#include "qe/qe_mbi.h"
+
 
 namespace qe {
 
-    euf_mbi_plugin::euf_mbi_plugin(solver* s): m_solver(s) {}
+    // -------------------------------
+    // prop_mbi
 
-    euf_mbi_plugin::~euf_mbi_plugin() {}
+    prop_mbi_plugin::prop_mbi_plugin(solver* s): m_solver(s) {}
 
-    mbi_result euf_mbi_plugin::operator()(
-        func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override {
-        // really just a sketch of propositional at this point
-        scoped_push _sp(m_solver);
+    // sketch of propositional
+
+    mbi_result prop_mbi_plugin::operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl)  {
+        ast_manager& m = lits.m();
         lbool r = m_solver->check_sat(lits);
         switch (r) {
         case l_false:
@@ -37,29 +42,77 @@ namespace qe {
             return mbi_unsat;
         case l_true:
             m_solver->get_model(mdl);
-            // update lits? to be all propositioal literals or an implicant.
-            // mdl will have map of all constants that we can walk over.
+            lits.reset();
+            for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
+                func_decl* c = mdl->get_constant(i);
+                if (vars.contains(c)) {
+                    if (m.is_true(mdl->get_const_interp(c))) {
+                        lits.push_back(m.mk_const(c));
+                    }
+                    else {
+                        lits.push_back(m.mk_not(m.mk_const(c)));
+                    }
+                }
+            }
             return mbi_sat;
-        case l_undef:
+        default:
             return mbi_undef;
         }
     }
 
-    void euf_mbi_plugin::block(expr_ref_vector const& lits) override {
+    void prop_mbi_plugin::block(expr_ref_vector const& lits) {
+        m_solver->assert_expr(mk_not(mk_and(lits)));
+    }    
+
+    // -------------------------------
+    // euf_mbi, TBD
+
+    euf_mbi_plugin::euf_mbi_plugin(solver* s): m(s->get_manager()), m_solver(s) {}
+
+    mbi_result euf_mbi_plugin::operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
+        lbool r = m_solver->check_sat(lits);
+        switch (r) {
+        case l_false:
+            lits.reset();
+            m_solver->get_unsat_core(lits);
+            return mbi_unsat;
+        case l_true:
+            m_solver->get_model(mdl);
+            lits.reset();
+            for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
+                func_decl* c = mdl->get_constant(i);
+                if (vars.contains(c)) {
+                    if (m.is_true(mdl->get_const_interp(c))) {
+                        lits.push_back(m.mk_const(c));
+                    }
+                    else {
+                        lits.push_back(m.mk_not(m.mk_const(c)));
+                    }
+                }
+            }
+            return mbi_sat;
+        default:
+            return mbi_undef;
+        }
+    }
+
+    void euf_mbi_plugin::block(expr_ref_vector const& lits) {
         m_solver->assert_expr(mk_not(mk_and(lits)));
     }    
     
-    /**
+
+    /** --------------------------------------------------------------
      * ping-pong interpolation of Gurfinkel & Vizel
+     * compute a binary interpolant.
      */
     lbool interpolator::binary(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
         ast_manager& m = vars.get_manager();
         model_ref mdl;
-        literal_vector lits(m);
+        expr_ref_vector lits(m);
         bool turn = true;
         vector<expr_ref_vector> itps, blocks;
-        ipts.push_back(expr_ref_vector(m));
-        ipts.push_back(expr_ref_vector(m));
+        itps.push_back(expr_ref_vector(m));
+        itps.push_back(expr_ref_vector(m));
         blocks.push_back(expr_ref_vector(m));
         blocks.push_back(expr_ref_vector(m));
         mbi_result last_res = mbi_undef;
@@ -74,18 +127,20 @@ namespace qe {
                     return l_true;
                 }
                 break; // continue
-            case mbi_unsat:
-                if (last_res == mbi_unsat) {
+            case mbi_unsat: {
+                if (lits.empty()) {
                     itp = mk_and(itps[turn]);
                     return l_false;
                 }
                 t2->block(lits);
-                expr_ref lemma(m.mk_not(mk_and(lits)), m);
+                expr_ref lemma(mk_not(mk_and(lits)));
                 blocks[turn].push_back(lemma);
-                itps[turn].push_back(m.mk_implies(mk_and(blocks[!turn]), lemma));
+                itp = m.mk_implies(mk_and(blocks[!turn]), lemma);
+                // TBD: compute closure over variables not in vars
+                itps[turn].push_back(itp);
                 lits.reset();  // or find a prefix of lits?
-                next_res = mbi_undef; // hard restart.
                 break;
+            }
             case mbi_augment:
                 break;
             case mbi_undef:

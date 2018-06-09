@@ -29,7 +29,8 @@ namespace qe {
     };
 
     class mbi_plugin {
-        virtual ~mbi_plugin();
+    public:
+        virtual ~mbi_plugin() {}
         /**
          * \brief Utility that works modulo a background state.
          * - vars
@@ -57,8 +58,18 @@ namespace qe {
         virtual void block(expr_ref_vector const& lits) = 0;
     };
 
-    class euf_mbi_plugin : mbi_plugin {
+    class prop_mbi_plugin : public mbi_plugin {
         solver_ref m_solver;
+    public:
+        prop_mbi_plugin(solver* s);
+        ~prop_mbi_plugin() override {}
+        mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
+        void block(expr_ref_vector const& lits) override;
+    };
+    
+    class euf_mbi_plugin : public mbi_plugin {
+        ast_manager& m;
+        solver_ref   m_solver;
     public:
         euf_mbi_plugin(solver* s);
         ~euf_mbi_plugin() override {}
@@ -70,6 +81,7 @@ namespace qe {
      * use cases for interpolation.
      */
     class interpolator {
+    public:
         static lbool binary(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
     };
 
