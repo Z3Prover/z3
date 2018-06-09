@@ -421,7 +421,7 @@ public:
         for (func_decl* v : m_vars) {
             vars.push_back(v);
         }
-        qe::interpolator mbi;
+        qe::interpolator mbi(m);
         expr_ref a(m_a, m);
         expr_ref b(m_b, m);
         expr_ref itp(m);
@@ -433,7 +433,7 @@ public:
         sB->assert_expr(b);
         qe::prop_mbi_plugin pA(sA.get());
         qe::prop_mbi_plugin pB(sB.get());
-        lbool res = mbi.binary(pA, pB, vars, itp);
+        lbool res = mbi.pingpong(pA, pB, vars, itp);
         ctx.regular_stream() << res << " " << itp << "\n";
     }
 

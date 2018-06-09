@@ -49,8 +49,8 @@ namespace qe {
                     if (m.is_true(mdl->get_const_interp(c))) {
                         lits.push_back(m.mk_const(c));
                     }
-                    else {
-                        lits.push_back(m.mk_not(m.mk_const(c)));
+                    else if (m.is_false(mdl->get_const_interp(c))) {
+                        lits.push_back(m.mk_const(c));
                     }
                 }
             }
@@ -105,10 +105,8 @@ namespace qe {
     /** --------------------------------------------------------------
      * ping-pong interpolation of Gurfinkel & Vizel
      * compute a binary interpolant.
-     * TBD: also implement the one-sided versions that create clausal interpolants.
      */
-    lbool interpolator::binary(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
-        ast_manager& m = vars.get_manager();
+    lbool interpolator::pingpong(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
         model_ref mdl;
         expr_ref_vector lits(m);
         bool turn = true;
@@ -155,5 +153,13 @@ namespace qe {
             turn = !turn;
             last_res = next_res;
         }
+    }
+
+    /**
+     * TBD: also implement the one-sided versions that create clausal interpolants.
+     */
+    lbool interpolator::pogo(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
+        NOT_IMPLEMENTED_YET();
+        return l_undef;
     }
 };

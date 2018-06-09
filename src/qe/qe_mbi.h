@@ -81,8 +81,11 @@ namespace qe {
      * use cases for interpolation.
      */
     class interpolator {
+        ast_manager& m;
     public:
-        static lbool binary(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
+        interpolator(ast_manager& m):m(m) {}
+        lbool pingpong(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
+        lbool pogo(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
     };
 
 #if 0

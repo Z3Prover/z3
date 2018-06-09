@@ -627,7 +627,7 @@ namespace smt {
     */
     void context::remove_parents_from_cg_table(enode * r1) {
         // Remove parents from the congruence table
-        for (enode * parent : r1->get_parents()) {
+        for (enode * parent : enode::parents(r1)) {
 #if 0
             {
                 static unsigned num_eqs = 0;
@@ -672,7 +672,7 @@ namespace smt {
     */
     void context::reinsert_parents_into_cg_table(enode * r1, enode * r2, enode * n1, enode * n2, eq_justification js) {
         enode_vector & r2_parents  = r2->m_parents;
-        for (enode * parent : r1->get_parents()) {
+        for (enode * parent : enode::parents(r1)) {
             if (!parent->is_marked())
                 continue;
             parent->unset_mark();
@@ -1002,7 +1002,7 @@ namespace smt {
         r2->m_parents.shrink(r2_num_parents);
 
         // try to reinsert parents of r1 that are not cgr
-        for (enode * parent : r1->get_parents()) {
+        for (enode * parent : enode::parents(r1)) {
             TRACE("add_eq_parents", tout << "visiting: #" << parent->get_owner_id() << "\n";);
             if (parent->is_cgc_enabled()) {
                 enode * cg     = parent->m_cg;
@@ -1197,7 +1197,7 @@ namespace smt {
     bool context::is_diseq_slow(enode * n1, enode * n2) const {
         if (n1->get_num_parents() > n2->get_num_parents())
             std::swap(n1, n2);
-        for (enode * parent : n1->get_parents()) {
+        for (enode * parent : enode::parents(n1)) {
             if (parent->is_eq() && is_relevant(parent->get_owner()) && get_assignment(enode2bool_var(parent)) == l_false &&
                 ((parent->get_arg(0)->get_root() == n1->get_root() && parent->get_arg(1)->get_root() == n2->get_root()) ||
                  (parent->get_arg(1)->get_root() == n1->get_root() && parent->get_arg(0)->get_root() == n2->get_root()))) {
@@ -1229,7 +1229,7 @@ namespace smt {
             return false;
         if (r1->get_num_parents() < SMALL_NUM_PARENTS) {
             TRACE("is_ext_diseq", tout << mk_bounded_pp(n1->get_owner(), m_manager) << " " << mk_bounded_pp(n2->get_owner(), m_manager) << " " << depth << "\n";);
-            for (enode* p1 : r1->get_parents()) {
+            for (enode * p1 : enode::parents(r1)) {
                 if (!is_relevant(p1))
                     continue;
                 if (p1->is_eq())
@@ -1239,7 +1239,7 @@ namespace smt {
                 func_decl * f     = p1->get_decl();
                 TRACE("is_ext_diseq", tout << "p1: " << mk_bounded_pp(p1->get_owner(), m_manager) << "\n";);
                 unsigned num_args = p1->get_num_args();
-                for (enode * p2 : r2->get_parents()) {
+                for (enode * p2 : enode::parents(r2)) {
                     if (!is_relevant(p2))
                         continue;
                     if (p2->is_eq())
@@ -1277,7 +1277,7 @@ namespace smt {
             }
             almost_cg_table & table = *(m_almost_cg_tables[depth]);
             table.reset(r1, r2);
-            for (enode* p1 : r1->get_parents()) {
+            for (enode * p1 : enode::parents(r1)) {
                 if (!is_relevant(p1))
                     continue;
                 if (p1->is_eq())
@@ -1288,7 +1288,7 @@ namespace smt {
             }
             if (table.empty())
                 return false;
-            for (enode * p2 : r2->get_parents()) {
+            for (enode * p2 : enode::parents(r2)) {
                 if (!is_relevant(p2))
                     continue;
                 if (p2->is_eq())
@@ -4285,7 +4285,7 @@ namespace smt {
             theory_var_list * l = n->get_th_var_list();
             theory_id th_id     = l->get_th_id();
 
-            for (enode* parent : n->get_parents()) {
+            for (enode * parent : enode::parents(n)) {
                 family_id fid = parent->get_owner()->get_family_id();
                 if (fid != th_id && fid != m_manager.get_basic_family_id()) {
                     TRACE("is_shared", tout << mk_pp(n->get_owner(), m_manager) << "\nis shared because of:\n" << mk_pp(parent->get_owner(), m_manager) << "\n";);

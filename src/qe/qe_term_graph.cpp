@@ -27,7 +27,7 @@ namespace qe {
 
 class term {
     // -- an app represented by this term
-    app* m_app;
+    expr* m_app; // NSB: to make usable with exprs
     // -- root of the equivalence class
     term* m_root;
     // -- next element in the equivalence class (cyclic linked list)
@@ -43,27 +43,87 @@ class term {
     unsigned m_interpreted:1;
 
     // -- terms that contain this term as a child
-    //ptr_vector<term> m_uses;
+    ptr_vector<term> m_parents;
 
-    // ptr_vector<term> m_args;
+    // arguments of term.
+    ptr_vector<term> m_children;
 
 public:
-    term(app* a) : m_app(a), m_root(this), m_next(this),
-                   m_class_size(1), m_mark(false), m_mark2(false),
-                   m_interpreted(false) {}
+    term(expr* a, u_map<term*>& app2term) : 
+        m_app(a), 
+        m_root(this), 
+        m_next(this),
+        m_class_size(1), 
+        m_mark(false), 
+        m_mark2(false),
+        m_interpreted(false) {
+        if (!is_app(a)) return;
+        for (expr* e : *to_app(a)) {
+            term* t = app2term[e->get_id()];
+            t->m_parents.push_back(this);
+            m_children.push_back(t);
+        }
+    }
 
     ~term() {}
 
-    unsigned get_id() const {return m_app->get_id();}
+    class parents {
+        term const& t;
+    public:
+        parents(term const& _t):t(_t) {}
+        parents(term const* _t):t(*_t) {}
+        ptr_vector<term>::const_iterator begin() const { return t.m_parents.begin(); }
+        ptr_vector<term>::const_iterator end() const { return t.m_parents.end(); }
+    };
+
+    class children {
+        term const& t;
+    public:
+        children(term const& _t):t(_t) {}
+        children(term const* _t):t(*_t) {}
+        ptr_vector<term>::const_iterator begin() const { return t.m_children.begin(); }
+        ptr_vector<term>::const_iterator end() const { return t.m_children.end(); }
+    };
+
+    // Congruence table hash function is based on
+    // roots of children and function declaration.
+
+    struct cg_hash {
+        unsigned operator()(term const* t) const { 
+            unsigned a, b, c;
+            a = b = c = t->get_decl_id(); 
+            for (term * ch : children(t)) {
+                a = ch->get_root().get_id();
+                mix(a, b, c);
+            }
+            return c;
+        }
+    };
+
+    struct cg_eq {
+        bool operator()(term * t1, term * t2) const {
+            if (t1->get_decl_id() != t2->get_decl_id()) return false;
+            if (t1->m_children.size() != t2->m_children.size()) return false;
+            for (unsigned i = 0, sz = t1->m_children.size(); i < sz; ++ i) {
+                if (t1->m_children[i]->get_root().get_id() != t2->m_children[i]->get_root().get_id()) return false;
+            }
+            return true;
+        }
+    };
+
+    unsigned get_id() const { return m_app->get_id();}
+
+    unsigned get_decl_id() const { return is_app(m_app) ? to_app(m_app)->get_decl()->get_id() : m_app->get_id(); }
 
     bool is_marked() const {return m_mark;}
     void set_mark(bool v){m_mark = v;}
-    bool is_marked2() const {return m_mark2;}
-    void set_mark2(bool v){m_mark2 = v;}
+    bool is_marked2() const {return m_mark2;} // NSB: where is this used?
+    void set_mark2(bool v){m_mark2 = v;}      // NSB: where is this used?
 
     bool is_interpreted() const {return m_interpreted;}
     void mark_as_interpreted() {m_interpreted=true;}
-    app* get_app() const {return m_app;}
+    expr* get_app() const {return m_app;}
+    unsigned get_num_args() const { return is_app(m_app) ? to_app(m_app)->get_num_args() : 0; }
 
     term &get_root() const {return *m_root;}
     bool is_root() const {return m_root == this;}
@@ -97,6 +157,8 @@ public:
         while (curr != this);
     }
 };
+
+
 
 class arith_term_graph_plugin : public term_graph_plugin {
     term_graph &m_g;
@@ -244,6 +306,7 @@ public:
 term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m) {
     m_plugins.register_plugin (alloc(arith_term_graph_plugin, *this));
 }
+
 term_graph::~term_graph() {
     reset();
 }
@@ -251,7 +314,7 @@ term_graph::~term_graph() {
 static family_id get_family_id(ast_manager &m, app *lit) {
     family_id fid = null_family_id;
 
-    expr *e1, *e2, *e3;
+    expr *e1 = nullptr, *e2 = nullptr, *e3 = nullptr;
     // strip negation
     if (!m.is_not (lit, e1)) { e1 = lit; }
 
@@ -285,14 +348,14 @@ bool term_graph::is_internalized(app *a) {
     return m_app2term.contains(a->get_id());
 }
 
-term* term_graph::get_term(app *a) {
+term* term_graph::get_term(expr *a) {
     term *res;
     return m_app2term.find (a->get_id(), res) ? res : nullptr;
 }
 
-term *term_graph::mk_term(app *a) {
-    term * t = alloc(term, a);
-    if (a->get_num_args() == 0 && m.is_unique_value(a)){
+term *term_graph::mk_term(expr *a) {
+    term * t = alloc(term, a, m_app2term);
+    if (t->get_num_args() == 0 && m.is_unique_value(a)){
         t->mark_as_interpreted();
     }
 
@@ -301,37 +364,32 @@ term *term_graph::mk_term(app *a) {
     return t;
 }
 
-term *term_graph::internalize_term(app *t) {
+term *term_graph::internalize_term(expr *t) {
     term *res = get_term(t);
 
     if (!res) {
-        for (expr * arg : *t) {
-            SASSERT(is_app(arg));
-            internalize_term(::to_app(arg));
+        if (is_app(t)) {
+            for (expr * arg : *::to_app(t)) {
+                internalize_term(arg);
+            }
         }
         res = mk_term(t);
     }
     return res;
 }
 
-void term_graph::internalize_eq(app *a1, app* a2) {
-    internalize_lit(a1);
-    internalize_lit(a2);
+void term_graph::internalize_eq(expr *a1, expr* a2) {
+    internalize_term(a1);
+    internalize_term(a2);
     merge(get_term(a1)->get_root(), get_term(a2)->get_root());
 }
 
 void term_graph::internalize_lit(app* lit) {
-    if (is_internalized(lit)) return;
-
-    expr *e1, *e2;
-    if (m.is_eq (lit, e1, e2)) {
-        SASSERT(is_app(e1));
-        SASSERT(is_app(e2));
-        internalize_eq (::to_app(e1), ::to_app(e2));
+    expr *e1 = nullptr, *e2 = nullptr;
+    if (m.is_eq (lit, e1, e2)) {        
+        internalize_eq (e1, e2);
     }
     else {
-        // NSB: this is thrown away.
-        // Is caller responsible for maintaining other predicates than equalities?
         internalize_term(lit);
     }
 }
@@ -351,50 +409,61 @@ void term_graph::merge (term &t1, term &t2) {
     // make 'a' be the root of the equivalence class of 'b'
     b->set_root(*a);
     for (term *it = &b->get_next(); it != b; it = &it->get_next()) {
+        // TBD: remove parents of it from the cg table.
         it->set_root(*a);
     }
 
     // merge equivalence classes
     a->merge_eq_class(*b);
 
+    // TBD: insert parents of b's old equilvalence class into the cg table
+    // and propagate equalities.
+
     // -- merge might have invalidated term2map cache
+
+    // NSB: ??? what is ownership model of pinned in m_terms?
     m_term2app.reset();
-    m_pinned.reset();
+    m_pinned.reset();  
 }
 
-app* term_graph::mk_app_core (app *a) {
-    expr_ref_vector kids(m);
-    for (expr * arg : *a) {
-        kids.push_back (mk_app(::to_app(arg)));
+expr* term_graph::mk_app_core (expr *e) {
+    if (is_app(e)) {
+        expr_ref_vector kids(m);   
+        app* a = ::to_app(e);
+        for (expr * arg : *a) {
+            kids.push_back (mk_app(arg));
+        }        
+        app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.c_ptr());
+        m_pinned.push_back(res);
+        return res;
     }
-
-    app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.c_ptr());
-    m_pinned.push_back(res);
-
-    return res;
+    else {
+        return e;
+    }
 }
 
-app_ref term_graph::mk_app(term const &r) {
+expr_ref term_graph::mk_app(term const &r) {
     SASSERT(r.is_root());
 
-    if (r.get_app()->get_num_args() == 0) {
-        return app_ref(r.get_app(), m);
+    if (r.get_num_args() == 0) {
+        return expr_ref(r.get_app(), m);
     }
 
-    app* res;
+    expr* res = nullptr;
     if (m_term2app.find(r.get_id(), res)) {
-        return app_ref(res, m);
+        return expr_ref(res, m);
     }
 
     res = mk_app_core (r.get_app());
     m_term2app.insert(r.get_id(), res);
-    return app_ref(res, m);
+    return expr_ref(res, m);
 
 }
-app_ref term_graph::mk_app(app *a) {
+
+expr_ref term_graph::mk_app(expr *a) {
     term *t = get_term(a);
     if (!t) 
-        return app_ref(a, m);
+        return expr_ref(a, m);
     else 
         return mk_app(t->get_root());
 
@@ -402,10 +471,10 @@ app_ref term_graph::mk_app(app *a) {
 
 void term_graph::mk_equalities(term const &t, app_ref_vector &out) {
     SASSERT(t.is_root());
-    app_ref rep(mk_app(t), m);
+    expr_ref rep(mk_app(t), m);
 
     for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
-        app* mem = mk_app_core(it->get_app());
+        expr* mem = mk_app_core(it->get_app());
         out.push_back (m.mk_eq (rep, mem));
     }
 }
@@ -414,10 +483,9 @@ void term_graph::mk_all_equalities(term const &t, app_ref_vector &out) {
     mk_equalities(t, out);
 
     for (term *it = &t.get_next(); it != &t; it = &it->get_next ()) {
-        app* a1 = mk_app_core (it->get_app());
+        expr* a1 = mk_app_core (it->get_app());
         for (term *it2 = &it->get_next(); it2 != &t; it2 = &it2->get_next()) {
-            app *a2;
-            a2 =  mk_app_core(it2->get_app());
+            expr* a2 =  mk_app_core(it2->get_app());
             out.push_back (m.mk_eq (a1, a2));
         }
     }
@@ -436,19 +504,16 @@ bool term_graph::term_le(term const &t1, term const &t2) {
     // prefer constants over applications
     // prefer uninterpreted constants over values
     // prefer smaller expressions over larger ones
-    app *a1, *a2;
-    a1 = t1.get_app();
-    a2 = t2.get_app();
-    if (a1->get_num_args() == 0 && a2->get_num_args() > 0) {
+    if (t1.get_num_args() == 0 && t2.get_num_args() > 0) {
         return true;
     }
-    // NSB: how does this possibly define an order?
-    if (a1->get_num_args() == a2->get_num_args()) {
-        return m.is_value(a2);
+    if (t1.get_num_args() == t2.get_num_args()) {
+        // NSB: how does this possibly define an order?
+        return m.is_value(t2.get_app());
     }
 
-    unsigned sz1 = get_num_exprs(a1);
-    unsigned sz2 = get_num_exprs(a2);
+    unsigned sz1 = get_num_exprs(t1.get_app());
+    unsigned sz2 = get_num_exprs(t1.get_app());
     return sz1 < sz2;
 }
 
@@ -481,12 +546,13 @@ void term_graph::display(std::ostream &out) {
             << "\n";
     }
 }
+
 void term_graph::to_lits (app_ref_vector &lits, bool all_equalities) {
     pick_roots();
 
     for (app * a : m_lits) {
         if (is_internalized(a)) {
-            lits.push_back (mk_app(a));
+            lits.push_back (::to_app(mk_app(a)));
         }
     }
 
@@ -499,6 +565,7 @@ void term_graph::to_lits (app_ref_vector &lits, bool all_equalities) {
             mk_equalities(*t, lits);
     }
 }
+
 void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
     app_ref_vector out(m);
     to_lits (out, all_equalities);
@@ -520,6 +587,20 @@ void term_graph::reset() {
     std::for_each(m_terms.begin(), m_terms.end(), delete_proc<term>());
     m_terms.reset();
     m_lits.reset();
+}
+
+expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
+    obj_hashtable<func_decl> _decls;
+    for (func_decl* f : decls) _decls.insert(f);
+    // . propagate representatives up over parents.
+    //   use work-list + marking to propagate.
+    // . produce equalities over represented classes.
+    // . produce other literals over represented classes 
+    //    (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
+    
+    expr_ref_vector result(m);
+    NOT_IMPLEMENTED_YET();
+    return result;
 }
 
 }

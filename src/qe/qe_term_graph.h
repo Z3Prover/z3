@@ -39,23 +39,22 @@ namespace qe {
     };
     
     class term_graph {
-        ast_manager &m;
+        ast_manager &    m;
         ptr_vector<term> m_terms;
-        app_ref_vector m_lits;
-        u_map<term* > m_app2term;
-        
-        app_ref_vector m_pinned;
-        u_map<app*> m_term2app;
+        app_ref_vector   m_lits;
+        u_map<term* >    m_app2term;        
+        app_ref_vector   m_pinned;
+        u_map<expr*>      m_term2app;
         
         plugin_manager<term_graph_plugin> m_plugins;
         
         void merge(term &t1, term &t2);
         
-        term *mk_term(app *t);
-        term *get_term(app *t);
+        term *mk_term(expr *t);
+        term *get_term(expr *t);
         
-        term *internalize_term(app *t);
-        void internalize_eq(app *a1, app *a2);
+        term *internalize_term(expr *t);
+        void internalize_eq(expr *a1, expr *a2);
         void internalize_lit(app *lit);
         
         bool is_internalized(app *a);
@@ -66,27 +65,35 @@ namespace qe {
         
         void reset_marks();
         
-        app *mk_app_core(app* a);
-        app_ref mk_app(term const &t);
-        app_ref mk_app(app *a);
+        expr* mk_app_core(expr* a);
+        expr_ref mk_app(term const &t);
+        expr_ref mk_app(expr *a);
         void mk_equalities(term const &t, app_ref_vector &out);
         void mk_all_equalities(term const &t, app_ref_vector &out);
-        void display(std::ostream &out);
+        void display(std::ostream &out);        
     public:
         term_graph(ast_manager &man);
         ~term_graph();
         
-        ast_manager &get_ast_manager() const { return m;}
+        ast_manager& get_ast_manager() const { return m;}
         
         void add_lit(app *lit);
         void add_lits(expr_ref_vector const &lits) {
             for (expr* e : lits) add_lit(::to_app(e));
         }
+        void add_eq(expr* a, expr* b);
         
         void reset();
         void to_lits(app_ref_vector &lits, bool all_equalities = false);
         void to_lits(expr_ref_vector &lits, bool all_equalities = false);
         app_ref to_app();
+
+        /**
+         * Return literals obtained by projecting added literals 
+         * onto the vocabulary of decls (if exclude is false) or outside the 
+         * vocabulary of decls (if exclude is true).
+         */
+         expr_ref_vector project(func_decl_ref_vector const& decls, bool exclude);
         
     };
 
