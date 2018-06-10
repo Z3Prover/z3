@@ -365,10 +365,12 @@ term *term_graph::mk_term(expr *a) {
     return t;
 }
 
-term *term_graph::internalize_term(expr *t) {
+term* term_graph::internalize_term(expr *t) {
+    
+    term* res = get_term(t);
+    if (res) return res;
     ptr_buffer<expr> todo;
     todo.push_back(t);
-    term* res = nullptr;
     while (!todo.empty()) {
         term* res = get_term(t);
         if (res) {
@@ -390,9 +392,7 @@ term *term_graph::internalize_term(expr *t) {
 }
 
 void term_graph::internalize_eq(expr *a1, expr* a2) {
-    internalize_term(a1);
-    internalize_term(a2);
-    merge(get_term(a1)->get_root(), get_term(a2)->get_root());
+    merge(internalize_term(a1)->get_root(), internalize_term(a2)->get_root());
 }
 
 void term_graph::internalize_lit(expr* lit) {
@@ -600,9 +600,25 @@ void term_graph::reset() {
     m_lits.reset();
 }
 
+expr_ref term_graph::mk_pure(term& t) {
+    expr* e = t.get_app();
+    if (m_term2app.find(t.get_id(), e)) return expr_ref(e, m);
+    if (!is_app(e)) return expr_ref(m);
+    app* a = ::to_app(e);
+    expr_ref_vector kids(m);
+    for (term* ch : term::children(t)) {
+        if (!ch->get_root().is_marked()) return expr_ref(m);
+        kids.push_back(mk_pure(ch->get_root()));
+    }
+    expr_ref result(m.mk_app(a->get_decl(), kids.size(), kids.c_ptr()), m);
+    m_pinned.push_back(result);
+    m_term2app.insert(t.get_id(), result);
+    return result;
+}
+
 expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
-    uint_set _decls;
-    for (func_decl* f : decls) _decls.insert(f->get_id());
+    u_map<bool> _decls;
+    for (func_decl* f : decls) _decls.insert(f->get_id(), true);
     // . propagate representatives up over parents.
     //   use work-list + marking to propagate.
     // . produce equalities over represented classes.
@@ -632,7 +648,8 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
         // make this the new root.
         term* r = t;
         do {
-            r->set_root(*t);
+            r->set_root(*t); // TBD: invalidates hash-table, only one-shot
+            // TBD: optimize worklist traversal?
             for (term* p : term::parents(r)) {
                 worklist.push_back(p);
             }        
@@ -641,12 +658,47 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
         while (t != r);    
         t->set_mark(true);
     }
-    // Now, marked roots in m_terms can be used in projection
-
+    // marked roots in m_terms can be used in projection
+    // walk each root. Then traverse each term in the equivalence class
+    // create pure variant of the terms (if possible)
+    // equate t0 (that comes from the root, which can be purified)
+    // with any other t1.
     expr_ref_vector result(m);
-    
+    m_term2app.reset();
+    m_pinned.reset();
+    for (term * t : m_terms) {
+        if (!t->is_root() || !t->is_marked() || t->get_class_size() == 1) continue;
+        term* r = t;
+        expr_ref t0 = mk_pure(*t);
+        SASSERT(t0);
+        obj_hashtable<expr> roots;
+        roots.insert(t0);
+        for (term* r = &t->get_next(); r != t; r = &r->get_next()) {
+            // main symbol of term must be consistent with what is included/excluded
+            if (exclude != _decls.contains(r->get_decl_id())) {
+                continue;
+            }
+            expr_ref t1 = mk_pure(*r);
+            if (t1 && !roots.contains(t1)) {
+                result.push_back(m.mk_eq(t0, t1));
+                roots.insert(t1);
+            }
+        }
+    }
+    // walk disequalities and expose projected disequality
+    for (expr* e : m_lits) {
+        expr* e1 = nullptr, *e2 = nullptr;
+        if (m.is_not(e, e) && m.is_eq(e, e1, e2)) {
+            expr_ref t1 = mk_pure(*get_term(e1));
+            expr_ref t2 = mk_pure(*get_term(e2));
+            if (t1 && t2) {
+                result.push_back(m.mk_not(m.mk_eq(t1, t2)));
+            }
+        }
+    }    
     reset_marks();
-    NOT_IMPLEMENTED_YET();
+    m_term2app.reset();
+    m_pinned.reset();
     return result;
 }
 

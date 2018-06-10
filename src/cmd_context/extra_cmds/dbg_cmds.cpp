@@ -32,6 +32,7 @@ Notes:
 #include "util/gparams.h"
 #include "qe/qe_mbp.h"
 #include "qe/qe_mbi.h"
+#include "qe/qe_term_graph.h"
 
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
@@ -435,6 +436,42 @@ public:
         qe::prop_mbi_plugin pB(sB.get());
         lbool res = mbi.pingpong(pA, pB, vars, itp);
         ctx.regular_stream() << res << " " << itp << "\n";
+    }
+
+};
+
+
+class euf_project_cmd : public cmd {
+    unsigned              m_arg_index;
+    ptr_vector<expr>      m_lits;
+    ptr_vector<func_decl> m_vars;
+public:
+    euf_project_cmd():cmd("euf-project") {}
+    char const * get_usage() const override { return "(exprs) (vars)"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform congruence projection"; }
+    unsigned get_arity() const override { return 2; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        if (m_arg_index == 0) return CPK_EXPR_LIST;
+        return CPK_FUNC_DECL_LIST;
+    }
+    void set_next_arg(cmd_context& ctx, unsigned num, expr * const* args) override { 
+        m_lits.append(num, args);
+        m_arg_index = 1;
+    }
+    void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
+        m_vars.append(num, ts);
+    }
+    void prepare(cmd_context & ctx) override { m_arg_index = 0; m_lits.reset(); m_vars.reset(); }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        func_decl_ref_vector vars(m);
+        expr_ref_vector lits(m);
+        for (func_decl* v : m_vars) vars.push_back(v);
+        for (expr* e : m_lits) lits.push_back(e);
+        qe::term_graph tg(m);
+        tg.add_lits(lits);
+        expr_ref_vector p = tg.project(vars, false);
+        ctx.regular_stream() << p << "\n";
     }
 
 };

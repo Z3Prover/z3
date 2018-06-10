@@ -67,12 +67,13 @@ namespace qe {
         
         expr* mk_app_core(expr* a);
         expr_ref mk_app(term const &t);
+        expr_ref mk_pure(term& t);
         expr_ref mk_app(expr *a);
         void mk_equalities(term const &t, app_ref_vector &out);
         void mk_all_equalities(term const &t, app_ref_vector &out);
         void display(std::ostream &out);        
     public:
-        term_graph(ast_manager &man);
+        term_graph(ast_manager &m);
         ~term_graph();
         
         ast_manager& get_ast_manager() const { return m;}
