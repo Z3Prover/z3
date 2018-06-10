@@ -373,7 +373,7 @@ namespace qe {
         ptr_buffer<expr> todo;
         todo.push_back(t);
         while (!todo.empty()) {
-			t = todo.back();
+            t = todo.back();
             res = get_term(t);
             if (res) {
                 todo.pop_back();
@@ -659,78 +659,70 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
     m_term2app.reset();
     m_pinned.reset();
 
-    obj_hashtable<expr> roots;
+    obj_hashtable<expr> eqs;
+    expr_ref eq(m);
     ptr_vector<term> worklist;
     for (term * t : m_terms) {
-        if (t->is_root()) {
-            worklist.push_back(t);
-            t->set_mark(true); 
-        }
+        worklist.push_back(t);
+        t->set_mark(true);         
     }
+
     while (!worklist.empty()) {
         term* t = worklist.back();
         worklist.pop_back();
-        SASSERT(t->is_root());
         t->set_mark(false);
-        if (m_term2app.contains(t->get_id())) continue;
-        term* r = t;
-        roots.reset();
-        expr_ref rep(m), other(m);
-        // walk the equivalence class of t to produce
-        // a representative. 
-        do {
-            // if exclude = true,  but t in decls, then skip
-            // if exclude = false, but t not in decls, then skip
-            if (!r->is_theory() && exclude == _decls.contains(r->get_decl_id())) {
-                r = &r->get_next();
-                continue;
-            }
-            other = mk_pure(*r);
-            if (other) {
-                if (!rep) {
-                    rep = other;
-                    roots.insert(other);
-                }
-                else if (!roots.contains(other)) {
-                    roots.insert(other);
-                    result.push_back(m.mk_eq(rep, other));
-                    // give preference to non-values as roots.
-                    if (m.is_unique_value(rep)) {
-                        std::swap(other, rep);
-                    }
-                }
-            }
-            r = &r->get_next();            
+        if (m_term2app.contains(t->get_id())) 
+            continue;
+        if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id())) 
+            continue;
+
+        term& root = t->get_root();
+        bool has_rep = m_term2app.contains(root.get_id());
+        expr* pure = mk_pure(*t);
+        if (!pure) continue;
+
+        // ensure that the root has a representative
+        // either by looking up cached version, 
+        // computing it for the first time, or
+        // inheriting pure.
+        expr* rep = nullptr;
+        if (root.is_theory() || exclude != _decls.contains(root.get_decl_id())) {
+            rep = mk_pure(root);
         }
-        while (r != t);
+        else if (has_rep) {
+            rep = m_term2app.find(root.get_id());
+        }
+        else {
+            rep = pure;
+            m_term2app.insert(root.get_id(), pure);
+        }
+        bool update_rep = false;
 
-        if (rep) {
-            // update the representative of t to the preferred one.
-            // used by mk_pure to determine representative of child.
-            m_term2app.insert(t->get_id(), rep);
-#if 1
-            // The root should contain all parents relative to the equivalence class.
-            // To ensure this, merge uses add_parent on the chosen root with respect to the old root.
-            // To enable adding terms after merge the constructor for terms also has to ensure
-            // that new terms are added as parents of the roots of their children.
+        // Add equations between pure and rep, 
+        // optionally swap the roles of rep and pure if
+        // pure makes a better representative.
+        if (rep != pure) {
+            if (m.is_unique_value(rep) && !m.is_unique_value(pure)) {
+                m_term2app.insert(root.get_id(), pure);
+                update_rep = true;
+            }
+            eq = m.mk_eq(rep, pure);
+            if (!eqs.contains(eq)) {
+                eqs.insert(eq);
+                result.push_back(eq);
+            }
+        }
 
-            for (term * p : term::parents(t)) {
-                p = &p->get_root();
+        // update the worklist if this is the first 
+        // representative or pure was swapped into rep.
+        if (!has_rep || update_rep) {
+            for (term * p : term::parents(root)) {
+                if (update_rep) m_term2app.remove(p->get_id());
                 if (!p->is_marked()) {
                     p->set_mark(true);
                     worklist.push_back(p);
                 }
             }
-#else
-            r = t;
-            do {
-                for (term * p : term::parents(r)) {
-                    worklist.push_back(&p->get_root());
-                }
-                r = &r->get_next();
-            }
-            while (r != t);            
-#endif
         }
     }
     // walk other predicates than equalities
