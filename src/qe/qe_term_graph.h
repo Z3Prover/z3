@@ -37,18 +37,23 @@ namespace qe {
         /// Process (and potentially augment) a literal
         virtual app_ref process_lit (app *lit) = 0;
     };
-    
+   
+
     class term_graph {
+        struct term_hash { unsigned operator()(term const* t) const; };
+        struct term_eq { bool operator()(term const* a, term const* b) const; };
         ast_manager &     m;
         ptr_vector<term>  m_terms;
         app_ref_vector    m_lits; // NSB: expr_ref_vector?
         u_map<term* >     m_app2term;        
         ast_ref_vector    m_pinned;
         u_map<expr*>      m_term2app;
-        
         plugin_manager<term_graph_plugin> m_plugins;
+        ptr_hashtable<term, term_hash, term_eq> m_cg_table;
+        vector<std::pair<term*,term*>> m_merge;
         
         void merge(term &t1, term &t2);
+        void merge_flush();
         
         term *mk_term(expr *t);
         term *get_term(expr *t);

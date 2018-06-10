@@ -503,4 +503,5 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(set_next_id));
     ctx.insert(alloc(mbp_cmd));
     ctx.insert(alloc(mbi_cmd));
+    ctx.insert(alloc(euf_project_cmd));
 }
