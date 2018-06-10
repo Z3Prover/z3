@@ -118,6 +118,7 @@ namespace qe {
         void set_mark2(bool v){m_mark2 = v;}      // NSB: where is this used?
         
         bool is_interpreted() const {return m_interpreted;}
+        bool is_theory() const { return !is_app(m_app) || to_app(m_app)->get_family_id() != null_family_id; }
         void mark_as_interpreted() {m_interpreted=true;}
         expr* get_app() const {return m_app;}
         unsigned get_num_args() const { return is_app(m_app) ? to_app(m_app)->get_num_args() : 0; }
@@ -660,7 +661,8 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
         if (t->get_root().is_marked()) continue;
         // if exclude = true,  but t in decls, then skip
         // if exclude = false, but t not in decls, then skip
-        if (exclude == _decls.contains(t->get_decl_id())) {
+
+        if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id())) {
             continue;
         }
         //
@@ -704,7 +706,7 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
         roots.insert(t0);
         for (term* r = &t->get_next(); r != t; r = &r->get_next()) {
             // main symbol of term must be consistent with what is included/excluded
-            if (exclude == _decls.contains(r->get_decl_id())) {
+            if (!r->is_theory() && exclude == _decls.contains(r->get_decl_id())) {
                 continue;
             }
             expr_ref t1 = mk_pure(*r);
@@ -716,12 +718,10 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
     }
     // walk disequalities and expose projected disequality
     for (expr* e : m_lits) {
-        expr* e1 = nullptr, *e2 = nullptr;
-        if (m.is_not(e, e) && m.is_eq(e, e1, e2)) {
-            expr_ref t1 = mk_pure(*get_term(e1));
-            expr_ref t2 = mk_pure(*get_term(e2));
-            if (t1 && t2) {
-                result.push_back(m.mk_not(m.mk_eq(t1, t2)));
+        if (!m.is_eq(e)) {
+            expr_ref t = mk_pure(*get_term(e));
+            if (t) {
+                result.push_back(t);
             }
         }
     }    
