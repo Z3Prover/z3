@@ -372,6 +372,7 @@ namespace qe {
         ptr_buffer<expr> todo;
         todo.push_back(t);
         while (!todo.empty()) {
+			t = todo.back();
             res = get_term(t);
             if (res) {
                 todo.pop_back();
