@@ -171,7 +171,7 @@ namespace qe {
         
         virtual ~arith_term_graph_plugin() {}
         
-        bool mk_eq_core (expr *_e1, expr *_e2, app_ref &res) {
+        bool mk_eq_core (expr *_e1, expr *_e2, expr_ref &res) {
             expr *e1, *e2;
             e1 = _e1;
             e2 = _e2;
@@ -227,7 +227,7 @@ namespace qe {
             return m_arith.mk_ge(arg, mk_zero());
         }
         
-        bool mk_le_core (expr *arg1, expr * arg2, app_ref &result) {
+        bool mk_le_core (expr *arg1, expr * arg2, expr_ref &result) {
             // t <= -1  ==> t < 0 ==> ! (t >= 0)
             rational n;
             if (m_arith.is_int (arg1) && m_arith.is_minus_one (arg2)) {
@@ -252,7 +252,7 @@ namespace qe {
             return m_arith.is_numeral (n, val) && val.is_one ();
         }
         
-        bool mk_ge_core (expr * arg1, expr * arg2, app_ref &result) {
+        bool mk_ge_core (expr * arg1, expr * arg2, expr_ref &result) {
             // t >= 1 ==> t > 0 ==> ! (t <= 0)
             rational n;
             if (m_arith.is_int (arg1) && is_one (arg2)) {
@@ -271,8 +271,8 @@ namespace qe {
             return false;
         }
         
-        virtual app_ref process_lit (app *_lit) {
-            app *lit = _lit;
+        expr_ref process_lit (expr *_lit) override {
+            expr *lit = _lit;
             expr *e1, *e2;
             
             // strip negation
@@ -281,7 +281,7 @@ namespace qe {
                 lit = to_app(to_app(lit)->get_arg(0));
             }
             
-            app_ref res(m);
+            expr_ref res(m);
             res = lit;
             if (m.is_eq (lit, e1, e2)) {
                 mk_eq_core(e1, e2, res);
@@ -295,10 +295,10 @@ namespace qe {
             
             // restore negation
             if (is_neg) {
-                res = m.mk_not(res);
+                res = mk_not(m, res);
             }
             
-        return res;
+            return res;
         }
     };
 
@@ -314,27 +314,26 @@ namespace qe {
         reset();
     }
 
-    static family_id get_family_id(ast_manager &m, app *lit) {
-        family_id fid = null_family_id;
-        
-        expr *e1 = nullptr, *e2 = nullptr, *e3 = nullptr;
-        // strip negation
-        if (!m.is_not (lit, e1)) { e1 = lit; }
-        
+    static family_id get_family_id(ast_manager &m, expr *lit) {
+        if (m.is_not(lit, lit)) 
+            return get_family_id(m, lit);
+
+        expr *a = nullptr, *b = nullptr;        
         // deal with equality using sort of range
-        if (m.is_eq (e1, e2, e3)) {
-            fid = get_sort (e2)->get_family_id();
+        if (m.is_eq (lit, a, b)) {
+            return get_sort (a)->get_family_id();
         }
         // extract family_id of top level app
-        else {
-            fid = to_app(e1)->get_decl()->get_family_id();
+        else if (is_app(lit)) {
+            return to_app(lit)->get_decl()->get_family_id();
         }
-        
-        return fid;
+        else {
+            return null_family_id;
+        }
     }
     
-    void term_graph::add_lit(app *l) {
-        app_ref lit(m);
+    void term_graph::add_lit(expr *l) {
+        expr_ref lit(m);
         
         family_id fid = get_family_id (m, l);
         term_graph_plugin *pin = m_plugins.get_plugin(fid);
@@ -482,263 +481,257 @@ namespace qe {
         }
     }
 
-expr_ref term_graph::mk_app(term const &r) {
-    SASSERT(r.is_root());
-
-    if (r.get_num_args() == 0) {
-        return expr_ref(r.get_app(), m);
-    }
-
-    expr* res = nullptr;
-    if (m_term2app.find(r.get_id(), res)) {
+    expr_ref term_graph::mk_app(term const &r) {
+        SASSERT(r.is_root());
+        
+        if (r.get_num_args() == 0) {
+            return expr_ref(r.get_app(), m);
+        }
+        
+        expr* res = nullptr;
+        if (m_term2app.find(r.get_id(), res)) {
+            return expr_ref(res, m);
+        }
+        
+        res = mk_app_core (r.get_app());
+        m_term2app.insert(r.get_id(), res);
         return expr_ref(res, m);
+        
     }
 
-    res = mk_app_core (r.get_app());
-    m_term2app.insert(r.get_id(), res);
-    return expr_ref(res, m);
-
-}
-
-expr_ref term_graph::mk_app(expr *a) {
-    term *t = get_term(a);
-    if (!t) 
-        return expr_ref(a, m);
-    else 
-        return mk_app(t->get_root());
-
-}
-
-void term_graph::mk_equalities(term const &t, app_ref_vector &out) {
-    SASSERT(t.is_root());
-    expr_ref rep(mk_app(t), m);
-
-    for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
-        expr* mem = mk_app_core(it->get_app());
-        out.push_back (m.mk_eq (rep, mem));
-    }
-}
-
-void term_graph::mk_all_equalities(term const &t, app_ref_vector &out) {
-    mk_equalities(t, out);
-
-    for (term *it = &t.get_next(); it != &t; it = &it->get_next ()) {
-        expr* a1 = mk_app_core (it->get_app());
-        for (term *it2 = &it->get_next(); it2 != &t; it2 = &it2->get_next()) {
-            expr* a2 =  mk_app_core(it2->get_app());
-            out.push_back (m.mk_eq (a1, a2));
-        }
-    }
-}
-
-void term_graph::reset_marks() {
-    for (term * t : m_terms) {
-        t->set_mark(false);
-    }
-}
-
-/// Order of preference for roots of equivalence classes
-/// XXX This should be factored out to let clients control the preference
-bool term_graph::term_le(term const &t1, term const &t2) {
-
-    // prefer constants over applications
-    // prefer uninterpreted constants over values
-    // prefer smaller expressions over larger ones
-    if (t1.get_num_args() == 0 && t2.get_num_args() > 0) {
-        return true;
-    }
-    if (t1.get_num_args() == t2.get_num_args()) {
-        // NSB: how does this possibly define an order?
-        return m.is_value(t2.get_app());
-    }
-
-    unsigned sz1 = get_num_exprs(t1.get_app());
-    unsigned sz2 = get_num_exprs(t1.get_app());
-    return sz1 < sz2;
-}
-
-void term_graph::pick_root (term &t) {
-    term *r = &t;
-    for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
-        it->set_mark(true);
-        if (term_le(*it, *r)) { r = it; }
-    }
-
-    // -- if found something better, make it the new root
-    if (r != &t) {
-        r->mk_root();
-    }
-}
-/// Choose better roots for equivalence classes
-void term_graph::pick_roots() {
-    for (term* t : m_terms) {
-        if (!t->is_marked() && t->is_root()) 
-            pick_root(*t);
-    }
-    reset_marks();
-}
-
-void term_graph::display(std::ostream &out) {
-    for (term * t : m_terms) {
-        out << mk_pp(t->get_app(), m) << " is root " << t->is_root()
-            << " cls sz " << t->get_class_size()
-            << " term " << t
-            << "\n";
-    }
-}
-
-void term_graph::to_lits (app_ref_vector &lits, bool all_equalities) {
-    pick_roots();
-
-    for (app * a : m_lits) {
-        if (is_internalized(a)) {
-            lits.push_back (::to_app(mk_app(a)));
-        }
-    }
-
-    for (term * t : m_terms) {
-        if (!t->is_root()) 
-            continue;
-        else if (all_equalities) 
-            mk_all_equalities (*t, lits);         
+    expr_ref term_graph::mk_app(expr *a) {
+        term *t = get_term(a);
+        if (!t) 
+            return expr_ref(a, m);
         else 
-            mk_equalities(*t, lits);
-    }
-}
-
-void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
-    app_ref_vector out(m);
-    to_lits (out, all_equalities);
-    for (app* a : out) {
-        lits.push_back(a);
-    }
-}
-
-app_ref term_graph::to_app() {
-    app_ref_vector lits(m);
-    to_lits(lits);
-    return mk_and(lits);
-}
-
-void term_graph::reset() {
-    m_term2app.reset();
-    m_pinned.reset();
-    m_app2term.reset();
-    std::for_each(m_terms.begin(), m_terms.end(), delete_proc<term>());
-    m_terms.reset();
-    m_lits.reset();
-    m_cg_table.reset();
-}
-
-expr* term_graph::mk_pure(term& t) {
-    expr* e = t.get_app();
-    if (m_term2app.find(t.get_id(), e)) e;
-    if (!is_app(e)) return nullptr;
-    app* a = ::to_app(e);
-    expr_ref_vector kids(m);
-    for (term* ch : term::children(t)) {
-        if (!m_term2app.find(ch->get_root().get_id(), e)) return nullptr;
-        kids.push_back(e);
-    }
-    expr* result = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
-    m_pinned.push_back(result);
-    m_term2app.insert(t.get_id(), result);
-    return result;
-}
-
-expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
-    u_map<bool> _decls;
-    for (func_decl* f : decls) _decls.insert(f->get_id(), true);
-    // . propagate representatives up over parents.
-    //   use work-list + marking to propagate.
-    // . produce equalities over represented classes.
-    // . produce other literals over represented classes 
-    //    (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
-
-    expr_ref_vector result(m);
-    m_term2app.reset();
-    m_pinned.reset();
-
-    obj_hashtable<expr> eqs;
-    expr_ref eq(m);
-    ptr_vector<term> worklist;
-    for (term * t : m_terms) {
-        worklist.push_back(t);
-        t->set_mark(true);         
+            return mk_app(t->get_root());
+        
     }
 
-    while (!worklist.empty()) {
-        term* t = worklist.back();
-        worklist.pop_back();
-        t->set_mark(false);
-        if (m_term2app.contains(t->get_id())) 
-            continue;
-        if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id())) 
-            continue;
-
-        term& root = t->get_root();
-        bool has_rep = m_term2app.contains(root.get_id());
-        expr* pure = mk_pure(*t);
-        if (!pure) continue;
-
-        // ensure that the root has a representative
-        // either by looking up cached version, 
-        // computing it for the first time, or
-        // inheriting pure.
-        expr* rep = nullptr;
-        if (root.is_theory() || exclude != _decls.contains(root.get_decl_id())) {
-            rep = mk_pure(root);
+    void term_graph::mk_equalities(term const &t, expr_ref_vector &out) {
+        SASSERT(t.is_root());
+        expr_ref rep(mk_app(t), m);
+        
+        for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
+            expr* mem = mk_app_core(it->get_app());
+            out.push_back (m.mk_eq (rep, mem));
         }
-        else if (has_rep) {
-            rep = m_term2app.find(root.get_id());
+    }
+    
+    void term_graph::mk_all_equalities(term const &t, expr_ref_vector &out) {
+        mk_equalities(t, out);
+        
+        for (term *it = &t.get_next(); it != &t; it = &it->get_next ()) {
+            expr* a1 = mk_app_core (it->get_app());
+            for (term *it2 = &it->get_next(); it2 != &t; it2 = &it2->get_next()) {
+                expr* a2 =  mk_app_core(it2->get_app());
+                out.push_back (m.mk_eq (a1, a2));
+            }
         }
-        else {
-            rep = pure;
-            m_term2app.insert(root.get_id(), pure);
+    }
+    
+    void term_graph::reset_marks() {
+        for (term * t : m_terms) {
+            t->set_mark(false);
         }
-        bool update_rep = false;
+    }
+    
+    /// Order of preference for roots of equivalence classes
+    /// XXX This should be factored out to let clients control the preference
+    bool term_graph::term_le(term const &t1, term const &t2) {
+        
+        // prefer constants over applications
+        // prefer uninterpreted constants over values
+        // prefer smaller expressions over larger ones
+        if (t1.get_num_args() == 0 && t2.get_num_args() > 0) {
+            return true;
+        }
+        if (t1.get_num_args() == t2.get_num_args()) {
+            // NSB: how does this possibly define an order?
+            return m.is_value(t2.get_app());
+        }
+        
+        unsigned sz1 = get_num_exprs(t1.get_app());
+        unsigned sz2 = get_num_exprs(t1.get_app());
+        return sz1 < sz2;
+    }
 
-        // Add equations between pure and rep, 
-        // optionally swap the roles of rep and pure if
-        // pure makes a better representative.
-        if (rep != pure) {
-            if (m.is_unique_value(rep) && !m.is_unique_value(pure)) {
+    void term_graph::pick_root (term &t) {
+        term *r = &t;
+        for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
+            it->set_mark(true);
+            if (term_le(*it, *r)) { r = it; }
+        }
+        
+        // -- if found something better, make it the new root
+        if (r != &t) {
+            r->mk_root();
+        }
+    }
+
+    /// Choose better roots for equivalence classes
+    void term_graph::pick_roots() {
+        for (term* t : m_terms) {
+            if (!t->is_marked() && t->is_root()) 
+                pick_root(*t);
+        }
+        reset_marks();
+    }
+    
+    void term_graph::display(std::ostream &out) {
+        for (term * t : m_terms) {
+            out << mk_pp(t->get_app(), m) << " is root " << t->is_root()
+                << " cls sz " << t->get_class_size()
+                << " term " << t
+                << "\n";
+        }
+    }
+    
+    void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
+        pick_roots();
+        
+        for (expr * a : m_lits) {
+            if (is_internalized(a)) {
+                lits.push_back (::to_app(mk_app(a)));
+            }
+        }
+        
+        for (term * t : m_terms) {
+            if (!t->is_root()) 
+                continue;
+            else if (all_equalities) 
+                mk_all_equalities (*t, lits);         
+            else 
+                mk_equalities(*t, lits);
+        }
+    }
+    
+    
+    expr_ref term_graph::to_app() {
+        expr_ref_vector lits(m);
+        to_lits(lits);
+        return mk_and(lits);
+    }
+    
+    void term_graph::reset() {
+        m_term2app.reset();
+        m_pinned.reset();
+        m_app2term.reset();
+        std::for_each(m_terms.begin(), m_terms.end(), delete_proc<term>());
+        m_terms.reset();
+        m_lits.reset();
+        m_cg_table.reset();
+    }
+    
+    expr* term_graph::mk_pure(term& t) {
+        expr* e = t.get_app();
+        if (m_term2app.find(t.get_id(), e)) e;
+        if (!is_app(e)) return nullptr;
+        app* a = ::to_app(e);
+        expr_ref_vector kids(m);
+        for (term* ch : term::children(t)) {
+            if (!m_term2app.find(ch->get_root().get_id(), e)) return nullptr;
+            kids.push_back(e);
+        }
+        expr* result = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
+        m_pinned.push_back(result);
+        m_term2app.insert(t.get_id(), result);
+        return result;
+    }
+    
+    expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
+        u_map<bool> _decls;
+        for (func_decl* f : decls) _decls.insert(f->get_id(), true);
+        // . propagate representatives up over parents.
+        //   use work-list + marking to propagate.
+        // . produce equalities over represented classes.
+        // . produce other literals over represented classes 
+        //    (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
+        
+        expr_ref_vector result(m);
+        m_term2app.reset();
+        m_pinned.reset();
+        
+        obj_hashtable<expr> eqs;
+        expr_ref eq(m);
+        ptr_vector<term> worklist;
+        for (term * t : m_terms) {
+            worklist.push_back(t);
+            t->set_mark(true);         
+        }
+        
+        while (!worklist.empty()) {
+            term* t = worklist.back();
+            worklist.pop_back();
+            t->set_mark(false);
+            if (m_term2app.contains(t->get_id())) 
+                continue;
+            if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id())) 
+                continue;
+
+            term& root = t->get_root();
+            bool has_rep = m_term2app.contains(root.get_id());
+            expr* pure = mk_pure(*t);
+            if (!pure) continue;
+
+            // ensure that the root has a representative
+            // either by looking up cached version, 
+            // computing it for the first time, or
+            // inheriting pure.
+            expr* rep = nullptr;
+            if (root.is_theory() || exclude != _decls.contains(root.get_decl_id())) {
+                rep = mk_pure(root);
+            }
+            else if (has_rep) {
+                rep = m_term2app.find(root.get_id());
+            }
+            else {
+                rep = pure;
                 m_term2app.insert(root.get_id(), pure);
-                update_rep = true;
             }
-            eq = m.mk_eq(rep, pure);
-            if (!eqs.contains(eq)) {
-                eqs.insert(eq);
-                result.push_back(eq);
-            }
-        }
+            bool update_rep = false;
 
-        // update the worklist if this is the first 
-        // representative or pure was swapped into rep.
-        if (!has_rep || update_rep) {
-            for (term * p : term::parents(root)) {
-                if (update_rep) m_term2app.remove(p->get_id());
-                if (!p->is_marked()) {
-                    p->set_mark(true);
-                    worklist.push_back(p);
+            // Add equations between pure and rep, 
+            // optionally swap the roles of rep and pure if
+            // pure makes a better representative.
+            if (rep != pure) {
+                if (m.is_unique_value(rep) && !m.is_unique_value(pure)) {
+                    m_term2app.insert(root.get_id(), pure);
+                    update_rep = true;
+                }
+                eq = m.mk_eq(rep, pure);
+                if (!eqs.contains(eq)) {
+                    eqs.insert(eq);
+                    result.push_back(eq);
+                }
+            }
+
+            // update the worklist if this is the first 
+            // representative or pure was swapped into rep.
+            if (!has_rep || update_rep) {
+                for (term * p : term::parents(root)) {
+                    if (update_rep) m_term2app.remove(p->get_id());
+                    if (!p->is_marked()) {
+                        p->set_mark(true);
+                        worklist.push_back(p);
+                    }
                 }
             }
         }
+        // walk other predicates than equalities
+        for (expr* e : m_lits) {
+            if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
+                result.push_back(e);
+            }
+        }    
+        // Here we could also walk equivalence classes that contain interpreted values by sort and
+        // extract disequalities bewteen non-unique value representatives.
+        // these disequalities are implied and can be mined using other means, such as 
+        // theory aware core minimization
+        m_term2app.reset();
+        m_pinned.reset();
+        reset_marks();
+        return result;
     }
-    // walk other predicates than equalities
-    for (expr* e : m_lits) {
-        if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
-            result.push_back(e);
-        }
-    }    
-    // Here we could also walk equivalence classes that contain interpreted values by sort and
-    // extract disequalities bewteen non-unique value representatives.
-    // these disequalities are implied and can be mined using other means, such as 
-    // theory aware core minimization
-    m_term2app.reset();
-    m_pinned.reset();
-    reset_marks();
-    return result;
-}
 
 }

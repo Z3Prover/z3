@@ -35,7 +35,7 @@ namespace qe {
         family_id get_family_id() const {return m_id;}
         
         /// Process (and potentially augment) a literal
-        virtual app_ref process_lit (app *lit) = 0;
+        virtual expr_ref process_lit (expr *lit) = 0;
     };
    
 
@@ -44,7 +44,7 @@ namespace qe {
         struct term_eq { bool operator()(term const* a, term const* b) const; };
         ast_manager &     m;
         ptr_vector<term>  m_terms;
-        app_ref_vector    m_lits; // NSB: expr_ref_vector?
+        expr_ref_vector    m_lits; // NSB: expr_ref_vector?
         u_map<term* >     m_app2term;        
         ast_ref_vector    m_pinned;
         u_map<expr*>      m_term2app;
@@ -74,25 +74,25 @@ namespace qe {
         expr_ref mk_app(term const &t);
         expr* mk_pure(term& t);
         expr_ref mk_app(expr *a);
-        void mk_equalities(term const &t, app_ref_vector &out);
-        void mk_all_equalities(term const &t, app_ref_vector &out);
+        void mk_equalities(term const &t, expr_ref_vector &out);
+        void mk_all_equalities(term const &t, expr_ref_vector &out);
         void display(std::ostream &out);        
+
     public:
         term_graph(ast_manager &m);
         ~term_graph();
         
         ast_manager& get_ast_manager() const { return m;}
         
-        void add_lit(app *lit); // NSB: replace by expr*
-        void add_lits(expr_ref_vector const &lits) {
-            for (expr* e : lits) add_lit(::to_app(e));
-        }
-        void add_eq(expr* a, expr* b);
+        void add_lit(expr *lit); 
+        void add_lits(expr_ref_vector const &lits) { for (expr* e : lits) add_lit(e); }
+        void add_eq(expr* a, expr* b) { internalize_eq(a, b); }
         
         void reset();
-        void to_lits(app_ref_vector &lits, bool all_equalities = false);  // NSB: swap roles
+
+        // deprecate?
         void to_lits(expr_ref_vector &lits, bool all_equalities = false);
-        app_ref to_app(); 
+        expr_ref to_app(); 
 
         /**
          * Return literals obtained by projecting added literals 
