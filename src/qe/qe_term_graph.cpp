@@ -61,7 +61,7 @@ namespace qe {
             if (!is_app(a)) return;
             for (expr* e : *to_app(a)) {
                 term* t = app2term[e->get_id()];
-                t->m_parents.push_back(this);
+                t->get_root().m_parents.push_back(this);
                 m_children.push_back(t);
             }
         }
@@ -659,12 +659,20 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
     m_term2app.reset();
     m_pinned.reset();
 
-    ptr_vector<term> worklist(m_terms);
     obj_hashtable<expr> roots;
+    ptr_vector<term> worklist;
+    for (term * t : m_terms) {
+        if (t->is_root()) {
+            worklist.push_back(t);
+            t->set_mark(true); 
+        }
+    }
     while (!worklist.empty()) {
         term* t = worklist.back();
         worklist.pop_back();
-        if (!t->is_root() || m_term2app.contains(t->get_id())) continue;
+        SASSERT(t->is_root());
+        t->set_mark(false);
+        if (m_term2app.contains(t->get_id())) continue;
         term* r = t;
         roots.reset();
         expr_ref rep(m), other(m);
@@ -700,17 +708,29 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
             // update the representative of t to the preferred one.
             // used by mk_pure to determine representative of child.
             m_term2app.insert(t->get_id(), rep);
-            // TBD: add_parent in merge ensures that 
-            // congruence closure root t contains all parents.
-            // TBD: could tune this by using marking to only add roots to worklist if not already there.
+#if 1
+            // The root should contain all parents relative to the equivalence class.
+            // To ensure this, merge uses add_parent on the chosen root with respect to the old root.
+            // To enable adding terms after merge the constructor for terms also has to ensure
+            // that new terms are added as parents of the roots of their children.
+
+            for (term * p : term::parents(t)) {
+                p = &p->get_root();
+                if (!p->is_marked()) {
+                    p->set_mark(true);
+                    worklist.push_back(p);
+                }
+            }
+#else
             r = t;
             do {
                 for (term * p : term::parents(r)) {
-                    worklist.push_back(p);
+                    worklist.push_back(&p->get_root());
                 }
                 r = &r->get_next();
             }
-            while (r != t);
+            while (r != t);            
+#endif
         }
     }
     // walk other predicates than equalities
@@ -725,6 +745,7 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
     // theory aware core minimization
     m_term2app.reset();
     m_pinned.reset();
+    reset_marks();
     return result;
 }
 
