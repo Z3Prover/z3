@@ -630,17 +630,17 @@ void term_graph::reset() {
     m_cg_table.reset();
 }
 
-expr_ref term_graph::mk_pure(term& t) {
+expr* term_graph::mk_pure(term& t) {
     expr* e = t.get_app();
-    if (m_term2app.find(t.get_id(), e)) return expr_ref(e, m);
-    if (!is_app(e)) return expr_ref(m);
+    if (m_term2app.find(t.get_id(), e)) e;
+    if (!is_app(e)) return nullptr;
     app* a = ::to_app(e);
     expr_ref_vector kids(m);
     for (term* ch : term::children(t)) {
-        if (!ch->get_root().is_marked()) return expr_ref(m);
-        kids.push_back(mk_pure(ch->get_root()));
+        if (!m_term2app.find(ch->get_root().get_id(), e)) return nullptr;
+        kids.push_back(e);
     }
-    expr_ref result(m.mk_app(a->get_decl(), kids.size(), kids.c_ptr()), m);
+    expr* result = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
     m_pinned.push_back(result);
     m_term2app.insert(t.get_id(), result);
     return result;
@@ -654,78 +654,75 @@ expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool excl
     // . produce equalities over represented classes.
     // . produce other literals over represented classes 
     //    (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
-    ptr_vector<term> worklist(m_terms);
-    while (!worklist.empty()) {
-        term* t = worklist.back();
-        worklist.pop_back();
-        if (t->get_root().is_marked()) continue;
-        // if exclude = true,  but t in decls, then skip
-        // if exclude = false, but t not in decls, then skip
 
-        if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id())) {
-            continue;
-        }
-        //
-        // if all children roots are marked
-        // then mark this as well, reorganize root
-        // and add parents to worklist
-        // 
-        bool all_marked = true;
-        for (term* ch : term::children(t)) {
-            all_marked &= ch->get_root().is_marked();
-        }
-        if (!all_marked) continue;
-
-        // make this the new root.
-        term* r = t;
-        do {
-            r->set_root(*t); // TBD: invalidates hash-table, only one-shot
-            // TBD: optimize worklist traversal?
-            for (term* p : term::parents(r)) {
-                worklist.push_back(p);
-            }        
-            r = &r->get_next();
-        }
-        while (t != r);    
-        t->set_mark(true);
-    }
-    // marked roots in m_terms can be used in projection
-    // walk each root. Then traverse each term in the equivalence class
-    // create pure variant of the terms (if possible)
-    // equate t0 (that comes from the root, which can be purified)
-    // with any other purifiable t1.
     expr_ref_vector result(m);
     m_term2app.reset();
     m_pinned.reset();
-    for (term * t : m_terms) {
-        if (!t->is_root() || !t->is_marked() || t->get_class_size() == 1) continue;
+
+    ptr_vector<term> worklist(m_terms);
+    obj_hashtable<expr> roots;
+    while (!worklist.empty()) {
+        term* t = worklist.back();
+        worklist.pop_back();
+        if (!t->is_root() || m_term2app.contains(t->get_id())) continue;
         term* r = t;
-        expr_ref t0 = mk_pure(*t);
-        SASSERT(t0);
-        obj_hashtable<expr> roots;
-        roots.insert(t0);
-        for (term* r = &t->get_next(); r != t; r = &r->get_next()) {
-            // main symbol of term must be consistent with what is included/excluded
+        roots.reset();
+        expr_ref rep(m), other(m);
+        // walk the equivalence class of t to produce
+        // a representative. 
+        do {
+            // if exclude = true,  but t in decls, then skip
+            // if exclude = false, but t not in decls, then skip
             if (!r->is_theory() && exclude == _decls.contains(r->get_decl_id())) {
+                r = &r->get_next();
                 continue;
             }
-            expr_ref t1 = mk_pure(*r);
-            if (t1 && !roots.contains(t1)) {
-                result.push_back(m.mk_eq(t0, t1));
-                roots.insert(t1);
+            other = mk_pure(*r);
+            if (other) {
+                if (!rep) {
+                    rep = other;
+                    roots.insert(other);
+                }
+                else if (!roots.contains(other)) {
+                    roots.insert(other);
+                    result.push_back(m.mk_eq(rep, other));
+                    // give preference to non-values as roots.
+                    if (m.is_unique_value(rep)) {
+                        std::swap(other, rep);
+                    }
+                }
             }
+            r = &r->get_next();            
+        }
+        while (r != t);
+
+        if (rep) {
+            // update the representative of t to the preferred one.
+            // used by mk_pure to determine representative of child.
+            m_term2app.insert(t->get_id(), rep);
+            // TBD: add_parent in merge ensures that 
+            // congruence closure root t contains all parents.
+            // TBD: could tune this by using marking to only add roots to worklist if not already there.
+            r = t;
+            do {
+                for (term * p : term::parents(r)) {
+                    worklist.push_back(p);
+                }
+                r = &r->get_next();
+            }
+            while (r != t);
         }
     }
-    // walk disequalities and expose projected disequality
+    // walk other predicates than equalities
     for (expr* e : m_lits) {
-        if (!m.is_eq(e)) {
-            expr_ref t = mk_pure(*get_term(e));
-            if (t) {
-                result.push_back(t);
-            }
+        if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
+            result.push_back(e);
         }
     }    
-    reset_marks();
+    // Here we could also walk equivalence classes that contain interpreted values by sort and
+    // extract disequalities bewteen non-unique value representatives.
+    // these disequalities are implied and can be mined using other means, such as 
+    // theory aware core minimization
     m_term2app.reset();
     m_pinned.reset();
     return result;
