@@ -199,7 +199,6 @@ namespace qe {
 
         app* mk_le_zero(expr *arg) {
             expr *e1, *e2, *e3;
-            // XXX currently disabled
             if (m_arith.is_add(arg, e1, e2)) {
                 // e1-e2<=0 --> e1<=e2
                 if (m_arith.is_times_minus_one(e2, e3)) {
@@ -215,7 +214,6 @@ namespace qe {
 
         app* mk_ge_zero(expr *arg) {
             expr *e1, *e2, *e3;
-            // XXX currently disabled
             if (m_arith.is_add(arg, e1, e2)) {
                 // e1-e2>=0 --> e1>=e2
                 if (m_arith.is_times_minus_one(e2, e3)) {
@@ -422,7 +420,7 @@ namespace qe {
     }
 
     void term_graph::merge(term &t1, term &t2) {
-        // -- merge might invalidate term2map cache
+        // -- merge might invalidate term2app cache
         m_term2app.reset();
         m_pinned.reset();
 
@@ -469,7 +467,7 @@ namespace qe {
 
     expr* term_graph::mk_app_core (expr *e) {
         if (is_app(e)) {
-            expr_ref_vector kids(m);
+            expr_ref_buffer kids(m);
             app* a = ::to_app(e);
             for (expr * arg : *a) {
                 kids.push_back (mk_app(arg));
