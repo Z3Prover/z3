@@ -98,7 +98,7 @@ bool is_atom(ast_manager & m, expr * n) {
         return true;
     SASSERT(is_app(n));
     if (to_app(n)->get_family_id() != m.get_basic_family_id()) {
-        return true;        
+        return true;
     }
     // the other operators of the basic family are not considered atomic: distinct, ite, and, or, iff, xor, not, implies.
     return (m.is_eq(n) && !m.is_bool(to_app(n)->get_arg(0))) || m.is_true(n) || m.is_false(n);
@@ -106,7 +106,7 @@ bool is_atom(ast_manager & m, expr * n) {
 
 
 bool is_literal(ast_manager & m, expr * n) {
-    return 
+    return
         is_atom(m, n) ||
         (m.is_not(n) && is_atom(m, to_app(n)->get_arg(0)));
 }
@@ -187,7 +187,7 @@ expr * mk_not(ast_manager & m, expr * arg) {
     expr * atom;
     if (m.is_not(arg, atom))
         return atom;
-    else if (m.is_true(arg)) 
+    else if (m.is_true(arg))
         return m.mk_false();
     else if (m.is_false(arg))
         return m.mk_true();
@@ -195,7 +195,7 @@ expr * mk_not(ast_manager & m, expr * arg) {
         return m.mk_not(arg);
 }
 
-expr_ref mk_not(expr_ref& e) {
+expr_ref mk_not(const expr_ref& e) {
     return expr_ref(mk_not(e.m(), e), e.m());
 }
 
@@ -226,7 +226,7 @@ expr_ref push_not(const expr_ref& e) {
         }
         return mk_and(args);
     }
-    return expr_ref(mk_not(m, e), m);    
+    return expr_ref(mk_not(m, e), m);
 }
 
 expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) {
@@ -282,7 +282,7 @@ void flatten_and(expr_ref_vector& result) {
             }
             result[i] = result.back();
             result.pop_back();
-            --i;                
+            --i;
         }
         else if (m.is_not(result[i].get(), e1) && m.is_implies(e1,e2,e3)) {
             result.push_back(e2);
@@ -294,7 +294,7 @@ void flatten_and(expr_ref_vector& result) {
                   m.is_false(e1))) {
             result[i] = result.back();
             result.pop_back();
-            --i;                
+            --i;
         }
         else if (m.is_false(result[i].get()) ||
                  (m.is_not(result[i].get(), e1) &&
@@ -308,7 +308,7 @@ void flatten_and(expr_ref_vector& result) {
 
 void flatten_and(expr* fml, expr_ref_vector& result) {
     SASSERT(result.get_manager().is_bool(fml));
-    result.push_back(fml);        
+    result.push_back(fml);
     flatten_and(result);
 }
 
@@ -345,7 +345,7 @@ void flatten_or(expr_ref_vector& result) {
             }
             result[i] = result.back();
             result.pop_back();
-            --i;                
+            --i;
         }
         else if (m.is_implies(result[i].get(),e2,e3)) {
             result.push_back(e3);
@@ -357,7 +357,7 @@ void flatten_or(expr_ref_vector& result) {
                   m.is_true(e1))) {
             result[i] = result.back();
             result.pop_back();
-            --i;                
+            --i;
         }
         else if (m.is_true(result[i].get()) ||
                  (m.is_not(result[i].get(), e1) &&
@@ -366,12 +366,12 @@ void flatten_or(expr_ref_vector& result) {
             result.push_back(m.mk_true());
             return;
         }
-    }        
+    }
 }
 
 
 void flatten_or(expr* fml, expr_ref_vector& result) {
     SASSERT(result.get_manager().is_bool(fml));
-    result.push_back(fml);        
+    result.push_back(fml);
     flatten_or(result);
 }

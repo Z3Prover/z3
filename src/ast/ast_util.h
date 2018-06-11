@@ -127,7 +127,7 @@ inline expr_ref mk_or(expr_ref_vector const& args) { return expr_ref(mk_or(args.
  */
 expr * mk_not(ast_manager & m, expr * arg);
 
-expr_ref mk_not(expr_ref& e);
+expr_ref mk_not(const expr_ref& e);
 
 /**
    Negate and push over conjunction or disjunction.
@@ -162,4 +162,3 @@ void flatten_or(expr* fml, expr_ref_vector& result);
 
 
 #endif /* AST_UTIL_H_ */
-
