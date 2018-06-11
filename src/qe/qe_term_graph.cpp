@@ -78,7 +78,7 @@ namespace qe {
         };
 
         class children {
-        term const& t;
+            term const& t;
         public:
             children(term const& _t):t(_t) {}
             children(term const* _t):t(*_t) {}
@@ -628,9 +628,9 @@ namespace qe {
     }
 
     expr* term_graph::mk_pure(term& t) {
-        expr* e = t.get_expr();
-        // AG: the if-statement looks wrong
-        if (m_term2app.find(t.get_id(), e)) e;
+        expr* e = nullptr;
+        if (m_term2app.find(t.get_id(), e)) return e;
+        e = t.get_expr();
         if (!is_app(e)) return nullptr;
         app* a = ::to_app(e);
         expr_ref_vector kids(m);
@@ -647,11 +647,11 @@ namespace qe {
     expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
         u_map<bool> _decls;
         for (func_decl* f : decls) _decls.insert(f->get_id(), true);
-        // . propagate representatives up over parents.
+        // - propagate representatives up over parents.
         //   use work-list + marking to propagate.
-        // . produce equalities over represented classes.
-        // . produce other literals over represented classes
-        //    (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
+        // - produce equalities over represented classes.
+        // - produce other literals over represented classes
+        //   (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
 
         expr_ref_vector result(m);
         m_term2app.reset();
