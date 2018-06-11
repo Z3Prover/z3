@@ -19,11 +19,31 @@ Revision History:
 --*/
 
 #include "ast/ast_util.h"
+#include "ast/rewriter/bool_rewriter.h"
 #include "solver/solver.h"
 #include "qe/qe_mbi.h"
 
 
 namespace qe {
+
+    lbool mbi_plugin::check(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
+        SASSERT(lits.empty());
+        while (true) {
+            switch ((*this)(vars, lits, mdl)) {
+            case mbi_sat:
+                return l_true;
+            case mbi_unsat:
+                if (lits.empty()) return l_false;
+                block(lits);
+                break;
+            case mbi_undef:
+                return l_undef;
+            case mbi_augment:
+                break;
+            }
+        }
+    }
+
 
     // -------------------------------
     // prop_mbi
@@ -116,6 +136,7 @@ namespace qe {
         blocks.push_back(expr_ref_vector(m));
         blocks.push_back(expr_ref_vector(m));
         mbi_result last_res = mbi_undef;
+        bool_rewriter rw(m);
         while (true) {
             auto* t1 = turn ? &a : &b;
             auto* t2 = turn ? &b : &a;
@@ -156,10 +177,32 @@ namespace qe {
     }
 
     /**
-     * TBD: also implement the one-sided versions that create clausal interpolants.
+     * One-sided pogo creates clausal interpolants.
+     * It creates a set of consequences of b that are inconsistent with a.
      */
     lbool interpolator::pogo(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
-        NOT_IMPLEMENTED_YET();
-        return l_undef;
+        expr_ref_vector lits(m), itps(m);
+        while (true) {
+            model_ref mdl;
+            lits.reset();
+            switch (a.check(vars, lits, mdl)) {
+            case l_true:
+                switch (b.check(vars, lits, mdl)) {
+                case l_true:
+                    return l_true;
+                case l_false:
+                    a.block(lits);
+                    itps.push_back(mk_not(mk_and(lits)));
+                    break;
+                case l_undef:
+                    return l_undef;
+                }
+            case l_false:
+                itp = mk_and(itps);
+                return l_false;
+            case l_undef:
+                return l_undef;
+            }
+        }
     }
 };

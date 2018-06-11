@@ -56,6 +56,12 @@ namespace qe {
          * \brief Block conjunction of lits from future mbi_augment or mbi_sat.
          */
         virtual void block(expr_ref_vector const& lits) = 0;
+
+        /**
+         * \brief perform a full check, consume internal auguments if necessary.
+         */
+        lbool check(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl);
+
     };
 
     class prop_mbi_plugin : public mbi_plugin {
