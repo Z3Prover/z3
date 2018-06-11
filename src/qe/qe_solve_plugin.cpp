@@ -18,8 +18,6 @@ Revision History:
 
 --*/
 
-#pragma once
-
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
