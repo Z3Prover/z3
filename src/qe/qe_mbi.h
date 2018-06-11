@@ -35,20 +35,20 @@ namespace qe {
          * \brief Utility that works modulo a background state.
          * - vars
          *   variables to preferrably project onto (other variables would require quantification to fit interpolation signature)
-         * - lits 
+         * - lits
          *   set of literals to check satisfiability with respect to.
          * - mdl
-         *   optional model for caller. 
+         *   optional model for caller.
          * on return:
          * - mbi_sat:
          *   populates mdl with a satisfying state, and lits with implicant for background state.
          * - mbi_unsat:
-         *   populates lits to be inconsistent with background state. 
+         *   populates lits to be inconsistent with background state.
          *   For all practical purposes it is a weakening of lits or even a subset of lits.
          * - mbi_augment:
-         *   populates lits with strengthening of lits (superset) 
+         *   populates lits with strengthening of lits (superset)
          * - mbi_undef:
-         *   inconclusive, 
+         *   inconclusive,
          */
         virtual mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) = 0;
 
@@ -72,12 +72,12 @@ namespace qe {
         mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
         void block(expr_ref_vector const& lits) override;
     };
-    
+
     class euf_mbi_plugin : public mbi_plugin {
         ast_manager& m;
+        expr_ref_vector m_atoms;
         solver_ref   m_solver;
         solver_ref   m_dual_solver;
-        expr_ref_vector m_atoms;
         struct is_atom_proc;
     public:
         euf_mbi_plugin(solver* s, solver* sNot);
