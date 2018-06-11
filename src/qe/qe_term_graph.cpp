@@ -41,20 +41,20 @@ namespace qe {
         unsigned m_mark2:1;
         // -- is an interpreted constant
         unsigned m_interpreted:1;
-        
+
         // -- terms that contain this term as a child
         ptr_vector<term> m_parents;
-        
+
         // arguments of term.
         ptr_vector<term> m_children;
-        
+
     public:
         term(expr* v, u_map<term*>& app2term) :
             m_expr(v),
-            m_root(this), 
+            m_root(this),
             m_next(this),
-            m_class_size(1), 
-            m_mark(false), 
+            m_class_size(1),
+            m_mark(false),
             m_mark2(false),
             m_interpreted(false) {
             if (!is_app()) return;
@@ -75,29 +75,29 @@ namespace qe {
             ptr_vector<term>::const_iterator begin() const { return t.m_parents.begin(); }
             ptr_vector<term>::const_iterator end() const { return t.m_parents.end(); }
         };
-        
+
         class children {
-        term const& t;
+            term const& t;
         public:
             children(term const& _t):t(_t) {}
             children(term const* _t):t(*_t) {}
             ptr_vector<term>::const_iterator begin() const { return t.m_children.begin(); }
             ptr_vector<term>::const_iterator end() const { return t.m_children.end(); }
         };
-        
+
         // Congruence table hash function is based on
         // roots of children and function declaration.
-        
+
         unsigned get_hash() const {
             unsigned a, b, c;
-            a = b = c = get_decl_id(); 
+            a = b = c = get_decl_id();
             for (term * ch : children(this)) {
                 a = ch->get_root().get_id();
                 mix(a, b, c);
             }
             return c;
         }
-        
+
         static bool cg_eq(term const * t1, term const * t2) {
             if (t1->get_decl_id() != t2->get_decl_id()) return false;
             if (t1->m_children.size() != t2->m_children.size()) return false;
@@ -106,16 +106,16 @@ namespace qe {
             }
             return true;
         }
-        
+
         unsigned get_id() const { return m_expr->get_id();}
-        
+
         unsigned get_decl_id() const { return is_app() ? get_app()->get_decl()->get_id() : m_expr->get_id(); }
-        
+
         bool is_marked() const {return m_mark;}
         void set_mark(bool v){m_mark = v;}
         bool is_marked2() const {return m_mark2;} // NSB: where is this used?
         void set_mark2(bool v){m_mark2 = v;}      // NSB: where is this used?
-        
+
         bool is_interpreted() const {return m_interpreted;}
         bool is_theory() const { return !is_app() || get_app()->get_family_id() != null_family_id; }
         void mark_as_interpreted() {m_interpreted=true;}
@@ -123,26 +123,26 @@ namespace qe {
         bool is_app() const {return ::is_app(m_expr);}
         app *get_app() const {return is_app() ? to_app(m_expr) : nullptr;}
         unsigned get_num_args() const { return is_app() ? get_app()->get_num_args() : 0; }
-        
+
         term &get_root() const {return *m_root;}
         bool is_root() const {return m_root == this;}
         void set_root(term &r) {m_root = &r;}
         term &get_next() const {return *m_next;}
         void add_parent(term* p) { m_parents.push_back(p); }
-        
+
         unsigned get_class_size() const {return m_class_size;}
-        
+
         void merge_eq_class(term &b) {
             std::swap(this->m_next, b.m_next);
             m_class_size += b.get_class_size();
             // -- reset (useful for debugging)
             b.m_class_size = 0;
         }
-        
+
         // -- make this term the root of its equivalence class
         void mk_root() {
             if (is_root()) return;
-            
+
             term *curr = this;
             do {
                 if (curr->is_root()) {
@@ -157,7 +157,7 @@ namespace qe {
             while (curr != this);
         }
     };
-    
+
 
     class arith_term_graph_plugin : public term_graph_plugin {
         term_graph &m_g;
@@ -192,7 +192,7 @@ namespace qe {
             res = m.mk_eq(e1, e2);
             return true;
         }
-        
+
         app* mk_le_zero(expr *arg) {
             expr *e1, *e2, *e3;
             if (m_arith.is_add(arg, e1, e2)) {
@@ -222,7 +222,7 @@ namespace qe {
             }
             return m_arith.mk_ge(arg, mk_zero());
         }
-        
+
         bool mk_le_core (expr *arg1, expr * arg2, expr_ref &result) {
             // t <= -1  ==> t < 0 ==> ! (t >= 0)
             rational n;
@@ -246,7 +246,7 @@ namespace qe {
             rational val;
             return m_arith.is_numeral (n, val) && val.is_one ();
         }
-        
+
         bool mk_ge_core (expr * arg1, expr * arg2, expr_ref &result) {
             // t >= 1 ==> t > 0 ==> ! (t <= 0)
             rational n;
@@ -265,17 +265,17 @@ namespace qe {
             }
             return false;
         }
-        
+
         expr_ref process_lit (expr *_lit) override {
             expr *lit = _lit;
             expr *e1, *e2;
-            
+
             // strip negation
             bool is_neg = m.is_not(lit);
             if (is_neg) {
                 lit = to_app(to_app(lit)->get_arg(0));
             }
-            
+
             expr_ref res(m);
             res = lit;
             if (m.is_eq (lit, e1, e2)) {
@@ -302,16 +302,16 @@ namespace qe {
     term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m) {
         m_plugins.register_plugin (alloc(arith_term_graph_plugin, *this));
     }
-    
+
     term_graph::~term_graph() {
         reset();
     }
 
     static family_id get_family_id(ast_manager &m, expr *lit) {
-        if (m.is_not(lit, lit)) 
+        if (m.is_not(lit, lit))
             return get_family_id(m, lit);
 
-        expr *a = nullptr, *b = nullptr;        
+        expr *a = nullptr, *b = nullptr;
         // deal with equality using sort of range
         if (m.is_eq (lit, a, b)) {
             return get_sort (a)->get_family_id();
@@ -326,7 +326,7 @@ namespace qe {
     }
     void term_graph::add_lit(expr *l) {
         expr_ref lit(m);
-        
+
         family_id fid = get_family_id (m, l);
         term_graph_plugin *pin = m_plugins.get_plugin(fid);
         if (pin) {
@@ -337,16 +337,16 @@ namespace qe {
         m_lits.push_back(lit);
         internalize_lit(lit);
     }
-    
+
     bool term_graph::is_internalized(expr *a) {
         return m_app2term.contains(a->get_id());
     }
-    
+
     term* term_graph::get_term(expr *a) {
         term *res;
         return m_app2term.find (a->get_id(), res) ? res : nullptr;
     }
-    
+
     term *term_graph::mk_term(expr *a) {
         term * t = alloc(term, a, m_app2term);
         if (t->get_num_args() == 0 && m.is_unique_value(a)){
@@ -357,8 +357,8 @@ namespace qe {
         m_app2term.insert(a->get_id(), t);
         return t;
     }
-    
-    term* term_graph::internalize_term(expr *t) {        
+
+    term* term_graph::internalize_term(expr *t) {
         term* res = get_term(t);
         if (res) return res;
         ptr_buffer<expr> todo;
@@ -373,7 +373,7 @@ namespace qe {
             unsigned sz = todo.size();
             if (is_app(t)) {
                 for (expr * arg : *::to_app(t)) {
-                    if (!get_term(arg)) 
+                    if (!get_term(arg))
                         todo.push_back(arg);
                 }
             }
@@ -394,7 +394,7 @@ namespace qe {
 
     void term_graph::internalize_lit(expr* lit) {
         expr *e1 = nullptr, *e2 = nullptr;
-        if (m.is_eq (lit, e1, e2)) {        
+        if (m.is_eq (lit, e1, e2)) {
             internalize_eq (e1, e2);
         }
         else {
@@ -432,15 +432,15 @@ namespace qe {
                 m_cg_table.erase(p);
             }
         }
-        // make 'a' be the root of the equivalence class of 'b'    
+        // make 'a' be the root of the equivalence class of 'b'
         b->set_root(*a);
         for (term *it = &b->get_next(); it != b; it = &it->get_next()) {
             it->set_root(*a);
         }
-        
+
         // merge equivalence classes
         a->merge_eq_class(*b);
-        
+
         // Insert parents of b's old equilvalence class into the cg table
         for (term* p : term::parents(a)) {
             if (p->is_marked()) {
@@ -452,16 +452,16 @@ namespace qe {
                     m_merge.push_back(std::make_pair(p, p_old));
                 }
             }
-        }        
+        }
     }
-    
+
     expr* term_graph::mk_app_core (expr *e) {
         if (is_app(e)) {
             expr_ref_buffer kids(m);
             app* a = ::to_app(e);
             for (expr * arg : *a) {
                 kids.push_back (mk_app(arg));
-            }        
+            }
             app* res = m.mk_app(a->get_decl(), a->get_num_args(), kids.c_ptr());
             m_pinned.push_back(res);
             return res;
@@ -473,29 +473,29 @@ namespace qe {
 
     expr_ref term_graph::mk_app(term const &r) {
         SASSERT(r.is_root());
-        
+
         if (r.get_num_args() == 0) {
             return expr_ref(r.get_expr(), m);
         }
-        
+
         expr* res = nullptr;
         if (m_term2app.find(r.get_id(), res)) {
             return expr_ref(res, m);
         }
-        
+
         res = mk_app_core (r.get_app());
         m_term2app.insert(r.get_id(), res);
         return expr_ref(res, m);
-        
+
     }
 
     expr_ref term_graph::mk_app(expr *a) {
         term *t = get_term(a);
-        if (!t) 
+        if (!t)
             return expr_ref(a, m);
-        else 
+        else
             return mk_app(t->get_root());
-        
+
     }
 
     void term_graph::mk_equalities(term const &t, expr_ref_vector &out) {
@@ -506,10 +506,10 @@ namespace qe {
             out.push_back (m.mk_eq (rep, mem));
         }
     }
-    
+
     void term_graph::mk_all_equalities(term const &t, expr_ref_vector &out) {
         mk_equalities(t, out);
-        
+
         for (term *it = &t.get_next(); it != &t; it = &it->get_next ()) {
             expr* a1 = mk_app_core (it->get_app());
             for (term *it2 = &it->get_next(); it2 != &t; it2 = &it2->get_next()) {
@@ -518,22 +518,22 @@ namespace qe {
             }
         }
     }
-    
+
     void term_graph::reset_marks() {
         for (term * t : m_terms) {
             t->set_mark(false);
         }
     }
-    
+
     /// Order of preference for roots of equivalence classes
     /// XXX This should be factored out to let clients control the preference
     bool term_graph::term_lt(term const &t1, term const &t2) {
-        
+
         // prefer constants over applications
         // prefer uninterpreted constants over values
         // prefer smaller expressions over larger ones
         if (t1.get_num_args() == 0 || t2.get_num_args() == 0) {
-        if (t1.get_num_args() == t2.get_num_args()) {
+            if (t1.get_num_args() == t2.get_num_args()) {
                 // t1.get_num_args() == t2.get_num_args() == 0
                 if (m.is_value(t1.get_expr()) == m.is_value(t2.get_expr()))
                     return t1.get_id() < t2.get_id();
@@ -541,7 +541,7 @@ namespace qe {
             }
             return t1.get_num_args() < t2.get_num_args();
         }
-        
+
         unsigned sz1 = get_num_exprs(t1.get_expr());
         unsigned sz2 = get_num_exprs(t1.get_expr());
         return sz1 < sz2;
@@ -553,7 +553,7 @@ namespace qe {
             it->set_mark(true);
             if (term_lt(*it, *r)) { r = it; }
         }
-        
+
         // -- if found something better, make it the new root
         if (r != &t) {
             r->mk_root();
@@ -563,12 +563,12 @@ namespace qe {
     /// Choose better roots for equivalence classes
     void term_graph::pick_roots() {
         for (term* t : m_terms) {
-            if (!t->is_marked() && t->is_root()) 
+            if (!t->is_marked() && t->is_root())
                 pick_root(*t);
         }
         reset_marks();
     }
-    
+
     void term_graph::display(std::ostream &out) {
         for (term * t : m_terms) {
             out << mk_pp(t->get_expr(), m) << " is root " << t->is_root()
@@ -577,32 +577,32 @@ namespace qe {
                 << "\n";
         }
     }
-    
+
     void term_graph::to_lits (expr_ref_vector &lits, bool all_equalities) {
         pick_roots();
-        
+
         for (expr * a : m_lits) {
             if (is_internalized(a)) {
                 lits.push_back (::to_app(mk_app(a)));
             }
         }
-        
+
         for (term * t : m_terms) {
-            if (!t->is_root()) 
+            if (!t->is_root())
                 continue;
-            else if (all_equalities) 
-                mk_all_equalities (*t, lits);         
-            else 
+            else if (all_equalities)
+                mk_all_equalities (*t, lits);
+            else
                 mk_equalities(*t, lits);
         }
     }
-    
+
     expr_ref term_graph::to_app() {
         expr_ref_vector lits(m);
         to_lits(lits);
         return mk_and(lits);
     }
-    
+
     void term_graph::reset() {
         m_term2app.reset();
         m_pinned.reset();
@@ -612,7 +612,7 @@ namespace qe {
         m_lits.reset();
         m_cg_table.reset();
     }
-    
+
     expr* term_graph::mk_pure(term& t) {
         expr* e = nullptr;
         if (m_term2app.find(t.get_id(), e)) return e;
@@ -629,7 +629,7 @@ namespace qe {
         m_term2app.insert(t.get_id(), result);
         return result;
     }
-    
+
     expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
         u_map<bool> _decls;
         for (func_decl* f : decls) _decls.insert(f->get_id(), true);
@@ -637,27 +637,27 @@ namespace qe {
         //   use work-list + marking to propagate.
         // - produce equalities over represented classes.
         // - produce other literals over represented classes
-        //    (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
-        
+        //   (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
+
         expr_ref_vector result(m);
         m_term2app.reset();
         m_pinned.reset();
-        
+
         obj_hashtable<expr> eqs;
         expr_ref eq(m);
         ptr_vector<term> worklist;
         for (term * t : m_terms) {
             worklist.push_back(t);
-            t->set_mark(true);         
+            t->set_mark(true);
         }
-        
+
         while (!worklist.empty()) {
             term* t = worklist.back();
             worklist.pop_back();
             t->set_mark(false);
-            if (m_term2app.contains(t->get_id())) 
+            if (m_term2app.contains(t->get_id()))
                 continue;
-            if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id())) 
+            if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id()))
                 continue;
 
             term& root = t->get_root();
@@ -714,10 +714,10 @@ namespace qe {
             if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
                 result.push_back(e);
             }
-        }    
+        }
         // Here we could also walk equivalence classes that contain interpreted values by sort and
         // extract disequalities bewteen non-unique value representatives.
-        // these disequalities are implied and can be mined using other means, such as 
+        // these disequalities are implied and can be mined using other means, such as
         // theory aware core minimization
         m_term2app.reset();
         m_pinned.reset();
