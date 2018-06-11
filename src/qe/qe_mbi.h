@@ -76,8 +76,11 @@ namespace qe {
     class euf_mbi_plugin : public mbi_plugin {
         ast_manager& m;
         solver_ref   m_solver;
+        solver_ref   m_dual_solver;
+        expr_ref_vector m_atoms;
+        struct is_atom_proc;
     public:
-        euf_mbi_plugin(solver* s);
+        euf_mbi_plugin(solver* s, solver* sNot);
         ~euf_mbi_plugin() override {}
         mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
         void block(expr_ref_vector const& lits) override;

@@ -19,9 +19,12 @@ Revision History:
 --*/
 
 #include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "model/model_evaluator.h"
 #include "solver/solver.h"
 #include "qe/qe_mbi.h"
+#include "qe/qe_term_graph.h"
 
 
 namespace qe {
@@ -87,7 +90,35 @@ namespace qe {
     // -------------------------------
     // euf_mbi, TBD
 
-    euf_mbi_plugin::euf_mbi_plugin(solver* s): m(s->get_manager()), m_solver(s) {}
+    struct euf_mbi_plugin::is_atom_proc {
+        ast_manager& m;
+        expr_ref_vector& m_atoms;
+        is_atom_proc(expr_ref_vector& atoms): m(atoms.m()), m_atoms(atoms) {}
+        void operator()(app* a) {
+            if (m.is_eq(a)) {
+                m_atoms.push_back(a);
+            }
+            else if (m.is_bool(a) && a->get_family_id() != m.get_basic_family_id()) {
+                m_atoms.push_back(a);
+            }
+        }
+        void operator()(expr*) {}
+    };
+
+    euf_mbi_plugin::euf_mbi_plugin(solver* s, solver* sNot): 
+        m(s->get_manager()), 
+        m_atoms(m),
+        m_solver(s),
+        m_dual_solver(sNot)
+    {
+        expr_ref_vector fmls(m);
+        m_solver->get_assertions(fmls);
+        expr_fast_mark1 marks;
+        is_atom_proc proc(m_atoms);
+        for (expr* e : fmls) {
+            quick_for_each_expr(proc, marks, e);
+        }
+    }
 
     mbi_result euf_mbi_plugin::operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
         lbool r = m_solver->check_sat(lits);
@@ -95,16 +126,39 @@ namespace qe {
         case l_false:
             lits.reset();
             m_solver->get_unsat_core(lits);
+            // optionally minimize core using superposition.
             return mbi_unsat;
         case l_true: {
             expr_ref_vector fmls(m);
             m_solver->get_model(mdl);
+            model_evaluator mev(*mdl.get());
             lits.reset();
-            // 1. extract formulas from solver
-            // 2. extract implicant over formulas
-            // 3. extract equalities or other assignments over the congruence classes
-            m_solver->get_assertions(fmls);
-            NOT_IMPLEMENTED_YET();
+            for (expr* e : m_atoms) {
+                if (mev.is_true(e)) {
+                    lits.push_back(e);
+                }
+                else if (mev.is_false(e)) {
+                    lits.push_back(m.mk_not(e));
+                }
+            }
+            r = m_dual_solver->check_sat(lits);
+            expr_ref_vector core(m);
+            term_graph tg(m);
+            switch (r) {
+            case l_false:
+                // use the dual solver to find a 'small' implicant
+                m_dual_solver->get_unsat_core(core);
+                // project the implicant onto vars 
+                tg.add_lits(core);
+                lits.reset();                
+                lits.append(tg.project(vars, false));
+                return mbi_sat;
+            case l_undef:
+                return mbi_undef;
+            case l_true:
+                UNREACHABLE();
+                return mbi_undef;
+            }
             return mbi_sat;
         }
         default:

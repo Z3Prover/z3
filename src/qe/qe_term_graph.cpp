@@ -35,7 +35,6 @@ namespace qe {
         term* m_next;
         // -- eq class size
         unsigned m_class_size;
-        
         // -- general purpose mark
         unsigned m_mark:1;
         // -- general purpose second mark
@@ -160,12 +159,10 @@ namespace qe {
     };
     
 
-
     class arith_term_graph_plugin : public term_graph_plugin {
         term_graph &m_g;
         ast_manager &m;
         arith_util m_arith;
-        
     public:
         arith_term_graph_plugin(term_graph &g) :
             term_graph_plugin (g.get_ast_manager().mk_family_id("arith")),
@@ -177,7 +174,6 @@ namespace qe {
             expr *e1, *e2;
             e1 = _e1;
             e2 = _e2;
-            
             if (m_arith.is_zero(e1)) {
                 std::swap(e1, e2);
             }
@@ -245,7 +241,6 @@ namespace qe {
             }
             return false;
         }
-        
         expr * mk_zero () {return m_arith.mk_numeral (rational (0), true);}
         bool is_one (expr const * n) const {
             rational val;
@@ -292,12 +287,10 @@ namespace qe {
             else if (m_arith.is_ge(lit, e1, e2)) {
                 mk_ge_core(e1, e2, res);
             }
-            
             // restore negation
             if (is_neg) {
                 res = mk_not(m, res);
             }
-            
             return res;
         }
     };
@@ -331,7 +324,6 @@ namespace qe {
             return null_family_id;
         }
     }
-    
     void term_graph::add_lit(expr *l) {
         expr_ref lit(m);
         
@@ -509,7 +501,6 @@ namespace qe {
     void term_graph::mk_equalities(term const &t, expr_ref_vector &out) {
         SASSERT(t.is_root());
         expr_ref rep(mk_app(t), m);
-        
         for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
             expr* mem = mk_app_core(it->get_app());
             out.push_back (m.mk_eq (rep, mem));
@@ -605,7 +596,6 @@ namespace qe {
                 mk_equalities(*t, lits);
         }
     }
-    
     
     expr_ref term_graph::to_app() {
         expr_ref_vector lits(m);
