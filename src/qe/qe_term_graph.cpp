@@ -65,9 +65,9 @@ namespace qe {
                 m_children.push_back(t);
             }
         }
-
+        
         ~term() {}
-
+        
         class parents {
             term const& t;
         public:
@@ -168,9 +168,9 @@ namespace qe {
         arith_term_graph_plugin(term_graph &g) :
             term_graph_plugin (g.get_ast_manager().mk_family_id("arith")),
             m_g(g), m(g.get_ast_manager()), m_arith(m) {(void)m_g;}
-
+        
         virtual ~arith_term_graph_plugin() {}
-
+        
         bool mk_eq_core (expr *_e1, expr *_e2, expr_ref &res) {
             expr *e1, *e2;
             e1 = _e1;
@@ -385,7 +385,7 @@ namespace qe {
         SASSERT(res);
         return res;
     }
-
+    
     void term_graph::internalize_eq(expr *a1, expr* a2) {
         SASSERT(m_merge.empty());
         merge(*internalize_term(a1), *internalize_term(a2));
@@ -415,17 +415,17 @@ namespace qe {
     void term_graph::merge(term &t1, term &t2) {
         // -- merge might invalidate term2app cache
         m_term2app.reset();
-        m_pinned.reset();
-
+        m_pinned.reset();  
+        
         term *a = &t1.get_root();
         term *b = &t2.get_root();
-
+        
         if (a == b) return;
-
+        
         if (a->get_class_size() > b->get_class_size()) {
             std::swap(a, b);
         }
-
+        
         // Remove parents of it from the cg table.
         for (term* p : term::parents(b)) {
             if (!p->is_marked()) {
@@ -626,21 +626,21 @@ namespace qe {
             expr_ref_vector m_pinned;  // tracks expr in the maps
 
             expr* mk_pure(term& t) {
-                expr* e = nullptr;
-                if (m_term2app.find(t.get_id(), e)) return e;
-                e = t.get_expr();
-                if (!is_app(e)) return nullptr;
-                app* a = ::to_app(e);
+        expr* e = nullptr;
+        if (m_term2app.find(t.get_id(), e)) return e;
+        e = t.get_expr();
+        if (!is_app(e)) return nullptr;
+        app* a = ::to_app(e);
                 expr_ref_buffer kids(m);
-                for (term* ch : term::children(t)) {
+        for (term* ch : term::children(t)) {
                     if (!m_root2rep.find(ch->get_root().get_id(), e)) return nullptr;
-                    kids.push_back(e);
-                }
+            kids.push_back(e);
+        }
                 expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
                 m_pinned.push_back(pure);
                 m_term2app.insert(t.get_id(), pure);
                 return pure;
-            }
+    }
 
             bool is_better_rep(expr *t1, expr *t2) {
                 if (!t2) return t1;
@@ -648,34 +648,34 @@ namespace qe {
             }
 
             void purify() {
-                // - propagate representatives up over parents.
-                //   use work-list + marking to propagate.
-                // - produce equalities over represented classes.
-                // - produce other literals over represented classes
+        // - propagate representatives up over parents.
+        //   use work-list + marking to propagate.
+        // - produce equalities over represented classes.
+        // - produce other literals over represented classes
                 //   (walk disequalities in m_lits and represent
                 //   lhs/rhs over decls or excluding decls)
 
-                ptr_vector<term> worklist;
+        ptr_vector<term> worklist;
                 for (term * t : m_tg.m_terms) {
-                    worklist.push_back(t);
-                    t->set_mark(true);
-                }
+            worklist.push_back(t);
+            t->set_mark(true);
+        }
 
-                while (!worklist.empty()) {
-                    term* t = worklist.back();
-                    worklist.pop_back();
-                    t->set_mark(false);
-                    if (m_term2app.contains(t->get_id()))
-                        continue;
+        while (!worklist.empty()) {
+            term* t = worklist.back();
+            worklist.pop_back();
+            t->set_mark(false);
+            if (m_term2app.contains(t->get_id()))
+                continue;
                     if (!t->is_theory() && is_projected(*t))
-                        continue;
+                continue;
 
-                    expr* pure = mk_pure(*t);
-                    if (!pure) continue;
+            expr* pure = mk_pure(*t);
+            if (!pure) continue;
 
                     m_term2app.insert(t->get_id(), pure);
                     expr* rep = nullptr;
-                    // ensure that the root has a representative
+            // ensure that the root has a representative
                     m_root2rep.find(t->get_root().get_id(), rep);
 
                     // update rep with pure if it is better
@@ -686,9 +686,9 @@ namespace qe {
                             if (!p->is_marked()) {
                                 p->set_mark(true);
                                 worklist.push_back(p);
-                            }
-                        }
-                    }
+            }
+            }
+            }
                 }
 
                 // Here we could also walk equivalence classes that
@@ -698,7 +698,7 @@ namespace qe {
                 // and can be mined using other means, such as theory
                 // aware core minimization
                 m_tg.reset_marks();
-            }
+                }
 
             void solve() {
                ptr_vector<term> worklist;
@@ -707,7 +707,7 @@ namespace qe {
                     if (m_term2app.contains(t->get_id())) continue;
                     worklist.push_back(t);
                     t->set_mark(true);
-                }
+            }
 
                 while (!worklist.empty()) {
                     term* t = worklist.back();
@@ -728,13 +728,13 @@ namespace qe {
                         m_root2rep.insert(t->get_root().get_id(), pure);
                         for (term * p : term::parents(t->get_root())) {
                             SASSERT(!m_term2app.contains(p->get_id()));
-                            if (!p->is_marked()) {
-                                p->set_mark(true);
-                                worklist.push_back(p);
-                            }
-                        }
+                    if (!p->is_marked()) {
+                        p->set_mark(true);
+                        worklist.push_back(p);
                     }
                 }
+            }
+        }
                 m_tg.reset_marks();
             }
 
@@ -744,7 +744,7 @@ namespace qe {
 
             bool find_app(expr *lit, expr *&res) {
                 return m_root2rep.find(m_tg.get_term(lit)->get_root().get_id(), res);
-            }
+    }
 
             void mk_lits(expr_ref_vector &res) {
                 expr *e = nullptr;
@@ -800,16 +800,16 @@ namespace qe {
             }
 
             bool is_solved_eq(expr *_lhs, expr* _rhs) {
-                if (!is_app(_lhs) || !is_app(_rhs)) return false;
-                app *lhs, *rhs;
-                lhs = ::to_app(_lhs);
-                rhs = ::to_app(_rhs);
+        if (!is_app(_lhs) || !is_app(_rhs)) return false;
+        app *lhs, *rhs;
+        lhs = ::to_app(_lhs);
+        rhs = ::to_app(_rhs);
 
-                if (rhs->get_num_args() > 0) return false;
-                if (rhs->get_family_id() != null_family_id) return false;
+        if (rhs->get_num_args() > 0) return false;
+        if (rhs->get_family_id() != null_family_id) return false;
 
-                return !occurs(rhs, lhs);
-            }
+        return !occurs(rhs, lhs);
+    }
 
         public:
             projector(term_graph &tg) : m_tg(tg), m(m_tg.m), m_pinned(m) {}
@@ -820,7 +820,7 @@ namespace qe {
                 m_root2rep.reset();
                 m_decls.reset();
                 m_pinned.reset();
-            }
+                    }
             expr_ref_vector project(func_decl_ref_vector const &decls, bool exclude) {
                 expr_ref_vector res(m);
                 m_exclude = exclude;
@@ -830,7 +830,7 @@ namespace qe {
                 mk_pure_equalities(res);
                 reset();
                 return res;
-            }
+                }
             expr_ref_vector solve(func_decl_ref_vector const &decls, bool exclude) {
                 expr_ref_vector res(m);
                 m_exclude = exclude;
@@ -842,12 +842,12 @@ namespace qe {
                 return res;
             }
         };
-    }
+                    }
 
     expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
         projector p(*this);
         return p.project(decls, exclude);
-    }
+        }
 
     expr_ref_vector term_graph::solve(func_decl_ref_vector const &decls, bool exclude) {
         projector p(*this);
