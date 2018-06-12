@@ -50,12 +50,7 @@ public:
     lbool set_status(lbool r) { return m_status = r; }
     lbool status() const { return m_status; }
     virtual void collect_statistics(statistics & st) const = 0;
-    virtual void get_unsat_core(ptr_vector<expr> & r) = 0;
-    virtual void get_unsat_core(expr_ref_vector & r) {
-        ptr_vector<expr> core;
-        get_unsat_core(core);
-        r.append(core.size(), core.c_ptr());
-    }
+    virtual void get_unsat_core(expr_ref_vector & r) = 0;
     void set_model_converter(model_converter* mc) { m_mc0 = mc; }
     model_converter* mc0() const { return m_mc0.get(); }
     virtual void get_model_core(model_ref & m) = 0;
@@ -87,7 +82,7 @@ struct simple_check_sat_result : public check_sat_result {
     ~simple_check_sat_result() override;
     ast_manager& get_manager() const override { return m_proof.get_manager(); }
     void collect_statistics(statistics & st) const override;
-    void get_unsat_core(ptr_vector<expr> & r) override;
+    void get_unsat_core(expr_ref_vector & r) override;
     void get_model_core(model_ref & m) override;
     proof * get_proof() override;
     std::string reason_unknown() const override;

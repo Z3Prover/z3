@@ -83,12 +83,12 @@ public:
     unsigned get_num_assertions() const override { return m_base->get_num_assertions(); }
     expr * get_assertion(unsigned idx) const override { return m_base->get_assertion(idx); }
 
-    void get_unsat_core(ptr_vector<expr> & r) override {
+    void get_unsat_core(expr_ref_vector& r) override {
         m_base->get_unsat_core(r);
         unsigned j = 0;
         for (unsigned i = 0; i < r.size(); ++i)
-            if (m_pred != r[i])
-                r[j++] = r[i];
+            if (m_pred != r.get(i))
+                r[j++] = r.get(i);
         r.shrink(j);
     }
 

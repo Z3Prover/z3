@@ -294,7 +294,8 @@ namespace opt {
         return r;
     }
     
-    void opt_solver::get_unsat_core(ptr_vector<expr> & r) {
+    void opt_solver::get_unsat_core(expr_ref_vector & r) {
+        r.reset();
         unsigned sz = m_context.get_unsat_core_size();
         for (unsigned i = 0; i < sz; i++) {
             r.push_back(m_context.get_unsat_core_expr(i));

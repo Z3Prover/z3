@@ -88,7 +88,7 @@ private:
     expr_ref_vector  m_asms;    
     expr_ref_vector  m_defs;
     obj_map<expr, rational> m_asm2weight;
-    ptr_vector<expr> m_new_core;
+    expr_ref_vector  m_new_core;
     mus              m_mus;
     expr_ref_vector  m_trail;
     strategy_t       m_st;
@@ -119,6 +119,7 @@ public:
         maxsmt_solver_base(c, ws, soft),
         m_index(index), 
         m_B(m), m_asms(m), m_defs(m),
+        m_new_core(m),
         m_mus(c.get_solver()),
         m_trail(m),
         m_st(st),
@@ -351,11 +352,13 @@ public:
         exprs core;
         while (is_sat == l_false) {
             core.reset();
-            s().get_unsat_core(core);
-            // verify_core(core);
+            expr_ref_vector _core(m);
+            s().get_unsat_core(_core);
             model_ref mdl;
             get_mus_model(mdl);
-            is_sat = minimize_core(core);
+            is_sat = minimize_core(_core);
+            core.append(_core.size(), _core.c_ptr());
+            // verify_core(core);
             ++m_stats.m_num_cores;
             if (is_sat != l_true) {
                 IF_VERBOSE(100, verbose_stream() << "(opt.maxres minimization failed)\n";);
@@ -538,7 +541,7 @@ public:
         return nullptr != mdl.get();
     }
 
-    lbool minimize_core(exprs& core) {
+    lbool minimize_core(expr_ref_vector& core) {
         if (core.empty()) {
             return l_true;
         }

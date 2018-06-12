@@ -245,7 +245,7 @@ lbool prop_solver::maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
     soft.reset();
 
     expr_ref saved(m);
-    ptr_vector<expr> core;
+    expr_ref_vector core(m);
     m_ctx->get_unsat_core(core);
 
     // while there are soft constraints

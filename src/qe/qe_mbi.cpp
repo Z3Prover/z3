@@ -30,19 +30,12 @@ Revision History:
 namespace qe {
 
     lbool mbi_plugin::check(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
-        ast_manager& m = lits.get_manager();
-        expr_ref_vector lits0(lits);
         while (true) {
-            lits.reset();
-            lits.append(lits0);
             switch ((*this)(vars, lits, mdl)) {
             case mbi_sat:
                 return l_true;
             case mbi_unsat:
-                if (lits.empty()) return l_false;
-                TRACE("qe", tout << "block: " << lits << "\n";);
-                block(lits);
-                break;
+                return l_false;
             case mbi_undef:
                 return l_undef;
             case mbi_augment:
@@ -113,8 +106,7 @@ namespace qe {
         m(s->get_manager()), 
         m_atoms(m),
         m_solver(s),
-        m_dual_solver(sNot)
-    {
+        m_dual_solver(sNot) {
         params_ref p;
         p.set_bool("core.minimize", true);
         m_solver->updt_params(p);
@@ -256,6 +248,7 @@ namespace qe {
                 case l_true:
                     return l_true;
                 case l_false:
+					std::cout << lits << "\n";
                     a.block(lits);
                     itps.push_back(mk_not(mk_and(lits)));
                     break;

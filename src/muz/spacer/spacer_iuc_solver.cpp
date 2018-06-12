@@ -215,10 +215,11 @@ void iuc_solver::reset_statistics ()
     m_learn_core_sw.reset();
 }
 
-void iuc_solver::get_unsat_core (ptr_vector<expr> &core)
+void iuc_solver::get_unsat_core (expr_ref_vector &core)
 {
     m_solver.get_unsat_core (core);
-    undo_proxies_in_core (core);
+    ptr_vector<expr> _core(core.size(), core.c_ptr());
+    undo_proxies_in_core (_core);
 }
 void iuc_solver::undo_proxies_in_core (ptr_vector<expr> &r)
 {
@@ -256,13 +257,6 @@ void iuc_solver::undo_proxies (expr_ref_vector &r)
             SASSERT (m.is_or (e));
             r[i] = e->get_arg (1);
         }
-}
-
-void iuc_solver::get_unsat_core (expr_ref_vector &_core)
-{
-    ptr_vector<expr> core;
-    get_unsat_core (core);
-    _core.append (core.size (), core.c_ptr ());
 }
 
 void iuc_solver::elim_proxies (expr_ref_vector &v)

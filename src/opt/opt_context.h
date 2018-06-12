@@ -195,7 +195,7 @@ namespace opt {
         void collect_statistics(statistics& stats) const override;
         proof* get_proof() override { return nullptr; }
         void get_labels(svector<symbol> & r) override;
-        void get_unsat_core(ptr_vector<expr> & r) override;
+        void get_unsat_core(expr_ref_vector & r) override;
         std::string reason_unknown() const override;
         void set_reason_unknown(char const* msg) override { m_unknown = msg; }
 

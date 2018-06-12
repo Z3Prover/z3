@@ -92,7 +92,6 @@ public:
     ~iuc_solver() override {}
 
     /* iuc solver specific */
-    void get_unsat_core(expr_ref_vector &core) override;
     virtual void get_iuc(expr_ref_vector &core);
     void set_split_literals(bool v) { m_split_literals = v; }
     bool mk_proxies(expr_ref_vector &v, unsigned from = 0);
@@ -102,7 +101,11 @@ public:
     void pop_bg(unsigned n);
     unsigned get_num_bg();
 
-    void get_full_unsat_core(ptr_vector<expr> &core) { m_solver.get_unsat_core(core); }
+    void get_full_unsat_core(ptr_vector<expr> &core) { 
+        expr_ref_vector _core(m);
+        m_solver.get_unsat_core(_core); 
+        core.append(_core.size(), _core.c_ptr());
+    }
 
     /* solver interface */
 
@@ -142,7 +145,7 @@ public:
     void collect_statistics(statistics &st) const override ;
     virtual void reset_statistics();
 
-    void get_unsat_core(ptr_vector<expr> &r) override;
+    void get_unsat_core(expr_ref_vector &r) override;
     void get_model_core(model_ref &m) override {m_solver.get_model(m);}
     proof *get_proof() override {return m_solver.get_proof();}
     std::string reason_unknown() const override { return m_solver.reason_unknown(); }

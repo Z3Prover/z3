@@ -3258,7 +3258,7 @@ namespace smt {
         m_assumptions.reset();
     }
 
-    lbool context::mk_unsat_core(lbool r) {
+    lbool context::mk_unsat_core(lbool r) {        
         if (r != l_false) return r;
         SASSERT(inconsistent());
         if (!tracking_assumptions()) {
@@ -3276,18 +3276,16 @@ namespace smt {
             SASSERT(m_literal2assumption.contains(l.index()));
             if (!already_found_assumptions.contains(l.index())) {
                 already_found_assumptions.insert(l.index());
-                m_unsat_core.push_back(m_literal2assumption[l.index()]);
+                expr* orig_assumption = m_literal2assumption[l.index()];
+                m_unsat_core.push_back(orig_assumption);
+                TRACE("assumptions", tout << l << ": " << mk_pp(orig_assumption, m_manager) << "\n";);
             }
         }
         reset_assumptions();
         pop_to_base_lvl(); // undo the push_scope() performed by init_assumptions
         m_search_lvl = m_base_lvl;
         std::sort(m_unsat_core.c_ptr(), m_unsat_core.c_ptr() + m_unsat_core.size(), ast_lt_proc());
-        TRACE("unsat_core_bug", tout << "unsat core:\n";
-              unsigned sz = m_unsat_core.size();
-              for (unsigned i = 0; i < sz; i++) {
-                  tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
-              });
+        TRACE("unsat_core_bug", tout << "unsat core:\n" << m_unsat_core << "\n";);
         validate_unsat_core();
         // theory validation of unsat core
         for (theory* th : m_theory_set) {
@@ -3403,7 +3401,6 @@ namespace smt {
 
     lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel, bool already_did_theory_assumptions) {
         if (!check_preamble(reset_cancel)) return l_undef;
-        TRACE("before_search", display(tout););
         SASSERT(at_base_level());
         setup_context(false);
         expr_ref_vector asms(m_manager, num_assumptions, assumptions);
@@ -3412,6 +3409,7 @@ namespace smt {
         TRACE("unsat_core_bug", tout << asms << "\n";);        
         internalize_assertions();
         init_assumptions(asms);
+        TRACE("before_search", display(tout););
         lbool r = search();
         r = mk_unsat_core(r);        
         r = check_finalize(r);
