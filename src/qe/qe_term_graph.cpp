@@ -614,205 +614,244 @@ namespace qe {
         m_cg_table.reset();
     }
 
-    expr* term_graph::mk_pure(term& t) {
-        expr* e = nullptr;
-        if (m_term2app.find(t.get_id(), e)) return e;
-        e = t.get_expr();
-        if (!is_app(e)) return nullptr;
-        app* a = ::to_app(e);
-        expr_ref_vector kids(m);
-        for (term* ch : term::children(t)) {
-            if (!m_term2app.find(ch->get_root().get_id(), e)) return nullptr;
-            kids.push_back(e);
-        }
-        expr* result = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
-        m_pinned.push_back(result);
-        m_term2app.insert(t.get_id(), result);
-        return result;
-    }
+    namespace {
+        class projector {
+            term_graph &m_tg;
+            ast_manager &m;
+            u_map<expr*> m_term2app;
+            u_map<expr*> m_root2rep;
+            u_map<bool> m_decls;
+            bool m_exclude;
 
-    void term_graph::project_core(func_decl_ref_vector const& decls,
-                                             bool exclude,
-                                             expr_ref_vector &result) {
-        u_map<bool> _decls;
-        for (func_decl* f : decls) _decls.insert(f->get_id(), true);
-        // - propagate representatives up over parents.
-        //   use work-list + marking to propagate.
-        // - produce equalities over represented classes.
-        // - produce other literals over represented classes
-        //   (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
+            expr_ref_vector m_pinned;  // tracks expr in the maps
 
-        obj_hashtable<expr> eqs;
-        expr_ref eq(m);
-        ptr_vector<term> worklist;
-        for (term * t : m_terms) {
-            worklist.push_back(t);
-            t->set_mark(true);
-        }
-
-        while (!worklist.empty()) {
-            term* t = worklist.back();
-            worklist.pop_back();
-            t->set_mark(false);
-            if (m_term2app.contains(t->get_id()))
-                continue;
-            if (!t->is_theory() && exclude == _decls.contains(t->get_decl_id()))
-                continue;
-
-            term& root = t->get_root();
-            bool has_rep = m_term2app.contains(root.get_id());
-            expr* pure = mk_pure(*t);
-            if (!pure) continue;
-
-            // ensure that the root has a representative
-            // either by looking up cached version,
-            // computing it for the first time, or
-            // inheriting pure.
-            expr* rep = nullptr;
-            if (root.is_theory() || exclude != _decls.contains(root.get_decl_id())) {
-                rep = mk_pure(root);
-            }
-            else if (has_rep) {
-                rep = m_term2app.find(root.get_id());
-            }
-            else {
-                rep = pure;
-                m_term2app.insert(root.get_id(), pure);
-            }
-            bool update_rep = false;
-
-            // AG: can rep be null at this point?
-            // AG: why mk_pure(root) is guaranteed to return non-null?
-
-            // Add equations between pure and rep,
-            // optionally swap the roles of rep and pure if
-            // pure makes a better representative.
-            if (rep != pure) {
-                if (m.is_unique_value(rep) && !m.is_unique_value(pure)) {
-                    m_term2app.insert(root.get_id(), pure);
-                    update_rep = true;
+            expr* mk_pure(term& t) {
+                expr* e = nullptr;
+                if (m_term2app.find(t.get_id(), e)) return e;
+                e = t.get_expr();
+                if (!is_app(e)) return nullptr;
+                app* a = ::to_app(e);
+                expr_ref_buffer kids(m);
+                for (term* ch : term::children(t)) {
+                    if (!m_root2rep.find(ch->get_root().get_id(), e)) return nullptr;
+                    kids.push_back(e);
                 }
-                eq = m.mk_eq(rep, pure);
-                if (!eqs.contains(eq)) {
-                    eqs.insert(eq);
-                    result.push_back(eq);
+                expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
+                m_pinned.push_back(pure);
+                m_term2app.insert(t.get_id(), pure);
+                return pure;
+            }
+
+            bool is_better_rep(expr *t1, expr *t2) {
+                if (!t2) return t1;
+                return m.is_unique_value(t1) && !m.is_unique_value(t2);
+            }
+
+            void purify() {
+                // - propagate representatives up over parents.
+                //   use work-list + marking to propagate.
+                // - produce equalities over represented classes.
+                // - produce other literals over represented classes
+                //   (walk disequalities in m_lits and represent
+                //   lhs/rhs over decls or excluding decls)
+
+                ptr_vector<term> worklist;
+                for (term * t : m_tg.m_terms) {
+                    worklist.push_back(t);
+                    t->set_mark(true);
+                }
+
+                while (!worklist.empty()) {
+                    term* t = worklist.back();
+                    worklist.pop_back();
+                    t->set_mark(false);
+                    if (m_term2app.contains(t->get_id()))
+                        continue;
+                    if (!t->is_theory() && is_projected(*t))
+                        continue;
+
+                    expr* pure = mk_pure(*t);
+                    if (!pure) continue;
+
+                    m_term2app.insert(t->get_id(), pure);
+                    expr* rep = nullptr;
+                    // ensure that the root has a representative
+                    m_root2rep.find(t->get_root().get_id(), rep);
+
+                    // update rep with pure if it is better
+                    if (pure != rep && is_better_rep(pure, rep)) {
+                        m_root2rep.insert(t->get_root().get_id(), pure);
+                        for (term * p : term::parents(t->get_root())) {
+                            m_term2app.remove(p->get_id());
+                            if (!p->is_marked()) {
+                                p->set_mark(true);
+                                worklist.push_back(p);
+                            }
+                        }
+                    }
+                }
+
+                // Here we could also walk equivalence classes that
+                // contain interpreted values by sort and extract
+                // disequalities bewteen non-unique value
+                // representatives.  these disequalities are implied
+                // and can be mined using other means, such as theory
+                // aware core minimization
+                m_tg.reset_marks();
+            }
+
+            void solve() {
+               ptr_vector<term> worklist;
+                for (term * t : m_tg.m_terms) {
+                    // skip pure terms
+                    if (m_term2app.contains(t->get_id())) continue;
+                    worklist.push_back(t);
+                    t->set_mark(true);
+                }
+
+                while (!worklist.empty()) {
+                    term* t = worklist.back();
+                    worklist.pop_back();
+                    t->set_mark(false);
+                    if (m_term2app.contains(t->get_id()))
+                        continue;
+
+                    expr* pure = mk_pure(*t);
+                    if (!pure) continue;
+
+                    m_term2app.insert(t->get_id(), pure);
+                    expr* rep = nullptr;
+                    // ensure that the root has a representative
+                    m_root2rep.find(t->get_root().get_id(), rep);
+
+                    if (!rep) {
+                        m_root2rep.insert(t->get_root().get_id(), pure);
+                        for (term * p : term::parents(t->get_root())) {
+                            SASSERT(!m_term2app.contains(p->get_id()));
+                            if (!p->is_marked()) {
+                                p->set_mark(true);
+                                worklist.push_back(p);
+                            }
+                        }
+                    }
+                }
+                m_tg.reset_marks();
+            }
+
+            bool find_app(term &t, expr *&res) {
+                return m_root2rep.find(t.get_root().get_id(), res);
+            }
+
+            bool find_app(expr *lit, expr *&res) {
+                return m_root2rep.find(m_tg.get_term(lit)->get_root().get_id(), res);
+            }
+
+            void mk_lits(expr_ref_vector &res) {
+                expr *e = nullptr;
+                for (auto *lit : m_tg.m_lits) {
+                    if (!m.is_eq(lit) && find_app(lit, e))
+                        res.push_back(e);
                 }
             }
 
-            // update the worklist if this is the first
-            // representative or pure was swapped into rep.
-            if (!has_rep || update_rep) {
-                for (term * p : term::parents(root)) {
-                    if (update_rep) m_term2app.remove(p->get_id());
-                    if (!p->is_marked()) {
-                        p->set_mark(true);
-                        worklist.push_back(p);
+            void mk_pure_equalities(const term &t, expr_ref_vector &res) {
+                expr *rep = nullptr;
+                if (!m_root2rep.find(t.get_id(), rep)) return;
+                for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
+                    expr* member = mk_pure(*it);
+                    if (member)
+                        res.push_back (m.mk_eq (rep, member));
+                }
+            }
+
+            bool is_projected(const term &t) {
+                return m_exclude == m_decls.contains(t.get_decl_id());
+            }
+
+            void mk_unpure_equalities(const term &t, expr_ref_vector &res) {
+                expr *rep = nullptr;
+                if (!m_root2rep.find(t.get_id(), rep)) return;
+                for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
+                    expr* member = mk_pure(*it);
+                    SASSERT(member);
+                    if (!is_projected(*it) || !is_solved_eq(rep, member)) {
+                        res.push_back(m.mk_eq(rep, member));
                     }
                 }
             }
-        }
-        // Here we could also walk equivalence classes that contain interpreted values by sort and
-        // extract disequalities bewteen non-unique value representatives.
-        // these disequalities are implied and can be mined using other means, such as
-        // theory aware core minimization
-        reset_marks();
+
+            void mk_equalities(bool pure, expr_ref_vector &res) {
+                for (term *t : m_tg.m_terms) {
+                    if (!t->is_root()) continue;
+                    if (!m_root2rep.contains(t->get_id())) continue;
+                    if (pure)
+                        mk_pure_equalities(*t, res);
+                    else
+                        mk_unpure_equalities(*t, res);
+                }
+            }
+
+            void mk_pure_equalities(expr_ref_vector &res) {
+                return mk_equalities(true, res);
+            }
+
+            void mk_unpure_equalities(expr_ref_vector &res) {
+                return mk_equalities(false, res);
+            }
+
+            bool is_solved_eq(expr *_lhs, expr* _rhs) {
+                if (!is_app(_lhs) || !is_app(_rhs)) return false;
+                app *lhs, *rhs;
+                lhs = ::to_app(_lhs);
+                rhs = ::to_app(_rhs);
+
+                if (rhs->get_num_args() > 0) return false;
+                if (rhs->get_family_id() != null_family_id) return false;
+
+                return !occurs(rhs, lhs);
+            }
+
+        public:
+            projector(term_graph &tg) : m_tg(tg), m(m_tg.m), m_pinned(m) {}
+
+            void reset() {
+                m_tg.reset_marks();
+                m_term2app.reset();
+                m_root2rep.reset();
+                m_decls.reset();
+                m_pinned.reset();
+            }
+            expr_ref_vector project(func_decl_ref_vector const &decls, bool exclude) {
+                expr_ref_vector res(m);
+                m_exclude = exclude;
+                for (auto *d : decls) {m_decls.insert(d->get_id(), true);}
+                purify();
+                mk_lits(res);
+                mk_pure_equalities(res);
+                reset();
+                return res;
+            }
+            expr_ref_vector solve(func_decl_ref_vector const &decls, bool exclude) {
+                expr_ref_vector res(m);
+                m_exclude = exclude;
+                purify();
+                solve();
+                mk_lits(res);
+                mk_unpure_equalities(res);
+                reset();
+                return res;
+            }
+        };
     }
 
     expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
-        expr_ref_vector result(m);
-        m_term2app.reset();
-        m_pinned.reset();
-        project_core(decls, exclude, result);
-        // walk other predicates than equalities
-        for (expr* e : m_lits) {
-            if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
-                result.push_back(e);
-            }
-        }
-
-        m_term2app.reset();
-        m_pinned.reset();
-        return result;
+        projector p(*this);
+        return p.project(decls, exclude);
     }
-
-    bool term_graph::is_solved_eq(expr *_lhs, expr* _rhs) {
-        if (!is_app(_lhs) || !is_app(_rhs)) return false;
-        app *lhs, *rhs;
-        lhs = ::to_app(_lhs);
-        rhs = ::to_app(_rhs);
-
-        if (rhs->get_num_args() > 0) return false;
-        if (rhs->get_family_id() != null_family_id) return false;
-
-        return !occurs(rhs, lhs);
-    }
-    void term_graph::solve_core(func_decl_ref_vector const &decls, bool exclude,
-                                expr_ref_vector &result) {
-        u_map<bool> _decls;
-        for (func_decl* f : decls) _decls.insert(f->get_id(), true);
-        obj_hashtable<expr> eqs;
-        expr_ref eq(m);
-        ptr_vector<term> worklist;
-        for (term * t : m_terms) {
-            worklist.push_back(t);
-            t->set_mark(true);
-        }
-        while (!worklist.empty()) {
-            term* t = worklist.back();
-            worklist.pop_back();
-            t->set_mark(false);
-            if (m_term2app.contains(t->get_id()))
-                continue;
-            term &root = t->get_root();
-            bool has_rep = m_term2app.contains(root.get_id());
-            expr *pure = mk_pure(*t);
-            if (!pure) continue;
-
-            if (has_rep) {
-                // add equality if needed
-                expr* rep = m_term2app.find(root.get_id());
-                if (exclude != _decls.contains(t->get_decl_id()) || !is_solved_eq(rep, pure)) {
-                    eq = m.mk_eq(rep, pure);
-                    if (!eqs.contains(eq)) {
-                        eqs.insert(eq);
-                        result.push_back(eq);
-                    }
-                }
-            }
-            else {
-                // let pure be the representative
-                m_term2app.insert(root.get_id(), pure);
-                // schedule parents of root to be processed again
-                for (term * p : term::parents(root)) {
-                    if (!p->is_marked()) {
-                        p->set_mark(true);
-                        worklist.push_back(p);
-                    }
-                }
-                SASSERT(false);
-                // TBD: deal with root
-            }
-        }
-
-        reset_marks();
-    }
-
 
     expr_ref_vector term_graph::solve(func_decl_ref_vector const &decls, bool exclude) {
-        expr_ref_vector result(m);
-        m_term2app.reset();
-        m_pinned.reset();
-        project_core(decls, exclude, result);
-        solve_core(decls, exclude, result);
-        // walk other predicates than equalities
-        for (expr* e : m_lits) {
-            if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
-                result.push_back(e);
-            }
-        }
-        m_term2app.reset();
-        m_pinned.reset();
-        return result;
+        projector p(*this);
+        return p.solve(decls, exclude);
     }
 
 }

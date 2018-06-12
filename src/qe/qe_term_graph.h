@@ -26,6 +26,8 @@ namespace qe {
 
     class term;
 
+    namespace {class projector;}
+
     class term_graph_plugin {
         family_id m_id;
     public:
@@ -40,6 +42,7 @@ namespace qe {
 
 
     class term_graph {
+        friend class projector;
         struct term_hash { unsigned operator()(term const* t) const; };
         struct term_eq { bool operator()(term const* a, term const* b) const; };
         ast_manager &     m;
