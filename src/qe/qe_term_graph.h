@@ -34,8 +34,7 @@ namespace qe {
 
         class is_variable_proc : public ::is_variable_proc {
             bool m_exclude;
-            u_map<bool> m_decls;
-            u_map<bool> m_solved;
+            obj_hashtable<func_decl> m_decls, m_solved;
         public:
             bool operator()(const expr *e) const override;
             bool operator()(const term &t) const;
@@ -85,13 +84,15 @@ namespace qe {
         void mk_all_equalities(term const &t, expr_ref_vector &out);
         void display(std::ostream &out);
 
-        bool is_pure_def(expr* atom, expr *v);
+        bool is_pure_def(expr* atom, expr *& v);
         void solve_for_vars();
 
 
     public:
         term_graph(ast_manager &m);
         ~term_graph();
+
+        void set_vars(func_decl_ref_vector const& decls, bool exclude);
 
         ast_manager& get_ast_manager() const { return m;}
 
@@ -110,10 +111,9 @@ namespace qe {
          * onto the vocabulary of decls (if exclude is false) or outside the
          * vocabulary of decls (if exclude is true).
          */
-         expr_ref_vector project(func_decl_ref_vector const& decls, bool exclude);
-         expr_ref_vector solve(func_decl_ref_vector const& decls, bool exclude);
-
-
+         expr_ref_vector project();
+         expr_ref_vector solve();
+        
     };
 
 }

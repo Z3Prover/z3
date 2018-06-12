@@ -206,9 +206,10 @@ namespace qe {
                 m_dual_solver->get_unsat_core(core);
                 TRACE("qe", tout << "core: " << core << "\n";);
                 // project the implicant onto vars 
+                tg.set_vars(vars, false);
                 tg.add_lits(core);
                 lits.reset();                
-                lits.append(tg.project(vars, false));
+                lits.append(tg.project());
                 TRACE("qe", tout << "project: " << lits << "\n";);
                 return mbi_sat;
             case l_undef:

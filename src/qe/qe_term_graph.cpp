@@ -51,7 +51,7 @@ namespace qe {
 
     class term {
         // -- an app represented by this term
-        expr* m_expr; // NSB: to make usable with exprs
+        expr_ref m_expr; // NSB: to make usable with exprs
         // -- root of the equivalence class
         term* m_root;
         // -- next element in the equivalence class (cyclic linked list)
@@ -72,7 +72,7 @@ namespace qe {
         ptr_vector<term> m_children;
 
     public:
-        term(expr* v, u_map<term*>& app2term) :
+        term(expr_ref const& v, u_map<term*>& app2term) :
             m_expr(v),
             m_root(this),
             m_next(this),
@@ -185,22 +185,24 @@ namespace qe {
     bool term_graph::is_variable_proc::operator()(const expr * e) const {
         if (!is_app(e)) return false;
         const app *a = ::to_app(e);
-        if (a->get_family_id() != null_family_id) return false;
-        if (m_solved.contains(a->get_decl()->get_id())) return false;
-        return m_exclude == m_decls.contains(a->get_decl()->get_id());
+        return 
+            a->get_family_id() == null_family_id &&
+            !m_solved.contains(a->get_decl()) && 
+            m_exclude == m_decls.contains(a->get_decl());
     }
+
     bool term_graph::is_variable_proc::operator()(const term &t) const {
-        return !t.is_theory() && m_exclude == m_decls.contains(t.get_decl_id());
+        return (*this)(t.get_app());
     }
 
     void term_graph::is_variable_proc::set_decls(const func_decl_ref_vector &decls, bool exclude) {
         reset();
         m_exclude = exclude;
-        for (auto *d : decls) m_decls.insert(d->get_id(), true);
+        for (auto *d : decls) m_decls.insert(d);
     }
     void term_graph::is_variable_proc::mark_solved(const expr *e) {
-        if ((*this)(e))
-            m_solved.insert(::to_app(e)->get_decl()->get_id(), true);
+        if ((*this)(e) && is_app(e))
+            m_solved.insert(::to_app(e)->get_decl());
     }
 
 
@@ -217,7 +219,7 @@ namespace qe {
         reset();
     }
 
-    bool term_graph::is_pure_def(expr *atom, expr *v) {
+    bool term_graph::is_pure_def(expr *atom, expr*& v) {
         expr *e = nullptr;
         return m.is_eq(atom, v, e) && m_is_var(v) && is_pure(m_is_var, e);
     }
@@ -241,12 +243,21 @@ namespace qe {
     }
     void term_graph::add_lit(expr *l) {
         expr_ref lit(m);
-
-        family_id fid = get_family_id(m, l);
-        qe::solve_plugin *pin = m_plugins.get_plugin(fid);
-        lit = pin ? (*pin)(l) : l;
-        m_lits.push_back(lit);
-        internalize_lit(lit);
+        expr_ref_vector lits(m);
+        lits.push_back(l);
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            l = lits.get(i);
+            family_id fid = get_family_id(m, l);
+            qe::solve_plugin *pin = m_plugins.get_plugin(fid);
+            lit = pin ? (*pin)(l) : l;
+            if (m.is_and(lit)) {
+                lits.append(::to_app(lit)->get_num_args(), ::to_app(lit)->get_args());
+            }
+            else {
+                m_lits.push_back(lit);
+                internalize_lit(lit);
+            }
+        }
     }
 
     bool term_graph::is_internalized(expr *a) {
@@ -259,7 +270,8 @@ namespace qe {
     }
 
     term *term_graph::mk_term(expr *a) {
-        term * t = alloc(term, a, m_app2term);
+        expr_ref e(a, m);
+        term * t = alloc(term, e, m_app2term);
         if (t->get_num_args() == 0 && m.is_unique_value(a)){
             t->mark_as_interpreted();
         }
@@ -304,12 +316,15 @@ namespace qe {
     }
 
     void term_graph::internalize_lit(expr* lit) {
-        expr *e1 = nullptr, *e2 = nullptr;
+        expr *e1 = nullptr, *e2 = nullptr, *v = nullptr;
         if (m.is_eq (lit, e1, e2)) {
             internalize_eq (e1, e2);
         }
         else {
             internalize_term(lit);
+        }
+        if (is_pure_def(lit, v)) {
+            m_is_var.mark_solved(v);
         }
     }
 
@@ -721,16 +736,8 @@ namespace qe {
             }
 
             // TBD: generalize for also the case of a (:var n)
-            bool is_solved_eq(expr *_lhs, expr* _rhs) {
-                if (!is_app(_lhs) || !is_app(_rhs)) return false;
-                app *lhs, *rhs;
-                lhs = ::to_app(_lhs);
-                rhs = ::to_app(_rhs);
-
-                if (rhs->get_num_args() > 0) return false;
-                if (rhs->get_family_id() != null_family_id) return false;
-
-                return !occurs(rhs, lhs);
+            bool is_solved_eq(expr *lhs, expr* rhs) {
+                return is_uninterp_const(rhs) && !occurs(rhs, lhs);
             }
 
         public:
@@ -762,41 +769,21 @@ namespace qe {
         };
     }
 
-    void term_graph::solve_for_vars() {
-        expr_ref new_lit(m);
-        expr *old_lit = nullptr, *v = nullptr;
-        for (unsigned i = 0, sz = m_lits.size(); i < sz; ++i) {
-            old_lit = m_lits.get(i);
-            qe::solve_plugin *pin = m_plugins.get_plugin(get_family_id(m, old_lit));
-            if (pin) {
-                new_lit = (*pin)(old_lit);
-                if (new_lit.get() != old_lit) {
-                    m_lits.set(i, new_lit);
-                    internalize_lit(new_lit);
-                }
-                if (is_pure_def(new_lit, v)) {
-                    m_is_var.mark_solved(v);
-                }
-            }
-        }
-        m_is_var.reset_solved();
-    }
-    expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
+    void term_graph::set_vars(func_decl_ref_vector const& decls, bool exclude) {
         m_is_var.set_decls(decls, exclude);
-        solve_for_vars();
-        projector p(*this);
-        m_is_var.reset();
-        expr_ref_vector v = p.project();
-        return v;
     }
 
-    expr_ref_vector term_graph::solve(func_decl_ref_vector const &decls, bool exclude) {
-        m_is_var.set_decls(decls, exclude);
-        solve_for_vars();
+    expr_ref_vector term_graph::project() {
+        m_is_var.reset_solved();
         projector p(*this);
-        expr_ref_vector v = p.solve();
         m_is_var.reset();
-        return v;
+        return p.project();
+    }
+
+    expr_ref_vector term_graph::solve() {
+        m_is_var.reset_solved();
+        projector p(*this);
+        return p.solve();
     }
 
 }

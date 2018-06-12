@@ -522,8 +522,9 @@ public:
         for (expr* e : m_lits) lits.push_back(e);
         flatten_and(lits);
         qe::term_graph tg(m);
+        tg.set_vars(vars, false);
         tg.add_lits(lits);
-        expr_ref_vector p = tg.project(vars, false);
+        expr_ref_vector p = tg.project();
         ctx.regular_stream() << p << "\n";
     }
 
