@@ -780,12 +780,15 @@ namespace qe {
                 expr *rep = nullptr;
                 if (!m_root2rep.find(t.get_id(), rep)) return;
                 obj_hashtable<expr> members;
+                members.insert(rep);
                 term const * r = &t;
                 do {
                     expr* member = mk_pure(*r);
                     SASSERT(member);
-                    if (member != rep && (!is_projected(*r) || !is_solved_eq(rep, member))) {
+                    if (!members.contains(member) &&
+                        (!is_projected(*r) || !is_solved_eq(rep, member))) {
                         res.push_back(m.mk_eq(rep, member));
+                        members.insert(member);
                     }
                     r = &r->get_next();
                 }
