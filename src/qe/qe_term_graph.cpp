@@ -27,6 +27,28 @@ Notes:
 
 namespace qe {
 
+    namespace is_pure_ns {
+        struct found{};
+        struct proc {
+            is_variable_proc &m_is_var;
+            proc(is_variable_proc &is_var) : m_is_var(is_var) {}
+            void operator()(var *n) const {if (m_is_var(n)) throw found();}
+            void operator()(app const *n) const {if (m_is_var(n)) throw found();}
+            void operator()(quantifier *n) const {}
+        };
+    }
+
+    bool is_pure(is_variable_proc &is_var, expr *e) {
+        try {
+            is_pure_ns::proc v(is_var);
+            quick_for_each_expr(v, e);
+        }
+        catch (is_pure_ns::found) {
+            return false;
+        }
+        return true;
+    }
+
     class term {
         // -- an app represented by this term
         expr* m_expr; // NSB: to make usable with exprs
@@ -160,152 +182,44 @@ namespace qe {
     };
 
 
-    class arith_term_graph_plugin : public term_graph_plugin {
-        term_graph &m_g;
-        ast_manager &m;
-        arith_util m_arith;
-    public:
-        arith_term_graph_plugin(term_graph &g) :
-            term_graph_plugin (g.get_ast_manager().mk_family_id("arith")),
-            m_g(g), m(g.get_ast_manager()), m_arith(m) {(void)m_g;}
+    bool term_graph::is_variable_proc::operator()(const expr * e) const {
+        if (!is_app(e)) return false;
+        const app *a = ::to_app(e);
+        if (a->get_family_id() != null_family_id) return false;
+        if (m_solved.contains(a->get_decl()->get_id())) return false;
+        return m_exclude == m_decls.contains(a->get_decl()->get_id());
+    }
+    bool term_graph::is_variable_proc::operator()(const term &t) const {
+        return !t.is_theory() && m_exclude == m_decls.contains(t.get_decl_id());
+    }
 
-        virtual ~arith_term_graph_plugin() {}
+    void term_graph::is_variable_proc::set_decls(const func_decl_ref_vector &decls, bool exclude) {
+        reset();
+        m_exclude = exclude;
+        for (auto *d : decls) m_decls.insert(d->get_id(), true);
+    }
+    void term_graph::is_variable_proc::mark_solved(const expr *e) {
+        if ((*this)(e))
+            m_solved.insert(::to_app(e)->get_decl()->get_id(), true);
+    }
 
-        bool mk_eq_core (expr *_e1, expr *_e2, expr_ref &res) {
-            expr *e1, *e2;
-            e1 = _e1;
-            e2 = _e2;
-            if (m_arith.is_zero(e1)) {
-                std::swap(e1, e2);
-            }
-            // y + -1*x == 0  --> y = x
-            expr *a0 = 0, *a1 = 0, *x = 0;
-            if (m_arith.is_zero(e2) && m_arith.is_add(e1, a0, a1)) {
-                if (m_arith.is_times_minus_one(a1, x)) {
-                    e1 = a0;
-                    e2 = x;
-                }
-                else if (m_arith.is_times_minus_one(a0, x)) {
-                    e1 = a1;
-                    e2 = x;
-                }
-            }
-            res = m.mk_eq(e1, e2);
-            return true;
-        }
-
-        app* mk_le_zero(expr *arg) {
-            expr *e1, *e2, *e3;
-            if (m_arith.is_add(arg, e1, e2)) {
-                // e1-e2<=0 --> e1<=e2
-                if (m_arith.is_times_minus_one(e2, e3)) {
-                    return m_arith.mk_le(e1, e3);
-                }
-                // -e1+e2<=0 --> e2<=e1
-                else if (m_arith.is_times_minus_one(e1, e3)) {
-                    return m_arith.mk_le(e2, e3);
-                }
-            }
-            return m_arith.mk_le(arg, mk_zero());
-        }
-
-        app* mk_ge_zero(expr *arg) {
-            expr *e1, *e2, *e3;
-            if (m_arith.is_add(arg, e1, e2)) {
-                // e1-e2>=0 --> e1>=e2
-                if (m_arith.is_times_minus_one(e2, e3)) {
-                    return m_arith.mk_ge(e1, e3);
-                }
-                // -e1+e2>=0 --> e2>=e1
-                else if (m_arith.is_times_minus_one(e1, e3)) {
-                    return m_arith.mk_ge(e2, e3);
-                }
-            }
-            return m_arith.mk_ge(arg, mk_zero());
-        }
-
-        bool mk_le_core (expr *arg1, expr * arg2, expr_ref &result) {
-            // t <= -1  ==> t < 0 ==> ! (t >= 0)
-            rational n;
-            if (m_arith.is_int (arg1) && m_arith.is_minus_one (arg2)) {
-                result = m.mk_not (mk_ge_zero (arg1));
-                return true;
-            }
-            else if (m_arith.is_zero(arg2)) {
-                result = mk_le_zero(arg1);
-                return true;
-            }
-            else if (m_arith.is_int(arg1) && m_arith.is_numeral(arg2, n) && n < 0) {
-                // t <= n ==> t < n + 1 ==> ! (t >= n + 1)
-                result = m.mk_not(m_arith.mk_ge(arg1, m_arith.mk_numeral(n+1, true)));
-                return true;
-            }
-            return false;
-        }
-        expr * mk_zero () {return m_arith.mk_numeral (rational (0), true);}
-        bool is_one (expr const * n) const {
-            rational val;
-            return m_arith.is_numeral (n, val) && val.is_one ();
-        }
-
-        bool mk_ge_core (expr * arg1, expr * arg2, expr_ref &result) {
-            // t >= 1 ==> t > 0 ==> ! (t <= 0)
-            rational n;
-            if (m_arith.is_int (arg1) && is_one (arg2)) {
-                result = m.mk_not (mk_le_zero (arg1));
-                return true;
-            }
-            else if (m_arith.is_zero(arg2)) {
-                result = mk_ge_zero(arg1);
-                return true;
-            }
-            else if (m_arith.is_int(arg1) && m_arith.is_numeral(arg2, n) && n > 0) {
-                // t >= n ==> t > n - 1 ==> ! (t <= n - 1)
-                result = m.mk_not(m_arith.mk_le(arg1, m_arith.mk_numeral(n-1, true)));
-                return true;
-            }
-            return false;
-        }
-
-        expr_ref process_lit (expr *_lit) override {
-            expr *lit = _lit;
-            expr *e1, *e2;
-
-            // strip negation
-            bool is_neg = m.is_not(lit);
-            if (is_neg) {
-                lit = to_app(to_app(lit)->get_arg(0));
-            }
-
-            expr_ref res(m);
-            res = lit;
-            if (m.is_eq (lit, e1, e2)) {
-                mk_eq_core(e1, e2, res);
-            }
-            else if (m_arith.is_le(lit, e1, e2)) {
-                mk_le_core(e1, e2, res);
-            }
-            else if (m_arith.is_ge(lit, e1, e2)) {
-                mk_ge_core(e1, e2, res);
-            }
-            // restore negation
-            if (is_neg) {
-                res = mk_not(m, res);
-            }
-            return res;
-        }
-    };
 
     unsigned term_graph::term_hash::operator()(term const* t) const { return t->get_hash(); }
 
     bool term_graph::term_eq::operator()(term const* a, term const* b) const { return term::cg_eq(a, b); }
 
     term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m) {
-        m_plugins.register_plugin (alloc(arith_term_graph_plugin, *this));
+        m_plugins.register_plugin(mk_basic_solve_plugin(m, m_is_var));
+        m_plugins.register_plugin(mk_arith_solve_plugin(m, m_is_var));
     }
 
     term_graph::~term_graph() {
         reset();
+    }
+
+    bool term_graph::is_pure_def(expr *atom, expr *v) {
+        expr *e = nullptr;
+        return m.is_eq(atom, v, e) && m_is_var(v) && is_pure(m_is_var, e);
     }
 
     static family_id get_family_id(ast_manager &m, expr *lit) {
@@ -328,13 +242,9 @@ namespace qe {
     void term_graph::add_lit(expr *l) {
         expr_ref lit(m);
 
-        family_id fid = get_family_id (m, l);
-        term_graph_plugin *pin = m_plugins.get_plugin(fid);
-        if (pin) {
-            lit = pin->process_lit(l);
-        } else {
-            lit = l;
-        }
+        family_id fid = get_family_id(m, l);
+        qe::solve_plugin *pin = m_plugins.get_plugin(fid);
+        lit = pin ? (*pin)(l) : l;
         m_lits.push_back(lit);
         internalize_lit(lit);
     }
@@ -620,8 +530,6 @@ namespace qe {
             ast_manager &m;
             u_map<expr*> m_term2app;
             u_map<expr*> m_root2rep;
-            u_map<bool> m_decls;
-            bool m_exclude;
 
             expr_ref_vector m_pinned;  // tracks expr in the maps
 
@@ -700,7 +608,7 @@ namespace qe {
                 m_tg.reset_marks();
             }
 
-            void solve() {
+            void solve_core() {
                 ptr_vector<term> worklist;
                 for (term * t : m_tg.m_terms) {
                     // skip pure terms
@@ -772,9 +680,7 @@ namespace qe {
                 while (r != &t);
             }
 
-            bool is_projected(const term &t) {
-                return m_exclude == m_decls.contains(t.get_decl_id());
-            }
+            bool is_projected(const term &t) {return m_tg.m_is_var(t);}
 
             void mk_unpure_equalities(const term &t, expr_ref_vector &res) {
                 expr *rep = nullptr;
@@ -834,24 +740,20 @@ namespace qe {
                 m_tg.reset_marks();
                 m_term2app.reset();
                 m_root2rep.reset();
-                m_decls.reset();
                 m_pinned.reset();
             }
-            expr_ref_vector project(func_decl_ref_vector const &decls, bool exclude) {
+            expr_ref_vector project() {
                 expr_ref_vector res(m);
-                m_exclude = exclude;
-                for (auto *d : decls) {m_decls.insert(d->get_id(), true);}
                 purify();
                 mk_lits(res);
                 mk_pure_equalities(res);
                 reset();
                 return res;
             }
-            expr_ref_vector solve(func_decl_ref_vector const &decls, bool exclude) {
+            expr_ref_vector solve() {
                 expr_ref_vector res(m);
-                m_exclude = exclude;
                 purify();
-                solve();
+                solve_core();
                 mk_lits(res);
                 mk_unpure_equalities(res);
                 reset();
@@ -860,14 +762,41 @@ namespace qe {
         };
     }
 
+    void term_graph::solve_for_vars() {
+        expr_ref new_lit(m);
+        expr *old_lit = nullptr, *v = nullptr;
+        for (unsigned i = 0, sz = m_lits.size(); i < sz; ++i) {
+            old_lit = m_lits.get(i);
+            qe::solve_plugin *pin = m_plugins.get_plugin(get_family_id(m, old_lit));
+            if (pin) {
+                new_lit = (*pin)(old_lit);
+                if (new_lit.get() != old_lit) {
+                    m_lits.set(i, new_lit);
+                    internalize_lit(new_lit);
+                }
+                if (is_pure_def(new_lit, v)) {
+                    m_is_var.mark_solved(v);
+                }
+            }
+        }
+        m_is_var.reset_solved();
+    }
     expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
+        m_is_var.set_decls(decls, exclude);
+        solve_for_vars();
         projector p(*this);
-        return p.project(decls, exclude);
+        m_is_var.reset();
+        expr_ref_vector v = p.project();
+        return v;
     }
 
     expr_ref_vector term_graph::solve(func_decl_ref_vector const &decls, bool exclude) {
+        m_is_var.set_decls(decls, exclude);
+        solve_for_vars();
         projector p(*this);
-        return p.solve(decls, exclude);
+        expr_ref_vector v = p.solve();
+        m_is_var.reset();
+        return v;
     }
 
 }

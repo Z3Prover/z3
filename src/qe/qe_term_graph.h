@@ -21,28 +21,31 @@ Notes:
 
 #include "ast/ast.h"
 #include "util/plugin_manager.h"
+#include "qe/qe_solve_plugin.h"
+#include "qe/qe_vartest.h"
 
 namespace qe {
 
     class term;
-
     namespace {class projector;}
-
-    class term_graph_plugin {
-        family_id m_id;
-    public:
-        term_graph_plugin(family_id fid) : m_id(fid) {}
-        virtual ~term_graph_plugin() {}
-
-        family_id get_family_id() const {return m_id;}
-
-        /// Process (and potentially augment) a literal
-        virtual expr_ref process_lit (expr *lit) = 0;
-    };
-
 
     class term_graph {
         friend class projector;
+
+        class is_variable_proc : public ::is_variable_proc {
+            bool m_exclude;
+            u_map<bool> m_decls;
+            u_map<bool> m_solved;
+        public:
+            bool operator()(const expr *e) const override;
+            bool operator()(const term &t) const;
+
+            void set_decls(const func_decl_ref_vector &decls, bool exclude);
+            void mark_solved(const expr *e);
+            void reset_solved() {m_solved.reset();}
+            void reset() {m_decls.reset(); m_solved.reset(); m_exclude = true;}
+        };
+
         struct term_hash { unsigned operator()(term const* t) const; };
         struct term_eq { bool operator()(term const* a, term const* b) const; };
         ast_manager &     m;
@@ -51,10 +54,11 @@ namespace qe {
         u_map<term* >     m_app2term;
         ast_ref_vector    m_pinned;
         u_map<expr*>      m_term2app;
-        plugin_manager<term_graph_plugin> m_plugins;
+        plugin_manager<qe::solve_plugin> m_plugins;
         ptr_hashtable<term, term_hash, term_eq> m_cg_table;
         vector<std::pair<term*,term*>> m_merge;
 
+        term_graph::is_variable_proc m_is_var;
         void merge(term &t1, term &t2);
         void merge_flush();
 
@@ -80,9 +84,10 @@ namespace qe {
         void mk_equalities(term const &t, expr_ref_vector &out);
         void mk_all_equalities(term const &t, expr_ref_vector &out);
         void display(std::ostream &out);
-        void project_core(func_decl_ref_vector const &decls, bool exclude, expr_ref_vector &result);
-        void solve_core(func_decl_ref_vector const &decls, bool exclude, expr_ref_vector &result);
-        bool is_solved_eq(expr *lhs, expr *rhs);
+
+        bool is_pure_def(expr* atom, expr *v);
+        void solve_for_vars();
+
 
     public:
         term_graph(ast_manager &m);

@@ -27,7 +27,7 @@ Revision History:
 namespace qe {
 
     expr_ref solve_plugin::operator()(expr* lit) {
-        if (m.is_not(lit, lit)) 
+        if (m.is_not(lit, lit))
             return solve(lit, false);
         else
             return solve(lit, true);
@@ -39,9 +39,9 @@ namespace qe {
         arith_solve_plugin(ast_manager& m, is_variable_proc& is_var): solve_plugin(m, m.get_family_id("arith"), is_var), a(m) {}
 
         typedef std::pair<bool,expr*> signed_expr;
-        
+
         /**
-         *\brief 
+         *\brief
          *   return r * (sum_{(sign,e) \in exprs} sign * e)
          */
         expr_ref mk_term(bool is_int, rational const& r, bool sign, svector<signed_expr> const& exprs) {
@@ -124,7 +124,7 @@ namespace qe {
             return false;
         }
 
-        // is arg of the form a_val * v, where a_val 
+        // is arg of the form a_val * v, where a_val
         // is a constant that we can safely divide by.
         bool is_invertible_mul(bool is_int, expr*& arg, rational& a_val) {
             if (is_variable(arg)) {
@@ -144,9 +144,9 @@ namespace qe {
             }
             return false;
         }
-        
 
-        expr_ref mk_eq_core (expr *e1, expr *e2) {            
+
+        expr_ref mk_eq_core (expr *e1, expr *e2) {
             expr_ref v(m), t(m);
             if (solve(e1, e2, v, t)) {
                 return expr_ref(m.mk_eq(v, t), m);
@@ -172,7 +172,6 @@ namespace qe {
 
         app* mk_le_zero(expr *arg) {
             expr *e1, *e2, *e3;
-            // XXX currently disabled
             if (a.is_add(arg, e1, e2)) {
                 // e1-e2<=0 --> e1<=e2
                 if (a.is_times_minus_one(e2, e3)) {
@@ -188,7 +187,6 @@ namespace qe {
 
         app* mk_ge_zero(expr *arg) {
             expr *e1, *e2, *e3;
-            // XXX currently disabled
             if (a.is_add(arg, e1, e2)) {
                 // e1-e2>=0 --> e1>=e2
                 if (a.is_times_minus_one(e2, e3)) {
@@ -249,17 +247,22 @@ namespace qe {
             return false;
         }
 
-        expr_ref solve(expr* lit, bool is_pos) override {
+        expr_ref solve(expr* atom, bool is_pos) override {
             expr *e1, *e2;
 
-            expr_ref res(lit, m);
-            if (m.is_eq (lit, e1, e2)) {
-                res = mk_eq_core(e1, e2);
+            expr_ref res(atom, m);
+            if (m.is_eq (atom, e1, e2)) {
+                expr_ref v(m), t(m);
+                v = e1; t = e2;
+                // -- attempt to solve using arithmetic
+                solve(e1, e2, v, t);
+                // -- normalize equality
+                res = mk_eq_core(v, t);
             }
-            else if (a.is_le(lit, e1, e2)) {
+            else if (a.is_le(atom, e1, e2)) {
                 mk_le_core(e1, e2, res);
             }
-            else if (a.is_ge(lit, e1, e2)) {
+            else if (a.is_ge(atom, e1, e2)) {
                 mk_ge_core(e1, e2, res);
             }
 
@@ -273,7 +276,7 @@ namespace qe {
 
     class basic_solve_plugin : public solve_plugin {
     public:
-        basic_solve_plugin(ast_manager& m, is_variable_proc& is_var): 
+        basic_solve_plugin(ast_manager& m, is_variable_proc& is_var):
             solve_plugin(m, m.get_basic_family_id(), is_var) {}
 
         expr_ref solve(expr *atom, bool is_pos) override {
@@ -288,7 +291,7 @@ namespace qe {
                 }
                 else if (is_variable(rhs) && !is_variable(lhs)) {
                     res = m.mk_eq(rhs, lhs);
-                } 
+                }
             }
             // (ite cond (= VAR t) (= VAR t2)) case
             expr* cond = nullptr, *th = nullptr, *el = nullptr;
@@ -296,7 +299,7 @@ namespace qe {
                 expr_ref r1 = solve(th, true);
                 expr_ref r2 = solve(el, true);
                 expr* v1 = nullptr, *t1 = nullptr, *v2 = nullptr, *t2 = nullptr;
-                if (m.is_eq(r1, v1, t1) && m.is_eq(r2, v2, t2) && v1 == v2) { 
+                if (m.is_eq(r1, v1, t1) && m.is_eq(r2, v2, t2) && v1 == v2) {
                     res = m.mk_eq(v1, m.mk_ite(cond, t1, t2));
                 }
             }
@@ -313,8 +316,8 @@ namespace qe {
     class dt_solve_plugin : public solve_plugin {
         datatype_util dt;
     public:
-        dt_solve_plugin(ast_manager& m, is_variable_proc& is_var): 
-            solve_plugin(m, m.get_family_id("datatype"), is_var), 
+        dt_solve_plugin(ast_manager& m, is_variable_proc& is_var):
+            solve_plugin(m, m.get_family_id("datatype"), is_var),
             dt(m) {}
 
         expr_ref solve(expr *atom, bool is_pos) override {
@@ -350,11 +353,11 @@ namespace qe {
                 }
             }
             // TBD: can also solve for is_nil(x) by x = nil
-            // 
+            //
             return is_pos ? res : mk_not(res);
         }
     };
-    
+
     class bv_solve_plugin : public solve_plugin {
     public:
         bv_solve_plugin(ast_manager& m, is_variable_proc& is_var): solve_plugin(m, m.get_family_id("bv"), is_var) {}
