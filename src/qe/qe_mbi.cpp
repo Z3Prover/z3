@@ -248,7 +248,6 @@ namespace qe {
                 case l_true:
                     return l_true;
                 case l_false:
-					std::cout << lits << "\n";
                     a.block(lits);
                     itps.push_back(mk_not(mk_and(lits)));
                     break;
