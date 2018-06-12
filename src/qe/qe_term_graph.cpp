@@ -185,9 +185,9 @@ namespace qe {
     bool term_graph::is_variable_proc::operator()(const expr * e) const {
         if (!is_app(e)) return false;
         const app *a = ::to_app(e);
-        return 
+        return
             a->get_family_id() == null_family_id &&
-            !m_solved.contains(a->get_decl()) && 
+            !m_solved.contains(a->get_decl()) &&
             m_exclude == m_decls.contains(a->get_decl());
     }
 
@@ -774,13 +774,14 @@ namespace qe {
     }
 
     expr_ref_vector term_graph::project() {
+        // reset solved vars so that they are not considered pure by projector
         m_is_var.reset_solved();
         projector p(*this);
-        m_is_var.reset();
         return p.project();
     }
 
     expr_ref_vector term_graph::solve() {
+        // reset solved vars so that they are not considered pure by projector
         m_is_var.reset_solved();
         projector p(*this);
         return p.solve();
