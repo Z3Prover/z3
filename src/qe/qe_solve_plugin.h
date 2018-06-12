@@ -42,11 +42,13 @@ namespace qe {
         expr_ref operator() (expr *lit);
     };
 
+    solve_plugin* mk_basic_solve_plugin(ast_manager& m, is_variable_proc& is_var);
+
     solve_plugin* mk_arith_solve_plugin(ast_manager& m, is_variable_proc& is_var);
 
     solve_plugin* mk_dt_solve_plugin(ast_manager& m, is_variable_proc& is_var);
 
-    solve_plugin* mk_bv_solve_plugin(ast_manager& m, is_variable_proc& is_var);
+    // solve_plugin* mk_bv_solve_plugin(ast_manager& m, is_variable_proc& is_var);
 
-    solve_plugin* mk_array_solve_plugin(ast_manager& m, is_variable_proc& is_var);
+    // solve_plugin* mk_array_solve_plugin(ast_manager& m, is_variable_proc& is_var);
 }

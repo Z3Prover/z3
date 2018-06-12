@@ -36,6 +36,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 
 #include "qe/qe_vartest.h"
+#include "qe/qe_solve_plugin.h"
 
 namespace eq {
 
@@ -72,6 +73,7 @@ namespace eq {
         beta_reducer    m_subst;
         expr_ref_vector m_subst_map;
         expr_ref_vector m_new_exprs;
+        plugin_manager<qe::solve_plugin> m_solvers;
 
         ptr_vector<expr> m_map;
         int_vector       m_pos2var;
@@ -221,97 +223,6 @@ namespace eq {
             }
         }
 
-        bool is_invertible_const(bool is_int, expr* x, rational& a_val) {
-            expr* y;
-            if (a.is_uminus(x, y) && is_invertible_const(is_int, y, a_val)) {
-                a_val.neg();
-                return true;
-            }
-            else if (a.is_numeral(x, a_val) && !a_val.is_zero()) {
-                if (!is_int || a_val.is_one() || a_val.is_minus_one()) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        bool is_invertible_mul(bool is_int, expr*& arg, rational& a_val) {
-            if (is_variable(arg)) {
-                a_val = rational(1);
-                return true;
-            }
-            expr* x, *y;
-            if (a.is_mul(arg, x, y)) {
-                if (is_variable(x) && is_invertible_const(is_int, y, a_val)) {
-                    arg = x;
-                    return true;
-                }
-                if (is_variable(y) && is_invertible_const(is_int, x, a_val)) {
-                    arg = y;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        typedef std::pair<bool,expr*> signed_expr;
-
-        expr_ref solve_arith(bool is_int, rational const& r, bool sign, svector<signed_expr> const& exprs) {
-            expr_ref_vector result(m);
-            for (unsigned i = 0; i < exprs.size(); ++i) {
-                bool sign2 = exprs[i].first;
-                expr* e    = exprs[i].second;
-                rational r2(r);
-                if (sign == sign2) {
-                    r2.neg();
-                }
-                if (!r2.is_one()) {
-                    result.push_back(a.mk_mul(a.mk_numeral(r2, is_int), e));
-                }
-                else {
-                    result.push_back(e);
-                }
-            }
-            return expr_ref(a.mk_add(result.size(), result.c_ptr()), m);
-        }
-
-        bool solve_arith(expr* lhs, expr* rhs, ptr_vector<var>& vs, expr_ref_vector& ts) {
-            if (!a.is_int(lhs) && !a.is_real(rhs)) {
-                return false;
-            }
-            rational a_val;
-            bool is_int = a.is_int(lhs);
-            svector<signed_expr> todo, done;
-            todo.push_back(std::make_pair(true,  lhs));
-            todo.push_back(std::make_pair(false, rhs));
-            while (!todo.empty()) {
-                expr* e = todo.back().second;
-                bool sign = todo.back().first;
-                todo.pop_back();
-                if (a.is_add(e)) {
-                    for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
-                        todo.push_back(std::make_pair(sign, to_app(e)->get_arg(i)));
-                    }
-                }
-                else if (is_invertible_mul(is_int, e, a_val)) {
-                    done.append(todo);
-                    vs.push_back(to_var(e));
-                    a_val = rational(1)/a_val;
-                    ts.push_back(solve_arith(is_int, a_val, sign, done));
-                    TRACE("qe_lite", tout << mk_pp(lhs, m) << " " << mk_pp(rhs, m) << " " << mk_pp(e, m) << " := " << mk_pp(ts.back(), m) << "\n";);
-                    return true;
-                }
-                else {
-                    done.push_back(std::make_pair(sign, e));
-                }
-            }
-            return false;
-        }
-
-        bool arith_solve(expr * lhs, expr * rhs, expr * eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
-            return solve_arith(lhs, rhs, vs, ts);
-        }
-
         bool trivial_solve(expr* lhs, expr* rhs, expr* eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
             if (!is_variable(lhs)) {
                 std::swap(lhs, rhs);
@@ -343,65 +254,25 @@ namespace eq {
         */
 
         bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
-            expr* lhs, *rhs;
-            var* v;
+            expr* lhs = nullptr, *rhs = nullptr;
 
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases
+            if (m.is_eq(e, lhs, rhs) && trivial_solve(lhs, rhs, e, vs, ts)) {
+                return true;
+            }
+            family_id fid = get_sort(e)->get_family_id();
             if (m.is_eq(e, lhs, rhs)) {
-                // (iff (not VAR) t) (iff t (not VAR)) cases
-                if (!is_variable(lhs) && !is_variable(rhs) && m.is_bool(lhs)) {
-                    if (!is_neg_var(m, lhs, v)) {
-                        std::swap(lhs, rhs);
-                    }
-                    if (!is_neg_var(m, lhs, v)) {
-                        return false;
-                    }
-                    vs.push_back(v);
-                    ts.push_back(m.mk_not(rhs));
-                    TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
+                fid = get_sort(lhs)->get_family_id();
+            }
+            qe::solve_plugin* p = m_solvers.get_plugin(fid);
+            if (p) {
+                expr_ref res = (*p)(e);
+                if (res != e && m.is_eq(res, lhs, rhs) && is_variable(lhs)) {
+                    vs.push_back(to_var(lhs));
+                    ts.push_back(rhs);
                     return true;
                 }
-                if (trivial_solve(lhs, rhs, e, vs, ts)) {
-                    return true;
-                }
-                if (arith_solve(lhs, rhs, e, vs, ts)) {
-                    return true;
-                }
-                return false;
             }
-
-            // (ite cond (= VAR t) (= VAR t2)) case
-            expr* cond, *e2, *e3;
-            if (m.is_ite(e, cond, e2, e3)) {
-                if (is_var_eq(e2, vs, ts)) {
-                    expr_ref_vector ts2(m);
-                    ptr_vector<var> vs2;
-                    if (is_var_eq(e3, vs2, ts2) && same_vars(vs, vs2)) {
-                        for (unsigned i = 0; i < vs.size(); ++i) {
-                            ts[i] = m.mk_ite(cond, ts[i].get(), ts2[i].get());
-                        }
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            // VAR = true case
-            if (is_variable(e)) {
-                ts.push_back(m.mk_true());
-                vs.push_back(to_var(e));
-                TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
-                return true;
-            }
-
-            // VAR = false case
-            if (is_neg_var(m, e, v)) {
-                ts.push_back(m.mk_false());
-                vs.push_back(v);
-                TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
-                return true;
-            }
-
             return false;
         }
 
@@ -785,9 +656,15 @@ namespace eq {
             m_new_exprs(m),
             m_new_args(m),
             m_rewriter(m),
-            m_params(p) {}
+            m_params(p) {
+        }
 
-        void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
+        void set_is_variable_proc(is_variable_proc& proc) { 
+            m_is_variable = &proc;
+            m_solvers.reset();
+            m_solvers.register_plugin(qe::mk_arith_solve_plugin(m, proc));            
+            m_solvers.register_plugin(qe::mk_basic_solve_plugin(m, proc));            
+        }
 
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
             TRACE("qe_lite", tout << mk_pp(q, m) << "\n";);
