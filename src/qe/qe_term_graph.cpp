@@ -22,6 +22,7 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
+#include "ast/occurs.h"
 #include "qe/qe_term_graph.h"
 
 namespace qe {
@@ -64,9 +65,9 @@ namespace qe {
                 m_children.push_back(t);
             }
         }
-        
+
         ~term() {}
-        
+
         class parents {
             term const& t;
         public:
@@ -167,9 +168,9 @@ namespace qe {
         arith_term_graph_plugin(term_graph &g) :
             term_graph_plugin (g.get_ast_manager().mk_family_id("arith")),
             m_g(g), m(g.get_ast_manager()), m_arith(m) {(void)m_g;}
-        
+
         virtual ~arith_term_graph_plugin() {}
-        
+
         bool mk_eq_core (expr *_e1, expr *_e2, expr_ref &res) {
             expr *e1, *e2;
             e1 = _e1;
@@ -384,7 +385,7 @@ namespace qe {
         SASSERT(res);
         return res;
     }
-    
+
     void term_graph::internalize_eq(expr *a1, expr* a2) {
         SASSERT(m_merge.empty());
         merge(*internalize_term(a1), *internalize_term(a2));
@@ -414,17 +415,17 @@ namespace qe {
     void term_graph::merge(term &t1, term &t2) {
         // -- merge might invalidate term2app cache
         m_term2app.reset();
-        m_pinned.reset();  
-        
+        m_pinned.reset();
+
         term *a = &t1.get_root();
         term *b = &t2.get_root();
-        
+
         if (a == b) return;
-        
+
         if (a->get_class_size() > b->get_class_size()) {
             std::swap(a, b);
         }
-        
+
         // Remove parents of it from the cg table.
         for (term* p : term::parents(b)) {
             if (!p->is_marked()) {
@@ -630,7 +631,9 @@ namespace qe {
         return result;
     }
 
-    expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
+    void term_graph::project_core(func_decl_ref_vector const& decls,
+                                             bool exclude,
+                                             expr_ref_vector &result) {
         u_map<bool> _decls;
         for (func_decl* f : decls) _decls.insert(f->get_id(), true);
         // - propagate representatives up over parents.
@@ -638,10 +641,6 @@ namespace qe {
         // - produce equalities over represented classes.
         // - produce other literals over represented classes
         //   (walk disequalities in m_lits and represent lhs/rhs over decls or excluding decls)
-
-        expr_ref_vector result(m);
-        m_term2app.reset();
-        m_pinned.reset();
 
         obj_hashtable<expr> eqs;
         expr_ref eq(m);
@@ -666,7 +665,7 @@ namespace qe {
             if (!pure) continue;
 
             // ensure that the root has a representative
-            // either by looking up cached version, 
+            // either by looking up cached version,
             // computing it for the first time, or
             // inheriting pure.
             expr* rep = nullptr;
@@ -682,7 +681,10 @@ namespace qe {
             }
             bool update_rep = false;
 
-            // Add equations between pure and rep, 
+            // AG: can rep be null at this point?
+            // AG: why mk_pure(root) is guaranteed to return non-null?
+
+            // Add equations between pure and rep,
             // optionally swap the roles of rep and pure if
             // pure makes a better representative.
             if (rep != pure) {
@@ -697,7 +699,7 @@ namespace qe {
                 }
             }
 
-            // update the worklist if this is the first 
+            // update the worklist if this is the first
             // representative or pure was swapped into rep.
             if (!has_rep || update_rep) {
                 for (term * p : term::parents(root)) {
@@ -709,19 +711,107 @@ namespace qe {
                 }
             }
         }
+        // Here we could also walk equivalence classes that contain interpreted values by sort and
+        // extract disequalities bewteen non-unique value representatives.
+        // these disequalities are implied and can be mined using other means, such as
+        // theory aware core minimization
+        reset_marks();
+    }
+
+    expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
+        expr_ref_vector result(m);
+        m_term2app.reset();
+        m_pinned.reset();
+        project_core(decls, exclude, result);
         // walk other predicates than equalities
         for (expr* e : m_lits) {
             if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
                 result.push_back(e);
             }
         }
-        // Here we could also walk equivalence classes that contain interpreted values by sort and
-        // extract disequalities bewteen non-unique value representatives.
-        // these disequalities are implied and can be mined using other means, such as
-        // theory aware core minimization
+
         m_term2app.reset();
         m_pinned.reset();
+        return result;
+    }
+
+    bool term_graph::is_solved_eq(expr *_lhs, expr* _rhs) {
+        if (!is_app(_lhs) || !is_app(_rhs)) return false;
+        app *lhs, *rhs;
+        lhs = ::to_app(_lhs);
+        rhs = ::to_app(_rhs);
+
+        if (rhs->get_num_args() > 0) return false;
+        if (rhs->get_family_id() != null_family_id) return false;
+
+        return !occurs(rhs, lhs);
+    }
+    void term_graph::solve_core(func_decl_ref_vector const &decls, bool exclude,
+                                expr_ref_vector &result) {
+        u_map<bool> _decls;
+        for (func_decl* f : decls) _decls.insert(f->get_id(), true);
+        obj_hashtable<expr> eqs;
+        expr_ref eq(m);
+        ptr_vector<term> worklist;
+        for (term * t : m_terms) {
+            worklist.push_back(t);
+            t->set_mark(true);
+        }
+        while (!worklist.empty()) {
+            term* t = worklist.back();
+            worklist.pop_back();
+            t->set_mark(false);
+            if (m_term2app.contains(t->get_id()))
+                continue;
+            term &root = t->get_root();
+            bool has_rep = m_term2app.contains(root.get_id());
+            expr *pure = mk_pure(*t);
+            if (!pure) continue;
+
+            if (has_rep) {
+                // add equality if needed
+                expr* rep = m_term2app.find(root.get_id());
+                if (exclude != _decls.contains(t->get_decl_id()) || !is_solved_eq(rep, pure)) {
+                    eq = m.mk_eq(rep, pure);
+                    if (!eqs.contains(eq)) {
+                        eqs.insert(eq);
+                        result.push_back(eq);
+                    }
+                }
+            }
+            else {
+                // let pure be the representative
+                m_term2app.insert(root.get_id(), pure);
+                // schedule parents of root to be processed again
+                for (term * p : term::parents(root)) {
+                    if (!p->is_marked()) {
+                        p->set_mark(true);
+                        worklist.push_back(p);
+                    }
+                }
+                SASSERT(false);
+                // TBD: deal with root
+            }
+        }
+
         reset_marks();
+    }
+
+
+    expr_ref_vector term_graph::solve(func_decl_ref_vector const &decls, bool exclude) {
+        expr_ref_vector result(m);
+        m_term2app.reset();
+        m_pinned.reset();
+        project_core(decls, exclude, result);
+        solve_core(decls, exclude, result);
+        // walk other predicates than equalities
+        for (expr* e : m_lits) {
+            if (!m.is_eq(e) && m_term2app.find(get_term(e)->get_root().get_id(), e)) {
+                result.push_back(e);
+            }
+        }
+        m_term2app.reset();
+        m_pinned.reset();
         return result;
     }
 
