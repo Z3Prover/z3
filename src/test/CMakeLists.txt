@@ -81,7 +81,6 @@ add_executable(test-z3
   optional.cpp
   parray.cpp
   pb2bv.cpp
-  pdr.cpp
   permutation.cpp
   polynomial.cpp
   polynorm.cpp

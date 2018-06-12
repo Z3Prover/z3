@@ -239,7 +239,6 @@ int main(int argc, char ** argv) {
     TST(theory_pb);
     TST(simplex);
     TST(sat_user_scope);
-    TST(pdr);
     TST_ARGV(ddnf);
     TST(ddnf1);
     TST(model_evaluator);

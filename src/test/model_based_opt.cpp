@@ -218,6 +218,12 @@ static void test4() {
     std::cout << "u: " << mbo.get_value(u) << "\n";
 }
 
+static void display_project(vector<opt::model_based_opt::def> const& defs) {
+    for (auto const& d : defs) {
+        std::cout << d << "\n";
+    }
+}
+
 static void test5() {
     opt::model_based_opt mbo;
     unsigned x = mbo.add_var(rational(2));
@@ -231,13 +237,13 @@ static void test5() {
     add_ineq(mbo, z, 1, u, -1, 1, opt::t_le);
 
     unsigned vars[2] = { y, z };
-    mbo.project(1, vars);    
+    display_project(mbo.project(1, vars, true));    
     mbo.display(std::cout);
 
-    mbo.project(1, vars);    
+    display_project(mbo.project(1, vars, true));    
     mbo.display(std::cout);
 
-    mbo.project(1, vars+1);
+    display_project(mbo.project(1, vars+1, true));
     mbo.display(std::cout);
 
     vector<opt::model_based_opt::row> rows;
@@ -263,7 +269,7 @@ static void test6() {
     add_ineq(mbo, y, 1, w, -1, 1, opt::t_le);
 
     mbo.display(std::cout);
-    mbo.project(1, &y);
+    display_project(mbo.project(1, &y, true));
     mbo.display(std::cout);
 }
 
@@ -285,7 +291,7 @@ static void test7() {
     add_ineq(mbo, y, 1, w, -1, 1, opt::t_lt);
 
     mbo.display(std::cout);
-    mbo.project(1, &y);
+    display_project(mbo.project(1, &y, true));
     mbo.display(std::cout);
 }
 
@@ -306,7 +312,7 @@ static void test8() {
     add_ineq(mbo, y, 1, v, -1, 1, opt::t_le);
 
     mbo.display(std::cout);
-    mbo.project(1, &y);
+    display_project(mbo.project(1, &y, true));
     mbo.display(std::cout);
 }
 
@@ -327,7 +333,7 @@ static void test9() {
     add_ineq(mbo, y, 1, v, -1, 1, opt::t_le);
 
     mbo.display(std::cout);
-    mbo.project(1, &y);
+    display_project(mbo.project(1, &y, true));
     mbo.display(std::cout);
 }
 
@@ -348,9 +354,9 @@ static void test10() {
     add_ineq(mbo, y, 3, v, -6, 1, opt::t_le);
 
     mbo.display(std::cout);
-    mbo.project(1, &y);
+    display_project(mbo.project(1, &y, true));
     mbo.display(std::cout);
-    mbo.project(1, &x0);
+    display_project(mbo.project(1, &x0, true));
     mbo.display(std::cout);
 }
 
@@ -358,7 +364,6 @@ static void test10() {
 
 void tst_model_based_opt() {
     test10();
-    return;
     check_random_ineqs();
     test1();
     test2();

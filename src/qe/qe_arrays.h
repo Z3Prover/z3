@@ -36,6 +36,7 @@ namespace qe {
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
         void operator()(model& model, app_ref_vector& vars, expr_ref& fml, app_ref_vector& aux_vars, bool reduce_all_selects);
         family_id get_family_id() override;
+        vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
     };
 
 };

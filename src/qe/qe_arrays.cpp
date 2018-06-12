@@ -1419,7 +1419,9 @@ namespace qe {
               );
     }
 
-
+    vector<def> array_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        return vector<def>();
+    }
 
 };
 

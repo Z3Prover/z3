@@ -283,14 +283,29 @@ namespace qe {
         typedef opt::model_based_opt::row row;
         typedef vector<var> vars;
 
+        vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+            return project(model, vars, lits, true);
+        }
+
         void operator()(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
+            project(model, vars, fmls, false);
+        }
+
+        expr_ref var2expr(ptr_vector<expr> const& index2expr, var const& v) {
+            expr_ref t(index2expr[v.m_id], m);
+            if (!v.m_coeff.is_one()) {
+                t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
+            }
+            return t;
+        }
+
+        vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& fmls, bool compute_def) {
             bool has_arith = false;
-            for (unsigned i = 0; !has_arith && i < vars.size(); ++i) {
-                expr* v = vars[i].get();
+            for (expr* v : vars) {
                 has_arith |= is_arith(v);
             }
             if (!has_arith) {
-                return;
+                return vector<def>();
             }
             model_evaluator eval(model);
             // eval.set_model_completion(true);
@@ -359,7 +374,7 @@ namespace qe {
                       tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
                   }
                   mbo.display(tout););
-            mbo.project(real_vars.size(), real_vars.c_ptr());
+            vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.c_ptr(), compute_def);
             TRACE("qe", mbo.display(tout););
             vector<row> rows;
             mbo.get_live_rows(rows);
@@ -419,6 +434,30 @@ namespace qe {
                 val = eval(t);
                 CTRACE("qe", !m.is_true(val), tout << "Evaluated " << t << " to " << val << "\n";);
             }
+            vector<def> result;
+            if (compute_def) {
+                SASSERT(defs.size() == real_vars.size());
+                for (unsigned i = 0; i < defs.size(); ++i) {
+                    auto const& d = defs[i];
+                    expr* x = index2expr[real_vars[i]];
+                    bool is_int = a.is_int(x);
+                    expr_ref_vector ts(m);
+                    expr_ref t(m);
+                    for (var const& v : d.m_vars) {
+                        ts.push_back(var2expr(index2expr, v));
+                    }
+                    ts.push_back(a.mk_numeral(d.m_coeff, is_int));
+                    t = a.mk_add(ts.size(), ts.c_ptr());
+                    if (!d.m_div.is_one() && is_int) {
+                        t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));
+                    }
+                    else if (!d.m_div.is_one() && !is_int) {
+                        t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
+                    }
+                    result.push_back(def(expr_ref(x, m), t));
+                }
+            }
+            return result;
         }        
 
         opt::inf_eps maximize(expr_ref_vector const& fmls0, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
@@ -532,6 +571,10 @@ namespace qe {
 
     void arith_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         (*m_imp)(model, vars, lits);
+    }
+
+    vector<def> arith_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        return m_imp->project(model, vars, lits);
     }
 
     bool arith_project_plugin::solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
