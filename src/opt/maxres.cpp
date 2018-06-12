@@ -383,8 +383,8 @@ public:
         }
         TRACE("opt", 
               tout << "num cores: " << cores.size() << "\n";
-              for (unsigned i = 0; i < cores.size(); ++i) {
-                  display_vec(tout, cores[i]);
+              for (auto const& c : cores) {
+                  display_vec(tout, c);
               }
               tout << "num satisfying: " << asms.size() << "\n";);
         
@@ -476,8 +476,8 @@ public:
     }
 
     void process_unsat(vector<exprs> const& cores) {
-        for (unsigned i = 0; i < cores.size(); ++i) {
-            process_unsat(cores[i]);
+        for (auto const & c : cores) {
+            process_unsat(c);
         }
     }
 
@@ -602,8 +602,7 @@ public:
     }
 
     void display(std::ostream& out) {
-        for (unsigned i = 0; i < m_asms.size(); ++i) {
-            expr* a = m_asms[i].get();
+        for (expr * a : m_asms) {
             out << mk_pp(a, m) << " : " << get_weight(a) << "\n";
         }
     }
@@ -710,8 +709,8 @@ public:
 
     void update_assignment(model* mdl) {
         unsigned correction_set_size = 0;
-        for (unsigned i = 0; i < m_asms.size(); ++i) {
-            if (is_false(mdl, m_asms[i].get())) {
+        for (expr* a : m_asms) {
+            if (is_false(mdl, a)) {
                 ++correction_set_size;
             }
         }
@@ -722,10 +721,12 @@ public:
 
         rational upper(0);
         expr_ref tmp(m);
-        for (unsigned i = 0; i < m_soft.size(); ++i) {
-            if (!is_true(mdl, m_soft[i])) {
+        unsigned i = 0;
+        for (expr* s : m_soft) {
+            if (!is_true(mdl, s)) {
                 upper += m_weights[i];
             }
+            ++i;
         }
 
         if (upper > m_upper) {
@@ -741,8 +742,9 @@ public:
 
         TRACE("opt", model_smt2_pp(tout << "updated model\n", m, *m_model, 0););
 
-        for (unsigned i = 0; i < m_soft.size(); ++i) {
-            m_assignment[i] = is_true(m_soft[i]);
+        i = 0;
+        for (expr* s : m_soft) {
+            m_assignment[i++] = is_true(s);
         }
        
         // DEBUG_CODE(verify_assignment(););
@@ -759,8 +761,8 @@ public:
         pb_util u(m);
         expr_ref_vector nsoft(m);
         expr_ref fml(m);
-        for (unsigned i = 0; i < m_soft.size(); ++i) {
-            nsoft.push_back(mk_not(m, m_soft[i]));
+        for (expr* s : m_soft) {
+            nsoft.push_back(mk_not(m, s));
         }            
         fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
         TRACE("opt", tout << "block upper bound " << fml << "\n";);;

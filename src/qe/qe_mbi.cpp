@@ -16,6 +16,62 @@ Author:
 Revision History:
 
 
+Notes:
+
+  Reduction into:
+   T_EUF
+   T_LIRA
+
+  Other theories: DT, ARR reduced to EUF
+  BV is EUF/Boolean.
+
+  Purify EUF1 & LIRA1 & EUF2 & LIRA2
+
+  Then EUF1 & EUF2   |- false
+       LIRA1 & LIRA2 |- false
+
+  Sketch of approach by example:
+
+       A: s <= 2a <= t     & f(a) = q
+       
+       B: t <= 2b <= s + 1 & f(b) != q
+
+  1. Extract arithmetic consequences of A over shared vocabulary.
+
+       A -> s <= t & (even(t) | s < t) 
+ 
+  2a. Send to B, have B solve shared variables with EUF_B.
+        epsilon b . B & A_pure
+        epsilon b . t <= 2b <= s + 1 & s <= t & (even(t) | s < t) 
+        = t <= s + 1 & (even(t) | t <= s) & s <= t & (even(t) | s < t) 
+        = even(t) & t = s 
+        b := t div 2
+
+      B & A_pure -> B[b/t div 2] = f(t div 2) != q & t <= s + 1
+
+  3a. Send purified result to A
+      A & B_pure -> false
+
+      Invoke the ping-pong principle to extract interpolant.
+      
+  2b. Solve for shared variables with EUF.
+
+    epsilon a . A 
+  = a := (s + 1) div 2 & s < t & f((s + 1) div 2) = q
+
+  3b. Send to B. Produces core 
+          s < t & f((s + 1) div 2) = q
+
+  4b Solve again in arithmetic for shared variables with EUF.
+
+    epsion a . A & (s >= t | f((s + 1) div 2) != q)
+
+         a := t div 2 | s = t & f(t div 2) = q & even(t)
+
+    Send to B, produces core (s != t | f(t div 2) != q)
+
+  5b. There is no longer a solution for A. A is unsat.
+      
 --*/
 
 #include "ast/ast_util.h"
@@ -129,7 +185,6 @@ namespace qe {
             // optionally minimize core using superposition.
             return mbi_unsat;
         case l_true: {
-            expr_ref_vector fmls(m);
             m_solver->get_model(mdl);
             model_evaluator mev(*mdl.get());
             lits.reset();
@@ -263,3 +318,4 @@ namespace qe {
         }
     }
 };
+

@@ -894,7 +894,6 @@ namespace smt {
         failure            m_last_search_failure;
         ptr_vector<theory> m_incomplete_theories; //!< theories that failed to produce a model
         bool               m_searching;
-        ptr_vector<expr>   m_assumption_core;
         unsigned           m_num_conflicts;
         unsigned           m_num_conflicts_since_restart;
         unsigned           m_num_conflicts_since_lemma_gc;

@@ -3438,7 +3438,6 @@ namespace smt {
             th->init_search_eh();
         }
         m_qmanager->init_search_eh();
-        m_assumption_core.reset();
         m_incomplete_theories.reset();
         m_num_conflicts                = 0;
         m_num_conflicts_since_restart  = 0;
