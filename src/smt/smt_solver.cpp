@@ -215,7 +215,7 @@ namespace smt {
                 r.push_back(m_context.get_unsat_core_expr(i));
             }
 
-            if (m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
+            if (!m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
                 scoped_minimize_core scm(*this);
                 mus mus(*this);
                 mus.add_soft(r.size(), r.c_ptr());

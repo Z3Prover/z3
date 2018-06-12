@@ -30,13 +30,17 @@ Revision History:
 namespace qe {
 
     lbool mbi_plugin::check(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
-        SASSERT(lits.empty());
+        ast_manager& m = lits.get_manager();
+        expr_ref_vector lits0(lits);
         while (true) {
+            lits.reset();
+            lits.append(lits0);
             switch ((*this)(vars, lits, mdl)) {
             case mbi_sat:
                 return l_true;
             case mbi_unsat:
                 if (lits.empty()) return l_false;
+                TRACE("qe", tout << "block: " << lits << "\n";);
                 block(lits);
                 break;
             case mbi_undef:
@@ -111,6 +115,10 @@ namespace qe {
         m_solver(s),
         m_dual_solver(sNot)
     {
+        params_ref p;
+        p.set_bool("smt.core.minimize", true);
+        m_solver->updt_params(p);
+        m_dual_solver->updt_params(p);
         expr_ref_vector fmls(m);
         m_solver->get_assertions(fmls);
         expr_fast_mark1 marks;
@@ -141,6 +149,7 @@ namespace qe {
                     lits.push_back(m.mk_not(e));
                 }
             }
+            TRACE("qe", tout << "atoms from model: " << lits << "\n";);
             r = m_dual_solver->check_sat(lits);
             expr_ref_vector core(m);
             term_graph tg(m);
@@ -148,10 +157,12 @@ namespace qe {
             case l_false:
                 // use the dual solver to find a 'small' implicant
                 m_dual_solver->get_unsat_core(core);
+                TRACE("qe", tout << "core: " << core << "\n";);
                 // project the implicant onto vars 
                 tg.add_lits(core);
                 lits.reset();                
                 lits.append(tg.project(vars, false));
+                TRACE("qe", tout << "project: " << lits << "\n";);
                 return mbi_sat;
             case l_undef:
                 return mbi_undef;

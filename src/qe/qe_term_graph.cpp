@@ -65,9 +65,9 @@ namespace qe {
                 m_children.push_back(t);
             }
         }
-        
+
         ~term() {}
-        
+
         class parents {
             term const& t;
         public:
@@ -168,9 +168,9 @@ namespace qe {
         arith_term_graph_plugin(term_graph &g) :
             term_graph_plugin (g.get_ast_manager().mk_family_id("arith")),
             m_g(g), m(g.get_ast_manager()), m_arith(m) {(void)m_g;}
-        
+
         virtual ~arith_term_graph_plugin() {}
-        
+
         bool mk_eq_core (expr *_e1, expr *_e2, expr_ref &res) {
             expr *e1, *e2;
             e1 = _e1;
@@ -385,7 +385,7 @@ namespace qe {
         SASSERT(res);
         return res;
     }
-    
+
     void term_graph::internalize_eq(expr *a1, expr* a2) {
         SASSERT(m_merge.empty());
         merge(*internalize_term(a1), *internalize_term(a2));
@@ -415,17 +415,17 @@ namespace qe {
     void term_graph::merge(term &t1, term &t2) {
         // -- merge might invalidate term2app cache
         m_term2app.reset();
-        m_pinned.reset();  
-        
+        m_pinned.reset();
+
         term *a = &t1.get_root();
         term *b = &t2.get_root();
-        
+
         if (a == b) return;
-        
+
         if (a->get_class_size() > b->get_class_size()) {
             std::swap(a, b);
         }
-        
+
         // Remove parents of it from the cg table.
         for (term* p : term::parents(b)) {
             if (!p->is_marked()) {
@@ -736,7 +736,7 @@ namespace qe {
             }
         }
                 m_tg.reset_marks();
-            }
+    }
 
             bool find_app(term &t, expr *&res) {
                 return m_root2rep.find(t.get_root().get_id(), res);
@@ -744,7 +744,7 @@ namespace qe {
 
             bool find_app(expr *lit, expr *&res) {
                 return m_root2rep.find(m_tg.get_term(lit)->get_root().get_id(), res);
-    }
+        }
 
             void mk_lits(expr_ref_vector &res) {
                 expr *e = nullptr;
@@ -752,7 +752,7 @@ namespace qe {
                     if (!m.is_eq(lit) && find_app(lit, e))
                         res.push_back(e);
                 }
-            }
+    }
 
             void mk_pure_equalities(const term &t, expr_ref_vector &res) {
                 expr *rep = nullptr;
@@ -842,12 +842,12 @@ namespace qe {
                 return res;
             }
         };
-                    }
+        }
 
     expr_ref_vector term_graph::project(func_decl_ref_vector const& decls, bool exclude) {
         projector p(*this);
         return p.project(decls, exclude);
-        }
+    }
 
     expr_ref_vector term_graph::solve(func_decl_ref_vector const &decls, bool exclude) {
         projector p(*this);
