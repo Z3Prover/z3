@@ -50,12 +50,12 @@ struct mus::imp {
     }
 
     bool is_literal(expr* lit) const {
-        expr* l;
+        expr* l;		
         return is_uninterp_const(lit) || (m.is_not(lit, l) && is_uninterp_const(l));
     }
     
     unsigned add_soft(expr* lit) {
-        SASSERT(is_literal(lit));
+        //SASSERT(is_literal(lit));
         unsigned idx = m_lit2expr.size();
         m_expr2lit.insert(lit, idx);
         m_lit2expr.push_back(lit);

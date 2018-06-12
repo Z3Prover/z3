@@ -116,7 +116,7 @@ namespace qe {
         m_dual_solver(sNot)
     {
         params_ref p;
-        p.set_bool("smt.core.minimize", true);
+        p.set_bool("core.minimize", true);
         m_solver->updt_params(p);
         m_dual_solver->updt_params(p);
         expr_ref_vector fmls(m);

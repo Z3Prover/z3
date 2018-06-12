@@ -625,7 +625,7 @@ namespace qe {
 
             expr_ref_vector m_pinned;  // tracks expr in the maps
 
-            expr* mk_pure(term& t) {
+            expr* mk_pure(term const& t) {
         expr* e = nullptr;
         if (m_term2app.find(t.get_id(), e)) return e;
         e = t.get_expr();
@@ -643,7 +643,7 @@ namespace qe {
     }
 
             bool is_better_rep(expr *t1, expr *t2) {
-                if (!t2) return t1;
+                if (!t2) return t1 != nullptr;
                 return m.is_unique_value(t1) && !m.is_unique_value(t2);
             }
 
@@ -755,13 +755,21 @@ namespace qe {
     }
 
             void mk_pure_equalities(const term &t, expr_ref_vector &res) {
+                SASSERT(t.is_root());
                 expr *rep = nullptr;
                 if (!m_root2rep.find(t.get_id(), rep)) return;
-                for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
-                    expr* member = mk_pure(*it);
-                    if (member)
+                obj_hashtable<expr> members;
+                members.insert(rep);
+                term const * r = &t;
+                do {
+                    expr* member = nullptr;
+                    if (m_term2app.find(r->get_id(), member) && !members.contains(member)) {
                         res.push_back (m.mk_eq (rep, member));
+                        members.insert(member);
+                    }
+                    r = &r->get_next();
                 }
+                while (r != &t);
             }
 
             bool is_projected(const term &t) {
@@ -771,13 +779,17 @@ namespace qe {
             void mk_unpure_equalities(const term &t, expr_ref_vector &res) {
                 expr *rep = nullptr;
                 if (!m_root2rep.find(t.get_id(), rep)) return;
-                for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
-                    expr* member = mk_pure(*it);
+                obj_hashtable<expr> members;
+                term const * r = &t;
+                do {
+                    expr* member = mk_pure(*r);
                     SASSERT(member);
-                    if (!is_projected(*it) || !is_solved_eq(rep, member)) {
+                    if (member != rep && (!is_projected(*r) || !is_solved_eq(rep, member))) {
                         res.push_back(m.mk_eq(rep, member));
                     }
+                    r = &r->get_next();
                 }
+                while (r != &t);
             }
 
             void mk_equalities(bool pure, expr_ref_vector &res) {
