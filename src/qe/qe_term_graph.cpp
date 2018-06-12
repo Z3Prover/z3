@@ -701,7 +701,7 @@ namespace qe {
             }
 
             void solve() {
-               ptr_vector<term> worklist;
+                ptr_vector<term> worklist;
                 for (term * t : m_tg.m_terms) {
                     // skip pure terms
                     if (m_term2app.contains(t->get_id())) continue;
@@ -785,7 +785,8 @@ namespace qe {
                 do {
                     expr* member = mk_pure(*r);
                     SASSERT(member);
-                    if (!members.contains(member) && (!is_projected(*r) || !is_solved_eq(rep, member))) {
+                    if (!members.contains(member) &&
+                        (!is_projected(*r) || !is_solved_eq(rep, member))) {
                         res.push_back(m.mk_eq(rep, member));
                         members.insert(member);
                     }
