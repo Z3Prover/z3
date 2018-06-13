@@ -30,6 +30,7 @@ Revision History:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "math/simplex/model_based_opt.h"
 #include "model/model_evaluator.h"
+#include "model/model_smt2_pp.h"
 
 namespace qe {
     
@@ -91,6 +92,8 @@ namespace qe {
                 rational r1, r2;
                 expr_ref val1 = eval(e1); 
                 expr_ref val2 = eval(e2);
+                TRACE("qe", tout << mk_pp(e1, m) << " " << val1 << "\n";);
+                TRACE("qe", tout << mk_pp(e2, m) << " " << val2 << "\n";);
                 if (!a.is_numeral(val1, r1)) return false;
                 if (!a.is_numeral(val2, r2)) return false;
                 SASSERT(r1 != r2);
@@ -108,6 +111,7 @@ namespace qe {
                 vector<std::pair<expr*,rational> > nums;
                 for (expr* arg : *alit) {
                     val = eval(arg);
+                    TRACE("qe", tout << mk_pp(arg, m) << " " << val << "\n";);
                     if (!a.is_numeral(val, r)) return false;
                     nums.push_back(std::make_pair(arg, r));
                 }
@@ -130,6 +134,7 @@ namespace qe {
                     expr* arg1 = to_app(lit)->get_arg(i), *arg2 = nullptr;
                     rational r;
                     expr_ref val = eval(arg1);
+                    TRACE("qe", tout << mk_pp(arg1, m) << " " << val << "\n";);
                     if (!a.is_numeral(val, r)) return false;
                     if (values.find(r, arg2)) {
                         ty = opt::t_eq;
@@ -301,6 +306,7 @@ namespace qe {
                 return vector<def>();
             }
             model_evaluator eval(model);
+            TRACE("qe", model_smt2_pp(tout, m, model, 0););
             // eval.set_model_completion(true);
 
             opt::model_based_opt mbo;
@@ -311,10 +317,10 @@ namespace qe {
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr * fml = fmls.get(i);
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
+                    TRACE("qe", tout << "could not linearize: " << mk_pp(fml, m) << "\n";);
                     fmls[j++] = fml;
                 }
                 else {
-                    TRACE("qe", tout << "could not linearize: " << mk_pp(fml, m) << "\n";);
                     pinned.push_back(fml);
                 }
             }
