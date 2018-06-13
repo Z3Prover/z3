@@ -87,9 +87,9 @@ Notes:
 
 namespace qe {
 
-    lbool mbi_plugin::check(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
+    lbool mbi_plugin::check(expr_ref_vector& lits, model_ref& mdl) {
         while (true) {
-            switch ((*this)(vars, lits, mdl)) {
+            switch ((*this)(lits, mdl)) {
             case mbi_sat:
                 return l_true;
             case mbi_unsat:
@@ -106,12 +106,11 @@ namespace qe {
     // -------------------------------
     // prop_mbi
 
-    prop_mbi_plugin::prop_mbi_plugin(solver* s): m_solver(s) {}
+    prop_mbi_plugin::prop_mbi_plugin(solver* s): mbi_plugin(s->get_manager()), m_solver(s) {}
 
     // sketch of propositional
 
-    mbi_result prop_mbi_plugin::operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl)  {
-        ast_manager& m = lits.m();
+    mbi_result prop_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl)  {
         lbool r = m_solver->check_sat(lits);
         switch (r) {
         case l_false:
@@ -123,7 +122,7 @@ namespace qe {
             lits.reset();
             for (unsigned i = 0, sz = mdl->get_num_constants(); i < sz; ++i) {
                 func_decl* c = mdl->get_constant(i);
-                if (vars.contains(c)) {
+                if (m_shared.contains(c)) {
                     if (m.is_true(mdl->get_const_interp(c))) {
                         lits.push_back(m.mk_const(c));
                     }
@@ -161,7 +160,7 @@ namespace qe {
     };
 
     euf_mbi_plugin::euf_mbi_plugin(solver* s, solver* sNot):
-        m(s->get_manager()),
+        mbi_plugin(s->get_manager()),
         m_atoms(m),
         m_solver(s),
         m_dual_solver(sNot) {
@@ -178,7 +177,7 @@ namespace qe {
         }
     }
 
-    mbi_result euf_mbi_plugin::operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
+    mbi_result euf_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
         lbool r = m_solver->check_sat(lits);
         switch (r) {
         case l_false:
@@ -208,7 +207,7 @@ namespace qe {
                 m_dual_solver->get_unsat_core(core);
                 TRACE("qe", tout << "core: " << core << "\n";);
                 // project the implicant onto vars
-                tg.set_vars(vars, false);
+                tg.set_vars(m_shared, false);
                 tg.add_lits(core);
                 lits.reset();
                 lits.append(tg.project(*mdl));
@@ -260,12 +259,13 @@ namespace qe {
         app_ref_vector& m_vars;
         arith_util      arith;
         obj_hashtable<func_decl> m_exclude;
-        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& excl): 
+        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared): 
             m(vars.m()), m_vars(vars), arith(m) {
-            for (func_decl* f : excl) m_exclude.insert(f);
+            for (func_decl* f : shared) m_exclude.insert(f);
         }
         void operator()(app* a) {
-            if (arith.is_int_real(a) && a->get_family_id() != a->get_family_id() && !m_exclude.contains(a->get_decl())) {
+            TRACE("qe", tout << expr_ref(a, m) << " " << arith.is_int_real(a) << " " << a->get_family_id() << "\n";);
+            if (arith.is_int_real(a) && a->get_family_id() != arith.get_family_id() && !m_exclude.contains(a->get_decl())) {
                 m_vars.push_back(a);
             }
         }
@@ -274,7 +274,7 @@ namespace qe {
     };
 
     euf_arith_mbi_plugin::euf_arith_mbi_plugin(solver* s, solver* sNot):
-        m(s->get_manager()),
+        mbi_plugin(s->get_manager()),
         m_atoms(m),
         m_solver(s),
         m_dual_solver(sNot) {
@@ -291,13 +291,9 @@ namespace qe {
         }
     }
 
-    mbi_result euf_arith_mbi_plugin::operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
+    mbi_result euf_arith_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
         lbool r = m_solver->check_sat(lits);
 
-        // populate set of arithmetic variables to be projected.
-        app_ref_vector avars(m);
-        is_arith_var_proc _proc(avars, vars);
-        for (expr* l : lits) quick_for_each_expr(_proc, l);
         switch (r) {
         case l_false:
             lits.reset();
@@ -328,6 +324,11 @@ namespace qe {
                 lits.reset();
                 lits.append(core);
                 arith_util a(m);
+                // populate set of arithmetic variables to be projected.
+                app_ref_vector avars(m);
+                is_arith_var_proc _proc(avars, m_shared);        
+                for (expr* l : lits) quick_for_each_expr(_proc, l);
+                TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
 
                 // 1. project arithmetic variables using mdl that satisfies core.
                 //    ground any remaining arithmetic variables using model.
@@ -339,9 +340,10 @@ namespace qe {
                 for (auto const& def : defs) {
                     lits.push_back(m.mk_eq(def.var, def.term));
                 }
+                TRACE("qe", tout << "# arith defs" << defs.size() << " avars: " << avars << " " << lits << "\n";);
 
                 // 3. Project the remaining literals with respect to EUF.
-                tg.set_vars(vars, false);
+                tg.set_vars(m_shared, false);
                 tg.add_lits(lits);
                 lits.reset();
                 lits.append(tg.project(*mdl));
@@ -375,7 +377,7 @@ namespace qe {
      * ping-pong interpolation of Gurfinkel & Vizel
      * compute a binary interpolant.
      */
-    lbool interpolator::pingpong(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
+    lbool interpolator::pingpong(mbi_plugin& a, mbi_plugin& b, expr_ref& itp) {
         model_ref mdl;
         expr_ref_vector lits(m);
         bool turn = true;
@@ -389,7 +391,7 @@ namespace qe {
         while (true) {
             auto* t1 = turn ? &a : &b;
             auto* t2 = turn ? &b : &a;
-            mbi_result next_res = (*t1)(vars, lits, mdl);
+            mbi_result next_res = (*t1)(lits, mdl);
             switch (next_res) {
             case mbi_sat:
                 if (last_res == mbi_sat) {
@@ -429,14 +431,14 @@ namespace qe {
      * One-sided pogo creates clausal interpolants.
      * It creates a set of consequences of b that are inconsistent with a.
      */
-    lbool interpolator::pogo(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp) {
+    lbool interpolator::pogo(mbi_plugin& a, mbi_plugin& b, expr_ref& itp) {
         expr_ref_vector lits(m), itps(m);
         while (true) {
             model_ref mdl;
             lits.reset();
-            switch (a.check(vars, lits, mdl)) {
+            switch (a.check(lits, mdl)) {
             case l_true:
-                switch (b.check(vars, lits, mdl)) {
+                switch (b.check(lits, mdl)) {
                 case l_true:
                     return l_true;
                 case l_false:

@@ -29,8 +29,21 @@ namespace qe {
     };
 
     class mbi_plugin {
+    protected:
+        ast_manager& m;
+        func_decl_ref_vector m_shared;
     public:
+        mbi_plugin(ast_manager& m): m(m), m_shared(m) {}
         virtual ~mbi_plugin() {}
+
+        /**
+         * Set the shared symbols.
+         */
+        virtual void set_shared(func_decl_ref_vector const& vars) { 
+            m_shared.reset(); 
+            m_shared.append(vars); 
+        }
+
         /**
          * \brief Utility that works modulo a background state.
          * - vars
@@ -50,7 +63,7 @@ namespace qe {
          * - mbi_undef:
          *   inconclusive,
          */
-        virtual mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) = 0;
+        virtual mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) = 0;
 
         /**
          * \brief Block conjunction of lits from future mbi_augment or mbi_sat.
@@ -60,7 +73,7 @@ namespace qe {
         /**
          * \brief perform a full check, consume internal auguments if necessary.
          */
-        lbool check(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl);
+        lbool check(expr_ref_vector& lits, model_ref& mdl);
 
     };
 
@@ -69,12 +82,11 @@ namespace qe {
     public:
         prop_mbi_plugin(solver* s);
         ~prop_mbi_plugin() override {}
-        mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
+        mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
         void block(expr_ref_vector const& lits) override;
     };
 
     class euf_mbi_plugin : public mbi_plugin {
-        ast_manager& m;
         expr_ref_vector m_atoms;
         solver_ref   m_solver;
         solver_ref   m_dual_solver;
@@ -82,12 +94,11 @@ namespace qe {
     public:
         euf_mbi_plugin(solver* s, solver* sNot);
         ~euf_mbi_plugin() override {}
-        mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
+        mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
         void block(expr_ref_vector const& lits) override;
     };
 
-    class euf_arith_mbi_plugin : mbi_plugin {
-        ast_manager& m;
+    class euf_arith_mbi_plugin : public mbi_plugin {
         expr_ref_vector m_atoms;
         solver_ref   m_solver;
         solver_ref   m_dual_solver;
@@ -96,7 +107,7 @@ namespace qe {
     public:
         euf_arith_mbi_plugin(solver* s, solver* sNot);
         ~euf_arith_mbi_plugin() override {}
-        mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
+        mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
         void block(expr_ref_vector const& lits) override;
     };
 
@@ -107,8 +118,8 @@ namespace qe {
         ast_manager&         m;
     public:
         interpolator(ast_manager& m):m(m) {}
-        lbool pingpong(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
-        lbool pogo(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
+        lbool pingpong(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
+        lbool pogo(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
     };
 
 };

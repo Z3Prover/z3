@@ -257,7 +257,7 @@ namespace qe {
         };
 
         bool is_arith(expr* e) {
-            return a.is_int(e) || a.is_real(e);
+            return a.is_int_real(e);
         }
 
         rational n_sign(rational const& b) {
@@ -276,21 +276,13 @@ namespace qe {
         bool operator()(model& model, app* v, app_ref_vector& vars, expr_ref_vector& lits) {
             app_ref_vector vs(m);
             vs.push_back(v);
-            (*this)(model, vs, lits);
+            project(model, vs, lits, false);
             return vs.empty();
         }
 
         typedef opt::model_based_opt::var var;
         typedef opt::model_based_opt::row row;
         typedef vector<var> vars;
-
-        vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-            return project(model, vars, lits, true);
-        }
-
-        void operator()(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
-            project(model, vars, fmls, false);
-        }
 
         expr_ref var2expr(ptr_vector<expr> const& index2expr, var const& v) {
             expr_ref t(index2expr[v.m_id], m);
@@ -581,11 +573,11 @@ namespace qe {
     }
 
     void arith_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-        (*m_imp)(model, vars, lits);
+        m_imp->project(model, vars, lits, false);
     }
 
     vector<def> arith_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-        return m_imp->project(model, vars, lits);
+        return m_imp->project(model, vars, lits, true);
     }
 
     void arith_project_plugin::set_check_purified(bool check_purified) {

@@ -761,11 +761,15 @@ namespace qe {
                         val2rep.insert(val, rep);
                     }
                 }
+                // TBD: this ignores types, need one use of 'distinct' per sort.
+                // TBD: probably ignore distinct on values
+                // TBD: ignore distinct on Booleans
                 ptr_buffer<expr> reps;
                 for (auto &kv : val2rep) {
                     reps.push_back(kv.m_value);
+                    std::cout << mk_pp(kv.m_value, m) << "\n";
                 }
-                res.push_back(m.mk_distinct(reps.size(), reps.c_ptr()));
+                // res.push_back(m.mk_distinct(reps.size(), reps.c_ptr()));
             }
 
         public:
