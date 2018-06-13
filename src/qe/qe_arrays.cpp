@@ -54,10 +54,10 @@ namespace {
         app_ref             m_peq;      // partial equality application
         app_ref             m_eq;       // equivalent std equality using def. of partial eq
         array_util          m_arr_u;
-        
+
     public:
         static const char* PARTIAL_EQ;
-        
+
         peq (app* p, ast_manager& m):
             m (m),
             m_lhs (p->get_arg (0), m),
@@ -79,7 +79,7 @@ namespace {
                 m_diff_indices.push_back (vec);
             }
         }
-        
+
         peq (expr* lhs, expr* rhs, vector<expr_ref_vector> const& diff_indices, ast_manager& m):
             m (m),
             m_lhs (lhs, m),
@@ -102,13 +102,13 @@ namespace {
             }
             m_decl = m.mk_func_decl (symbol (PARTIAL_EQ), sorts.size (), sorts.c_ptr (), m.mk_bool_sort ());
         }
-        
+
         expr_ref lhs () { return m_lhs; }
-        
+
         expr_ref rhs () { return m_rhs; }
-        
+
         void get_diff_indices (vector<expr_ref_vector>& result) { result.append(m_diff_indices); }
-        
+
         app_ref mk_peq () {
             if (!m_peq) {
                 ptr_vector<expr> args;
@@ -121,18 +121,18 @@ namespace {
             }
             return m_peq;
         }
-        
+
         app_ref mk_eq (app_ref_vector& aux_consts, bool stores_on_rhs = true) {
             if (!m_eq) {
                 expr_ref lhs (m_lhs, m), rhs (m_rhs, m);
                 if (!stores_on_rhs) {
                     std::swap (lhs, rhs);
-                }                
+                }
                 // lhs = (...(store (store rhs i0 v0) i1 v1)...)
                 sort* val_sort = get_array_range (m.get_sort (lhs));
                 for (expr_ref_vector const& diff : m_diff_indices) {
                     ptr_vector<expr> store_args;
-                    store_args.push_back (rhs);                    
+                    store_args.push_back (rhs);
                     store_args.append (diff.size(), diff.c_ptr());
                     app_ref val(m.mk_fresh_const ("diff", val_sort), m);
                     store_args.push_back (val);
@@ -145,8 +145,8 @@ namespace {
         }
     };
 
-    const char* peq::PARTIAL_EQ = "!partial_eq";    
-    
+    const char* peq::PARTIAL_EQ = "!partial_eq";
+
     bool is_partial_eq (app* a) {
         return a->get_decl ()->get_name () == peq::PARTIAL_EQ;
     }
@@ -156,11 +156,6 @@ namespace qe {
 
 
     static bool is_eq(expr_ref_vector const& xs, expr_ref_vector const& ys) {
-        for (unsigned i = 0; i < xs.size(); ++i) if (xs[i] != ys[i]) return false;
-        return true;
-    }
-
-    static bool is_eq(vector<rational> const& xs, vector<rational> const& ys) {
         for (unsigned i = 0; i < xs.size(); ++i) if (xs[i] != ys[i]) return false;
         return true;
     }
@@ -177,9 +172,9 @@ namespace qe {
      *     where x appears and the equalities do not evaluate to false in the current model.
      *  2. Track them as partial equivalence relations.
      *  3. Sort them according to nesting depth.
-     *  4. Solve for x by potentially introducing fresh variables. 
-     *     Thus, (store x i v) = y, then 
-     *     x = (store y i w), (select y i) = v, where w is fresh and evaluates to (select x i).     
+     *  4. Solve for x by potentially introducing fresh variables.
+     *     Thus, (store x i v) = y, then
+     *     x = (store y i w), (select y i) = v, where w is fresh and evaluates to (select x i).
      *     Generally, equalities are tracked as x =_idxs y, where x, y are equal up to idxs.
      */
 
@@ -524,9 +519,9 @@ namespace qe {
             bool lhs_has_v = (lhs == m_v || m_has_stores_v.is_marked (lhs));
             bool rhs_has_v = (rhs == m_v || m_has_stores_v.is_marked (rhs));
             app* store = nullptr;
-            
+
             SASSERT (lhs_has_v || rhs_has_v);
-            
+
             if (!lhs_has_v && is_app(rhs)) {
                 store = to_app (rhs);
             }
@@ -538,7 +533,7 @@ namespace qe {
                 // put it in the beginning to simplify it away
                 return 0;
             }
-            
+
             unsigned nd = 0; // nesting depth
             for (nd = 1; m_arr_u.is_store (store); nd++, store = to_app (store->get_arg (0)))
                 /* empty */ ;
@@ -635,7 +630,7 @@ namespace qe {
             M = &mdl;
             m_mev = &mev;
 
-            unsigned j = 0;           
+            unsigned j = 0;
             for (unsigned i = 0; i < arr_vars.size (); i++) {
                 reset_v ();
                 m_v = arr_vars.get (i);
@@ -798,14 +793,14 @@ namespace qe {
 
         /**
          * \brief reduce (select (store (store x i1 v1) i2 v2) idx) under model M
-         *        such that the result is v2 if idx = i2 under M, it is v1 if idx = i1, idx != i2 under M, 
+         *        such that the result is v2 if idx = i2 under M, it is v1 if idx = i1, idx != i2 under M,
          *        and it is (select x idx) if idx != i1, idx !+ i2 under M.
          */
         expr* reduce_core (app *a) {
             if (!m_arr_u.is_store (a->get_arg (0))) return a;
-			expr* array = a->get_arg(0);			
+			expr* array = a->get_arg(0);
             unsigned arity = get_array_arity(m.get_sort(array));
-           
+
             expr* const* js = a->get_args() + 1;
 
             while (m_arr_u.is_store (array)) {
@@ -888,7 +883,7 @@ namespace qe {
      *    and generally distinct(i1, i2, i3) for arbitrary index sorts.
      *  - for equal indices accumulate constraint i1 = i2, i3 = i5, ..
      *  - introduce variables v1, v2, .., for each equivalence class.
-     *  - replace occurrences of select by v1, v2, ... 
+     *  - replace occurrences of select by v1, v2, ...
      *  - update M to evaluate v1, v2, the same as (select a i1) (select a i2)
      */
 
@@ -900,10 +895,10 @@ namespace qe {
             expr_ref_vector val;
             vector<rational> rval;
             idx_val(expr_ref_vector & idx, expr_ref_vector & val, vector<rational> const& rval): idx(idx), val(val), rval(rval) {}
-            idx_val& operator=(idx_val const& o) { 
+            idx_val& operator=(idx_val const& o) {
                 idx.reset(); val.reset(); rval.reset();
                 idx.append(o.idx); val.append(o.val); rval.append(o.rval);
-                return *this; 
+                return *this;
             }
         };
         ast_manager&                m;
@@ -981,7 +976,7 @@ namespace qe {
             compare_idx(array_project_selects_util& u):u(u) {}
             bool operator()(idx_val const& x, idx_val const& y) {
                 SASSERT(x.rval.size() == y.rval.size());
-                for (unsigned j = 0; j < x.rval.size(); ++j) {                    
+                for (unsigned j = 0; j < x.rval.size(); ++j) {
                     rational const& xv = x.rval[j];
                     rational const& yv = y.rval[j];
                     if (xv < yv) return true;
@@ -1004,7 +999,7 @@ namespace qe {
             SASSERT(xs.size() == ys.size() && !xs.empty());
             expr_ref result(mk_lt(xs.back(), ys.back()), m);
             for (unsigned i = xs.size()-1; i-- > 0; ) {
-                result = m.mk_or(mk_lt(xs[i], ys[i]), 
+                result = m.mk_or(mk_lt(xs[i], ys[i]),
                                  m.mk_and(m.mk_eq(xs[i], ys[i]), result));
             }
             return result;
@@ -1028,9 +1023,9 @@ namespace qe {
                 if (!m_ari_u.is_real(srt) && !m_ari_u.is_int(srt) && !m_bv_u.is_bv_sort(srt)) {
                     TRACE("qe", tout << "non-numeric index sort for Ackerman" << mk_pp(srt, m) << "\n";);
                     is_numeric = false;
-                }                
+                }
             }
-            
+
             unsigned start = m_idxs.size (); // append at the end
             for (app * a : sel_terms) {
                 expr_ref_vector idxs(m, arity, a->get_args() + 1);
@@ -1045,7 +1040,7 @@ namespace qe {
                     // add equality (idx == repr)
                     m_idx_lits.push_back (mk_eq (idxs, m_idxs[j].idx));
                     is_new = false;
-                    break;                    
+                    break;
                 }
                 if (is_new) {
                     // new repr, val, and sel const
@@ -1067,7 +1062,7 @@ namespace qe {
             else if (is_numeric) {
                 // sort reprs by their value and add a chain of strict inequalities
                 compare_idx cmp(*this);
-                std::sort(m_idxs.begin() + start, m_idxs.end(), cmp);                
+                std::sort(m_idxs.begin() + start, m_idxs.end(), cmp);
                 for (unsigned i = start; i + 1 < m_idxs.size(); ++i) {
                     m_idx_lits.push_back (mk_lex_lt(m_idxs[i].idx, m_idxs[i+1].idx));
                 }
@@ -1183,7 +1178,7 @@ namespace qe {
             expr_ref_vector m_values;
             expr* const*    m_vars;
 
-            indices(ast_manager& m, model& model, unsigned n, expr* const* vars): 
+            indices(ast_manager& m, model& model, unsigned n, expr* const* vars):
                 m_values(m), m_vars(vars) {
                 expr_ref val(m);
                 for (unsigned i = 0; i < n; ++i) {
@@ -1192,11 +1187,11 @@ namespace qe {
                 }
             }
         };
-        
+
         ast_manager& m;
         array_util   a;
         scoped_ptr<contains_app> m_var;
-        
+
         imp(ast_manager& m): m(m), a(m) {}
         ~imp() {}
 
@@ -1209,7 +1204,7 @@ namespace qe {
                 if (m.is_true(lits[i].get())) {
                     project_plugin::erase(lits, i);
                 }
-            }            
+            }
         }
 
         bool contains_x(expr* e) {
@@ -1223,7 +1218,7 @@ namespace qe {
                 lits.push_back(m.mk_eq(x.m_vars[j], y.m_vars[j]));
             }
         }
-        
+
         bool solve_eq(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             // find an equality to solve for.
             expr* s, *t;
@@ -1270,13 +1265,13 @@ namespace qe {
                     var = m.mk_fresh_const("value", range);
                     vars.push_back(var);
                     args.reset();
-                    
+
                     args.push_back (s);
                     args.append(idxs[i].m_values.size(), idxs[i].m_vars);
                     sel = a.mk_select (args.size (), args.c_ptr ());
                     VERIFY (model.eval (sel, val));
                     model.register_decl (var->get_decl (), val);
-                    
+
                     args[0] = result;
                     args.push_back(var);
                     result = a.mk_store(args.size(), args.c_ptr());
@@ -1297,7 +1292,7 @@ namespace qe {
                     if (contains_x(s->get_arg(i))) {
                         return false;
                     }
-                } 
+                }
                 unsigned i;
                 expr_ref_vector args(m);
                 switch (contains(idx, idxs, i)) {
@@ -1317,7 +1312,7 @@ namespace qe {
                     return solve(model, to_app(s->get_arg(0)), t, idxs, vars, lits);
                 case l_undef:
                     return false;
-                }                
+                }
             }
             return false;
         }
@@ -1325,13 +1320,13 @@ namespace qe {
         lbool contains(indices const& idx, vector<indices> const& idxs, unsigned& j) {
             for (unsigned i = 0; i < idxs.size(); ++i) {
                 switch (compare(idx, idxs[i])) {
-                case l_true: 
+                case l_true:
                     j = i;
                     return l_true;
                 case l_false:
                     break;
                 case l_undef:
-                    return l_undef;                
+                    return l_undef;
                 }
             }
             return l_false;
@@ -1355,25 +1350,25 @@ namespace qe {
         lbool compare(expr* val1, expr* val2) {
             if (m.are_equal (val1, val2)) return l_true;
             if (m.are_distinct (val1, val2)) return l_false;
-            
+
             if (is_uninterp(val1) ||
                 is_uninterp(val2)) {
                 // TBD chase definition of nested array.
                 return l_undef;
             }
             return l_undef;
-        }            
+        }
     };
-    
-    
+
+
     array_project_plugin::array_project_plugin(ast_manager& m) {
         m_imp = alloc(imp, m);
     }
-    
+
     array_project_plugin::~array_project_plugin() {
         dealloc(m_imp);
     }
-    
+
     bool array_project_plugin::operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
         ast_manager& m = vars.get_manager();
         app_ref_vector vvars(m, 1, &var);
@@ -1387,7 +1382,7 @@ namespace qe {
     bool array_project_plugin::solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         return m_imp->solve(model, vars, lits);
     }
-    
+
     family_id array_project_plugin::get_family_id() {
         return m_imp->a.get_family_id();
     }
@@ -1406,9 +1401,9 @@ namespace qe {
         // 2. reduce selects
         array_select_reducer rs (m);
         rs (mdl, arr_vars, fml, reduce_all_selects);
-        
+
         TRACE ("qe", tout << "Reduced selects:\n" << fml << "\n"; );
-        
+
         // 3. project selects using model based ackermannization
         array_project_selects_util ps (m);
         ps (mdl, arr_vars, fml, aux_vars);
@@ -1424,4 +1419,3 @@ namespace qe {
     }
 
 };
-
