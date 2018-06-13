@@ -44,7 +44,7 @@ Revision History:
 #include "muz/base/bind_variables.h"
 #include "muz/base/rule_properties.h"
 
-struct fixedpoint_params;
+struct fp_params;
 
 namespace datalog {
 
@@ -98,7 +98,7 @@ namespace datalog {
         relation_fact(ast_manager & m) : app_ref_vector(m) {}
         relation_fact(ast_manager & m, unsigned sz) : app_ref_vector(m) { resize(sz); }
         relation_fact(context & ctx);
-        
+
         iterator begin() const { return c_ptr(); }
         iterator end() const { return c_ptr()+size(); }
 
@@ -126,7 +126,7 @@ namespace datalog {
         virtual bool has_facts(func_decl * pred) const = 0;
         virtual void store_relation(func_decl * pred, relation_base * rel) = 0;
         virtual void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred) = 0;
-        virtual void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
+        virtual void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt,
                                                   symbol const * relation_names) = 0;
         virtual bool output_profile() const = 0;
         virtual void collect_non_empty_predicates(func_decl_set& preds) = 0;
@@ -147,7 +147,7 @@ namespace datalog {
         public:
             contains_pred(context& ctx): ctx(ctx) {}
             ~contains_pred() override {}
-            
+
             bool operator()(expr* e) override {
                 return ctx.is_predicate(e);
             }
@@ -170,7 +170,7 @@ namespace datalog {
         register_engine_base& m_register_engine;
         smt_params &       m_fparams;
         params_ref         m_params_ref;
-        fixedpoint_params*  m_params;
+        fp_params*         m_params;
         bool               m_generate_proof_trace;      // cached configuration parameter
         bool               m_unbound_compressor;        // cached configuration parameter
         symbol             m_default_relation;          // cached configuration parameter
@@ -227,7 +227,7 @@ namespace datalog {
 
         void push();
         void pop();
-        
+
         bool saturation_was_run() const { return m_saturation_was_run; }
         void notify_saturation_was_run() { m_saturation_was_run = true; }
 
@@ -236,7 +236,7 @@ namespace datalog {
         ast_manager & get_manager() const { return m; }
         rule_manager & get_rule_manager() { return m_rule_manager; }
         smt_params & get_fparams() const { return m_fparams; }
-        fixedpoint_params const&  get_params() const { return *m_params; }
+        fp_params const&  get_params() const { return *m_params; }
         DL_ENGINE get_engine() { configure_engine(); return m_engine_type; }
         register_engine_base& get_register_engine() { return m_register_engine; }
         th_rewriter& get_rewriter() { return m_rewriter; }
@@ -251,7 +251,7 @@ namespace datalog {
         symbol default_table() const;
         symbol default_relation() const;
         void set_default_relation(symbol const& s);
-        symbol default_table_checker() const;        
+        symbol default_table_checker() const;
         symbol check_relation() const;
         bool default_table_checked() const;
         bool dbg_fpr_nonempty_relation_signature() const;
@@ -275,7 +275,7 @@ namespace datalog {
         bool compress_unbound() const;
         bool quantify_arrays() const;
         bool instantiate_quantifiers() const;
-        bool xform_bit_blast() const;        
+        bool xform_bit_blast() const;
         bool xform_slice() const;
         bool xform_coi() const;
         bool array_blast() const;
@@ -291,9 +291,9 @@ namespace datalog {
         void register_variable(func_decl* var);
 
         /*
-          Replace constants that have been registered as 
+          Replace constants that have been registered as
           variables by de-Bruijn indices and corresponding
-          universal (if is_forall is true) or existential 
+          universal (if is_forall is true) or existential
           quantifier.
          */
         expr_ref bind_vars(expr* fml, bool is_forall);
@@ -303,7 +303,7 @@ namespace datalog {
         /**
            Register datalog relation.
 
-           If named is true, we associate the predicate with its name, so that it can be 
+           If named is true, we associate the predicate with its name, so that it can be
            retrieved by the try_get_predicate_decl() function. Auxiliary predicates introduced
            e.g. by rule transformations do not need to be named.
          */
@@ -326,7 +326,7 @@ namespace datalog {
         /**
            \brief If a predicate name has a \c func_decl object assigned, return pointer to it;
            otherwise return 0.
-           
+
            Not all \c func_decl object used as relation identifiers need to be assigned to their
            names. Generally, the names coming from the parses are registered here.
         */
@@ -334,13 +334,13 @@ namespace datalog {
             func_decl * res = nullptr;
             m_preds_by_name.find(pred_name, res);
             return res;
-        }        
+        }
 
         /**
            \brief Create a fresh head predicate declaration.
 
         */
-        func_decl * mk_fresh_head_predicate(symbol const & prefix, symbol const & suffix, 
+        func_decl * mk_fresh_head_predicate(symbol const & prefix, symbol const & suffix,
             unsigned arity, sort * const * domain, func_decl* orig_pred=nullptr);
 
 
@@ -365,13 +365,13 @@ namespace datalog {
         /**
            \brief Assign names of variables used in the declaration of a predicate.
 
-           These names are used when printing out the relations to make the output conform 
+           These names are used when printing out the relations to make the output conform
            to the one of bddbddb.
         */
         void set_argument_names(const func_decl * pred, const svector<symbol> & var_names);
         symbol get_argument_name(const func_decl * pred, unsigned arg_index);
 
-        void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
+        void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt,
             symbol const *  relation_names);
 
         void set_output_predicate(func_decl * pred) { m_rule_set.set_output_predicate(pred); }
@@ -385,9 +385,9 @@ namespace datalog {
         void add_fact(func_decl * pred, const relation_fact & fact);
 
         bool has_facts(func_decl * pred) const;
-        
+
         void add_rule(rule_ref& r);
-        
+
         void assert_expr(expr* e);
         expr_ref get_background_assertion();
         unsigned get_num_assertions() { return m_background.size(); }
@@ -397,7 +397,7 @@ namespace datalog {
            Method exposed from API for adding rules.
         */
         void add_rule(expr* rl, symbol const& name, unsigned bound = UINT_MAX);
-        
+
 
         /**
            Update a named rule.
@@ -421,9 +421,9 @@ namespace datalog {
            at 'level+1', 'level+2' etc, and include level=-1.
         */
         expr_ref get_cover_delta(int level, func_decl* pred);
-       
+
         /**
-           Add a property of predicate 'pred' at 'level'. 
+           Add a property of predicate 'pred' at 'level'.
            It gets pushed forward when possible.
          */
         void add_cover(int level, func_decl* pred, expr* property);
@@ -432,7 +432,7 @@ namespace datalog {
           Add an invariant of predicate 'pred'.
          */
         void add_invariant (func_decl *pred, expr *property);
-      
+
         /**
            \brief Check rule subsumption.
         */
@@ -471,15 +471,15 @@ namespace datalog {
         proof_converter_ref& get_proof_converter() { return m_pc; }
         void add_proof_converter(proof_converter* pc) { m_pc = concat(m_pc.get(), pc); }
 
-        void transform_rules(rule_transformer& transf); 
+        void transform_rules(rule_transformer& transf);
         void transform_rules(rule_transformer::plugin* plugin);
         void replace_rules(rule_set const& rs);
         void record_transformed_rules();
 
-        void apply_default_transformation(); 
+        void apply_default_transformation();
 
         void collect_params(param_descrs& r);
-        
+
         void updt_params(params_ref const& p);
 
         void display_rules(std::ostream & out) const {
@@ -507,7 +507,7 @@ namespace datalog {
         /**
            \brief check if query 'q' is satisfied under asserted rules and background.
 
-           If successful, return OK and into \c result assign a relation with all 
+           If successful, return OK and into \c result assign a relation with all
            tuples matching the query. Otherwise return reason for failure and do not modify
            \c result.
 
@@ -515,7 +515,7 @@ namespace datalog {
            starting from zero.
 
            The caller becomes an owner of the relation object returned in \c result. The
-           relation object, however, should not outlive the datalog context since it is 
+           relation object, however, should not outlive the datalog context since it is
            linked to a relation plugin in the context.
          */
 
@@ -524,7 +524,7 @@ namespace datalog {
         lbool query_from_lvl (expr* q, unsigned lvl);
         /**
            \brief retrieve model from inductive invariant that shows query is unsat.
-           
+
            \pre engine == 'pdr' || engine == 'duality' - this option is only supported
            for PDR mode and Duality mode.
          */
@@ -532,7 +532,7 @@ namespace datalog {
 
         /**
            \brief retrieve proof from derivation of the query.
-           
+
            \pre engine == 'pdr'  || engine == 'duality'- this option is only supported
            for PDR mode and Duality mode.
          */
@@ -606,7 +606,7 @@ namespace datalog {
         /**
            Just reset all tables.
         */
-        void reset_tables(); 
+        void reset_tables();
 
 
         void flush_add_rules();
@@ -627,4 +627,3 @@ namespace datalog {
 };
 
 #endif /* DL_CONTEXT_H_ */
-

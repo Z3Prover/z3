@@ -2175,8 +2175,7 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
 // ----------------
 // context
 
-context::context(fixedpoint_params const&     params,
-                 ast_manager&          m) :
+context::context(fp_params const& params, ast_manager& m) :
     m_params(params),
     m(m),
     m_context(nullptr),

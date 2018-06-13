@@ -33,7 +33,7 @@ Revision History:
 #include "muz/spacer/spacer_iuc_solver.h"
 #include "muz/spacer/spacer_util.h"
 
-struct fixedpoint_params;
+struct fp_params;
 
 namespace spacer {
 typedef ptr_vector<func_decl> decl_vector;
@@ -76,7 +76,7 @@ private:
 
 public:
     prop_solver(ast_manager &m, solver *solver0, solver* solver1,
-                fixedpoint_params const& p, symbol const& name);
+                fp_params const& p, symbol const& name);
 
 
     void set_core(expr_ref_vector* core) { m_core = core; }

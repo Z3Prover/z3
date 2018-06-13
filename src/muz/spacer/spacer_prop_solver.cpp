@@ -36,13 +36,13 @@ Revision History:
 #include "muz/spacer/spacer_prop_solver.h"
 
 #include "model/model_evaluator.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 
 namespace spacer {
 
 prop_solver::prop_solver(ast_manager &m,
                          solver *solver0, solver *solver1,
-                         fixedpoint_params const& p, symbol const& name) :
+                         fp_params const& p, symbol const& name) :
     m(m),
     m_name(name),
     m_ctx(nullptr),
@@ -329,13 +329,14 @@ lbool prop_solver::internal_check_assumptions(expr_ref_vector &hard_atoms,
     }
 
     if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
-        TRACE("spacer", tout << "theory core\n";);
+        TRACE("spacer", tout << "Using IUC core\n";);
         m_core->reset();
         m_ctx->get_iuc(*m_core);
     } else if (result == l_false && m_core) {
         m_core->reset();
         m_ctx->get_unsat_core(*m_core);
         // manually undo proxies because maxsmt() call above manually adds proxies
+        // AG: don't think this is needed. maxsmt() undoes the proxies already
         m_ctx->undo_proxies(*m_core);
     }
 

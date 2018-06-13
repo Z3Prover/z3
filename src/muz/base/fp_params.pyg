@@ -1,4 +1,4 @@
-def_module_params('fixedpoint',
+def_module_params('fp',
                   description='fixedpoint parameters',
                   export=True,
                   params=(('timeout', UINT, UINT_MAX, 'set timeout'),

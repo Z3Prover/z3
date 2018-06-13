@@ -18,7 +18,7 @@ Revision History:
 
 #include "muz/transforms/dl_mk_scale.h"
 #include "muz/base/dl_context.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 
 namespace datalog {
 
@@ -37,7 +37,7 @@ namespace datalog {
             m_trail.push_back(new_f);
             m_new2old.insert(new_f, old_f);
         }
-       
+
         void get_units(obj_map<expr, bool>& units) override { units.reset(); }
 
         void operator()(model_ref& md) override {
@@ -74,7 +74,7 @@ namespace datalog {
                     old_model->register_decl(old_p, old_fi);
                 }
             }
-    
+
             // register values that have not been scaled.
             unsigned sz = md->get_num_constants();
             for (unsigned i = 0; i < sz; ++i) {
@@ -111,12 +111,12 @@ namespace datalog {
         m_ctx(ctx),
         a(m),
         m_trail(m),
-        m_eqs(m) {        
+        m_eqs(m) {
     }
 
-    mk_scale::~mk_scale() { 
+    mk_scale::~mk_scale() {
     }
-        
+
     rule_set * mk_scale::operator()(rule_set const & source) {
         if (!m_ctx.scale()) {
             return nullptr;
@@ -135,7 +135,7 @@ namespace datalog {
         }
         m_mc = smc.get();
 
-        for (unsigned i = 0; i < sz; ++i) {            
+        for (unsigned i = 0; i < sz; ++i) {
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz  = r.get_tail_size();
@@ -157,10 +157,10 @@ namespace datalog {
             tail.push_back(a.mk_gt(m.mk_var(num_vars, a.mk_real()), a.mk_numeral(rational(0), false)));
             neg.resize(tail.size(), false);
             new_rule = rm.mk(new_pred, tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
-            result->add_rule(new_rule);                
+            result->add_rule(new_rule);
             if (source.is_output_predicate(r.get_decl())) {
                 result->set_output_predicate(new_rule->get_decl());
-            }            
+            }
         }
         TRACE("dl", result->display(tout););
         if (m_mc) {
@@ -227,7 +227,7 @@ namespace datalog {
             a.is_lt(e)  || a.is_gt(e)) {
             expr_ref_vector args(m);
             for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                args.push_back(linearize(sigma_idx, ap->get_arg(i)));                
+                args.push_back(linearize(sigma_idx, ap->get_arg(i)));
             }
             result = m.mk_app(ap->get_decl(), args.size(), args.c_ptr());
         }

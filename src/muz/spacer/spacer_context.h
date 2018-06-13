@@ -33,7 +33,7 @@ Notes:
 #include "muz/spacer/spacer_prop_solver.h"
 #include "muz/spacer/spacer_json.h"
 
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 
 namespace datalog {
     class rule_set;
@@ -877,7 +877,7 @@ class context {
     stopwatch m_create_children_watch;
     stopwatch m_init_rules_watch;
 
-    fixedpoint_params const&    m_params;
+    fp_params const&    m_params;
     ast_manager&         m;
     datalog::context*    m_context;
     manager              m_pm;
@@ -993,11 +993,11 @@ public:
        Initial values of predicates are stored in corresponding relations in dctx.
        We check whether there is some reachable state of the relation checked_relation.
     */
-    context(fixedpoint_params const&  params, ast_manager& m);
+    context(fp_params const&  params, ast_manager& m);
     ~context();
 
 
-    const fixedpoint_params &get_params() const { return m_params; }
+    const fp_params &get_params() const { return m_params; }
     bool use_native_mbp () {return m_use_native_mbp;}
     bool use_ground_pob () {return m_ground_pob;}
     bool use_instantiate () {return m_instantiate;}

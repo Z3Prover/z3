@@ -65,7 +65,7 @@ private:
     bool m_print_farkas_stats;
     bool m_old_hyp_reducer;
     bool is_proxy(expr *e, app_ref &def);
-    void undo_proxies_in_core(ptr_vector<expr> &v);
+    void undo_proxies_in_core(expr_ref_vector &v);
     app* mk_proxy(expr *v);
     app* fresh_proxy();
     void elim_proxies(expr_ref_vector &v);
@@ -101,16 +101,16 @@ public:
     void pop_bg(unsigned n);
     unsigned get_num_bg();
 
-    void get_full_unsat_core(ptr_vector<expr> &core) { 
+    void get_full_unsat_core(ptr_vector<expr> &core) {
         expr_ref_vector _core(m);
-        m_solver.get_unsat_core(_core); 
+        m_solver.get_unsat_core(_core);
         core.append(_core.size(), _core.c_ptr());
     }
 
     /* solver interface */
 
-    solver* translate(ast_manager &m, params_ref const &p) override  { 
-        return m_solver.translate(m, p); 
+    solver* translate(ast_manager &m, params_ref const &p) override  {
+        return m_solver.translate(m, p);
     }
     void updt_params(params_ref const &p) override   { m_solver.updt_params(p); }
     void reset_params(params_ref const &p) override  { m_solver.reset_params(p); }
@@ -136,8 +136,8 @@ public:
     expr * get_assertion(unsigned idx) const override { return m_solver.get_assertion(idx); }
     unsigned get_num_assumptions() const override { return m_solver.get_num_assumptions(); }
     expr * get_assumption(unsigned idx) const override { return m_solver.get_assumption(idx); }
-    std::ostream &display(std::ostream &out, unsigned n, expr* const* es) const override { 
-        return m_solver.display(out, n, es); 
+    std::ostream &display(std::ostream &out, unsigned n, expr* const* es) const override {
+        return m_solver.display(out, n, es);
     }
 
     /* check_sat_result interface */
@@ -159,7 +159,7 @@ public:
         iuc_solver &m_s;
         expr_ref_vector &m_v;
     public:
-        scoped_mk_proxy(iuc_solver &s, expr_ref_vector &v) : m_s(s), m_v(v) { 
+        scoped_mk_proxy(iuc_solver &s, expr_ref_vector &v) : m_s(s), m_v(v) {
             m_s.mk_proxies(m_v);
         }
         ~scoped_mk_proxy() { m_s.undo_proxies(m_v); }
@@ -171,8 +171,8 @@ public:
     public:
         scoped_bg(iuc_solver &s) : m_s(s), m_bg_sz(m_s.get_num_bg()) {}
         ~scoped_bg() {
-            if (m_s.get_num_bg() > m_bg_sz) { 
-                m_s.pop_bg(m_s.get_num_bg() - m_bg_sz); 
+            if (m_s.get_num_bg() > m_bg_sz) {
+                m_s.pop_bg(m_s.get_num_bg() - m_bg_sz);
             }
         }
     };
