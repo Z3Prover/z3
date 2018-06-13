@@ -100,7 +100,11 @@ namespace opt {
         
         rational get_coefficient(unsigned row_id, unsigned var_id) const;
 
-        rational get_row_value(row const& r) const;
+        rational eval(row const& r) const;
+
+        rational eval(unsigned x) const;
+        
+        rational eval(def const& d) const;
 
         void resolve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
 

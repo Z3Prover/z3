@@ -36,24 +36,22 @@ std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
 namespace opt {
     
     /**
-     * Convert a row ax + coeffs + coeff = 0 into a definition for x
-     *    x  = -(coeffs + coeff)/a 
-     * For rows ax + coeffs + coeff < 0 convert into
-     *    x  = -(coeffs + coeff - a)/a 
+     * Convert a row ax + coeffs + coeff = value into a definition for x
+     *    x  = (value - coeffs - coeff)/a 
+     * as backdrop we have existing assignments to x and other variables that 
+     * satisfy the equality with value, and such that value satisfies
+     * the row constraint ( = , <= , < , mod)
      */
     model_based_opt::def::def(row const& r, unsigned x) {
-        rational c = r.get_coefficient(x);
-        bool is_pos = c.is_pos();
         for (var const & v : r.m_vars) {
             if (v.m_id != x) { 
                 m_vars.push_back(v); 
-                if (is_pos) m_vars.back().m_coeff.neg(); 
+            }
+            else {
+                m_div = -v.m_coeff;
             }
         }        
-        m_coeff = r.m_coeff;
-        if (is_pos) m_coeff.neg();
-        if (r.m_type == opt::t_lt) m_coeff += abs(c);
-        m_div = abs(c);
+        m_coeff = r.m_coeff - r.m_value;
         normalize();
         SASSERT(m_div.is_pos());
     }
@@ -129,6 +127,9 @@ namespace opt {
             g = gcd(g, abs(v.m_coeff));
             if (g.is_one()) break;
         }
+        if (m_div.is_neg()) {
+            g.neg();
+        }
         if (!g.is_one()) {
             for (var& v : m_vars) {
                 v.m_coeff /= g;
@@ -137,7 +138,6 @@ namespace opt {
             m_div /= g;
         }
     }
-
 
     model_based_opt::model_based_opt() {
         m_rows.push_back(row());
@@ -163,7 +163,7 @@ namespace opt {
             PASSERT(index == 0 || m_var2row_ids[vars[i].m_id].contains(index));
         }
         
-        PASSERT(r.m_value == get_row_value(r));
+        PASSERT(r.m_value == eval(r));
         PASSERT(r.m_type != t_eq ||  r.m_value.is_zero());
         // values satisfy constraints
         PASSERT(index == 0 || r.m_type != t_lt ||  r.m_value.is_neg());
@@ -317,7 +317,7 @@ namespace opt {
                                  << " eps: " << eps << " ", r); );
             m_var2value[x] = new_x_val;
             
-            r.m_value = get_row_value(r);
+            r.m_value = eval(r);
             SASSERT(invariant(bound_trail[i], r));
         }        
         
@@ -327,7 +327,7 @@ namespace opt {
             unsigned_vector const& row_ids = m_var2row_ids[x];
             for (unsigned row_id : row_ids) {                
                 row & r = m_rows[row_id];
-                r.m_value = get_row_value(r);
+                r.m_value = eval(r);
                 SASSERT(invariant(row_id, r));
             }            
         }
@@ -385,19 +385,32 @@ namespace opt {
         m_rows[row_id].m_alive = false;
         m_retired_rows.push_back(row_id);
     }
+
+    rational model_based_opt::eval(unsigned x) const {
+        return m_var2value[x];
+    }
+
+    rational model_based_opt::eval(def const& d) const {
+        vector<var> const& vars = d.m_vars;
+        rational val = d.m_coeff;
+        for (var const& v : vars) {
+            val += v.m_coeff * eval(v.m_id);
+        }
+        val /= d.m_div;
+        return val;        
+    }
        
-    rational model_based_opt::get_row_value(row const& r) const {
+    rational model_based_opt::eval(row const& r) const {
         vector<var> const& vars = r.m_vars;
         rational val = r.m_coeff;
         for (var const& v : vars) {
-            val += v.m_coeff * m_var2value[v.m_id];
+            val += v.m_coeff * eval(v.m_id);
         }
         return val;
     }    
  
     rational model_based_opt::get_coefficient(unsigned row_id, unsigned var_id) const {
-        row const& r = m_rows[row_id];
-        return r.get_coefficient(var_id);
+        return m_rows[row_id].get_coefficient(var_id);
     }
 
     rational model_based_opt::row::get_coefficient(unsigned var_id) const {
@@ -639,7 +652,7 @@ namespace opt {
         row& r1 = m_rows[row_id1];
         row const& r2 = m_rows[row_id2];
         unsigned i = 0, j = 0;
-        for(; i < r1.m_vars.size() || j < r2.m_vars.size(); ) {
+        while (i < r1.m_vars.size() || j < r2.m_vars.size()) {
             if (j == r2.m_vars.size()) {
                 m_new_vars.append(r1.m_vars.size() - i, r1.m_vars.c_ptr() + i);
                 break;
@@ -707,11 +720,18 @@ namespace opt {
     }        
 
     void model_based_opt::display(std::ostream& out, vector<var> const& vars, rational const& coeff) {
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            if (i > 0 && vars[i].m_coeff.is_pos()) {
+        unsigned i = 0;
+        for (var const& v : vars) {
+            if (i > 0 && v.m_coeff.is_pos()) {
                 out << "+ ";
             }
-            out << vars[i].m_coeff << "* v" << vars[i].m_id << " ";                
+            ++i;
+            if (v.m_coeff.is_one()) {
+                out << "v" << v.m_id << " ";
+            }
+            else {
+                out << v.m_coeff << "*v" << v.m_id << " ";                
+            }
         }
         if (coeff.is_pos()) {
             out << " + " << coeff << " ";
@@ -921,7 +941,7 @@ namespace opt {
             return solve_for(eq_row, x, compute_def);
         }
 
-        def result;        
+        def result;
         unsigned lub_size = lub_rows.size();
         unsigned glb_size = glb_rows.size();
         unsigned row_index = (lub_size <= glb_size) ? lub_index : glb_index;
@@ -935,6 +955,11 @@ namespace opt {
                 else if (glb_index != UINT_MAX) {
                     result = solve_for(glb_index, x, true);                
                 }
+                else {
+                    result = def();
+                    result.m_coeff = eval(x);
+                }
+                SASSERT(eval(result) == eval(x));
             }
             else {
                 for (unsigned row_id : lub_rows) retire_row(row_id);
@@ -946,9 +971,19 @@ namespace opt {
         SASSERT(lub_index != UINT_MAX);
         SASSERT(glb_index != UINT_MAX);
         if (compute_def) {
+#if 0
             def d1(m_rows[lub_index], x);
-            def d2(m_rows[lub_index], x);
+            def d2(m_rows[glb_index], x);
             result = (d1 + d2)/2;
+#else
+            if (lub_size <= glb_size) {
+                result = def(m_rows[lub_index], x);
+            }
+            else {
+                result = def(m_rows[glb_index], x);
+            }
+#endif
+            SASSERT(eval(result) == eval(x));
         }
 
         // The number of matching lower and upper bounds is small.
@@ -1045,8 +1080,9 @@ namespace opt {
         }
         def result = project(y, compute_def);
         if (compute_def) {
-            result = (result * D) + u;
+            result = (result * D) + u;            
         }
+        SASSERT(!compute_def || eval(result) == eval(x));
         return result;
     }
 
@@ -1139,8 +1175,11 @@ namespace opt {
                 }
             }
         }
-        // TBD: -t div a
-        def result(m_rows[row_id1], x);
+        def result;
+        if (compute_def) {
+            result = def(m_rows[row_id1], x);
+            SASSERT(eval(result) == eval(x));
+        }
         retire_row(row_id1);
         return result;
     }

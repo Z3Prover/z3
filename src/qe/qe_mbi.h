@@ -86,29 +86,29 @@ namespace qe {
         void block(expr_ref_vector const& lits) override;
     };
 
+    class euf_arith_mbi_plugin : mbi_plugin {
+        ast_manager& m;
+        expr_ref_vector m_atoms;
+        solver_ref   m_solver;
+        solver_ref   m_dual_solver;
+        struct is_atom_proc;
+        struct is_arith_var_proc;
+    public:
+        euf_arith_mbi_plugin(solver* s, solver* sNot);
+        ~euf_arith_mbi_plugin() override {}
+        mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
+        void block(expr_ref_vector const& lits) override;
+    };
+
     /**
      * use cases for interpolation.
      */
     class interpolator {
-        ast_manager& m;
+        ast_manager&         m;
     public:
         interpolator(ast_manager& m):m(m) {}
         lbool pingpong(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
         lbool pogo(mbi_plugin& a, mbi_plugin& b, func_decl_ref_vector const& vars, expr_ref& itp);
     };
 
-#if 0
-    TBD some other scenario, e.g., Farkas, Cute/Beautiful/maybe even Selfless
-
-    class solver_mbi_plugin : public mbi_plugin {
-        solver_ref m_solver;
-    public:
-        solver_mbi_plugin(solver* s);
-        ~solver_mbi_plugin() override {}
-        mbi_result operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) override;
-        void block(expr_ref_vector const& lits) override;
-    };
-
-
-#endif
 };

@@ -37,6 +37,7 @@ namespace qe {
 
         ast_manager&      m;
         arith_util        a;
+        bool              m_check_purified;  // check that variables are properly pure 
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
             TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
@@ -264,7 +265,7 @@ namespace qe {
         }
 
         imp(ast_manager& m): 
-            m(m), a(m) {}
+            m(m), a(m), m_check_purified(true) {}
 
         ~imp() {}
 
@@ -347,17 +348,23 @@ namespace qe {
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
             }
-            for (expr* fml : fmls) {
-                mark_rec(fmls_mark, fml);
+            if (m_check_purified) {
+                for (expr* fml : fmls) {
+                    mark_rec(fmls_mark, fml);
+                }
+                for (auto& kv : tids) {
+                    expr* e = kv.m_key;
+                    if (!var_mark.is_marked(e)) {
+                        mark_rec(fmls_mark, e);
+                    }
+                }
             }
+
             ptr_vector<expr> index2expr;
             for (auto& kv : tids) {
-                expr* e = kv.m_key;
-                if (!var_mark.is_marked(e)) {
-                    mark_rec(fmls_mark, e);
-                }
-                index2expr.setx(kv.m_value, e, 0);
+                index2expr.setx(kv.m_value, kv.m_key, 0);
             }
+
             j = 0;
             unsigned_vector real_vars;
             for (app* v : vars) {
@@ -369,6 +376,7 @@ namespace qe {
                 }
             }
             vars.shrink(j);
+            
             TRACE("qe", tout << "remaining vars: " << vars << "\n"; 
                   for (unsigned v : real_vars) {
                       tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
@@ -379,10 +387,9 @@ namespace qe {
             vector<row> rows;
             mbo.get_live_rows(rows);
             
-            for (unsigned i = 0; i < rows.size(); ++i) {
+            for (row const& r : rows) {
                 expr_ref_vector ts(m);
                 expr_ref t(m), s(m), val(m);
-                row const& r = rows[i];
                 if (r.m_vars.size() == 0) {
                     continue;
                 }
@@ -411,24 +418,18 @@ namespace qe {
                     }
                     ts.push_back(t);
                 }
+                t = mk_add(ts);
                 s = a.mk_numeral(-r.m_coeff, a.is_int(t));
-                if (ts.size() == 1) {
-                    t = ts[0].get();
-                }
-                else {
-                    t = a.mk_add(ts.size(), ts.c_ptr());
-                }
                 switch (r.m_type) {
                 case opt::t_lt: t = a.mk_lt(t, s); break;
                 case opt::t_le: t = a.mk_le(t, s); break;
                 case opt::t_eq: t = a.mk_eq(t, s); break;
-                case opt::t_mod: {
+                case opt::t_mod: 
                     if (!r.m_coeff.is_zero()) {
                         t = a.mk_sub(t, s);
                     }
                     t = a.mk_eq(a.mk_mod(t, a.mk_numeral(r.m_mod, true)), a.mk_int(0));
                     break;
-                }
                 }
                 fmls.push_back(t);
                 val = eval(t);
@@ -447,18 +448,28 @@ namespace qe {
                         ts.push_back(var2expr(index2expr, v));
                     }
                     ts.push_back(a.mk_numeral(d.m_coeff, is_int));
-                    t = a.mk_add(ts.size(), ts.c_ptr());
+                    t = mk_add(ts);
                     if (!d.m_div.is_one() && is_int) {
                         t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));
                     }
                     else if (!d.m_div.is_one() && !is_int) {
                         t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
                     }
+                    SASSERT(eval(t) == eval(x));
                     result.push_back(def(expr_ref(x, m), t));
                 }
             }
             return result;
         }        
+
+        expr_ref mk_add(expr_ref_vector const& ts) {
+            if (ts.size() == 1) {
+                return expr_ref(ts.get(0), m);
+            }
+            else {
+                return expr_ref(a.mk_add(ts.size(), ts.c_ptr()), m);
+            }
+        }
 
         opt::inf_eps maximize(expr_ref_vector const& fmls0, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
             SASSERT(a.is_real(t));
@@ -575,6 +586,10 @@ namespace qe {
 
     vector<def> arith_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         return m_imp->project(model, vars, lits);
+    }
+
+    void arith_project_plugin::set_check_purified(bool check_purified) {
+        m_imp->m_check_purified = check_purified;
     }
 
     bool arith_project_plugin::solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {

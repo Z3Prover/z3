@@ -360,6 +360,37 @@ static void test10() {
     mbo.display(std::cout);
 }
 
+static void test11() {
+    {
+        opt::model_based_opt mbo;
+        unsigned s = mbo.add_var(rational(2), true);
+        unsigned a = mbo.add_var(rational(1), true);
+        unsigned t = mbo.add_var(rational(3), true);
+        
+        add_ineq(mbo, s, 1, a, -2, 0, opt::t_le); // s - 2a <= 0
+        add_ineq(mbo, a, 2, t, -1, 0, opt::t_le); // 2a - t <= 0
+        
+        mbo.display(std::cout);
+        display_project(mbo.project(1, &a, true));
+        mbo.display(std::cout);
+    }
+
+    {
+        opt::model_based_opt mbo;
+        unsigned s = mbo.add_var(rational(3), true);
+        unsigned a = mbo.add_var(rational(2), true);
+        unsigned t = mbo.add_var(rational(4), true);
+        
+        add_ineq(mbo, s, 1, a, -2, 0, opt::t_le); // s - 2a <= 0
+        add_ineq(mbo, a, 2, t, -1, 0, opt::t_le); // 2a - t <= 0
+        
+        mbo.display(std::cout);
+        display_project(mbo.project(1, &a, true));
+        mbo.display(std::cout);
+    }
+
+}
+
 // test with mix of upper and lower bounds
 
 void tst_model_based_opt() {
@@ -374,4 +405,5 @@ void tst_model_based_opt() {
     test7();
     test8();
     test9();
+    test11();
 }

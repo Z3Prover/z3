@@ -77,10 +77,12 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/arith_decl_plugin.h"
 #include "model/model_evaluator.h"
 #include "solver/solver.h"
 #include "qe/qe_mbi.h"
 #include "qe/qe_term_graph.h"
+#include "qe/qe_arith.h"
 
 
 namespace qe {
@@ -141,7 +143,7 @@ namespace qe {
     }
 
     // -------------------------------
-    // euf_mbi, TBD
+    // euf_mbi
 
     struct euf_mbi_plugin::is_atom_proc {
         ast_manager& m;
@@ -235,6 +237,140 @@ namespace qe {
     }
 
 
+    // -------------------------------
+    // euf_arith_mbi
+
+    struct euf_arith_mbi_plugin::is_atom_proc {
+        ast_manager& m;
+        expr_ref_vector& m_atoms;
+        is_atom_proc(expr_ref_vector& atoms): m(atoms.m()), m_atoms(atoms) {}
+        void operator()(app* a) {
+            if (m.is_eq(a)) {
+                m_atoms.push_back(a);
+            }
+            else if (m.is_bool(a) && a->get_family_id() != m.get_basic_family_id()) {
+                m_atoms.push_back(a);
+            }
+        }
+        void operator()(expr*) {}
+    };
+
+    struct euf_arith_mbi_plugin::is_arith_var_proc {
+        ast_manager&    m;
+        app_ref_vector& m_vars;
+        arith_util      arith;
+        obj_hashtable<func_decl> m_exclude;
+        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& excl): 
+            m(vars.m()), m_vars(vars), arith(m) {
+            for (func_decl* f : excl) m_exclude.insert(f);
+        }
+        void operator()(app* a) {
+            if (arith.is_int_real(a) && a->get_family_id() != a->get_family_id() && !m_exclude.contains(a->get_decl())) {
+                m_vars.push_back(a);
+            }
+        }
+        void operator()(expr*) {}
+
+    };
+
+    euf_arith_mbi_plugin::euf_arith_mbi_plugin(solver* s, solver* sNot):
+        m(s->get_manager()),
+        m_atoms(m),
+        m_solver(s),
+        m_dual_solver(sNot) {
+        params_ref p;
+        p.set_bool("core.minimize", true);
+        m_solver->updt_params(p);
+        m_dual_solver->updt_params(p);
+        expr_ref_vector fmls(m);
+        m_solver->get_assertions(fmls);
+        expr_fast_mark1 marks;
+        is_atom_proc proc(m_atoms);
+        for (expr* e : fmls) {
+            quick_for_each_expr(proc, marks, e);
+        }
+    }
+
+    mbi_result euf_arith_mbi_plugin::operator()(func_decl_ref_vector const& vars, expr_ref_vector& lits, model_ref& mdl) {
+        lbool r = m_solver->check_sat(lits);
+
+        // populate set of arithmetic variables to be projected.
+        app_ref_vector avars(m);
+        is_arith_var_proc _proc(avars, vars);
+        for (expr* l : lits) quick_for_each_expr(_proc, l);
+        switch (r) {
+        case l_false:
+            lits.reset();
+            m_solver->get_unsat_core(lits);
+            // optionally minimize core using superposition.
+            return mbi_unsat;
+        case l_true: {
+            m_solver->get_model(mdl);
+            model_evaluator mev(*mdl.get());
+            lits.reset();
+            for (expr* e : m_atoms) {
+                if (mev.is_true(e)) {
+                    lits.push_back(e);
+                }
+                else if (mev.is_false(e)) {
+                    lits.push_back(m.mk_not(e));
+                }
+            }
+            TRACE("qe", tout << "atoms from model: " << lits << "\n";);
+            r = m_dual_solver->check_sat(lits);
+            expr_ref_vector core(m);
+            term_graph tg(m);
+            switch (r) {
+            case l_false: {
+                // use the dual solver to find a 'small' implicant
+                m_dual_solver->get_unsat_core(core);
+                TRACE("qe", tout << "core: " << core << "\n";);
+                lits.reset();
+                lits.append(core);
+                arith_util a(m);
+
+                // 1. project arithmetic variables using mdl that satisfies core.
+                //    ground any remaining arithmetic variables using model.
+                arith_project_plugin ap(m);
+                ap.set_check_purified(false);
+
+                auto defs = ap.project(*mdl.get(), avars, lits);
+                // 2. Add the projected definitions to the remaining (euf) literals
+                for (auto const& def : defs) {
+                    lits.push_back(m.mk_eq(def.var, def.term));
+                }
+
+                // 3. Project the remaining literals with respect to EUF.
+                tg.set_vars(vars, false);
+                tg.add_lits(lits);
+                lits.reset();
+                lits.append(tg.project(*mdl));
+                TRACE("qe", tout << "project: " << lits << "\n";);
+                return mbi_sat;
+            }
+            case l_undef:
+                return mbi_undef;
+            case l_true:
+                UNREACHABLE();
+                return mbi_undef;
+            }
+            return mbi_sat;
+        }
+        default:
+            // TBD: if not running solver to completion, then:
+            // 1. extract unit literals from m_solver.
+            // 2. run a cc over the units
+            // 3. extract equalities or other assignments over the congruence classes
+            // 4. ensure that at least some progress is made over original lits.
+            return mbi_undef;
+        }
+    }
+
+    void euf_arith_mbi_plugin::block(expr_ref_vector const& lits) {
+        m_solver->assert_expr(mk_not(mk_and(lits)));
+    }
+
+
     /** --------------------------------------------------------------
      * ping-pong interpolation of Gurfinkel & Vizel
      * compute a binary interpolant.
@@ -318,4 +454,5 @@ namespace qe {
             }
         }
     }
+
 };
