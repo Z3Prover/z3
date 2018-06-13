@@ -907,17 +907,17 @@ class context {
     bool                 m_weak_abs;
     bool                 m_use_restarts;
     bool                 m_simplify_pob;
-    bool                 m_use_eqclass;
+    bool                 m_use_euf_gen;
     bool                 m_use_ctp;
     bool                 m_use_inc_clause;
     bool                 m_blast_term_ite;
     bool                 m_reuse_pobs;
     bool                 m_use_ind_gen;
     bool                 m_use_array_eq_gen;
-    bool                 m_check_lemmas;
-    bool                 m_skip_propagate;
+    bool                 m_validate_lemmas;
+    bool                 m_use_propagate;
     bool                 m_reset_obligation_queue;
-    bool                 m_flexible_trace;
+    bool                 m_push_pob;
     bool                 m_use_lemma_as_pob;
     bool                 m_elim_aux;
     bool                 m_reach_dnf;
@@ -929,8 +929,8 @@ class context {
     bool                 m_use_gpdr;
     bool                 m_simplify_formulas_pre;
     bool                 m_simplify_formulas_post;
-
-    unsigned             m_flexible_trace_depth;
+    bool                 m_pdr_bfs;
+    unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
     scoped_ptr_vector<spacer_callback> m_callbacks;
@@ -1003,7 +1003,7 @@ public:
     bool use_instantiate () {return m_instantiate;}
     bool weak_abs() {return m_weak_abs;}
     bool use_qlemmas () {return m_use_qlemmas;}
-    bool use_eqclass() { return m_use_eqclass;}
+    bool use_euf_gen() {return m_use_euf_gen;}
     bool simplify_pob() {return m_simplify_pob;}
     bool use_ctp() {return m_use_ctp;}
     bool use_inc_clause() {return m_use_inc_clause;}

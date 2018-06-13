@@ -230,7 +230,7 @@ lbool context::gpdr_solve_core() {
     //if there is no query predicate, abort
     if (!m_rels.find(m_query_pred, m_query)) { return l_false; }
 
-    model_search ms(true);
+    model_search ms(m_pdr_bfs);
     unsigned lvl = 0;
     unsigned max_level = m_max_level;
     for (lvl = 0; lvl < max_level; ++lvl) {

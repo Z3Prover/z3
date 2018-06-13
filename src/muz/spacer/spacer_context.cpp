@@ -82,7 +82,7 @@ void pob::set_post(expr* post) {
 void pob::set_post(expr* post, app_ref_vector const &binding) {
     normalize(post, m_post,
               m_pt.get_context().simplify_pob(),
-              m_pt.get_context().use_eqclass());
+              m_pt.get_context().use_euf_gen());
 
     m_binding.reset();
     if (!binding.empty()) {m_binding.append(binding);}
@@ -1590,13 +1590,12 @@ void pred_transformer::init_rules(decl2rel const& pts) {
     if (not_inits.empty ()) {m_all_init = true;}
 }
 
-static bool is_all_non_null(app_ref_vector const& v)
-{
-    for (unsigned i = 0; i < v.size(); ++i) {
-        if (!v[i]) { return false; }
-    }
+#ifdef Z3DEBUG
+static bool is_all_non_null(app_ref_vector const& apps) {
+    for (auto *a : apps) if (!a) return false;
     return true;
 }
+#endif
 
 void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule) {
     scoped_watch _t_(m_initialize_watch);
@@ -2196,7 +2195,7 @@ context::context(fixedpoint_params const&     params,
     ref<solver> pool2_base =
         mk_smt_solver(m, params_ref::get_empty(), symbol::null);
 
-    unsigned max_num_contexts = params.pdr_max_num_contexts();
+    unsigned max_num_contexts = params.spacer_max_num_contexts();
     m_pool0 = alloc(solver_pool, pool0_base.get(), max_num_contexts);
     m_pool1 = alloc(solver_pool, pool1_base.get(), max_num_contexts);
     m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
@@ -2214,42 +2213,42 @@ void context::updt_params() {
     m_random.set_seed(m_params.spacer_random_seed());
     m_children_order = static_cast<spacer_children_order>(m_params.spacer_order_children());
     m_simplify_pob = m_params.spacer_simplify_pob();
-    m_use_eqclass = m_params.spacer_use_eqclass();
+    m_use_euf_gen = m_params.spacer_use_euf_gen();
     m_use_ctp = m_params.spacer_ctp();
     m_use_inc_clause = m_params.spacer_use_inc_clause();
     m_blast_term_ite = m_params.spacer_blast_term_ite();
     m_reuse_pobs = m_params.spacer_reuse_pobs();
-    m_use_ind_gen = m_params.pdr_use_inductive_generalizer();
+    m_use_ind_gen = m_params.spacer_use_inductive_generalizer();
     m_use_array_eq_gen = m_params.spacer_use_array_eq_generalizer();
-    m_check_lemmas = m_params.spacer_lemma_sanity_check();
+    m_validate_lemmas = m_params.spacer_validate_lemmas();
     m_max_level = m_params.spacer_max_level ();
-    m_skip_propagate = m_params.spacer_skip_propagate ();
-    m_reset_obligation_queue = m_params.spacer_reset_obligation_queue();
-    m_flexible_trace = m_params.pdr_flexible_trace();
-    m_flexible_trace_depth = m_params.pdr_flexible_trace_depth();
+    m_use_propagate = m_params.spacer_propagate ();
+    m_reset_obligation_queue = m_params.spacer_reset_pob_queue();
+    m_push_pob = m_params.spacer_push_pob();
+    m_push_pob_max_depth = m_params.spacer_push_pob_max_depth();
     m_use_lemma_as_pob = m_params.spacer_use_lemma_as_cti();
     m_elim_aux = m_params.spacer_elim_aux();
     m_reach_dnf = m_params.spacer_reach_dnf();
     m_use_derivations = m_params.spacer_use_derivations();
-    m_validate_result = m_params.pdr_validate_result();
+    m_validate_result = m_params.validate();
     m_use_eq_prop = m_params.spacer_eq_prop();
-    m_ground_pob = m_params.spacer_ground_cti();
+    m_ground_pob = m_params.spacer_ground_pobs();
     m_q3_qgen = m_params.spacer_q3_use_qgen();
     m_use_gpdr = m_params.spacer_gpdr();
-    m_simplify_formulas_pre = m_params.pdr_simplify_formulas_pre();
-    m_simplify_formulas_post = m_params.pdr_simplify_formulas_post();
+    m_simplify_formulas_pre = m_params.spacer_simplify_lemmas_pre();
+    m_simplify_formulas_post = m_params.spacer_simplify_lemmas_post();
     m_use_native_mbp = m_params.spacer_native_mbp ();
     m_instantiate = m_params.spacer_q3_instantiate ();
     m_use_qlemmas = m_params.spacer_q3();
     m_weak_abs = m_params.spacer_weak_abs();
     m_use_restarts = m_params.spacer_restarts();
     m_restart_initial_threshold = m_params.spacer_restart_initial_threshold();
-
+    m_pdr_bfs = m_params.spacer_gpdr_bfs();
 
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
         m_weak_abs = false;
-        m_flexible_trace = false;
+        m_push_pob = false;
         m_use_qlemmas = false;
         m_ground_pob = true;
         m_reset_obligation_queue = false;
@@ -2552,7 +2551,7 @@ void context::init_lemma_generalizers()
                                              m_params.spacer_q3_qgen_normalize()));
     }
 
-    if (use_eqclass()) {
+    if (m_use_euf_gen) {
         m_lemma_generalizers.push_back (alloc(lemma_eq_generalizer, *this));
     }
 
@@ -2567,7 +2566,7 @@ void context::init_lemma_generalizers()
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
     }
 
-    if (m_check_lemmas) {
+    if (m_validate_lemmas) {
         m_lemma_generalizers.push_back(alloc(lemma_sanity_checker, *this));
     }
 
@@ -2995,7 +2994,7 @@ lbool context::solve_core (unsigned from_lvl)
 
         if (check_reachability()) { return l_true; }
 
-        if (lvl > 0 && !m_skip_propagate)
+        if (lvl > 0 && m_use_propagate)
             if (propagate(m_expanded_lvl, lvl, UINT_MAX)) { dump_json(); return l_false; }
 
         dump_json();
@@ -3142,8 +3141,8 @@ bool context::check_reachability ()
 
 /// returns true if the given pob can be re-scheduled
 bool context::is_requeue(pob &n) {
-    if (!m_flexible_trace) {return false;}
-    unsigned max_depth = m_flexible_trace_depth;
+    if (!m_push_pob) {return false;}
+    unsigned max_depth = m_push_pob_max_depth;
     return (n.level() >= m_pob_queue.max_level() ||
             m_pob_queue.max_level() - n.level() <= max_depth);
 }
@@ -3309,7 +3308,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     unsigned num_reuse_reach = 0;
 
 
-    if (m_flexible_trace && n.pt().is_blocked(n, uses_level)) {
+    if (m_push_pob && n.pt().is_blocked(n, uses_level)) {
         // if (!m_pob_queue.is_root (n)) n.close ();
         IF_VERBOSE (1, verbose_stream () << " K "
                     << std::fixed << std::setprecision(2)
