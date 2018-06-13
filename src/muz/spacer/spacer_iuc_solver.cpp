@@ -215,32 +215,31 @@ void iuc_solver::reset_statistics ()
     m_learn_core_sw.reset();
 }
 
-void iuc_solver::get_unsat_core (expr_ref_vector &core)
-{
+void iuc_solver::get_unsat_core (expr_ref_vector &core) {
     m_solver.get_unsat_core (core);
-    ptr_vector<expr> _core(core.size(), core.c_ptr());
-    undo_proxies_in_core (_core);
+    undo_proxies_in_core (core);
 }
-void iuc_solver::undo_proxies_in_core (ptr_vector<expr> &r)
+
+void iuc_solver::undo_proxies_in_core (expr_ref_vector &r)
 {
     app_ref e(m);
     expr_fast_mark1 bg;
-    for (unsigned i = 0; i < m_first_assumption; ++i) { 
-        bg.mark(m_assumptions.get(i)); 
+    for (unsigned i = 0; i < m_first_assumption; ++i) {
+        bg.mark(m_assumptions.get(i));
     }
 
     // expand proxies
     unsigned j = 0;
     for (expr* rr : r) {
         // skip background assumptions
-        if (bg.is_marked(rr)) 
+        if (bg.is_marked(rr))
             continue;
 
         // -- undo proxies, but only if they were introduced in check_sat
         if (m_is_proxied && is_proxy(rr, e)) {
             SASSERT (m.is_or (e));
             r[j++] = e->get_arg (1);
-        } 
+        }
         else {
             r[j++] = rr;
         }
