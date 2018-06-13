@@ -24,6 +24,7 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "ast/occurs.h"
 #include "qe/qe_term_graph.h"
+#include "model/model_evaluator.h"
 
 namespace qe {
 
@@ -546,6 +547,7 @@ namespace qe {
             u_map<expr*> m_term2app;
             u_map<expr*> m_root2rep;
 
+            model_ref m_model;
             expr_ref_vector m_pinned;  // tracks expr in the maps
 
             expr* mk_pure(term const& t) {
@@ -564,6 +566,7 @@ namespace qe {
                 m_term2app.insert(t.get_id(), pure);
                 return pure;
             }
+
 
             bool is_better_rep(expr *t1, expr *t2) {
                 if (!t2) return t1 != nullptr;
@@ -740,20 +743,49 @@ namespace qe {
                 return is_uninterp_const(rhs) && !occurs(rhs, lhs);
             }
 
+            /// Add equalities and disequalities for all pure representatives
+            /// based on their equivalence in the model
+            void model_complete(expr_ref_vector &res) {
+                if (!m_model) return;
+                obj_map<expr,expr*> val2rep;
+                model_evaluator mev(*m_model);
+                for (auto &kv : m_root2rep) {
+                    expr *rep = kv.m_value;
+                    expr_ref val(m);
+                    expr *u = nullptr;
+                    if (!mev.eval(rep, val)) continue;
+                    if (val2rep.find(val, u)) {
+                        res.push_back(m.mk_eq(u, rep));
+                    }
+                    else {
+                        val2rep.insert(val, rep);
+                    }
+                }
+                ptr_buffer<expr> reps;
+                for (auto &kv : val2rep) {
+                    reps.push_back(kv.m_value);
+                }
+                res.push_back(m.mk_distinct(reps.size(), reps.c_ptr()));
+            }
+
         public:
             projector(term_graph &tg) : m_tg(tg), m(m_tg.m), m_pinned(m) {}
+
+            void set_model(model &mdl) { m_model = &mdl; }
 
             void reset() {
                 m_tg.reset_marks();
                 m_term2app.reset();
                 m_root2rep.reset();
                 m_pinned.reset();
+                m_model.reset();
             }
             expr_ref_vector project() {
                 expr_ref_vector res(m);
                 purify();
                 mk_lits(res);
                 mk_pure_equalities(res);
+                model_complete(res);
                 reset();
                 return res;
             }
@@ -777,6 +809,13 @@ namespace qe {
         // reset solved vars so that they are not considered pure by projector
         m_is_var.reset_solved();
         projector p(*this);
+        return p.project();
+    }
+
+    expr_ref_vector term_graph::project(model &mdl) {
+        m_is_var.reset_solved();
+        projector p(*this);
+        p.set_model(mdl);
         return p.project();
     }
 

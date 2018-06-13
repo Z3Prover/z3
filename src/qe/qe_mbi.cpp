@@ -33,18 +33,18 @@ Notes:
   Sketch of approach by example:
 
        A: s <= 2a <= t     & f(a) = q
-       
+
        B: t <= 2b <= s + 1 & f(b) != q
 
   1. Extract arithmetic consequences of A over shared vocabulary.
 
-       A -> s <= t & (even(t) | s < t) 
- 
+       A -> s <= t & (even(t) | s < t)
+
   2a. Send to B, have B solve shared variables with EUF_B.
         epsilon b . B & A_pure
-        epsilon b . t <= 2b <= s + 1 & s <= t & (even(t) | s < t) 
-        = t <= s + 1 & (even(t) | t <= s) & s <= t & (even(t) | s < t) 
-        = even(t) & t = s 
+        epsilon b . t <= 2b <= s + 1 & s <= t & (even(t) | s < t)
+        = t <= s + 1 & (even(t) | t <= s) & s <= t & (even(t) | s < t)
+        = even(t) & t = s
         b := t div 2
 
       B & A_pure -> B[b/t div 2] = f(t div 2) != q & t <= s + 1
@@ -53,13 +53,13 @@ Notes:
       A & B_pure -> false
 
       Invoke the ping-pong principle to extract interpolant.
-      
+
   2b. Solve for shared variables with EUF.
 
-    epsilon a . A 
+    epsilon a . A
   = a := (s + 1) div 2 & s < t & f((s + 1) div 2) = q
 
-  3b. Send to B. Produces core 
+  3b. Send to B. Produces core
           s < t & f((s + 1) div 2) = q
 
   4b Solve again in arithmetic for shared variables with EUF.
@@ -71,7 +71,7 @@ Notes:
     Send to B, produces core (s != t | f(t div 2) != q)
 
   5b. There is no longer a solution for A. A is unsat.
-      
+
 --*/
 
 #include "ast/ast_util.h"
@@ -138,7 +138,7 @@ namespace qe {
 
     void prop_mbi_plugin::block(expr_ref_vector const& lits) {
         m_solver->assert_expr(mk_not(mk_and(lits)));
-    }    
+    }
 
     // -------------------------------
     // euf_mbi, TBD
@@ -158,8 +158,8 @@ namespace qe {
         void operator()(expr*) {}
     };
 
-    euf_mbi_plugin::euf_mbi_plugin(solver* s, solver* sNot): 
-        m(s->get_manager()), 
+    euf_mbi_plugin::euf_mbi_plugin(solver* s, solver* sNot):
+        m(s->get_manager()),
         m_atoms(m),
         m_solver(s),
         m_dual_solver(sNot) {
@@ -205,11 +205,11 @@ namespace qe {
                 // use the dual solver to find a 'small' implicant
                 m_dual_solver->get_unsat_core(core);
                 TRACE("qe", tout << "core: " << core << "\n";);
-                // project the implicant onto vars 
+                // project the implicant onto vars
                 tg.set_vars(vars, false);
                 tg.add_lits(core);
-                lits.reset();                
-                lits.append(tg.project());
+                lits.reset();
+                lits.append(tg.project(*mdl));
                 TRACE("qe", tout << "project: " << lits << "\n";);
                 return mbi_sat;
             case l_undef:
@@ -232,8 +232,8 @@ namespace qe {
 
     void euf_mbi_plugin::block(expr_ref_vector const& lits) {
         m_solver->assert_expr(mk_not(mk_and(lits)));
-    }    
-    
+    }
+
 
     /** --------------------------------------------------------------
      * ping-pong interpolation of Gurfinkel & Vizel
@@ -255,7 +255,7 @@ namespace qe {
             auto* t2 = turn ? &b : &a;
             mbi_result next_res = (*t1)(vars, lits, mdl);
             switch (next_res) {
-            case mbi_sat:     
+            case mbi_sat:
                 if (last_res == mbi_sat) {
                     itp = nullptr;
                     return l_true;
@@ -264,7 +264,7 @@ namespace qe {
                 break; // continue
             case mbi_unsat: {
                 if (lits.empty()) {
-                    // TBD, either a => itp and itp => !b 
+                    // TBD, either a => itp and itp => !b
                     // or          b => itp and itp => !a
                     itp = mk_and(itps[!turn]);
                     return l_false;
@@ -282,7 +282,7 @@ namespace qe {
             case mbi_augment:
                 break;
             case mbi_undef:
-                return l_undef;                    
+                return l_undef;
             }
             turn = !turn;
             last_res = next_res;
@@ -319,4 +319,3 @@ namespace qe {
         }
     }
 };
-

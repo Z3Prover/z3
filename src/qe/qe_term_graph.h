@@ -23,6 +23,7 @@ Notes:
 #include "util/plugin_manager.h"
 #include "qe/qe_solve_plugin.h"
 #include "qe/qe_vartest.h"
+#include "model/model.h"
 
 namespace qe {
 
@@ -85,8 +86,6 @@ namespace qe {
         void display(std::ostream &out);
 
         bool is_pure_def(expr* atom, expr *& v);
-        void solve_for_vars();
-
 
     public:
         term_graph(ast_manager &m);
@@ -111,9 +110,10 @@ namespace qe {
          * onto the vocabulary of decls (if exclude is false) or outside the
          * vocabulary of decls (if exclude is true).
          */
-         expr_ref_vector project();
-         expr_ref_vector solve();
-        
+        expr_ref_vector project();
+        expr_ref_vector solve();
+        expr_ref_vector project(model &mdl);
+
     };
 
 }
