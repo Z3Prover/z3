@@ -556,7 +556,7 @@ namespace sat {
             bool is_false = false;
             for (unsigned k = 0; k < sz; ++k) {
                 SASSERT(!is_false || value(p[k].second) == l_false);
-                SASSERT(k < j == (value(p[k].second) != l_false));
+                SASSERT((k < j) == (value(p[k].second) != l_false));
                 is_false = value(p[k].second) == l_false;
             });
 
