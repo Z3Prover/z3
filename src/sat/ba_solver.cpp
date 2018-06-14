@@ -527,14 +527,12 @@ namespace sat {
     bool ba_solver::init_watch(pb& p) {
         clear_watch(p);        
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
-            //IF_VERBOSE(0, verbose_stream() << "negate: " << p.k() << "\n");
             p.negate();           
         }
         
         VERIFY(p.lit() == null_literal || value(p.lit()) == l_true);
         unsigned sz = p.size(), bound = p.k();
-        //IF_VERBOSE(0, verbose_stream() << "bound: " << p.k() << "\n");
-
+     
         // put the non-false literals into the head.
         unsigned slack = 0, slack1 = 0, num_watch = 0, j = 0;
         for (unsigned i = 0; i < sz; ++i) {
