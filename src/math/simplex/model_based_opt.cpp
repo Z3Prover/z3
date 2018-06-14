@@ -526,6 +526,7 @@ namespace opt {
         rational distance = src_c * dst_val + dst_c * src_val + slack; 
         bool use_case1 = distance.is_nonpos() || abs_src_c.is_one() || abs_dst_c.is_one();
 
+#if 0
         if (distance.is_nonpos() && !abs_src_c.is_one() && !abs_dst_c.is_one()) {
             unsigned r = copy_row(row_src);
             mul_add(false, r, rational::one(), row_dst);
@@ -534,12 +535,13 @@ namespace opt {
             TRACE("qe", tout << m_rows[r];);
             SASSERT(!m_rows[r].m_value.is_pos());
         }
+#endif
 
         if (use_case1) {
             TRACE("opt", tout << "slack: " << slack << " " << src_c << " " << dst_val << " " << dst_c << " " << src_val << "\n";);
-            // dst <- abs_src_c*dst + abs_dst_c*src - slack
+            // dst <- abs_src_c*dst + abs_dst_c*src + slack
             mul(row_dst, abs_src_c);
-            sub(row_dst, slack);
+            add(row_dst, slack);
             mul_add(false, row_dst, abs_dst_c, row_src);            
             return;
         }        
