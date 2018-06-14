@@ -259,7 +259,7 @@ namespace qe {
         app_ref_vector& m_vars;
         arith_util      arith;
         obj_hashtable<func_decl> m_exclude;
-        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared): 
+        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared):
             m(vars.m()), m_vars(vars), arith(m) {
             for (func_decl* f : shared) m_exclude.insert(f);
         }
@@ -326,7 +326,7 @@ namespace qe {
                 arith_util a(m);
                 // populate set of arithmetic variables to be projected.
                 app_ref_vector avars(m);
-                is_arith_var_proc _proc(avars, m_shared);        
+                is_arith_var_proc _proc(avars, m_shared);
                 for (expr* l : lits) quick_for_each_expr(_proc, l);
                 TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
 
@@ -451,6 +451,81 @@ namespace qe {
             case l_false:
                 itp = mk_and(itps);
                 return l_false;
+            case l_undef:
+                return l_undef;
+            }
+        }
+    }
+
+    lbool interpolator::vurtego(mbi_plugin& a, mbi_plugin& b, expr_ref& itp, model_ref &mdl) {
+        /**
+           Assumptions on mbi_plugin()
+           Let local be assertions local to the plugin
+           Let blocked be clauses added by blocked, kept separately from local
+           mbi_plugin::check(lits, mdl, bool force_model):
+              if lits.empty()  and mdl == nullptr then
+                  if is_sat(local & blocked) then
+                      return l_true, mbp of local, mdl of local & blocked
+                  else
+                      return l_false
+              else if !lits.empty() then
+                  if is_sat(local & mdl & blocked)
+                      return l_true, lits, extension of mdl to local
+                  else if is_sat(local & lits & blocked)
+                      if (force_model) then
+                        return l_false, core of model, nullptr
+                      else
+                        return l_true, mbp of local, mdl of local & blocked
+                  else if !is_sat(local & lits) then
+                      return l_false, mbp of local, nullptr
+                  else if is_sat(local & lits) && !is_sat(local & lits & blocked)
+                      MISSING CASE. IS IT POSSIBLE?
+                      MUST PRODUCE AN IMPLICANT OF LOCAL that is inconsistent with lits & blocked
+
+           mbi_plugin::block(phi): add phi to blocked
+
+           probably should use the operator() instead of check.
+           mbi_augment -- means consistent with lits but not with the mdl
+           mbi_sat -- means consistent with lits and mdl
+
+         */
+        expr_ref_vector lits(m), itps(m);
+        while (true) {
+            // when lits.empty(), this picks an A-implicant consistent with B
+            // when !lits.empty(), checks whether mdl of shared vocab extends to A
+            switch (a.check_ag(lits, mdl, !lits.empty())) {
+            case l_true:
+                if (!lits.empty())
+                    // mdl is a model for a && b
+                    return l_true;
+                switch (b.check_ag(lits, mdl, false)) {
+                case l_true:
+                    /* can return true if know that b did not change
+                       the model. For now, cycle back to A.  */
+                    SASSERT(!lits.empty());
+                    SASSERT(mdl);
+                    break;
+                case l_false:
+                    // Force a different A-implicant
+                    a.block(lits);
+                    lits.reset();
+                    mdl.reset();
+                    break;
+                case l_undef:
+                    return l_undef;
+                }
+            case l_false:
+                if (lits.empty()) {
+                    // no more A-implicants, terminate
+                    itp = mk_and(itps);
+                    return l_false;
+                }
+                // force B to pick a different model or a different implicant
+                b.block(lits);
+                itps.push_back(mk_not(mk_and(lits)));
+                lits.reset();
+                mdl.reset();
+                break;
             case l_undef:
                 return l_undef;
             }

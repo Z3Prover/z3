@@ -39,9 +39,9 @@ namespace qe {
         /**
          * Set the shared symbols.
          */
-        virtual void set_shared(func_decl_ref_vector const& vars) { 
-            m_shared.reset(); 
-            m_shared.append(vars); 
+        virtual void set_shared(func_decl_ref_vector const& vars) {
+            m_shared.reset();
+            m_shared.append(vars);
         }
 
         /**
@@ -74,6 +74,11 @@ namespace qe {
          * \brief perform a full check, consume internal auguments if necessary.
          */
         lbool check(expr_ref_vector& lits, model_ref& mdl);
+
+        virtual lbool check_ag(expr_ref_vector& lits, model_ref& mdl, bool force_model) {
+            return l_undef;
+        }
+
 
     };
 
@@ -120,6 +125,7 @@ namespace qe {
         interpolator(ast_manager& m):m(m) {}
         lbool pingpong(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
         lbool pogo(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
+        lbool vurtego(mbi_plugin &a, mbi_plugin &b, expr_ref &itp, model_ref &mdl);
     };
 
 };
