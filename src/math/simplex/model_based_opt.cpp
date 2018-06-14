@@ -523,18 +523,26 @@ namespace opt {
         rational slack = (abs_src_c - rational::one()) * (abs_dst_c - rational::one());
         rational dst_val = dst.m_value - x_val*dst_c;
         rational src_val = src.m_value - x_val*src_c;
-        bool use_case1 = 
-            (src_c * dst_val + dst_c * src_val + slack).is_nonpos() 
-            || abs_src_c.is_one() 
-            || abs_dst_c.is_one();
+        rational distance = src_c * dst_val + dst_c * src_val + slack; 
+        bool use_case1 = distance.is_nonpos() || abs_src_c.is_one() || abs_dst_c.is_one();
+
+        if (distance.is_nonpos() && !abs_src_c.is_one() && !abs_dst_c.is_one()) {
+            unsigned r = copy_row(row_src);
+            mul_add(false, r, rational::one(), row_dst);
+            del_var(r, x);
+            add(r, slack);
+            TRACE("qe", tout << m_rows[r];);
+            SASSERT(!m_rows[r].m_value.is_pos());
+        }
 
         if (use_case1) {
+            TRACE("opt", tout << "slack: " << slack << " " << src_c << " " << dst_val << " " << dst_c << " " << src_val << "\n";);
             // dst <- abs_src_c*dst + abs_dst_c*src - slack
             mul(row_dst, abs_src_c);
             sub(row_dst, slack);
-            mul_add(false, row_dst, abs_dst_c, row_src);
+            mul_add(false, row_dst, abs_dst_c, row_src);            
             return;
-        }
+        }        
 
         //
         // create finite disjunction for |b|.                                
@@ -555,6 +563,7 @@ namespace opt {
         //    exists z in [0 .. |b|-2] . |b| | (z + s) && a*n_sign(b)(s + z) + |b|t <= 0
         //
 
+        TRACE("qe", tout << "finite disjunction " << distance << " " << src_c << " " << dst_c << "\n";); 
         vector<var> coeffs;
         if (abs_dst_c <= abs_src_c) {
             rational z = mod(dst_val, abs_dst_c);
@@ -610,6 +619,21 @@ namespace opt {
         r.m_coeff -= c;
         r.m_value -= c;
     }
+
+    void model_based_opt::del_var(unsigned dst, unsigned x) {
+        row& r = m_rows[dst];
+        unsigned j = 0; 
+        for (var & v : r.m_vars) {
+            if (v.m_id == x) {
+                r.m_value -= eval(x)*r.m_coeff;
+            }
+            else {
+                r.m_vars[j++] = v;
+            }
+        }
+        r.m_vars.shrink(j);
+    }
+
 
     void model_based_opt::normalize(unsigned row_id) {
         row& r = m_rows[row_id];

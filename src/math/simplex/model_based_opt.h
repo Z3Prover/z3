@@ -120,6 +120,8 @@ namespace opt {
 
         void sub(unsigned dst, rational const& c);
 
+        void del_var(unsigned dst, unsigned x);
+
         void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel);       
 
         void add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r);

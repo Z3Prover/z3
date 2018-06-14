@@ -417,7 +417,7 @@ namespace qe {
                     ts.push_back(t);
                 }
                 t = mk_add(ts);
-                s = a.mk_numeral(-r.m_coeff, a.is_int(t));
+                s = a.mk_numeral(-r.m_coeff, r.m_coeff.is_int() && a.is_int(t));
                 switch (r.m_type) {
                 case opt::t_lt: t = a.mk_lt(t, s); break;
                 case opt::t_le: t = a.mk_le(t, s); break;
@@ -445,7 +445,8 @@ namespace qe {
                     for (var const& v : d.m_vars) {
                         ts.push_back(var2expr(index2expr, v));
                     }
-                    ts.push_back(a.mk_numeral(d.m_coeff, is_int));
+                    if (!d.m_coeff.is_zero()) 
+                        ts.push_back(a.mk_numeral(d.m_coeff, is_int));
                     t = mk_add(ts);
                     if (!d.m_div.is_one() && is_int) {
                         t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));
@@ -461,10 +462,12 @@ namespace qe {
         }        
 
         expr_ref mk_add(expr_ref_vector const& ts) {
-            if (ts.size() == 1) {
+            switch (ts.size()) {
+            case 0:
+                return expr_ref(a.mk_int(0), m);
+            case 1:
                 return expr_ref(ts.get(0), m);
-            }
-            else {
+            default:
                 return expr_ref(a.mk_add(ts.size(), ts.c_ptr()), m);
             }
         }

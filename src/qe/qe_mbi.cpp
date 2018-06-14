@@ -259,12 +259,11 @@ namespace qe {
         app_ref_vector& m_vars;
         arith_util      arith;
         obj_hashtable<func_decl> m_exclude;
-        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared):
+        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared): 
             m(vars.m()), m_vars(vars), arith(m) {
             for (func_decl* f : shared) m_exclude.insert(f);
         }
         void operator()(app* a) {
-            TRACE("qe", tout << expr_ref(a, m) << " " << arith.is_int_real(a) << " " << a->get_family_id() << "\n";);
             if (arith.is_int_real(a) && a->get_family_id() != arith.get_family_id() && !m_exclude.contains(a->get_decl())) {
                 m_vars.push_back(a);
             }
@@ -291,17 +290,7 @@ namespace qe {
         }
     }
 
-    mbi_result euf_arith_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
-        lbool r = m_solver->check_sat(lits);
-
-        switch (r) {
-        case l_false:
-            lits.reset();
-            m_solver->get_unsat_core(lits);
-            // optionally minimize core using superposition.
-            return mbi_unsat;
-        case l_true: {
-            m_solver->get_model(mdl);
+    bool euf_arith_mbi_plugin::get_literals(model_ref& mdl, expr_ref_vector& lits) {
             model_evaluator mev(*mdl.get());
             lits.reset();
             for (expr* e : m_atoms) {
@@ -313,49 +302,65 @@ namespace qe {
                 }
             }
             TRACE("qe", tout << "atoms from model: " << lits << "\n";);
-            r = m_dual_solver->check_sat(lits);
-            expr_ref_vector core(m);
-            term_graph tg(m);
-            switch (r) {
-            case l_false: {
+        lbool r = m_dual_solver->check_sat(lits);
+        if (l_false == r) {
                 // use the dual solver to find a 'small' implicant
-                m_dual_solver->get_unsat_core(core);
-                TRACE("qe", tout << "core: " << core << "\n";);
                 lits.reset();
-                lits.append(core);
+            m_dual_solver->get_unsat_core(lits);
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(expr_ref_vector const& lits) {
                 arith_util a(m);
-                // populate set of arithmetic variables to be projected.
                 app_ref_vector avars(m);
-                is_arith_var_proc _proc(avars, m_shared);
-                for (expr* l : lits) quick_for_each_expr(_proc, l);
-                TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
+                is_arith_var_proc _proc(avars, m_shared);        
+        for_each_expr(_proc, lits);                
+        return avars;
+    }
 
-                // 1. project arithmetic variables using mdl that satisfies core.
-                //    ground any remaining arithmetic variables using model.
-                arith_project_plugin ap(m);
-                ap.set_check_purified(false);
+    mbi_result euf_arith_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
+        lbool r = m_solver->check_sat(lits);
 
-                auto defs = ap.project(*mdl.get(), avars, lits);
-                // 2. Add the projected definitions to the remaining (euf) literals
-                for (auto const& def : defs) {
-                    lits.push_back(m.mk_eq(def.var, def.term));
-                }
-                TRACE("qe", tout << "# arith defs" << defs.size() << " avars: " << avars << " " << lits << "\n";);
-
-                // 3. Project the remaining literals with respect to EUF.
-                tg.set_vars(m_shared, false);
-                tg.add_lits(lits);
-                lits.reset();
-                lits.append(tg.project(*mdl));
-                TRACE("qe", tout << "project: " << lits << "\n";);
-                return mbi_sat;
-            }
-            case l_undef:
-                return mbi_undef;
-            case l_true:
-                UNREACHABLE();
+        switch (r) {
+        case l_false:
+            lits.reset();
+            m_solver->get_unsat_core(lits);
+            TRACE("qe", tout << "unsat core: " << lits << "\n";);
+            // optionally minimize core using superposition.
+            return mbi_unsat;
+        case l_true: {
+            m_solver->get_model(mdl);
+            if (!get_literals(mdl, lits)) {
                 return mbi_undef;
             }
+            app_ref_vector avars = get_arith_vars(lits);
+
+            TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
+
+            // 1. project arithmetic variables using mdl that satisfies core.
+            //    ground any remaining arithmetic variables using model.
+            arith_project_plugin ap(m);
+            ap.set_check_purified(false);
+
+            auto defs = ap.project(*mdl.get(), avars, lits);
+            // 2. Add the projected definitions to the remaining (euf) literals
+            for (auto const& def : defs) {
+                lits.push_back(m.mk_eq(def.var, def.term));
+            }
+            TRACE("qe", tout << "# arith defs" << defs.size() << " avars: " << avars << " " << lits << "\n";);
+
+            // 3. Project the remaining literals with respect to EUF.
+            term_graph tg(m);
+            tg.set_vars(m_shared, false);
+            tg.add_lits(lits);
+            lits.reset();
+            //lits.append(tg.project(*mdl));
+            lits.append(tg.project());
+            TRACE("qe", tout << "project: " << lits << "\n";);
             return mbi_sat;
         }
         default:
@@ -448,6 +453,7 @@ namespace qe {
                 case l_undef:
                     return l_undef;
                 }
+                break;
             case l_false:
                 itp = mk_and(itps);
                 return l_false;
