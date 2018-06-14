@@ -767,11 +767,15 @@ namespace qe {
                     val2rep.insert(val, rep);
                 }
             }
-            // TBD: ignore distinct on Booleans
+
+            // TBD: optimize further based on implied values (e.g.,
+            // some literals are forced to be true/false) and based on
+            // unique_values (e.g., (x=1 & y=1) does not require
+            // (x!=y) to be added
             ptr_buffer<expr> reps;
             for (auto &kv : val2rep) {
-                expr *val = kv.m_value;
-                if (!m.is_unique_value(val))
+                expr *rep = kv.m_value;
+                if (!m.is_unique_value(rep))
                     reps.push_back(kv.m_value);
             }
 
