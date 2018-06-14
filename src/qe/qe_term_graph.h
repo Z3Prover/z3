@@ -28,10 +28,9 @@ Notes:
 namespace qe {
 
     class term;
-    namespace {class projector;}
 
     class term_graph {
-        friend class projector;
+        class projector;
 
         class is_variable_proc : public ::is_variable_proc {
             bool m_exclude;
