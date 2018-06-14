@@ -259,7 +259,7 @@ namespace qe {
         app_ref_vector& m_vars;
         arith_util      arith;
         obj_hashtable<func_decl> m_exclude;
-        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared): 
+        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared):
             m(vars.m()), m_vars(vars), arith(m) {
             for (func_decl* f : shared) m_exclude.insert(f);
         }
@@ -317,8 +317,8 @@ namespace qe {
     app_ref_vector euf_arith_mbi_plugin::get_arith_vars(expr_ref_vector const& lits) {
                 arith_util a(m);
                 app_ref_vector avars(m);
-                is_arith_var_proc _proc(avars, m_shared);        
-        for_each_expr(_proc, lits);                
+                is_arith_var_proc _proc(avars, m_shared);
+        for_each_expr(_proc, lits);
         return avars;
     }
 
@@ -487,9 +487,9 @@ namespace qe {
                   else if is_sat(local & lits) && !is_sat(local & lits & blocked)
                       MISSING CASE
                       MUST PRODUCE AN IMPLICANT OF LOCAL that is inconsistent with lits & blocked
-                      in this case !is_sat(local & lits & mdl) so
-                          return l_false, core of lits & mdl, nullptr
-                          this will force a new mdl
+                      in this case !is_sat(local & lits & mdl) and is_sat(mdl, blocked)
+                          let mdl_blocked be lits of blocked that are true in mdl
+                          return l_false, core of lits & mdl_blocked, nullptr
 
            mbi_plugin::block(phi): add phi to blocked
 
@@ -502,9 +502,10 @@ namespace qe {
         while (true) {
             // when lits.empty(), this picks an A-implicant consistent with B
             // when !lits.empty(), checks whether mdl of shared vocab extends to A
-            switch (a.check_ag(lits, mdl, !lits.empty())) {
+            bool force_model = !lits.empty();
+            switch (a.check_ag(lits, mdl, force_model)) {
             case l_true:
-                if (!lits.empty())
+                if (force_model)
                     // mdl is a model for a && b
                     return l_true;
                 switch (b.check_ag(lits, mdl, false)) {
