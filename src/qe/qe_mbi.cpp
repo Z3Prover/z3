@@ -479,8 +479,11 @@ namespace qe {
                   else if !is_sat(local & lits) then
                       return l_false, mbp of local, nullptr
                   else if is_sat(local & lits) && !is_sat(local & lits & blocked)
-                      MISSING CASE. IS IT POSSIBLE?
+                      MISSING CASE
                       MUST PRODUCE AN IMPLICANT OF LOCAL that is inconsistent with lits & blocked
+                      in this case !is_sat(local & lits & mdl) so
+                          return l_false, core of lits & mdl, nullptr
+                          this will force a new mdl
 
            mbi_plugin::block(phi): add phi to blocked
 
