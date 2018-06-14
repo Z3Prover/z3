@@ -781,7 +781,7 @@ namespace qe {
             // -- of the same sort longer than 1
             std::sort(reps.c_ptr(), reps.c_ptr() + reps.size(), sort_lt_proc());
             unsigned i = 0;
-            unsigned sz = res.size();
+            unsigned sz = reps.size();
             while (i < sz) {
                 sort* last_sort = get_sort(reps.get(i));
                 unsigned j = i + 1;
