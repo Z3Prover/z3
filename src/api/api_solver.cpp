@@ -536,7 +536,6 @@ extern "C" {
         init_solver(c, s);
         expr_ref_vector _assumptions(m), _consequences(m), _variables(m);
         ast_ref_vector const& __assumptions = to_ast_vector_ref(assumptions);
-        unsigned sz = __assumptions.size();
         for (ast* e : __assumptions) {
             if (!is_expr(e)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
@@ -546,7 +545,6 @@ extern "C" {
             _assumptions.push_back(to_expr(e));
         }
         ast_ref_vector const& __variables = to_ast_vector_ref(variables);
-        sz = __variables.size();
         for (ast* a : __variables) {
             if (!is_expr(a)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();

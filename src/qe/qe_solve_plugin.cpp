@@ -80,8 +80,8 @@ namespace qe {
                 bool sign = todo.back().first;
                 todo.pop_back();
                 if (a.is_add(e)) {
-                    for (expr* e : *to_app(e)) {
-                        todo.push_back(std::make_pair(sign, e));
+                    for (expr* arg : *to_app(e)) {
+                        todo.push_back(std::make_pair(sign, arg));
                     }
                 }
                 else if (a.is_sub(e)) {
