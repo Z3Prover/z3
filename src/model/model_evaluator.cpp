@@ -290,6 +290,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
+        TRACE("model_evaluator", tout << "mk_array_eq " << m_array_equalities << "\n";);
         if (a == b) {
             result = m.mk_true();
             return BR_DONE;
@@ -315,6 +316,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 conj.push_back(m.mk_eq(else1, else2));
             }
             if (args_are_unique1 && args_are_unique2 && !stores1.empty()) {
+                TRACE("model_evalator", tout << "argss are unique";);
                 return mk_array_eq_core(stores1, else1, stores2, else2, conj, result);
             }
 
@@ -329,7 +331,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 expr_ref s2(m_ar.mk_select(args2.size(), args2.c_ptr()), m);
                 conj.push_back(m.mk_eq(s1, s2));
             }
-            result = m.mk_and(conj.size(), conj.c_ptr());
+            result = mk_and(conj);
+            TRACE("model_evaluator", tout << mk_pp(a, m) << " == " << mk_pp(b, m) << " -> " << conj << "\n";
+                  for (auto& s : stores1) tout << "store: " << s << "\n";
+                  );
             return BR_REWRITE_FULL;
         }
         return BR_FAILED;
@@ -454,7 +459,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         func_decl* f = m_ar.get_as_array_func_decl(to_app(a));
         func_interp* g = m_model.get_func_interp(f);
-		if (!g) return false;
+        if (!g) return false;
         unsigned sz = g->num_entries();
         unsigned arity = f->get_arity();
         unsigned base_sz = stores.size();
