@@ -259,7 +259,7 @@ namespace qe {
         app_ref_vector& m_vars;
         arith_util      arith;
         obj_hashtable<func_decl> m_exclude;
-        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared): 
+        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared):
             m(vars.m()), m_vars(vars), arith(m) {
             for (func_decl* f : shared) m_exclude.insert(f);
         }
@@ -484,7 +484,7 @@ namespace qe {
                         return l_true, mbp of local, mdl of local & blocked
                   else if !is_sat(local & lits) then
                       return l_false, mbp of local, nullptr
-                  else // is_sat(local & lits) && !is_sat(local & lits & blocked)
+                  else if is_sat(local & lits) && !is_sat(local & lits & blocked)
                       MISSING CASE
                       MUST PRODUCE AN IMPLICANT OF LOCAL that is inconsistent with lits & blocked
                       in this case !is_sat(local & lits & mdl) and is_sat(mdl, blocked)

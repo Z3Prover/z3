@@ -51,7 +51,8 @@ namespace opt {
                 m_div = -v.m_coeff;
             }
         }        
-        m_coeff = r.m_coeff - r.m_value;
+        m_coeff = r.m_coeff;
+        if (r.m_type == opt::t_lt) m_coeff += m_div;
         normalize();
         SASSERT(m_div.is_pos());
     }
@@ -983,7 +984,7 @@ namespace opt {
                 }
                 else {
                     result = def();
-                    result.m_coeff = eval(x);
+                    m_var2value[x] = rational::zero();
                 }
                 SASSERT(eval(result) == eval(x));
             }
@@ -1008,8 +1009,8 @@ namespace opt {
             else {
                 result = def(m_rows[glb_index], x);
             }
+            m_var2value[x] = eval(result);
 #endif
-            SASSERT(eval(result) == eval(x));
         }
 
         // The number of matching lower and upper bounds is small.
@@ -1106,7 +1107,8 @@ namespace opt {
         }
         def result = project(y, compute_def);
         if (compute_def) {
-            result = (result * D) + u;            
+            result = (result * D) + u;      
+            m_var2value[x] = eval(result);
         }
         SASSERT(!compute_def || eval(result) == eval(x));
         return result;
@@ -1204,7 +1206,7 @@ namespace opt {
         def result;
         if (compute_def) {
             result = def(m_rows[row_id1], x);
-            SASSERT(eval(result) == eval(x));
+            m_var2value[x] = eval(result);
         }
         retire_row(row_id1);
         return result;

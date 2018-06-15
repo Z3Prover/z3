@@ -35,6 +35,7 @@ namespace qe {
             }
         };
     }
+
     namespace is_pure_ns {
         struct found{};
         struct proc {
@@ -776,7 +777,7 @@ namespace qe {
             for (auto &kv : val2rep) {
                 expr *rep = kv.m_value;
                 if (!m.is_unique_value(rep))
-                    reps.push_back(kv.m_value);
+                reps.push_back(kv.m_value);
             }
 
             if (reps.size() <= 1) return;
