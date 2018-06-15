@@ -64,7 +64,7 @@ Notes:
 #include "tactic/arith/propagate_ineqs_tactic.h"
 #include "tactic/arith/arith_bounds_tactic.h"
 
-#include "ast/factor_equivs.h"
+#include "ast/rewriter/factor_equivs.h"
 #include "qe/qe_term_graph.h"
 
 namespace spacer {

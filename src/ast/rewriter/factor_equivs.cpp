@@ -25,11 +25,12 @@ Revision History:
 
 */
 
-#include "ast/factor_equivs.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/factor_equivs.h"
+
 /**
    Factors input vector v into equivalence classes and the rest
  */
