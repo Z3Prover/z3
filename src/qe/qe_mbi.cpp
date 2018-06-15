@@ -315,10 +315,10 @@ namespace qe {
     }
 
     app_ref_vector euf_arith_mbi_plugin::get_arith_vars(expr_ref_vector const& lits) {
-                arith_util a(m);
-                app_ref_vector avars(m);
-                is_arith_var_proc _proc(avars, m_shared);        
-        for_each_expr(_proc, lits);                
+        arith_util a(m);
+        app_ref_vector avars(m);
+        is_arith_var_proc _proc(avars, m_shared);
+        for_each_expr(_proc, lits);
         return avars;
     }
 
@@ -358,8 +358,8 @@ namespace qe {
             tg.set_vars(m_shared, false);
             tg.add_lits(lits);
             lits.reset();
-            //lits.append(tg.project(*mdl));
-            lits.append(tg.project());
+            lits.append(tg.project(*mdl));
+            //lits.append(tg.project());
             TRACE("qe", tout << "project: " << lits << "\n";);
             return mbi_sat;
         }

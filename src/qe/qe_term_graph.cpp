@@ -28,6 +28,16 @@ Notes:
 
 namespace qe {
 
+    static expr_ref mk_neq(ast_manager &m, expr *e1, expr *e2) {
+        expr *t = nullptr;
+        // x != !x  == true
+        if ((m.is_not(e1, t) && t == e2) || (m.is_not(e2, t) && t == e1))
+            return expr_ref(m.mk_true(), m);
+        else if (m.are_distinct(e1, e2))
+            return expr_ref(m.mk_true(), m);
+        return expr_ref(m.mk_not(m.mk_eq(e1, e2)), m);
+    }
+
     namespace {
         struct sort_lt_proc {
             bool operator()(const expr* a, const expr *b) const {
@@ -791,10 +801,16 @@ namespace qe {
                 sort* last_sort = get_sort(reps.get(i));
                 unsigned j = i + 1;
                 while (j < sz && last_sort == get_sort(reps.get(j))) {++j;}
-                if (j - i > 1)
+                if (j - i == 2) {
+                    expr_ref d(m);
+                    d = mk_neq(m, reps.get(i), reps.get(i+1));
+                    if (!m.is_true(d)) res.push_back(d);
+                }
+                else if (j - i > 2)
                     res.push_back(m.mk_distinct(j - i, reps.c_ptr() + i));
                 i = j;
             }
+            TRACE("qe", tout << "after distinct: " << res << "\n";);
         }
 
     public:
