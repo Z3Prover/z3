@@ -196,7 +196,7 @@ bool is_threaded();
 #define PRAGMA_LOCK __pragma(omp critical (verbose_lock))
 #else
 #define DO_PRAGMA(x) _Pragma(#x)
-#define PRAGMA_LOCK _Pragma(omp critical (verbose_lock))
+#define PRAGMA_LOCK _Pragma("omp critical (verbose_lock)")
 #endif
 
 #ifdef _NO_OMP_
