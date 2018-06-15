@@ -154,8 +154,10 @@ bool static_features::is_diff_atom(expr const * e) const {
 bool static_features::is_gate(expr const * e) const {
     if (is_basic_expr(e)) {
         switch (to_app(e)->get_decl_kind()) {
-        case OP_ITE: case OP_AND: case OP_OR: case OP_IFF: case OP_XOR: case OP_IMPLIES:
+        case OP_ITE: case OP_AND: case OP_OR: case OP_XOR: case OP_IMPLIES:
             return true;
+        case OP_EQ:
+            return m_manager.is_bool(e);
         }
     }
     return false;
@@ -207,7 +209,7 @@ void static_features::update_core(expr * e) {
         case OP_OR:
             m_num_ors++;
             break;
-        case OP_IFF: 
+        case OP_EQ: 
             m_num_iffs++;
             break;
         }
@@ -418,7 +420,7 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
             form_ctx_new   = true;
             or_and_ctx_new = true;
             break;
-        case OP_IFF:
+        case OP_EQ:
             form_ctx_new   = true;
             break;
         }

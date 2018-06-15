@@ -169,9 +169,8 @@ void macro_manager::mark_forbidden(unsigned n, justified_expr const * exprs) {
 
 void macro_manager::get_head_def(quantifier * q, func_decl * d, app * & head, expr * & def) const {
     app * body = to_app(q->get_expr());
-    SASSERT(m.is_eq(body) || m.is_iff(body));
-    expr * lhs = to_app(body)->get_arg(0);
-    expr * rhs = to_app(body)->get_arg(1);
+    expr * lhs = nullptr, *rhs = nullptr;
+    VERIFY(m.is_eq(body, lhs, rhs));
     SASSERT(is_app_of(lhs, d) || is_app_of(rhs, d));
     SASSERT(!is_app_of(lhs, d) || !is_app_of(rhs, d));
     if (is_app_of(lhs, d)) {

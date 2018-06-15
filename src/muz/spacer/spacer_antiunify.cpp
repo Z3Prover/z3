@@ -28,6 +28,7 @@ Revision History:
 
 namespace spacer {
 
+
 // Abstracts numeric values by variables
 struct var_abs_rewriter : public default_rewriter_cfg {
     ast_manager &m;
@@ -56,8 +57,8 @@ struct var_abs_rewriter : public default_rewriter_cfg {
         {
             bool contains_const_child = false;
             app* a = to_app(t);
-            for (unsigned i=0, sz = a->get_num_args(); i < sz; ++i) {
-                if (m_util.is_numeral(a->get_arg(i))) {
+            for (expr * arg : *a) {
+                if (m_util.is_numeral(arg)) {
                     contains_const_child = true;
                 }
             }
@@ -102,190 +103,73 @@ struct var_abs_rewriter : public default_rewriter_cfg {
 
 };
 
-/*
-* construct m_g, which is a generalization of t, where every constant
-* is replaced by a variable for any variable in m_g, remember the
-* substitution to get back t and save it in m_substitutions
-*/
-anti_unifier::anti_unifier(expr* t, ast_manager& man) : m(man), m_pinned(m), m_g(m)
-{
-    m_pinned.push_back(t);
 
-    obj_map<expr, expr*> substitution;
+anti_unifier::anti_unifier(ast_manager &manager) : m(manager), m_pinned(m) {}
 
-    var_abs_rewriter var_abs_cfg(m, substitution);
-    rewriter_tpl<var_abs_rewriter> var_abs_rw (m, false, var_abs_cfg);
-    var_abs_rw (t, m_g);
-
-    m_substitutions.push_back(substitution); //TODO: refactor into vector, remove k
+void anti_unifier::reset() {
+    m_subs.reset();
+    m_cache.reset();
+    m_todo.reset();
+    m_pinned.reset();
 }
 
-/* traverses m_g and t in parallel. if they only differ in constants
- * (i.e. m_g contains a variable, where t contains a constant), then
- * add the substitutions, which need to be applied to m_g to get t, to
- * m_substitutions.
-*/
-bool anti_unifier::add_term(expr* t) {
-    m_pinned.push_back(t);
+void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
+                              substitution &s1, substitution &s2) {
 
-    ptr_vector<expr> todo;
-    ptr_vector<expr> todo2;
-    todo.push_back(m_g);
-    todo2.push_back(t);
+    reset();
+    if (e1 == e2) {res = e1; s1.reset(); s2.reset(); return;}
 
-    ast_mark visited;
+    m_todo.push_back(expr_pair(e1, e2));
+    while (!m_todo.empty()) {
+        const expr_pair &p = m_todo.back();
+        SASSERT(is_app(p.first));
+        SASSERT(is_app(p.second));
 
-    arith_util util(m);
+        app * n1 = to_app(p.first);
+        app * n2 = to_app(p.second);
 
-    obj_map<expr, expr*> substitution;
-
-    while (!todo.empty()) {
-        expr* current = todo.back();
-        todo.pop_back();
-        expr* current2 = todo2.back();
-        todo2.pop_back();
-
-        if (!visited.is_marked(current)) {
-            visited.mark(current, true);
-
-            if (is_var(current)) {
-                // TODO: for now we don't allow variables in the terms we want to antiunify
-                SASSERT(m_substitutions[0].contains(current));
-                if (util.is_numeral(current2)) {
-                    substitution.insert(current, current2);
-                }
-                else {return false;}
-            }
-            else {
-                SASSERT(is_app(current));
-
-                if (is_app(current2) &&
-                    to_app(current)->get_decl() == to_app(current2)->get_decl() &&
-                    to_app(current)->get_num_args() == to_app(current2)->get_num_args()) {
-                    // TODO: what to do for numerals here? E.g. if we
-                    // have 1 and 2, do they have the same decl or are
-                    // the decls already different?
-                    SASSERT (!util.is_numeral(current) || current == current2);
-                    for (unsigned i = 0, num_args = to_app(current)->get_num_args();
-                         i < num_args; ++i) {
-                        todo.push_back(to_app(current)->get_arg(i));
-                        todo2.push_back(to_app(current2)->get_arg(i));
-                    }
-                }
-                else {
-                    return false;
-                }
-            }
-        }
-    }
-
-    // we now know that the terms can be anti-unified, so add the cached substitution
-    m_substitutions.push_back(substitution);
-    return true;
-}
-
-/*
-* returns m_g, where additionally any variable, which has only equal
-* substitutions, is substituted with that substitution
-*/
-void anti_unifier::finalize() {
-    ptr_vector<expr> todo;
-    todo.push_back(m_g);
-
-    ast_mark visited;
-
-    obj_map<expr, expr*> generalization;
-
-    arith_util util(m);
-
-    // post-order traversel which ignores constants and handles them
-    // directly when the enclosing term of the constant is handled
-    while (!todo.empty()) {
-        expr* current = todo.back();
-        SASSERT(is_app(current));
-
-        // if we haven't already visited current
-        if (!visited.is_marked(current)) {
-            bool existsUnvisitedParent = false;
-
-            for (unsigned i = 0, sz = to_app(current)->get_num_args(); i < sz; ++i) {
-                expr* argument = to_app(current)->get_arg(i);
-
-                if (!is_var(argument)) {
-                    SASSERT(is_app(argument));
-                    // if we haven't visited the current parent yet
-                    if(!visited.is_marked(argument)) {
-                        // add it to the stack
-                        todo.push_back(argument);
-                        existsUnvisitedParent = true;
-                    }
-                }
-            }
-
-            // if we already visited all parents, we can visit current too
-            if (!existsUnvisitedParent) {
-                visited.mark(current, true);
-                todo.pop_back();
-
-                ptr_buffer<expr> arg_list;
-                for (unsigned i = 0, num_args = to_app(current)->get_num_args();
-                     i < num_args; ++i) {
-                    expr* argument = to_app(current)->get_arg(i);
-
-                    if (is_var(argument)) {
-                        // compute whether there are different
-                        // substitutions for argument
-                        bool containsDifferentSubstitutions = false;
-
-                        for (unsigned i=0, sz = m_substitutions.size(); i+1 < sz; ++i) {
-                            SASSERT(m_substitutions[i].contains(argument));
-                            SASSERT(m_substitutions[i+1].contains(argument));
-
-                            // TODO: how to check equality?
-                            if (m_substitutions[i][argument] !=
-                                m_substitutions[i+1][argument])
-                            {
-                                containsDifferentSubstitutions = true;
-                                break;
-                            }
-                        }
-
-                        // if yes, use the variable
-                        if (containsDifferentSubstitutions) {
-                            arg_list.push_back(argument);
-                        }
-                        // otherwise use the concrete value instead
-                        // and remove the substitutions
-                        else
-                        {
-                            arg_list.push_back(m_substitutions[0][argument]);
-
-                            for (unsigned i=0, sz = m_substitutions.size(); i < sz; ++i) {
-                                SASSERT(m_substitutions[i].contains(argument));
-                                m_substitutions[i].remove(argument);
-                            }
-                        }
-                    }
-                    else {
-                        SASSERT(generalization.contains(argument));
-                        arg_list.push_back(generalization[argument]);
-                    }
-                }
-
-                SASSERT(to_app(current)->get_num_args() == arg_list.size());
-                expr_ref application(m.mk_app(to_app(current)->get_decl(),
-                                              to_app(current)->get_num_args(),
-                                              arg_list.c_ptr()), m);
-                m_pinned.push_back(application);
-                generalization.insert(current, application);
-            }
+        unsigned num_arg1 = n1->get_num_args();
+        unsigned num_arg2 = n2->get_num_args();
+        if (n1->get_decl() != n2->get_decl() || num_arg1 != num_arg2) {
+            expr_ref v(m);
+            v = m.mk_var(m_subs.size(), get_sort(n1));
+            m_pinned.push_back(v);
+            m_subs.push_back(expr_pair(n1, n2));
+            m_cache.insert(n1, n2, v);
         }
         else {
-            todo.pop_back();
+            expr *tmp;
+            unsigned todo_sz = m_todo.size();
+            ptr_buffer<expr> kids;
+            for (unsigned i = 0; i < num_arg1; ++i) {
+                expr *arg1 = n1->get_arg(i);
+                expr *arg2 = n2->get_arg(i);
+                if (arg1 == arg2) {kids.push_back(arg1);}
+                else if (m_cache.find(arg1, arg2, tmp)) {kids.push_back(tmp);}
+                else {m_todo.push_back(expr_pair(arg1, arg2));}
+            }
+            if (m_todo.size() > todo_sz) {continue;}
+
+            expr_ref u(m);
+            u = m.mk_app(n1->get_decl(), kids.size(), kids.c_ptr());
+            m_pinned.push_back(u);
+            m_cache.insert(n1, n2, u);
         }
     }
 
-    m_g = generalization[m_g];
+    expr *r;
+    VERIFY(m_cache.find(e1, e2, r));
+    res = r;
+
+    // create substitutions
+    s1.reserve(2, m_subs.size());
+    s2.reserve(2, m_subs.size());
+
+    for (unsigned i = 0, sz = m_subs.size(); i < sz; ++i) {
+        expr_pair p = m_subs.get(i);
+        s1.insert(i, 0, expr_offset(p.first, 1));
+        s2.insert(i, 0, expr_offset(p.second, 1));
+    }
 }
 
 
@@ -318,6 +202,8 @@ public:
  */
 bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
                                            expr_ref& result) {
+    NOT_IMPLEMENTED_YET();
+#if 0
     arith_util util(m);
 
     SASSERT(au.get_num_substitutions() > 0);
@@ -411,6 +297,7 @@ bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
     result = expr_ref(m.mk_exists(vars.size(), sorts.c_ptr(), names.c_ptr(), body),m);
 
     return true;
+#endif
 }
 
 bool naive_convex_closure::get_range(vector<unsigned int>& v,
@@ -453,7 +340,83 @@ void naive_convex_closure::substitute_vars_by_const(ast_manager& m, expr* t,
     subs_rw (t, res);
 }
 
+
+/// Construct a pattern by abstracting all numbers by variables
+struct mk_num_pat_rewriter : public default_rewriter_cfg {
+    ast_manager &m;
+    arith_util m_arith;
+
+    // -- mark already seen expressions
+    ast_mark m_seen;
+    // -- true if the expression is known to have a number as a sub-expression
+    ast_mark m_has_num;
+    // -- expressions created during the transformation
+    expr_ref_vector m_pinned;
+    // -- map from introduced variables to expressions they replace
+    app_ref_vector &m_subs;
+
+
+    // -- stack of expressions being processed to have access to expressions
+    // -- before rewriting
+    ptr_buffer<expr> m_stack;
+
+    mk_num_pat_rewriter (ast_manager &manager, app_ref_vector& subs) :
+        m(manager), m_arith(m), m_pinned(m), m_subs(subs) {}
+
+    bool pre_visit(expr * t) {
+        // -- don't touch multiplication
+        if (m_arith.is_mul(t)) return false;
+
+        bool r = (!m_seen.is_marked(t) || m_has_num.is_marked(t));
+        if (r) {m_stack.push_back (t);}
+        return r;
+    }
+
+
+    br_status reduce_app (func_decl * f, unsigned num, expr * const * args,
+                          expr_ref & result, proof_ref & result_pr) {
+        expr *s;
+        s = m_stack.back();
+        m_stack.pop_back();
+        if (is_app(s)) {
+            app *a = to_app(s);
+            for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i) {
+                if (m_has_num.is_marked(a->get_arg(i))) {
+                    m_has_num.mark(a, true);
+                    break;
+                }
+            }
+        }
+        return BR_FAILED;
+    }
+
+    bool cache_all_results() const { return false; }
+    bool cache_results() const { return false; }
+
+    bool get_subst(expr * s, expr * & t, proof * & t_pr) {
+        if (m_arith.is_numeral(s)) {
+            t = m.mk_var(m_subs.size(), m.get_sort(s));
+            m_pinned.push_back(t);
+            m_subs.push_back(to_app(s));
+
+            m_has_num.mark(t, true);
+            m_seen.mark(t, true);
+            return true;
+        }
+        return false;
+    }
+
+};
+
+void mk_num_pat(expr *e, expr_ref &result, app_ref_vector &subs) {
+    SASSERT(subs.empty());
+    mk_num_pat_rewriter rw_cfg(result.m(), subs);
+    rewriter_tpl<mk_num_pat_rewriter> rw(result.m(), false, rw_cfg);
+    rw(e, result);
+}
+
 }
 
 template class rewriter_tpl<spacer::var_abs_rewriter>;
 template class rewriter_tpl<spacer::subs_rewriter_cfg>;
+template class rewriter_tpl<spacer::mk_num_pat_rewriter>;

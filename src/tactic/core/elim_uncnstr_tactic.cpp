@@ -331,7 +331,6 @@ class elim_uncnstr_tactic : public tactic {
                         return r;
                     }
                     return nullptr;
-                case OP_IFF:
                 case OP_EQ:
                     SASSERT(num == 2);
                     return process_eq(f, args[0], args[1]);

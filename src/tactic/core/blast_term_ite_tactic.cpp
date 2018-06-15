@@ -33,50 +33,65 @@ Notes:
 class blast_term_ite_tactic : public tactic {
 
     struct rw_cfg : public default_rewriter_cfg {
-        ast_manager& m;
-        unsigned long long          m_max_memory; // in bytes
-        unsigned m_num_fresh; // number of expansions
+        ast_manager&         m;
+        unsigned long long   m_max_memory; // in bytes
+        unsigned             m_num_fresh; // number of expansions
+        unsigned             m_max_steps;
+        unsigned             m_max_inflation;
+        unsigned             m_init_term_size;
 
         rw_cfg(ast_manager & _m, params_ref const & p):
             m(_m),
-            m_num_fresh(0) {
+            m_num_fresh(0),
+            m_max_steps(UINT_MAX), 
+            m_max_inflation(UINT_MAX), 
+            m_init_term_size(0) {
             updt_params(p);
         }
 
         void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_max_memory    = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_max_steps = p.get_uint("max_steps", UINT_MAX);
+            m_max_inflation = p.get_uint("max_inflation", UINT_MAX);  // multiplicative factor of initial term size.
         }
+
+        
 
         bool max_steps_exceeded(unsigned num_steps) const { 
             cooperate("blast term ite");
             // if (memory::get_allocation_size() > m_max_memory) 
             //    throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
-            return false;
+            return num_steps >= m_max_steps;
         }
         
         br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
             if (m.is_ite(f)) {
                 return BR_FAILED;
             }
+            if (m_max_inflation < UINT_MAX && 
+                m_init_term_size > 0 && 
+                m_max_inflation * m_init_term_size < m_num_fresh) 
+                return BR_FAILED;
+            
             for (unsigned i = 0; i < num_args; ++i) {
                 expr* c, *t, *e;
                 if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
-                    // enable_trace("blast_term_ite");
                     TRACE("blast_term_ite", result = m.mk_app(f, num_args, args); tout << result << "\n";);
                     expr_ref e1(m), e2(m);
                     ptr_vector<expr> args1(num_args, args);
                     args1[i] = t;
-                    ++m_num_fresh;
                     e1 = m.mk_app(f, num_args, args1.c_ptr());
-                    if (m.are_equal(t,e)) {
+                    if (m.are_equal(t, e)) {
                         result = e1;
                         return BR_REWRITE1;
                     }
-                    args1[i] = e;
-                    e2 = m.mk_app(f, num_args, args1.c_ptr());
-                    result = m.mk_app(f, num_args, args);
-                    result = m.mk_ite(c, e1, e2);
-                    return BR_REWRITE3;
+                    else {
+                        args1[i] = e;
+                        e2 = m.mk_app(f, num_args, args1.c_ptr());
+                        result = m.mk_ite(c, e1, e2);
+                        ++m_num_fresh;
+                        return BR_REWRITE3;
+                    }
                 }
             }
             return BR_FAILED;
@@ -107,10 +122,9 @@ class blast_term_ite_tactic : public tactic {
             m(_m),
             m_rw(m, p) {
         }
-        
-        
+                
         void updt_params(params_ref const & p) {
-            m_rw.cfg().updt_params(p);
+            m_rw.m_cfg.updt_params(p);
         }
         
         void operator()(goal_ref const & g, goal_ref_buffer & result) {
@@ -121,8 +135,14 @@ class blast_term_ite_tactic : public tactic {
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
             unsigned   size = g->size();
+            unsigned   num_fresh = 0;
             for (unsigned idx = 0; idx < size; idx++) {
                 expr * curr = g->form(idx);
+                if (m_rw.m_cfg.m_max_inflation < UINT_MAX) {
+                    m_rw.m_cfg.m_init_term_size = get_num_exprs(curr);
+                    num_fresh += m_rw.m_cfg.m_num_fresh;
+                    m_rw.m_cfg.m_num_fresh = 0;
+                }
                 m_rw(curr, new_curr, new_pr);
                 if (produce_proofs) {
                     proof * pr = g->pr(idx);
@@ -130,7 +150,7 @@ class blast_term_ite_tactic : public tactic {
                 }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
-            report_tactic_progress(":blast-term-ite-consts", m_rw.m_cfg.m_num_fresh);
+            report_tactic_progress(":blast-term-ite-consts", m_rw.m_cfg.m_num_fresh + num_fresh);
             g->inc_depth();
             result.push_back(g.get());
             TRACE("blast_term_ite", g->display(tout););
@@ -156,7 +176,7 @@ public:
 
     void updt_params(params_ref const & p) override {
         m_params = p;
-        m_imp->m_rw.cfg().updt_params(p);
+        m_imp->m_rw.m_cfg.updt_params(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {
@@ -176,14 +196,23 @@ public:
         m_imp = alloc(imp, m, m_params);
     }
 
-    static void blast_term_ite(expr_ref& fml) {
+    static void blast_term_ite(expr_ref& fml, unsigned max_inflation) {
         ast_manager& m = fml.get_manager();
         scoped_no_proof _sp(m);
         params_ref p;
         rw ite_rw(m, p);
-        expr_ref tmp(m);
-        ite_rw(fml, tmp);
-        fml = tmp;        
+        ite_rw.m_cfg.m_max_inflation = max_inflation;
+        if (max_inflation < UINT_MAX) {
+            ite_rw.m_cfg.m_init_term_size = get_num_exprs(fml);
+        }
+        try {
+            expr_ref tmp(m);
+            ite_rw(fml, tmp);
+            fml = tmp;   
+        }
+        catch (z3_exception &) {
+            // max steps exceeded.
+        }
     }
 };
 
@@ -191,6 +220,6 @@ tactic * mk_blast_term_ite_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(blast_term_ite_tactic, m, p));
 }
 
-void blast_term_ite(expr_ref& fml) {
-    blast_term_ite_tactic::blast_term_ite(fml);
+void blast_term_ite(expr_ref& fml, unsigned max_inflation) {
+    blast_term_ite_tactic::blast_term_ite(fml, max_inflation);
 }

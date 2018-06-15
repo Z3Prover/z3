@@ -460,12 +460,12 @@ extern "C" {
         LOG_Z3_solver_get_unsat_core(c, s);
         RESET_ERROR_CODE();
         init_solver(c, s);
-        ptr_vector<expr> core;
+        expr_ref_vector core(mk_c(c)->m());
         to_solver_ref(s)->get_unsat_core(core);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        for (unsigned i = 0; i < core.size(); i++) {
-            v->m_ast_vector.push_back(core[i]);
+        for (expr* e : core) {
+            v->m_ast_vector.push_back(e);
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(nullptr);
@@ -536,24 +536,22 @@ extern "C" {
         init_solver(c, s);
         expr_ref_vector _assumptions(m), _consequences(m), _variables(m);
         ast_ref_vector const& __assumptions = to_ast_vector_ref(assumptions);
-        unsigned sz = __assumptions.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            if (!is_expr(__assumptions[i])) {
+        for (ast* e : __assumptions) {
+            if (!is_expr(e)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 SET_ERROR_CODE(Z3_INVALID_USAGE);
                 return Z3_L_UNDEF;
             }
-            _assumptions.push_back(to_expr(__assumptions[i]));
+            _assumptions.push_back(to_expr(e));
         }
         ast_ref_vector const& __variables = to_ast_vector_ref(variables);
-        sz = __variables.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            if (!is_expr(__variables[i])) {
+        for (ast* a : __variables) {
+            if (!is_expr(a)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 SET_ERROR_CODE(Z3_INVALID_USAGE);
                 return Z3_L_UNDEF;
             }
-            _variables.push_back(to_expr(__variables[i]));
+            _variables.push_back(to_expr(a));
         }
         lbool result = l_undef;
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
@@ -578,8 +576,8 @@ extern "C" {
         if (result == l_undef) {
             to_solver_ref(s)->set_reason_unknown(eh);
         }
-        for (unsigned i = 0; i < _consequences.size(); ++i) {
-            to_ast_vector_ref(consequences).push_back(_consequences[i].get());
+        for (expr* e : _consequences) {
+            to_ast_vector_ref(consequences).push_back(e);
         }
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);        

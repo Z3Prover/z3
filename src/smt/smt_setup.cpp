@@ -574,7 +574,6 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_params.m_propagate_booleans  = true;
         m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
         setup_arrays();
     }
@@ -644,7 +643,6 @@ namespace smt {
         m_params.m_restart_factor          = 1.5;
         m_params.m_eliminate_bounds        = true;
         m_params.m_qi_quick_checker        = MC_UNSAT;
-        m_params.m_propagate_booleans      = true;
         m_params.m_qi_lazy_threshold       = 20;
         // m_params.m_qi_max_eager_multipatterns = 10; /// <<< HACK
         m_params.m_mbqi                    = true; // enabling MBQI and MACRO_FINDER by default :-)
@@ -672,7 +670,6 @@ namespace smt {
         m_params.m_phase_selection         = PS_ALWAYS_FALSE;
         m_params.m_eliminate_bounds        = true;
         m_params.m_qi_quick_checker        = MC_UNSAT;
-        m_params.m_propagate_booleans      = true;
         m_params.m_qi_eager_threshold      = 5;
         // Added for MBQI release
         m_params.m_qi_lazy_threshold       = 20;
@@ -733,6 +730,7 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
+        // m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
         m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));        
     }
 

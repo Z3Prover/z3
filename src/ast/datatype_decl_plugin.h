@@ -358,8 +358,10 @@ namespace datatype {
         bool is_accessor(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(func_decl * f) const { return is_decl_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
         bool is_constructor(app * f) const { return is_app_of(f, m_family_id, OP_DT_CONSTRUCTOR); }
+        bool is_constructor(expr* e) const { return is_app(e) && is_constructor(to_app(e)); }
         bool is_recognizer0(app * f) const { return is_app_of(f, m_family_id, OP_DT_RECOGNISER);} 
         bool is_is(app * f) const { return is_app_of(f, m_family_id, OP_DT_IS);} 
+        bool is_is(expr * e) const { return is_app(e) && is_is(to_app(e)); }
         bool is_recognizer(app * f) const { return is_recognizer0(f) || is_is(f); }
         bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }

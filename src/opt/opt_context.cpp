@@ -172,7 +172,7 @@ namespace opt {
         r.append(m_labels);
     }
 
-    void context::get_unsat_core(ptr_vector<expr> & r) { 
+    void context::get_unsat_core(expr_ref_vector & r) { 
         throw default_exception("Unsat cores are not supported with optimization"); 
     }
 

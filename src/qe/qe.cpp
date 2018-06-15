@@ -614,7 +614,7 @@ namespace qe {
                 else if (m.is_ite(a)) {
                     nnf_ite(a, p);
                 }
-                else if (m.is_iff(a) || (m.is_eq(a) && m.is_bool(a->get_arg(0)))) {
+                else if (m.is_iff(a)) {
                     nnf_iff(a, p);
                 }
                 else if (m.is_xor(a)) {

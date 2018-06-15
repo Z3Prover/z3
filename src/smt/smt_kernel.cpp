@@ -115,6 +115,10 @@ namespace smt {
             return m_kernel.check(num_assumptions, assumptions);
         }
 
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clause) {
+            return m_kernel.check(cube, clause);
+        }        
+
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
             return m_kernel.get_consequences(assumptions, vars, conseq, unfixed);
         }
@@ -286,6 +290,11 @@ namespace smt {
         TRACE("smt_kernel", tout << "check result: " << r << "\n";);
         return r;
     }
+
+    lbool kernel::check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
+        return m_imp->check(cube, clauses);
+    }
+
 
     lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
         return m_imp->get_consequences(assumptions, vars, conseq, unfixed);

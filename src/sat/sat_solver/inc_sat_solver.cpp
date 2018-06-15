@@ -299,7 +299,7 @@ public:
         if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }
-    void get_unsat_core(ptr_vector<expr> & r) override {
+    void get_unsat_core(expr_ref_vector & r) override {
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }

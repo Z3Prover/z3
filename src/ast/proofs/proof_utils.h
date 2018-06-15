@@ -110,10 +110,10 @@ public:
 
         if (m.is_or(decl))
         { mk_or_core(args, res); }
-        else if (m.is_iff(decl) && args.size() == 2)
+        else if (m.is_eq(decl) && args.size() == 2)
             // avoiding simplifying equalities. In particular,
             // we don't want (= (not a) (not b)) to be reduced to (= a b)
-        { res = m.mk_iff(args.get(0), args.get(1)); }
+        { res = m.mk_eq(args.get(0), args.get(1)); }
         else
         { brwr.mk_app(decl, args.size(), args.c_ptr(), res); }
     }

@@ -87,7 +87,6 @@ struct cofactor_elim_term_ite::imp {
                 case OP_TRUE:
                 case OP_FALSE:
                 case OP_ITE:
-                case OP_IFF:
                     return;
                 case OP_EQ:
                 case OP_DISTINCT:

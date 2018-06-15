@@ -8,18 +8,25 @@ z3_add_component(spacer
   spacer_generalizers.cpp
   spacer_manager.cpp
   spacer_prop_solver.cpp
-  spacer_smt_context_manager.cpp
   spacer_sym_mux.cpp
   spacer_util.cpp
-  spacer_itp_solver.cpp
-  spacer_virtual_solver.cpp
+  spacer_iuc_solver.cpp
   spacer_legacy_mbp.cpp
+  spacer_proof_utils.cpp
   spacer_unsat_core_learner.cpp
   spacer_unsat_core_plugin.cpp
   spacer_matrix.cpp
   spacer_antiunify.cpp
   spacer_mev_array.cpp
   spacer_qe_project.cpp
+  spacer_sem_matcher.cpp
+  spacer_quant_generalizer.cpp
+  spacer_callback.cpp
+  spacer_json.cpp
+  spacer_iuc_proof.cpp
+  spacer_mbc.cpp
+  spacer_pdr.cpp
+  spacer_sat_answer.cpp
   COMPONENT_DEPENDENCIES
   arith_tactics
   core_tactics

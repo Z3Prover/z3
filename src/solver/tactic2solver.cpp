@@ -62,7 +62,7 @@ public:
     lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
 
     void collect_statistics(statistics & st) const override;
-    void get_unsat_core(ptr_vector<expr> & r) override;
+    void get_unsat_core(expr_ref_vector & r) override;
     void get_model_core(model_ref & m) override;
     proof * get_proof() override;
     std::string reason_unknown() const override;
@@ -219,7 +219,7 @@ void tactic2solver::collect_statistics(statistics & st) const {
     //SASSERT(m_stats.size() > 0);
 }
 
-void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
+void tactic2solver::get_unsat_core(expr_ref_vector & r) {
     if (m_result.get()) {
         m_result->get_unsat_core(r);
     }

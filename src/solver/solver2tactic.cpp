@@ -134,7 +134,7 @@ public:
                 in->set(proof2proof_converter(m, pr));
             }
             if (in->unsat_core_enabled()) {
-                ptr_vector<expr> core;
+                expr_ref_vector core(m);
                 local_solver->get_unsat_core(core);
                 for (expr* c : core) {
                     lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(c)));

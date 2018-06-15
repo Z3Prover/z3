@@ -198,7 +198,6 @@ struct goal2nlsat::imp {
                     throw tactic_exception("apply simplify before applying nlsat");
                 case OP_AND:
                 case OP_OR:
-                case OP_IFF:
                 case OP_XOR:
                 case OP_NOT:
                 case OP_IMPLIES:

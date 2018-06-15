@@ -132,6 +132,8 @@ namespace smt {
 
         lbool check(app_ref_vector const& asms) { return check(asms.size(), (expr* const*)asms.c_ptr()); }
 
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
+
         /**
            \brief extract consequences among variables.
         */
