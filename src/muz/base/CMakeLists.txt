@@ -18,5 +18,5 @@ z3_add_component(muz
     smt
     smt2parser
   PYG_FILES
-    fixedpoint_params.pyg
+    fp_params.pyg
 )

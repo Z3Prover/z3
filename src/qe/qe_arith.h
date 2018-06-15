@@ -30,9 +30,15 @@ namespace qe {
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
         family_id get_family_id() override;
         void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
-
+        vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
 
         opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt);
+
+        /**
+         * \brief check if formulas are purified, or leave it to caller to ensure that
+         * arithmetic variables nested under foreign functions are handled properly.
+         */
+        void set_check_purified(bool check_purified);
     };
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits);

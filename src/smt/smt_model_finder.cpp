@@ -2315,9 +2315,6 @@ namespace smt {
                             case OP_ITE:
                                 process_ite(to_app(curr), pol);
                                 break;
-                            case OP_IFF:
-                                process_iff(to_app(curr));
-                                break;
                             case OP_EQ:
                                 if (m_manager.is_bool(to_app(curr)->get_arg(0))) {
                                     process_iff(to_app(curr));

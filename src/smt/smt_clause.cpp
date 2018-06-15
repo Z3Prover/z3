@@ -25,7 +25,7 @@ namespace smt {
        \brief Create a new clause.
        bool_var2expr_map is a mapping from bool_var -> expr, it is only used if save_atoms == true.
     */
-    clause * clause::mk(ast_manager & m, unsigned num_lits, literal * lits, clause_kind k, justification * js, 
+    clause * clause::mk(ast_manager & m, unsigned num_lits, literal * lits, clause_kind k, justification * js,
                         clause_del_eh * del_eh, bool save_atoms, expr * const * bool_var2expr_map) {
         SASSERT(k == CLS_AUX || js == 0 || !js->in_region());
         SASSERT(num_lits >= 2);
@@ -67,7 +67,7 @@ namespace smt {
             }});
         return cls;
     }
-    
+
     void clause::deallocate(ast_manager & m) {
         clause_del_eh * del_eh = get_del_eh();
         if (del_eh)
@@ -115,4 +115,3 @@ namespace smt {
     }
 
 };
-

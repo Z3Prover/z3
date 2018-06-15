@@ -9,7 +9,6 @@ z3_add_component(fp
     clp
     ddnf
     muz
-    pdr
     rel
     spacer
     tab

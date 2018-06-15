@@ -176,7 +176,6 @@ class tseitin_cnf_tactic : public tactic {
                 sign = !sign;
                 goto start;
             case OP_OR:
-            case OP_IFF:
                 l = nullptr;
                 m_cache.find(to_app(n), l);
                 SASSERT(l != 0);
@@ -223,7 +222,6 @@ class tseitin_cnf_tactic : public tactic {
                     goto start;
                 }
             case OP_OR:
-            case OP_IFF:
                 visited = false;
                 push_frame(to_app(n));
                 return;

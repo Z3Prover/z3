@@ -643,7 +643,6 @@ basic_decl_plugin::basic_decl_plugin():
     m_false_decl(nullptr),
     m_and_decl(nullptr),
     m_or_decl(nullptr),
-    m_iff_decl(nullptr),
     m_xor_decl(nullptr),
     m_not_decl(nullptr),
     m_implies_decl(nullptr),
@@ -861,7 +860,6 @@ void basic_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_false_decl   = mk_bool_op_decl("false", OP_FALSE);
     m_and_decl     = mk_bool_op_decl("and", OP_AND, 2, true, true, true, true);
     m_or_decl      = mk_bool_op_decl("or", OP_OR, 2, true, true, true, true);
-    m_iff_decl     = mk_bool_op_decl("iff", OP_IFF, 2, false, true, false, false, true);
     m_xor_decl     = mk_bool_op_decl("xor", OP_XOR, 2, true, true);
     m_not_decl     = mk_bool_op_decl("not", OP_NOT, 1);
     m_implies_decl = mk_implies_decl();
@@ -892,13 +890,13 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     if (logic == symbol::null) {
         // user friendly aliases
         op_names.push_back(builtin_name("implies", OP_IMPLIES));
-        op_names.push_back(builtin_name("iff", OP_IFF));
+        op_names.push_back(builtin_name("iff", OP_EQ));
         op_names.push_back(builtin_name("if_then_else", OP_ITE));
         op_names.push_back(builtin_name("if", OP_ITE));
         op_names.push_back(builtin_name("&&", OP_AND));
         op_names.push_back(builtin_name("||", OP_OR));
         op_names.push_back(builtin_name("equals", OP_EQ));
-        op_names.push_back(builtin_name("equiv", OP_IFF));
+        op_names.push_back(builtin_name("equiv", OP_EQ));
     }
 }
 
@@ -919,7 +917,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_and_decl);
     DEC_REF(m_or_decl);
     DEC_REF(m_not_decl);
-    DEC_REF(m_iff_decl);
     DEC_REF(m_xor_decl);
     DEC_REF(m_implies_decl);
     DEC_ARRAY_REF(m_eq_decls);
@@ -1051,7 +1048,6 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
-    case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
     case OP_ITE:     return arity == 3 ? mk_ite_decl(join(domain[1], domain[2])) : nullptr;
@@ -1093,7 +1089,6 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
-    case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
     case OP_ITE:     return num_args == 3 ? mk_ite_decl(join(m_manager->get_sort(args[1]), m_manager->get_sort(args[2]))): nullptr;
@@ -2636,10 +2631,10 @@ proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
     if (!p1 || !p2) return nullptr;
     SASSERT(has_fact(p1));
     SASSERT(has_fact(p2));
-    CTRACE("mk_modus_ponens", !(is_implies(get_fact(p2)) || is_iff(get_fact(p2)) || is_oeq(get_fact(p2))),
+    CTRACE("mk_modus_ponens", !(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2))),
            tout << mk_ll_pp(p1, *this) << "\n";
            tout << mk_ll_pp(p2, *this) << "\n";);
-    SASSERT(is_implies(get_fact(p2)) || is_iff(get_fact(p2)) || is_oeq(get_fact(p2)));
+    SASSERT(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2)));
     CTRACE("mk_modus_ponens", to_app(get_fact(p2))->get_arg(0) != get_fact(p1),
            tout << mk_pp(get_fact(p1), *this) << "\n" << mk_pp(get_fact(p2), *this) << "\n";);
     SASSERT(to_app(get_fact(p2))->get_arg(0) == get_fact(p1));
@@ -2717,8 +2712,6 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
            tout << mk_pp(to_app(get_fact(p1))->get_decl(), *this) << "\n";
            tout << mk_pp(to_app(get_fact(p2))->get_decl(), *this) << "\n";);
     SASSERT(to_app(get_fact(p1))->get_decl() == to_app(get_fact(p2))->get_decl() ||
-            ((is_iff(get_fact(p1)) || is_eq(get_fact(p1))) &&
-             (is_iff(get_fact(p2)) || is_eq(get_fact(p2)))) ||
             ( (is_eq(get_fact(p1)) || is_oeq(get_fact(p1))) &&
               (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
     CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),
@@ -2797,7 +2790,7 @@ proof * ast_manager::mk_quant_intro(quantifier * q1, quantifier * q2, proof * p)
     if (!p) return nullptr;
     SASSERT(q1->get_num_decls() == q2->get_num_decls());
     SASSERT(has_fact(p));
-    SASSERT(is_iff(get_fact(p)));
+    SASSERT(is_eq(get_fact(p)));
     return mk_app(m_basic_family_id, PR_QUANT_INTRO, p, mk_iff(q1, q2));
 }
 
@@ -2884,8 +2877,7 @@ bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<exp
 
 bool ast_manager::is_rewrite(expr const* e, expr*& r1, expr*& r2) const {
     if (is_rewrite(e)) {
-        VERIFY (is_eq(to_app(e)->get_arg(0), r1, r2) ||
-                is_iff(to_app(e)->get_arg(0), r1, r2));
+        VERIFY (is_eq(to_app(e)->get_arg(0), r1, r2));
         return true;
     }
     else {
@@ -2913,7 +2905,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         fact = mk_false();
     }
     else {
-        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_pp(f1, *this) << " " << mk_pp(f2, *this) << "\n";);
+        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n" << mk_ll_pp(f2, *this) << "\n";);
         SASSERT(is_or(f1));
         ptr_buffer<expr> new_lits;
         app const * cls   = to_app(f1);
@@ -3044,7 +3036,7 @@ proof * ast_manager::mk_iff_oeq(proof * p) {
     if (!p) return p;
 
     SASSERT(has_fact(p));
-    SASSERT(is_iff(get_fact(p)) || is_oeq(get_fact(p)));
+    SASSERT(is_eq(get_fact(p)) || is_oeq(get_fact(p)));
     if (is_oeq(get_fact(p)))
         return p;
 

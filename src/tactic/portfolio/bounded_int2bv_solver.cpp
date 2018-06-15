@@ -148,7 +148,7 @@ public:
     void set_produce_models(bool f) override { m_solver->set_produce_models(f); }
     void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
     void collect_statistics(statistics & st) const override { m_solver->collect_statistics(st); }
-    void get_unsat_core(ptr_vector<expr> & r) override { m_solver->get_unsat_core(r); }
+    void get_unsat_core(expr_ref_vector & r) override { m_solver->get_unsat_core(r); }
     void get_model_core(model_ref & mdl) override {
         m_solver->get_model(mdl);
         if (mdl) {

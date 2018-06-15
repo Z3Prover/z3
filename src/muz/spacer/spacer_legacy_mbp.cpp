@@ -99,7 +99,7 @@ void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& 
                  );
             {
                 scoped_no_proof _sp(m);
-                qe::arith_project(*M, arith_vars, fml, map);
+                spacer_qe::arith_project(*M, arith_vars, fml, map);
             }
             SASSERT(arith_vars.empty());
             TRACE("spacer",

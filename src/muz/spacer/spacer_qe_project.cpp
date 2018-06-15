@@ -41,7 +41,7 @@ Revision History:
 #include "muz/spacer/spacer_mev_array.h"
 #include "muz/spacer/spacer_qe_project.h"
 
-namespace
+namespace spacer_qe
 {
 bool is_partial_eq (app* a);
 
@@ -186,7 +186,7 @@ bool is_partial_eq (app* a) {
 }
 
 
-namespace qe {
+namespace spacer_qe {
 
     class is_relevant_default : public i_expr_pred {
     public:
@@ -195,7 +195,7 @@ namespace qe {
         }
     };
 
-    class mk_atom_default : public i_nnf_atom {
+    class mk_atom_default : public qe::i_nnf_atom {
     public:
         void operator()(expr* e, bool pol, expr_ref& result) override {
             if (pol) result = e;
@@ -2254,7 +2254,7 @@ namespace qe {
     void arith_project(model& mdl, app_ref_vector& vars, expr_ref& fml) {
         ast_manager& m = vars.get_manager();
         arith_project_util ap(m);
-        atom_set pos_lits, neg_lits;
+        qe::atom_set pos_lits, neg_lits;
         is_relevant_default is_relevant;
         mk_atom_default mk_atom;
         get_nnf (fml, is_relevant, mk_atom, pos_lits, neg_lits);
@@ -2264,7 +2264,7 @@ namespace qe {
     void arith_project(model& mdl, app_ref_vector& vars, expr_ref& fml, expr_map& map) {
         ast_manager& m = vars.get_manager();
         arith_project_util ap(m);
-        atom_set pos_lits, neg_lits;
+        qe::atom_set pos_lits, neg_lits;
         is_relevant_default is_relevant;
         mk_atom_default mk_atom;
         get_nnf (fml, is_relevant, mk_atom, pos_lits, neg_lits);

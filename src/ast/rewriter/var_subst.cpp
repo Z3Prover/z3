@@ -24,6 +24,10 @@ Notes:
 #include "ast/for_each_expr.h"
 
 void var_subst::operator()(expr * n, unsigned num_args, expr * const * args, expr_ref & result) {
+    if (is_ground(n)) {
+        result = n;
+        return;
+    }
     SASSERT(is_well_sorted(result.m(), n));
     m_reducer.reset();
     if (m_std_order)

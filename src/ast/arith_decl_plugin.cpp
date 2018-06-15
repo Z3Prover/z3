@@ -81,7 +81,7 @@ app * arith_decl_plugin::mk_numeral(algebraic_numbers::anum const & val, bool is
         return mk_numeral(rval, is_int);
     }
     else {
-        if (is_int) {            
+        if (is_int) {
             m_manager->raise_exception("invalid irrational value passed as an integer");
         }
         unsigned idx = aw().mk_id(val);
@@ -635,6 +635,35 @@ bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int
     func_decl * decl = to_app(n)->get_decl();
     val    = decl->get_parameter(0).get_rational();
     is_int = decl->get_parameter(1).get_int() != 0;
+    return true;
+}
+
+#define IS_INT_EXPR_DEPTH_LIMIT 100
+bool arith_recognizers::is_int_expr(expr const *e) const {
+    if (is_int(e)) return true;
+    if (is_uninterp(e)) return false;
+    ptr_buffer<const expr> todo;
+    todo.push_back(e);
+    rational r;
+    unsigned i = 0;
+    while (!todo.empty()) {
+        ++i;
+        if (i > IS_INT_EXPR_DEPTH_LIMIT) {return false;}
+        e = todo.back();
+        todo.pop_back();
+        if (is_to_real(e)) {
+            // pass
+        }
+        else if (is_numeral(e, r) && r.is_int()) {
+            // pass
+        }
+        else if (is_add(e) || is_mul(e)) {
+            todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        }
+        else {
+            return false;
+        }
+    }
     return true;
 }
 

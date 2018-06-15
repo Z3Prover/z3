@@ -869,7 +869,7 @@ namespace datalog {
             dm.set(*d, idx, BIT_1);
             result.intersect(dm, *d);
         }
-        else if ((m.is_eq(g, e1, e2) || m.is_iff(g, e1, e2)) && m.is_bool(e1)) {
+        else if (m.is_iff(g, e1, e2)) {
             udoc diff1, diff2;
             diff1.push_back(dm.allocateX());
             diff2.push_back(dm.allocateX());

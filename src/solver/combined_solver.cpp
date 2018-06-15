@@ -298,7 +298,7 @@ public:
             m_solver1->collect_statistics(st);
     }
 
-    void get_unsat_core(ptr_vector<expr> & r) override {
+    void get_unsat_core(expr_ref_vector & r) override {
         if (m_use_solver1_results)
             m_solver1->get_unsat_core(r);
         else

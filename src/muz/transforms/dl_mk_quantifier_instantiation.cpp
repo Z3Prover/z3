@@ -180,7 +180,7 @@ namespace datalog {
             }
             m_terms[n] = e;
             visited.mark(e);
-            if (m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) {
+            if (m.is_eq(e, e1, e2)) {
                 m_uf.merge(e1->get_id(), e2->get_id());
             }
             if (is_app(e)) {

@@ -47,8 +47,8 @@ bool model_core::eval(func_decl* f, expr_ref & r) const {
 
 void model_core::register_decl(func_decl * d, expr * v) {
     SASSERT(d->get_arity() == 0);
-    decl2expr::obj_map_entry * entry = m_interp.insert_if_not_there2(d, 0);
-    if (entry->get_data().m_value == 0) {
+    decl2expr::obj_map_entry * entry = m_interp.insert_if_not_there2(d, nullptr);
+    if (entry->get_data().m_value == nullptr) {
         // new entry
         m_decls.push_back(d);
         m_const_decls.push_back(d);
@@ -67,8 +67,8 @@ void model_core::register_decl(func_decl * d, expr * v) {
 void model_core::register_decl(func_decl * d, func_interp * fi) {
     SASSERT(d->get_arity() > 0);
     SASSERT(&fi->m() == &m_manager);
-    decl2finterp::obj_map_entry * entry = m_finterp.insert_if_not_there2(d, 0);
-    if (entry->get_data().m_value == 0) {
+    decl2finterp::obj_map_entry * entry = m_finterp.insert_if_not_there2(d, nullptr);
+    if (entry->get_data().m_value == nullptr) {
         // new entry
         m_decls.push_back(d);
         m_func_decls.push_back(d);

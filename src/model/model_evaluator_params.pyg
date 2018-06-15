@@ -4,6 +4,7 @@ def_module_params('model_evaluator',
                           max_steps_param(),
                           ('completion', BOOL, False, 'assigns an interptetation to symbols that do not have one in the current model, when evaluating expressions in the current model'),
                           ('cache', BOOL, True, 'cache intermediate results in the model evaluator'),
-                          ('array_equalities', BOOL, True, 'evaluate array equalities')
+                          ('array_equalities', BOOL, True, 'evaluate array equalities'),
+                          ('array_as_stores', BOOL, True, 'return array as a set of stores'),
                           ))
 

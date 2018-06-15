@@ -75,7 +75,7 @@ struct collect_boolean_interface_proc {
                 continue;
             if (is_app(t) && to_app(t)->get_family_id() == m.get_basic_family_id() && to_app(t)->get_num_args() > 0) {
                 decl_kind k = to_app(t)->get_decl_kind();
-                if (k == OP_OR || k == OP_NOT || k == OP_IFF || ((k == OP_EQ || k == OP_ITE) && m.is_bool(to_app(t)->get_arg(1)))) {
+                if (k == OP_OR || k == OP_NOT || ((k == OP_EQ || k == OP_ITE) && m.is_bool(to_app(t)->get_arg(1)))) {
                     unsigned num = to_app(t)->get_num_args();
                     for (unsigned i = 0; i < num; i++) {
                         expr * arg = to_app(t)->get_arg(i);

@@ -158,7 +158,7 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     if (is_quantifier(e) && to_quantifier(e)->is_forall()) {
         quantifier * q = to_quantifier(e);
         expr * qe = q->get_expr();
-        if ((m_manager.is_eq(qe) || m_manager.is_iff(qe))) {
+        if ((m_manager.is_eq(qe))) {
             expr * lhs = to_app(qe)->get_arg(0);
             expr * rhs = to_app(qe)->get_arg(1);
 

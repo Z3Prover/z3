@@ -63,10 +63,6 @@ format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const
         len = 3;
         return mk_string(m, "ite");
     }
-    else if (m.is_iff(f)) {
-        len = 1;
-        return mk_string(m, "=");
-    }
     else {
         symbol s = f->get_name();
         return pp_fdecl_name(s, len, f->is_skolem());

@@ -490,7 +490,6 @@ struct aig_manager::imp {
                     case OP_NOT:
                     case OP_OR:      
                     case OP_AND:
-                    case OP_IFF:
                     case OP_XOR:
                     case OP_IMPLIES:
                     case OP_ITE:
@@ -580,9 +579,6 @@ struct aig_manager::imp {
                 break;
             case OP_EQ:
                 SASSERT(m.m().is_bool(fr.m_t->get_arg(0)));
-                mk_iff(fr.m_spos);
-                break;
-            case OP_IFF:
                 mk_iff(fr.m_spos);
                 break;
             case OP_XOR:
