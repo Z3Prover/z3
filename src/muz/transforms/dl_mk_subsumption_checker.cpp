@@ -24,7 +24,7 @@ Revision History:
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 #include "tactic/generic_model_converter.h"
 
 
@@ -39,8 +39,8 @@ namespace datalog {
 
 
     bool mk_subsumption_checker::is_total_rule(const rule * r) {
-        if (r->get_tail_size() != 0) { 
-            return false; 
+        if (r->get_tail_size() != 0) {
+            return false;
         }
 
         unsigned pt_len = r->get_positive_tail_size();
@@ -113,7 +113,7 @@ namespace datalog {
     }
 
 
-    bool mk_subsumption_checker::transform_rule(rule * r, 
+    bool mk_subsumption_checker::transform_rule(rule * r,
         rule_subsumption_index& subs_index, rule_ref & res)
     {
         unsigned u_len = r->get_uninterpreted_tail_size();
@@ -133,7 +133,7 @@ namespace datalog {
             if(m_total_relations.contains(tail_atom->get_decl())
                 || subs_index.is_subsumed(tail_atom)) {
                 if(neg) {
-                    //rule contains negated total relation, this means that it is unsatisfiable 
+                    //rule contains negated total relation, this means that it is unsatisfiable
                     //and can be removed
                     return false;
                 }
@@ -143,8 +143,8 @@ namespace datalog {
                 }
             }
             if(!neg && head.get()==tail_atom) {
-                //rule contains its head positively in the tail, therefore 
-                //it will never add any new facts to the relation, so it 
+                //rule contains its head positively in the tail, therefore
+                //it will never add any new facts to the relation, so it
                 //can be removed
                 return false;
             }
@@ -197,9 +197,9 @@ namespace datalog {
             if (m_total_relations.contains(head_pred)) {
                 if (!orig.is_output_predicate(head_pred) ||
                         total_relations_with_included_rules.contains(head_pred)) {
-                    //We just skip definitions of total non-output relations as 
+                    //We just skip definitions of total non-output relations as
                     //we'll eliminate them from the problem.
-                    //We also skip rules of total output relations for which we have 
+                    //We also skip rules of total output relations for which we have
                     //already output the rule which implies their totality.
                     modified = true;
                     continue;
@@ -286,7 +286,7 @@ namespace datalog {
                 obj_hashtable<app> * head_store;
                 if(m_ground_unconditional_rule_heads.find(pred, head_store)) {
                     //Some relations may receive facts by ground unconditioned rules.
-                    //We scanned for those earlier, so now we check whether we cannot get a 
+                    //We scanned for those earlier, so now we check whether we cannot get a
                     //better estimate of relation size from these.
 
                     unsigned gnd_rule_cnt = head_store->size();
@@ -334,7 +334,7 @@ namespace datalog {
 
     rule_set * mk_subsumption_checker::operator()(rule_set const & source) {
         // TODO mc
-        if (!m_context.get_params ().xform_subsumption_checker()) 
+        if (!m_context.get_params ().xform_subsumption_checker())
           return nullptr;
 
         m_have_new_total_rule = false;
@@ -366,6 +366,5 @@ namespace datalog {
 
         return res;
     }
-  
-};
 
+};

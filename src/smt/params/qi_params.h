@@ -29,7 +29,6 @@ enum quick_checker_mode {
 };
 
 struct qi_params {
-    bool               m_qi_ematching;
     std::string        m_qi_cost;
     std::string        m_qi_new_gen;
     double             m_qi_eager_threshold;

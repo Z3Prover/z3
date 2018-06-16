@@ -640,6 +640,17 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
 }
 
 template<typename Config>
+void rewriter_tpl<Config>::update_inv_binding_at(unsigned i, expr* binding) {
+    m_bindings[i] = binding;
+}
+
+template<typename Config>
+void rewriter_tpl<Config>::update_binding_at(unsigned i, expr* binding) {
+    m_bindings[m_bindings.size() - i - 1] = binding;
+}
+
+
+template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::main_loop(expr * t, expr_ref & result, proof_ref & result_pr) {
     if (m_cancel_check && m().canceled()) {

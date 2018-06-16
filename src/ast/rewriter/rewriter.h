@@ -346,6 +346,8 @@ public:
     
     void set_bindings(unsigned num_bindings, expr * const * bindings);
     void set_inv_bindings(unsigned num_bindings, expr * const * bindings);
+    void update_binding_at(unsigned i, expr* binding);
+    void update_inv_binding_at(unsigned i, expr* binding);
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
     void operator()(expr * t, expr_ref & result) { operator()(t, result, m_pr); }
     void operator()(expr * n, unsigned num_bindings, expr * const * bindings, expr_ref & result) {

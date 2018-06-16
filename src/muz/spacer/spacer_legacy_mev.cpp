@@ -138,7 +138,6 @@ void model_evaluator::process_formula(app* e, ptr_vector<expr>& todo, ptr_vector
         case OP_FALSE:
             break;
         case OP_EQ:
-        case OP_IFF:
             if (args[0] == args[1]) {
                 SASSERT(v);
                 // no-op
@@ -633,10 +632,6 @@ void model_evaluator::eval_basic(app* e)
             SASSERT(is_x(arg1) || is_x(arg2));
             set_x(e);
         }
-        break;
-    case OP_IFF:
-        VERIFY(m.is_iff(e, arg1, arg2));
-        eval_eq(e, arg1, arg2);
         break;
     case OP_XOR:
         VERIFY(m.is_xor(e, arg1, arg2));

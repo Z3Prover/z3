@@ -47,8 +47,6 @@ class mus {
      */
     void add_assumption(expr* lit);
 
-    lbool get_mus(ptr_vector<expr>& mus);
-
     lbool get_mus(expr_ref_vector& mus);
     
     void reset();

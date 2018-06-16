@@ -168,6 +168,8 @@ namespace smt {
         expr_ref_vector             m_units_to_reassert;
         svector<char>               m_units_to_reassert_sign;
         literal_vector              m_assigned_literals;
+        typedef std::pair<clause*, literal_vector> tmp_clause;
+        vector<tmp_clause>          m_tmp_clauses;
         unsigned                    m_qhead;
         unsigned                    m_simp_qhead;
         int                         m_simp_counter; //!< can become negative
@@ -892,7 +894,6 @@ namespace smt {
         failure            m_last_search_failure;
         ptr_vector<theory> m_incomplete_theories; //!< theories that failed to produce a model
         bool               m_searching;
-        ptr_vector<expr>   m_assumption_core;
         unsigned           m_num_conflicts;
         unsigned           m_num_conflicts_since_restart;
         unsigned           m_num_conflicts_since_lemma_gc;
@@ -1104,15 +1105,23 @@ namespace smt {
 
         void assert_assumption(expr * a);
 
-        bool validate_assumptions(unsigned num_assumptions, expr * const * assumptions);
+        bool validate_assumptions(expr_ref_vector const& asms);
 
-        void init_assumptions(unsigned num_assumptions, expr * const * assumptions);
+        void init_assumptions(expr_ref_vector const& asms);
+
+        void init_clause(expr_ref_vector const& clause);
+
+        lbool decide_clause();
+
+        void reset_tmp_clauses();
 
         void reset_assumptions();
 
+        void reset_clause();
+
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
-        lbool mk_unsat_core();
+        lbool mk_unsat_core(lbool result);
 
         void validate_unsat_core();
 
@@ -1497,6 +1506,8 @@ namespace smt {
 
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
 
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
+
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
 
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
@@ -1523,6 +1534,8 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result);
 
         void internalize_assertion(expr * n, proof * pr, unsigned generation);
+
+        void internalize_proxies(expr_ref_vector const& asms, vector<std::pair<expr*,expr_ref>>& asm2proxy);
 
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
             internalize_assertion(body, pr, generation);

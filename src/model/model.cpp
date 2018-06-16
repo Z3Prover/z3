@@ -26,16 +26,15 @@ Revision History:
 #include "model/model_evaluator.h"
 
 model::model(ast_manager & m):
-    model_core(m) {
+    model_core(m),
+    m_mev(*this) {
 }
 
 model::~model() {
-    sort2universe::iterator it3  = m_usort2universe.begin();
-    sort2universe::iterator end3 = m_usort2universe.end();
-    for (; it3 != end3; ++it3) {
-        m_manager.dec_ref(it3->m_key);
-        m_manager.dec_array_ref(it3->m_value->size(), it3->m_value->c_ptr());
-        dealloc(it3->m_value);
+    for (auto & kv : m_usort2universe) {
+        m_manager.dec_ref(kv.m_key);
+        m_manager.dec_array_ref(kv.m_value->size(), kv.m_value->c_ptr());
+        dealloc(kv.m_value);
     }
 }
 
@@ -48,19 +47,13 @@ void model::copy_const_interps(model const & source) {
 }
 
 void model::copy_func_interps(model const & source) {
-    decl2finterp::iterator it2  = source.m_finterp.begin();
-    decl2finterp::iterator end2 = source.m_finterp.end();
-    for (; it2 != end2; ++it2) {
-        register_decl(it2->m_key, it2->m_value->copy());
-    }
+    for (auto const& kv : source.m_finterp) 
+        register_decl(kv.m_key, kv.m_value->copy());
 }
 
 void model::copy_usort_interps(model const & source) {
-    sort2universe::iterator it3  = source.m_usort2universe.begin();
-    sort2universe::iterator end3 = source.m_usort2universe.end();
-    for (; it3 != end3; ++it3) {
-        register_usort(it3->m_key, it3->m_value->size(), it3->m_value->c_ptr());
-    }
+    for (auto const& kv : source.m_usort2universe) 
+        register_usort(kv.m_key, kv.m_value->size(), kv.m_value->c_ptr());
 }
 
 model * model::copy() const {
@@ -151,32 +144,52 @@ model * model::translate(ast_translation & translator) const {
     model * res = alloc(model, translator.to());
 
     // Translate const interps
-    decl2expr::iterator it1  = m_interp.begin();
-    decl2expr::iterator end1 = m_interp.end();
-    for (; it1 != end1; ++it1) {
-        res->register_decl(translator(it1->m_key), translator(it1->m_value));
-    }
+    for (auto const& kv : m_interp) 
+        res->register_decl(translator(kv.m_key), translator(kv.m_value));
 
     // Translate func interps
-    decl2finterp::iterator it2  = m_finterp.begin();
-    decl2finterp::iterator end2 = m_finterp.end();
-    for (; it2 != end2; ++it2) {
-        func_interp * fi = it2->m_value;
-        res->register_decl(translator(it2->m_key), fi->translate(translator));
+    for (auto const& kv : m_finterp) {
+        func_interp * fi = kv.m_value;
+        res->register_decl(translator(kv.m_key), fi->translate(translator));
     }
 
     // Translate usort interps
-    sort2universe::iterator it3  = m_usort2universe.begin();
-    sort2universe::iterator end3 = m_usort2universe.end();
-    for (; it3 != end3; ++it3) {
+    for (auto const& kv : m_usort2universe) {
         ptr_vector<expr> new_universe;
-        for (unsigned i=0; i<it3->m_value->size(); i++)
-            new_universe.push_back(translator(it3->m_value->get(i)));
-        res->register_usort(translator(it3->m_key),
+        for (unsigned i=0; i < kv.m_value->size(); i++)
+            new_universe.push_back(translator(kv.m_value->get(i)));
+        res->register_usort(translator(kv.m_key),
                             new_universe.size(),
                             new_universe.c_ptr());
     }
 
     return res;
+}
+
+expr_ref model::operator()(expr* t) {
+    return m_mev(t);
+}
+
+expr_ref_vector model::operator()(expr_ref_vector const& ts) {
+    expr_ref_vector rs(m());
+    for (expr* t : ts) rs.push_back((*this)(t));
+    return rs;
+}
+
+bool model::is_true(expr* t) {
+    return m().is_true((*this)(t));
+}
+
+bool model::is_false(expr* t) {
+    return m().is_false((*this)(t));
+}
+
+bool model::is_true(expr_ref_vector const& ts) {
+    for (expr* t : ts) if (!is_true(t)) return false;
+    return true;
+}
+
+void model::reset_eval_cache() {
+    m_mev.reset();
 }
 

@@ -223,7 +223,7 @@ ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it 
 });
 
 static void print_core(cmd_context& ctx) {
-    ptr_vector<expr> core;
+    expr_ref_vector core(ctx.m());
     ctx.get_check_sat_result()->get_unsat_core(core);
     ctx.regular_stream() << "(";
     bool first = true;

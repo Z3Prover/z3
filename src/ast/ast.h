@@ -1041,7 +1041,7 @@ enum basic_sort_kind {
 };
 
 enum basic_op_kind {
-    OP_TRUE, OP_FALSE, OP_EQ, OP_DISTINCT, OP_ITE, OP_AND, OP_OR, OP_IFF, OP_XOR, OP_NOT, OP_IMPLIES, OP_OEQ, LAST_BASIC_OP,
+    OP_TRUE, OP_FALSE, OP_EQ, OP_DISTINCT, OP_ITE, OP_AND, OP_OR, OP_XOR, OP_NOT, OP_IMPLIES, OP_OEQ, LAST_BASIC_OP,
 
     PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO,
     PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT,
@@ -1060,7 +1060,6 @@ protected:
     func_decl * m_false_decl;
     func_decl * m_and_decl;
     func_decl * m_or_decl;
-    func_decl * m_iff_decl;
     func_decl * m_xor_decl;
     func_decl * m_not_decl;
     func_decl * m_implies_decl;
@@ -1344,9 +1343,9 @@ public:
     bool is_and(expr const * n) const { return is_app_of(n, m_fid, OP_AND); }
     bool is_not(expr const * n) const { return is_app_of(n, m_fid, OP_NOT); }
     bool is_eq(expr const * n) const { return is_app_of(n, m_fid, OP_EQ); }
+    bool is_iff(expr const* n) const { return is_eq(n) && is_bool(to_app(n)->get_arg(0)); }
     bool is_oeq(expr const * n) const { return is_app_of(n, m_fid, OP_OEQ); }
     bool is_distinct(expr const * n) const { return is_app_of(n, m_fid, OP_DISTINCT); }
-    bool is_iff(expr const * n) const { return is_app_of(n, m_fid, OP_IFF); }
     bool is_xor(expr const * n) const { return is_app_of(n, m_fid, OP_XOR); }
     bool is_ite(expr const * n) const { return is_app_of(n, m_fid, OP_ITE); }
     bool is_term_ite(expr const * n) const { return is_ite(n) && !is_bool(n); }
@@ -1361,7 +1360,6 @@ public:
     bool is_and(func_decl const * d) const { return is_decl_of(d, m_fid, OP_AND); }
     bool is_not(func_decl const * d) const { return is_decl_of(d, m_fid, OP_NOT); }
     bool is_eq(func_decl const * d) const { return is_decl_of(d, m_fid, OP_EQ); }
-    bool is_iff(func_decl const * d) const { return is_decl_of(d, m_fid, OP_IFF); }
     bool is_xor(func_decl const * d) const { return is_decl_of(d, m_fid, OP_XOR); }
     bool is_ite(func_decl const * d) const { return is_decl_of(d, m_fid, OP_ITE); }
     bool is_term_ite(func_decl const * d) const { return is_ite(d) && !is_bool(d->get_range()); }
@@ -1369,13 +1367,13 @@ public:
 
     MATCH_UNARY(is_not);
     MATCH_BINARY(is_eq);
-    MATCH_BINARY(is_iff);
     MATCH_BINARY(is_implies);
     MATCH_BINARY(is_and);
     MATCH_BINARY(is_or);
     MATCH_BINARY(is_xor);
     MATCH_TERNARY(is_and);
     MATCH_TERNARY(is_or);
+    bool is_iff(expr const* n, expr*& lhs, expr*& rhs) const { return is_eq(n, lhs, rhs) && is_bool(lhs); } 
 
     bool is_ite(expr const * n, expr * & t1, expr * & t2, expr * & t3) const;
 };
@@ -1663,7 +1661,7 @@ public:
 
     bool is_bool(expr const * n) const;
     bool is_bool(sort const * s) const { return s == m_bool_sort; }
-    decl_kind get_eq_op(expr const * n) const { return is_bool(n) ? OP_IFF : OP_EQ; }
+    decl_kind get_eq_op(expr const * n) const { return OP_EQ; }
 
 private:
     sort * mk_sort(symbol const & name, sort_info * info);
@@ -1746,6 +1744,14 @@ public:
                             arity, domain);
     }
 
+    func_decl * mk_const_decl(const char* name, sort * s) {
+        return mk_func_decl(symbol(name), static_cast<unsigned>(0), nullptr, s);
+    }
+
+    func_decl * mk_const_decl(std::string const& name, sort * s) {
+        return mk_func_decl(symbol(name.c_str()), static_cast<unsigned>(0), nullptr, s);
+    }
+
     func_decl * mk_const_decl(symbol const & name, sort * s) {
         return mk_func_decl(name, static_cast<unsigned>(0), nullptr, s);
     }
@@ -1809,6 +1815,14 @@ public:
     }
 
     app * mk_const(symbol const & name, sort * s) {
+        return mk_const(mk_const_decl(name, s));
+    }
+
+    app * mk_const(std::string const & name, sort * s) {
+        return mk_const(mk_const_decl(name, s));
+    }
+
+    app * mk_const(char const* name, sort * s) {
         return mk_const(mk_const_decl(name, s));
     }
 
@@ -1987,9 +2001,9 @@ public:
     bool is_and(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_AND); }
     bool is_not(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_NOT); }
     bool is_eq(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_EQ); }
+    bool is_iff(expr const * n) const { return is_eq(n) && is_bool(to_app(n)->get_arg(0)); }
     bool is_oeq(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_OEQ); }
     bool is_distinct(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_DISTINCT); }
-    bool is_iff(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_IFF); }
     bool is_xor(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_XOR); }
     bool is_ite(expr const * n) const { return is_app_of(n, m_basic_family_id, OP_ITE); }
     bool is_term_ite(expr const * n) const { return is_ite(n) && !is_bool(n); }
@@ -2005,7 +2019,7 @@ public:
     bool is_and(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_AND); }
     bool is_not(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_NOT); }
     bool is_eq(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_EQ); }
-    bool is_iff(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_IFF); }
+    bool is_iff(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_EQ) && is_bool(d->get_range()); }
     bool is_xor(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_XOR); }
     bool is_ite(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_ITE); }
     bool is_term_ite(func_decl const * d) const { return is_ite(d) && !is_bool(d->get_range()); }
@@ -2015,13 +2029,14 @@ public:
 
     MATCH_UNARY(is_not);
     MATCH_BINARY(is_eq);
-    MATCH_BINARY(is_iff);
     MATCH_BINARY(is_implies);
     MATCH_BINARY(is_and);
     MATCH_BINARY(is_or);
     MATCH_BINARY(is_xor);
     MATCH_TERNARY(is_and);
     MATCH_TERNARY(is_or);
+
+    bool is_iff(expr const* n, expr*& lhs, expr*& rhs) const { return is_eq(n, lhs, rhs) && is_bool(lhs); } 
 
     bool is_ite(expr const* n, expr*& t1, expr*& t2, expr*& t3) const {
         if (is_ite(n)) {
@@ -2035,7 +2050,7 @@ public:
 
 public:
     app * mk_eq(expr * lhs, expr * rhs) { return mk_app(m_basic_family_id, get_eq_op(lhs), lhs, rhs); }
-    app * mk_iff(expr * lhs, expr * rhs) { return mk_app(m_basic_family_id, OP_IFF, lhs, rhs); }
+    app * mk_iff(expr * lhs, expr * rhs) { return mk_app(m_basic_family_id, OP_EQ, lhs, rhs); }
     app * mk_oeq(expr * lhs, expr * rhs) { return mk_app(m_basic_family_id, OP_OEQ, lhs, rhs); }
     app * mk_xor(expr * lhs, expr * rhs) { return mk_app(m_basic_family_id, OP_XOR, lhs, rhs); }
     app * mk_ite(expr * c, expr * t, expr * e) { return mk_app(m_basic_family_id, OP_ITE, c, t, e); }
@@ -2151,6 +2166,23 @@ public:
         return n > 0 && get_sort(p->get_arg(n - 1)) != m_proof_sort;
     }
     expr * get_fact(proof const * p) const { SASSERT(is_proof(p)); SASSERT(has_fact(p)); return p->get_arg(p->get_num_args() - 1); }
+    
+    class proof_parents {
+        ast_manager& m;
+        proof * m_proof;
+    public:
+        proof_parents(ast_manager& m, proof * p): m(m), m_proof(p) {}
+        proof * const * begin() const { return (proof* const*)(m_proof->begin()); }
+        proof * const * end() const { 
+            unsigned n = m_proof->get_num_args();
+            return (proof* const*)(begin() + (m.has_fact(m_proof) ?  n - 1 : n));
+        }
+    };
+
+    proof_parents get_parents(proof* p) {
+        return proof_parents(*this, p);
+    }
+
     unsigned get_num_parents(proof const * p) const {
         SASSERT(is_proof(p));
         unsigned n = p->get_num_args();

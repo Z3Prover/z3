@@ -20,6 +20,7 @@ Revision History:
 #define MODEL_H_
 
 #include "model/model_core.h"
+#include "model/model_evaluator.h"
 #include "util/ref.h"
 #include "ast/ast_translation.h"
 
@@ -29,6 +30,7 @@ protected:
     
     ptr_vector<sort>              m_usorts;
     sort2universe                 m_usort2universe;
+    model_evaluator               m_mev;
     struct value_proc;
 
 public:
@@ -58,6 +60,40 @@ public:
     // Model translation
     //
     model * translate(ast_translation & translator) const;
+
+    void set_model_completion(bool f) { m_mev.set_model_completion(f); }
+    void updt_params(params_ref const & p) { m_mev.updt_params(p); }
+
+    /**
+     * evaluation using the model evaluator. Caches results.
+     */
+    expr_ref operator()(expr* t);
+    expr_ref_vector operator()(expr_ref_vector const& ts);
+    bool is_true(expr* t);
+    bool is_false(expr* t);
+    bool is_true(expr_ref_vector const& ts);
+    void reset_eval_cache();
+
+    class scoped_model_completion {
+        bool   m_old_completion;
+        model& m_model;
+    public:
+        scoped_model_completion(model& m, bool c): 
+            m_old_completion(m.m_mev.get_model_completion()), m_model(m) {
+            m.set_model_completion(c);
+        }
+#if 0
+        scoped_model_completion(model_ref& m, bool c): 
+            m_old_completion(m->m_mev.get_model_completion()), m_model(*m.get()) {
+            m->set_model_completion(c);
+        }
+#endif
+        ~scoped_model_completion() {
+            m_model.set_model_completion(m_old_completion);
+        }
+    };
+
+    
 };
 
 typedef ref<model> model_ref;

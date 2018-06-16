@@ -300,6 +300,9 @@ namespace qe {
         return m_imp->solve(model, vars, lits);
     }
 
+    vector<def> datatype_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        return vector<def>();
+    }
     
     family_id datatype_project_plugin::get_family_id() {
         return m_imp->dt.get_family_id();

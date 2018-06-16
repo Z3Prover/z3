@@ -311,11 +311,6 @@ namespace smt {
                 return is_true ? any_arg(a, true) : all_args(a, false);
             case OP_AND:
                 return is_true ? all_args(a, true) : any_arg(a, false);
-            case OP_IFF:
-                if (is_true)
-                    return (check(a->get_arg(0), true)  && check(a->get_arg(1), true))  || (check(a->get_arg(0), false) && check(a->get_arg(1), false));
-                else
-                    return (check(a->get_arg(0), true)  && check(a->get_arg(1), false)) || (check(a->get_arg(0), false) && check(a->get_arg(1), true));
             case OP_ITE: 
                 if (check(a->get_arg(0), true))
                     return check(a->get_arg(1), is_true);
@@ -324,6 +319,13 @@ namespace smt {
                 else 
                     return check(a->get_arg(1), is_true) && check(a->get_arg(2), is_true);
             case OP_EQ: 
+                if (m_manager.is_iff(a)) {
+                    if (is_true)
+                        return (check(a->get_arg(0), true)  && check(a->get_arg(1), true))  || (check(a->get_arg(0), false) && check(a->get_arg(1), false));
+                    else
+                        return (check(a->get_arg(0), true)  && check(a->get_arg(1), false)) || (check(a->get_arg(0), false) && check(a->get_arg(1), true));
+                }
+
                 if (is_true) {
                     return canonize(a->get_arg(0)) == canonize(a->get_arg(1));
                 }

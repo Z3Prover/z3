@@ -21,6 +21,7 @@ Notes:
 #include "opt/maxsmt.h"
 #include "opt/maxres.h"
 #include "opt/wmax.h"
+#include "opt/opt_params.hpp"
 #include "ast/ast_pp.h"
 #include "util/uint_set.h"
 #include "opt/opt_context.h"
@@ -409,6 +410,59 @@ namespace opt {
         m_c.model_updated(mdl);
     }
 
+    class solver_maxsat_context : public maxsat_context {
+        params_ref m_params;
+        solver_ref m_solver;
+        model_ref  m_model;
+        ref<generic_model_converter> m_fm; 
+        symbol m_maxsat_engine;
+    public:
+        solver_maxsat_context(params_ref& p, solver* s, model * m): 
+            m_params(p), 
+            m_solver(s),
+            m_model(m),
+            m_fm(alloc(generic_model_converter, s->get_manager(), "maxsmt")) {
+            opt_params _p(p);
+            m_maxsat_engine = _p.maxsat_engine();            
+        }
+        generic_model_converter& fm() override { return *m_fm.get(); }
+        bool sat_enabled() const override { return false; }
+        solver& get_solver() override { return *m_solver.get(); }
+        ast_manager& get_manager() const override { return m_solver->get_manager(); }
+        params_ref& params() override { return m_params; }
+        void enable_sls(bool force) override { } // no op
+        symbol const& maxsat_engine() const override { return m_maxsat_engine; }
+        void get_base_model(model_ref& _m) override { _m = m_model; };  
+        smt::context& smt_context() override { 
+            throw default_exception("stand-alone maxsat context does not support wmax"); 
+        }
+        unsigned num_objectives() override { return 1; }
+        bool verify_model(unsigned id, model* mdl, rational const& v) override { return true; };
+        void set_model(model_ref& _m) override { m_model = _m; }
+        void model_updated(model* mdl) override { } // no-op
+    };
 
-
+    lbool maxsmt_wrapper::operator()(vector<std::pair<expr*,rational>>& soft) {
+        solver_maxsat_context ctx(m_params, m_solver.get(), m_model.get());
+        maxsmt maxsmt(ctx, 0);
+        for (auto const& p : soft) {
+            maxsmt.add(p.first, p.second);
+        }
+        lbool r = maxsmt();
+        if (r == l_true) {
+            ast_manager& m = m_solver->get_manager();
+            svector<symbol> labels;
+            maxsmt.get_model(m_model, labels);
+            // TBD: is m_fm applied or not?
+            unsigned j = 0;
+            expr_ref tmp(m);
+            for (unsigned i = 0; i < soft.size(); ++i) {
+                if (m_model->eval(soft[i].first, tmp) && m.is_true(tmp)) {
+                    soft[j++] = soft[i];
+                }
+            }
+            soft.shrink(j);
+        }
+        return r;
+    }
 };

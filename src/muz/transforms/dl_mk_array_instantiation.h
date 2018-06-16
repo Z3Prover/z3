@@ -70,7 +70,7 @@ Revision History:
 #define DL_MK_ARRAY_INSTANTIATION_H_
 
 
-#include "ast/factor_equivs.h"
+#include "ast/rewriter/factor_equivs.h"
 #include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {

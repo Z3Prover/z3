@@ -34,7 +34,7 @@
 #include "util/luby.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_abstract.h"
-#include "ast/factor_equivs.h"
+#include "ast/rewriter/factor_equivs.h"
 
 
 namespace spacer {

@@ -187,7 +187,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
-            if (k == OP_EQ || k == OP_IFF) {
+            if (k == OP_EQ) {
                 SASSERT(num == 2);
                 st = apply_tamagotchi(args[0], args[1], result);
                 if (st != BR_FAILED)

@@ -62,7 +62,7 @@ class fm_tactic : public tactic {
             return m.is_false(val);
         }
 
-        r_kind process(func_decl * x, expr * cls, arith_util & u, model_evaluator & ev, rational & r) {
+        r_kind process(func_decl * x, expr * cls, arith_util & u, model& ev, rational & r) {
             unsigned num_lits;
             expr * const * lits;
             if (m.is_or(cls)) {
@@ -80,9 +80,7 @@ class fm_tactic : public tactic {
                 expr * l = lits[i];
                 expr * atom;
                 if (is_uninterp_const(l) || (m.is_not(l, atom) && is_uninterp_const(atom))) {
-                    expr_ref val(m);
-                    ev(l, val);
-                    if (m.is_true(val))
+                    if (ev.is_true(l)) 
                         return NONE; // clause was satisfied
                 }
                 else {
@@ -131,7 +129,7 @@ class fm_tactic : public tactic {
                         }
                         else {
                             expr_ref val(m);
-                            ev(monomial, val);
+                            val = ev(monomial);
                             SASSERT(u.is_numeral(val));
                             rational tmp;
                             u.is_numeral(val, tmp);
@@ -184,8 +182,9 @@ class fm_tactic : public tactic {
 
         void operator()(model_ref & md) override {
             TRACE("fm_mc", model_v2_pp(tout, *md); display(tout););
-            model_evaluator ev(*(md.get()));
-            ev.set_model_completion(true);
+            model::scoped_model_completion _sc(*md, true);
+            //model_evaluator ev(*(md.get()));
+            //ev.set_model_completion(true);
             arith_util u(m);
             unsigned i = m_xs.size();
             while (i > 0) {
@@ -201,7 +200,7 @@ class fm_tactic : public tactic {
                 clauses::iterator end = m_clauses[i].end();
                 for (; it != end; ++it) {
                     if (m.canceled()) throw tactic_exception(m.limit().get_cancel_msg());
-                    switch (process(x, *it, u, ev, val)) {
+                    switch (process(x, *it, u, *md, val)) {
                     case NONE: 
                         TRACE("fm_mc", tout << "no bound for:\n" << mk_ismt2_pp(*it, m) << "\n";);
                         break;

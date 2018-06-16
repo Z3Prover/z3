@@ -486,7 +486,7 @@ bool expr_substitution_simplifier::is_gt(expr* lhs, expr* rhs) {
 
 void expr_substitution_simplifier::update_substitution(expr* n, proof* pr) {
     expr* lhs, *rhs, *n1;
-    if (is_ground(n) && (m.is_eq(n, lhs, rhs) || m.is_iff(n, lhs, rhs))) {
+    if (is_ground(n) && m.is_eq(n, lhs, rhs)) {
         compute_depth(lhs);
         compute_depth(rhs);
         m_trail.push_back(lhs);
