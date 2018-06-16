@@ -361,7 +361,7 @@ pob *derivation::create_next_child ()
     mev.set_model (*mdl);
     // find must summary used
 
-    reach_fact *rf = pt.get_used_rf (mev, true);
+    reach_fact *rf = pt.get_used_rf (*mev.get_model(), true);
 
     // get an implicant of the summary
     expr_ref_vector u(m), lits(m);
@@ -795,27 +795,24 @@ bool pred_transformer::is_must_reachable(expr* state, model_ref* model)
 
 
 
-reach_fact* pred_transformer::get_used_rf (model_evaluator_util& mev,
-                                                   bool all) {
+reach_fact* pred_transformer::get_used_rf (model& mdl, bool all) {
     expr_ref v (m);
+    model::scoped_model_completion _sc_(mdl, false);
 
     for (auto *rf : m_reach_facts) {
         if (!all && rf->is_init()) continue;
-        VERIFY(mev.eval (rf->tag(), v, false));
-        if (m.is_false(v)) return rf;
+        if (mdl.is_false(rf->tag())) return rf;
     }
     UNREACHABLE();
     return nullptr;
 }
 
-reach_fact *pred_transformer::get_used_origin_rf (model_evaluator_util& mev,
-                                                          unsigned oidx) {
+reach_fact *pred_transformer::get_used_origin_rf(model& mdl, unsigned oidx) {
     expr_ref b(m), v(m);
-
+    model::scoped_model_completion _sc_(mdl, false);
     for (auto *rf : m_reach_facts) {
         pm.formula_n2o (rf->tag(), v, oidx);
-        VERIFY(mev.eval (v, b, false));
-        if (m.is_false (b)) return rf;
+        if (mdl.is_false(v)) return rf;
     }
     UNREACHABLE();
     return nullptr;
@@ -1139,12 +1136,13 @@ expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level)
  *
  * returns an implicant of the summary
  */
-expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
+expr_ref pred_transformer::get_origin_summary (model &mdl,
                                                unsigned level,
                                                unsigned oidx,
                                                bool must,
                                                const ptr_vector<app> **aux)
 {
+    model::scoped_model_completion _sc_(mdl, false);
     expr_ref_vector summary (m);
     expr_ref v(m);
 
@@ -1153,7 +1151,7 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
         // -- no auxiliary variables in lemmas
         *aux = nullptr;
     } else { // find must summary to use
-        reach_fact *f = get_used_origin_rf (mev, oidx);
+        reach_fact *f = get_used_origin_rf(mdl, oidx);
         summary.push_back (f->get ());
         *aux = &f->aux_vars ();
     }
@@ -1167,13 +1165,11 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
     }
 
     // bail out of if the model is insufficient
-    if (!mev.is_true(summary))
-        return expr_ref(m);
+    if (!mdl.is_true(summary)) return expr_ref(m);
 
     // -- pick an implicant
     expr_ref_vector lits(m);
-    compute_implicant_literals (*mev.get_model(), summary, lits);
-
+    compute_implicant_literals (mdl, summary, lits);
     return mk_and(lits);
 }
 
@@ -3199,7 +3195,7 @@ bool context::is_reachable(pob &n)
     mev.set_model(*model);
     // -- update must summary
     if (r && r->get_uninterpreted_tail_size () > 0) {
-        reach_fact_ref rf = n.pt().mk_rf (n, mev, *r);
+        reach_fact_ref rf = n.pt().mk_rf (n, *mev.get_model(), *r);
         n.pt ().add_rf (rf.get ());
     }
 
@@ -3340,7 +3336,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         if (is_concrete) {
             // -- update must summary
             if (r && r->get_uninterpreted_tail_size() > 0) {
-                reach_fact_ref rf = n.pt().mk_rf (n, mev, *r);
+                reach_fact_ref rf = n.pt().mk_rf (n, *mev.get_model(), *r);
                 checkpoint ();
                 n.pt ().add_rf (rf.get ());
                 checkpoint ();
@@ -3554,8 +3550,7 @@ bool context::propagate(unsigned min_prop_lvl,
     return false;
 }
 
-reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
-                                             const datalog::rule& r)
+reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
 {
     SASSERT(&n.pt() == this);
     timeit _timer1 (is_trace_enabled("spacer_timeit"),
@@ -3576,7 +3571,7 @@ reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
         pred_transformer& ch_pt = ctx.get_pred_transformer (pred);
         // get a reach fact of body preds used in the model
         expr_ref o_ch_reach (m);
-        reach_fact *kid = ch_pt.get_used_origin_rf (mev, i);
+        reach_fact *kid = ch_pt.get_used_origin_rf(mdl, i);
         child_reach_facts.push_back (kid);
         pm.formula_n2o (kid->get (), o_ch_reach, i);
         path_cons.push_back (o_ch_reach);
@@ -3599,7 +3594,7 @@ reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
     if (ctx.reach_dnf()) {
         expr_ref_vector u(m), lits(m);
         u.push_back (res);
-        compute_implicant_literals (*mev.get_model(), u, lits);
+        compute_implicant_literals (mdl, u, lits);
         res = mk_and (lits);
     }
 
@@ -3617,7 +3612,7 @@ reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "mk_rf::qe_project",
                         verbose_stream ());
-        mbp(vars, res, *mev.get_model(), false, true /* force or skolemize */);
+        mbp(vars, res, mdl, false, true /* force or skolemize */);
     }
 
 
@@ -3722,7 +3717,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
         const ptr_vector<app> *aux = nullptr;
         expr_ref sum(m);
-        sum = pt.get_origin_summary (mev, prev_level(n.level()),
+        sum = pt.get_origin_summary (*mev.get_model(), prev_level(n.level()),
                                      j, reach_pred_used[j], &aux);
         if (!sum) {
             dealloc(deriv);
