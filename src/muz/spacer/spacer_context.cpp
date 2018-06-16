@@ -366,7 +366,7 @@ pob *derivation::create_next_child ()
     // get an implicant of the summary
     expr_ref_vector u(m), lits (m);
     u.push_back (rf->get ());
-    compute_implicant_literals (mev, u, lits);
+    compute_implicant_literals (*model, u, lits);
     expr_ref v(m);
     v = mk_and (lits);
 
@@ -1172,7 +1172,7 @@ expr_ref pred_transformer::get_origin_summary (model_evaluator_util &mev,
 
     // -- pick an implicant
     expr_ref_vector lits(m);
-    compute_implicant_literals (mev, summary, lits);
+    compute_implicant_literals (*mev.get_model(), summary, lits);
 
     return mk_and(lits);
 }
@@ -3599,7 +3599,7 @@ reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
     if (ctx.reach_dnf()) {
         expr_ref_vector u(m), lits(m);
         u.push_back (res);
-        compute_implicant_literals (mev, u, lits);
+        compute_implicant_literals (*mev.get_model(), u, lits);
         res = mk_and (lits);
     }
 
@@ -3670,7 +3670,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     forms.push_back(pt.get_transition(r));
     forms.push_back(n.post());
 
-    compute_implicant_literals (mev, forms, lits);
+    compute_implicant_literals (*mev.get_model(), forms, lits);
     expr_ref phi = mk_and (lits);
 
     // primed variables of the head
