@@ -128,17 +128,11 @@ namespace spacer {
     }
 
     void subst_vars(ast_manager& m,
-                    app_ref_vector const& vars,
-                    model* M, expr_ref& fml) {
-        expr_safe_replace sub (m);
-        model_evaluator_util mev (m);
-        mev.set_model(*M);
-        for (app * v : vars) {
-            expr_ref val (m);
-            VERIFY(mev.eval (v, val, true));
-            sub.insert (v, val);
-        }
-        sub (fml);
+                    app_ref_vector const& vars, model& mdl, expr_ref& fml) {
+        model::scoped_model_completion _sc_(mdl, true);
+        expr_safe_replace sub(m);
+        for (app * v : vars) sub.insert (v, mdl(v));
+        sub(fml);
     }
 
     void to_mbp_benchmark(std::ostream &out, expr* fml, const app_ref_vector &vars) {
@@ -161,16 +155,14 @@ namespace spacer {
     }
 
     void qe_project_z3 (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
-                        const model_ref& M, bool reduce_all_selects, bool use_native_mbp,
+                        model & mdl, bool reduce_all_selects, bool use_native_mbp,
                         bool dont_sub) {
         params_ref p;
         p.set_bool("reduce_all_selects", reduce_all_selects);
         p.set_bool("dont_sub", dont_sub);
 
         qe::mbp mbp(m, p);
-        // TODO: deal with const
-        model *mdl = const_cast<model*>(M.get());
-        mbp.spacer(vars, *mdl, fml);
+        mbp.spacer(vars, mdl, fml);
     }
 
     /*
@@ -178,7 +170,7 @@ namespace spacer {
      * then, MBP for Booleans (substitute), reals (based on LW), ints (based on Cooper), and arrays
      */
     void qe_project_spacer (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
-                            const model_ref& M, bool reduce_all_selects, bool use_native_mbp,
+                            model& mdl, bool reduce_all_selects, bool use_native_mbp,
                             bool dont_sub) {
         th_rewriter rw (m);
         TRACE ("spacer_mbp",
@@ -221,30 +213,29 @@ namespace spacer {
             // sort out vars into bools, arith (int/real), and arrays
             for (app* v : vars) {
                 if (m.is_bool (v)) {
-                    // obtain the interpretation of the ith var using model completion
-                    VERIFY (M->eval (v, bval, true));
-                    bool_sub.insert (v, bval);
+                    // obtain the interpretation of the ith var
+                    // using model completion
+                    model::scoped_model_completion _sc_(mdl, true);
+                    bool_sub.insert (v, mdl(v));
                 } else if (arr_u.is_array(v)) {
-                    array_vars.push_back (v);
+                    array_vars.push_back(v);
                 } else {
-                    SASSERT (ari_u.is_int (v) || ari_u.is_real (v));
-                    arith_vars.push_back (v);
+                    SASSERT (ari_u.is_int(v) || ari_u.is_real(v));
+                    arith_vars.push_back(v);
                 }
             }
 
             // substitute Booleans
             if (!bool_sub.empty()) {
-                bool_sub (fml);
+                bool_sub(fml);
                 // -- bool_sub is not simplifying
                 rw (fml);
-                SASSERT (!m.is_false (fml));
-                TRACE ("spacer_mbp", tout << "Projected Booleans:\n" << fml << "\n"; );
-                bool_sub.reset ();
+                SASSERT(!m.is_false (fml));
+                TRACE("spacer_mbp", tout << "Projected Booleans:\n" << fml << "\n"; );
+                bool_sub.reset();
             }
 
-            TRACE ("spacer_mbp",
-                   tout << "Array vars:\n";
-                   tout << array_vars;);
+            TRACE ("spacer_mbp", tout << "Array vars:\n"; tout << array_vars;);
 
             vars.reset ();
 
@@ -253,7 +244,7 @@ namespace spacer {
                 scoped_no_proof _sp (m);
                 // -- local rewriter that is aware of current proof mode
                 th_rewriter srw(m);
-                spacer_qe::array_project (*M.get (), array_vars, fml, vars, reduce_all_selects);
+                spacer_qe::array_project (mdl, array_vars, fml, vars, reduce_all_selects);
                 SASSERT (array_vars.empty ());
                 srw (fml);
                 SASSERT (!m.is_false (fml));
@@ -261,10 +252,9 @@ namespace spacer {
 
             TRACE ("spacer_mbp",
                    tout << "extended model:\n";
-                   model_pp (tout, *M);
+                   model_pp (tout, mdl);
                    tout << "Auxiliary variables of index and value sorts:\n";
-                   tout << vars;
-                   );
+                   tout << vars;);
 
             if (vars.empty()) { break; }
         }
@@ -273,39 +263,32 @@ namespace spacer {
         if (!arith_vars.empty ()) {
             TRACE ("spacer_mbp", tout << "Arith vars:\n" << arith_vars;);
 
-            // XXX Does not seem to have an effect
-            // qe_lite qe(m);
-            // qe (arith_vars, fml);
-            // TRACE ("spacer_mbp",
-            //        tout << "After second qelite: " <<
-            //        mk_pp (fml, m) << "\n";);
-
         if (use_native_mbp) {
               qe::mbp mbp (m);
               expr_ref_vector fmls(m);
               flatten_and (fml, fmls);
 
-              mbp (true, arith_vars, *M.get (), fmls);
-              fml = mk_and (fmls);
-              SASSERT (arith_vars.empty ());
+              mbp (true, arith_vars, mdl, fmls);
+              fml = mk_and(fmls);
+              SASSERT(arith_vars.empty ());
         } else {
                 scoped_no_proof _sp (m);
-                spacer_qe::arith_project (*M.get (), arith_vars, fml);
-            }
+                spacer_qe::arith_project (mdl, arith_vars, fml);
+        }
 
             TRACE ("spacer_mbp",
-                    tout << "Projected arith vars:\n" << mk_pp (fml, m) << "\n";
+                   tout << "Projected arith vars:\n" << fml << "\n";
                    tout << "Remaining arith vars:\n" << arith_vars << "\n";);
             SASSERT (!m.is_false (fml));
         }
 
         if (!arith_vars.empty ()) {
-            mbqi_project (*M.get(), arith_vars, fml);
+            mbqi_project (mdl, arith_vars, fml);
         }
 
         // substitute any remaining arith vars
         if (!dont_sub && !arith_vars.empty ()) {
-            subst_vars (m, arith_vars, M.get(), fml);
+            subst_vars (m, arith_vars, mdl, fml);
             TRACE ("spacer_mbp",
                     tout << "After substituting remaining arith vars:\n";
                     tout << mk_pp (fml, m) << "\n";
@@ -315,11 +298,9 @@ namespace spacer {
         }
 
         DEBUG_CODE (
-            model_evaluator_util mev (m);
-            expr_ref v(m);
-            mev.set_model(*M.get());
-            SASSERT (mev.eval (fml, v, false));
-            SASSERT (m.is_true (v));
+            model_evaluator mev(mdl);
+            mev.set_model_completion(false);
+            SASSERT(mev.is_true(fml));
         );
 
         vars.reset ();
@@ -343,12 +324,14 @@ namespace spacer {
     }
 
     void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
-                     const model_ref& M, bool reduce_all_selects, bool use_native_mbp,
+                     model &mdl, bool reduce_all_selects, bool use_native_mbp,
                      bool dont_sub) {
         if (use_native_mbp)
-            qe_project_z3(m, vars, fml, M, reduce_all_selects, use_native_mbp, dont_sub);
+            qe_project_z3(m, vars, fml, mdl,
+                          reduce_all_selects, use_native_mbp, dont_sub);
         else
-            qe_project_spacer(m, vars, fml, M, reduce_all_selects, use_native_mbp, dont_sub);
+            qe_project_spacer(m, vars, fml, mdl,
+                              reduce_all_selects, use_native_mbp, dont_sub);
     }
 
     void expand_literals(ast_manager &m, expr_ref_vector& conjs) {

@@ -62,7 +62,7 @@ extern "C"
         expr_ref result (mk_c(c)->m ());
         result = to_expr (body);
         model_ref model (to_model_ref (m));
-        spacer::qe_project (mk_c(c)->m (), vars, result, model);
+        spacer::qe_project (mk_c(c)->m (), vars, result, *model);
         mk_c(c)->save_ast_trail (result.get ());
 
         return of_expr (result.get ());

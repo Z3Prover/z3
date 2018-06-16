@@ -530,7 +530,7 @@ public:
     bool is_qblocked (pob &n);
 
     /// \brief interface to Model Based Projection
-    void mbp(app_ref_vector &vars, expr_ref &fml, const model_ref &mdl,
+    void mbp(app_ref_vector &vars, expr_ref &fml, model &mdl,
              bool reduce_all_selects, bool force = false);
 
     void updt_solver(prop_solver *solver);

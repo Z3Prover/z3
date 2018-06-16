@@ -265,7 +265,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
                         verbose_stream ());
         vars.append(m_evars);
         m_evars.reset();
-        pt().mbp(vars, m_trans, mev.get_model(),
+        pt().mbp(vars, m_trans, *mev.get_model(),
                  true, pt().get_context().use_ground_pob());
         m_evars.append (vars);
         vars.reset();
@@ -294,7 +294,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
                        verbose_stream ());
         // include m_evars in case they can eliminated now as well
         vars.append(m_evars);
-        pt().mbp(vars, post, mev.get_model(),
+        pt().mbp(vars, post, *mev.get_model(),
                  true, pt().get_context().use_ground_pob());
         //qe::reduce_array_selects (*mev.get_model (), post);
     }
@@ -398,7 +398,7 @@ pob *derivation::create_next_child ()
         if (!vars.empty ()) {
             vars.append(m_evars);
             m_evars.reset();
-            this->pt().mbp(vars, m_trans, mev.get_model(),
+            this->pt().mbp(vars, m_trans, *mev.get_model(),
                            true, this->pt().get_context().use_ground_pob());
             // keep track of implicitly quantified variables
             m_evars.append (vars);
@@ -1267,7 +1267,7 @@ bool pred_transformer::is_qblocked (pob &n) {
 }
 
 
-void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml, const model_ref &mdl,
+void pred_transformer::mbp(app_ref_vector &vars, expr_ref &fml, model &mdl,
                            bool reduce_all_selects, bool force) {
     scoped_watch _t_(m_mbp_watch);
     qe_project(m, vars, fml, mdl, reduce_all_selects, use_native_mbp(), !force);
@@ -3617,7 +3617,7 @@ reach_fact *pred_transformer::mk_rf (pob& n, model_evaluator_util &mev,
         timeit _timer1 (is_trace_enabled("spacer_timeit"),
                         "mk_rf::qe_project",
                         verbose_stream ());
-        mbp(vars, res, mev.get_model(), false, true /* force or skolemize */);
+        mbp(vars, res, *mev.get_model(), false, true /* force or skolemize */);
     }
 
 
@@ -3685,7 +3685,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     // skolems of the pob
     n.get_skolems(vars);
 
-    n.pt().mbp(vars, phi, mev.get_model (), true, use_ground_pob());
+    n.pt().mbp(vars, phi, *mev.get_model (), true, use_ground_pob());
     //qe::reduce_array_selects (*mev.get_model (), phi1);
     SASSERT (!m_ground_pob || vars.empty ());
 
