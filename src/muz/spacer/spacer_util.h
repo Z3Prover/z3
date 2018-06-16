@@ -40,7 +40,6 @@ Revision History:
 
 class model;
 class model_core;
-class model_evaluator;
 
 namespace spacer {
 
@@ -78,33 +77,6 @@ namespace spacer {
     typedef ptr_vector<app> app_vector;
     typedef ptr_vector<func_decl> decl_vector;
     typedef obj_hashtable<func_decl> func_decl_set;
-
-    // TBD: deprecate
-    class model_evaluator_util {
-        ast_manager&           m;
-        model_ref              m_model;
-        model_evaluator*       m_mev;
-
-        /// initialize with a given model. All previous state is lost. model can be NULL
-        void reset (model *model);
-    public:
-        model_evaluator_util(ast_manager& m);
-        ~model_evaluator_util();
-
-        void set_model(model &model) {reset (&model);}
-        model_ref &get_model() {return m_model;}
-        ast_manager& get_ast_manager() const {return m;}
-
-    public:
-        bool is_true (const expr_ref_vector &v);
-        bool is_false(expr* x);
-        bool is_true(expr* x);
-
-        bool eval (const expr_ref_vector &v, expr_ref &result, bool model_completion);
-        /// evaluates an expression
-        bool eval (expr *e, expr_ref &result, bool model_completion);
-        // expr_ref eval(expr* e, bool complete=true);
-    };
 
     /**
        \brief hoist non-boolean if expressions.
@@ -146,7 +118,7 @@ namespace spacer {
      */
     void ground_expr (expr *e, expr_ref &out, app_ref_vector &vars);
 
-    void mbqi_project (model &M, app_ref_vector &vars, expr_ref &fml);
+    void mbqi_project(model &mdl, app_ref_vector &vars, expr_ref &fml);
 
     bool contains_selects (expr* fml, ast_manager& m);
     void get_select_indices (expr* fml, app_ref_vector& indices, ast_manager& m);

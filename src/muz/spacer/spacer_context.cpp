@@ -36,7 +36,6 @@ Notes:
 #include "muz/base/dl_rule_set.h"
 #include "smt/tactic/unit_subsumption_tactic.h"
 #include "model/model_smt2_pp.h"
-#include "model/model_evaluator.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -356,12 +355,10 @@ pob *derivation::create_next_child ()
     // this is possible if m_post was weakened for some reason
     model_ref mdl;
     if (!pt.is_must_reachable(mk_and(summaries), &mdl)) { return nullptr; }
+    mdl->set_model_completion(false);
 
-    model_evaluator_util mev (m);
-    mev.set_model (*mdl);
     // find must summary used
-
-    reach_fact *rf = pt.get_used_rf (*mev.get_model(), true);
+    reach_fact *rf = pt.get_used_rf (*mdl, true);
 
     // get an implicant of the summary
     expr_ref_vector u(m), lits(m);
@@ -2883,7 +2880,6 @@ expr_ref context::get_ground_sat_answer()
     // smt context to obtain local cexes
     ref<solver> cex_ctx =
         mk_smt_solver(m, params_ref::get_empty(), symbol::null);
-    model_evaluator_util mev (m);
 
     // preorder traversal of the query derivation tree
     for (unsigned curr = 0; curr < pts.size (); curr++) {
@@ -2936,8 +2932,7 @@ expr_ref context::get_ground_sat_answer()
         model_ref local_mdl;
         cex_ctx->get_model (local_mdl);
         cex_ctx->pop (1);
-
-        model_evaluator mev(*local_mdl);
+        local_mdl->set_model_completion(true);
         for (unsigned i = 0; i < child_pts.size(); i++) {
             pred_transformer& ch_pt = *(child_pts.get(i));
             unsigned sig_size = ch_pt.sig_size();
@@ -2946,7 +2941,7 @@ expr_ref context::get_ground_sat_answer()
             for (unsigned j = 0; j < sig_size; j++) {
                 expr_ref sig_arg(m), sig_val(m);
                 sig_arg = m.mk_const (m_pm.o2o(ch_pt.sig(j), 0, i));
-                VERIFY(mev.eval (sig_arg, sig_val, true));
+                sig_val = (*local_mdl)(sig_arg);
                 ground_fact_conjs.push_back(m.mk_eq(sig_arg, sig_val));
                 ground_arg_vals.push_back(sig_val);
             }
@@ -3166,7 +3161,7 @@ bool context::is_reachable(pob &n)
 
     // used in case n is unreachable
     unsigned uses_level = infty_level ();
-    model_ref model;
+    model_ref mdl;
 
     // used in case n is reachable
     bool is_concrete;
@@ -3177,7 +3172,7 @@ bool context::is_reachable(pob &n)
 
     unsigned saved = n.level ();
     n.m_level = infty_level ();
-    lbool res = n.pt().is_reachable(n, nullptr, &model,
+    lbool res = n.pt().is_reachable(n, nullptr, &mdl,
                                     uses_level, is_concrete, r,
                                     reach_pred_used, num_reuse_reach);
     n.m_level = saved;
@@ -3191,11 +3186,9 @@ bool context::is_reachable(pob &n)
     SASSERT(res == l_true);
     SASSERT(is_concrete);
 
-    model_evaluator_util mev (m);
-    mev.set_model(*model);
     // -- update must summary
     if (r && r->get_uninterpreted_tail_size () > 0) {
-        reach_fact_ref rf = n.pt().mk_rf (n, *mev.get_model(), *r);
+        reach_fact_ref rf = n.pt().mk_rf (n, *mdl, *r);
         n.pt ().add_rf (rf.get ());
     }
 
@@ -3322,6 +3315,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
     lbool res = n.pt ().is_reachable (n, &cube, &model, uses_level, is_concrete, r,
                                       reach_pred_used, num_reuse_reach);
+    if (model) model->set_model_completion(false);
     checkpoint ();
     IF_VERBOSE (1, verbose_stream () << "." << std::flush;);
     switch (res) {
@@ -3330,13 +3324,11 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         // update stats
         m_stats.m_num_reuse_reach += num_reuse_reach;
 
-        model_evaluator_util mev (m);
-        mev.set_model (*model);
         // must-reachable
         if (is_concrete) {
             // -- update must summary
             if (r && r->get_uninterpreted_tail_size() > 0) {
-                reach_fact_ref rf = n.pt().mk_rf (n, *mev.get_model(), *r);
+                reach_fact_ref rf = n.pt().mk_rf (n, *model, *r);
                 checkpoint ();
                 n.pt ().add_rf (rf.get ());
                 checkpoint ();
@@ -3374,7 +3366,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         // create a child of n
 
         out.push_back(&n);
-        VERIFY(create_children (n, *r, mev, reach_pred_used, out));
+        VERIFY(create_children (n, *r, *model, reach_pred_used, out));
         IF_VERBOSE(1, verbose_stream () << " U "
                    << std::fixed << std::setprecision(2)
                    << watch.get_seconds () << "\n";);
@@ -3449,12 +3441,10 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             SASSERT(m_weak_abs);
             m_stats.m_expand_pob_undef++;
             if (r && r->get_uninterpreted_tail_size() > 0) {
-                model_evaluator_util mev(m);
-                mev.set_model(*model);
                 // do not trust reach_pred_used
                 for (unsigned i = 0, sz = reach_pred_used.size(); i < sz; ++i)
                 { reach_pred_used[i] = false; }
-                has_new_child = create_children(n,*r,mev,reach_pred_used, out);
+                has_new_child = create_children(n, *r, *model, reach_pred_used, out);
             }
             IF_VERBOSE(1, verbose_stream() << " UNDEF "
                        << std::fixed << std::setprecision(2)
@@ -3640,7 +3630,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
    \brief create children states from model cube.
 */
 bool context::create_children(pob& n, datalog::rule const& r,
-                              model_evaluator_util &mev,
+                              model &mdl,
                               const vector<bool> &reach_pred_used,
                               pob_ref_buffer &out)
 {
@@ -3649,7 +3639,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
     TRACE("spacer",
           tout << "Model:\n";
-          model_smt2_pp(tout, m, *mev.get_model (), 0);
+          model_smt2_pp(tout, m, mdl, 0);
           tout << "\n";
           tout << "Transition:\n" << mk_pp(pt.get_transition(r), m) << "\n";
           tout << "Pob:\n" << mk_pp(n.post(), m) << "\n";);
@@ -3665,7 +3655,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     forms.push_back(pt.get_transition(r));
     forms.push_back(n.post());
 
-    compute_implicant_literals (*mev.get_model(), forms, lits);
+    compute_implicant_literals (mdl, forms, lits);
     expr_ref phi = mk_and (lits);
 
     // primed variables of the head
@@ -3680,7 +3670,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     // skolems of the pob
     n.get_skolems(vars);
 
-    n.pt().mbp(vars, phi, *mev.get_model (), true, use_ground_pob());
+    n.pt().mbp(vars, phi, mdl, true, use_ground_pob());
     //qe::reduce_array_selects (*mev.get_model (), phi1);
     SASSERT (!m_ground_pob || vars.empty ());
 
@@ -3694,7 +3684,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
     if (m_use_gpdr && preds.size() > 1) {
         SASSERT(vars.empty());
-        return gpdr_create_split_children(n, r, phi, mev.get_model(), out);
+        return gpdr_create_split_children(n, r, phi, mdl, out);
     }
 
     derivation *deriv = alloc(derivation, n, r, phi, vars);
@@ -3717,7 +3707,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
         const ptr_vector<app> *aux = nullptr;
         expr_ref sum(m);
-        sum = pt.get_origin_summary (*mev.get_model(), prev_level(n.level()),
+        sum = pt.get_origin_summary (mdl, prev_level(n.level()),
                                      j, reach_pred_used[j], &aux);
         if (!sum) {
             dealloc(deriv);
@@ -3727,7 +3717,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     }
 
     // create post for the first child and add to queue
-    pob* kid = deriv->create_first_child (*mev.get_model());
+    pob* kid = deriv->create_first_child (mdl);
 
     // -- failed to create derivation, cleanup and bail out
     if (!kid) {
@@ -3744,8 +3734,8 @@ bool context::create_children(pob& n, datalog::rule const& r,
     // -- not satisfy 'T && phi'. It is possible to recover from
     // -- that more gracefully. For now, we just remove the
     // -- derivation completely forcing it to be recomputed
-    if (m_weak_abs && (!mev.is_true(pt.get_transition(r)) ||
-                       !mev.is_true(n.post())))
+    if (m_weak_abs && (!mdl.is_true(pt.get_transition(r)) ||
+                       !mdl.is_true(n.post())))
     { kid->reset_derivation(); }
 
     out.push_back(kid);

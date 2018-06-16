@@ -69,64 +69,6 @@ Notes:
 
 namespace spacer {
 
-    /////////////////////////
-    // model_evaluator_util
-    //
-
-    model_evaluator_util::model_evaluator_util(ast_manager& m) :
-        m(m), m_mev(nullptr) {
-        reset (nullptr);
-    }
-
-    model_evaluator_util::~model_evaluator_util() {reset (nullptr);}
-
-
-    void model_evaluator_util::reset(model* model) {
-        if (m_mev) {
-            dealloc(m_mev);
-            m_mev = nullptr;
-        }
-        m_model = model;
-        if (m_model)
-            m_mev = alloc(model_evaluator, *m_model);
-    }
-
-    bool model_evaluator_util::eval(expr *e, expr_ref &result, bool model_completion) {
-        m_mev->set_model_completion (model_completion);
-        try {
-            m_mev->operator() (e, result);
-            return true;
-        }
-        catch (model_evaluator_exception &ex) {
-            (void)ex;
-            TRACE("spacer_model_evaluator", tout << ex.msg () << "\n";);
-            return false;
-        }
-    }
-
-    bool model_evaluator_util::eval(const expr_ref_vector &v,
-                                    expr_ref& res, bool model_completion) {
-        expr_ref e(m);
-        e = mk_and (v);
-        return eval(e, res, model_completion);
-    }
-
-
-    bool model_evaluator_util::is_true(const expr_ref_vector &v) {
-        expr_ref res(m);
-        return eval (v, res, false) && m.is_true (res);
-    }
-
-    bool model_evaluator_util::is_false(expr *x) {
-        expr_ref res(m);
-        return eval(x, res, false) && m.is_false (res);
-    }
-
-    bool model_evaluator_util::is_true(expr *x) {
-        expr_ref res(m);
-        return eval(x, res, false) && m.is_true (res);
-    }
-
     void subst_vars(ast_manager& m,
                     app_ref_vector const& vars, model& mdl, expr_ref& fml) {
         model::scoped_model_completion _sc_(mdl, true);
@@ -876,36 +818,36 @@ namespace {
         }
     };
 
-    bool mbqi_project_var(model_evaluator_util &mev, app* var, expr_ref &fml) {
+    bool mbqi_project_var(model &mdl, app* var, expr_ref &fml) {
         ast_manager &m = fml.get_manager();
+        model::scoped_model_completion _sc_(mdl, false);
 
         expr_ref val(m);
-        mev.eval(var, val, false);
+        val = mdl(var);
 
         TRACE("mbqi_project_verbose",
-               tout << "MBQI: var: " << mk_pp(var, m) << "\n"
-               << "fml: " << fml << "\n";);
+              tout << "MBQI: var: " << mk_pp(var, m) << "\n"
+              << "fml: " << fml << "\n";);
         expr_ref_vector terms(m);
         index_term_finder finder(m, var, terms);
         for_each_expr(finder, fml);
 
-        TRACE("mbqi_project_verbose",
-               tout << "terms:\n" << terms << "\n";);
+        TRACE("mbqi_project_verbose", tout << "terms:\n" << terms << "\n";);
 
         for(expr * term : terms) {
             expr_ref tval(m);
-            mev.eval(term, tval, false);
+            tval = mdl(term);
 
             TRACE("mbqi_project_verbose",
                    tout << "term: " << mk_pp(term, m)
-                   << " tval: " << tval
-                   << " val: " << mk_pp(val, m) << "\n";);
+                   << " tval: " << tval << " val: " << val << "\n";);
 
             // -- if the term does not contain an occurrence of var
             // -- and is in the same equivalence class in the model
             if (tval == val && !occurs(var, term)) {
                 TRACE("mbqi_project",
-                       tout << "MBQI: replacing " << mk_pp(var, m) << " with " << mk_pp(term, m) << "\n";);
+                       tout << "MBQI: replacing " << mk_pp(var, m)
+                      << " with " << mk_pp(term, m) << "\n";);
                 expr_safe_replace sub(m);
                 sub.insert(var, term);
                 sub(fml);
@@ -914,23 +856,23 @@ namespace {
         }
 
         TRACE("mbqi_project",
-               tout << "MBQI: failed to eliminate " << mk_pp(var, m) << " from " << fml << "\n";);
+               tout << "MBQI: failed to eliminate " << mk_pp(var, m)
+              << " from " << fml << "\n";);
 
         return false;
     }
 
-    void mbqi_project(model &M, app_ref_vector &vars, expr_ref &fml) {
+    void mbqi_project(model &mdl, app_ref_vector &vars, expr_ref &fml) {
         ast_manager &m = fml.get_manager();
-        model_evaluator_util mev(m);
-        mev.set_model(M);
         expr_ref tmp(m);
+        model::scoped_model_completion _sc_(mdl, false);
         // -- evaluate to initialize mev cache
-        mev.eval(fml, tmp, false);
+        tmp = mdl(fml);
         tmp.reset();
 
         unsigned j = 0;
         for(app* v : vars)
-            if (!mbqi_project_var(mev, v, fml))
+            if (!mbqi_project_var(mdl, v, fml))
                 vars[j++] = v;
         vars.shrink(j);
     }

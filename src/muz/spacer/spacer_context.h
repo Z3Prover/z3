@@ -940,7 +940,7 @@ class context {
     bool gpdr_check_reachability(unsigned lvl, model_search &ms);
     bool gpdr_create_split_children(pob &n, const datalog::rule &r,
                                     expr *trans,
-                                    model_ref &mdl,
+                                    model &mdl,
                                     pob_ref_buffer &out);
 
     // Functions used by search.
@@ -952,7 +952,7 @@ class context {
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
     bool create_children(pob& n, const datalog::rule &r,
-                         model_evaluator_util &mdl,
+                         model &mdl,
                          const vector<bool>& reach_pred_used,
                          pob_ref_buffer &out);
 
