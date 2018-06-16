@@ -740,7 +740,7 @@ class derivation {
     app_ref_vector                      m_evars;
     /// -- create next child using given model as the guide
     /// -- returns NULL if there is no next child
-    pob* create_next_child (model_evaluator_util &mev);
+    pob* create_next_child (model &mdl);
     /// existentially quantify vars and skolemize the result
     void exist_skolemize(expr *fml, app_ref_vector &vars, expr_ref &res);
 public:
@@ -752,7 +752,7 @@ public:
     /// creates the first child. Must be called after all the premises
     /// are added. The model must be valid for the premises
     /// Returns NULL if no child exits
-    pob *create_first_child (model_evaluator_util &mev);
+    pob *create_first_child (model &mdl);
 
     /// Create the next child. Must summary of the currently active
     /// premise must be consistent with the transition relation

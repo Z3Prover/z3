@@ -195,10 +195,10 @@ void derivation::add_premise (pred_transformer &pt,
 
 
 
-pob *derivation::create_first_child (model_evaluator_util &mev) {
+pob *derivation::create_first_child (model &mdl) {
     if (m_premises.empty()) { return nullptr; }
     m_active = 0;
-    return create_next_child(mev);
+    return create_next_child(mdl);
 }
 
 void derivation::exist_skolemize(expr* fml, app_ref_vector &vars, expr_ref &res) {
@@ -236,7 +236,7 @@ void derivation::exist_skolemize(expr* fml, app_ref_vector &vars, expr_ref &res)
     sub(fml, res);
 }
 
-pob *derivation::create_next_child (model_evaluator_util &mev)
+pob *derivation::create_next_child(model &mdl)
 {
     timeit _timer (is_trace_enabled("spacer_timeit"),
                    "spacer::derivation::create_next_child",
@@ -265,13 +265,13 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
                         verbose_stream ());
         vars.append(m_evars);
         m_evars.reset();
-        pt().mbp(vars, m_trans, *mev.get_model(),
+        pt().mbp(vars, m_trans, mdl,
                  true, pt().get_context().use_ground_pob());
         m_evars.append (vars);
         vars.reset();
     }
 
-    if (!mev.is_true (m_premises[m_active].get_summary())) {
+    if (!mdl.is_true(m_premises[m_active].get_summary())) {
         IF_VERBOSE(1, verbose_stream() << "Summary unexpectendly not true\n";);
         return nullptr;
     }
@@ -294,7 +294,7 @@ pob *derivation::create_next_child (model_evaluator_util &mev)
                        verbose_stream ());
         // include m_evars in case they can eliminated now as well
         vars.append(m_evars);
-        pt().mbp(vars, post, *mev.get_model(),
+        pt().mbp(vars, post, mdl,
                  true, pt().get_context().use_ground_pob());
         //qe::reduce_array_selects (*mev.get_model (), post);
     }
@@ -337,7 +337,6 @@ pob *derivation::create_next_child ()
 
     // construct a new model consistent with the must summary of m_active premise
     pred_transformer &pt = m_premises[m_active].pt ();
-    model_ref model;
 
     ast_manager &m = get_ast_manager ();
     manager &pm = get_manager ();
@@ -355,18 +354,19 @@ pob *derivation::create_next_child ()
 
     // if not true, bail out, the must summary of m_active is not strong enough
     // this is possible if m_post was weakened for some reason
-    if (!pt.is_must_reachable(mk_and(summaries), &model)) { return nullptr; }
+    model_ref mdl;
+    if (!pt.is_must_reachable(mk_and(summaries), &mdl)) { return nullptr; }
 
     model_evaluator_util mev (m);
-    mev.set_model (*model);
+    mev.set_model (*mdl);
     // find must summary used
 
     reach_fact *rf = pt.get_used_rf (mev, true);
 
     // get an implicant of the summary
-    expr_ref_vector u(m), lits (m);
+    expr_ref_vector u(m), lits(m);
     u.push_back (rf->get ());
-    compute_implicant_literals (*model, u, lits);
+    compute_implicant_literals (*mdl, u, lits);
     expr_ref v(m);
     v = mk_and (lits);
 
@@ -398,7 +398,7 @@ pob *derivation::create_next_child ()
         if (!vars.empty ()) {
             vars.append(m_evars);
             m_evars.reset();
-            this->pt().mbp(vars, m_trans, *mev.get_model(),
+            this->pt().mbp(vars, m_trans, *mdl,
                            true, this->pt().get_context().use_ground_pob());
             // keep track of implicitly quantified variables
             m_evars.append (vars);
@@ -408,7 +408,7 @@ pob *derivation::create_next_child ()
 
     m_active++;
 
-    return create_next_child (mev);
+    return create_next_child (*mdl);
 }
 
 /// derivation::premise
@@ -3732,7 +3732,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     }
 
     // create post for the first child and add to queue
-    pob* kid = deriv->create_first_child (mev);
+    pob* kid = deriv->create_first_child (*mev.get_model());
 
     // -- failed to create derivation, cleanup and bail out
     if (!kid) {
