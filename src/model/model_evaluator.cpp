@@ -85,8 +85,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         model_evaluator_params p(_p);
         m_max_memory       = megabytes_to_bytes(p.max_memory());
         m_max_steps        = p.max_steps();
-        m_model_completion = p.completion();
         m_cache            = p.cache();
+        m_model_completion = p.completion();
         m_array_equalities = p.array_equalities();
         m_array_as_stores  = p.array_as_stores();
     }
@@ -542,6 +542,10 @@ void model_evaluator::get_param_descrs(param_descrs & r) {
 
 void model_evaluator::set_model_completion(bool f) {
     m_imp->cfg().m_model_completion = f;
+}
+
+bool model_evaluator::get_model_completion() const {
+    return m_imp->cfg().m_model_completion;
 }
 
 void model_evaluator::set_expand_array_equalities(bool f) {

@@ -37,6 +37,7 @@ public:
 
     ast_manager & m () const;
     void set_model_completion(bool f);
+    bool get_model_completion() const; 
     void set_expand_array_equalities(bool f);
 
     void updt_params(params_ref const & p);
