@@ -781,9 +781,8 @@ public:
     bool is_true(expr_ref_vector const& es) {
         unsigned i = 0;
         for (; i < es.size() && is_true(es[i]); ++i) { }
-        CTRACE("opt", i < es.size(), tout << mk_pp(es[i], m) << "\n";
-               model_smt2_pp(tout, m, *m_model, 0);
-               );
+        CTRACE("opt_bug", i < es.size(), tout << mk_pp(es[i], m) << "\n";
+               model_smt2_pp(tout, m, *m_model, 0););
         return i == es.size();
     }
 
