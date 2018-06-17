@@ -306,7 +306,7 @@ bool context::gpdr_check_reachability(unsigned lvl, model_search &ms) {
 
 bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
                                          expr *trans,
-                                         model_ref &mdl,
+                                         model &mdl,
                                          pob_ref_buffer &out) {
     pred_transformer &pt = n.pt();
     ptr_vector<func_decl> preds;
@@ -330,7 +330,7 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
     expr_ref_vector lits(m);
     flatten_and(trans, lits);
     vector<expr_ref_vector> res(preds.size(), expr_ref_vector(m));
-    _mbc(pmap, lits, *mdl.get(), res);
+    _mbc(pmap, lits, mdl, res);
 
     // pick an order to process children
     unsigned_vector kid_order;

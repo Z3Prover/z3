@@ -440,10 +440,10 @@ public:
     bool is_must_reachable(expr* state, model_ref* model = nullptr);
     /// \brief Returns reachability fact active in the given model
     /// all determines whether initial reachability facts are included as well
-    reach_fact *get_used_rf(model_evaluator_util& mev, bool all = true);
+    reach_fact *get_used_rf(model& mdl, bool all = true);
     /// \brief Returns reachability fact active in the origin of the given model
-    reach_fact* get_used_origin_rf(model_evaluator_util &mev, unsigned oidx);
-    expr_ref get_origin_summary(model_evaluator_util &mev,
+    reach_fact* get_used_origin_rf(model &mdl, unsigned oidx);
+    expr_ref get_origin_summary(model &mdl,
                                 unsigned level, unsigned oidx, bool must,
                                 const ptr_vector<app> **aux);
 
@@ -472,8 +472,7 @@ public:
 
     /// initialize reachability facts using initial rules
     void init_rfs ();
-    reach_fact *mk_rf(pob &n, model_evaluator_util &mev,
-                              const datalog::rule &r);
+    reach_fact *mk_rf(pob &n, model &mdl, const datalog::rule &r);
     void add_rf (reach_fact *fact);  // add reachability fact
     reach_fact* get_last_rf () const { return m_reach_facts.back (); }
     expr* get_last_rf_tag () const;
@@ -530,7 +529,7 @@ public:
     bool is_qblocked (pob &n);
 
     /// \brief interface to Model Based Projection
-    void mbp(app_ref_vector &vars, expr_ref &fml, const model_ref &mdl,
+    void mbp(app_ref_vector &vars, expr_ref &fml, model &mdl,
              bool reduce_all_selects, bool force = false);
 
     void updt_solver(prop_solver *solver);
@@ -740,7 +739,7 @@ class derivation {
     app_ref_vector                      m_evars;
     /// -- create next child using given model as the guide
     /// -- returns NULL if there is no next child
-    pob* create_next_child (model_evaluator_util &mev);
+    pob* create_next_child (model &mdl);
     /// existentially quantify vars and skolemize the result
     void exist_skolemize(expr *fml, app_ref_vector &vars, expr_ref &res);
 public:
@@ -752,7 +751,7 @@ public:
     /// creates the first child. Must be called after all the premises
     /// are added. The model must be valid for the premises
     /// Returns NULL if no child exits
-    pob *create_first_child (model_evaluator_util &mev);
+    pob *create_first_child (model &mdl);
 
     /// Create the next child. Must summary of the currently active
     /// premise must be consistent with the transition relation
@@ -941,7 +940,7 @@ class context {
     bool gpdr_check_reachability(unsigned lvl, model_search &ms);
     bool gpdr_create_split_children(pob &n, const datalog::rule &r,
                                     expr *trans,
-                                    model_ref &mdl,
+                                    model &mdl,
                                     pob_ref_buffer &out);
 
     // Functions used by search.
@@ -953,7 +952,7 @@ class context {
     bool is_reachable(pob &n);
     lbool expand_pob(pob &n, pob_ref_buffer &out);
     bool create_children(pob& n, const datalog::rule &r,
-                         model_evaluator_util &mdl,
+                         model &mdl,
                          const vector<bool>& reach_pred_used,
                          pob_ref_buffer &out);
 
