@@ -8858,7 +8858,10 @@ class FPNumRef(FPRef):
     1.25
     """
     def significand_as_long(self):
-        return Z3_fpa_get_numeral_significand_uint64(self.ctx.ref(), self.as_ast())
+        ptr = (ctypes.c_ulonglong * 1)()
+        if not Z3_fpa_get_numeral_significand_uint64(self.ctx.ref(), self.as_ast(), ptr):
+            raise Z3Exception("error retrieving the significand of a numeral.")
+        return ptr[0]
     
     """The significand of the numeral as a bit-vector expression.
 
