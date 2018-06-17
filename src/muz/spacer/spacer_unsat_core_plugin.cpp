@@ -240,7 +240,7 @@ namespace spacer {
 
         func_decl* d = step->get_decl();
         symbol sym;
-        if(!m_learner.is_closed(step) && // if step is not already interpolated
+        if (!m_learner.is_closed(step) && // if step is not already interpolated
            is_farkas_lemma(m, step)) {
             SASSERT(d->get_num_parameters() == m.get_num_parents(step) + 2);
             SASSERT(m.has_fact(step));
@@ -415,7 +415,7 @@ namespace spacer {
         }
 
         // 4. find smallest n using guess and check algorithm
-        for(unsigned n = 1; true; ++n)
+        for (unsigned n = 1; true; ++n)
         {
             params_ref p;
             p.set_bool("model", true);

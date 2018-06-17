@@ -137,7 +137,7 @@ void iuc_proof::compute_marks()
 
             // if current node is application of a lemma, then all
             // active hypotheses are removed
-            if(cur->get_decl_kind() == PR_LEMMA) need_to_mark_h = false;
+            if (cur->get_decl_kind() == PR_LEMMA) need_to_mark_h = false;
 
             // save results
             m_a_mark.mark(cur, need_to_mark_a);
@@ -212,9 +212,9 @@ void iuc_proof::display_dot(std::ostream& out) {
         std::string color = "white";
         if (this->is_a_marked(curr) && !this->is_b_marked(curr))
             color = "red";
-        else if(!this->is_a_marked(curr) && this->is_b_marked(curr))
+        else if (!this->is_a_marked(curr) && this->is_b_marked(curr))
             color = "blue";
-        else if(this->is_a_marked(curr) && this->is_b_marked(curr) )
+        else if (this->is_a_marked(curr) && this->is_b_marked(curr) )
             color = "purple";
 
         // compute node label

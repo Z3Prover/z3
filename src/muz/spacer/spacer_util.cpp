@@ -420,7 +420,7 @@ namespace {
                     m_todo.append(a->get_num_args(), a->get_args());
                 }
                 else {
-                    for(expr* e : *a) {
+                    for (expr* e : *a) {
                         if (m_model.is_false(e)) {
                             m_todo.push_back(e);
                             break;
@@ -432,7 +432,7 @@ namespace {
                 if (!is_true)
                     m_todo.append(a->get_num_args(), a->get_args());
                 else {
-                    for(expr * e : *a) {
+                    for (expr * e : *a) {
                         if (m_model.is_true(e)) {
                             m_todo.push_back(e);
                             break;
@@ -504,14 +504,15 @@ namespace {
                 m_todo.pop_back();
                 process_app(a, out);
                 m_visited.mark(a, true);
-            } while(!m_todo.empty());
+            } 
+            while (!m_todo.empty());
         }
 
         bool pick_implicant(const expr_ref_vector &in, expr_ref_vector &out) {
             m_visited.reset();
             bool is_true = m_model.is_true(in);
 
-            for(expr* e : in) {
+            for (expr* e : in) {
                 if (is_true || m_model.is_true(e)) {
                     pick_literals(e, out);
                 }
@@ -551,7 +552,7 @@ namespace {
         ast_manager& m = cube.m();
         scoped_no_proof _no_pf_(m);
         goal_ref g(alloc(goal, m, false, false, false));
-        for(expr* c : cube)
+        for (expr* c : cube)
             g->assert_expr(c);
 
         goal_ref_buffer result;
@@ -560,7 +561,7 @@ namespace {
         SASSERT(result.size() == 1);
         goal* r = result[0];
         cube.reset();
-        for(unsigned i = 0; i < r->size(); ++i) {
+        for (unsigned i = 0; i < r->size(); ++i) {
             cube.push_back(r->form(i));
         }
     }
@@ -569,7 +570,7 @@ namespace {
         ast_manager &m = cube.m();
         scoped_no_proof _no_pf_(m);
         goal_ref g(alloc(goal, m, false, false, false));
-        for(expr* c : cube)
+        for (expr* c : cube)
             g->assert_expr(c);
 
         goal_ref_buffer goals;
@@ -582,7 +583,7 @@ namespace {
 
         g = goals[0];
         cube.reset();
-        for(unsigned i = 0; i < g->size(); ++i) {
+        for (unsigned i = 0; i < g->size(); ++i) {
             cube.push_back(g->form(i));
         }
     }
@@ -687,7 +688,7 @@ namespace {
                       << mk_and(v) << "\n";);
                 TRACE("spacer_normalize",
                       qe::term_graph egraph(out.m());
-                      for(expr* e : v) egraph.add_lit(to_app(e));
+                      for (expr* e : v) egraph.add_lit(to_app(e));
                       tout << "Reduced app:\n"
                       << mk_pp(egraph.to_app(), out.m()) << "\n";);
                 out = mk_and(v);
@@ -790,7 +791,7 @@ namespace {
         if (vars.size() < fv.size()) {
             vars.resize(fv.size());
         }
-        for(unsigned i = 0, sz = fv.size(); i < sz; ++i) {
+        for (unsigned i = 0, sz = fv.size(); i < sz; ++i) {
             sort *s = fv[i] ? fv[i] : m.mk_bool_sort();
             vars[i] = mk_zk_const(m, i, s);
             var_subst vs(m, false);
@@ -810,7 +811,7 @@ namespace {
         void operator()(app *n) {
             if (m_array.is_select(n) || m.is_eq(n)) {
                 unsigned i = 0;
-                for(expr * arg : *n) {
+                for (expr * arg : *n) {
                     if ((m.is_eq(n) || i > 0) && m_var != arg) m_res.push_back(arg);
                     ++i;
                 }
@@ -834,7 +835,7 @@ namespace {
 
         TRACE("mbqi_project_verbose", tout << "terms:\n" << terms << "\n";);
 
-        for(expr * term : terms) {
+        for (expr * term : terms) {
             expr_ref tval(m);
             tval = mdl(term);
 
@@ -871,7 +872,7 @@ namespace {
         tmp.reset();
 
         unsigned j = 0;
-        for(app* v : vars)
+        for (app* v : vars)
             if (!mbqi_project_var(mdl, v, fml))
                 vars[j++] = v;
         vars.shrink(j);
@@ -903,7 +904,7 @@ namespace {
         void operator()(expr* n) {}
         void operator()(app* n) {
             if (a.is_select(n))
-                for(unsigned i = 1; i < n->get_num_args(); ++i)
+                for (unsigned i = 1; i < n->get_num_args(); ++i)
                     if (is_app(n->get_arg(i)))
                         m_indices.push_back(to_app(n->get_arg(i)));
         }

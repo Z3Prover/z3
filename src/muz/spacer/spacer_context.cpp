@@ -68,7 +68,7 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_level (level), m_depth (depth),
     m_open (true), m_use_farkas (true), m_weakness(0),
     m_blocked_lvl(0) {
-    if(add_to_parent && m_parent) {
+    if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
 }
@@ -106,14 +106,14 @@ void pob::inherit(pob const &p) {
 }
 
 void pob::clean () {
-    if(m_new_post) {
+    if (m_new_post) {
         m_post = m_new_post;
         m_new_post.reset();
     }
 }
 
 void pob::close () {
-    if(!m_open) { return; }
+    if (!m_open) { return; }
 
     reset ();
     m_open = false;
@@ -537,7 +537,7 @@ void lemma::mk_cube_core() {
     if (!m_cube.empty()) {return;}
     expr_ref cube(m);
     if (m_pob || m_body) {
-        if(m_pob) {cube = m_pob->post();}
+        if (m_pob) {cube = m_pob->post();}
         else if (m_body) {
             // no quantifiers for now
             SASSERT(!is_quantifier(m_body));
@@ -637,7 +637,7 @@ void lemma::instantiate(expr * const * exprs, expr_ref &result, expr *e) {
 }
 
 void lemma::set_level (unsigned lvl) {
-    if(m_pob){m_pob->blocked_at(lvl);}
+    if (m_pob){m_pob->blocked_at(lvl);}
     m_lvl = lvl;
 }
 
@@ -1920,7 +1920,7 @@ bool pred_transformer::frames::add_lemma(lemma *new_lemma)
                 if (!new_lemma->get_bindings().empty()) {
                     m_pt.add_lemma_core(old_lemma, true);
                 }
-                if(is_infty_level(old_lemma->level())) {
+                if (is_infty_level(old_lemma->level())) {
                     old_lemma->bump();
                     if (old_lemma->get_bumped() >= 100) {
                         IF_VERBOSE(1, verbose_stream() << "Adding lemma to oo "
@@ -3230,7 +3230,7 @@ bool context::is_reachable(pob &n)
 
 void context::dump_json()
 {
-    if(m_params.spacer_print_json().size()) {
+    if (m_params.spacer_print_json().size()) {
         std::ofstream of;
         of.open(m_params.spacer_print_json().bare_str());
         m_json_marshaller.marshal(of);
@@ -3241,7 +3241,7 @@ void context::dump_json()
 void context::predecessor_eh()
 {
     for (unsigned i = 0; i < m_callbacks.size(); i++) {
-        if(m_callbacks[i]->predecessor())
+        if (m_callbacks[i]->predecessor())
             m_callbacks[i]->predecessor_eh();
     }
 }
