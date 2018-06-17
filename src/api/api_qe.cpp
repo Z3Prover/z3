@@ -52,7 +52,7 @@ extern "C"
         Z3_TRY;
         LOG_Z3_qe_model_project (c, m, num_bounds, bound, body);
         RESET_ERROR_CODE();
-      
+
         app_ref_vector vars(mk_c(c)->m ());
         if (!to_apps(num_bounds, bound, vars)) {
             SET_ERROR_CODE (Z3_INVALID_ARG);
@@ -62,7 +62,7 @@ extern "C"
         expr_ref result (mk_c(c)->m ());
         result = to_expr (body);
         model_ref model (to_model_ref (m));
-        spacer::qe_project (mk_c(c)->m (), vars, result, model);
+        spacer::qe_project (mk_c(c)->m (), vars, result, *model);
         mk_c(c)->save_ast_trail (result.get ());
 
         return of_expr (result.get ());
@@ -119,11 +119,8 @@ extern "C"
         facts.push_back (to_expr (fml));
         flatten_and (facts);
 
-        spacer::model_evaluator_util mev (mk_c(c)->m());
-        mev.set_model (*model);
-
         expr_ref_vector lits (mk_c(c)->m());
-        spacer::compute_implicant_literals (mev, facts, lits);
+        spacer::compute_implicant_literals (*model, facts, lits);
 
         expr_ref result (mk_c(c)->m ());
         result = mk_and (lits);

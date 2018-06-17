@@ -40,7 +40,6 @@ Revision History:
 
 class model;
 class model_core;
-class model_evaluator;
 
 namespace spacer {
 
@@ -48,17 +47,17 @@ namespace spacer {
         return UINT_MAX;
     }
 
-    inline bool is_infty_level(unsigned lvl) { 
-        return lvl == infty_level (); 
+    inline bool is_infty_level(unsigned lvl) {
+        return lvl == infty_level ();
     }
 
-    inline unsigned next_level(unsigned lvl) { 
-        return is_infty_level(lvl)?lvl:(lvl+1); 
+    inline unsigned next_level(unsigned lvl) {
+        return is_infty_level(lvl)?lvl:(lvl+1);
     }
 
     inline unsigned prev_level (unsigned lvl) {
-        if (is_infty_level(lvl)) return infty_level(); 
-        if (lvl == 0) return 0; 
+        if (is_infty_level(lvl)) return infty_level();
+        if (lvl == 0) return 0;
         return lvl - 1;
     }
 
@@ -78,41 +77,14 @@ namespace spacer {
     typedef ptr_vector<app> app_vector;
     typedef ptr_vector<func_decl> decl_vector;
     typedef obj_hashtable<func_decl> func_decl_set;
-    
-    // TBD: deprecate
-    class model_evaluator_util {
-        ast_manager&           m;
-        model_ref              m_model;
-        model_evaluator*       m_mev;
-        
-        /// initialize with a given model. All previous state is lost. model can be NULL
-        void reset (model *model);
-    public:
-        model_evaluator_util(ast_manager& m);
-        ~model_evaluator_util();
-        
-        void set_model(model &model) {reset (&model);}
-        model_ref &get_model() {return m_model;}
-        ast_manager& get_ast_manager() const {return m;}
-        
-    public:
-        bool is_true (const expr_ref_vector &v);
-        bool is_false(expr* x);
-        bool is_true(expr* x);
-        
-        bool eval (const expr_ref_vector &v, expr_ref &result, bool model_completion);
-        /// evaluates an expression
-        bool eval (expr *e, expr_ref &result, bool model_completion);
-        // expr_ref eval(expr* e, bool complete=true);
-    };
 
     /**
        \brief hoist non-boolean if expressions.
     */
-    
+
     void to_mbp_benchmark(std::ostream &out, const expr* fml, const app_ref_vector &vars);
 
-    
+
     // TBD: deprecate by qe::mbp
     /**
      * do the following in sequence
@@ -121,32 +93,38 @@ namespace spacer {
      * 3. use MBP for remaining array and arith variables
      * 4. for any remaining arith variables, substitute using M
      */
-    void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
-                     const model_ref& M, bool reduce_all_selects=false, bool native_mbp=false,
+    void qe_project (ast_manager& m, app_ref_vector& vars,
+                     expr_ref& fml, model &mdl,
+                     bool reduce_all_selects=false,
+                     bool native_mbp=false,
                      bool dont_sub=false);
 
-    void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& M, expr_map& map);
-    
+    // deprecate
+    void qe_project (ast_manager& m, app_ref_vector& vars, expr_ref& fml,
+                     model_ref& M, expr_map& map);
+
     // TBD: sort out
     void expand_literals(ast_manager &m, expr_ref_vector& conjs);
-    void compute_implicant_literals (model_evaluator_util &mev, expr_ref_vector &formula, expr_ref_vector &res);
+    void compute_implicant_literals(model &mdl,
+                                    expr_ref_vector &formula,
+                                    expr_ref_vector &res);
     void simplify_bounds (expr_ref_vector &lemmas);
     void normalize(expr *e, expr_ref &out, bool use_simplify_bounds = true, bool factor_eqs = false);
-    
-    /** 
+
+    /**
      * Ground expression by replacing all free variables by skolem
      * constants. On return, out is the resulting expression, and vars is
      * a map from variable ids to corresponding skolem constants.
      */
     void ground_expr (expr *e, expr_ref &out, app_ref_vector &vars);
-        
-    void mbqi_project (model &M, app_ref_vector &vars, expr_ref &fml);
-    
+
+    void mbqi_project(model &mdl, app_ref_vector &vars, expr_ref &fml);
+
     bool contains_selects (expr* fml, ast_manager& m);
     void get_select_indices (expr* fml, app_ref_vector& indices, ast_manager& m);
-    
+
     void find_decls (expr* fml, app_ref_vector& decls, std::string& prefix);
-    
+
     /**
      * extended pretty-printer
      * used for debugging
@@ -156,7 +134,7 @@ namespace spacer {
         params_ref m_epp_params;
         expr_ref m_epp_expr;
     mk_epp(ast *t, ast_manager &m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
-        void rw(expr *e, expr_ref &out);        
+        void rw(expr *e, expr_ref &out);
     };
 }
 
