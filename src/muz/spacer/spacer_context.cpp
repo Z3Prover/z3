@@ -3098,7 +3098,7 @@ bool context::check_reachability ()
 
         node = m_pob_queue.top ();
         m_pob_queue.pop();
-        unsigned old_sz = m_pob_queue.size();
+        size_t old_sz = m_pob_queue.size();
         (void)old_sz;
         SASSERT (node->level () <= m_pob_queue.max_level ());
         switch (expand_pob(*node, new_pobs)) {

@@ -358,16 +358,16 @@ namespace {
                 }
             }
 
-            expr *nres, *f1, *f2;
+            expr *nres = nullptr, *f1 = nullptr, *f2 = nullptr;
             if (m.is_not(res, nres)) {
                 // --(not (xor a b)) == (= a b)
                 if (m.is_xor(nres, f1, f2))
                     res = m.mk_eq(f1, f2);
                 // -- split arithmetic inequality
                 else if (m.is_eq(nres, f1, f2) && m_arith.is_int_real(f1)) {
-                    expr_ref u(m);
-                    u = m_arith.mk_lt(f1, f2);
-                    res = m_model.is_true(u) ? u : m_arith.mk_lt(f2, f1);
+                    res = m_arith.mk_lt(f1, f2);
+                    if (!m_model.is_true(res))
+                        res = m_arith.mk_lt(f2, f1);
                 }
             }
 
@@ -387,7 +387,7 @@ namespace {
 
             if (!is_true && !m.is_false(v)) return;
 
-            expr *na, *f1, *f2, *f3;
+            expr *na = nullptr, *f1 = nullptr, *f2 = nullptr, *f3 = nullptr;
 
             SASSERT(!m.is_false(a));
             if (m.is_true(a)) {
