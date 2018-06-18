@@ -1826,8 +1826,9 @@ void cmd_context::validate_model() {
                 catch (contains_underspecified_op_proc::found) {
                     continue;
                 }
-                TRACE("model_validate", model_smt2_pp(tout, *this, *(md.get()), 0););
+                TRACE("model_validate", model_smt2_pp(tout, *this, *md, 0););
                 IF_VERBOSE(10, verbose_stream() << "model check failed on: " << mk_pp(a, m()) << "\n";);                
+                IF_VERBOSE(11, model_smt2_pp(verbose_stream(), *this, *md, 0););                
                 invalid_model = true;
             }
         }
