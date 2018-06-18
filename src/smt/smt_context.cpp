@@ -2647,10 +2647,11 @@ namespace smt {
         }
 
         TRACE("simplify_clauses_detail", tout << "before:\n"; display_clauses(tout, m_lemmas););
+        IF_VERBOSE(2, verbose_stream() << "(smt.simplifying-clause-set"; verbose_stream().flush(););
+
         SASSERT(check_clauses(m_lemmas));
         SASSERT(check_clauses(m_aux_clauses));
 
-        IF_VERBOSE(2, verbose_stream() << "(smt.simplifying-clause-set"; verbose_stream().flush(););
 
         // m_simp_counter is used to balance the cost of simplify_clause.
         //
