@@ -2251,7 +2251,9 @@ bool theory_seq::internalize_term(app* term) {
         e = ctx.mk_enode(term, false, m.is_bool(term), true);
     }
     mk_var(e);
-
+    if (m_util.str.is_string(term)) {
+        add_elim_string_axiom(term);
+    }
     return true;
 }
 
@@ -3086,6 +3088,7 @@ void theory_seq::propagate() {
 
 void theory_seq::enque_axiom(expr* e) {
     if (!m_axiom_set.contains(e)) {
+        TRACE("seq", tout << "add axiom " << mk_pp(e, m) << "\n";);
         m_axioms.push_back(e);
         m_axiom_set.insert(e);
         m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_axioms));
@@ -3285,13 +3288,13 @@ void theory_seq::add_replace_axiom(expr* r) {
 
 void theory_seq::add_elim_string_axiom(expr* n) {
     zstring s;
+    TRACE("seq", tout << mk_pp(n, m) << "\n";);
     VERIFY(m_util.str.is_string(n, s));
     if (s.length() == 0) {
         return;
     }
     expr_ref result(m_util.str.mk_unit(m_util.str.mk_char(s, s.length()-1)), m);
-    for (unsigned i = s.length()-1; i > 0; ) {
-        --i;
+    for (unsigned i = s.length()-1; i-- > 0; ) {
         result = mk_concat(m_util.str.mk_unit(m_util.str.mk_char(s, i)), result);
     }
     add_axiom(mk_eq(n, result, false));
