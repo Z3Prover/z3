@@ -34,9 +34,8 @@ namespace nlsat {
         bool empty() const { return m_lits.empty(); }
         literal operator[](unsigned i) const { return m_lits[i]; }
         void reset() {
-            unsigned sz = m_lits.size();
-            for (unsigned i = 0; i < sz; i++) {
-                m_solver.dec_ref(m_lits[i]);
+            for (literal l : m_lits) {
+                m_solver.dec_ref(l);
             }
             m_lits.reset();
         }
@@ -50,6 +49,8 @@ namespace nlsat {
             m_lits[i] = l;
         }
         literal const * c_ptr() const { return m_lits.c_ptr(); }
+        literal const * begin() const { return m_lits.begin(); }
+        literal const * end() const { return m_lits.end(); }
         void shrink(unsigned new_sz) {
             SASSERT(new_sz <= m_lits.size());
             unsigned sz = m_lits.size();

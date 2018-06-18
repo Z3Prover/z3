@@ -574,7 +574,7 @@ namespace nlsat {
             if (is_const(p))
                 return;
             if (m_factor) {
-                TRACE("nlsat_explain", tout << "adding factors of\n"; display(tout, p); tout << "\n";);
+                TRACE("nlsat_explain", display(tout << "adding factors of\n", p); tout << "\n";);
                 factor(p, m_factors);
                 polynomial_ref f(m_pm);
                 for (unsigned i = 0; i < m_factors.size(); i++) {
@@ -1457,7 +1457,7 @@ namespace nlsat {
             process(num, ls);
             reset_already_added();
             m_result = nullptr;
-            TRACE("nlsat_explain", tout << "[explain] result\n"; display(tout, result););
+            TRACE("nlsat_explain", display(tout << "[explain] result\n", result););
             CASSERT("nlsat", check_already_added());
         }
 
@@ -1466,7 +1466,12 @@ namespace nlsat {
             
             m_result = &result;
             svector<literal> lits;
-            TRACE("nlsat", tout << "project x" << x << "\n"; m_solver.display(tout););
+            TRACE("nlsat", tout << "project x" << x << "\n"; 
+                  for (unsigned i = 0; i < num; ++i) {
+                      m_solver.display(tout, ls[i]) << " ";
+                  }
+                  tout << "\n";
+                  m_solver.display(tout););
                   
             DEBUG_CODE(
                 for (unsigned i = 0; i < num; ++i) {
@@ -1509,8 +1514,15 @@ namespace nlsat {
                 result.set(i, ~result[i]);
             }
             DEBUG_CODE(
-                for (unsigned i = 0; i < result.size(); ++i) {
-                    SASSERT(l_true == m_solver.value(result[i]));
+                TRACE("nlsat", 
+                      for (literal l : result) {
+                          m_solver.display(tout << " ", l);
+                      }
+                      tout << "\n";
+                      );
+                for (literal l : result) {
+                    CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
+                    SASSERT(l_true == m_solver.value(l));
                 });
 
         }
@@ -1621,21 +1633,21 @@ namespace nlsat {
                 roots.reset();
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
                 bool glb_valid = false, lub_valid = false;
-                for (unsigned j = 0; j < roots.size(); ++j) {
-                    int s = m_am.compare(x_val, roots[j]);
+                for (auto const& r : roots) {
+                    int s = m_am.compare(x_val, r);
                     SASSERT(s != 0);
+
+                    if (s < 0 && (!lub_valid || m_am.lt(r, lub))) {
+                        lub_index = i;
+                        m_am.set(lub, r);
+                    }
+
+                    if (s > 0 && (!glb_valid || m_am.lt(glb, r))) {
+                        glb_index = i;
+                        m_am.set(glb, r);                        
+                    }
                     lub_valid |= s < 0;
                     glb_valid |= s > 0;
-
-                    if (s < 0 && m_am.lt(roots[j], lub)) {
-                        lub_index = i;
-                        m_am.set(lub, roots[j]);
-                    }
-
-                    if (s > 0 && m_am.lt(glb, roots[j])) {
-                        glb_index = i;
-                        m_am.set(glb, roots[j]);                        
-                    }
                 }
                 if (glb_valid) {
                     ++num_glb;
@@ -1701,6 +1713,7 @@ namespace nlsat {
         }
 
         void project_pairs(var x, unsigned idx, polynomial_ref_vector const& ps) {
+            TRACE("nlsat_explain", tout << "project pairs\n";);
             polynomial_ref p(m_pm);
             p = ps.get(idx);
             for (unsigned i = 0; i < ps.size(); ++i) {

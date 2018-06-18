@@ -205,8 +205,7 @@ namespace qe {
             nlsat::scoped_literal_vector new_result(m_solver);
             result.reset();
             // project quantified Boolean variables.
-            for (unsigned i = 0; i < m_asms.size(); ++i) {
-                nlsat::literal lit = m_asms[i];
+            for (nlsat::literal lit : m_asms) {
                 if (!m_b2a.contains(lit.var()) || fvars.contains(lit.var())) {
                     result.push_back(lit);
                 }
@@ -215,12 +214,13 @@ namespace qe {
             // project quantified real variables.
             // They are sorted by size, so we project the largest variables first to avoid 
             // renaming variables. 
-            for (unsigned i = vars.size(); i > 0;) {
-                --i;
+            for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
+                TRACE("qe", m_solver.display(tout << "project: ", vars[i]) << "\n";);
                 ex.project(vars[i], result.size(), result.c_ptr(), new_result);
                 result.swap(new_result);
-                TRACE("qe", m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
+                TRACE("qe", m_solver.display(tout, vars[i]) << ": ";
+                      m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
             }
             negate_clause(result);
         }
@@ -596,6 +596,7 @@ namespace qe {
         }
 
         void display(std::ostream& out) {
+            out << "level " << level() << "\n";
             display_preds(out);
             display_assumptions(out);
             m_solver.display(out << "solver:\n");
@@ -682,7 +683,7 @@ namespace qe {
                     }
                     else if (m_t2x.is_var(v)) {
                         nlsat::var w = m_t2x.to_var(v);
-                        TRACE("qe", tout << mk_pp(v, m) << " |-> " << w << "\n";);
+                        TRACE("qe", tout << mk_pp(v, m) << " |-> x" << w << "\n";);
                         m_bound_rvars.back().push_back(w);
                         m_rvar2level.setx(w, lvl, max_level());
                     }
@@ -724,13 +725,11 @@ namespace qe {
         }
 
         void init_var2expr() {
-            expr2var::iterator it = m_t2x.begin(), end = m_t2x.end();
-            for (; it != end; ++it) {
-                m_x2t.insert(it->m_value, it->m_key);
+            for (auto const& kv : m_t2x) {
+                m_x2t.insert(kv.m_value, kv.m_key);
             }
-            it = m_a2b.begin(), end = m_a2b.end();
-            for (; it != end; ++it) {
-                m_b2a.insert(it->m_value, it->m_key);
+            for (auto const& kv : m_a2b) {
+                m_b2a.insert(kv.m_value, kv.m_key);
             }
         }
 
@@ -741,10 +740,9 @@ namespace qe {
             bool ok = true;
             model_ref md = alloc(model, m);
             arith_util util(m);
-            expr2var::iterator it = m_t2x.begin(), end = m_t2x.end();
-            for (; it != end; ++it) {
-                nlsat::var x = it->m_value;
-                expr * t = it->m_key;
+            for (auto const& kv : m_t2x) {
+                nlsat::var x = kv.m_value;
+                expr * t = kv.m_key;
                 if (!is_uninterp_const(t) || !m_free_vars.contains(t) || m_aux_vars.contains(t))
                     continue;
                 expr * v;
@@ -760,10 +758,9 @@ namespace qe {
                 }
                 md->register_decl(to_app(t)->get_decl(), v);
             }
-            it = m_a2b.begin(), end = m_a2b.end();
-            for (; it != end; ++it) {
-                expr * a = it->m_key;
-                nlsat::bool_var b = it->m_value;
+            for (auto const& kv : m_a2b) {
+                expr * a = kv.m_key;
+                nlsat::bool_var b = kv.m_value;
                 if (a == nullptr || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
                     continue;
                 lbool val = m_bmodel0.get(b, l_undef);
