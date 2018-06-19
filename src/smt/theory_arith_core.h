@@ -543,6 +543,10 @@ namespace smt {
                 }
 #endif
             }
+#if 0
+            // e-matching is too restrictive for multiplication.
+            // also suffers from use-after free so formulas have to be pinned in solver.
+            // 
             if (!m_util.is_numeral(divisor)) {
                 //
                 // forall x . (or (= y 0) (= (div (* x y) y) x))
@@ -568,6 +572,7 @@ namespace smt {
                 pr = m.mk_asserted(fml);
                 ctx.internalize_assertion(fml, pr, 0);
             }
+#endif
         }
     }
 
