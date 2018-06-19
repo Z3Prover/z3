@@ -62,7 +62,7 @@ namespace smt {
             return true;
         }
 
-        expr * get_fresh_value(sort * s) override { NOT_IMPLEMENTED_YET(); }
+        expr * get_fresh_value(sort * s) override { return get_some_value(s); }
         void register_value(expr * n) override { /* Ignore */ }
 
         app * mk_value(mpf const & x) {
