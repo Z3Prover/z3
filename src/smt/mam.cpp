@@ -865,9 +865,7 @@ namespace smt {
            That is, during execution time, the variables will be already bound
          */
         bool all_args_are_bound_vars(app * n) {
-            unsigned num_args = n->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
-                expr * arg = n->get_arg(i);
+            for (expr* arg : *n) {
                 if (!is_var(arg))
                     return false;
                 if (m_vars[to_var(arg)->get_idx()] == -1)
@@ -884,9 +882,7 @@ namespace smt {
             if (n->is_ground()) {
                 return;
             }
-            unsigned num_args = n->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
-                expr * arg = n->get_arg(i);
+            for (expr* arg : *n) {
                 if (is_var(arg)) {
                     sz++;
                     unsigned var_id = to_var(arg)->get_idx();
@@ -928,10 +924,7 @@ namespace smt {
             unsigned      first_app_sz;
             unsigned      first_app_num_unbound_vars;
             // generate first the non-BIND operations
-            unsigned_vector::iterator it  = m_todo.begin();
-            unsigned_vector::iterator end = m_todo.end();
-            for (; it != end; ++it) {
-                unsigned reg = *it;
+            for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
                 SASSERT(!is_quantifier(p));
                 if (is_var(p)) {
@@ -1249,10 +1242,7 @@ namespace smt {
             SASSERT(head->m_next == 0);
             m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
 
-            ptr_vector<instruction>::iterator it  = m_seq.begin();
-            ptr_vector<instruction>::iterator end = m_seq.end();
-            for (; it != end; ++it) {
-                instruction * curr = *it;
+            for (instruction * curr : m_seq) {
                 head->m_next = curr;
                 head = curr;
             }
@@ -1495,10 +1485,8 @@ namespace smt {
             }
             if (num_instr > SIMPLE_SEQ_THRESHOLD || (curr != nullptr && curr->m_opcode == CHOOSE))
                 simple = false;
-            unsigned_vector::iterator it  = m_to_reset.begin();
-            unsigned_vector::iterator end = m_to_reset.end();
-            for (; it != end; ++it)
-                m_registers[*it] = 0;
+            for (unsigned reg : m_to_reset) 
+                m_registers[reg] = 0;
             return weight;
         }
 
@@ -1716,11 +1704,9 @@ namespace smt {
                     m_num_choices++;
                     // set: head -> c1 -> c2 -> c3 -> new_child_head1
                     curr = head;
-                    ptr_vector<instruction>::iterator it1  = m_compatible.begin();
-                    ptr_vector<instruction>::iterator end1 = m_compatible.end();
-                    for (; it1 != end1; ++it1) {
-                        set_next(curr, *it1);
-                        curr = *it1;
+                    for (instruction* instr : m_compatible) {
+                        set_next(curr, instr);
+                        curr = instr;
                     }
                     set_next(curr, new_child_head1);
                     // set: new_child_head1:CHOOSE(new_child_head2) -> i1 -> i2 -> first_child_head

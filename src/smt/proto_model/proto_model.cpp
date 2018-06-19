@@ -342,10 +342,16 @@ void proto_model::compress() {
    \brief Complete the interpretation fi of f if it is partial.
    If f does not have an interpretation in the given model, then this is a noop.
 */
-void proto_model::complete_partial_func(func_decl * f) {
+void proto_model::complete_partial_func(func_decl * f, bool use_fresh) {
     func_interp * fi = get_func_interp(f);
     if (fi && fi->is_partial()) {
-        expr * else_value = fi->get_max_occ_result();
+        expr * else_value;
+        if (use_fresh) {
+            else_value = get_fresh_value(f->get_range());
+        }
+        else {
+            else_value = fi->get_max_occ_result();
+        }
         if (else_value == nullptr)
             else_value = get_some_value(f->get_range());
         fi->set_else(else_value);
@@ -355,14 +361,14 @@ void proto_model::complete_partial_func(func_decl * f) {
 /**
    \brief Set the (else) field of function interpretations...
 */
-void proto_model::complete_partial_funcs() {
+void proto_model::complete_partial_funcs(bool use_fresh) {
     if (m_model_partial)
         return;
 
     // m_func_decls may be "expanded" when we invoke get_some_value.
     // So, we must not use iterators to traverse it.
-    for (unsigned i = 0; i < m_func_decls.size(); i++) {
-        complete_partial_func(m_func_decls[i]);
+    for (unsigned i = 0; i < m_func_decls.size(); ++i) {
+        complete_partial_func(m_func_decls.get(i), use_fresh);
     }
 }
 
