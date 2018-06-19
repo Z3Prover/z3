@@ -100,8 +100,8 @@ public:
     //
     // Complete partial function interps
     //
-    void complete_partial_func(func_decl * f);
-    void complete_partial_funcs();
+    void complete_partial_func(func_decl * f, bool use_fresh);
+    void complete_partial_funcs(bool use_fresh);
 
     //
     // Create final model object. 

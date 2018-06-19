@@ -84,7 +84,7 @@ matrix:
     - os: osx
       osx_image: xcode8.3
       # Note: Apple Clang does not support OpenMP
-      env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0
+      env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0 DOTNET_BINDINGS=0
 script:
   # Use `travis_wait` when doing LTO builds because this configuration will
   # have long link times during which it will not show any output which

@@ -1028,7 +1028,7 @@ namespace smt {
             void complete_partial_funcs(func_decl_set const & partial_funcs) {
                 for (func_decl * f : partial_funcs) {
                     // Complete the current interpretation
-                    m_model->complete_partial_func(f);
+                    m_model->complete_partial_func(f, true);
 
                     unsigned arity   = f->get_arity();
                     func_interp * fi = m_model->get_func_interp(f);

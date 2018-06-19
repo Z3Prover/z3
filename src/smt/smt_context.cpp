@@ -4364,7 +4364,7 @@ namespace smt {
             m_proto_model = m_model_generator->mk_model();
             m_qmanager->adjust_model(m_proto_model.get());
             TRACE("mbqi_bug", tout << "before complete_partial_funcs:\n"; model_pp(tout, *m_proto_model););
-            m_proto_model->complete_partial_funcs();
+            m_proto_model->complete_partial_funcs(false);
             TRACE("mbqi_bug", tout << "before cleanup:\n"; model_pp(tout, *m_proto_model););
             m_proto_model->cleanup();
             if (m_fparams.m_model_compact)
