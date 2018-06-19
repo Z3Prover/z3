@@ -2904,7 +2904,7 @@ expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
         }
         result = ed.first;
     }
-    else if (m_util.str.is_string(e)) {
+    else if (false && m_util.str.is_string(e)) {
         result = add_elim_string_axiom(e);
     }
     else {
