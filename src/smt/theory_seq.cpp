@@ -2898,14 +2898,13 @@ expr_ref theory_seq::expand(expr* e, dependency*& eqs) {
 expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
     expr_ref result(m);
     expr_dep ed;
-    zstring s;
     if (m_rep.find_cache(e, ed)) {
         if (e != ed.first) {
             eqs = m_dm.mk_join(eqs, ed.second);
         }
         result = ed.first;
     }
-    else if (m_util.str.is_string(e, s) && s.length() > 0) {
+    else if (m_util.str.is_string(e)) {
         result = add_elim_string_axiom(e);
     }
     else {
