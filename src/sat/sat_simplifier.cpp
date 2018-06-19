@@ -338,8 +338,7 @@ namespace sat {
             if (sz == 0) {
                 s.set_conflict(justification());
                 for (; it != end; ++it, ++it2) {
-                    *it2 = *it;
-                    ++it2;
+                    *it2 = *it;                  
                 }
                 break;
             }
