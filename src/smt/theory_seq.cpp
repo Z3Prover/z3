@@ -2251,9 +2251,6 @@ bool theory_seq::internalize_term(app* term) {
         e = ctx.mk_enode(term, false, m.is_bool(term), true);
     }
     mk_var(e);
-    if (m_util.str.is_string(term)) {
-        add_elim_string_axiom(term);
-    }
     return true;
 }
 
@@ -2901,11 +2898,15 @@ expr_ref theory_seq::expand(expr* e, dependency*& eqs) {
 expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
     expr_ref result(m);
     expr_dep ed;
+    zstring s;
     if (m_rep.find_cache(e, ed)) {
         if (e != ed.first) {
             eqs = m_dm.mk_join(eqs, ed.second);
         }
         result = ed.first;
+    }
+    else if (m_util.str.is_string(e, s) && s.length() > 0) {
+        result = add_elim_string_axiom(e);
     }
     else {
         m_expand_todo.push_back(e);
@@ -2929,7 +2930,7 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_empty(e) || m_util.str.is_string(e)) {
         result = e;
-    }
+    }    
     else if (m_util.str.is_prefix(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);
@@ -3286,12 +3287,12 @@ void theory_seq::add_replace_axiom(expr* r) {
     tightest_prefix(s, x);
 }
 
-void theory_seq::add_elim_string_axiom(expr* n) {
+expr_ref theory_seq::add_elim_string_axiom(expr* n) {
     zstring s;
     TRACE("seq", tout << mk_pp(n, m) << "\n";);
     VERIFY(m_util.str.is_string(n, s));
     if (s.length() == 0) {
-        return;
+        return expr_ref(n, m);
     }
     expr_ref result(m_util.str.mk_unit(m_util.str.mk_char(s, s.length()-1)), m);
     for (unsigned i = s.length()-1; i-- > 0; ) {
@@ -3300,6 +3301,7 @@ void theory_seq::add_elim_string_axiom(expr* n) {
     add_axiom(mk_eq(n, result, false));
     m_rep.update(n, result, nullptr);
     m_new_solution = true;
+    return result;
 }
 
 
