@@ -508,13 +508,14 @@ namespace smt {
             mk_axiom(eqz, lower, !is_numeral);
             mk_axiom(eqz, upper, !is_numeral);
             rational k;
+            context& ctx = get_context();
+            (void)ctx;
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) &&
                 k.is_pos() && k < rational(8)) {
                 rational j(0);
 #if 1
                 literal_buffer lits;
                 expr_ref mod_j(m);
-                context& ctx = get_context();
                 while(j < k) {
                     mod_j = m.mk_eq(mod, m_util.mk_numeral(j, true));
                     ctx.internalize(mod_j, false);
@@ -541,6 +542,31 @@ namespace smt {
                     j += rational(1);
                 }
 #endif
+            }
+            if (!m_util.is_numeral(divisor)) {
+                //
+                // forall x . (or (= y 0) (= (div (* x y) y) x))
+                // forall x . (=> (= y 0) (= (div (* x y) y) (div 0 0)))
+                // 
+                sort* intS = m_util.mk_int();
+                var_ref v(m.mk_var(0, intS), m);
+                app_ref mul(m_util.mk_mul(divisor, v), m);
+                app_ref div(m_util.mk_idiv(mul, divisor), m);
+                expr_ref divp1(m.mk_pattern(div), m);
+                app_ref mul2(m_util.mk_mul(v, divisor), m);
+                app_ref div2(m_util.mk_idiv(mul2, divisor), m);
+                expr_ref divp2(m.mk_pattern(div2), m);
+                expr_ref fml1(m.mk_or(m.mk_not(eqz), m.mk_eq(div, m_util.mk_idiv(zero, zero))), m);
+                expr_ref fml2(m.mk_or(eqz, m.mk_eq(div, v)), m);
+                symbol name("?x");
+                expr* pats[2] = { divp1, divp2 };
+                expr_ref fml(m);
+                fml = m.mk_forall(1, &intS, &name, fml1, 0, symbol::null, symbol::null, 2, pats, 0, nullptr);
+                proof_ref pr(m.mk_asserted(fml), m);
+                ctx.internalize_assertion(fml, pr, 0);
+                fml = m.mk_forall(1, &intS, &name, fml2, 0, symbol::null, symbol::null, 2, pats, 0, nullptr);
+                pr = m.mk_asserted(fml);
+                ctx.internalize_assertion(fml, pr, 0);
             }
         }
     }
