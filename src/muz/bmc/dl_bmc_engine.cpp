@@ -228,10 +228,9 @@ namespace datalog {
 
         expr_ref eval_q(model_ref& model, func_decl* f, unsigned i) {
             func_decl_ref fn = mk_q_func_decl(f);
-            expr_ref t(m), result(m);
+            expr_ref t(m);
             t = m.mk_app(mk_q_func_decl(f).get(), mk_q_num(i));
-            model->eval(t, result);
-            return result;
+            return (*model)(t);
         }
 
         expr_ref eval_q(model_ref& model, expr* t, unsigned i) {
@@ -240,8 +239,7 @@ namespace datalog {
             num = mk_q_num(i);
             expr* nums[1] = { num };
             vs(t, 1, nums, tmp);
-            model->eval(tmp, result);
-            return result;
+            return (*model)(tmp);
         }
 
         lbool get_model() {
@@ -258,7 +256,7 @@ namespace datalog {
             func_decl* pred = b.m_query_pred;
             dl_decl_util util(m);
             T = m.mk_const(symbol("T"), mk_index_sort());
-            md->eval(T, vl);
+            vl = (*md)(T);
             VERIFY (m_bv.is_numeral(vl, num, bv_size));
             SASSERT(num.is_unsigned());
             level = num.get_unsigned();
@@ -505,8 +503,7 @@ namespace datalog {
                 func_decl_ref rule_i = mk_level_rule(pred, i, level);
                 TRACE("bmc", rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                 prop_r = m.mk_app(rule_i, prop->get_num_args(), prop->get_args());
-                md->eval(prop_r, prop_v);
-                if (m.is_true(prop_v)) {
+                if (md->is_true(prop_r)) {
                     r = rls[i];
                     break;
                 }
@@ -527,8 +524,7 @@ namespace datalog {
                 return pr;
             }
             for (unsigned j = 0; j < sub.size(); ++j) {
-                md->eval(sub[j].get(), tmp);
-                sub[j] = tmp;
+                sub[j] = (*md)(sub[j].get());
             }
 
             svector<std::pair<unsigned, unsigned> > positions;
@@ -1062,8 +1058,7 @@ namespace datalog {
                         return pr;
                     }
                     for (unsigned j = 0; j < sub.size(); ++j) {
-                        md->eval(sub[j].get(), tmp);
-                        sub[j] = tmp;
+                        sub[j] = (*md)(sub.get(j));
                     }
                     rule_ref rl(b.m_ctx.get_rule_manager());
                     rl = rules[i];
@@ -1116,7 +1111,7 @@ namespace datalog {
 
         bool check_model(model_ref& md, expr* trace) {
             expr_ref trace_val(m), eq(m);
-            md->eval(trace, trace_val);
+            trace_val = (*md)(trace);
             eq = m.mk_eq(trace, trace_val);
             b.m_solver.push();
             b.m_solver.assert_expr(eq);
@@ -1135,8 +1130,8 @@ namespace datalog {
 
         void mk_answer(model_ref& md, expr_ref& trace, expr_ref& path) {
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
-            md->eval(trace, trace);
-            md->eval(path, path);
+            trace = (*md)(trace);
+            path = (*md)(path);
             IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";
                        for (unsigned i = 0; i < b.m_solver.size(); ++i) {
                            verbose_stream() << mk_pp(b.m_solver.get_formula(i), m) << "\n";

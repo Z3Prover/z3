@@ -66,12 +66,10 @@ model * model::copy() const {
     return m;
 }
 
-// Remark: eval is for backward compatibility. We should use model_evaluator.
-bool model::eval(expr * e, expr_ref & result, bool model_completion) {
-    model_evaluator ev(*this);
-    ev.set_model_completion(model_completion);
+bool model::eval_expr(expr * e, expr_ref & result, bool model_completion) {
+    scoped_model_completion _smc(*this, model_completion);
     try {
-        ev(e, result);
+        result = (*this)(e);
         return true;
     }
     catch (model_evaluator_exception & ex) {

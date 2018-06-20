@@ -114,11 +114,16 @@ model_converter * generic_model_converter::translate(ast_translation & translato
     return res;
 }
 
-void generic_model_converter::collect(ast_pp_util& visitor) { 
-    m_env = &visitor.env(); 
-    for (entry const& e : m_entries) {
-        visitor.coll.visit_func(e.m_f);
-        if (e.m_def) visitor.coll.visit(e.m_def);
+void generic_model_converter::set_env(ast_pp_util* visitor) { 
+    if (!visitor) {
+        m_env = nullptr;
+    }
+    else {
+        m_env = &visitor->env();       
+        for (entry const& e : m_entries) {
+            visitor->coll.visit_func(e.m_f);
+            if (e.m_def) visitor->coll.visit(e.m_def);
+        }
     }
 }
 

@@ -1181,9 +1181,8 @@ namespace qe {
             indices(ast_manager& m, model& model, unsigned n, expr* const* vars):
                 m_values(m), m_vars(vars) {
                 expr_ref val(m);
-                for (unsigned i = 0; i < n; ++i) {
-                    VERIFY(model.eval(vars[i], val));
-                    m_values.push_back(val);
+                for (unsigned i = 0; i < n; ++i) {                    
+                    m_values.push_back(model(vars[i]));
                 }
             }
         };
@@ -1269,7 +1268,7 @@ namespace qe {
                     args.push_back (s);
                     args.append(idxs[i].m_values.size(), idxs[i].m_vars);
                     sel = a.mk_select (args.size (), args.c_ptr ());
-                    VERIFY (model.eval (sel, val));
+                    val = model(sel);
                     model.register_decl (var->get_decl (), val);
 
                     args[0] = result;

@@ -378,7 +378,7 @@ namespace spacer_qe {
                             rational r;
                             cx = mk_mul (c, m_var->x());
                             cxt = mk_add (cx, t);
-                            VERIFY(mdl.eval(cxt, val, true));
+                            val = mdl(cxt);
                             VERIFY(a.is_numeral(val, r));
                             SASSERT (r > rational::zero () || r < rational::zero ());
                             if (r > rational::zero ()) {
@@ -464,8 +464,7 @@ namespace spacer_qe {
             m_strict.reset();
             m_eq.reset ();
 
-            expr_ref var_val (m);
-            VERIFY (mdl.eval (m_var->x(), var_val, true));
+            expr_ref var_val = mdl(m_var->x());
 
             unsigned eq_idx = lits.size ();
             for (unsigned i = 0; i < lits.size(); ++i) {
@@ -492,7 +491,7 @@ namespace spacer_qe {
                     rational r;
                     cx = mk_mul (c, m_var->x());
                     cxt = mk_add (cx, t);
-                    VERIFY(mdl.eval(cxt, val, true));
+                    val = mdl(cxt);
                     VERIFY(a.is_numeral(val, r));
 
                     if (is_eq) {
@@ -738,7 +737,7 @@ namespace spacer_qe {
                 rational r;
                 cx = mk_mul (m_coeffs[max_t], m_var->x());
                 cxt = mk_add (cx, m_terms.get (max_t));
-                VERIFY(mdl.eval(cxt, val, true));
+                val = mdl(cxt);
                 VERIFY(a.is_numeral(val, r));
 
                 // get the offset from the smallest/largest possible value for x
@@ -796,13 +795,13 @@ namespace spacer_qe {
 
             // evaluate x in mdl
             rational r_x;
-            VERIFY(mdl.eval(m_var->x (), val, true));
+            val = mdl(m_var->x ());
             VERIFY(a.is_numeral (val, r_x));
 
             for (unsigned i = 0; i < m_terms.size(); ++i) {
                 rational const& ac = m_coeffs[i];
                 if (!m_eq[i] && ac.is_pos() == do_pos) {
-                    VERIFY(mdl.eval(m_terms.get (i), val, true));
+                    val = mdl(m_terms.get (i));
                     VERIFY(a.is_numeral(val, r));
                     r /= abs(ac);
                     // skip the literal if false in the model
@@ -955,8 +954,7 @@ namespace spacer_qe {
                         new_var = m.mk_fresh_const ("mod_var", d->get_range ());
                         eqs.push_back (m.mk_eq (new_var, new_term));
                         // obtain value of new_term in mdl
-                        expr_ref val (m);
-                        mdl.eval (new_term, val, true);
+                        expr_ref val = mdl(new_term);
                         // use the variable from now on
                         new_term = new_var;
                         changed = true;
@@ -1413,7 +1411,7 @@ namespace spacer_qe {
                     app_ref val_const (m.mk_fresh_const ("sel", val_sort), m);
                     m_aux_vars.push_back (val_const);
                     // extend M to include val_const
-                    expr_ref val (m);
+                    expr_ref val(m);
                     m_mev.eval (*M, a_new, val);
                     M->register_decl (val_const->get_decl (), val);
                     // add equality

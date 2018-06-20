@@ -65,10 +65,11 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
         SASSERT(res == l_true);
         model_ref mdl;
         m_solver->get_model(mdl);
+        model::scoped_model_completion _scm(mdl, true);
         for (unsigned i = 0, sz = query.sig_size(); i < sz; ++i) {
             expr_ref arg(m), val(m);
             arg = m.mk_const(m_pm.o2n(query.sig(i), 0));
-            mdl->eval(arg, val, true);
+            val = (*mdl)(arg);
             qsubst.push_back(val);
         }
     }
@@ -141,11 +142,13 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
 void ground_sat_answer_op::mk_child_subst_from_model(func_decl *pred,
                                                       unsigned j, model_ref &mdl,
                                                       expr_ref_vector &subst) {
+    
+    model::scoped_model_completion _scm(mdl, true);
     pred_transformer &pt = m_ctx.get_pred_transformer(pred);
     for (unsigned i = 0, sz = pt.sig_size(); i < sz; ++i) {
         expr_ref arg(m), val(m);
         arg = m.mk_const(m_pm.o2o(pt.sig(i), 0, j));
-        mdl->eval(arg, val, true);
+        val = (*mdl)(arg);
         subst.push_back(val);
     }
 }

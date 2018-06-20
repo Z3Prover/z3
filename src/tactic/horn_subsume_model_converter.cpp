@@ -195,8 +195,7 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
         SASSERT(m.is_bool(body));
                 
         TRACE("mc", tout << "eval: " << h->get_name() << "\n" << body << "\n";);
-        expr_ref tmp(body);
-        mr->eval(tmp, body);
+        body = (*mr)(body);
         
         TRACE("mc", tout << "to:\n" << body << "\n";);
                 

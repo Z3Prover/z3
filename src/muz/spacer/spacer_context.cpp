@@ -1398,7 +1398,7 @@ bool pred_transformer::is_ctp_blocked(lemma *lem) {
         expr_ref lemmas(m), val(m);
         lemmas = pt.get_formulas(lem->level());
         pm.formula_n2o(lemmas.get(), lemmas, i);
-        if (ctp->eval(lemmas, val) && m.is_false(val)) {return false;}
+        if (ctp->is_false(lemmas)) return false;
     }
 
     // lem is blocked by ctp since none of the lemmas at the previous
@@ -2440,13 +2440,13 @@ bool context::validate()
                        get_rule_manager ().
                        display_smt2(r, tout) << "\n";);
 
-                model->eval(r.get_head(), tmp);
+                tmp = (*model)(r.get_head());
                 expr_ref_vector fmls(m);
                 fmls.push_back(m.mk_not(tmp));
                 unsigned utsz = r.get_uninterpreted_tail_size();
                 unsigned tsz  = r.get_tail_size();
                 for (unsigned j = 0; j < utsz; ++j) {
-                    model->eval(r.get_tail(j), tmp);
+                    tmp = (*model)(r.get_tail(j));
                     fmls.push_back(tmp);
                 }
                 for (unsigned j = utsz; j < tsz; ++j) {

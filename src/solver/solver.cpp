@@ -44,7 +44,7 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     ast_pp_util visitor(get_manager());
     model_converter_ref mc = get_model_converter();
     if (mc.get()) { 
-        mc->collect(visitor); 
+        mc->set_env(&visitor); 
     }
     visitor.collect(fmls);
     visitor.collect(n, assumptions);
@@ -52,6 +52,7 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     visitor.display_asserts(out, fmls, true);
     if (mc.get()) {
         mc->display(out);
+        mc->set_env(nullptr);
     }
     return out;
 }

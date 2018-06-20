@@ -569,10 +569,9 @@ namespace smt {
             if (m_context) {
                 ast_manager & m = m_context->get_manager();
                 out << "patterns:\n";
-                ptr_vector<app>::const_iterator it  = m_patterns.begin();
-                ptr_vector<app>::const_iterator end = m_patterns.end();
-                for (; it != end; ++it)
-                    out << mk_pp(*it, m) << "\n";
+                for (expr* p : m_patterns) {
+                    out << mk_pp(p, m) << "\n";
+                }
             }
 #endif
             out << "function: " << m_root_lbl->get_name();
@@ -831,10 +830,8 @@ namespace smt {
         void init(code_tree * t, quantifier * qa, app * mp, unsigned first_idx) {
             SASSERT(m_ast_manager.is_pattern(mp));
 #ifdef Z3DEBUG
-            svector<check_mark>::iterator it  = m_mark.begin();
-            svector<check_mark>::iterator end = m_mark.end();
-            for (; it != end; ++it) {
-                SASSERT(*it == NOT_CHECKED);
+            for (auto cm : m_mark) {
+                SASSERT(cm == NOT_CHECKED);
             }
 #endif
             m_tree        = t;
@@ -1711,14 +1708,12 @@ namespace smt {
                     set_next(curr, new_child_head1);
                     // set: new_child_head1:CHOOSE(new_child_head2) -> i1 -> i2 -> first_child_head
                     curr = new_child_head1;
-                    ptr_vector<instruction>::iterator it2  = m_incompatible.begin();
-                    ptr_vector<instruction>::iterator end2 = m_incompatible.end();
-                    for (; it2 != end2; ++it2) {
+                    for (instruction* inc : m_incompatible) {
                         if (curr == new_child_head1)
-                            curr->m_next = *it2; // new_child_head1 is a new node, I don't need to save trail
+                            curr->m_next = inc; // new_child_head1 is a new node, I don't need to save trail
                         else
-                            set_next(curr, *it2);
-                        curr = *it2;
+                            set_next(curr, inc);
+                        curr = inc;
                     }
                     set_next(curr, first_child_head);
                     // build new_child_head2:NOOP -> linearise()
@@ -3353,10 +3348,7 @@ namespace smt {
         void update_vars(unsigned short var_id, path * p, quantifier * qa, app * mp) {
             paths & var_paths = m_var_paths[var_id];
             bool found = false;
-            paths::iterator it  = var_paths.begin();
-            paths::iterator end = var_paths.end();
-            for (; it != end; ++it) {
-                path * curr_path = *it;
+            for (path* curr_path : var_paths) {
                 if (is_equal(p, curr_path))
                     found = true;
                 func_decl * lbl1 = curr_path->m_label;
@@ -3647,18 +3639,12 @@ namespace smt {
             TRACE("incremental_matcher", tout << "pp: plbls1: " << plbls1 << ", plbls2: " << plbls2 << "\n";);
             TRACE("mam_info", tout << "pp: " << plbls1.size() * plbls2.size() << "\n";);
             if (!plbls1.empty() && !plbls2.empty()) {
-                approx_set::iterator it1  = plbls1.begin();
-                approx_set::iterator end1 = plbls1.end();
-                for (; it1 != end1; ++it1) {
+                for (unsigned plbl1 : plbls1) {
                     if (m_context.get_cancel_flag()) {
                         break;
                     }
-                    unsigned plbl1 = *it1;
                     SASSERT(plbls1.may_contain(plbl1));
-                    approx_set::iterator it2  = plbls2.begin();
-                    approx_set::iterator end2 = plbls2.end();
-                    for (; it2 != end2; ++it2) {
-                        unsigned plbl2 = *it2;
+                    for (unsigned plbl2 : plbls2) {
                         SASSERT(plbls2.may_contain(plbl2));
                         unsigned n_plbl1 = plbl1;
                         unsigned n_plbl2 = plbl2;

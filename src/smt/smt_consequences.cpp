@@ -637,15 +637,14 @@ namespace smt {
         model_ref mdl;
         for (unsigned i = 0; i < unfixed.size(); ++i) {
             push();            
-            for (unsigned j = 0; j < assumptions.size(); ++j) {
-                assert_expr(assumptions[j]);
-            }
+            for (expr* a : assumptions) 
+                assert_expr(a);
             TRACE("context", tout << "checking unfixed: " << mk_pp(unfixed[i], m) << "\n";);
             lbool is_sat = check();            
             SASSERT(is_sat != l_false);
             if (is_sat == l_true) {
                 get_model(mdl);
-                mdl->eval(unfixed[i], tmp);
+                tmp = (*mdl)(unfixed[i]);
                 if (m.is_value(tmp)) {
                     tmp = m.mk_not(m.mk_eq(unfixed[i], tmp));
                     assert_expr(tmp);

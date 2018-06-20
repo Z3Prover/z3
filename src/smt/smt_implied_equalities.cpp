@@ -199,7 +199,7 @@ namespace smt {
 
             for (unsigned i = 0; i < terms.size(); ++i) {
                 expr* t = terms[i].term;
-                model->eval(t, vl);
+                vl = (*model)(t);
                 TRACE("get_implied_equalities", tout << mk_pp(t, m) << " |-> " << mk_pp(vl, m) << "\n";);
                 reduce_value(model, vl);
                 if (!m.is_value(vl)) {

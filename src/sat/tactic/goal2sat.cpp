@@ -968,9 +968,9 @@ model_converter* sat2goal::mc::translate(ast_translation& translator) {
     return result;
 }
 
-void sat2goal::mc::collect(ast_pp_util& visitor) {
+void sat2goal::mc::set_env(ast_pp_util* visitor) {
     flush_gmc();
-    if (m_gmc) m_gmc->collect(visitor);
+    if (m_gmc) m_gmc->set_env(visitor);
 }
 
 void sat2goal::mc::display(std::ostream& out) {
