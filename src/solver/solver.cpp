@@ -64,6 +64,13 @@ void solver::get_assertions(expr_ref_vector& fmls) const {
     }
 }
 
+expr_ref_vector solver::get_assertions() const {
+    expr_ref_vector result(get_manager());
+    get_assertions(result);
+    return result;
+}
+
+
 struct scoped_assumption_push {
     expr_ref_vector& m_vec;
     scoped_assumption_push(expr_ref_vector& v, expr* e): m_vec(v) { v.push_back(e); }

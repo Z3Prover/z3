@@ -124,10 +124,7 @@ namespace opt {
         }
 
         void update_assignment() {
-            m_assignment.reset();
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_assignment.push_back(is_true(m_soft[i]));
-            }
+            for (soft& s : m_soft) s.is_true = is_true(s.s);
         }
 
         struct compare_asm {

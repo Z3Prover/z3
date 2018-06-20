@@ -56,17 +56,26 @@ namespace opt {
     // 
     class maxsmt_solver_base : public maxsmt_solver {
     protected:
+        struct soft { 
+            expr_ref  s; 
+            rational  weight; 
+            bool      is_true;
+            soft(expr_ref& s, rational const& w, bool t): s(s), weight(w), is_true(t) {}
+            soft(soft const& other):s(other.s), weight(other.weight), is_true(other.is_true) {}
+            soft& operator=(soft const& other) { s = other.s; weight = other.weight; is_true = other.is_true; return *this; }            
+        };
         ast_manager&     m;
-        maxsat_context&  m_c;
-        const expr_ref_vector  m_soft;
-        vector<rational> m_weights;
+        maxsat_context&  m_c;        
+        vector<soft>     m_soft;
         expr_ref_vector  m_assertions;
         expr_ref_vector  m_trail;
         rational         m_lower;
         rational         m_upper;
         model_ref        m_model;
         svector<symbol>  m_labels;
-        svector<bool>    m_assignment;       // truth assignment to soft constraints
+        //const expr_ref_vector  m_soft;
+        //vector<rational> m_weights;
+        //svector<bool>    m_assignment;       // truth assignment to soft constraints
         params_ref       m_params;           // config
 
     public:
@@ -75,7 +84,7 @@ namespace opt {
         ~maxsmt_solver_base() override {}
         rational get_lower() const override { return m_lower; }
         rational get_upper() const override { return m_upper; }
-        bool get_assignment(unsigned index) const override { return m_assignment[index]; }
+        bool get_assignment(unsigned index) const override { return m_soft[index].is_true; }
         void collect_statistics(statistics& st) const override { }
         void get_model(model_ref& mdl, svector<symbol>& labels) override { mdl = m_model.get(); labels = m_labels;}
         virtual void commit_assignment();
