@@ -60,7 +60,7 @@ namespace opt {
             expr_ref  s; 
             rational  weight; 
             bool      is_true;
-            soft(expr_ref& s, rational const& w, bool t): s(s), weight(w), is_true(t) {}
+            soft(expr_ref const& s, rational const& w, bool t): s(s), weight(w), is_true(t) {}
             soft(soft const& other):s(other.s), weight(other.weight), is_true(other.is_true) {}
             soft& operator=(soft const& other) { s = other.s; weight = other.weight; is_true = other.is_true; return *this; }            
         };
