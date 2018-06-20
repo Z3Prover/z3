@@ -447,6 +447,7 @@ namespace smt {
         void insert_branch_start(unsigned k, unsigned s);
         unsigned find_branch_start(unsigned k);
         bool find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs);
+        expr_ref_vector expand_strings(expr_ref_vector const& es);
         bool can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs) const;
         lbool assume_equality(expr* l, expr* r);
 
