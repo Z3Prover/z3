@@ -66,7 +66,7 @@ expr_ref project_plugin::pick_equality(ast_manager& m, model& model, expr* t) {
     app* alit = to_app(t);
     for (expr * e1 : *alit) {
         expr *e2;
-        VERIFY(model.eval(e1, val));
+        val = model(e1);
         if (val2expr.find(val, e2)) {
             return expr_ref(m.mk_eq(e1, e2), m);
         }
@@ -501,7 +501,7 @@ public:
         expr_ref val(m);
         model_evaluator eval(model);
         for (expr * f : fmls) {
-            VERIFY(model.eval(f, val) && m.is_true(val)); 
+            VERIFY(model.is_true(f));
         }
         return true;
     }
@@ -538,7 +538,7 @@ public:
                 var = new_vars.back();
                 new_vars.pop_back();
                 expr_safe_replace sub(m);
-                VERIFY(model.eval(var, val));
+                val = model(var);
                 sub.insert(var, val);
                 for (unsigned i = 0; i < fmls.size(); ++i) {
                     sub(fmls[i].get(), tmp);

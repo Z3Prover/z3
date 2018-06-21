@@ -2611,8 +2611,8 @@ namespace smt2 {
             expr ** expr_it  = expr_stack().c_ptr() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
             for (unsigned i = 0; expr_it < expr_end; expr_it++, i++) {
-                expr_ref v(m());
-                md->eval(*expr_it, v, true);
+                model::scoped_model_completion _scm(md, true);
+                expr_ref v = (*md)(*expr_it);
                 if (i > 0)
                     m_ctx.regular_stream() << "\n ";
                 m_ctx.regular_stream() << "(" << m_cached_strings[i] << " ";

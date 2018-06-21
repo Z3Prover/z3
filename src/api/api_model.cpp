@@ -166,7 +166,8 @@ extern "C" {
         CHECK_IS_EXPR(t, Z3_FALSE);
         model * _m = to_model_ref(m);
         expr_ref result(mk_c(c)->m());
-        _m->eval(to_expr(t), result, model_completion == Z3_TRUE);
+        model::scoped_model_completion _scm(*_m, model_completion == Z3_TRUE);
+        result = (*_m)(to_expr(t));
         mk_c(c)->save_ast_trail(result.get());
         *v = of_ast(result.get());
         RETURN_Z3_model_eval Z3_TRUE;

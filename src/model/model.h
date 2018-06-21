@@ -46,8 +46,7 @@ public:
 
     model * copy() const;
 
-    bool eval(func_decl * f, expr_ref & r) const { return model_core::eval(f, r); }
-    bool eval(expr * e, expr_ref & result, bool model_completion = false);
+    bool eval_expr(expr * e, expr_ref & result, bool model_completion = false);
 
     expr * get_some_value(sort * s) override;
     ptr_vector<expr> const & get_universe(sort * s) const override;
@@ -93,8 +92,6 @@ public:
             m_model.set_model_completion(m_old_completion);
         }
     };
-
-
 };
 
 

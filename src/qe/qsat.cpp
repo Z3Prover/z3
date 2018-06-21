@@ -516,8 +516,8 @@ namespace qe {
             expr_ref val_a(m), val_b(m);
             expr* a = it->m_key;
             expr* b = it->m_value;
-            VERIFY(model.eval(a, val_a));
-            VERIFY(model.eval(b, val_b));
+            val_a = model(a);
+            val_b = model(b);
             if (val_a != val_b) {
                 TRACE("qe", 
                       tout << mk_pp(a, m) << " := " << val_a << "\n";
@@ -1060,11 +1060,9 @@ namespace qe {
         }
 
         bool validate_assumptions(model& mdl, expr_ref_vector const& core) {
-            for (unsigned i = 0; i < core.size(); ++i) {
-                expr_ref val(m);
-                VERIFY(mdl.eval(core[i], val));
-                if (!m.is_true(val)) {
-                    TRACE("qe", tout << "component of core is not true: " << mk_pp(core[i], m) << "\n";);
+            for (expr* c : core) {
+                if (!mdl.is_true(c)) {
+                    TRACE("qe", tout << "component of core is not true: " << mk_pp(c, m) << "\n";);
                     return false;
                 }
             }
@@ -1111,14 +1109,10 @@ namespace qe {
         bool validate_model(model& mdl, unsigned sz, expr* const* fmls) {
             expr_ref val(m);
             for (unsigned i = 0; i < sz; ++i) {
-                if (!m_model->eval(fmls[i], val) && !m.canceled()) {
-                    TRACE("qe", tout << "Formula does not evaluate in model: " << mk_pp(fmls[i], m) << "\n";);
+                if (!m_model->is_true(fmls[i]) && !m.canceled()) {
+                    TRACE("qe", tout << "Formula does not evaluate to true in model: " << mk_pp(fmls[i], m) << "\n";);
                     return false;
                 } 
-                if (!m.is_true(val)) {
-                    TRACE("qe", tout << mk_pp(fmls[i], m) << " evaluates to " << val << " in model\n";);                    
-                    return false;
-                }
             }               
             return true;
         }

@@ -88,8 +88,7 @@ static void test(app* var, expr_ref& fml) {
     std::cout << "projected: " << mk_pp(pr,  m) << "\n";
 
     // projection is consistent with model.
-    expr_ref tmp(m);
-    VERIFY(md->eval(pr, tmp) && m.is_true(tmp));       
+    VERIFY(md->is_true(pr));
 
     // projection implies E x. fml
     {

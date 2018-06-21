@@ -43,6 +43,16 @@ void model_converter::display_del(std::ostream& out, func_decl* f) const {
     }
 }
 
+void model_converter::set_env(ast_pp_util* visitor) {
+    if (visitor) {
+        m_env = &visitor->env();
+    }
+    else {
+        m_env = nullptr;
+    }
+}
+
+
 void model_converter::display_add(std::ostream& out, ast_manager& m) {
     // default printer for converter that adds entries
     model_ref mdl = alloc(model, m);
@@ -91,9 +101,9 @@ public:
         return this->translate_core<concat_model_converter>(translator);
     }
 
-    void collect(ast_pp_util& visitor) override { 
-        this->m_c1->collect(visitor);
-        this->m_c2->collect(visitor);
+    void set_env(ast_pp_util* visitor) override {
+        this->m_c1->set_env(visitor);
+        this->m_c2->set_env(visitor);
     }
 };
 
@@ -125,9 +135,8 @@ public:
     }
 
     void operator()(expr_ref& fml) override {
-        expr_ref r(m_model->get_manager());
-        m_model->eval(fml, r, false);
-        fml = r;
+        model::scoped_model_completion _scm(m_model, false);
+        fml = (*m_model)(fml);
     }
 
     void get_units(obj_map<expr, bool>& fmls) override {

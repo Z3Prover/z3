@@ -42,8 +42,7 @@ namespace qe {
         }
 
         bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
-            expr_ref val(m);
-            VERIFY(model.eval(var, val));
+            expr_ref val = model(var);
             SASSERT(is_app(val));
             TRACE("qe", tout << mk_pp(var, m) << " := " << val << "\n";);
             m_val = to_app(val);

@@ -472,7 +472,7 @@ namespace spacer {
                     for (unsigned j = 0; j < matrix.num_cols(); ++j) {
                         expr_ref evaluation(m);
 
-                        model.get()->eval(bounded_vectors[j][k].get(), evaluation, false);
+                        evaluation = (*model)(bounded_vectors[j][k].get());
                         if (!util.is_zero(evaluation)) {
                             coeff_lits.push_back(std::make_pair(rational(1), ordered_basis[j]));
                         }

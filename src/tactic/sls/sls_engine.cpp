@@ -100,36 +100,27 @@ void sls_engine::checkpoint() {
 }
 
 bool sls_engine::full_eval(model & mdl) {
-    bool res = true;
-
-    unsigned sz = m_assertions.size();
-    for (unsigned i = 0; i < sz && res; i++) {
-        checkpoint();
-        expr_ref o(m_manager);
-
-        if (!mdl.eval(m_assertions[i], o, true))
-            exit(ERR_INTERNAL_FATAL);
-
-        res = m_manager.is_true(o.get());
-    }
-
-    TRACE("sls", tout << "Evaluation: " << res << std::endl;);
-
-    return res;
+    model::scoped_model_completion _scm(mdl, true);
+    for (expr* a : m_assertions) {
+        checkpoint();        
+        if (!mdl.is_true(a)) {
+            TRACE("sls", tout << "Evaluation: false\n";);
+            return false;
+        }
+    }    
+    return true;
 }
 
 double sls_engine::top_score() {
     double top_sum = 0.0;
-    unsigned sz = m_assertions.size();
-    for (unsigned i = 0; i < sz; i++) {
-        expr * e = m_assertions[i];
+    for (expr* e : m_assertions) {
         top_sum += m_tracker.get_score(e);
     }
 
     TRACE("sls_top", tout << "Score distribution:";
-    for (unsigned i = 0; i < sz; i++)
-        tout << " " << m_tracker.get_score(m_assertions[i]);
-    tout << " AVG: " << top_sum / (double)sz << std::endl;);
+          for (expr* e : m_assertions) 
+              tout << " " << m_tracker.get_score(e);
+          tout << " AVG: " << top_sum / (double)m_assertions.size() << std::endl;);
 
     m_tracker.set_top_sum(top_sum);
 

@@ -121,10 +121,8 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
             expr_ref_vector hard(m);
             opt.get_hard_constraints(hard);
             for (expr* h : hard) {
-                expr_ref tmp(m);
-                VERIFY(mdl->eval(h, tmp));
-                if (!m.is_true(tmp)) {
-                    std::cout << mk_pp(h, m) << " " << tmp << "\n";
+                if (!mdl->is_true(h)) {
+                    std::cout << mk_pp(h, m) << " evaluates to: " << (*mdl)(h) << "\n";
                 }
             }
         }

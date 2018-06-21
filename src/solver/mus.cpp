@@ -332,8 +332,7 @@ struct mus::imp {
         m_solver.get_model(mdl);
         rational w;
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            mdl->eval(m_soft[i].get(), tmp);
-            if (!m.is_true(tmp)) {
+            if (!mdl->is_true(m_soft.get(i))) {
                 w += m_weights[i];
             }
         }

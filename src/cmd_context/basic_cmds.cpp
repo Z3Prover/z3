@@ -138,8 +138,8 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
         macro_decls const & _m    = kv.m_value;
         for (auto md : _m) {
             if (md.m_domain.size() == 0 && ctx.m().is_bool(md.m_body)) {
-                expr_ref val(ctx.m());
-                m->eval(md.m_body, val, true);
+                model::scoped_model_completion _scm(*m, true);
+                expr_ref val = (*m)(md.m_body);
                 if (ctx.m().is_true(val) || ctx.m().is_false(val)) {
                     if (first)
                         first = false;

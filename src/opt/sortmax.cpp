@@ -73,8 +73,7 @@ namespace opt {
             unsigned first = 0;
             it = soft.begin();
             for (; it != end; ++it) {
-                expr_ref tmp(m);
-                if (m_model->eval(it->m_key, tmp) && m.is_true(tmp)) {
+                if (m_model->is_true(it->m_key)) {
                     unsigned n = it->m_value.get_unsigned();
                     while (n > 0) {
                         s().assert_expr(out[first]);
@@ -115,14 +114,11 @@ namespace opt {
         }
 
         void update_assignment() {
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_assignment[i] = is_true(m_soft[i]);
-            }
+            for (soft& s : m_soft) s.is_true = is_true(s.s);
         }
 
         bool is_true(expr* e) {
-            expr_ref tmp(m);
-            return m_model->eval(e, tmp) && m.is_true(tmp);
+            return m_model->is_true(e);
         }
 
         // definitions used for sorting network

@@ -83,9 +83,8 @@ class nlsat_tactic : public tactic {
         bool eval_model(model& model, goal& g) {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
-                expr_ref val(m);
-                if (model.eval(g.form(i), val) && !m.is_true(val)) {
-                    TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << val << "\n";);
+                if (!model.is_true(g.form(i))) {
+                    TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
                     return false;
                 }
             }

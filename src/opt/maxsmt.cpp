@@ -34,16 +34,17 @@ Notes:
 namespace opt {
 
     maxsmt_solver_base::maxsmt_solver_base(
-        maxsat_context& c, vector<rational> const& ws, expr_ref_vector const& soft):
+        maxsat_context& c, vector<rational> const& ws, expr_ref_vector const& softs):
         m(c.get_manager()), 
         m_c(c),
-        m_soft(soft),
-        m_weights(ws),
         m_assertions(m),
         m_trail(m) {
         c.get_base_model(m_model);
         SASSERT(m_model);
         updt_params(c.params());
+        for (unsigned i = 0; i < ws.size(); ++i) {
+            m_soft.push_back(soft(expr_ref(softs.get(i), m), ws[i], false));
+        }
     }
     
     void maxsmt_solver_base::updt_params(params_ref& p) {
@@ -56,17 +57,21 @@ namespace opt {
 
     void maxsmt_solver_base::commit_assignment() {
         expr_ref tmp(m);
+        expr_ref_vector fmls(m);
         rational k(0), cost(0);
-        for (unsigned i = 0; i < m_soft.size(); ++i) {
-            if (get_assignment(i)) {
-                k += m_weights[i];
+        vector<rational> weights;
+        for (soft const& s : m_soft) {
+            if (s.is_true) {
+                k += s.weight;
             }
             else {
-                cost += m_weights[i];
+                cost += s.weight;
             }
+            weights.push_back(s.weight);
+            fmls.push_back(s.s);
         }       
         pb_util pb(m);
-        tmp = pb.mk_ge(m_weights.size(), m_weights.c_ptr(), m_soft.c_ptr(), k);
+        tmp = pb.mk_ge(weights.size(), weights.c_ptr(), fmls.c_ptr(), k);
         TRACE("opt", tout << "cost: " << cost << "\n" << tmp << "\n";);
         s().assert_expr(tmp);
     }
@@ -74,21 +79,14 @@ namespace opt {
     bool maxsmt_solver_base::init() {
         m_lower.reset();
         m_upper.reset();
-        m_assignment.reset();
-        for (unsigned i = 0; i < m_weights.size(); ++i) {
-            expr_ref val(m);
-            if (!m_model->eval(m_soft[i], val)) return false;
-            m_assignment.push_back(m.is_true(val));
-            if (!m_assignment.back()) {
-                m_upper += m_weights[i];
-            }
+        for (soft& s : m_soft) {
+            s.is_true = m.is_true(s.s);
+            if (!s.is_true) m_upper += s.weight;
         }
         
         TRACE("opt", 
               tout << "upper: " << m_upper << " assignments: ";
-              for (unsigned i = 0; i < m_weights.size(); ++i) {
-                  tout << (m_assignment[i]?"T":"F");
-              }
+              for (soft& s : m_soft) tout << (s.is_true?"T":"F");              
               tout << "\n";);
         return true;
     }
@@ -143,6 +141,7 @@ namespace opt {
     maxsmt_solver_base::scoped_ensure_theory::scoped_ensure_theory(maxsmt_solver_base& s) {
         m_wth = s.ensure_wmax_theory();
     }
+
     maxsmt_solver_base::scoped_ensure_theory::~scoped_ensure_theory() {
         if (m_wth) {
             m_wth->reset_local();
@@ -161,11 +160,13 @@ namespace opt {
 
     lbool maxsmt_solver_base::find_mutexes(obj_map<expr, rational>& new_soft) {
         m_lower.reset();
-        for (unsigned i = 0; i < m_soft.size(); ++i) {
-            new_soft.insert(m_soft[i], m_weights[i]);
+        expr_ref_vector fmls(m);
+        for (soft& s : m_soft) {
+            new_soft.insert(s.s, s.weight);
+            fmls.push_back(s.s);
         }
         vector<expr_ref_vector> mutexes;
-        lbool is_sat = s().find_mutexes(m_soft, mutexes);
+        lbool is_sat = s().find_mutexes(fmls, mutexes);
         if (is_sat != l_true) {
             return is_sat;
         }
@@ -232,9 +233,7 @@ namespace opt {
         m_msolver = nullptr;
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
-        TRACE("opt", tout << "maxsmt\n";
-              s().display(tout); tout << "\n";
-              );
+        TRACE("opt_verbose", s().display(tout << "maxsmt\n") << "\n";);
         if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
             m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
@@ -455,10 +454,9 @@ namespace opt {
             maxsmt.get_model(m_model, labels);
             // TBD: is m_fm applied or not?
             unsigned j = 0;
-            expr_ref tmp(m);
-            for (unsigned i = 0; i < soft.size(); ++i) {
-                if (m_model->eval(soft[i].first, tmp) && m.is_true(tmp)) {
-                    soft[j++] = soft[i];
+            for (auto const& p : soft) {
+                if (m_model->is_true(p.first)) {
+                    soft[j++] = p;
                 }
             }
             soft.shrink(j);

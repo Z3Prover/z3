@@ -179,6 +179,8 @@ public:
     */
     void get_assertions(expr_ref_vector& fmls) const;
 
+    expr_ref_vector get_assertions() const;
+
     /**
     \brief The number of tracked assumptions (see assert_expr(t, a)).
     */

@@ -120,15 +120,11 @@ namespace opt {
         }
 
         bool is_true(expr* e) {
-            expr_ref tmp(m);
-            return m_model->eval(e, tmp) && m.is_true(tmp);
+            return m_model->is_true(e);
         }
 
         void update_assignment() {
-            m_assignment.reset();
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_assignment.push_back(is_true(m_soft[i]));
-            }
+            for (soft& s : m_soft) s.is_true = is_true(s.s);
         }
 
         struct compare_asm {
@@ -307,9 +303,8 @@ namespace opt {
         }
 
         void update_model(expr* def, expr* value) {
-            expr_ref val(m);
-            if (m_model && m_model->eval(value, val, true)) {
-                m_model->register_decl(to_app(def)->get_decl(), val);
+            if (m_model) {
+                m_model->register_decl(to_app(def)->get_decl(), (*m_model)(value));
             }
         }
                 
