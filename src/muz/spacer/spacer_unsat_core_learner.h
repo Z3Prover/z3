@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast.h"
 #include "muz/spacer/spacer_util.h"
 #include "muz/spacer/spacer_proof_utils.h"
+#include "muz/spacer/spacer_iuc_proof.h"
 
 namespace spacer {
 
@@ -31,13 +32,25 @@ namespace spacer {
     class unsat_core_learner {
         typedef obj_hashtable<expr> expr_set;
 
+        ast_manager& m;
+        iuc_proof&   m_pr;
+
+        ptr_vector<unsat_core_plugin> m_plugins;
+        ast_mark m_closed;
+
+        expr_ref_vector m_unsat_core;
+
     public:
         unsat_core_learner(ast_manager& m, iuc_proof& pr) :
             m(m), m_pr(pr), m_unsat_core(m) {};
         virtual ~unsat_core_learner();
 
-        ast_manager& m;
-        iuc_proof&   m_pr;
+        ast_manager& get_manager() {return m;}
+
+        bool is_a(proof *pr) {return m_pr.is_a_marked(pr);}
+        bool is_b(proof *pr) {return m_pr.is_b_marked(pr);}
+        bool is_h(proof *pr) {return m_pr.is_h_marked(pr);}
+        bool is_b_pure(proof *pr) { return m_pr.is_b_pure(pr);}
 
         /*
          * register a plugin for computation of partial unsat cores
@@ -67,14 +80,6 @@ namespace spacer {
         void add_lemma_to_core(expr* lemma);
 
     private:
-        ptr_vector<unsat_core_plugin> m_plugins;
-        ast_mark m_closed;
-
-        /*
-         * collects the lemmas of the unsat-core
-         * will at the end be inserted into unsat_core.
-         */
-        expr_ref_vector m_unsat_core;
 
         /*
          * computes partial core for step by delegating computation to plugins
