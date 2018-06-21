@@ -45,7 +45,7 @@ namespace spacer {
         return false;
     }
 
-// farkas lemma recognizer
+    // farkas lemma recognizer
     bool is_farkas_lemma(ast_manager& m, proof* pr)
     {
         if (pr->get_decl_kind() == PR_TH_LEMMA)
@@ -59,6 +59,19 @@ namespace spacer {
         return false;
     }
 
+    static bool is_assign_bounds_lemma(ast_manager &m, proof *pr) {
+        if (pr->get_decl_kind() == PR_TH_LEMMA)
+        {
+            func_decl* d = pr->get_decl();
+            symbol sym;
+            return d->get_num_parameters() >= 2 &&
+                d->get_parameter(0).is_symbol(sym) && sym == "arith" &&
+                d->get_parameter(1).is_symbol(sym) && sym == "assign-bounds";
+        }
+        return false;
+    }
+
+
 
 /*
  * ====================================
@@ -71,8 +84,8 @@ namespace spacer {
         m_pinned.reset();
     }
 
-    static proof*  mk_th_lemma(ast_manager &m, ptr_buffer<proof> const &parents,
-                               unsigned num_params, parameter const *params) {
+    static proof_ref  mk_th_lemma(ast_manager &m, ptr_buffer<proof> const &parents,
+                                  unsigned num_params, parameter const *params) {
         buffer<parameter> v;
         for (unsigned i = 1; i < num_params; ++i)
             v.push_back(params[i]);
@@ -81,12 +94,45 @@ namespace spacer {
         family_id tid = m.mk_family_id(params[0].get_symbol());
         SASSERT(tid != null_family_id);
 
-        return m.mk_th_lemma(tid, m.mk_false(),
-                             parents.size(), parents.c_ptr(),
-                             num_params-1, v.c_ptr());
+        proof *pf =  m.mk_th_lemma(tid, m.mk_false(),
+                                   parents.size(), parents.c_ptr(),
+                                   v.size(), v.c_ptr());
+        return proof_ref(pf, m);
     }
 
-// -- rewrite theory axioms into theory lemmas
+    // convert assign-bounds lemma to a farkas lemma by adding missing coeff
+    // assume that missing coeff is for premise at position 0
+    static proof_ref mk_fk_from_ab(ast_manager &m,
+                                   ptr_buffer<proof> const &parents,
+                                   unsigned num_params,
+                                   parameter const *params) {
+        SASSERT(num_params == parents.size() + 1 /* one param is missing */);
+        buffer<parameter> v;
+        v.push_back(parameter(symbol("farkas")));
+        v.push_back(parameter(rational(1)));
+        for (unsigned i = 2; i < num_params; ++i)
+            v.push_back(params[i]);
+
+        SASSERT(params[0].is_symbol());
+        family_id tid = m.mk_family_id(params[0].get_symbol());
+        SASSERT(tid != null_family_id);
+
+        proof_ref pf(m);
+        pf = m.mk_th_lemma(tid, m.mk_false(),
+                           parents.size(), parents.c_ptr(),
+                           v.size(), v.c_ptr());
+
+        SASSERT(is_arith_lemma(m, pf));
+        DEBUG_CODE(
+            proof_checker pc(m);
+            expr_ref_vector side(m);
+            SASSERT(pc.check(pf, side));
+            );
+        return pf;
+
+    }
+
+    /// -- rewrite theory axioms into theory lemmas
     proof_ref theory_axiom_reducer::reduce(proof* pr) {
         proof_post_order pit(pr, m);
         while (pit.hasNext()) {
@@ -124,9 +170,19 @@ namespace spacer {
                 }
 
                 // (b) Create a theory lemma
-                proof *th_lemma;
+                proof_ref th_lemma(m);
                 func_decl *d = p->get_decl();
-                th_lemma = mk_th_lemma(m, hyps, d->get_num_parameters(), d->get_parameters());
+                if (is_assign_bounds_lemma(m, p)) {
+
+                    th_lemma = mk_fk_from_ab(m, hyps,
+                                             d->get_num_parameters(),
+                                             d->get_parameters());
+                }
+                else {
+                    th_lemma = mk_th_lemma(m, hyps,
+                                           d->get_num_parameters(),
+                                           d->get_parameters());
+                }
                 m_pinned.push_back(th_lemma);
                 SASSERT(is_arith_lemma(m, th_lemma));
 
