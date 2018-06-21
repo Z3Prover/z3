@@ -71,6 +71,21 @@ void theory_axiom_reducer::reset() {
     m_pinned.reset();
 }
 
+static proof*  mk_th_lemma(ast_manager &m, ptr_buffer<proof> const &parents,
+                           unsigned num_params, parameter const *params) {
+    buffer<parameter> v;
+    for (unsigned i = 1; i < num_params; ++i)
+        v.push_back(params[i]);
+
+    SASSERT(params[0].is_symbol());
+    family_id tid = m.mk_family_id(params[0].get_symbol());
+    SASSERT(tid != null_family_id);
+
+    return m.mk_th_lemma(tid, m.mk_false(),
+                         parents.size(), parents.c_ptr(),
+                         num_params-1, v.c_ptr());
+}
+
 // -- rewrite theory axioms into theory lemmas
 proof_ref theory_axiom_reducer::reduce(proof* pr) {
     proof_post_order pit(pr, m);
@@ -108,20 +123,10 @@ proof_ref theory_axiom_reducer::reduce(proof* pr) {
                 hyps.push_back(hyp);
             }
 
-            // (b) create farkas lemma. Rebuild parameters since
-            // mk_th_lemma() adds tid as first parameter
-            unsigned num_params = p->get_decl()->get_num_parameters();
-            parameter const* params = p->get_decl()->get_parameters();
-            vector<parameter> parameters;
-            for (unsigned i = 1; i < num_params; ++i) parameters.push_back(params[i]);
-
-            SASSERT(params[0].is_symbol());
-            family_id tid = m.mk_family_id(params[0].get_symbol());
-            SASSERT(tid != null_family_id);
-
-            proof* th_lemma = m.mk_th_lemma(tid, m.mk_false(),
-                                            hyps.size(), hyps.c_ptr(),
-                                            num_params-1, parameters.c_ptr());
+            // (b) Create a theory lemma
+            proof *th_lemma;
+            func_decl *d = p->get_decl();
+            th_lemma = mk_th_lemma(m, hyps, d->get_num_parameters(), d->get_parameters());
             m_pinned.push_back(th_lemma);
             SASSERT(is_arith_lemma(m, th_lemma));
 
