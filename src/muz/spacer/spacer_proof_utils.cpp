@@ -94,10 +94,11 @@ namespace spacer {
         family_id tid = m.mk_family_id(params[0].get_symbol());
         SASSERT(tid != null_family_id);
 
-        proof *pf =  m.mk_th_lemma(tid, m.mk_false(),
-                                   parents.size(), parents.c_ptr(),
-                                   v.size(), v.c_ptr());
-        return proof_ref(pf, m);
+        proof_ref pf(m);
+        pf =  m.mk_th_lemma(tid, m.mk_false(),
+                            parents.size(), parents.c_ptr(),
+                            v.size(), v.c_ptr());
+        return pf;
     }
 
     // convert assign-bounds lemma to a farkas lemma by adding missing coeff
