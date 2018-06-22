@@ -577,5 +577,6 @@ public:
     bool get_equality_and_right_side_for_term_on_current_x(unsigned i, mpq &rs, constraint_index& ci) const;
     bool remove_from_basis(unsigned);
     lar_term get_term_to_maximize(unsigned ext_j) const;
+    void set_cut_strategy(unsigned cut_frequency);
 };
 }

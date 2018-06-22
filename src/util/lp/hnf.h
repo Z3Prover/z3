@@ -130,15 +130,13 @@ void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & 
     lp_assert(!is_zero(m[r][r]));
     for (unsigned j = r + 1; j < m.column_count(); j++) {
         for (unsigned i = r + 1; i  < m.row_count(); i++) {            
-            m[i][j] =
-                (r > 0) ?
-                (m[r][r]*m[i][j] - m[i][r]*m[r][j]) / m[r-1][r-1] :
-                (m[r][r]*m[i][j] - m[i][r]*m[r][j]);
-            if (m[i][j] >= big_number) {
+            if (
+                (m[i][j] = (r > 0) ? (m[r][r]*m[i][j] - m[i][r]*m[r][j]) / m[r-1][r-1] :
+                                     (m[r][r]*m[i][j] - m[i][r]*m[r][j]))
+                >= big_number) {
                 overflow = true;
                 return;
             }
-                
             lp_assert(is_int(m[i][j]));
         }
     }
@@ -201,16 +199,6 @@ mpq determinant_of_rectangular_matrix(const M& m, svector<unsigned> & basis_rows
     TRACE("hnf_calc", tout << "basis_rows = "; print_vector(basis_rows, tout); m_copy.print(tout, "m_copy = "););
     return gcd_of_row_starting_from_diagonal(m_copy, rank - 1);
 }
-
-template <typename M> 
-mpq determinant(const M& m) {
-    lp_assert(m.row_count() == m.column_count());
-    auto mc = m;
-    svector<unsigned> basis_rows;
-    mpq d = determinant_of_rectangular_matrix(mc, basis_rows);
-    return basis_rows.size() < m.row_count() ? zero_of_type<mpq>() : d;
-}
-
 } // end of namespace hnf_calc
 
 template <typename M> // M is the matrix type

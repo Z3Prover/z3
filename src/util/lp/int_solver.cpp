@@ -463,7 +463,7 @@ bool int_solver::tighten_terms_for_cube() {
 }
 
 lia_move int_solver::find_cube() {
-    if (m_branch_cut_counter % settings().m_int_find_cube_period != 0)
+    if (m_number_of_calls % settings().m_int_find_cube_period != 0)
         return lia_move::undef;
     
     settings().st().m_cube_calls++;
@@ -510,7 +510,7 @@ lia_move int_solver::run_gcd_test() {
 }
 
 lia_move int_solver::gomory_cut() {
-    if ((m_branch_cut_counter) % settings().m_int_gomory_cut_period != 0)
+    if ((m_number_of_calls) % settings().m_int_gomory_cut_period != 0)
         return lia_move::undef;
 
     if (move_non_basic_columns_to_bounds()) {
@@ -598,7 +598,7 @@ lia_move int_solver::make_hnf_cut() {
 }
 
 lia_move int_solver::hnf_cut() {
-    if ((m_branch_cut_counter) % settings().m_hnf_cut_period == 0) {
+    if ((m_number_of_calls) % settings().m_hnf_cut_period == 0) {
         return make_hnf_cut();
     }
     return lia_move::undef;
@@ -618,7 +618,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
 
     r = patch_nbasic_columns();
     if (r != lia_move::undef) return r;
-    ++m_branch_cut_counter;
+    ++m_number_of_calls;
     r = find_cube();
     if (r != lia_move::undef) return r;
     
@@ -936,7 +936,7 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
-    m_branch_cut_counter(0),
+    m_number_of_calls(0),
     m_hnf_cutter(settings()) {
     m_lar_solver->set_int_solver(this);
 }

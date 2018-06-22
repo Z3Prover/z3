@@ -306,13 +306,13 @@ class theory_lra::imp {
         reset_variable_values();
         m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
         m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
-        m_solver->settings().m_int_gomory_cut_period = ctx().get_fparams().m_arith_branch_cut_ratio;
-        m_solver->settings().m_hnf_cut_period = ctx().get_fparams().m_arith_branch_cut_ratio;
-        m_solver->settings().m_int_chase_cut_solver_period = std::max(8u, ctx().get_fparams().m_arith_branch_cut_ratio);
+
+        // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
+        unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
+        m_solver->set_cut_strategy(branch_cut_ratio);
+
         m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
-        
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        //m_solver->settings().set_ostream(0);
         m_lia = alloc(lp::int_solver, m_solver.get());
     }
 
@@ -1297,7 +1297,7 @@ public:
                 return FC_CONTINUE;
             case l_undef:
                 TRACE("arith", tout << "check-lia giveup\n";);
-                st = FC_GIVEUP;
+                st = FC_CONTINUE;
                 break;
             }
                 
@@ -1399,6 +1399,8 @@ public:
             return l_false;
         case lp::lia_move::undef:
             TRACE("arith", tout << "lia undef\n";);
+            return l_undef;
+        case lp::lia_move::continue_with_check:
             return l_undef;
         default:
             UNREACHABLE();
@@ -2873,10 +2875,6 @@ public:
         st.update("arith-make-feasible", m_solver->settings().st().m_make_feasible);
         st.update("arith-max-columns", m_solver->settings().st().m_max_cols);
         st.update("arith-max-rows", m_solver->settings().st().m_max_rows);
-        st.update("cut-solver-calls", m_solver->settings().st().m_chase_cut_solver_calls);
-        st.update("cut-solver-true", m_solver->settings().st().m_chase_cut_solver_true);
-        st.update("cut-solver-false", m_solver->settings().st().m_chase_cut_solver_false);
-        st.update("cut-solver-undef", m_solver->settings().st().m_chase_cut_solver_undef);
         st.update("gcd-calls", m_solver->settings().st().m_gcd_calls);
         st.update("gcd-conflict", m_solver->settings().st().m_gcd_conflicts);
         st.update("cube-calls", m_solver->settings().st().m_cube_calls);

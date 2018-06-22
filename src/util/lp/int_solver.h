@@ -38,7 +38,7 @@ class int_solver {
 public:
     // fields
     lar_solver          *m_lar_solver;
-    unsigned            m_branch_cut_counter;
+    unsigned            m_number_of_calls;
     lar_term            *m_t; // the term to return in the cut
     mpq                 *m_k; // the right side of the cut
     explanation         *m_ex; // the conflict explanation
