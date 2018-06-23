@@ -54,7 +54,7 @@ void unsat_core_learner::compute_unsat_core(expr_ref_vector& unsat_core) {
         // if the node mixes A-reasoning and B-reasoning
         // and contains non-closed premises
         if (!done) {
-            if (m_pr.is_a_marked(curr) && m_pr.is_b_marked(curr)) {
+            if (is_a(curr) && is_b(curr)) {
                 compute_partial_core(curr);
             }
         }
@@ -92,9 +92,6 @@ void unsat_core_learner::set_closed(proof* p, bool value) {
     m_closed.mark(p, value);
 }
 
-bool unsat_core_learner::is_b_open(proof *p) {
-    return m_pr.is_b_marked(p) && !is_closed (p);
-}
 
 void unsat_core_learner::add_lemma_to_core(expr* lemma) {
     m_unsat_core.push_back(lemma);

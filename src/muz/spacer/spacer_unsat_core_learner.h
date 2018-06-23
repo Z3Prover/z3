@@ -47,10 +47,17 @@ namespace spacer {
 
         ast_manager& get_manager() {return m;}
 
-        bool is_a(proof *pr) {return m_pr.is_a_marked(pr);}
+
+        bool is_a(proof *pr) {
+            // AG: treat hypotheses as A
+            // AG: assume that all B-hyp have been eliminated
+            // AG: this is not yet true in case of arithmetic eq_prop
+            return m_pr.is_a_marked(pr) || is_h(pr);
+        }
         bool is_b(proof *pr) {return m_pr.is_b_marked(pr);}
         bool is_h(proof *pr) {return m_pr.is_h_marked(pr);}
         bool is_b_pure(proof *pr) { return m_pr.is_b_pure(pr);}
+        bool is_b_open(proof *p) {return m_pr.is_b_marked(p) && !is_closed (p);}
 
         /*
          * register a plugin for computation of partial unsat cores
@@ -72,7 +79,6 @@ namespace spacer {
         bool is_closed(proof* p);
         void set_closed(proof* p, bool value);
 
-        bool is_b_open (proof *p);
 
         /*
          * adds a lemma to the unsat core

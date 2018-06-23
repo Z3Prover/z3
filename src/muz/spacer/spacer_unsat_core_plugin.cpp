@@ -210,6 +210,7 @@ namespace spacer {
             // AG: it will go into the core. However, it does not mean that this literal should/could not be added.
             m_ctx.set_closed(step, done);
             expr_ref res = compute_linear_combination(coeff_lits);
+            TRACE("spacer.farkas", tout << "Farkas core: " << res << "\n";);
             m_ctx.add_lemma_to_core(res);
         }
     }
