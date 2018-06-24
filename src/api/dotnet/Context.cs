@@ -3330,7 +3330,7 @@ namespace Microsoft.Z3
         /// form the set of bound variables.
         /// <seealso cref="MkLambda(Sort[], Symbol[], Expr)"/>
         /// </remarks>
-        public Lambda MkForall(Expr[] boundConstants, Expr body)
+        public Lambda MkLambda(Expr[] boundConstants, Expr body)
         {
             Contract.Requires(body != null);
             Contract.Requires(boundConstants != null && Contract.ForAll(boundConstants, b => b != null));

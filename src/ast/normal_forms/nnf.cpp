@@ -77,7 +77,7 @@ class skolemizer {
         if (q->get_kind() == lambda_k) {
             TRACE("nnf", tout << expr_ref(q, m) << "\n";);
             r = q;
-            p = 0;
+            p = nullptr;
             return;
         }
         used_vars uv;
@@ -775,7 +775,7 @@ struct nnf::imp {
         if (is_lambda(q)) {
             expr * new_expr = m_result_stack.back();
             quantifier * new_q = m.update_quantifier(q, new_expr);
-            proof * new_q_pr   = 0;
+            proof * new_q_pr   = nullptr;
             if (proofs_enabled()) {
                 // proof * new_expr_pr = m_result_pr_stack.back();
                 new_q_pr = m.mk_rewrite(q, new_q);  // TBD use new_expr_pr

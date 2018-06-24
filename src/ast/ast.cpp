@@ -1073,8 +1073,8 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_XOR:     return m_xor_decl;
     case OP_ITE:     return arity == 3 ? mk_ite_decl(join(domain[1], domain[2])) : nullptr;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
-    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(arity, domain), m_eq_decls) : 0;
-    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(arity, domain), m_oeq_decls) : 0;
+    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(arity, domain), m_eq_decls) : nullptr;
+    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(arity, domain), m_oeq_decls) : nullptr;
     case PR_BIND: {
         func_decl_info info(m_family_id, PR_BIND);
         return m_manager->mk_func_decl(symbol("proof-bind"), arity, domain, m_proof_sort, info);
@@ -2386,7 +2386,7 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
     unsigned sz               = quantifier::get_obj_size(num_decls, num_patterns, num_no_patterns);
     void * mem                = allocate_node(sz);
 
-    sort *s = 0;
+    sort* s = nullptr;
     if (k == lambda_k) {
         array_util autil(*this);
         s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));

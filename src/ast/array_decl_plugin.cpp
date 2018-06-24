@@ -51,7 +51,6 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     }
     SASSERT(k == ARRAY_SORT);
     if (num_parameters < 2) {
-        UNREACHABLE();
         m_manager->raise_exception("invalid array sort definition, invalid number of parameters");
         return nullptr;
     }
