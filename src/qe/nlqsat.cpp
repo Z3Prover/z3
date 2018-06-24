@@ -646,12 +646,8 @@ namespace qe {
             while (!vars.empty());
             SASSERT(qvars.size() >= 2);
             SASSERT(qvars.back().empty()); 
-
             ackermanize_div(is_forall, qvars, fml);
-
             init_expr2var(qvars);
-
-
             goal2nlsat g2s;
 
             expr_ref is_true(m), fml1(m), fml2(m);
@@ -672,9 +668,7 @@ namespace qe {
                 m_bound_rvars.push_back(nlsat::var_vector());
                 max_level lvl;
                 if (is_exists(i)) lvl.m_ex = i; else lvl.m_fa = i;
-                for (unsigned j = 0; j < qvars[i].size(); ++j) {
-                    app* v = qvars[i][j].get();
-
+                for (app* v : qvars[i]) {
                     if (m_a2b.is_var(v)) {
                         SASSERT(m.is_bool(v));
                         nlsat::bool_var b = m_a2b.to_var(v);
@@ -696,7 +690,7 @@ namespace qe {
             m_is_true = nlsat::literal(m_a2b.to_var(is_true), false);
             // insert literals from arithmetical sub-formulas
             nlsat::atom_vector const& atoms = m_solver.get_atoms();
-            TRACE("qe", m_solver.display(tout); );
+            TRACE("qe", m_solver.display(tout););
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 if (atoms[i]) {
                     get_level(nlsat::literal(i, false));

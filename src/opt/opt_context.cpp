@@ -351,6 +351,7 @@ namespace opt {
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
+        mdl->set_model_completion(true);
         TRACE("opt", tout << *mdl;);
     }
 
@@ -528,7 +529,7 @@ namespace opt {
                     k += obj.m_weights[i];
                 }
                 else {
-                    TRACE("opt", tout << val << "\n";);
+                    TRACE("opt", tout << (*mdl)(obj.m_terms[i]) << "\n";);
                 }
             }
             if (is_ge) {
@@ -1539,6 +1540,7 @@ namespace opt {
         expr_ref tmp(m);
         model_ref mdl;
         get_model(mdl);
+        mdl->set_model_completion(true);
         for (expr * f : fmls) {
             if (!mdl->is_true(f)) {
                 //IF_VERBOSE(0, m_fm->display(verbose_stream() << "fm\n"));
