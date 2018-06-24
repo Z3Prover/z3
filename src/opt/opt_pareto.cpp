@@ -40,6 +40,7 @@ namespace opt {
                     }
                     m_solver->get_model(m_model);
                     m_solver->get_labels(m_labels);
+                    m_model->set_model_completion(true);
                     IF_VERBOSE(1,
                                model_ref mdl(m_model);
                                cb.fix_model(mdl); 
@@ -99,6 +100,7 @@ namespace opt {
         if (is_sat == l_true) {
             m_solver->get_model(m_model);
             m_solver->get_labels(m_labels);
+            m_model->set_model_completion(true);
             mk_not_dominated_by();
         }
         return is_sat;
