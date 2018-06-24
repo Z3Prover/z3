@@ -2822,6 +2822,9 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
+    inline expr select(expr const & a, int i) { 
+        return select(a, a.ctx().num_val(i, a.get_sort().array_domain())); 
+    }
     inline expr select(expr const & a, expr_vector const & i) {
         check_context(a, i);
         array<Z3_ast> idxs(i);
@@ -2829,17 +2832,10 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
-    inline expr select(expr const & a, int i) { return select(a, a.ctx().num_val(i, a.get_sort().array_domain())); }
+
     inline expr store(expr const & a, expr const & i, expr const & v) {
         check_context(a, i); check_context(a, v);
         Z3_ast r = Z3_mk_store(a.ctx(), a, i, v);
-        a.check_error();
-        return expr(a.ctx(), r);
-    }
-    inline expr select(expr const & a, expr_vector const & i) {
-        check_context(a, i);
-        array<Z3_ast> idxs(i);
-        Z3_ast r = Z3_mk_select_n(a.ctx(), a, idxs.size(), idxs.ptr());
         a.check_error();
         return expr(a.ctx(), r);
     }
