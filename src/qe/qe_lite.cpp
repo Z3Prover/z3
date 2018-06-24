@@ -1763,16 +1763,12 @@ namespace fm {
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
             TRACE("qe_lite",
-                  svector<x_cost>::iterator it2  = x_cost_vector.begin();
-                  svector<x_cost>::iterator end2 = x_cost_vector.end();
-                  for (; it2 != end2; ++it2) {
-                      tout << "(" << mk_ismt2_pp(m_var2expr.get(it2->first), m) << " " << it2->second << ") ";
+                  for (auto const& kv : x_cost_vector) {
+                      tout << "(" << mk_ismt2_pp(m_var2expr.get(kv.first), m) << " " << kv.second << ") ";
                   }
                   tout << "\n";);
-            svector<x_cost>::iterator it2  = x_cost_vector.begin();
-            svector<x_cost>::iterator end2 = x_cost_vector.end();
-            for (; it2 != end2; ++it2) {
-                xs.push_back(it2->first);
+            for (auto const& kv : x_cost_vector) {
+                xs.push_back(kv.first);
             }
         }
 
@@ -1809,11 +1805,9 @@ namespace fm {
         void analyze(constraints const & cs, var x, bool & all_int, bool & unit_coeff) const {
             all_int    = true;
             unit_coeff = true;
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it) {
+            for (constraint const* c : cs) {
                 bool curr_unit_coeff;
-                analyze(*(*it), x, all_int, curr_unit_coeff);
+                analyze(*c, x, all_int, curr_unit_coeff);
                 if (!all_int)
                     return;
                 if (!curr_unit_coeff)
@@ -1837,10 +1831,8 @@ namespace fm {
         }
 
         void copy_constraints(constraints const & s, clauses & t) {
-            constraints::const_iterator it  = s.begin();
-            constraints::const_iterator end = s.end();
-            for (; it != end; ++it) {
-                app * c = to_expr(*(*it));
+            for (constraint const* cns : s) {
+                app * c = to_expr(*cns);
                 t.push_back(c);
             }
         }
@@ -1849,10 +1841,8 @@ namespace fm {
         void save_constraints(var x) {  }
 
         void mark_constraints_dead(constraints const & cs) {
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it)
-                (*it)->m_dead = true;
+            for (constraint* c : cs) 
+                c->m_dead = true;
         }
 
         void mark_constraints_dead(var x) {
@@ -2101,14 +2091,8 @@ namespace fm {
         }
 
         void copy_remaining(vector<constraints> & v2cs) {
-            vector<constraints>::iterator it  = v2cs.begin();
-            vector<constraints>::iterator end = v2cs.end();
-            for (; it != end; ++it) {
-                constraints & cs = *it;
-                constraints::iterator it2  = cs.begin();
-                constraints::iterator end2 = cs.end();
-                for (; it2 != end2; ++it2) {
-                    constraint * c = *it2;
+            for (constraints& cs : v2cs) {
+                for (constraint* c : cs) {
                     if (!c->m_dead) {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
@@ -2177,11 +2161,8 @@ namespace fm {
         }
 
         void display_constraints(std::ostream & out, constraints const & cs) const {
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it) {
-                out << "  ";
-                display(out, *(*it));
+            for (constraint const* c : cs) {
+                display(out << "  ", *c);
                 out << "\n";
             }
         }
@@ -2222,9 +2203,9 @@ public:
             for (unsigned i = 0; i < q->get_num_decls(); ++i) {
                 indices.insert(i);
             }
-			if (q->get_kind() != lambda_k) {
-				m_imp(indices, true, result);
-			}
+            if (q->get_kind() != lambda_k) {
+                m_imp(indices, true, result);
+            }
             if (is_forall(q)) {
                 result = push_not(result);
             }

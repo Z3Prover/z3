@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include "model/model.h"
+#include "util/top_sort.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"
@@ -25,6 +25,7 @@ Revision History:
 #include "ast/well_sorted.h"
 #include "ast/used_symbols.h"
 #include "ast/for_each_expr.h"
+#include "model/model.h"
 #include "model/model_evaluator.h"
 
 model::model(ast_manager & m):
@@ -40,8 +41,6 @@ model::~model() {
         dealloc(kv.m_value);
     }
 }
-
-
 
 void model::copy_const_interps(model const & source) {
     for (auto const& kv : source.m_interp) 
@@ -60,11 +59,9 @@ void model::copy_usort_interps(model const & source) {
 
 model * model::copy() const {
     model * mdl = alloc(model, m);
-
     mdl->copy_const_interps(*this);
     mdl->copy_func_interps(*this);
     mdl->copy_usort_interps(*this);
-
     return mdl;
 }
 
@@ -156,8 +153,8 @@ model * model::translate(ast_translation & translator) const {
     // Translate usort interps
     for (auto const& kv : m_usort2universe) {
         ptr_vector<expr> new_universe;
-        for (unsigned i=0; i < kv.m_value->size(); i++)
-            new_universe.push_back(translator(kv.m_value->get(i)));
+        for (expr* e : *kv.m_value) 
+            new_universe.push_back(translator(e));
         res->register_usort(translator(kv.m_key),
                             new_universe.size(),
                             new_universe.c_ptr());
@@ -166,22 +163,25 @@ model * model::translate(ast_translation & translator) const {
     return res;
 }
 
-struct model::top_sort {
+struct model::top_sort : public ::top_sort<func_decl> {
     th_rewriter                  m_rewrite;
-    obj_map<func_decl, unsigned> m_partition_id;
-    obj_map<func_decl, unsigned> m_dfs_num;
-    ptr_vector<func_decl>        m_top_sorted;
-    ptr_vector<func_decl>        m_stack_S;
-    ptr_vector<func_decl>        m_stack_P;
-    unsigned                     m_next_preorder;    
-    obj_map<func_decl, func_decl_set*> m_deps;
+    obj_map<func_decl, unsigned> m_occur_count;
+
     top_sort(ast_manager& m):
         m_rewrite(m)
     {}
 
-    ~top_sort() {
-        for (auto & kv : m_deps) dealloc(kv.m_value);
+    void add_occurs(func_decl* f) {
+        m_occur_count.insert(f, occur_count(f) + 1);
     }
+
+    unsigned occur_count(func_decl* f) const {
+        unsigned count = 0;
+        m_occur_count.find(f, count);
+        return count;
+    }
+
+    ~top_sort() override {}
 };
 
 void model::cleanup() {
@@ -192,17 +192,17 @@ void model::cleanup() {
     // then for each function in order clean-up the interpretations
     // by substituting in auxiliary definitions that can be eliminated.
 
-    top_sort st(m);
-    collect_deps(st.m_deps);
-    topological_sort(st);
-    for (func_decl * f : st.m_top_sorted) {
-        cleanup_interp(st, f);
+    top_sort ts(m);
+    collect_deps(ts);
+    ts.topological_sort();
+    for (func_decl * f : ts.top_sorted()) {
+        cleanup_interp(ts, f);
     }
 
     // remove auxiliary declarations that are not used.
     func_decl_set removed;
-    for (func_decl * f : st.m_top_sorted) {
-        if (f->is_skolem() && is_singleton_partition(st, f)) {
+    for (func_decl * f : ts.top_sorted()) {
+        if (f->is_skolem() && ts.is_singleton_partition(f)) {
             unregister_decl(f);
             removed.insert(f);
         }
@@ -213,111 +213,64 @@ void model::cleanup() {
         remove_decls(m_const_decls, removed);
     }
     m_cleaned = true;
+    reset_eval_cache();
 }
 
 
-void model::collect_deps(obj_map<func_decl, func_decl_set*>& deps) {
+void model::collect_deps(top_sort& ts) {
     for (auto const& kv : m_finterp) {
-        deps.insert(kv.m_key, collect_deps(kv.m_value));
+        ts.insert(kv.m_key, collect_deps(ts, kv.m_value));
     }
     for (auto const& kv : m_interp) {
-        deps.insert(kv.m_key, collect_deps(kv.m_value));
+        ts.insert(kv.m_key, collect_deps(ts, kv.m_value));
     }
 }
 
 struct model::deps_collector {
-    model& m;
+    model&         m;
+    top_sort&      ts;
     func_decl_set& s;
-    array_util autil;
-    deps_collector(model& m, func_decl_set& s): m(m), s(s), autil(m.get_manager()) {}
+    array_util     autil;
+    deps_collector(model& m, top_sort& ts, func_decl_set& s): m(m), ts(ts), s(s), autil(m.get_manager()) {}
     void operator()(app* a) {
         func_decl* f = a->get_decl();
         if (autil.is_as_array(f)) {
-            f = autil.get_as_array_func_decl(a);
+            f = autil.get_as_array_func_decl(a);            
         }
         if (m.has_interpretation(f)) {
             s.insert(f);
+            ts.add_occurs(f);
         }
     }
     void operator()(expr* ) {}
 };
 
 
-model::func_decl_set* model::collect_deps(expr * e) {
+model::func_decl_set* model::collect_deps(top_sort& ts, expr * e) {
     func_decl_set* s = alloc(func_decl_set);
-    deps_collector collector(*this, *s);
+    deps_collector collector(*this, ts, *s);
     if (e) for_each_expr(collector, e);
     return s;
 }
 
-model::func_decl_set* model::collect_deps(func_interp * fi) {
+model::func_decl_set* model::collect_deps(top_sort& ts, func_interp * fi) {
     func_decl_set* s = alloc(func_decl_set);
-    deps_collector collector(*this, *s);
+    deps_collector collector(*this, ts, *s);
     expr* e = fi->get_else();
     if (e) for_each_expr(collector, e);
     return s;
 }
 
-void model::topological_sort(top_sort& st) {
-    st.m_next_preorder = 0;
-    st.m_partition_id.reset();
-    st.m_top_sorted.reset();
-    for (auto & kv : st.m_deps) {
-        traverse(st, kv.m_key);
-    }
-    SASSERT(st.m_stack_S.empty());
-    SASSERT(st.m_stack_P.empty());
-    st.m_dfs_num.reset();
-}
-
-void model::traverse(top_sort& st, func_decl* f) {
-    unsigned p_id = 0;
-    if (st.m_dfs_num.find(f, p_id)) {
-        if (!st.m_partition_id.contains(f)) {
-            while (!st.m_stack_P.empty() && st.m_partition_id[st.m_stack_P.back()] > p_id) {
-                st.m_stack_P.pop_back();
-            }
-        }
-    }
-    else {
-        st.m_dfs_num.insert(f, st.m_next_preorder++);        
-        st.m_stack_S.push_back(f);
-        st.m_stack_P.push_back(f);        
-        for (func_decl* g : *st.m_deps[f]) {
-            traverse(st, g);
-        }        
-        if (f == st.m_stack_P.back()) {
-            
-            p_id = st.m_top_sorted.size();            
-            func_decl* s_f;
-            do {
-                s_f = st.m_stack_S.back();
-                st.m_stack_S.pop_back();
-                st.m_top_sorted.push_back(s_f);
-                st.m_partition_id.insert(s_f, p_id);
-            } 
-            while (s_f != f);
-            st.m_stack_P.pop_back();
-        }
-    }
-}
-
-bool model::is_singleton_partition(top_sort& st, func_decl* f) const {
-    unsigned pid = st.m_partition_id[f];
-    return f == st.m_top_sorted[pid] &&
-        (pid == 0 || st.m_partition_id[st.m_top_sorted[pid-1]] != pid) && 
-        (pid + 1 == st.m_top_sorted.size() || st.m_partition_id[st.m_top_sorted[pid+1]] != pid);
-}
 
 /**
    \brief Inline interpretations of skolem functions
 */
 
-void model::cleanup_interp(top_sort& st, func_decl* f) {
-    unsigned pid = st.m_partition_id[f];
+void model::cleanup_interp(top_sort& ts, func_decl* f) {
+    unsigned pid = ts.partition_id(f);
     expr * e1 = get_const_interp(f);
     if (e1) {
-        expr_ref e2 = cleanup_expr(st, e1, pid);
+        expr_ref e2 = cleanup_expr(ts, e1, pid);
         if (e2 != e1) 
             register_decl(f, e2);
         return;
@@ -325,24 +278,14 @@ void model::cleanup_interp(top_sort& st, func_decl* f) {
     func_interp* fi = get_func_interp(f);
     if (fi) {
         e1 = fi->get_else();
-        expr_ref e2 = cleanup_expr(st, e1, pid);
+        expr_ref e2 = cleanup_expr(ts, e1, pid);
         if (e1 != e2) 
             fi->set_else(e2);
-#if 0
-        // not required so far given that entries are values.
-        for (func_entry * e : *fi) {
-            // e->args_are_values();
-            e1 = e->get_result();
-            e2 = cleanup_expr(st, e1, pid);
-            if (e1 != e2) 
-                e->set_result(m, e2); // expose private method?
-        }
-#endif
     }
 }
 
 
-expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) {
+expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) {
     if (!e) return expr_ref(0, m);
 
     TRACE("model", tout << "cleaning up:\n" << mk_pp(e, m) << "\n";);
@@ -353,7 +296,7 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
     ptr_buffer<expr> args;
     todo.push_back(e);
     array_util autil(m);
-    func_interp* fi;
+    func_interp* fi = nullptr;
     unsigned pid = 0;
 
     while (!todo.empty()) {
@@ -367,7 +310,7 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
             
             args.reset();
             for (expr* t_arg : *t) {
-                expr * arg = 0;
+                expr * arg = nullptr;
                 if (!cache.find(t_arg, arg)) {
                     visited = false;
                     todo.push_back(t_arg);
@@ -379,10 +322,13 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
             if (!visited) {
                 continue;
             }
-            fi = 0;
+            fi = nullptr;
             if (autil.is_as_array(a)) {
                 func_decl* f = autil.get_as_array_func_decl(a);
-                fi = get_func_interp(f);
+                // only expand auxiliary definitions that occur once.
+                if (ts.occur_count(f) <= 1) {
+                    fi = get_func_interp(f);
+                }
             }
             
             if (fi && fi->get_interp()) {
@@ -396,17 +342,20 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
                 }
                 new_t = m.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), fi->get_interp());
             }
-            else if (f->is_skolem() && (fi = get_func_interp(f)) && fi->get_interp() && (!st.m_partition_id.find(f, pid) || pid != current_partition)) {
+            else if (f->is_skolem() && ts.occur_count(f) <= 1 && (fi = get_func_interp(f)) && 
+                     fi->get_interp() && (!ts.partition_ids().find(f, pid) || pid != current_partition)) {
                 var_subst vs(m);
                 // ? TBD args.reverse();
                 new_t = vs(fi->get_interp(), args.size(), args.c_ptr());
             }
+#if 0
             else if (is_uninterp_const(a) && !get_const_interp(f)) {
                 new_t = get_some_value(f->get_range());
                 register_decl(f, new_t);                
             }
+#endif
             else {
-                new_t = st.m_rewrite.mk_app(f, args.size(), args.c_ptr());
+                new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());
             }
             
             if (t != new_t.get()) trail.push_back(new_t);
@@ -426,14 +375,10 @@ expr_ref model::cleanup_expr(top_sort& st, expr* e, unsigned current_partition) 
 }
 
 void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s) {
-    unsigned sz = decls.size();
-    unsigned i  = 0;
-    unsigned j  = 0;
-    for (; i < sz; i++) {
-        func_decl * f = decls[i];
+    unsigned j = 0;
+    for (func_decl* f : decls) {
         if (!s.contains(f)) {
-            decls[j] = f;
-            j++;
+            decls[j++] = f;
         }
     }
     decls.shrink(j);

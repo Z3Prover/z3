@@ -3067,7 +3067,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
 }
 
 proof * ast_manager::mk_hypothesis(expr * h) {
-    return mk_app(m_basic_family_id, PR_HYPOTHEIS, h);
+    return mk_app(m_basic_family_id, PR_HYPOTHESIS, h);
 }
 
 proof * ast_manager::mk_lemma(proof * p, expr * lemma) {

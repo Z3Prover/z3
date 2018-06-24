@@ -38,18 +38,14 @@ protected:
     bool                          m_cleaned;
     struct value_proc;
 
-    void collect_deps(obj_map<func_decl, func_decl_set*>& deps);
-    func_decl_set* collect_deps(expr * e);
-    func_decl_set* collect_deps(func_interp* fi);
-    struct deps_collector;
-    
+    struct deps_collector;    
     struct top_sort;
-    void topological_sort(top_sort& st);
-    void traverse(top_sort& st, func_decl* f);
-    bool is_singleton_partition(top_sort& st, func_decl* f) const;
-    
-    void cleanup_interp(top_sort&_st, func_decl * f);
-    expr_ref cleanup_expr(top_sort& st, expr* e, unsigned current_partition);
+
+    func_decl_set* collect_deps(top_sort& ts, expr * e);
+    func_decl_set* collect_deps(top_sort& ts, func_interp* fi);
+    void collect_deps(top_sort& ts);    
+    void cleanup_interp(top_sort& ts, func_decl * f);
+    expr_ref cleanup_expr(top_sort& ts, expr* e, unsigned current_partition);
     void remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s);
 
 public:

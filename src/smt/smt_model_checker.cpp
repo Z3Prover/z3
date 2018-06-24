@@ -60,8 +60,8 @@ namespace smt {
     }
 
     void model_checker::set_qm(quantifier_manager & qm) {
-        SASSERT(m_qm == 0);
-        SASSERT(m_context == 0);
+        SASSERT(m_qm == nullptr);
+        SASSERT(m_context == nullptr);
         m_qm = &qm;
         m_context = &(m_qm->get_context());
     }
@@ -71,7 +71,7 @@ namespace smt {
     */
     expr * model_checker::get_term_from_ctx(expr * val) {
         init_value2expr();
-        expr * t = 0;
+        expr * t = nullptr;
         m_value2expr.find(val, t);
         return t;
     }
@@ -94,9 +94,9 @@ namespace smt {
             model_checker& mc;
             beta_reducer_cfg(model_checker& mc):mc(mc) {}
             bool get_subst(expr * e, expr* & t, proof *& pr) {
-                t = 0; pr = 0;
+                t = nullptr; pr = nullptr;
                 mc.m_value2expr.find(e, t);
-                return t != 0;
+                return t != nullptr;
             }
         };
         struct beta_reducer : public rewriter_tpl<beta_reducer_cfg> {
@@ -208,7 +208,7 @@ namespace smt {
                 TRACE("model_checker", tout << "value is private to model: " << sk_value << "\n";);
                 return false;
             }
-            func_decl * f = 0;
+            func_decl * f = nullptr;
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f)) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
                 ptr_vector<sort> sorts(f->get_arity(), f->get_domain());
@@ -267,7 +267,7 @@ namespace smt {
 
 
     bool model_checker::add_blocking_clause(model * cex, expr_ref_vector & sks) {
-        SASSERT(cex != 0);
+        SASSERT(cex != nullptr);
         expr_ref_buffer diseqs(m);
         for (expr * sk : sks) {
             func_decl * sk_d = to_app(sk)->get_decl();
@@ -391,7 +391,7 @@ namespace smt {
     }
 
     bool model_checker::check(proto_model * md, obj_map<enode, app *> const & root2value) {
-        SASSERT(md != 0);
+        SASSERT(md != nullptr);
 
         m_root2value = &root2value;
 
@@ -470,32 +470,23 @@ namespace smt {
                   tout << "Check: " << mk_pp(q, m) << "\n";
                   tout << m_context->get_assignment(q) << "\n";);
 
-            if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true) {
-                if (m_params.m_mbqi_trace && q->get_qid() != symbol::null) {
-                    verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";
-                }
-                found_relevant = true;
-                if (m.is_rec_fun_def(q)) {
-                    if (!check_rec_fun(q, strict_rec_fun)) {
-                        TRACE("model_checker", tout << "checking recursive function failed\n";);
-                        num_failures++;
-                    }
-                }
-                else if (!check(q)) {
-                    if (m_params.m_mbqi_trace || get_verbosity_level() >= 5) {
-                        IF_VERBOSE(0, verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n");
-                    }
-                    TRACE("model_checker", tout << "checking quantifier " << mk_pp(q, m) << " failed\n";);
+            if (m_params.m_mbqi_trace && q->get_qid() != symbol::null) {
+                verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";
+            }
+            found_relevant = true;
+            if (m.is_rec_fun_def(q)) {
+                if (!check_rec_fun(q, strict_rec_fun)) {
+                    TRACE("model_checker", tout << "checking recursive function failed\n";);
                     num_failures++;
                 }
             }
             else if (!check(q)) {
                 if (m_params.m_mbqi_trace || get_verbosity_level() >= 5) {
-                    verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n";
+                    IF_VERBOSE(0, verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n");
                 }
                 TRACE("model_checker", tout << "checking quantifier " << mk_pp(q, m) << " failed\n";);
                 num_failures++;
-            }            
+            }
         }
     }
 
