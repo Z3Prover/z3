@@ -326,29 +326,29 @@ namespace datalog {
         public:
             unsigned m_offset; //!< in bits
             unsigned m_length; //!< in bits
-
-            column_info(unsigned offset, unsigned length) \
-                    : m_big_offset(offset/8), 
-                    m_small_offset(offset%8),
-                    m_mask( length==64 ? ULLONG_MAX : (static_cast<uint64_t>(1)<<length)-1 ),
-                    m_write_mask( ~(m_mask<<m_small_offset) ),
-                    m_offset(offset), 
-                    m_length(length) {
-                SASSERT(length<=64);
-                SASSERT(length+m_small_offset<=64);
+            
+            column_info(unsigned offset, unsigned length) 
+                : m_big_offset(offset / 8), 
+                  m_small_offset(offset % 8),
+                  m_mask( length == 64 ? ULLONG_MAX : (static_cast<uint64_t>(1)<<length)-1 ),
+                  m_write_mask( ~(m_mask << m_small_offset) ),
+                  m_offset(offset), 
+                  m_length(length) {
+                SASSERT(length <= 64);
+                SASSERT(length + m_small_offset <= 64);
             }
             table_element get(const char * rec) const {
-                const uint64_t * ptr = reinterpret_cast<const uint64_t*>(rec+m_big_offset);
+                const uint64_t * ptr = reinterpret_cast<const uint64_t*>(rec + m_big_offset);
                 uint64_t res = *ptr;
-                res>>=m_small_offset;
-                res&=m_mask;
+                res >>= m_small_offset;
+                res &= m_mask;
                 return res;
             }
             void set(char * rec, table_element val) const {
                 SASSERT( (val&~m_mask)==0 ); //the value fits into the column
-                uint64_t * ptr = reinterpret_cast<uint64_t*>(rec+m_big_offset);
-                *ptr&=m_write_mask;
-                *ptr|=val<<m_small_offset;
+                uint64_t * ptr = reinterpret_cast<uint64_t*>(rec + m_big_offset);
+                *ptr &= m_write_mask;
+                *ptr |= val << m_small_offset;
             }
             unsigned next_ofs() const { return m_offset+m_length; }
         };

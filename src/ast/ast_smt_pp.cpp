@@ -225,9 +225,6 @@ class smt_printer {
         else if (m_manager.is_ite(d)) {
             m_out << "ite";            
         }
-        else if (m_manager.is_iff(d)) {
-            m_out << "=";
-        }
         else if (m_manager.is_implies(d)) {
             m_out << "=>";
         }

@@ -259,7 +259,7 @@ private:
                     result = m.mk_ite(t1, tt2, tt3);
                 }
             }
-            else if ((m.is_eq(fml, t1, t2) && m.is_bool(t1)) || m.is_iff(fml, t1, t2)) {
+            else if (m.is_eq(fml, t1, t2) && m.is_bool(t1)) {
                 expr_ref tt1(m), tt2(m), ntt1(m), ntt2(m), nt1(m), nt2(m);
                 pull_quantifier(t1, qt, vars, tt1, use_fresh, rewrite_ok);
                 pull_quantifier(t2, qt, vars, tt2, use_fresh, rewrite_ok);

@@ -582,7 +582,7 @@ struct nnf::imp {
         return true;
     }
 
-    bool is_eq(app * t) const { return m().is_eq(t) || m().is_iff(t); }
+    bool is_eq(app * t) const { return m().is_eq(t); }
 
     bool process_iff_xor(app * t, frame & fr) {
         SASSERT(t->get_num_args() == 2);
@@ -630,7 +630,7 @@ struct nnf::imp {
     }
 
     bool process_eq(app * t, frame & fr) {
-        if (m().is_bool(t->get_arg(0)))
+        if (m().is_iff(t))
             return process_iff_xor(t, fr);
         else
             return process_default(t, fr);
@@ -725,7 +725,6 @@ struct nnf::imp {
                 return process_implies(t, fr);
             case OP_ITE:
                 return process_ite(t, fr);
-            case OP_IFF:
             case OP_XOR:
                 return process_iff_xor(t, fr);
             case OP_EQ:

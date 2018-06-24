@@ -172,6 +172,7 @@ int main(int argc, char ** argv) {
     TST(var_subst);
     TST(simple_parser);
     TST(api);
+    TST(cube_clause);
     TST(old_interval);
     TST(get_implied_equalities);
     TST(arith_simplifier_plugin);
@@ -238,7 +239,6 @@ int main(int argc, char ** argv) {
     TST(theory_pb);
     TST(simplex);
     TST(sat_user_scope);
-    TST(pdr);
     TST_ARGV(ddnf);
     TST(ddnf1);
     TST(model_evaluator);
@@ -248,6 +248,7 @@ int main(int argc, char ** argv) {
     TST_ARGV(sat_local_search);
     TST_ARGV(cnf_backbones);
     TST(bdd);
+    TST(solver_pool);
     //TST_ARGV(hs);
 }
 

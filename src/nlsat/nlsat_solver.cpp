@@ -270,7 +270,7 @@ namespace nlsat {
             TRACE("ref", tout << "inc: " << b << "\n";);
             if (b == null_bool_var)
                 return;
-            if (m_atoms[b] == 0)
+            if (m_atoms[b] == nullptr)
                 return;
             m_atoms[b]->inc_ref();
         }
@@ -395,7 +395,7 @@ namespace nlsat {
         bool_var mk_bool_var_core() {
             bool_var b = m_bid_gen.mk();
             m_num_bool_vars++;
-            m_atoms         .setx(b, 0, 0);
+            m_atoms         .setx(b, nullptr, nullptr);
             m_bvalues       .setx(b, l_undef, l_undef);
             m_levels        .setx(b, UINT_MAX, UINT_MAX);
             m_justifications.setx(b, null_justification, null_justification);
@@ -469,7 +469,7 @@ namespace nlsat {
             //SASSERT(m_bvalues[b] == l_undef);
             m_num_bool_vars--;
             m_dead[b]  = true;
-            m_atoms[b] = 0;
+            m_atoms[b] = nullptr;
             m_bid_gen.recycle(b);
         }
 
@@ -494,6 +494,7 @@ namespace nlsat {
         void del(atom * a) {
             if (a == nullptr)
                 return ;
+            TRACE("nlsat", display(tout << "del: b" << a->m_bool_var << " ", *a) << "\n";);
             if (a->is_ineq_atom())
                 del(to_ineq_atom(a));
             else
@@ -555,6 +556,7 @@ namespace nlsat {
                 bool_var b = mk_bool_var_core();
                 m_atoms[b] = atom;
                 atom->m_bool_var = b;
+                TRACE("nlsat", display(tout << "create: b" << atom->m_bool_var << " ", *atom) << "\n";);
                 return b;
             }
         }
@@ -749,7 +751,7 @@ namespace nlsat {
             m_levels[b]  = UINT_MAX;
             del_jst(m_allocator, m_justifications[b]);
             m_justifications[b] = null_justification;
-            if (m_atoms[b] == 0 && b < m_bk)
+            if (m_atoms[b] == nullptr && b < m_bk)
                 m_bk = b;
         }
 
@@ -895,7 +897,7 @@ namespace nlsat {
            \brief Assign literal using the given justification
          */
         void assign(literal l, justification j) {
-            TRACE("nlsat", tout << "assigning literal:\n"; display(tout, l); 
+            TRACE("nlsat", tout << "assigning literal: "; display(tout, l); 
                   tout << "\njustification kind: " << j.get_kind() << "\n";);
             SASSERT(assigned_value(l) == l_undef);
             SASSERT(j != null_justification);
@@ -926,6 +928,7 @@ namespace nlsat {
         */
         lbool value(literal l) {
             lbool val = assigned_value(l);
+            TRACE("nlsat_verbose", display(tout << " assigned value " << val << " for ", l) << "\n";);
             if (val != l_undef) {
                 return val;
             }
@@ -941,7 +944,7 @@ namespace nlsat {
             val = to_lbool(m_evaluator.eval(a, l.sign()));
             TRACE("value_bug", tout << "value of: "; display(tout, l); tout << " := " << val << "\n"; 
                   tout << "xk: " << m_xk << ", a->max_var(): " << a->max_var() << "\n";
-                  display_assignment(tout););
+                  display_assignment(tout););            
             return val;
         }
 
@@ -2011,9 +2014,9 @@ namespace nlsat {
         }
 
         bool can_reorder() const {
-            for (unsigned i = 0; i < m_atoms.size(); ++i) {
-                if (m_atoms[i]) {
-                    if (m_atoms[i]->is_root_atom()) return false;
+            for (atom * a : m_atoms) {
+                if (a) {
+                    if (a->is_root_atom()) return false;
                 }
             }
             return true;
@@ -2100,16 +2103,13 @@ namespace nlsat {
            \brief After variable reordering some lemmas containing root atoms may be ill-formed.
         */
         void del_ill_formed_lemmas() {
-            unsigned sz = m_learned.size();
             unsigned j  = 0;
-            for (unsigned i = 0; i < sz; i++) {
-                clause * c = m_learned[i];
+            for (clause* c : m_learned) {
                 if (ill_formed(*c)) {
                     del_clause(c);
                 }
                 else {
-                    m_learned[j] = c;
-                    j++;
+                    m_learned[j++] = c;
                 }
             }
             m_learned.shrink(j);
@@ -2119,9 +2119,8 @@ namespace nlsat {
             \brief Return true if the clause contains an ill formed root atom
         */
         bool ill_formed(clause const & c) {
-            unsigned sz = c.size();
-            for (unsigned i = 0; i < sz; i++) {
-                bool_var b = c[i].var();
+            for (literal lit : c) {
+                bool_var b = lit.var();
                 atom * a = m_atoms[b];
                 if (a == nullptr)
                     continue;
@@ -2139,19 +2138,16 @@ namespace nlsat {
         void reinit_cache() {
             reinit_cache(m_clauses);
             reinit_cache(m_learned);
-            for (unsigned i = 0; i < m_atoms.size(); ++i) {
-                reinit_cache(m_atoms[i]);
-            }
+            for (atom* a : m_atoms) 
+                reinit_cache(a);            
         }
         void reinit_cache(clause_vector const & cs) {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++)
-                reinit_cache(*(cs[i]));
+            for (clause* c : cs) 
+                reinit_cache(*c);
         }
         void reinit_cache(clause const & c) {
-            unsigned sz = c.size();
-            for (unsigned i = 0; i < sz; i++)
-                reinit_cache(c[i]);
+            for (literal l : c) 
+                reinit_cache(l);
         }
         void reinit_cache(literal l) {
             bool_var b = l.var();
@@ -2566,8 +2562,11 @@ namespace nlsat {
         std::ostream& display_bool_assignment(std::ostream & out) const {
             unsigned sz = m_atoms.size();
             for (bool_var b = 0; b < sz; b++) {
-                if (m_atoms[b] == 0 && m_bvalues[b] != l_undef) {
+                if (m_atoms[b] == nullptr && m_bvalues[b] != l_undef) {
                     out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << "\n";
+                }
+                else if (m_atoms[b] != nullptr && m_bvalues[b] != l_undef) {
+                    display(out << "b" << b << " ", *m_atoms[b]) << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << "\n";
                 }
             }
             TRACE("nlsat_bool_assignment",
@@ -3035,7 +3034,7 @@ namespace nlsat {
         std::ostream& display_smt2_bool_decls(std::ostream & out) const {
             unsigned sz = m_atoms.size();
             for (unsigned i = 0; i < sz; i++) {
-                if (m_atoms[i] == 0)
+                if (m_atoms[i] == nullptr)
                     out << "(declare-fun b" << i << " () Bool)\n";
             }
             return out;
@@ -3162,13 +3161,24 @@ namespace nlsat {
 
     void solver::get_bvalues(svector<lbool>& vs) {
         vs.reset();
-        vs.append(m_imp->m_bvalues);
+        unsigned sz = m_imp->m_bvalues.size();
+        for (bool_var b = 0; b < sz; ++b) {
+            if (m_imp->m_atoms[b] == nullptr) {
+                vs.push_back(m_imp->m_bvalues[b]);
+            }
+            else {
+                vs.push_back(l_undef); // don't save values from atoms.
+            }
+        }
+        TRACE("nlsat", display(tout););
     }
 
     void solver::set_bvalues(svector<lbool> const& vs) {
+        TRACE("nlsat", display(tout););
         m_imp->m_bvalues.reset();
         m_imp->m_bvalues.append(vs);
         m_imp->m_bvalues.resize(m_imp->m_atoms.size(), l_undef);        
+        TRACE("nlsat", display(tout););
     }
     
     var solver::mk_var(bool is_int) {
@@ -3199,27 +3209,28 @@ namespace nlsat {
         return m_imp->mk_clause(num_lits, lits, a);
     }
 
-    void solver::display(std::ostream & out) const {
-        m_imp->display(out);
+    std::ostream& solver::display(std::ostream & out) const {
+        return m_imp->display(out);
     }
 
-    void solver::display(std::ostream & out, literal l) const {
-        m_imp->display(out, l);
+    std::ostream& solver::display(std::ostream & out, literal l) const {
+        return m_imp->display(out, l);
     }
 
-    void solver::display(std::ostream & out, unsigned n, literal const* ls) const {
+    std::ostream& solver::display(std::ostream & out, unsigned n, literal const* ls) const {
         for (unsigned i = 0; i < n; ++i) {
             display(out, ls[i]);
             out << ";  ";
         }
+        return out;
     }
 
-    void solver::display(std::ostream & out, var x) const {
-        m_imp->m_display_var(out, x);
+    std::ostream& solver::display(std::ostream & out, var x) const {
+        return m_imp->m_display_var(out, x);
     }
 
-    void solver::display(std::ostream & out, atom const& a) const {
-        m_imp->display(out, a, m_imp->m_display_var);
+    std::ostream& solver::display(std::ostream & out, atom const& a) const {
+        return m_imp->display(out, a, m_imp->m_display_var);
     }
 
     display_var_proc const & solver::display_proc() const {

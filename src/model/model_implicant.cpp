@@ -172,7 +172,6 @@ void model_implicant::process_formula(app* e, ptr_vector<expr>& todo, ptr_vector
         case OP_FALSE:
             break;
         case OP_EQ:
-        case OP_IFF:
             if (args[0] == args[1]) {
                 SASSERT(v);
                 // no-op                    
@@ -536,9 +535,8 @@ bool model_implicant::extract_array_func_interp(expr* a, vector<expr_ref_vector>
 */
 void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
     TRACE("pdr", tout << "array equality: " << mk_pp(e, m) << "\n";);
-    expr_ref v1(m), v2(m);
-    m_model->eval(arg1, v1);
-    m_model->eval(arg2, v2);
+    expr_ref v1 = (*m_model)(arg1);
+    expr_ref v2 = (*m_model)(arg2);
     if (v1 == v2) {
         set_true(e);
         return;
@@ -588,8 +586,8 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
         args2.append(store[i].size()-1, store[i].c_ptr());
         s1 = m_array.mk_select(args1.size(), args1.c_ptr());
         s2 = m_array.mk_select(args2.size(), args2.c_ptr());
-        m_model->eval(s1, w1);
-        m_model->eval(s2, w2);
+        w1 = (*m_model)(s1);
+        w2 = (*m_model)(s2);
         if (w1 == w2) {
             continue;
         }
@@ -622,9 +620,9 @@ void model_implicant::eval_eq(app* e, expr* arg1, expr* arg2) {
         eval_array_eq(e, arg1, arg2);
     }
     else if (is_x(arg1) || is_x(arg2)) {
-        expr_ref eq(m), vl(m);
+        expr_ref eq(m);
         eq = m.mk_eq(arg1, arg2);
-        m_model->eval(eq, vl);
+        expr_ref vl = (*m_model)(eq);
         if (m.is_true(vl)) {
             set_bool(e, true);                
         }
@@ -742,10 +740,6 @@ void model_implicant::eval_basic(app* e) {
             set_x(e);
         }
         break;
-    case OP_IFF: 
-        VERIFY(m.is_iff(e, arg1, arg2));
-        eval_eq(e, arg1, arg2);
-        break;
     case OP_ITE: 
         VERIFY(m.is_ite(e, argCond, argThen, argElse));
         if (is_true(argCond)) { 
@@ -842,8 +836,7 @@ bool model_implicant::check_model(ptr_vector<expr> const& formulas) {
             eval_basic(curr);
         }
         else {
-            expr_ref vl(m);
-            m_model->eval(curr, vl);
+            expr_ref vl = (*m_model)(curr);
             assign_value(curr, vl);
         }
             
@@ -889,7 +882,7 @@ expr_ref model_implicant::eval(model_ref& model, func_decl* d) {
 expr_ref model_implicant::eval(model_ref& model, expr* e) {
     expr_ref result(m);
     m_model = model;
-    VERIFY(m_model->eval(e, result, true));
+    result = (*m_model)(e);
     if (m_array.is_array(e)) {
         vector<expr_ref_vector> stores;
         expr_ref_vector args(m);

@@ -26,11 +26,15 @@ Version 4.8.0
      (known as ACCE, ABCE, CCE). Asymmetric branching also uses features introduced in Lingeling by exploiting binary implication graphs.
      Use sat.acce=true to enable the full repertoire of inprocessing methods. By default, clauses that are "eliminated" by acce are tagged
      as lemmas (redundant) and are garbage collected if their glue level is high.
+   - Substantial overhaul of the spacer horn clause engine.
 
 - Removed features:
   - interpolation API
   - duality engine for constrained Horn clauses.
+  - pdr engine for constrained Horn clauses. The engine's functionality has been 
+    folded into spacer as one of optional strategies.
   - long deprecated API functions have been removed from z3_api.h
+  
   
 
 Version 4.7.1

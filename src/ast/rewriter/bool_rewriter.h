@@ -81,7 +81,7 @@ public:
     bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0) { updt_params(p); }
     ast_manager & m() const { return m_manager; }
     family_id get_fid() const { return m().get_basic_family_id(); }
-    bool is_eq(expr * t) const { return m().is_eq(t) || m().is_iff(t); }
+    bool is_eq(expr * t) const { return m().is_eq(t); }
     
     bool flat() const { return m_flat; }
     void set_flat(bool f) { m_flat = f; }

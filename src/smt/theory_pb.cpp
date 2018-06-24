@@ -2251,7 +2251,7 @@ namespace smt {
                 for (unsigned i = 2; i < num_lits; ++i) {
                     process_antecedent(cls.get_literal(i), offset);
                 }
-                TRACE("pb", tout << literal_vector(cls.get_num_literals(), cls.begin_literals()) << "\n";);
+                TRACE("pb", tout << literal_vector(cls.get_num_literals(), cls.begin()) << "\n";);
                 break;                
             }
             case b_justification::BIN_CLAUSE:

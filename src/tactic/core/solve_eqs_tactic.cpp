@@ -344,10 +344,7 @@ class solve_eqs_tactic : public tactic {
                 }
                 return false;
             }
-            
-            if (m().is_iff(f))
-                return trivial_solve(to_app(f)->get_arg(0), to_app(f)->get_arg(1), var, def, pr);
-            
+                        
 #if 0
             if (not_bool_eq(f, var, def, pr))
                 return true;
@@ -639,7 +636,7 @@ class solve_eqs_tactic : public tactic {
                 TRACE("gaussian_leak", tout << "processing:\n" << mk_ismt2_pp(f, m()) << "\n";);
                 if (m_candidate_set.is_marked(f)) {
                     // f may be deleted after the following update.
-                    // so, we must remove remove the mark before doing the update
+                    // so, we must remove the mark before doing the update
                     m_candidate_set.mark(f, false);
                     SASSERT(!m_candidate_set.is_marked(f));
                     g.update(idx, m().mk_true(), m().mk_true_proof(), nullptr);
@@ -845,4 +842,3 @@ tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replace
     else
         return clean(alloc(solve_eqs_tactic, m, p, r, false));
 }
-

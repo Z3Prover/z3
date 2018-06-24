@@ -166,10 +166,11 @@ namespace sat {
         unsigned w = 0;
         for (unsigned i = 0; i < m_size; ++i) {
             m_wlits[i].second.neg();
+            VERIFY(w + m_wlits[i].first >= w);
             w += m_wlits[i].first;
-        }
+        }        
         m_k = w - m_k + 1;
-        SASSERT(w >= m_k && m_k > 0);
+        VERIFY(w >= m_k && m_k > 0);
     }
 
     bool ba_solver::pb::is_watching(literal l) const {
@@ -531,7 +532,7 @@ namespace sat {
         
         VERIFY(p.lit() == null_literal || value(p.lit()) == l_true);
         unsigned sz = p.size(), bound = p.k();
-
+     
         // put the non-false literals into the head.
         unsigned slack = 0, slack1 = 0, num_watch = 0, j = 0;
         for (unsigned i = 0; i < sz; ++i) {
@@ -555,7 +556,7 @@ namespace sat {
             bool is_false = false;
             for (unsigned k = 0; k < sz; ++k) {
                 SASSERT(!is_false || value(p[k].second) == l_false);
-                SASSERT(k < j == (value(p[k].second) != l_false));
+                SASSERT((k < j) == (value(p[k].second) != l_false));
                 is_false = value(p[k].second) == l_false;
             });
 
@@ -833,9 +834,19 @@ namespace sat {
             remove_constraint(p, "recompiled to cardinality");
             return;
         }
-
         else {
             p.set_size(sz);
+            p.update_max_sum();
+            if (p.max_sum() < k) {
+                if (p.lit() == null_literal) {
+                    s().set_conflict(justification());
+                }
+                else {
+                    s().assign(~p.lit(), justification());
+                }
+                remove_constraint(p, "recompiled to false");
+                return;
+            }
             p.set_k(k);
             SASSERT(p.well_formed());
             
@@ -3210,6 +3221,7 @@ namespace sat {
             if (is_marked(l) && m_weights[l.index()] <= p2.get_coeff(i)) {
                 ++num_sub;
             }
+			if (p1.size() + i > p2.size() + num_sub) return false;
         }
         return num_sub == p1.size();
     }
@@ -3364,8 +3376,9 @@ namespace sat {
             m_weights.setx(l.second.index(), l.first, 0);
             mark_visited(l.second);  
         }
-        for (unsigned i = 0; i < p1.num_watch(); ++i) {
-            subsumes(p1, p1[i].second);
+        for (unsigned i = 0; i < std::min(10u, p1.num_watch()); ++i) {
+            unsigned j = s().m_rand() % p1.num_watch();
+            subsumes(p1, p1[j].second);
         }
         for (wliteral l : p1) {
             m_weights[l.second.index()] = 0;

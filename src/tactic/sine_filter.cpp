@@ -93,11 +93,8 @@ private:
                             obj_hashtable<func_decl> const & consts,
                             ptr_vector<func_decl> & next_consts) {
         TRACE("sine",
-            tout << "size of consts is "; tout << consts.size(); tout << "\n";
-            obj_hashtable<func_decl>::iterator it = consts.begin();
-            obj_hashtable<func_decl>::iterator end = consts.end();
-            for (; it != end; it++)
-                tout << *it << "\n"; );
+              tout << "size of consts is "; tout << consts.size(); tout << "\n";
+              for (func_decl* f : consts) tout << f->get_name() << "\n";);
 
         bool matched = false;
         for (unsigned i = 0; i < q->get_num_patterns(); i++) {
@@ -156,10 +153,8 @@ private:
                 if (!consts.contains(f)) {
                     consts.insert(f);
                     if (const2quantifier.contains(f)) {
-                        obj_pair_hashtable<expr, expr>::iterator it = const2quantifier[f].begin();
-                        obj_pair_hashtable<expr, expr>::iterator end = const2quantifier[f].end();
-                        for (; it != end; it++)
-                            stack.push_back(*it);
+                        for (auto const& p : const2quantifier[f]) 
+                            stack.push_back(p);
                         const2quantifier.remove(f);
                     }
                 }
@@ -220,16 +215,11 @@ private:
             visiting = to_visit.back();
             to_visit.pop_back();
             visited.insert(visiting);
-            obj_hashtable<func_decl>::iterator it = exp2const[visiting].begin();
-            obj_hashtable<func_decl>::iterator end = exp2const[visiting].end();
-            for (; it != end; it++) {
-                obj_hashtable<expr>::iterator exprit = const2exp[*it].begin();
-                obj_hashtable<expr>::iterator exprend = const2exp[*it].end();
-                for (; exprit != exprend; exprit++) {
-                    if (!visited.contains(*exprit))
-                        to_visit.push_back(*exprit);
+            for (func_decl* f : exp2const[visiting]) 
+                for (expr* e : const2exp[f]) {
+                    if (!visited.contains(e))
+                        to_visit.push_back(e);
                 }
-            }
         }
 
         for (unsigned i = 0; i < g->size(); i++) {

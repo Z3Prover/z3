@@ -447,6 +447,7 @@ namespace smt {
         void insert_branch_start(unsigned k, unsigned s);
         unsigned find_branch_start(unsigned k);
         bool find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs);
+        expr_ref_vector expand_strings(expr_ref_vector const& es);
         bool can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs) const;
         lbool assume_equality(expr* l, expr* r);
 
@@ -504,7 +505,7 @@ namespace smt {
         void add_int_string(expr* e);
         bool check_int_string();
 
-        void add_elim_string_axiom(expr* n);
+        expr_ref add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
         void add_itos_axiom(expr* n);

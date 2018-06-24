@@ -30,23 +30,23 @@ Notes:
 #include "util/scoped_ctrl_c.h"
 #include "util/scoped_timer.h"
 #include "util/trail.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 #include<iomanip>
 
 
 struct dl_context {
     smt_params                    m_fparams;
     params_ref                    m_params_ref;
-    fixedpoint_params             m_params; 
+    fp_params                     m_params;
     cmd_context &                 m_cmd;
     datalog::register_engine      m_register_engine;
     dl_collected_cmds*            m_collected_cmds;
     unsigned                      m_ref_count;
     datalog::dl_decl_plugin*      m_decl_plugin;
-    scoped_ptr<datalog::context>  m_context; 
+    scoped_ptr<datalog::context>  m_context;
     trail_stack<dl_context>       m_trail;
 
-    fixedpoint_params const& get_params() { 
+    fp_params const& get_params() {
         init();
         return m_context->get_params();
     }
@@ -58,18 +58,18 @@ struct dl_context {
         m_ref_count(0),
         m_decl_plugin(nullptr),
         m_trail(*this) {}
-    
+
     void inc_ref() {
         ++m_ref_count;
     }
-    
+
     void dec_ref() {
         --m_ref_count;
         if (0 == m_ref_count) {
             dealloc(this);
         }
     }
-    
+
     void init() {
         ast_manager& m = m_cmd.m();
         if (!m_context) {
@@ -83,10 +83,10 @@ struct dl_context {
             else {
                 m_decl_plugin = alloc(datalog::dl_decl_plugin);
                 m.register_plugin(symbol("datalog_relation"), m_decl_plugin);
-            }        
+            }
         }
     }
-    
+
     void reset() {
         m_context = nullptr;
     }
@@ -97,9 +97,9 @@ struct dl_context {
             m_trail.push(push_back_vector<dl_context, func_decl_ref_vector>(m_collected_cmds->m_rels));
         }
         dlctx().register_predicate(pred, false);
-        dlctx().set_predicate_representation(pred, num_kinds, kinds);        
+        dlctx().set_predicate_representation(pred, num_kinds, kinds);
     }
-    
+
     void add_rule(expr * rule, symbol const& name, unsigned bound) {
         init();
         if (m_collected_cmds) {
@@ -112,7 +112,7 @@ struct dl_context {
         else {
         m_context->add_rule(rule, name, bound);
         }
-    }    
+    }
 
     bool collect_query(func_decl* q) {
         if (m_collected_cmds) {
@@ -127,7 +127,7 @@ struct dl_context {
             m_collected_cmds->m_queries.push_back(qr);
             m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_queries));
             return true;
-        }        
+        }
         else {
             return false;
         }
@@ -142,7 +142,7 @@ struct dl_context {
         m_trail.pop_scope(1);
         dlctx().pop();
     }
-    
+
     datalog::context & dlctx() {
         init();
         return *m_context;
@@ -162,7 +162,7 @@ class dl_rule_cmd : public cmd {
 public:
     dl_rule_cmd(dl_context * dl_ctx):
         cmd("rule"),
-        m_dl_ctx(dl_ctx),       
+        m_dl_ctx(dl_ctx),
         m_arg_idx(0),
         m_t(nullptr),
         m_bound(UINT_MAX) {}
@@ -210,7 +210,7 @@ public:
     }
     char const * get_usage() const override { return "predicate"; }
     char const * get_main_descr() const override {
-        return "pose a query to a predicate based on the Horn rules."; 
+        return "pose a query to a predicate based on the Horn rules.";
     }
 
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
@@ -243,9 +243,9 @@ public:
             return;
         }
         datalog::context& dlctx = m_dl_ctx->dlctx();
-        set_background(ctx);        
+        set_background(ctx);
         dlctx.updt_params(m_params);
-        unsigned timeout   = m_dl_ctx->get_params().timeout(); 
+        unsigned timeout   = m_dl_ctx->get_params().timeout();
         cancel_eh<reslimit> eh(ctx.m().limit());
         bool query_exn = false;
         lbool status = l_undef;
@@ -271,12 +271,12 @@ public:
             ctx.regular_stream() << "unsat\n";
             print_certificate(ctx);
             break;
-        case l_true: 
+        case l_true:
             ctx.regular_stream() << "sat\n";
             print_answer(ctx);
             print_certificate(ctx);
             break;
-        case l_undef: 
+        case l_undef:
             if (dlctx.get_status() == datalog::BOUNDED){
                 ctx.regular_stream() << "bounded\n";
                 print_certificate(ctx);
@@ -287,7 +287,7 @@ public:
             case datalog::INPUT_ERROR:
                 ctx.regular_stream() << "input error\n";
                 break;
-                
+
             case datalog::MEMOUT:
                 ctx.regular_stream() << "memory bounds exceeded\n";
                 break;
@@ -295,12 +295,12 @@ public:
             case datalog::TIMEOUT:
                 ctx.regular_stream() << "timeout\n";
                 break;
-               
+
             case datalog::APPROX:
                 ctx.regular_stream() << "approximated relations\n";
                 break;
 
-            case datalog::OK: 
+            case datalog::OK:
                 (void)query_exn;
                 SASSERT(query_exn);
                 break;
@@ -324,7 +324,7 @@ public:
     void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         m_dl_ctx->dlctx().collect_params(p);
     }
-   
+
 
 private:
     void set_background(cmd_context& ctx) {
@@ -356,8 +356,8 @@ private:
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
             dlctx.collect_statistics(st);
-            st.update("time", ctx.get_seconds());            
-            st.display_smt2(ctx.regular_stream());            
+            st.update("time", ctx.get_seconds());
+            st.display_smt2(ctx.regular_stream());
         }
     }
 
@@ -391,8 +391,8 @@ public:
 
     void prepare(cmd_context & ctx) override {
         ctx.m(); // ensure manager is initialized.
-        m_arg_idx = 0; 
-        m_query_arg_idx = 0; 
+        m_arg_idx = 0;
+        m_query_arg_idx = 0;
         m_domain.reset();
         m_kinds.reset();
     }
@@ -443,21 +443,21 @@ public:
         m_arg_idx(0),
         m_dl_ctx(dl_ctx)
     {}
-    
+
     char const * get_usage() const override { return "<symbol> <sort>"; }
     char const * get_descr(cmd_context & ctx) const override { return "declare constant as variable"; }
     unsigned get_arity() const override { return 2; }
 
     void prepare(cmd_context & ctx) override {
         ctx.m(); // ensure manager is initialized.
-        m_arg_idx = 0; 
+        m_arg_idx = 0;
     }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         SASSERT(m_arg_idx <= 1);
         if (m_arg_idx == 0) {
-            return CPK_SYMBOL;  
+            return CPK_SYMBOL;
         }
-        return CPK_SORT; 
+        return CPK_SORT;
     }
 
     void set_next_arg(cmd_context & ctx, sort* s) override {
@@ -466,7 +466,7 @@ public:
     }
 
     void set_next_arg(cmd_context & ctx, symbol const & s) override {
-        m_var_name = s;   
+        m_var_name = s;
         ++m_arg_idx;
     }
 
@@ -523,7 +523,7 @@ static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_c
     ctx.insert(alloc(dl_query_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_rel_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_var_cmd, dl_ctx));
-    ctx.insert(alloc(dl_push_cmd, dl_ctx)); 
+    ctx.insert(alloc(dl_push_cmd, dl_ctx));
     ctx.insert(alloc(dl_pop_cmd, dl_ctx));
 }
 

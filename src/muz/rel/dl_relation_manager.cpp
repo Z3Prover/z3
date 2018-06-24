@@ -210,11 +210,9 @@ namespace datalog {
         if(m_favourite_relation_plugin && m_favourite_relation_plugin->can_handle_signature(s)) {
             return m_favourite_relation_plugin;
         }
-        relation_plugin_vector::iterator rpit = m_relation_plugins.begin();
-        relation_plugin_vector::iterator rpend = m_relation_plugins.end();
-        for(; rpit!=rpend; ++rpit) {
-            if((*rpit)->can_handle_signature(s)) {
-                return *rpit;
+        for (auto * r : m_relation_plugins) {
+            if (r->can_handle_signature(s)) {
+                return r;
             }
         }
         return nullptr;
@@ -232,11 +230,9 @@ namespace datalog {
         if (m_favourite_table_plugin && m_favourite_table_plugin->can_handle_signature(t)) {
             return m_favourite_table_plugin;
         }
-        table_plugin_vector::iterator tpit = m_table_plugins.begin();
-        table_plugin_vector::iterator tpend = m_table_plugins.end();
-        for(; tpit!=tpend; ++tpit) {
-            if((*tpit)->can_handle_signature(t)) {
-                return *tpit;
+        for (auto * a : m_table_plugins) {
+            if (a->can_handle_signature(t)) {
+                return a;
             }
         }
         return nullptr;
@@ -251,11 +247,9 @@ namespace datalog {
     }
 
     relation_plugin * relation_manager::get_relation_plugin(symbol const& s) {
-        relation_plugin_vector::iterator rpit = m_relation_plugins.begin();
-        relation_plugin_vector::iterator rpend = m_relation_plugins.end();
-        for(; rpit!=rpend; ++rpit) {
-            if((*rpit)->get_name()==s) {
-                return *rpit;
+        for (auto* r : m_relation_plugins) {
+            if(r->get_name() == s) {
+                return r;
             }
         }
         return nullptr;
@@ -480,46 +474,37 @@ namespace datalog {
     std::string relation_manager::to_nice_string(const relation_signature & s) const {
         std::string res("[");
         bool first = true;
-        relation_signature::const_iterator it = s.begin();
-        relation_signature::const_iterator end = s.end();
-        for(; it!=end; ++it) {
-            if(first) {
+        for (auto const& sig : s) {
+            if (first) {
                 first = false;
             }
             else {
-                res+=',';
+                res += ',';
             }
-            res+=to_nice_string(*it);
+            res += to_nice_string(sig);
         }
-        res+=']';
+        res += ']';
 
         return res;
     }
 
     void relation_manager::display(std::ostream & out) const {
-        relation_map::iterator it=m_relations.begin();
-        relation_map::iterator end=m_relations.end();
-        for(;it!=end;++it) {
-            out << "Table " << it->m_key->get_name() << "\n";
-            it->m_value->display(out);
+        for (auto const& kv : m_relations) {
+            out << "Table " << kv.m_key->get_name() << "\n";
+            kv.m_value->display(out);
         }
     }
 
     void relation_manager::display_relation_sizes(std::ostream & out) const {
-        relation_map::iterator it=m_relations.begin();
-        relation_map::iterator end=m_relations.end();
-        for(;it!=end;++it) {
-            out << "Relation " << it->m_key->get_name() << " has size " 
-                << it->m_value->get_size_estimate_rows() << "\n";
+        for (auto const& kv : m_relations) {
+            out << "Relation " << kv.m_key->get_name() << " has size " 
+                << kv.m_value->get_size_estimate_rows() << "\n";
         }
     }
 
     void relation_manager::display_output_tables(rule_set const& rules, std::ostream & out) const {
         const decl_set & output_preds = rules.get_output_predicates();
-        decl_set::iterator it=output_preds.begin();
-        decl_set::iterator end=output_preds.end();
-        for(; it!=end; ++it) {
-            func_decl * pred = *it;
+        for (func_decl * pred : output_preds) {
             relation_base * rel = try_get_relation(pred);
             if (!rel) {
                 out << "Tuples in " << pred->get_name() << ": \n";
@@ -1016,11 +1001,8 @@ namespace datalog {
             SASSERT(plugin.can_handle_signature(res_sign));
             table_base * res = plugin.mk_empty(res_sign);
 
-            table_base::iterator it = t.begin();
-            table_base::iterator end = t.end();
-
-            for(; it!=end; ++it) {
-                it->get_fact(m_row);
+            for (table_base::row_interface& a : t) {
+                a.get_fact(m_row);
                 modify_fact(m_row);
                 res->add_fact(m_row);
             }
@@ -1191,13 +1173,10 @@ namespace datalog {
         table_fact m_row;
     public:
         void operator()(table_base & tgt, const table_base & src, table_base * delta) override {
-            table_base::iterator it = src.begin();
-            table_base::iterator iend = src.end();
+            for (table_base::row_interface& a : src) {
+                a.get_fact(m_row);
 
-            for(; it!=iend; ++it) {
-                it->get_fact(m_row);
-
-                if(delta) {
+                if (delta) {
                     if(!tgt.contains_fact(m_row)) {
                         tgt.add_new_fact(m_row);
                         delta->add_fact(m_row);
@@ -1260,11 +1239,9 @@ namespace datalog {
         void operator()(table_base & r) {
             m_to_remove.reset();
             unsigned sz = 0;
-            table_base::iterator it = r.begin();
-            table_base::iterator iend = r.end();
-            for(; it!=iend; ++it) {
-                it->get_fact(m_row);
-                if(should_remove(m_row)) {
+            for (table_base::row_interface& a : r) {
+                a.get_fact(m_row);
+                if (should_remove(m_row)) {
                     m_to_remove.append(m_row.size(), m_row.c_ptr());
                     ++sz;
                 }
@@ -1456,7 +1433,7 @@ namespace datalog {
                 m_removed_cols(removed_col_cnt, removed_cols) {}
 
         table_base* operator()(const table_base & tb) override {
-            table_base *t2 = tb.clone();
+            scoped_rel<table_base> t2 = tb.clone();
             (*m_filter)(*t2);
             if (!m_project) {
                 relation_manager & rmgr = t2->get_plugin().get_manager();
@@ -1572,8 +1549,7 @@ namespace datalog {
             TRACE("dl", tout << t1.get_plugin().get_name() << "\n";);
             scoped_rel<table_base> aux = t1.clone();
             (*m_filter)(*aux);
-            table_base * res = (*m_project)(*aux);
-            return res;
+            return (*m_project)(*aux);
         }
     };
 
@@ -1614,11 +1590,8 @@ namespace datalog {
                 m_aux_table->reset();
             }
 
-
-            table_base::iterator it = t.begin();
-            table_base::iterator iend = t.end();
-            for(; it!=iend; ++it) {
-                it->get_fact(m_curr_fact);
+            for (table_base::row_interface& a : t) {
+                a.get_fact(m_curr_fact);
                 if((*m_mapper)(m_curr_fact.c_ptr()+m_first_functional)) {
                     m_aux_table->add_fact(m_curr_fact);
                 }
@@ -1699,13 +1672,10 @@ namespace datalog {
             SASSERT(plugin.can_handle_signature(res_sign));
             table_base * res = plugin.mk_empty(res_sign);
 
-            table_base::iterator it = t.begin();
-            table_base::iterator end = t.end();
-
-
-            for(; it!=end; ++it) {
+            table_base::iterator it = t.begin(), end = t.end();
+            for (; it != end; ++it) {
                 mk_project(it);
-                if(!res->suggest_fact(m_former_row)) {
+                if (!res->suggest_fact(m_former_row)) {
                     (*m_reducer)(m_former_row.c_ptr()+m_res_first_functional, m_row.c_ptr()+m_res_first_functional);
                     res->ensure_fact(m_former_row);
                 }

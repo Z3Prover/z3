@@ -40,6 +40,7 @@ public:
     virtual ~model_core();
 
     ast_manager & get_manager() const { return m_manager; }
+    ast_manager& m() const { return m_manager; }
 
     unsigned get_num_decls() const { return m_decls.size(); }
     func_decl * get_decl(unsigned i) const { return m_decls[i]; }

@@ -32,6 +32,8 @@ namespace sat {
 
         typedef unsigned BDD;
 
+        const BDD null_bdd = UINT_MAX;
+
         enum bdd_op {
             bdd_and_op = 2,
             bdd_or_op = 3,

@@ -41,7 +41,7 @@ void generic_model_converter::add(func_decl * d, expr* e) {
 
 void generic_model_converter::operator()(model_ref & md) {
     TRACE("model_converter", tout << "before generic_model_converter\n"; model_v2_pp(tout, *md); display(tout););
-    // IF_VERBOSE(0, verbose_stream() << "Apply converter " << m_orig << "\n";);
+    
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(true);
     ev.set_expand_array_equalities(false);    
@@ -114,11 +114,16 @@ model_converter * generic_model_converter::translate(ast_translation & translato
     return res;
 }
 
-void generic_model_converter::collect(ast_pp_util& visitor) { 
-    m_env = &visitor.env(); 
-    for (entry const& e : m_entries) {
-        visitor.coll.visit_func(e.m_f);
-        if (e.m_def) visitor.coll.visit(e.m_def);
+void generic_model_converter::set_env(ast_pp_util* visitor) { 
+    if (!visitor) {
+        m_env = nullptr;
+    }
+    else {
+        m_env = &visitor->env();       
+        for (entry const& e : m_entries) {
+            visitor->coll.visit_func(e.m_f);
+            if (e.m_def) visitor->coll.visit(e.m_def);
+        }
     }
 }
 

@@ -1206,8 +1206,7 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
         e = todo.back();
         todo.pop_back();
         if (m_util.str.is_string(e, s)) {
-            for (unsigned i = s.length(); i > 0; ) {
-                --i;
+            for (unsigned i = 0; i < s.length(); ++i) {
                 seq.push_back(m_util.str.mk_char(s, i));
             }
         }
@@ -1218,14 +1217,13 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
             seq.push_back(e1);
         }
         else if (m_util.str.is_concat(e, e1, e2)) {
-            todo.push_back(e1);
             todo.push_back(e2);
+            todo.push_back(e1);
         }
         else {
             return false;
         }
     }
-    seq.reverse();
     return true;
 }
 

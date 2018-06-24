@@ -21,7 +21,6 @@ Revision History:
 #include "muz/clp/clp_context.h"
 #include "muz/tab/tab_context.h"
 #include "muz/rel/rel_context.h"
-#include "muz/pdr/pdr_dl_interface.h"
 #include "muz/ddnf/ddnf.h"
 #include "muz/spacer/spacer_dl_interface.h"
 
@@ -30,9 +29,6 @@ namespace datalog {
     
     engine_base* register_engine::mk_engine(DL_ENGINE engine_type) {
         switch(engine_type) {
-        case PDR_ENGINE:
-        case QPDR_ENGINE:
-            return alloc(pdr::dl_interface, *m_ctx);
         case SPACER_ENGINE:
             return alloc(spacer::dl_interface, *m_ctx);
         case DATALOG_ENGINE:

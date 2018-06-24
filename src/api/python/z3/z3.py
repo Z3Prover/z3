@@ -90,6 +90,9 @@ def _z3_assert(cond, msg):
     if not cond:
         raise Z3Exception(msg)
 
+def _z3_check_cint_overflow(n, name):
+    _z3_assert(ctypes.c_int(n).value == n, name + " is too large")
+
 def open_log(fname):
     """Log interaction to a file. This function must be invoked immediately after init(). """
     Z3_open_log(fname)
@@ -1898,13 +1901,17 @@ def is_quantifier(a):
 
 def _mk_quantifier(is_forall, vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     if __debug__:
-        _z3_assert(is_bool(body), "Z3 expression expected")
+        _z3_assert(is_bool(body) or is_app(vs) or (len(vs) > 0 and is_app(vs[0])), "Z3 expression expected")
         _z3_assert(is_const(vs) or (len(vs) > 0 and all([ is_const(v) for v in vs])), "Invalid bounded variable(s)")
         _z3_assert(all([is_pattern(a) or is_expr(a) for a in patterns]), "Z3 patterns expected")
-        _z3_assert(all([is_expr(p) for p in no_patterns]), "no patterns are Z3 expressions")
-    ctx = body.ctx
+        _z3_assert(all([is_expr(p) for p in no_patterns]), "no patterns are Z3 expressions")    
     if is_app(vs):
+        ctx = vs.ctx
         vs = [vs]
+    else:
+        ctx = vs[0].ctx
+    if not is_expr(body):
+       body = BoolVal(body, ctx)
     num_vars = len(vs)
     if num_vars == 0:
         return body
@@ -8128,6 +8135,7 @@ def _pb_args_coeffs(args, default_ctx = None):
     _args, sz = _to_ast_array(args)
     _coeffs = (ctypes.c_int * len(coeffs))()
     for i in range(len(coeffs)):
+        _z3_check_cint_overflow(coeffs[i], "coefficient")
         _coeffs[i] = coeffs[i]
     return ctx, sz, _args, _coeffs
 
@@ -8137,6 +8145,7 @@ def PbLe(args, k):
     >>> a, b, c = Bools('a b c')
     >>> f = PbLe(((a,1),(b,3),(c,2)), 3)
     """
+    _z3_check_cint_overflow(k, "k")
     ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pble(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
@@ -8146,6 +8155,7 @@ def PbGe(args, k):
     >>> a, b, c = Bools('a b c')
     >>> f = PbGe(((a,1),(b,3),(c,2)), 3)
     """
+    _z3_check_cint_overflow(k, "k")
     ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbge(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
@@ -8155,6 +8165,7 @@ def PbEq(args, k, ctx = None):
     >>> a, b, c = Bools('a b c')
     >>> f = PbEq(((a,1),(b,3),(c,2)), 3)
     """
+    _z3_check_cint_overflow(k, "k")
     ctx, sz, _args, _coeffs = _pb_args_coeffs(args)
     return BoolRef(Z3_mk_pbeq(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
@@ -8847,7 +8858,10 @@ class FPNumRef(FPRef):
     1.25
     """
     def significand_as_long(self):
-        return Z3_fpa_get_numeral_significand_uint64(self.ctx.ref(), self.as_ast())
+        ptr = (ctypes.c_ulonglong * 1)()
+        if not Z3_fpa_get_numeral_significand_uint64(self.ctx.ref(), self.as_ast(), ptr):
+            raise Z3Exception("error retrieving the significand of a numeral.")
+        return ptr[0]
     
     """The significand of the numeral as a bit-vector expression.
 

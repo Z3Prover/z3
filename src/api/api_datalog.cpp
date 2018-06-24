@@ -603,7 +603,26 @@ extern "C" {
         Z3_CATCH;
 
     }
-    
+
+    void Z3_API Z3_fixedpoint_add_callback(Z3_context c, Z3_fixedpoint d,
+                                            void *state,
+                                            Z3_fixedpoint_new_lemma_eh new_lemma_eh,
+                                            Z3_fixedpoint_predecessor_eh predecessor_eh,
+                                            Z3_fixedpoint_unfold_eh unfold_eh){
+        Z3_TRY;
+            // not logged
+            to_fixedpoint_ref(d)->ctx().add_callback(state,
+                                                     reinterpret_cast<datalog::t_new_lemma_eh>(new_lemma_eh),
+                                                     reinterpret_cast<datalog::t_predecessor_eh>(predecessor_eh),
+                                                     reinterpret_cast<datalog::t_unfold_eh>(unfold_eh));
+
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_fixedpoint_add_constraint (Z3_context c, Z3_fixedpoint d, Z3_ast e, unsigned lvl){
+        to_fixedpoint_ref(d)->ctx().add_constraint(to_expr(e), lvl);
+    }
+
 #include "api_datalog_spacer.inc"
 
 };

@@ -68,7 +68,7 @@ public:
 
     model_converter * translate(ast_translation & translator) override;
 
-    void collect(ast_pp_util& visitor) override;
+    void set_env(ast_pp_util* visitor) override;
 
     void operator()(expr_ref& fml) override; 
 

@@ -44,7 +44,7 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     ast_pp_util visitor(get_manager());
     model_converter_ref mc = get_model_converter();
     if (mc.get()) { 
-        mc->collect(visitor); 
+        mc->set_env(&visitor); 
     }
     visitor.collect(fmls);
     visitor.collect(n, assumptions);
@@ -52,6 +52,7 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
     visitor.display_asserts(out, fmls, true);
     if (mc.get()) {
         mc->display(out);
+        mc->set_env(nullptr);
     }
     return out;
 }
@@ -62,6 +63,13 @@ void solver::get_assertions(expr_ref_vector& fmls) const {
         fmls.push_back(get_assertion(i));
     }
 }
+
+expr_ref_vector solver::get_assertions() const {
+    expr_ref_vector result(get_manager());
+    get_assertions(result);
+    return result;
+}
+
 
 struct scoped_assumption_push {
     expr_ref_vector& m_vec;
@@ -206,8 +214,13 @@ void solver::collect_param_descrs(param_descrs & r) {
     r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: false) enforce model conversion when asserting formulas");
 }
 
-void solver::updt_params(params_ref const & p) { 
-    m_params.copy(p); 
+void solver::reset_params(params_ref const & p) {
+    m_params = p;
+    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
+}
+
+void solver::updt_params(params_ref const & p) {
+    m_params.copy(p);
     m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
 }
 

@@ -80,7 +80,7 @@ public:
     
     virtual model_converter * translate(ast_translation & translator) = 0;
     
-    virtual void collect(ast_pp_util& visitor) { m_env = &visitor.env(); }
+    virtual void set_env(ast_pp_util* visitor);
 
     /**
        \brief we are adding a formula to the context of the model converter.

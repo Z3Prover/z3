@@ -92,7 +92,7 @@ public:
         void operator()(model_ref& md) override;
         void operator()(expr_ref& fml) override; 
         model_converter* translate(ast_translation& translator) override;
-        void collect(ast_pp_util& visitor) override;
+        void set_env(ast_pp_util* visitor) override;
         void display(std::ostream& out) override;
         void get_units(obj_map<expr, bool>& units) override;
         app* var2expr(sat::bool_var v) const { return m_var2expr.get(v, nullptr); }

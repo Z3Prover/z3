@@ -712,12 +712,30 @@ unsigned theory_seq::find_branch_start(unsigned k) {
     return 0;
 }
 
-bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs) {
+expr_ref_vector theory_seq::expand_strings(expr_ref_vector const& es) {
+    expr_ref_vector ls(m);
+    for (expr* e : es) {
+        zstring s;
+        if (m_util.str.is_string(e, s)) {
+            for (unsigned i = 0; i < s.length(); ++i) {
+                ls.push_back(m_util.str.mk_unit(m_util.str.mk_char(s, i)));
+            }
+        }
+        else {
+            ls.push_back(e);
+        }
+    }
+    return ls;
+}
+
+bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& _ls, expr_ref_vector const& _rs) {
+    expr_ref_vector ls = expand_strings(_ls);
+    expr_ref_vector rs = expand_strings(_rs);
 
     if (ls.empty()) {
         return false;
     }
-    expr* l = ls[0];
+    expr* l = ls.get(0);
 
     if (!is_var(l)) {
         return false;
@@ -735,9 +753,9 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
     }
     for (; start < rs.size(); ++start) {
         unsigned j = start;
-        SASSERT(!m_util.str.is_concat(rs[j]));
-        SASSERT(!m_util.str.is_string(rs[j]));
-        if (l == rs[j]) {
+        SASSERT(!m_util.str.is_concat(rs.get(j)));
+        SASSERT(!m_util.str.is_string(rs.get(j)));
+        if (l == rs.get(j)) {
             return false;
         }
         if (!can_be_equal(ls.size() - 1, ls.c_ptr() + 1, rs.size() - j - 1, rs.c_ptr() + j + 1)) {
@@ -752,8 +770,11 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
     }
 
     bool all_units = true;
-    for (unsigned j = 0; all_units && j < rs.size(); ++j) {
-        all_units &= m_util.str.is_unit(rs[j]);
+    for (expr* r : rs) {
+        if (!m_util.str.is_unit(r)) {
+            all_units = false;
+            break;
+        }
     }
     if (all_units) {
         context& ctx = get_context();
@@ -765,20 +786,20 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
                 lits.push_back(~mk_eq(l, v0, false));
             }
         }
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            switch (ctx.get_assignment(lits[i])) {
+        for (literal lit : lits) {
+            switch (ctx.get_assignment(lit)) {
             case l_true:  break;
             case l_false: start = 0; return true;
-            case l_undef: ctx.force_phase(~lits[i]); start = 0; return true;
+            case l_undef: ctx.force_phase(~lit); start = 0; return true;
             }
         }
         set_conflict(dep, lits);
         TRACE("seq", 
               tout << "start: " << start << "\n";
-              for (unsigned i = 0; i < lits.size(); ++i) {
-                  ctx.display_literal_verbose(tout << lits[i] << ": ", lits[i]); 
+              for (literal lit : lits) {
+                  ctx.display_literal_verbose(tout << lit << ": ", lit); 
                   tout << "\n";
-                  ctx.display(tout, ctx.get_justification(lits[i].var()));
+                  ctx.display(tout, ctx.get_justification(lit.var()));
                   tout << "\n";
               });
         return true;
@@ -2251,7 +2272,6 @@ bool theory_seq::internalize_term(app* term) {
         e = ctx.mk_enode(term, false, m.is_bool(term), true);
     }
     mk_var(e);
-
     return true;
 }
 
@@ -2905,6 +2925,9 @@ expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
         }
         result = ed.first;
     }
+    else if (false && m_util.str.is_string(e)) {
+        result = add_elim_string_axiom(e);
+    }
     else {
         m_expand_todo.push_back(e);
     }
@@ -2927,7 +2950,7 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_empty(e) || m_util.str.is_string(e)) {
         result = e;
-    }
+    }    
     else if (m_util.str.is_prefix(e, e1, e2)) {
         arg1 = try_expand(e1, deps);
         arg2 = try_expand(e2, deps);
@@ -3086,6 +3109,7 @@ void theory_seq::propagate() {
 
 void theory_seq::enque_axiom(expr* e) {
     if (!m_axiom_set.contains(e)) {
+        TRACE("seq", tout << "add axiom " << mk_pp(e, m) << "\n";);
         m_axioms.push_back(e);
         m_axiom_set.insert(e);
         m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_axioms));
@@ -3283,20 +3307,21 @@ void theory_seq::add_replace_axiom(expr* r) {
     tightest_prefix(s, x);
 }
 
-void theory_seq::add_elim_string_axiom(expr* n) {
+expr_ref theory_seq::add_elim_string_axiom(expr* n) {
     zstring s;
+    TRACE("seq", tout << mk_pp(n, m) << "\n";);
     VERIFY(m_util.str.is_string(n, s));
     if (s.length() == 0) {
-        return;
+        return expr_ref(n, m);
     }
     expr_ref result(m_util.str.mk_unit(m_util.str.mk_char(s, s.length()-1)), m);
-    for (unsigned i = s.length()-1; i > 0; ) {
-        --i;
+    for (unsigned i = s.length()-1; i-- > 0; ) {
         result = mk_concat(m_util.str.mk_unit(m_util.str.mk_char(s, i)), result);
     }
     add_axiom(mk_eq(n, result, false));
     m_rep.update(n, result, nullptr);
     m_new_solution = true;
+    return result;
 }
 
 

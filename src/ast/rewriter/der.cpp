@@ -40,11 +40,8 @@ static bool is_neg_var(ast_manager & m, expr * e, unsigned num_decls) {
 */
 bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
     // (not (= VAR t)) and (not (iff VAR t)) cases
-    if (m_manager.is_not(e) && (m_manager.is_eq(to_app(e)->get_arg(0)) || m_manager.is_iff(to_app(e)->get_arg(0)))) {
-        app * eq   = to_app(to_app(e)->get_arg(0));
-        SASSERT(m_manager.is_eq(eq) || m_manager.is_iff(eq));
-        expr * lhs = eq->get_arg(0);
-        expr * rhs = eq->get_arg(1);
+    expr *eq, * lhs, *rhs;
+    if (m_manager.is_not(e, eq) && m_manager.is_eq(eq, lhs, rhs)) {
         if (!is_var(lhs, num_decls) && !is_var(rhs, num_decls))
             return false;
         if (!is_var(lhs, num_decls))
@@ -60,9 +57,7 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
         return true;
     }
     // (iff VAR t) and (iff (not VAR) t) cases
-    else if (m_manager.is_iff(e)) {
-        expr * lhs = to_app(e)->get_arg(0);
-        expr * rhs = to_app(e)->get_arg(1);
+    else if (m_manager.is_eq(e, lhs, rhs) && m_manager.is_bool(lhs)) {
         // (iff VAR t) case
         if (is_var(lhs, num_decls) || is_var(rhs, num_decls)) {
             if (!is_var(lhs, num_decls))

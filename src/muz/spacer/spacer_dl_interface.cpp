@@ -34,6 +34,7 @@ Revision History:
 #include "model/model_smt2_pp.h"
 #include "ast/scoped_proof.h"
 #include "muz/transforms/dl_transforms.h"
+#include "muz/spacer/spacer_callback.h"
 
 using namespace spacer;
 
@@ -92,19 +93,14 @@ lbool dl_interface::query(expr * query)
     datalog::rule_set        old_rules(rules0);
     func_decl_ref            query_pred(m);
     rm.mk_query(query, m_ctx.get_rules());
-    expr_ref bg_assertion = m_ctx.get_background_assertion();
 
     check_reset();
 
     TRACE("spacer",
-    if (!m.is_true(bg_assertion)) {
-    tout << "axioms:\n";
-    tout << mk_pp(bg_assertion, m) << "\n";
-    }
-    tout << "query: " << mk_pp(query, m) << "\n";
-         tout << "rules:\n";
-         m_ctx.display_rules(tout);
-         );
+          tout << "query: " << mk_pp(query, m) << "\n";
+          tout << "rules:\n";
+          m_ctx.display_rules(tout);
+        );
 
 
     apply_default_transformation(m_ctx);
@@ -160,7 +156,6 @@ lbool dl_interface::query(expr * query)
     m_context->set_proof_converter(m_ctx.get_proof_converter());
     m_context->set_model_converter(m_ctx.get_model_converter());
     m_context->set_query(query_pred);
-    m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_spacer_rules);
 
     if (m_spacer_rules.get_rules().empty()) {
@@ -169,7 +164,7 @@ lbool dl_interface::query(expr * query)
         return l_false;
     }
 
-    return m_context->solve();
+    return m_context->solve(m_ctx.get_params().spacer_min_level());
 
 }
 
@@ -254,7 +249,6 @@ lbool dl_interface::query_from_lvl(expr * query, unsigned lvl)
     m_context->set_proof_converter(m_ctx.get_proof_converter());
     m_context->set_model_converter(m_ctx.get_model_converter());
     m_context->set_query(query_pred);
-    m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_spacer_rules);
 
     if (m_spacer_rules.get_rules().empty()) {
@@ -351,4 +345,15 @@ model_ref dl_interface::get_model()
 proof_ref dl_interface::get_proof()
 {
     return m_context->get_proof();
+}
+
+void dl_interface::add_callback(void *state,
+                                const datalog::t_new_lemma_eh new_lemma_eh,
+                                const datalog::t_predecessor_eh predecessor_eh,
+                                const datalog::t_unfold_eh unfold_eh){
+    m_context->callbacks().push_back(alloc(user_callback, *m_context, state, new_lemma_eh, predecessor_eh, unfold_eh));
+}
+
+void dl_interface::add_constraint (expr *c, unsigned lvl){
+    m_context->add_constraint(c, lvl);
 }

@@ -193,8 +193,10 @@ bool is_threaded();
 
 #ifdef _MSC_VER
 #define DO_PRAGMA(x) __pragma(x)
+#define PRAGMA_LOCK __pragma(omp critical (verbose_lock))
 #else
 #define DO_PRAGMA(x) _Pragma(#x)
+#define PRAGMA_LOCK _Pragma("omp critical (verbose_lock)")
 #endif
 
 #ifdef _NO_OMP_
@@ -202,7 +204,7 @@ bool is_threaded();
 #else
 #define LOCK_CODE(CODE)                         \
     {                                           \
-        DO_PRAGMA(omp critical (verbose_lock))   \
+        PRAGMA_LOCK   \
             {                                   \
                 CODE;                           \
             }                                   \

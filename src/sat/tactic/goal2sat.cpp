@@ -201,7 +201,6 @@ struct goal2sat::imp {
         case OP_NOT:
         case OP_OR:
         case OP_AND:
-        case OP_IFF:
             m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
             return false;
         case OP_ITE:
@@ -630,7 +629,6 @@ struct goal2sat::imp {
             case OP_ITE:
                 convert_ite(t, root, sign);
                 break;
-            case OP_IFF:
             case OP_EQ:
                 convert_iff(t, root, sign);
                 break;
@@ -970,9 +968,9 @@ model_converter* sat2goal::mc::translate(ast_translation& translator) {
     return result;
 }
 
-void sat2goal::mc::collect(ast_pp_util& visitor) {
+void sat2goal::mc::set_env(ast_pp_util* visitor) {
     flush_gmc();
-    if (m_gmc) m_gmc->collect(visitor);
+    if (m_gmc) m_gmc->set_env(visitor);
 }
 
 void sat2goal::mc::display(std::ostream& out) {

@@ -110,13 +110,15 @@ void expr_context_simplifier::reduce_rec(app * a, expr_ref & result) {
         case OP_OR:
             reduce_or(a->get_num_args(), a->get_args(), result);
             return;
-        case OP_IFF: {
-            expr_ref tmp1(m_manager), tmp2(m_manager);
-            reduce_rec(a->get_arg(0), tmp1);
-            reduce_rec(a->get_arg(1), tmp2);
-            m_simp.mk_iff(tmp1.get(), tmp2.get(), result);
-            return;
-        }
+        case OP_EQ: 
+            if (m_manager.is_iff(a)) {
+                expr_ref tmp1(m_manager), tmp2(m_manager);
+                reduce_rec(a->get_arg(0), tmp1);
+                reduce_rec(a->get_arg(1), tmp2);
+                m_simp.mk_iff(tmp1.get(), tmp2.get(), result);
+                return;
+            }
+            break;
         case OP_XOR: {
             expr_ref tmp1(m_manager), tmp2(m_manager);
             reduce_rec(a->get_arg(0), tmp1);
@@ -580,7 +582,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
                 }
                 assignment_map.insert(a, value);                
             }
-            else if (m.is_iff(a, n1, n2) || m.is_eq(a, n1, n2)) {
+            else if (m.is_eq(a, n1, n2)) {
                 lbool v1 = assignment_map.find(n1);
                 lbool v2 = assignment_map.find(n2);
                 if (v1 == l_undef || v2 == l_undef) {

@@ -22,9 +22,10 @@ Revision History:
 #include "ast/ast.h"
 #include "util/uint_set.h"
 
-class is_variable_proc {
+// TBD: move under qe namespace
+class is_variable_proc : public std::unary_function<expr*,bool> {
 public:
-    virtual bool operator()(expr* e) const = 0;
+    virtual bool operator()(const expr* e) const = 0;
 };
 
 class is_variable_test : public is_variable_proc {
@@ -42,7 +43,7 @@ public:
         m_num_decls(num_decls),
         m_var_kind(BY_NUM_DECLS) {}
 
-    bool operator()(expr* e) const override {
+    bool operator()(const expr* e) const override {
         if (!is_var(e)) {
             return false;
         }

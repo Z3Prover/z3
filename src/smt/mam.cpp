@@ -569,10 +569,9 @@ namespace smt {
             if (m_context) {
                 ast_manager & m = m_context->get_manager();
                 out << "patterns:\n";
-                ptr_vector<app>::const_iterator it  = m_patterns.begin();
-                ptr_vector<app>::const_iterator end = m_patterns.end();
-                for (; it != end; ++it)
-                    out << mk_pp(*it, m) << "\n";
+                for (expr* p : m_patterns) {
+                    out << mk_pp(p, m) << "\n";
+                }
             }
 #endif
             out << "function: " << m_root_lbl->get_name();
@@ -831,10 +830,8 @@ namespace smt {
         void init(code_tree * t, quantifier * qa, app * mp, unsigned first_idx) {
             SASSERT(m_ast_manager.is_pattern(mp));
 #ifdef Z3DEBUG
-            svector<check_mark>::iterator it  = m_mark.begin();
-            svector<check_mark>::iterator end = m_mark.end();
-            for (; it != end; ++it) {
-                SASSERT(*it == NOT_CHECKED);
+            for (auto cm : m_mark) {
+                SASSERT(cm == NOT_CHECKED);
             }
 #endif
             m_tree        = t;
@@ -865,9 +862,7 @@ namespace smt {
            That is, during execution time, the variables will be already bound
          */
         bool all_args_are_bound_vars(app * n) {
-            unsigned num_args = n->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
-                expr * arg = n->get_arg(i);
+            for (expr* arg : *n) {
                 if (!is_var(arg))
                     return false;
                 if (m_vars[to_var(arg)->get_idx()] == -1)
@@ -884,9 +879,7 @@ namespace smt {
             if (n->is_ground()) {
                 return;
             }
-            unsigned num_args = n->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
-                expr * arg = n->get_arg(i);
+            for (expr* arg : *n) {
                 if (is_var(arg)) {
                     sz++;
                     unsigned var_id = to_var(arg)->get_idx();
@@ -928,10 +921,7 @@ namespace smt {
             unsigned      first_app_sz;
             unsigned      first_app_num_unbound_vars;
             // generate first the non-BIND operations
-            unsigned_vector::iterator it  = m_todo.begin();
-            unsigned_vector::iterator end = m_todo.end();
-            for (; it != end; ++it) {
-                unsigned reg = *it;
+            for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
                 SASSERT(!is_quantifier(p));
                 if (is_var(p)) {
@@ -1249,10 +1239,7 @@ namespace smt {
             SASSERT(head->m_next == 0);
             m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
 
-            ptr_vector<instruction>::iterator it  = m_seq.begin();
-            ptr_vector<instruction>::iterator end = m_seq.end();
-            for (; it != end; ++it) {
-                instruction * curr = *it;
+            for (instruction * curr : m_seq) {
                 head->m_next = curr;
                 head = curr;
             }
@@ -1495,10 +1482,8 @@ namespace smt {
             }
             if (num_instr > SIMPLE_SEQ_THRESHOLD || (curr != nullptr && curr->m_opcode == CHOOSE))
                 simple = false;
-            unsigned_vector::iterator it  = m_to_reset.begin();
-            unsigned_vector::iterator end = m_to_reset.end();
-            for (; it != end; ++it)
-                m_registers[*it] = 0;
+            for (unsigned reg : m_to_reset) 
+                m_registers[reg] = 0;
             return weight;
         }
 
@@ -1716,23 +1701,19 @@ namespace smt {
                     m_num_choices++;
                     // set: head -> c1 -> c2 -> c3 -> new_child_head1
                     curr = head;
-                    ptr_vector<instruction>::iterator it1  = m_compatible.begin();
-                    ptr_vector<instruction>::iterator end1 = m_compatible.end();
-                    for (; it1 != end1; ++it1) {
-                        set_next(curr, *it1);
-                        curr = *it1;
+                    for (instruction* instr : m_compatible) {
+                        set_next(curr, instr);
+                        curr = instr;
                     }
                     set_next(curr, new_child_head1);
                     // set: new_child_head1:CHOOSE(new_child_head2) -> i1 -> i2 -> first_child_head
                     curr = new_child_head1;
-                    ptr_vector<instruction>::iterator it2  = m_incompatible.begin();
-                    ptr_vector<instruction>::iterator end2 = m_incompatible.end();
-                    for (; it2 != end2; ++it2) {
+                    for (instruction* inc : m_incompatible) {
                         if (curr == new_child_head1)
-                            curr->m_next = *it2; // new_child_head1 is a new node, I don't need to save trail
+                            curr->m_next = inc; // new_child_head1 is a new node, I don't need to save trail
                         else
-                            set_next(curr, *it2);
-                        curr = *it2;
+                            set_next(curr, inc);
+                        curr = inc;
                     }
                     set_next(curr, first_child_head);
                     // build new_child_head2:NOOP -> linearise()
@@ -3370,10 +3351,7 @@ namespace smt {
         void update_vars(unsigned short var_id, path * p, quantifier * qa, app * mp) {
             paths & var_paths = m_var_paths[var_id];
             bool found = false;
-            paths::iterator it  = var_paths.begin();
-            paths::iterator end = var_paths.end();
-            for (; it != end; ++it) {
-                path * curr_path = *it;
+            for (path* curr_path : var_paths) {
                 if (is_equal(p, curr_path))
                     found = true;
                 func_decl * lbl1 = curr_path->m_label;
@@ -3664,18 +3642,12 @@ namespace smt {
             TRACE("incremental_matcher", tout << "pp: plbls1: " << plbls1 << ", plbls2: " << plbls2 << "\n";);
             TRACE("mam_info", tout << "pp: " << plbls1.size() * plbls2.size() << "\n";);
             if (!plbls1.empty() && !plbls2.empty()) {
-                approx_set::iterator it1  = plbls1.begin();
-                approx_set::iterator end1 = plbls1.end();
-                for (; it1 != end1; ++it1) {
+                for (unsigned plbl1 : plbls1) {
                     if (m_context.get_cancel_flag()) {
                         break;
                     }
-                    unsigned plbl1 = *it1;
                     SASSERT(plbls1.may_contain(plbl1));
-                    approx_set::iterator it2  = plbls2.begin();
-                    approx_set::iterator end2 = plbls2.end();
-                    for (; it2 != end2; ++it2) {
-                        unsigned plbl2 = *it2;
+                    for (unsigned plbl2 : plbls2) {
                         SASSERT(plbls2.may_contain(plbl2));
                         unsigned n_plbl1 = plbl1;
                         unsigned n_plbl2 = plbl2;

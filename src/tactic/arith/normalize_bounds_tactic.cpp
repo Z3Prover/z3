@@ -109,8 +109,8 @@ class normalize_bounds_tactic : public tactic {
                     expr * def = m_util.mk_add(x_prime, m_util.mk_numeral(val, s));
                     subst.insert(x, def);
                     if (produce_models) {
-                        gmc->add(to_app(x)->get_decl(), def);
                         gmc->hide(x_prime->get_decl());
+                        gmc->add(to_app(x)->get_decl(), def);
                     }
                 }
             }

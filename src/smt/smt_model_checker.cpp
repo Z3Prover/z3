@@ -439,7 +439,7 @@ namespace smt {
                 }
                 else if (!check(q)) {
                     if (m_params.m_mbqi_trace || get_verbosity_level() >= 5) {
-                        verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n";
+                        IF_VERBOSE(0, verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n");
                     }
                     TRACE("model_checker", tout << "checking quantifier " << mk_pp(q, m) << " failed\n";);
                     num_failures++;

@@ -42,8 +42,7 @@ namespace qe {
         }
 
         bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
-            expr_ref val(m);
-            VERIFY(model.eval(var, val));
+            expr_ref val = model(var);
             SASSERT(is_app(val));
             TRACE("qe", tout << mk_pp(var, m) << " := " << val << "\n";);
             m_val = to_app(val);
@@ -300,6 +299,9 @@ namespace qe {
         return m_imp->solve(model, vars, lits);
     }
 
+    vector<def> datatype_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        return vector<def>();
+    }
     
     family_id datatype_project_plugin::get_family_id() {
         return m_imp->dt.get_family_id();

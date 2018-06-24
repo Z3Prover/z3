@@ -176,7 +176,6 @@ class tseitin_cnf_tactic : public tactic {
                 sign = !sign;
                 goto start;
             case OP_OR:
-            case OP_IFF:
                 l = nullptr;
                 m_cache.find(to_app(n), l);
                 SASSERT(l != 0);
@@ -223,7 +222,6 @@ class tseitin_cnf_tactic : public tactic {
                     goto start;
                 }
             case OP_OR:
-            case OP_IFF:
                 visited = false;
                 push_frame(to_app(n));
                 return;
@@ -467,6 +465,38 @@ class tseitin_cnf_tactic : public tactic {
                 return DONE;
             }
             return NO;
+        }
+
+        mres match_iff_or(app * t, bool first, bool root) {
+            expr * a = nullptr, * _b = nullptr;
+            if (!root) return NO;
+            if (!is_iff(m, t, a, _b)) return NO;
+            bool sign = m.is_not(_b, _b);
+            if (!m.is_or(_b)) return NO;
+            app* b = to_app(_b);
+            unsigned num = b->get_num_args();
+            if (first) {
+                bool visited = true;
+                visit(a, visited);
+                for (expr* arg : *b) {
+                    visit(arg, visited);
+                }
+                if (!visited)
+                    return CONT;
+            }
+            expr_ref la(m), nla(m), nlb(m), lb(m);
+            get_lit(a, sign, la);
+            inv(la, nla);
+            expr_ref_buffer lits(m); 
+            lits.push_back(nla);
+            for (expr* arg : *b) {
+                get_lit(arg, false, lb);
+                lits.push_back(lb);
+                inv(lb, nlb);
+                mk_clause(la, nlb);
+            }
+            mk_clause(lits.size(), lits.c_ptr());
+            return DONE;
         }
         
         mres match_iff(app * t, bool first, bool root) {
@@ -786,6 +816,7 @@ class tseitin_cnf_tactic : public tactic {
                 TRY(match_or_3and);
                 TRY(match_or);
                 TRY(match_iff3);
+                // TRY(match_iff_or);
                 TRY(match_iff);
                 TRY(match_ite);
                 TRY(match_not);

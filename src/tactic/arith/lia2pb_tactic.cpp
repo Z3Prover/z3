@@ -162,10 +162,8 @@ class lia2pb_tactic : public tactic {
         }
         
         bool has_target() {
-            bound_manager::iterator it  = m_bm.begin();
-            bound_manager::iterator end = m_bm.end();
-            for (; it != end; ++it) {
-                if (is_target(*it))
+            for (expr * x : m_bm) {
+                if (is_target(x))
                     return true;
             }
             return false;
@@ -174,10 +172,7 @@ class lia2pb_tactic : public tactic {
         bool check_num_bits() {
             unsigned num_bits = 0;
             rational u;
-            bound_manager::iterator it  = m_bm.begin();
-            bound_manager::iterator end = m_bm.end();
-            for (; it != end; ++it) {
-                expr * x = *it;
+            for (expr * x : m_bm) {
                 if (is_target_core(x, u) && u > rational(1)) {
                     num_bits += u.get_num_bits();
                     if (num_bits > m_total_bits)
@@ -234,10 +229,7 @@ class lia2pb_tactic : public tactic {
             expr_substitution subst(m, m_produce_unsat_cores, false);
             rational u;
             ptr_buffer<expr> def_args;
-            bound_manager::iterator it  = m_bm.begin();
-            bound_manager::iterator end = m_bm.end();
-            for (; it != end; ++it) {
-                expr * x = *it;
+            for (expr * x : m_bm) {
                 if (is_target_core(x, u) && u > rational(1)) {
                     num_converted++;
                     def_args.reset();
@@ -251,7 +243,7 @@ class lia2pb_tactic : public tactic {
                             def_args.push_back(x_prime);
                         else
                             def_args.push_back(m_util.mk_mul(m_util.mk_numeral(a, true), x_prime));
-                        if (m_produce_models)
+                        if (m_produce_models) 
                             gmc->hide(x_prime->get_decl());
                         a *= rational(2);
                     }

@@ -138,8 +138,8 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
         macro_decls const & _m    = kv.m_value;
         for (auto md : _m) {
             if (md.m_domain.size() == 0 && ctx.m().is_bool(md.m_body)) {
-                expr_ref val(ctx.m());
-                m->eval(md.m_body, val, true);
+                model::scoped_model_completion _scm(*m, true);
+                expr_ref val = (*m)(md.m_body);
                 if (ctx.m().is_true(val) || ctx.m().is_false(val)) {
                     if (first)
                         first = false;
@@ -223,7 +223,7 @@ ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it 
 });
 
 static void print_core(cmd_context& ctx) {
-    ptr_vector<expr> core;
+    expr_ref_vector core(ctx.m());
     ctx.get_check_sat_result()->get_unsat_core(core);
     ctx.regular_stream() << "(";
     bool first = true;

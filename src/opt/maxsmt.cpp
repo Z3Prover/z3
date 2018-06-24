@@ -21,6 +21,7 @@ Notes:
 #include "opt/maxsmt.h"
 #include "opt/maxres.h"
 #include "opt/wmax.h"
+#include "opt/opt_params.hpp"
 #include "ast/ast_pp.h"
 #include "util/uint_set.h"
 #include "opt/opt_context.h"
@@ -33,16 +34,17 @@ Notes:
 namespace opt {
 
     maxsmt_solver_base::maxsmt_solver_base(
-        maxsat_context& c, vector<rational> const& ws, expr_ref_vector const& soft):
+        maxsat_context& c, vector<rational> const& ws, expr_ref_vector const& softs):
         m(c.get_manager()), 
         m_c(c),
-        m_soft(soft),
-        m_weights(ws),
         m_assertions(m),
         m_trail(m) {
         c.get_base_model(m_model);
         SASSERT(m_model);
         updt_params(c.params());
+        for (unsigned i = 0; i < ws.size(); ++i) {
+            m_soft.push_back(soft(expr_ref(softs.get(i), m), ws[i], false));
+        }
     }
     
     void maxsmt_solver_base::updt_params(params_ref& p) {
@@ -55,17 +57,21 @@ namespace opt {
 
     void maxsmt_solver_base::commit_assignment() {
         expr_ref tmp(m);
+        expr_ref_vector fmls(m);
         rational k(0), cost(0);
-        for (unsigned i = 0; i < m_soft.size(); ++i) {
-            if (get_assignment(i)) {
-                k += m_weights[i];
+        vector<rational> weights;
+        for (soft const& s : m_soft) {
+            if (s.is_true) {
+                k += s.weight;
             }
             else {
-                cost += m_weights[i];
+                cost += s.weight;
             }
+            weights.push_back(s.weight);
+            fmls.push_back(s.s);
         }       
         pb_util pb(m);
-        tmp = pb.mk_ge(m_weights.size(), m_weights.c_ptr(), m_soft.c_ptr(), k);
+        tmp = pb.mk_ge(weights.size(), weights.c_ptr(), fmls.c_ptr(), k);
         TRACE("opt", tout << "cost: " << cost << "\n" << tmp << "\n";);
         s().assert_expr(tmp);
     }
@@ -73,21 +79,14 @@ namespace opt {
     bool maxsmt_solver_base::init() {
         m_lower.reset();
         m_upper.reset();
-        m_assignment.reset();
-        for (unsigned i = 0; i < m_weights.size(); ++i) {
-            expr_ref val(m);
-            if (!m_model->eval(m_soft[i], val)) return false;
-            m_assignment.push_back(m.is_true(val));
-            if (!m_assignment.back()) {
-                m_upper += m_weights[i];
-            }
+        for (soft& s : m_soft) {
+            s.is_true = m.is_true(s.s);
+            if (!s.is_true) m_upper += s.weight;
         }
         
         TRACE("opt", 
               tout << "upper: " << m_upper << " assignments: ";
-              for (unsigned i = 0; i < m_weights.size(); ++i) {
-                  tout << (m_assignment[i]?"T":"F");
-              }
+              for (soft& s : m_soft) tout << (s.is_true?"T":"F");              
               tout << "\n";);
         return true;
     }
@@ -142,6 +141,7 @@ namespace opt {
     maxsmt_solver_base::scoped_ensure_theory::scoped_ensure_theory(maxsmt_solver_base& s) {
         m_wth = s.ensure_wmax_theory();
     }
+
     maxsmt_solver_base::scoped_ensure_theory::~scoped_ensure_theory() {
         if (m_wth) {
             m_wth->reset_local();
@@ -160,11 +160,13 @@ namespace opt {
 
     lbool maxsmt_solver_base::find_mutexes(obj_map<expr, rational>& new_soft) {
         m_lower.reset();
-        for (unsigned i = 0; i < m_soft.size(); ++i) {
-            new_soft.insert(m_soft[i], m_weights[i]);
+        expr_ref_vector fmls(m);
+        for (soft& s : m_soft) {
+            new_soft.insert(s.s, s.weight);
+            fmls.push_back(s.s);
         }
         vector<expr_ref_vector> mutexes;
-        lbool is_sat = s().find_mutexes(m_soft, mutexes);
+        lbool is_sat = s().find_mutexes(fmls, mutexes);
         if (is_sat != l_true) {
             return is_sat;
         }
@@ -231,9 +233,7 @@ namespace opt {
         m_msolver = nullptr;
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
-        TRACE("opt", tout << "maxsmt\n";
-              s().display(tout); tout << "\n";
-              );
+        TRACE("opt_verbose", s().display(tout << "maxsmt\n") << "\n";);
         if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
             m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
@@ -409,6 +409,58 @@ namespace opt {
         m_c.model_updated(mdl);
     }
 
+    class solver_maxsat_context : public maxsat_context {
+        params_ref m_params;
+        solver_ref m_solver;
+        model_ref  m_model;
+        ref<generic_model_converter> m_fm; 
+        symbol m_maxsat_engine;
+    public:
+        solver_maxsat_context(params_ref& p, solver* s, model * m): 
+            m_params(p), 
+            m_solver(s),
+            m_model(m),
+            m_fm(alloc(generic_model_converter, s->get_manager(), "maxsmt")) {
+            opt_params _p(p);
+            m_maxsat_engine = _p.maxsat_engine();            
+        }
+        generic_model_converter& fm() override { return *m_fm.get(); }
+        bool sat_enabled() const override { return false; }
+        solver& get_solver() override { return *m_solver.get(); }
+        ast_manager& get_manager() const override { return m_solver->get_manager(); }
+        params_ref& params() override { return m_params; }
+        void enable_sls(bool force) override { } // no op
+        symbol const& maxsat_engine() const override { return m_maxsat_engine; }
+        void get_base_model(model_ref& _m) override { _m = m_model; };  
+        smt::context& smt_context() override { 
+            throw default_exception("stand-alone maxsat context does not support wmax"); 
+        }
+        unsigned num_objectives() override { return 1; }
+        bool verify_model(unsigned id, model* mdl, rational const& v) override { return true; };
+        void set_model(model_ref& _m) override { m_model = _m; }
+        void model_updated(model* mdl) override { } // no-op
+    };
 
-
+    lbool maxsmt_wrapper::operator()(vector<std::pair<expr*,rational>>& soft) {
+        solver_maxsat_context ctx(m_params, m_solver.get(), m_model.get());
+        maxsmt maxsmt(ctx, 0);
+        for (auto const& p : soft) {
+            maxsmt.add(p.first, p.second);
+        }
+        lbool r = maxsmt();
+        if (r == l_true) {
+            ast_manager& m = m_solver->get_manager();
+            svector<symbol> labels;
+            maxsmt.get_model(m_model, labels);
+            // TBD: is m_fm applied or not?
+            unsigned j = 0;
+            for (auto const& p : soft) {
+                if (m_model->is_true(p.first)) {
+                    soft[j++] = p;
+                }
+            }
+            soft.shrink(j);
+        }
+        return r;
+    }
 };
