@@ -74,7 +74,7 @@ class arith_degree_probe : public probe {
 public:
     arith_degree_probe(bool avg):m_avg(avg) {}
 
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         proc p(g.m());
         for_each_expr_at(p, g);
         if (m_avg)
@@ -117,7 +117,7 @@ class arith_bw_probe : public probe {
 public:
     arith_bw_probe(bool avg):m_avg(avg) {}
         
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         proc p(g.m());
         for_each_expr_at(p, g);
         if (m_avg)
@@ -269,14 +269,14 @@ static bool is_qfauflia(goal const & g) {
 
 class is_qflia_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_qflia(g);
     }
 };
 
 class is_qfauflia_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_qfauflia(g);
     }
 };
@@ -288,7 +288,7 @@ static bool is_qflra(goal const & g) {
 
 class is_qflra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_qflra(g);
     }
 };
@@ -300,7 +300,7 @@ static bool is_qflira(goal const & g) {
 
 class is_qflira_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_qflira(g);
     }
 };
@@ -344,14 +344,14 @@ static bool is_mip(goal const & g) {
 
 class is_ilp_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_ilp(g);
     }
 };
 
 class is_mip_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_mip(g);
     }
 };
@@ -583,56 +583,56 @@ struct is_non_qfufnra_functor {
 
 class is_qfnia_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_qfnia(g);
     }
 };
 
 class is_qfnra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_qfnra(g);
     }
 };
 
 class is_nia_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_nia(g);
     }
 };
 
 class is_nra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_nra(g);
     }
 };
 
 class is_nira_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_nira(g);
     }
 };
 
 class is_lia_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_lia(g);
     }
 };
 
 class is_lra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_lra(g);
     }
 };
 
 class is_lira_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_lira(g);
     }
 };
@@ -644,7 +644,7 @@ static bool is_qfufnra(goal const& g) {
 
 class is_qfufnra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_qfufnra(g);
     }
 };

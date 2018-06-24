@@ -52,11 +52,11 @@ extern "C" {
         LOG_Z3_mk_numeral(c, n, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         if (!n) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         sort * _ty = to_sort(ty);
         bool is_float = mk_c(c)->fpautil().is_float(_ty);
@@ -73,11 +73,11 @@ extern "C" {
                      ('P' == *m) ||
                      ('+' == *m))))) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR);
-                return 0;
+                RETURN_Z3(nullptr);
             }
             ++m;
         }
-        ast * a = 0;
+        ast * a = nullptr;
         if (_ty->get_family_id() == mk_c(c)->get_fpa_fid()) {
             // avoid expanding floats into huge rationals.
             fpa_util & fu = mk_c(c)->fpautil();
@@ -89,7 +89,7 @@ extern "C" {
         else
             a = mk_c(c)->mk_numeral_core(rational(n), _ty);
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_int(Z3_context c, int value, Z3_sort ty) {
@@ -97,11 +97,11 @@ extern "C" {
         LOG_Z3_mk_int(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         ast * a = mk_c(c)->mk_numeral_core(rational(value), to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_unsigned_int(Z3_context c, unsigned value, Z3_sort ty) {
@@ -109,37 +109,37 @@ extern "C" {
         LOG_Z3_mk_unsigned_int(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         ast * a = mk_c(c)->mk_numeral_core(rational(value), to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_int64(Z3_context c, long long value, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_int64(Z3_context c, int64_t value, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_int64(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         rational n(value, rational::i64());
         ast* a = mk_c(c)->mk_numeral_core(n, to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, unsigned long long value, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, uint64_t value, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_unsigned_int64(c, value, ty);
         RESET_ERROR_CODE();
         if (!check_numeral_sort(c, ty)) {
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         rational n(value, rational::ui64());
         ast * a = mk_c(c)->mk_numeral_core(n, to_sort(ty));
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a) {
@@ -172,7 +172,7 @@ extern "C" {
         if (mk_c(c)->bvutil().is_numeral(e, r, bv_size)) {
             return Z3_TRUE;
         }
-        uint64 v;
+        uint64_t v;
         if (mk_c(c)->datalog_util().is_numeral(e, v)) {
             r = rational(v, rational::ui64());
             return Z3_TRUE;
@@ -262,7 +262,7 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, long long* num, long long* den) {
+    Z3_bool Z3_API Z3_get_numeral_small(Z3_context c, Z3_ast a, int64_t* num, int64_t* den) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_small(c, a, num, den);
@@ -296,7 +296,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return Z3_FALSE;
         }
-        long long l;
+        int64_t l;
         if (Z3_get_numeral_int64(c, v, &l) && l >= INT_MIN && l <= INT_MAX) {
             *i = static_cast<int>(l);
             return Z3_TRUE;
@@ -314,7 +314,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return Z3_FALSE;
         }
-        unsigned long long l;
+        uint64_t l;
         if (Z3_get_numeral_uint64(c, v, &l) && (l <= 0xFFFFFFFF)) {
             *u = static_cast<unsigned>(l);
             return Z3_TRUE;
@@ -323,7 +323,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, unsigned long long* u) {
+    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, uint64_t* u) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_uint64(c, v, u);
@@ -343,7 +343,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, long long* i) {
+    Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, int64_t* i) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_int64(c, v, i);
@@ -362,7 +362,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, long long* num, long long* den) {
+    Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, int64_t* num, int64_t* den) {
         Z3_TRY;
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_rational_int64(c, v, num, den);
@@ -385,6 +385,19 @@ extern "C" {
         }
         return Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_ast Z3_API Z3_mk_bv_numeral(Z3_context c, unsigned sz, Z3_bool const* bits) {
+        Z3_TRY;
+        LOG_Z3_mk_bv_numeral(c, sz, bits);
+        RESET_ERROR_CODE();
+        rational r(0);
+        for (unsigned i = 0; i < sz; ++i) {
+            if (bits[i]) r += rational::power_of_two(i);
+        }
+        ast * a = mk_c(c)->mk_numeral_core(r, mk_c(c)->bvutil().mk_sort(sz));
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

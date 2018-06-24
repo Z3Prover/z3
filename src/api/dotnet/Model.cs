@@ -253,7 +253,7 @@ namespace Microsoft.Z3
         /// The uninterpreted sorts that the model has an interpretation for. 
         /// </summary>
         /// <remarks>
-        /// Z3 also provides an intepretation for uninterpreted sorts used in a formula.
+        /// Z3 also provides an interpretation for uninterpreted sorts used in a formula.
         /// The interpretation for a sort is a finite set of distinct values. We say this finite set is
         /// the "universe" of the sort.
         /// </remarks>

@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    Leonardo de Moura (leonardo) 2010-05-20.
+    Krystof Hoder 2010
 
 Revision History:
 
@@ -31,6 +31,7 @@ Revision History:
 #include "util/statistics.h"
 #include "util/stopwatch.h"
 #include "util/lbool.h"
+#include "util/container_util.h"
 
 namespace datalog {
 
@@ -289,7 +290,7 @@ namespace datalog {
     }
 
     template<class T>
-    void project_out_vector_columns(T & container, const unsigned_vector removed_cols) {
+    void project_out_vector_columns(T & container, const unsigned_vector & removed_cols) {
         project_out_vector_columns(container, removed_cols.size(), removed_cols.c_ptr());
     }
 
@@ -341,7 +342,7 @@ namespace datalog {
     }
 
     template<class T>
-    void permutate_by_cycle(T & container, const unsigned_vector permutation_cycle) {
+    void permutate_by_cycle(T & container, const unsigned_vector & permutation_cycle) {
         permutate_by_cycle(container, permutation_cycle.size(), permutation_cycle.c_ptr());
     }
 
@@ -353,7 +354,7 @@ namespace datalog {
         unsigned get_max_rule_var(const rule& r);
     };
 
-    void del_rule(horn_subsume_model_converter* mc, rule& r);
+    void del_rule(horn_subsume_model_converter* mc, rule& r, bool unreachable);
 
     void resolve_rule(rule_manager& rm,
                       replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
@@ -381,129 +382,6 @@ namespace datalog {
     */
     void apply_subst(expr_ref_vector& tgt, expr_ref_vector const& sub);
 
-    // -----------------------------------
-    //
-    // container functions
-    //
-    // -----------------------------------
-
-    template<class Set1, class Set2>
-    void set_intersection(Set1 & tgt, const Set2 & src) {
-        svector<typename Set1::data> to_remove;
-        typename Set1::iterator vit = tgt.begin();
-        typename Set1::iterator vend = tgt.end();
-        for(;vit!=vend;++vit) {
-            typename Set1::data itm=*vit;
-            if(!src.contains(itm)) {
-                to_remove.push_back(itm);
-            }
-        }
-        while(!to_remove.empty()) {
-            tgt.remove(to_remove.back());
-            to_remove.pop_back();
-        }
-    }
-
-    template<class Set>
-    void set_difference(Set & tgt, const Set & to_remove) {
-        typename Set::iterator vit = to_remove.begin();
-        typename Set::iterator vend = to_remove.end();
-        for(;vit!=vend;++vit) {
-            typename Set::data itm=*vit;
-            tgt.remove(itm);
-        }
-    }
-
-    template<class Set1, class Set2>
-    void set_union(Set1 & tgt, const Set2 & to_add) {
-        typename Set2::iterator vit = to_add.begin();
-        typename Set2::iterator vend = to_add.end();
-        for(;vit!=vend;++vit) {
-            typename Set1::data itm=*vit;
-            tgt.insert(itm);
-        }
-    }
-
-    void idx_set_union(idx_set & tgt, const idx_set & src);
-
-    template<class T>
-    void unite_disjoint_maps(T & tgt, const T & src) {
-        typename T::iterator it = src.begin();
-        typename T::iterator end = src.end();
-        for(; it!=end; ++it) {
-            SASSERT(!tgt.contains(it->m_key));
-            tgt.insert(it->m_key, it->m_value);
-        }
-    }
-
-    template<class T, class U>
-    void collect_map_range(T & acc, const U & map) {
-        typename U::iterator it = map.begin();
-        typename U::iterator end = map.end();
-        for(; it!=end; ++it) {
-            acc.push_back(it->m_value);
-        }
-    }
-
-
-    template<class T>
-    void print_container(const T & begin, const T & end, std::ostream & out) {
-        T it = begin;
-        out << "(";
-        bool first = true;
-        for(; it!=end; ++it) {
-            if(first) { first = false; } else { out << ","; }
-            out << (*it);
-        }
-        out << ")";
-    }
-
-    template<class T>
-    void print_container(const T & cont, std::ostream & out) {
-        print_container(cont.begin(), cont.end(), out);
-    }
-
-    template<class T, class M>
-    void print_container(const ref_vector<T,M> & cont, std::ostream & out) {
-        print_container(cont.c_ptr(), cont.c_ptr() + cont.size(), out);
-    }
-
-    template<class T>
-    void print_map(const T & cont, std::ostream & out) {
-        typename T::iterator it = cont.begin();
-        typename T::iterator end = cont.end();
-        out << "(";
-        bool first = true;
-        for(; it!=end; ++it) {
-            if(first) { first = false; } else { out << ","; }
-            out << it->m_key << "->" << it->m_value;
-        }
-        out << ")";
-    }
-
-    template<class It, class V> 
-    unsigned find_index(const It & begin, const It & end, const V & val) {
-        unsigned idx = 0;
-        It it = begin;
-        for(; it!=end; it++, idx++) {
-            if(*it==val) {
-                return idx;
-            }
-        }
-        return UINT_MAX;
-    }
-
-    template<class T, class U>
-    bool containers_equal(const T & begin1, const T & end1, const U & begin2, const U & end2) {
-        T it1 = begin1;
-        U it2 = begin2;
-        for(; it1!=end1 && it2!=end2; ++it1, ++it2) {
-            if(*it1!=*it2) { 
-                return false;
-            }
-        }
-        return it1==end1 && it2==end2;
-    }
 
     template<class T, class U>
     bool vectors_equal(const T & c1, const U & c2) {
@@ -520,6 +398,8 @@ namespace datalog {
         }
         return true;
     }
+
+    void idx_set_union(idx_set & tgt, const idx_set & src);
 
     template<class T>
     struct default_obj_chash {
@@ -698,13 +578,13 @@ namespace datalog {
     //
     // -----------------------------------
 
-    void get_file_names(std::string directory, std::string extension, bool traverse_subdirs, 
+    void get_file_names(std::string directory, const std::string & extension, bool traverse_subdirs, 
         string_vector & res);
 
-    bool file_exists(std::string name);
-    bool is_directory(std::string name);
+    bool file_exists(const std::string & name);
+    bool is_directory(const std::string & name);
 
-    std::string get_file_name_without_extension(std::string name);
+    std::string get_file_name_without_extension(const std::string & name);
 
     // -----------------------------------
     //
@@ -722,8 +602,8 @@ namespace datalog {
        \brief If it is possible to convert the beginning of \c s to uint64,
        store the result of conversion and return true; otherwise return false.
      */
-    bool string_to_uint64(const char * s, uint64 & res);
-    std::string to_string(uint64 num);
+    bool string_to_uint64(const char * s, uint64_t & res);
+    std::string to_string(uint64_t num);
     /**
        \brief Read the sequence of decimal digits starting at \c s and interpret it as
        uint64. If successful, \c res will contain the read number and \c s will point 
@@ -732,7 +612,7 @@ namespace datalog {
        overflows, \c points to the character which caused the overflow and false is 
        returned.
      */
-    bool read_uint64(const char * & s, uint64 & res);
+    bool read_uint64(const char * & s, uint64_t & res);
 };
 
 #endif /* DL_UTIL_H_ */

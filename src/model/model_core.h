@@ -44,8 +44,8 @@ public:
     unsigned get_num_decls() const { return m_decls.size(); }
     func_decl * get_decl(unsigned i) const { return m_decls[i]; }
     bool has_interpretation(func_decl * d) const { return m_interp.contains(d) || m_finterp.contains(d); }
-    expr * get_const_interp(func_decl * d) const { expr * v; return m_interp.find(d, v) ? v : 0; }
-    func_interp * get_func_interp(func_decl * d) const { func_interp * fi; return m_finterp.find(d, fi) ? fi : 0; }
+    expr * get_const_interp(func_decl * d) const { expr * v; return m_interp.find(d, v) ? v : nullptr; }
+    func_interp * get_func_interp(func_decl * d) const { func_interp * fi; return m_finterp.find(d, fi) ? fi : nullptr; }
 
     bool eval(func_decl * f, expr_ref & r) const;
 

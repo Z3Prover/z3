@@ -106,20 +106,20 @@ void expr_substitution::insert(expr * c, expr * def, proof * def_pr, expr_depend
 
 void expr_substitution::erase(expr * c) {
     if (proofs_enabled()) {
-        proof * pr = 0;
+        proof * pr = nullptr;
         if (m_subst_pr->find(c, pr)) {
             m_manager.dec_ref(pr);
             m_subst_pr->erase(c);
         }
     }
     if (unsat_core_enabled()) {
-        expr_dependency * dep = 0;
+        expr_dependency * dep = nullptr;
         if (m_subst_dep->find(c, dep)) {
             m_manager.dec_ref(dep);
             m_subst_dep->erase(c);
         }
     }
-    expr * def = 0;
+    expr * def = nullptr;
     if (m_subst.find(c, def)) {
         m_manager.dec_ref(c);
         m_manager.dec_ref(def);

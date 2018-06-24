@@ -21,12 +21,12 @@ Revision History:
 #include<signal.h>
 #include "util/timeout.h"
 #include "util/rlimit.h"
+#include "util/gparams.h"
 #include "sat/dimacs.h"
 #include "sat/sat_solver.h"
-#include "util/gparams.h"
 
 extern bool          g_display_statistics;
-static sat::solver * g_solver = 0;
+static sat::solver * g_solver = nullptr;
 static clock_t       g_start_time;
 
 static void display_statistics() {
@@ -126,6 +126,41 @@ static void track_clauses(sat::solver const& src,
     }
 }
 
+void verify_solution(char const * file_name) {
+    params_ref p = gparams::get_module("sat");
+    p.set_bool("produce_models", true);
+    reslimit limit;
+    sat::solver solver(p, limit);
+    std::ifstream in(file_name);
+    if (in.bad() || in.fail()) {
+        std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
+        exit(ERR_OPEN_FILE);
+    }
+    parse_dimacs(in, solver);
+    
+    sat::model const & m = g_solver->get_model();
+    for (unsigned i = 1; i < m.size(); i++) {
+        sat::literal lit(i, false);
+        switch (m[i]) {
+        case l_false: lit.neg(); break;
+        case l_undef: break;
+        case l_true: break;
+        }
+        solver.mk_clause(1, &lit);
+    }
+    lbool r = solver.check();
+    switch (r) {
+    case l_false: 
+        std::cout << "model checking failed\n";
+        break;
+    case l_true:
+        std::cout << "model validated\n";
+        break;
+    default:
+        std::cout << "inconclusive model\n";
+        break;
+    }
+}
 
 unsigned read_dimacs(char const * file_name) {
     g_start_time = clock();
@@ -134,7 +169,7 @@ unsigned read_dimacs(char const * file_name) {
     params_ref p = gparams::get_module("sat");
     p.set_bool("produce_models", true);
     reslimit limit;
-    sat::solver solver(p, limit, 0);
+    sat::solver solver(p, limit);
     g_solver = &solver;
 
     if (file_name) {
@@ -152,7 +187,7 @@ unsigned read_dimacs(char const * file_name) {
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, limit, 0);
+    sat::solver solver2(p, limit);
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;
@@ -165,6 +200,7 @@ unsigned read_dimacs(char const * file_name) {
     switch (r) {
     case l_true: 
         std::cout << "sat\n"; 
+        if (file_name) verify_solution(file_name);
         display_model(*g_solver);
         break;
     case l_undef: 

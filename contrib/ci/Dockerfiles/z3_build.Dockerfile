@@ -5,6 +5,7 @@ FROM ${DOCKER_IMAGE_BASE}
 # Build arguments. This can be changed when invoking
 # `docker build`.
 ARG ASAN_BUILD
+ARG ASAN_DSO
 ARG BUILD_DOCS
 ARG CC
 ARG CXX
@@ -13,8 +14,10 @@ ARG JAVA_BINDINGS
 ARG NO_SUPPRESS_OUTPUT
 ARG PYTHON_BINDINGS
 ARG PYTHON_EXECUTABLE=/usr/bin/python2.7
+ARG RUN_API_EXAMPLES
 ARG RUN_SYSTEM_TESTS
 ARG RUN_UNIT_TESTS
+ARG SANITIZER_PRINT_SUPPRESSIONS
 ARG TARGET_ARCH
 ARG TEST_INSTALL
 ARG UBSAN_BUILD
@@ -32,6 +35,7 @@ ARG Z3_VERBOSE_BUILD_OUTPUT
 
 ENV \
   ASAN_BUILD=${ASAN_BUILD} \
+  ASAN_DSO=${ASAN_DSO} \
   BUILD_DOCS=${BUILD_DOCS} \
   CC=${CC} \
   CXX=${CXX} \
@@ -40,6 +44,8 @@ ENV \
   NO_SUPPRESS_OUTPUT=${NO_SUPPRESS_OUTPUT} \
   PYTHON_BINDINGS=${PYTHON_BINDINGS} \
   PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE} \
+  SANITIZER_PRINT_SUPPRESSIONS=${SANITIZER_PRINT_SUPPRESSIONS} \
+  RUN_API_EXAMPLES=${RUN_API_EXAMPLES} \
   RUN_SYSTEM_TESTS=${RUN_SYSTEM_TESTS} \
   RUN_UNIT_TESTS=${RUN_UNIT_TESTS} \
   TARGET_ARCH=${TARGET_ARCH} \
@@ -50,6 +56,7 @@ ENV \
   USE_OPENMP=${USE_OPENMP} \
   Z3_SRC_DIR=${Z3_SRC_DIR} \
   Z3_BUILD_DIR=/home/user/z3_build \
+  Z3_BUILD_TYPE=${Z3_BUILD_TYPE} \
   Z3_CMAKE_GENERATOR=${Z3_CMAKE_GENERATOR} \
   Z3_VERBOSE_BUILD_OUTPUT=${Z3_VERBOSE_BUILD_OUTPUT} \
   Z3_STATIC_BUILD=${Z3_STATIC_BUILD} \
@@ -62,7 +69,8 @@ ENV \
 
 # Build Z3
 RUN mkdir -p "${Z3_SRC_DIR}" && \
-  mkdir -p "${Z3_SRC_DIR}/contrib/ci/scripts"
+  mkdir -p "${Z3_SRC_DIR}/contrib/ci/scripts" && \
+  mkdir -p "${Z3_SRC_DIR}/contrib/suppressions/sanitizers"
 # Deliberately leave out `contrib`
 ADD /cmake ${Z3_SRC_DIR}/cmake/
 ADD /doc ${Z3_SRC_DIR}/doc/
@@ -89,7 +97,13 @@ RUN ${Z3_SRC_DIR}/contrib/ci/scripts/test_z3_docs.sh
 # Test examples
 ADD \
   /contrib/ci/scripts/test_z3_examples_cmake.sh \
+  /contrib/ci/scripts/sanitizer_env.sh \
   ${Z3_SRC_DIR}/contrib/ci/scripts/
+ADD \
+  /contrib/suppressions/sanitizers/asan.txt \
+  /contrib/suppressions/sanitizers/lsan.txt \
+  /contrib/suppressions/sanitizers/ubsan.txt \
+  ${Z3_SRC_DIR}/contrib/suppressions/sanitizers/
 RUN ${Z3_SRC_DIR}/contrib/ci/scripts/test_z3_examples_cmake.sh
 
 # Run unit tests

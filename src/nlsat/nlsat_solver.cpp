@@ -18,19 +18,20 @@ Author:
 Revision History:
 
 --*/
+#include "util/z3_exception.h"
+#include "util/chashtable.h"
+#include "util/id_gen.h"
+#include "util/map.h"
+#include "util/dependency.h"
+#include "util/permutation.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial_cache.h"
 #include "nlsat/nlsat_solver.h"
 #include "nlsat/nlsat_clause.h"
 #include "nlsat/nlsat_assignment.h"
 #include "nlsat/nlsat_justification.h"
 #include "nlsat/nlsat_evaluator.h"
 #include "nlsat/nlsat_explain.h"
-#include "math/polynomial/algebraic_numbers.h"
-#include "util/z3_exception.h"
-#include "util/chashtable.h"
-#include "util/id_gen.h"
-#include "util/dependency.h"
-#include "math/polynomial/polynomial_cache.h"
-#include "util/permutation.h"
 #include "nlsat/nlsat_params.hpp"
 
 #define NLSAT_EXTRA_VERBOSE
@@ -68,6 +69,7 @@ namespace nlsat {
 
         reslimit&              m_rlimit;
         small_object_allocator m_allocator;
+        bool                   m_incremental;
         unsynch_mpq_manager    m_qm;
         pmanager               m_pm;
         cache                  m_cache;
@@ -78,6 +80,8 @@ namespace nlsat {
         interval_set_manager & m_ism;
         ineq_atom_table        m_ineq_atoms;
         root_atom_table        m_root_atoms;
+        svector<bool_var>      m_patch_var;
+        polynomial_ref_vector  m_patch_num, m_patch_denom;
         
         id_gen                 m_cid_gen;
         clause_vector          m_clauses; // set of clauses
@@ -85,7 +89,7 @@ namespace nlsat {
 
         unsigned               m_num_bool_vars;
         atom_vector            m_atoms;        // bool_var -> atom
-        svector<lbool>         m_bvalues;      // boolean assigment
+        svector<lbool>         m_bvalues;      // boolean assignment
         unsigned_vector        m_levels;       // bool_var -> level
         svector<justification> m_justifications;
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
@@ -106,13 +110,14 @@ namespace nlsat {
             display_var_proc const * m_proc; // display external var ids
             perm_display_var_proc(var_vector & perm):
                 m_perm(perm),
-                m_proc(0) {
+                m_proc(nullptr) {
             }
-            virtual void operator()(std::ostream & out, var x) const { 
-                if (m_proc == 0)
+            std::ostream& operator()(std::ostream & out, var x) const override {
+                if (m_proc == nullptr)
                     m_default_display_var(out, x);
                 else
                     (*m_proc)(out, m_perm[x]);
+                return out;
             }
         };
         perm_display_var_proc  m_display_var;
@@ -149,6 +154,7 @@ namespace nlsat {
         bool                   m_randomize;
         bool                   m_random_order;
         unsigned               m_random_seed;
+        bool                   m_inline_vars;
         unsigned               m_max_conflicts;
 
         // statistics
@@ -158,9 +164,10 @@ namespace nlsat {
         unsigned               m_stages;
         unsigned               m_irrational_assignments; // number of irrational witnesses
 
-        imp(solver& s, reslimit& rlim, params_ref const & p):
+        imp(solver& s, reslimit& rlim, params_ref const & p, bool incremental):
             m_rlimit(rlim),
             m_allocator("nlsat"),
+            m_incremental(incremental),
             m_pm(rlim, m_qm, &m_allocator),
             m_cache(m_pm),
             m_am(rlim, m_qm, p, &m_allocator),
@@ -168,6 +175,8 @@ namespace nlsat {
             m_assignment(m_am),
             m_evaluator(s, m_assignment, m_pm, m_allocator), 
             m_ism(m_evaluator.ism()),
+            m_patch_num(m_pm),
+            m_patch_denom(m_pm),
             m_num_bool_vars(0),
             m_display_var(m_perm),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator),
@@ -188,7 +197,7 @@ namespace nlsat {
             bool_var b = mk_bool_var();
             SASSERT(b == true_bool_var);
             literal true_lit(b, false);
-            mk_clause(1, &true_lit, false, 0);
+            mk_clause(1, &true_lit, false, nullptr);
         }
 
         void updt_params(params_ref const & _p) {
@@ -202,6 +211,7 @@ namespace nlsat {
             m_max_conflicts  = p.max_conflicts();
             m_random_order   = p.shuffle_vars();
             m_random_seed    = p.seed();
+            m_inline_vars    = p.inline_vars();
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
@@ -249,18 +259,18 @@ namespace nlsat {
         void dec_ref(assumption) {}
 
         void inc_ref(_assumption_set a) {
-            if (a != 0) m_asm.inc_ref(a); 
+            if (a != nullptr) m_asm.inc_ref(a);
         }
 
         void dec_ref(_assumption_set a) {
-            if (a != 0) m_asm.dec_ref(a); 
+            if (a != nullptr) m_asm.dec_ref(a);
         }
 
         void inc_ref(bool_var b) {
             TRACE("ref", tout << "inc: " << b << "\n";);
             if (b == null_bool_var)
                 return;
-            if (m_atoms[b] == 0)
+            if (m_atoms[b] == nullptr)
                 return;
             m_atoms[b]->inc_ref();
         }
@@ -274,7 +284,7 @@ namespace nlsat {
             if (b == null_bool_var)
                 return;
             atom * a = m_atoms[b];
-            if (a == 0)
+            if (a == nullptr)
                 return;
             SASSERT(a->ref_count() > 0);
             a->dec_ref();
@@ -330,9 +340,7 @@ namespace nlsat {
         */
         bool_var max_bvar(clause const & cls) const {
             bool_var b = null_bool_var;
-            unsigned sz = cls.size();
-            for (unsigned i = 0; i < sz; i++) {
-                literal l = cls[i];
+            for (literal l : cls) {
                 if (b == null_bool_var || l.var() > b)
                     b = l.var();
             }
@@ -367,11 +375,9 @@ namespace nlsat {
             if (x == null_var)
                 return 0;
             unsigned max = 0;
-            unsigned sz  = c.size();
-            for (unsigned i = 0; i < sz; i++) {
-                literal l = c[i];
+            for (literal l : c) {
                 atom const * a  = m_atoms[l.var()];
-                if (a == 0)
+                if (a == nullptr)
                     continue;
                 unsigned d = degree(a);
                 if (d > max)
@@ -389,7 +395,7 @@ namespace nlsat {
         bool_var mk_bool_var_core() {
             bool_var b = m_bid_gen.mk();
             m_num_bool_vars++;
-            m_atoms         .setx(b, 0, 0);
+            m_atoms         .setx(b, nullptr, nullptr);
             m_bvalues       .setx(b, l_undef, l_undef);
             m_levels        .setx(b, UINT_MAX, UINT_MAX);
             m_justifications.setx(b, null_justification, null_justification);
@@ -423,7 +429,7 @@ namespace nlsat {
         void vars(literal l, var_vector& vs) {                
             vs.reset();
             atom * a = m_atoms[l.var()];
-            if (a == 0) {
+            if (a == nullptr) {
                 
             }
             else if (a->is_ineq_atom()) {
@@ -463,7 +469,7 @@ namespace nlsat {
             //SASSERT(m_bvalues[b] == l_undef);
             m_num_bool_vars--;
             m_dead[b]  = true;
-            m_atoms[b] = 0;
+            m_atoms[b] = nullptr;
             m_bid_gen.recycle(b);
         }
 
@@ -486,8 +492,9 @@ namespace nlsat {
         }
 
         void del(atom * a) {
-            if (a == 0)
+            if (a == nullptr)
                 return ;
+            TRACE("nlsat", display(tout << "del: b" << a->m_bool_var << " ", *a) << "\n";);
             if (a->is_ineq_atom())
                 del(to_ineq_atom(a));
             else
@@ -496,13 +503,12 @@ namespace nlsat {
         
         // Delete atoms with ref_count == 0
         void del_unref_atoms() {
-            unsigned sz = m_atoms.size();
-            for (unsigned i = 0; i < sz; i++) {
-                del(m_atoms[i]);
+            for (auto* a : m_atoms) {
+                del(a);
             }
         }
 
-        bool_var mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
+        ineq_atom* mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even, bool& is_new) {
             SASSERT(sz >= 1);
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
             int sign = 1;
@@ -522,23 +528,37 @@ namespace nlsat {
             void * mem = m_allocator.allocate(ineq_atom::get_obj_size(sz));
             if (sign < 0)
                 k = atom::flip(k);
-            ineq_atom * new_atom = new (mem) ineq_atom(k, sz, uniq_ps.c_ptr(), is_even, max);
+            ineq_atom * tmp_atom = new (mem) ineq_atom(k, sz, uniq_ps.c_ptr(), is_even, max);
             TRACE("nlsat_table_bug", ineq_atom::hash_proc h; 
-                  tout << "mk_ineq_atom hash: " << h(new_atom) << "\n"; display(tout, *new_atom, m_display_var); tout << "\n";);
-            ineq_atom * old_atom = m_ineq_atoms.insert_if_not_there(new_atom);
-            CTRACE("nlsat_table_bug", old_atom->max_var() != max, display(tout, *old_atom, m_display_var); tout << "\n";);
-            SASSERT(old_atom->max_var() == max);
-            if (old_atom != new_atom) {
-                deallocate(new_atom);
-                return old_atom->bvar();
+                  tout << "mk_ineq_atom hash: " << h(tmp_atom) << "\n"; display(tout, *tmp_atom, m_display_var); tout << "\n";);
+            ineq_atom * atom = m_ineq_atoms.insert_if_not_there(tmp_atom);
+            CTRACE("nlsat_table_bug", atom->max_var() != max, display(tout, *atom, m_display_var); tout << "\n";);
+            SASSERT(atom->max_var() == max);
+            is_new = (atom == tmp_atom);
+            if (is_new) {
+                for (unsigned i = 0; i < sz; i++) {
+                    m_pm.inc_ref(atom->p(i));
+                }
             }
-            bool_var b = mk_bool_var_core();
-            m_atoms[b] = new_atom;
-            new_atom->m_bool_var = b;
-            for (unsigned i = 0; i < sz; i++) {
-                m_pm.inc_ref(new_atom->p(i));
+            else {
+                deallocate(tmp_atom);
             }
-            return b;
+            return atom;
+        }
+
+        bool_var mk_ineq_atom(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
+            bool is_new = false;
+            ineq_atom* atom = mk_ineq_atom(k, sz, ps, is_even, is_new);
+            if (!is_new) {
+                return atom->bvar();
+            }
+            else {
+                bool_var b = mk_bool_var_core();
+                m_atoms[b] = atom;
+                atom->m_bool_var = b;
+                TRACE("nlsat", display(tout << "create: b" << atom->m_bool_var << " ", *atom) << "\n";);
+                return b;
+            }
         }
 
         literal mk_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
@@ -619,10 +639,14 @@ namespace nlsat {
             deallocate(cls);
         }
 
+        void del_clause(clause * cls, clause_vector& clauses) {
+            clauses.erase(cls);
+            del_clause(cls);
+        }
+
         void del_clauses(ptr_vector<clause> & cs) {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++)
-                del_clause(cs[i]);
+            for (clause* cp : cs) 
+                del_clause(cp);
         }
 
         void del_clauses() {
@@ -642,11 +666,11 @@ namespace nlsat {
             bool operator()(literal l1, literal l2) const {
                 atom * a1 = m.m_atoms[l1.var()];
                 atom * a2 = m.m_atoms[l2.var()];
-                if (a1 == 0 && a2 == 0)
+                if (a1 == nullptr && a2 == nullptr)
                     return l1.index() < l2.index();
-                if (a1 == 0)
+                if (a1 == nullptr)
                     return true;
-                if (a2 == 0)
+                if (a2 == nullptr)
                     return false;
                 var x1 = a1->max_var();
                 var x2 = a2->max_var();
@@ -690,8 +714,8 @@ namespace nlsat {
 
         void mk_clause(unsigned num_lits, literal const * lits, assumption a) {
             SASSERT(num_lits > 0);
-            _assumption_set as = 0;
-            if (a != 0)
+            _assumption_set as = nullptr;
+            if (a != nullptr)
                 as = m_asm.mk_leaf(a);
             mk_clause(num_lits, lits, false, as);
         }
@@ -727,23 +751,24 @@ namespace nlsat {
             m_levels[b]  = UINT_MAX;
             del_jst(m_allocator, m_justifications[b]);
             m_justifications[b] = null_justification;
-            if (m_atoms[b] == 0 && b < m_bk)
+            if (m_atoms[b] == nullptr && b < m_bk)
                 m_bk = b;
         }
 
         void undo_set_updt(interval_set * old_set) {
-            SASSERT(m_xk != null_var);
+            if (m_xk == null_var) return;
             var x = m_xk;
-            m_ism.dec_ref(m_infeasible[x]);
-            m_infeasible[x] = old_set;
+            if (x < m_infeasible.size()) {
+                m_ism.dec_ref(m_infeasible[x]);
+                m_infeasible[x] = old_set;
+            }
         }
 
         void undo_new_stage() {
-            SASSERT(m_xk != null_var);
             if (m_xk == 0) {
                 m_xk = null_var;
             }
-            else {
+            else if (m_xk != null_var) {
                 m_xk--;
                 m_assignment.reset(m_xk);
             }
@@ -756,8 +781,8 @@ namespace nlsat {
         }
 
         void undo_updt_eq(atom * a) {
-            SASSERT(m_xk != null_var);
-            m_var2eq[m_xk] = a; 
+            if (m_var2eq.size() > m_xk)
+                m_var2eq[m_xk] = a; 
         }
 
         template<typename Predicate>
@@ -872,7 +897,7 @@ namespace nlsat {
            \brief Assign literal using the given justification
          */
         void assign(literal l, justification j) {
-            TRACE("nlsat", tout << "assigning literal:\n"; display(tout, l); 
+            TRACE("nlsat", tout << "assigning literal: "; display(tout, l); 
                   tout << "\njustification kind: " << j.get_kind() << "\n";);
             SASSERT(assigned_value(l) == l_undef);
             SASSERT(j != null_justification);
@@ -903,19 +928,23 @@ namespace nlsat {
         */
         lbool value(literal l) {
             lbool val = assigned_value(l);
-            if (val != l_undef)
+            TRACE("nlsat_verbose", display(tout << " assigned value " << val << " for ", l) << "\n";);
+            if (val != l_undef) {
                 return val;
+            }
             bool_var b = l.var();
             atom * a = m_atoms[b];
-            if (a == 0)
+            if (a == nullptr) {
                 return l_undef;
+            }
             var max = a->max_var();
-            if (!m_assignment.is_assigned(max))
+            if (!m_assignment.is_assigned(max)) {
                 return l_undef;
+            }
             val = to_lbool(m_evaluator.eval(a, l.sign()));
             TRACE("value_bug", tout << "value of: "; display(tout, l); tout << " := " << val << "\n"; 
                   tout << "xk: " << m_xk << ", a->max_var(): " << a->max_var() << "\n";
-                  display_assignment(tout););
+                  display_assignment(tout););            
             return val;
         }
 
@@ -923,10 +952,9 @@ namespace nlsat {
            \brief Return true if the given clause is already satisfied in the current partial interpretation.
         */
         bool is_satisfied(clause const & cls) const {
-            unsigned sz = cls.size();
-            for (unsigned i = 0; i < sz; i++) {
-                if (const_cast<imp*>(this)->value(cls[i]) == l_true) {
-                    TRACE("value_bug:", tout << cls[i] << " := true\n";);
+            for (literal l : cls) {
+                if (const_cast<imp*>(this)->value(l) == l_true) {
+                    TRACE("value_bug:", tout << l << " := true\n";);
                     return true;
                 }
             }
@@ -1012,21 +1040,21 @@ namespace nlsat {
             if (m_bvalues[b] != l_true)
                 return;
             atom * a = m_atoms[b];
-            if (a == 0 || a->get_kind() != atom::EQ || to_ineq_atom(a)->size() > 1 || to_ineq_atom(a)->is_even(0))
+            if (a == nullptr || a->get_kind() != atom::EQ || to_ineq_atom(a)->size() > 1 || to_ineq_atom(a)->is_even(0))
                 return;
             var x = m_xk;
             SASSERT(a->max_var() == x);
             SASSERT(x != null_var);
             if (m_var2eq[x] != 0 && degree(m_var2eq[x]) <= degree(a))
                 return; // we only update m_var2eq if the new equality has smaller degree
-            TRACE("simplify_core", tout << "Saving equality for "; m_display_var(tout, x); tout << " (x" << x << ") ";
+            TRACE("simplify_core", tout << "Saving equality for "; m_display_var(tout, x) << " (x" << x << ") ";
                   tout << "scope-lvl: " << scope_lvl() << "\n"; display(tout, literal(b, false)); tout << "\n";);
             save_updt_eq_trail(m_var2eq[x]);
             m_var2eq[x] = a;
         }
         
         /**
-           \brief Process a clause that contains nonlinar arithmetic literals
+           \brief Process a clause that contains nonlinear arithmetic literals
 
            If satisfy_learned is true, then learned clauses are satisfied even if m_lazy > 0
         */
@@ -1041,10 +1069,9 @@ namespace nlsat {
             interval_set_ref first_undef_set(m_ism); // infeasible region of the first undefined literal
             interval_set * xk_set = m_infeasible[m_xk]; // current set of infeasible interval for current variable
             SASSERT(!m_ism.is_full(xk_set));
-            unsigned sz = cls.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned idx = 0; idx < cls.size(); ++idx) {
+                literal l = cls[idx];
                 checkpoint();
-                literal l = cls[i];
                 if (value(l) == l_false)
                     continue;
                 SASSERT(value(l) == l_undef);
@@ -1058,13 +1085,13 @@ namespace nlsat {
                 TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";);
                 if (m_ism.is_empty(curr_set)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set is empty, found literal\n";);
-                    R_propagate(l, 0);
+                    R_propagate(l, nullptr);
                     SASSERT(is_satisfied(cls));
                     return true;
                 }
                 if (m_ism.is_full(curr_set)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set is R, skip literal\n";);
-                    R_propagate(~l, 0);
+                    R_propagate(~l, nullptr);
                     continue;
                 }
                 if (m_ism.subset(curr_set, xk_set)) {
@@ -1081,7 +1108,7 @@ namespace nlsat {
                 }
                 num_undef++;
                 if (first_undef == UINT_MAX) {
-                    first_undef = i;
+                    first_undef = idx;
                     first_undef_set = curr_set;
                 }
             }
@@ -1127,13 +1154,11 @@ namespace nlsat {
            Return 0, if the set was satisfied, or the violating clause otherwise
         */
         clause * process_clauses(clause_vector const & cs) {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++) {
-                clause * c = cs[i];
+            for (clause* c : cs) {
                 if (!process_clause(*c, false))
                     return c;
             }
-            return 0; // succeeded
+            return nullptr; // succeeded
         }
 
         /**
@@ -1168,10 +1193,10 @@ namespace nlsat {
         void select_witness() {
             scoped_anum w(m_am);
             SASSERT(!m_ism.is_full(m_infeasible[m_xk]));
-            m_ism.peek_in_complement(m_infeasible[m_xk], w, m_randomize);
+            m_ism.peek_in_complement(m_infeasible[m_xk], m_is_int[m_xk], w, m_randomize);
             TRACE("nlsat", 
                   tout << "infeasible intervals: "; m_ism.display(tout, m_infeasible[m_xk]); tout << "\n";
-                  tout << "assigning "; m_display_var(tout, m_xk); tout << "(x" << m_xk << ") -> " << w << "\n";);
+                  tout << "assigning "; m_display_var(tout, m_xk) << "(x" << m_xk << ") -> " << w << "\n";);
             TRACE("nlsat_root", tout << "value as root object: "; m_am.display_root(tout, w); tout << "\n";);
             if (!m_am.is_rational(w))
                 m_irrational_assignments++;
@@ -1201,6 +1226,7 @@ namespace nlsat {
                 TRACE("nlsat_bug", tout << "xk: x" << m_xk << " bk: b" << m_bk << "\n";);
                 if (m_bk == null_bool_var && m_xk >= num_vars()) {
                     TRACE("nlsat", tout << "found model\n"; display_assignment(tout););
+                    fix_patch();
                     return l_true; // all variables were assigned, and all clauses were satisfied.
                 }
                 TRACE("nlsat", tout << "processing variable "; 
@@ -1212,7 +1238,7 @@ namespace nlsat {
                         conflict_clause = process_clauses(m_bwatches[m_bk]);
                     else 
                         conflict_clause = process_clauses(m_watches[m_xk]);
-                    if (conflict_clause == 0)
+                    if (conflict_clause == nullptr)
                         break;
                     if (!resolve(*conflict_clause))
                         return l_false;
@@ -1232,12 +1258,69 @@ namespace nlsat {
             }
         }
 
+        lbool search_check() {
+            lbool r = l_undef;
+            while (true) {
+                r = search();
+                if (r != l_true) break;     
+                vector<rational> lows;
+                vector<var>      vars;
+
+                for (var x = 0; x < num_vars(); x++) {
+                    if (m_is_int[x] && m_assignment.is_assigned(x) && !m_am.is_int(m_assignment.value(x))) {
+                        scoped_anum v(m_am), vlo(m_am);
+                        v = m_assignment.value(x);
+                        rational lo;
+                        m_am.int_lt(v, vlo);
+                        if (!m_am.is_int(vlo)) continue;
+                        m_am.to_rational(vlo, lo);
+                        // derive tight bounds.
+                        while (true) {
+                            lo++;
+                            if (!m_am.gt(v, lo.to_mpq())) { lo--; break; }
+                        }
+                        lows.push_back(lo);
+                        vars.push_back(x);
+                    }
+                }
+                if (lows.empty()) break;
+
+                init_search();                
+                for (unsigned i = 0; i < lows.size(); ++i) {
+                    rational lo = lows[i];
+                    rational hi = lo + rational::one();
+                    var x = vars[i];
+                    bool is_even = false;                        
+                    polynomial_ref p(m_pm);
+                    rational one(1);
+                    m_lemma.reset();
+                    p = m_pm.mk_linear(1, &one, &x, -lo);
+                    poly* p1 = p.get();
+                    m_lemma.push_back(~mk_ineq_literal(atom::GT, 1, &p1, &is_even));
+                    p = m_pm.mk_linear(1, &one, &x, -hi);
+                    poly* p2 = p.get();
+                    m_lemma.push_back(~mk_ineq_literal(atom::LT, 1, &p2, &is_even));
+                    
+                    // perform branch and bound
+                    clause * cls = mk_clause(m_lemma.size(), m_lemma.c_ptr(), false, nullptr);
+                    if (cls) {
+                        TRACE("nlsat", display(tout << "conflict " << lo << " " << hi, *cls); tout << "\n";);
+                    }
+                }
+            }
+            return r;
+        }
+
         lbool check() {
             TRACE("nlsat_smt2", display_smt2(tout););
             TRACE("nlsat_fd", tout << "is_full_dimensional: " << is_full_dimensional() << "\n";);
             init_search();
             m_explain.set_full_dimensional(is_full_dimensional());
             bool reordered = false;
+
+            if (!m_incremental && m_inline_vars) 
+                simplify();
+
             if (!can_reorder()) {
 
             }
@@ -1250,7 +1333,7 @@ namespace nlsat {
                 reordered = true;
             }
             sort_watched_clauses();
-            lbool r = search();
+            lbool r = search_check();
             CTRACE("nlsat_model", r == l_true, tout << "model before restore order\n"; display_assignment(tout););
             if (reordered)
                 restore_order();
@@ -1323,7 +1406,7 @@ namespace nlsat {
             unsigned sz = assumptions.size();
             literal const* ptr = assumptions.c_ptr();            
             _assumption_set asms = static_cast<_assumption_set>(c.assumptions());
-            if (asms == 0) {
+            if (asms == nullptr) {
                 return false;
             }
             vector<assumption, false> deps;
@@ -1440,9 +1523,9 @@ namespace nlsat {
             TRACE("nlsat_mathematica", display_mathematica_lemma(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()););            
             TRACE("nlsat_proof_sk", tout << "theory lemma\n"; display_abst(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()); tout << "\n";); 
             TRACE("nlsat_resolve", 
-                  tout << "m_xk: " << m_xk << ", "; m_display_var(tout, m_xk); tout << "\n";
+                  tout << "m_xk: " << m_xk << ", "; m_display_var(tout, m_xk) << "\n";
                   tout << "new valid clause:\n";
-                  display(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()); tout << "\n";);
+                  display(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()) << "\n";);
 
             DEBUG_CODE({
                 unsigned sz = m_lazy_clause.size();
@@ -1489,7 +1572,7 @@ namespace nlsat {
                         max = lvl;
                 }
                 else {
-                    // l must be a literal from a previous stage that is false in the current intepretation
+                    // l must be a literal from a previous stage that is false in the current interpretation
                     SASSERT(assigned_value(l) == l_undef);
                     SASSERT(max_var(b) != null_var);
                     SASSERT(m_xk       != null_var);
@@ -1576,19 +1659,14 @@ namespace nlsat {
             TRACE("nlsat_proof", tout << "STARTING RESOLUTION\n";);
             TRACE("nlsat_proof_sk", tout << "STARTING RESOLUTION\n";);
             m_conflicts++;
-            TRACE("nlsat", tout << "resolve, conflicting clause:\n"; display(tout, *conflict_clause); tout << "\n";
+            TRACE("nlsat", tout << "resolve, conflicting clause:\n"; display(tout, *conflict_clause) << "\n";
                   tout << "xk: "; if (m_xk != null_var) m_display_var(tout, m_xk); else tout << "<null>"; tout << "\n";
                   tout << "scope_lvl: " << scope_lvl() << "\n";
                   tout << "current assignment\n"; display_assignment(tout););
-
-            // static unsigned counter = 0;
-            // counter++;
-            // if (counter > 6)
-            //    exit(0);
             
             m_num_marks = 0;
             m_lemma.reset();
-            m_lemma_assumptions = 0;
+            m_lemma_assumptions = nullptr;
 
             resolve_clause(null_bool_var, *conflict_clause);
 
@@ -1682,7 +1760,7 @@ namespace nlsat {
             //        in a previous scope level. We may backjump many decisions.
             //
             unsigned sz = m_lemma.size();
-            clause * new_cls = 0;
+            clause * new_cls = nullptr;
             if (!found_decision) {
                 // Case 1)
                 // We just have to find the maximal variable in m_lemma, and return to that stage
@@ -1693,7 +1771,7 @@ namespace nlsat {
                 SASSERT(m_xk == new_max_var);
                 new_cls = mk_clause(sz, m_lemma.c_ptr(), true, m_lemma_assumptions.get());
                 TRACE("nlsat", tout << "new_level: " << scope_lvl() << "\nnew_stage: " << new_max_var << " "; 
-                      if (new_max_var != null_var) m_display_var(tout, new_max_var); tout << "\n";);
+                      if (new_max_var != null_var) m_display_var(tout, new_max_var) << "\n";);
             }
             else {
                 SASSERT(scope_lvl() >= 1);
@@ -1815,7 +1893,7 @@ namespace nlsat {
 
         // -----------------------
         //
-        // Variable reodering
+        // Variable reordering
         //
         // -----------------------
 
@@ -1849,7 +1927,7 @@ namespace nlsat {
             void collect(literal l) {
                 bool_var b = l.var();
                 atom * a = m_atoms[b];
-                if (a == 0)
+                if (a == nullptr)
                     return;
                 if (a->is_ineq_atom()) {
                     unsigned sz = to_ineq_atom(a)->size();
@@ -1874,11 +1952,12 @@ namespace nlsat {
                     collect(*(cs[i]));
             }
 
-            void display(std::ostream & out, display_var_proc const & proc) {
+            std::ostream& display(std::ostream & out, display_var_proc const & proc) {
                 unsigned sz = m_num_occs.size();
                 for (unsigned i = 0; i < sz; i++) {
                     proc(out, i); out << " -> " << m_max_degree[i] << " : " << m_num_occs[i] << "\n";
                 }
+                return out;
             }
         };
         
@@ -1929,15 +2008,15 @@ namespace nlsat {
             for (var x = 0; x < num; x++) {
                 p.push_back(x);
             }
-            random_gen r(m_random_seed);
+            random_gen r(++m_random_seed);
             shuffle(p.size(), p.c_ptr(), r);
             reorder(p.size(), p.c_ptr());
         }
 
         bool can_reorder() const {
-            for (unsigned i = 0; i < m_atoms.size(); ++i) {
-                if (m_atoms[i]) {
-                    if (m_atoms[i]->is_root_atom()) return false;
+            for (atom * a : m_atoms) {
+                if (a) {
+                    if (a->is_root_atom()) return false;
                 }
             }
             return true;
@@ -2024,16 +2103,13 @@ namespace nlsat {
            \brief After variable reordering some lemmas containing root atoms may be ill-formed.
         */
         void del_ill_formed_lemmas() {
-            unsigned sz = m_learned.size();
             unsigned j  = 0;
-            for (unsigned i = 0; i < sz; i++) {
-                clause * c = m_learned[i];
+            for (clause* c : m_learned) {
                 if (ill_formed(*c)) {
                     del_clause(c);
                 }
                 else {
-                    m_learned[j] = c;
-                    j++;
+                    m_learned[j++] = c;
                 }
             }
             m_learned.shrink(j);
@@ -2043,11 +2119,10 @@ namespace nlsat {
             \brief Return true if the clause contains an ill formed root atom
         */
         bool ill_formed(clause const & c) {
-            unsigned sz = c.size();
-            for (unsigned i = 0; i < sz; i++) {
-                bool_var b = c[i].var();
+            for (literal lit : c) {
+                bool_var b = lit.var();
                 atom * a = m_atoms[b];
-                if (a == 0)
+                if (a == nullptr)
                     continue;
                 if (a->is_ineq_atom())
                     continue;
@@ -2063,26 +2138,23 @@ namespace nlsat {
         void reinit_cache() {
             reinit_cache(m_clauses);
             reinit_cache(m_learned);
-            for (unsigned i = 0; i < m_atoms.size(); ++i) {
-                reinit_cache(m_atoms[i]);
-            }
+            for (atom* a : m_atoms) 
+                reinit_cache(a);            
         }
         void reinit_cache(clause_vector const & cs) {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++)
-                reinit_cache(*(cs[i]));
+            for (clause* c : cs) 
+                reinit_cache(*c);
         }
         void reinit_cache(clause const & c) {
-            unsigned sz = c.size();
-            for (unsigned i = 0; i < sz; i++)
-                reinit_cache(c[i]);
+            for (literal l : c) 
+                reinit_cache(l);
         }
         void reinit_cache(literal l) {
             bool_var b = l.var();
             reinit_cache(m_atoms[b]);
         }
         void reinit_cache(atom* a) {
-            if (a == 0) {
+            if (a == nullptr) {
 
             }
             else if (a->is_ineq_atom()) {
@@ -2112,12 +2184,10 @@ namespace nlsat {
         }
 
         void reattach_arith_clauses(clause_vector const & cs) {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++) {
-                clause & c = *cs[i];
-                var x      = max_var(c);
+            for (clause* cp : cs) {
+                var x = max_var(*cp);
                 if (x != null_var)
-                    m_watches[x].push_back(&c);
+                    m_watches[x].push_back(cp);
             }
         }
 
@@ -2176,7 +2246,7 @@ namespace nlsat {
         
         bool is_full_dimensional(literal l) const {
             atom * a = m_atoms[l.var()];
-            if (a == 0)
+            if (a == nullptr)
                 return true;
             switch (a->get_kind()) {
             case atom::EQ:      return l.sign();
@@ -2194,18 +2264,16 @@ namespace nlsat {
         }
 
         bool is_full_dimensional(clause const & c) const {
-            unsigned sz = c.size();
-            for (unsigned i = 0; i < sz; i++) {
-                if (!is_full_dimensional(c[i]))
+            for (literal l : c) {
+                if (!is_full_dimensional(l))
                     return false;
             }
             return true;
         }
 
         bool is_full_dimensional(clause_vector const & cs) const {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++) {
-                if (!is_full_dimensional(*(cs[i])))
+            for (clause* c : cs) {
+                if (!is_full_dimensional(*c)) 
                     return false;
             }
             return true;
@@ -2215,13 +2283,271 @@ namespace nlsat {
             return is_full_dimensional(m_clauses);
         }
 
+
+        // -----------------------
+        //
+        // Simplification
+        //
+        // -----------------------
+
+        // solve simple equalities
+        // TBD WU-Reit decomposition?
+
+        /**
+           \brief isolate variables in unit equalities.
+           Assume a clause is c == v*p + q
+           and the context implies p > 0
+           
+           replace v by -q/p
+           remove clause c, 
+           The for other occurrences of v, 
+              replace v*r + v*v*r' > 0 by 
+              by p*p*v*r + p*p*v*v*r' > 0
+              by p*q*r + q*q*r' > 0        
+
+           The method ignores lemmas and assumes constraints don't use roots.
+        */
+
+        void simplify() {
+            polynomial_ref p(m_pm), q(m_pm);
+            var v;
+            init_var_signs();
+            SASSERT(m_learned.empty());
+            bool change = true;
+            while (change) {
+                change = false;
+                for (clause* c : m_clauses) {
+                    if (solve_var(*c, v, p, q)) {
+                        q = -q;
+                        m_patch_var.push_back(v);
+                        m_patch_num.push_back(q);
+                        m_patch_denom.push_back(p);
+                        del_clause(c, m_clauses);
+                        substitute_var(v, p, q);
+                        change = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        void fix_patch() {
+            for (unsigned i = m_patch_var.size(); i-- > 0; ) {
+                var v = m_patch_var[i];
+                poly* q = m_patch_num.get(i);
+                poly* p = m_patch_denom.get(i);
+                scoped_anum pv(m_am), qv(m_am), val(m_am);
+                m_pm.eval(p, m_assignment, pv);
+                m_pm.eval(q, m_assignment, qv);
+                val = qv / pv;
+                TRACE("nlsat", 
+                      m_display_var(tout << "patch ", v) << "\n";
+                      if (m_assignment.is_assigned(v)) m_am.display(tout << "previous value: ", m_assignment.value(v)); tout << "\n";
+                      m_am.display(tout << "updated value: ", val); tout << "\n";
+                      );
+                m_assignment.set_core(v, val);
+            }
+        }
+
+        void substitute_var(var x, poly* p, poly* q) {
+            polynomial_ref pr(m_pm);
+            polynomial_ref_vector ps(m_pm);
+            u_map<literal> b2l;
+            svector<bool> even;
+            unsigned num_atoms = m_atoms.size();
+            for (unsigned j = 0; j < num_atoms; ++j) {
+                atom* a = m_atoms[j];
+                if (a && a->is_ineq_atom()) {
+                    ineq_atom const& a1 = *to_ineq_atom(a);
+                    unsigned sz = a1.size();
+                    ps.reset();
+                    even.reset();
+                    bool change = false;
+                    for (unsigned i = 0; i < sz; ++i) {
+                        poly * po = a1.p(i);
+                        m_pm.substitute(po, x, q, p, pr);
+                        ps.push_back(pr);                                
+                        even.push_back(a1.is_even(i));
+                        change |= pr != po;
+                        if (m_pm.is_zero(pr)) {
+                            ps.reset();
+                            even.reset();
+                            change = true;
+                            break;
+                        }
+                    }               
+                    if (!change) continue;
+                    literal l = mk_ineq_literal(a1.get_kind(), ps.size(), ps.c_ptr(), even.c_ptr());                            
+                    if (a1.m_bool_var != l.var()) {                        
+                        b2l.insert(a1.m_bool_var, l);
+                        inc_ref(l);
+                    }
+                }
+            }
+            update_clauses(b2l);
+            for (auto const& kv : b2l) {
+                dec_ref(kv.m_value);
+            }
+        }
+
+
+        void update_clauses(u_map<literal> const& b2l) {
+            literal_vector lits;
+            clause_vector to_delete;
+            unsigned n = m_clauses.size();
+            for (unsigned i = 0; i < n; ++i) {
+                clause* c = m_clauses[i];
+                lits.reset();
+                bool changed = false;
+                bool is_tautology = false;
+                for (literal l : *c) {               
+                    literal lit = null_literal;
+                    if (b2l.find(l.var(), lit)) {
+                        lit = l.sign() ? ~lit : lit;
+                        if (lit == true_literal) {
+                            is_tautology = true;
+                        }
+                        else if (lit != false_literal) {                            
+                            lits.push_back(lit);
+                        }
+                        changed = true;
+                    }
+                    else {
+                        lits.push_back(l);
+                    }
+                }
+                if (changed) {
+                    to_delete.push_back(c);
+                    if (!is_tautology) {
+                        mk_clause(lits.size(), lits.c_ptr(), c->is_learned(), static_cast<_assumption_set>(c->assumptions()));
+                    }
+                }                        
+            }        
+            for (clause* c : to_delete) {
+                del_clause(c, m_clauses);
+            }
+        }
+
+        bool is_unit_ineq(clause const& c) const {
+            return 
+                c.size() == 1 &&
+                m_atoms[c[0].var()] && 
+                m_atoms[c[0].var()]->is_ineq_atom();
+        }
+
+        bool is_unit_eq(clause const& c) const {
+            return 
+                is_unit_ineq(c) && 
+                !c[0].sign() && 
+                m_atoms[c[0].var()]->is_eq();
+        }
+
+        /**
+           \brief determine whether the clause is a comparison v > k or v < k', where k >= 0 or k' <= 0.
+         */
+        lbool is_cmp0(clause const& c, var& v) {
+            if (!is_unit_ineq(c)) return l_undef;
+            literal lit = c[0];
+            ineq_atom const& a = *to_ineq_atom(m_atoms[lit.var()]);
+            bool sign = lit.sign();
+            poly * p0;
+            if (!is_single_poly(a, p0)) return l_undef;
+            if (m_pm.is_var(p0, v)) {
+                if (!sign && a.get_kind() == atom::GT) {
+                    return l_true;
+                }
+                if (!sign && a.get_kind() == atom::LT) {
+                    return l_false;
+                }
+                return l_undef;
+            }
+            polynomial::scoped_numeral n(m_pm.m());
+            if (m_pm.is_var_num(p0, v, n)) {
+                // x - k > 0
+                if (!sign && a.get_kind() == atom::GT && m_pm.m().is_nonneg(n)) {
+                    return l_true;
+                }
+                // x + k < 0
+                if (!sign && a.get_kind() == atom::LT && m_pm.m().is_nonpos(n)) {
+                    return l_false;
+                }
+                // !(x + k > 0)
+                if (sign && a.get_kind() == atom::GT && m_pm.m().is_pos(n)) {
+                    return l_false;
+                }
+                // !(x - k < 0)
+                if (sign && a.get_kind() == atom::LT && m_pm.m().is_neg(n)) {
+                    return l_true;
+                }
+            }
+            return l_undef;
+        }
+
+        bool is_single_poly(ineq_atom const& a, poly*& p) {
+            unsigned sz = a.size();
+            return sz == 1 && a.is_odd(0) && (p = a.p(0), true);
+        }
+
+        svector<lbool> m_var_signs;
+
+        void init_var_signs() {
+            m_var_signs.reset();
+            for (clause* cp : m_clauses) {
+                clause& c = *cp;
+                var x = 0;
+                lbool cmp = is_cmp0(c, x);
+                switch (cmp) {
+                case l_true:
+                    m_var_signs.setx(x, l_true, l_undef);
+                    break;
+                case l_false:
+                    m_var_signs.setx(x, l_false, l_undef);
+                    break;
+                default:
+                    break;                
+                }
+            }
+        }
+
+        /**
+           \brief returns true then c is an equality that is equivalent to v*p + q, 
+           and p > 0, v does not occur in p, q.
+        */
+        bool solve_var(clause& c, var& v, polynomial_ref& p, polynomial_ref& q) {
+            poly* p0;
+            if (!is_unit_eq(c)) return false;
+            ineq_atom & a = *to_ineq_atom(m_atoms[c[0].var()]);
+            if (!is_single_poly(a, p0)) return false;
+            var mx = max_var(p0);
+            if (mx >= m_is_int.size()) return false;
+            for (var x = 0; x <= mx; ++x) {
+                if (m_is_int[x]) continue;
+                if (1 == m_pm.degree(p0, x)) {                    
+                    p = m_pm.coeff(p0, x, 1, q);
+                    switch (m_pm.sign(p, m_var_signs)) {
+                    case l_true:
+                        v = x;
+                        return true;
+                    case l_false:
+                        v = x;
+                        p = -p;
+                        q = -q;
+                        return true;
+                    default:
+                        break;
+                    }
+                }
+            }
+            return false;
+        }        
+
         // -----------------------
         //
         // Pretty printing
         //
         // -----------------------
         
-        void display_num_assignment(std::ostream & out, display_var_proc const & proc) const {
+        std::ostream& display_num_assignment(std::ostream & out, display_var_proc const & proc) const {
             for (var x = 0; x < num_vars(); x++) {
                 if (m_assignment.is_assigned(x)) {
                     proc(out, x);
@@ -2230,19 +2556,24 @@ namespace nlsat {
                     out << "\n";
                 }
             }
+            return out;
         }
 
-        void display_bool_assignment(std::ostream & out) const {
+        std::ostream& display_bool_assignment(std::ostream & out) const {
             unsigned sz = m_atoms.size();
             for (bool_var b = 0; b < sz; b++) {
-                if (m_atoms[b] == 0 && m_bvalues[b] != l_undef) {
+                if (m_atoms[b] == nullptr && m_bvalues[b] != l_undef) {
                     out << "b" << b << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << "\n";
+                }
+                else if (m_atoms[b] != nullptr && m_bvalues[b] != l_undef) {
+                    display(out << "b" << b << " ", *m_atoms[b]) << " -> " << (m_bvalues[b] == l_true ? "true" : "false") << "\n";
                 }
             }
             TRACE("nlsat_bool_assignment",
                   for (bool_var b = 0; b < sz; b++) {
                       out << "b" << b << " -> " << m_bvalues[b] << " " << m_atoms[b] << "\n";
                   });
+            return out;
         }
 
         bool display_mathematica_assignment(std::ostream & out) const {
@@ -2260,16 +2591,17 @@ namespace nlsat {
             return !first;
         }
 
-        void display_num_assignment(std::ostream & out) const { 
-            display_num_assignment(out, m_display_var);
+        std::ostream& display_num_assignment(std::ostream & out) const { 
+            return display_num_assignment(out, m_display_var);
         }
 
-        void display_assignment(std::ostream& out) const {
+        std::ostream& display_assignment(std::ostream& out) const {
             display_bool_assignment(out);
             display_num_assignment(out);
+            return out;
         }
        
-        void display(std::ostream & out, ineq_atom const & a, display_var_proc const & proc, bool use_star = false) const {
+        std::ostream& display(std::ostream & out, ineq_atom const & a, display_var_proc const & proc, bool use_star = false) const {
             unsigned sz = a.size();
             for (unsigned i = 0; i < sz; i++) {
                 if (use_star && i > 0)
@@ -2289,9 +2621,10 @@ namespace nlsat {
             case atom::EQ: out << " = 0"; break;
             default: UNREACHABLE(); break;
             }
+            return out;
         }
-
-        void display_mathematica(std::ostream & out, ineq_atom const & a) const {
+        
+        std::ostream& display_mathematica(std::ostream & out, ineq_atom const & a) const {
             unsigned sz = a.size();
             for (unsigned i = 0; i < sz; i++) {
                 if (i > 0)
@@ -2313,9 +2646,10 @@ namespace nlsat {
             case atom::EQ: out << " == 0"; break;
             default: UNREACHABLE(); break;
             }
+            return out;
         }
 
-        void display_smt2(std::ostream & out, ineq_atom const & a, display_var_proc const & proc) const {
+        std::ostream& display_smt2(std::ostream & out, ineq_atom const & a, display_var_proc const & proc) const {
             switch (a.get_kind()) {
             case atom::LT: out << "(< "; break;
             case atom::GT: out << "(> "; break;
@@ -2341,9 +2675,10 @@ namespace nlsat {
             if (sz > 1)
                 out << ")";
             out << " 0)";
+            return out;
         }
         
-        void display(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
+        std::ostream& display(std::ostream & out, root_atom const & a, display_var_proc const & proc) const {
             proc(out, a.x());
             switch (a.get_kind()) {
             case atom::ROOT_LT: out << " < "; break;
@@ -2356,21 +2691,22 @@ namespace nlsat {
             out << "root[" << a.i() << "](";
             m_pm.display(out, a.p(), proc);
             out << ")";
+            return out;
         }
 
         struct mathematica_var_proc : public display_var_proc {
             var m_x;
         public:
             mathematica_var_proc(var x):m_x(x) {}
-            virtual void operator()(std::ostream & out, var x) const { 
+            std::ostream& operator()(std::ostream & out, var x) const override {
                 if (m_x == x)
-                    out << "#1";
+                    return out << "#1";
                 else
-                    out << "x" << x; 
+                    return out << "x" << x; 
             }
         };
 
-        void display_mathematica(std::ostream & out, root_atom const & a) const {
+        std::ostream& display_mathematica(std::ostream & out, root_atom const & a) const {
             out << "x" << a.x();
             switch (a.get_kind()) {
             case atom::ROOT_LT: out << " < "; break;
@@ -2383,65 +2719,74 @@ namespace nlsat {
             out << "Root[";
             m_pm.display(out, a.p(), mathematica_var_proc(a.x()), true);
             out << " &, " << a.i() << "]";
+            return out;
         }
 
-        void display_smt2(std::ostream & out, root_atom const & a) const {
+        std::ostream& display_smt2(std::ostream & out, root_atom const & a) const {
             NOT_IMPLEMENTED_YET();
+            return out;
         }
         
-        void display(std::ostream & out, atom const & a, display_var_proc const & proc) const {
+        std::ostream& display(std::ostream & out, atom const & a, display_var_proc const & proc) const {
             if (a.is_ineq_atom())
-                display(out, static_cast<ineq_atom const &>(a), proc);
+                return display(out, static_cast<ineq_atom const &>(a), proc);
             else
-                display(out, static_cast<root_atom const &>(a), proc);
+                return display(out, static_cast<root_atom const &>(a), proc);
         }
 
-        void display_mathematica(std::ostream & out, atom const & a) const {
-            if (a.is_ineq_atom())
-                display_mathematica(out, static_cast<ineq_atom const &>(a));
-            else
-                display_mathematica(out, static_cast<root_atom const &>(a));
+        std::ostream& display(std::ostream & out, atom const & a) const {
+            return display(out, a, m_display_var);
         }
 
-        void display_smt2(std::ostream & out, atom const & a, display_var_proc const & proc) const {
+        std::ostream& display_mathematica(std::ostream & out, atom const & a) const {
             if (a.is_ineq_atom())
-                display_smt2(out, static_cast<ineq_atom const &>(a), proc);
+                return display_mathematica(out, static_cast<ineq_atom const &>(a));
             else
-                display_smt2(out, static_cast<root_atom const &>(a), proc);
+                return display_mathematica(out, static_cast<root_atom const &>(a));
         }
 
-        void display_atom(std::ostream & out, bool_var b, display_var_proc const & proc) const {
+        std::ostream& display_smt2(std::ostream & out, atom const & a, display_var_proc const & proc) const {
+            if (a.is_ineq_atom())
+                return display_smt2(out, static_cast<ineq_atom const &>(a), proc);
+            else
+                return display_smt2(out, static_cast<root_atom const &>(a), proc);
+        }
+
+        std::ostream& display_atom(std::ostream & out, bool_var b, display_var_proc const & proc) const {
             if (b == 0)
                 out << "true";
             else if (m_atoms[b] == 0)
                 out << "b" << b;
             else
                 display(out, *(m_atoms[b]), proc);
+            return out;
         }
 
-        void display_atom(std::ostream & out, bool_var b) const {
-            display_atom(out, b, m_display_var);
+        std::ostream& display_atom(std::ostream & out, bool_var b) const {
+            return display_atom(out, b, m_display_var);
         }
 
-        void display_mathematica_atom(std::ostream & out, bool_var b) const {
+        std::ostream& display_mathematica_atom(std::ostream & out, bool_var b) const {
             if (b == 0)
                 out << "(0 < 1)";
             else if (m_atoms[b] == 0)
                 out << "b" << b;
             else
                 display_mathematica(out, *(m_atoms[b]));
+            return out;
         }
 
-        void display_smt2_atom(std::ostream & out, bool_var b, display_var_proc const & proc) const {
+        std::ostream& display_smt2_atom(std::ostream & out, bool_var b, display_var_proc const & proc) const {
             if (b == 0)
                 out << "true";
             else if (m_atoms[b] == 0)
                 out << "b" << b;
             else
                 display_smt2(out, *(m_atoms[b]), proc);
+            return out;
         }
 
-        void display(std::ostream & out, literal l, display_var_proc const & proc) const {
+        std::ostream& display(std::ostream & out, literal l, display_var_proc const & proc) const {
             if (l.sign()) {
                 bool_var b = l.var();
                 out << "!";
@@ -2454,13 +2799,14 @@ namespace nlsat {
             else {
                 display_atom(out, l.var(), proc);
             }
+            return out;
         }
 
-        void display(std::ostream & out, literal l) const {
-            display(out, l, m_display_var);
+        std::ostream& display(std::ostream & out, literal l) const {
+            return display(out, l, m_display_var);
         }
 
-        void display_mathematica(std::ostream & out, literal l) const {
+        std::ostream& display_mathematica(std::ostream & out, literal l) const {
             if (l.sign()) {
                 bool_var b = l.var();
                 out << "!";
@@ -2473,9 +2819,10 @@ namespace nlsat {
             else {
                 display_mathematica_atom(out, l.var());
             }
+            return out;
         }
 
-        void display_smt2(std::ostream & out, literal l, display_var_proc const & proc) const {
+        std::ostream& display_smt2(std::ostream & out, literal l, display_var_proc const & proc) const {
             if (l.sign()) {
                 bool_var b = l.var();
                 out << "(not ";
@@ -2485,41 +2832,43 @@ namespace nlsat {
             else {
                 display_smt2_atom(out, l.var(), proc);
             }
+            return out;
         }
             
-        void display_assumptions(std::ostream & out, _assumption_set s) const {
-            
+        std::ostream& display_assumptions(std::ostream & out, _assumption_set s) const {
+            return out;
         }
         
-        void display(std::ostream & out, unsigned num, literal const * ls, display_var_proc const & proc) const {
+        std::ostream& display(std::ostream & out, unsigned num, literal const * ls, display_var_proc const & proc) const {
             for (unsigned i = 0; i < num; i++) {
                 if (i > 0)
                     out << " or ";
                 display(out, ls[i], proc);
             }
+            return out;
         }
 
-        void display(std::ostream & out, unsigned num, literal const * ls) {
-            display(out, num, ls, m_display_var);
+        std::ostream& display(std::ostream & out, unsigned num, literal const * ls) {
+            return display(out, num, ls, m_display_var);
+        }
+        
+        std::ostream& display(std::ostream & out, scoped_literal_vector const & cs) {
+            return display(out, cs.size(), cs.c_ptr(), m_display_var);
         }
 
-        void display(std::ostream & out, scoped_literal_vector const & cs) {
-            display(out, cs.size(), cs.c_ptr(), m_display_var);
-        }
-
-        void display(std::ostream & out, clause const & c, display_var_proc const & proc) const {
-            if (c.assumptions() != 0) {
+        std::ostream& display(std::ostream & out, clause const & c, display_var_proc const & proc) const {
+            if (c.assumptions() != nullptr) {
                 display_assumptions(out, static_cast<_assumption_set>(c.assumptions()));
                 out << " |- ";
             }
-            display(out, c.size(), c.c_ptr(), proc);
+            return display(out, c.size(), c.c_ptr(), proc);
         }
 
-        void display(std::ostream & out, clause const & c) const {
-            display(out, c, m_display_var);
+        std::ostream& display(std::ostream & out, clause const & c) const {
+            return display(out, c, m_display_var);
         }
 
-        void display_smt2(std::ostream & out, unsigned num, literal const * ls, display_var_proc const & proc) const {
+        std::ostream& display_smt2(std::ostream & out, unsigned num, literal const * ls, display_var_proc const & proc) const {
             if (num == 0) {
                 out << "false";
             }
@@ -2534,13 +2883,14 @@ namespace nlsat {
                 }
                 out << ")";
             }
+            return out;
         }
 
-        void display_smt2(std::ostream & out, clause const & c, display_var_proc const & proc = display_var_proc()) const {
-            display_smt2(out, c.size(), c.c_ptr(), proc);
+        std::ostream& display_smt2(std::ostream & out, clause const & c, display_var_proc const & proc = display_var_proc()) const {
+            return display_smt2(out, c.size(), c.c_ptr(), proc);
         }
 
-        void display_abst(std::ostream & out, literal l) const {
+        std::ostream& display_abst(std::ostream & out, literal l) const {
             if (l.sign()) {
                 bool_var b = l.var();
                 out << "!";
@@ -2552,25 +2902,27 @@ namespace nlsat {
             else {
                 out << "b" << l.var();
             }
+            return out;
         }
 
-        void display_abst(std::ostream & out, unsigned num, literal const * ls) const {
+        std::ostream& display_abst(std::ostream & out, unsigned num, literal const * ls) const {
             for (unsigned i = 0; i < num; i++) {
                 if (i > 0)
                     out << " or ";
                 display_abst(out, ls[i]);
             }
+            return out;
         }
 
-        void display_abst(std::ostream & out, scoped_literal_vector const & cs) const {
-            display_abst(out, cs.size(), cs.c_ptr());
+        std::ostream& display_abst(std::ostream & out, scoped_literal_vector const & cs) const {
+            return display_abst(out, cs.size(), cs.c_ptr());
         }
 
-        void display_abst(std::ostream & out, clause const & c) const {
-            display_abst(out, c.size(), c.c_ptr());
+        std::ostream& display_abst(std::ostream & out, clause const & c) const {
+            return display_abst(out, c.size(), c.c_ptr());
         }
 
-        void display_mathematica(std::ostream & out, clause const & c) const {
+        std::ostream& display_mathematica(std::ostream & out, clause const & c) const {
             out << "(";
             unsigned sz = c.size();
             for (unsigned i = 0; i < sz; i++) {
@@ -2579,12 +2931,13 @@ namespace nlsat {
                 display_mathematica(out, c[i]);
             }
             out << ")";
+            return out;
         }
 
         // Debugging support:
         // Display generated lemma in Mathematica format.
         // Mathematica must reduce lemma to True (modulo resource constraints).
-        void display_mathematica_lemma(std::ostream & out, unsigned num, literal const * ls, bool include_assignment = false) const {
+        std::ostream& display_mathematica_lemma(std::ostream & out, unsigned num, literal const * ls, bool include_assignment = false) const {
             out << "Resolve[ForAll[{";
             // var definition
             for (unsigned i = 0; i < num_vars(); i++) {
@@ -2605,71 +2958,69 @@ namespace nlsat {
                 display_mathematica(out, ls[i]);
             }
             out << "], Reals]\n"; // end of exists
+            return out;
         }
         
-        void display(std::ostream & out, clause_vector const & cs, display_var_proc const & proc) const {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++) {
-                display(out, *(cs[i]), proc);
-                out << "\n";
+        std::ostream& display(std::ostream & out, clause_vector const & cs, display_var_proc const & proc) const {
+            for (clause* c : cs) {
+                display(out, *c, proc) << "\n";
             }
+            return out;
         }
 
-        void display(std::ostream & out, clause_vector const & cs) const {
-            display(out, cs, m_display_var);
+        std::ostream& display(std::ostream & out, clause_vector const & cs) const {
+            return display(out, cs, m_display_var);
         }
 
-        void display_mathematica(std::ostream & out, clause_vector const & cs) const {
+        std::ostream& display_mathematica(std::ostream & out, clause_vector const & cs) const {            
             unsigned sz = cs.size();
             for (unsigned i = 0; i < sz; i++) {
                 if (i > 0) out << ",\n";
-                out << "  ";
-                display_mathematica(out, *(cs[i]));
+                display_mathematica(out << " ", *(cs[i]));
             }
+            return out;
         }
 
-        void display_abst(std::ostream & out, clause_vector const & cs) const {
-            unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++) {
-                display_abst(out, *(cs[i]));
-                out << "\n";
+        std::ostream& display_abst(std::ostream & out, clause_vector const & cs) const {
+            for (clause* c : cs) {
+                display_abst(out, *c) << "\n";
             }
+            return out;
         }
 
-        void display(std::ostream & out, display_var_proc const & proc) const {
+        std::ostream& display(std::ostream & out, display_var_proc const & proc) const {
             display(out, m_clauses, proc);
             if (!m_learned.empty()) {
-                out << "Lemmas:\n";
-                display(out, m_learned, proc);
+                display(out << "Lemmas:\n", m_learned, proc);
             }
+            return out;
         }
 
-        void display_mathematica(std::ostream & out) const {
-            out << "{\n";
-            display_mathematica(out, m_clauses);
-            out << "}\n";
+        std::ostream& display_mathematica(std::ostream & out) const {
+            return display_mathematica(out << "{\n", m_clauses) << "}\n";
         }
 
-        void display_abst(std::ostream & out) const {
+        std::ostream& display_abst(std::ostream & out) const {
             display_abst(out, m_clauses);
             if (!m_learned.empty()) {
-                out << "Lemmas:\n";
-                display_abst(out, m_learned);
+                display_abst(out << "Lemmas:\n", m_learned);
             }
+            return out;
         }
 
-        void display(std::ostream & out) const {
+        std::ostream& display(std::ostream & out) const {
             display(out, m_display_var);
-            display_assignment(out);
+            return display_assignment(out);
         }
 
-        void display_vars(std::ostream & out) const {
+        std::ostream& display_vars(std::ostream & out) const {
             for (unsigned i = 0; i < num_vars(); i++) {
                 out << i << " -> "; m_display_var(out, i); out << "\n";
             }
+            return out;
         }
 
-        void display_smt2_arith_decls(std::ostream & out) const {
+        std::ostream& display_smt2_arith_decls(std::ostream & out) const {
             unsigned sz = m_is_int.size();
             for (unsigned i = 0; i < sz; i++) {
                 if (m_is_int[i])
@@ -2677,31 +3028,32 @@ namespace nlsat {
                 else
                     out << "(declare-fun x" << i << " () Real)\n";
             }
+            return out;
         }
 
-        void display_smt2_bool_decls(std::ostream & out) const {
+        std::ostream& display_smt2_bool_decls(std::ostream & out) const {
             unsigned sz = m_atoms.size();
             for (unsigned i = 0; i < sz; i++) {
-                if (m_atoms[i] == 0)
+                if (m_atoms[i] == nullptr)
                     out << "(declare-fun b" << i << " () Bool)\n";
             }
+            return out;
         }
 
-        void display_smt2(std::ostream & out) const {
+        std::ostream& display_smt2(std::ostream & out) const {
             display_smt2_bool_decls(out);
             display_smt2_arith_decls(out);
             out << "(assert (and true\n";
-            unsigned sz = m_clauses.size();
-            for (unsigned i = 0; i < sz; i++) {
-                display_smt2(out, *(m_clauses[i]));
-                out << "\n";
+            for (clause* c : m_clauses) {
+                display_smt2(out, *c) << "\n";
             }
             out << "))\n(check-sat)" << std::endl;
+            return out;
         }
     };
     
-    solver::solver(reslimit& rlim, params_ref const & p) {
-        m_imp = alloc(imp, *this, rlim, p);
+    solver::solver(reslimit& rlim, params_ref const & p, bool incremental) {
+        m_imp = alloc(imp, *this, rlim, p, incremental);
     }
         
     solver::~solver() {
@@ -2809,13 +3161,24 @@ namespace nlsat {
 
     void solver::get_bvalues(svector<lbool>& vs) {
         vs.reset();
-        vs.append(m_imp->m_bvalues);
+        unsigned sz = m_imp->m_bvalues.size();
+        for (bool_var b = 0; b < sz; ++b) {
+            if (m_imp->m_atoms[b] == nullptr) {
+                vs.push_back(m_imp->m_bvalues[b]);
+            }
+            else {
+                vs.push_back(l_undef); // don't save values from atoms.
+            }
+        }
+        TRACE("nlsat", display(tout););
     }
 
     void solver::set_bvalues(svector<lbool> const& vs) {
+        TRACE("nlsat", display(tout););
         m_imp->m_bvalues.reset();
         m_imp->m_bvalues.append(vs);
         m_imp->m_bvalues.resize(m_imp->m_atoms.size(), l_undef);        
+        TRACE("nlsat", display(tout););
     }
     
     var solver::mk_var(bool is_int) {
@@ -2846,27 +3209,28 @@ namespace nlsat {
         return m_imp->mk_clause(num_lits, lits, a);
     }
 
-    void solver::display(std::ostream & out) const {
-        m_imp->display(out);
+    std::ostream& solver::display(std::ostream & out) const {
+        return m_imp->display(out);
     }
 
-    void solver::display(std::ostream & out, literal l) const {
-        m_imp->display(out, l);
+    std::ostream& solver::display(std::ostream & out, literal l) const {
+        return m_imp->display(out, l);
     }
 
-    void solver::display(std::ostream & out, unsigned n, literal const* ls) const {
+    std::ostream& solver::display(std::ostream & out, unsigned n, literal const* ls) const {
         for (unsigned i = 0; i < n; ++i) {
             display(out, ls[i]);
             out << ";  ";
         }
+        return out;
     }
 
-    void solver::display(std::ostream & out, var x) const {
-        m_imp->m_display_var(out, x);
+    std::ostream& solver::display(std::ostream & out, var x) const {
+        return m_imp->m_display_var(out, x);
     }
 
-    void solver::display(std::ostream & out, atom const& a) const {
-        m_imp->display(out, a, m_imp->m_display_var);
+    std::ostream& solver::display(std::ostream & out, atom const& a) const {
+        return m_imp->display(out, a, m_imp->m_display_var);
     }
 
     display_var_proc const & solver::display_proc() const {

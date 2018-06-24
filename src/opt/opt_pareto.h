@@ -87,9 +87,9 @@ namespace opt {
                    params_ref & p):
             pareto_base(m, cb, s, p) {            
         }
-        virtual ~gia_pareto() {}
+        ~gia_pareto() override {}
 
-        virtual lbool operator()();
+        lbool operator()() override;
     };
 
     // opportunistic improvement algorithm.
@@ -101,9 +101,9 @@ namespace opt {
                    params_ref & p):
             pareto_base(m, cb, s, p) {            
         }
-        virtual ~oia_pareto() {}
+        ~oia_pareto() override {}
 
-        virtual lbool operator()();
+        lbool operator()() override;
     };
 }
 

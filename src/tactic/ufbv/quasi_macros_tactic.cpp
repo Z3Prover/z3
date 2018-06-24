@@ -17,9 +17,9 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/macros/macro_manager.h"
 #include "ast/macros/macro_finder.h"
-#include "tactic/extension_model_converter.h"
 #include "ast/macros/quasi_macros.h"
 #include "tactic/ufbv/quasi_macros_tactic.h"
 
@@ -36,12 +36,8 @@ class quasi_macros_tactic : public tactic {
 
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
             tactic_report report("quasi-macros", *g);
 
             bool produce_proofs = g->proofs_enabled();
@@ -78,18 +74,17 @@ class quasi_macros_tactic : public tactic {
             g->reset();
             for (unsigned i = 0; i < new_forms.size(); i++)
                 g->assert_expr(forms.get(i),
-                               produce_proofs ? proofs.get(i) : 0,
-                               produce_unsat_cores ? deps.get(i) : 0);
+                               produce_proofs ? proofs.get(i) : nullptr,
+                               produce_unsat_cores ? deps.get(i) : nullptr);
 
-            extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
+            generic_model_converter * evmc = alloc(generic_model_converter, mm.get_manager(), "quasi_macros");
             unsigned num = mm.get_num_macros();
             for (unsigned i = 0; i < num; i++) {
                 expr_ref f_interp(mm.get_manager());
                 func_decl * f = mm.get_macro_interpretation(i, f_interp);
-                evmc->insert(f, f_interp);
+                evmc->add(f, f_interp);
             }
-            mc = evmc;
-
+            g->add(evmc);
             g->inc_depth();
             result.push_back(g.get());
             TRACE("quasi-macros", g->display(tout););
@@ -109,34 +104,31 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(quasi_macros_tactic, m, m_params);
     }
 
-    virtual ~quasi_macros_tactic() {
+    ~quasi_macros_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_produce_models(r);
         insert_produce_proofs(r);
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);

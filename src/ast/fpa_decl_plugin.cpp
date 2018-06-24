@@ -23,9 +23,9 @@ Revision History:
 fpa_decl_plugin::fpa_decl_plugin():
     m_values(m_fm),
     m_value_table(mpf_hash_proc(m_values), mpf_eq_proc(m_values)) {
-    m_real_sort = 0;
-    m_int_sort  = 0;
-    m_bv_plugin = 0;
+    m_real_sort = nullptr;
+    m_int_sort  = nullptr;
+    m_bv_plugin = nullptr;
 }
 
 void fpa_decl_plugin::set_manager(ast_manager * m, family_id id) {
@@ -70,7 +70,7 @@ void fpa_decl_plugin::recycled_id(unsigned id) {
 
 func_decl * fpa_decl_plugin::mk_numeral_decl(mpf const & v) {
     sort * s = mk_float_sort(v.get_ebits(), v.get_sbits());
-    func_decl * r = 0;
+    func_decl * r = nullptr;
     if (m_fm.is_nan(v))
         r = m_manager->mk_const_decl(symbol("NaN"), s, func_decl_info(m_family_id, OP_FPA_NAN));
     else if (m_fm.is_pinf(v))
@@ -160,7 +160,7 @@ bool fpa_decl_plugin::is_rm_numeral(expr * n, mpf_rounding_mode & val) {
         return true;
     }
 
-    return 0;
+    return false;
 }
 
 bool fpa_decl_plugin::is_rm_numeral(expr * n) {
@@ -223,7 +223,7 @@ sort * fpa_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
         return mk_float_sort(15, 113);
     default:
         m_manager->raise_exception("unknown floating point theory sort");
-        return 0;
+        return nullptr;
     }
 }
 
@@ -248,20 +248,20 @@ func_decl * fpa_decl_plugin::mk_rm_const_decl(decl_kind k, unsigned num_paramete
         return m_manager->mk_const_decl(symbol("roundTowardZero"), s, finfo);
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
 func_decl * fpa_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                    unsigned arity, sort * const * domain, sort * range) {
-    sort * s = 0;
+    sort * s = nullptr;
     if (num_parameters == 1 && parameters[0].is_ast() && is_sort(parameters[0].get_ast()) && is_float_sort(to_sort(parameters[0].get_ast()))) {
         s = to_sort(parameters[0].get_ast());
     }
     else if (num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()) {
         s = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
     }
-    else if (range != 0 && is_float_sort(range)) {
+    else if (range != nullptr && is_float_sort(range)) {
         s = range;
     }
     else {
@@ -561,7 +561,7 @@ func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, para
                                    );
     }
 
-    return 0;
+    return nullptr;
 }
 
 func_decl * fpa_decl_plugin::mk_to_fp_unsigned(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -779,7 +779,7 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
 
     default:
         m_manager->raise_exception("unsupported floating point operator");
-        return 0;
+        return nullptr;
     }
 }
 
@@ -862,12 +862,12 @@ expr * fpa_decl_plugin::get_some_value(sort * s) {
         return res;
     }
     else if (s->is_sort_of(m_family_id, ROUNDING_MODE_SORT)) {
-        func_decl * f = mk_rm_const_decl(OP_FPA_RM_TOWARD_ZERO, 0, 0, 0, 0, s);
+        func_decl * f = mk_rm_const_decl(OP_FPA_RM_TOWARD_ZERO, 0, nullptr, 0, nullptr, s);
         return m_manager->mk_const(f);
     }
 
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 bool fpa_decl_plugin::is_value(app * e) const {

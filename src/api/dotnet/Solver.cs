@@ -57,6 +57,49 @@ namespace Microsoft.Z3
             }
         }
 
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(string name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the solver
+	/// </summary>
+	public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+
+
+
         /// <summary>
         /// Retrieves parameter descriptions for solver.
         /// </summary>
@@ -140,11 +183,11 @@ namespace Microsoft.Z3
         /// using the Boolean constants in ps. 
         /// </summary>
         /// <remarks>
-        /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
+        /// This API is an alternative to <see cref="Check(Expr[])"/> with assumptions for extracting unsat cores.
         /// Both APIs can be used in the same solver. The unsat core will contain a combination
         /// of the Boolean variables provided using <see cref="AssertAndTrack(BoolExpr[],BoolExpr[])"/> 
         /// and the Boolean literals
-        /// provided using <see cref="Check"/> with assumptions.
+        /// provided using <see cref="Check(Expr[])"/> with assumptions.
         /// </remarks>        
         public void AssertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
         {
@@ -165,11 +208,11 @@ namespace Microsoft.Z3
         /// using the Boolean constant p. 
         /// </summary>
         /// <remarks>
-        /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
+        /// This API is an alternative to <see cref="Check(Expr[])"/> with assumptions for extracting unsat cores.
         /// Both APIs can be used in the same solver. The unsat core will contain a combination
         /// of the Boolean variables provided using <see cref="AssertAndTrack(BoolExpr[],BoolExpr[])"/> 
         /// and the Boolean literals
-        /// provided using <see cref="Check"/> with assumptions.
+        /// provided using <see cref="Check(Expr[])"/> with assumptions.
         /// </remarks>        
         public void AssertAndTrack(BoolExpr constraint, BoolExpr p)
         {
@@ -180,6 +223,22 @@ namespace Microsoft.Z3
                         
             Native.Z3_solver_assert_and_track(Context.nCtx, NativeObject, constraint.NativeObject, p.NativeObject);
         }
+
+	/// <summary>
+	/// Load solver assertions from a file.
+	/// </summary>
+	public void FromFile(string file) 
+        {
+	     Native.Z3_solver_from_file(Context.nCtx, NativeObject, file);	
+	}
+
+	/// <summary>
+	/// Load solver assertions from a string.
+	/// </summary>
+	public void FromString(string str) 
+        {
+	     Native.Z3_solver_from_string(Context.nCtx, NativeObject, str);	
+	}
 
         /// <summary>
         /// The number of assertions in the solver.
@@ -208,6 +267,20 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Currently inferred units.
+        /// </summary>
+        public BoolExpr[] Units
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
+
+                ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_units(Context.nCtx, NativeObject));
+                return assertions.ToBoolExprArray();
+            }
+        }
+
+        /// <summary>
         /// Checks whether the assertions in the solver are consistent or not.
         /// </summary>
         /// <remarks>
@@ -222,6 +295,25 @@ namespace Microsoft.Z3
                 r = (Z3_lbool)Native.Z3_solver_check(Context.nCtx, NativeObject);
             else
                 r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)assumptions.Length, AST.ArrayToNative(assumptions));
+            return lboolToStatus(r);
+        }
+
+        /// <summary>
+        /// Checks whether the assertions in the solver are consistent or not.
+        /// </summary>
+        /// <remarks>
+        /// <seealso cref="Model"/>
+        /// <seealso cref="UnsatCore"/>
+        /// <seealso cref="Proof"/>    
+        /// </remarks>    
+        public Status Check(IEnumerable<BoolExpr> assumptions)
+        {
+            Z3_lbool r;
+            BoolExpr[] asms = assumptions.ToArray();
+            if (asms.Length == 0)
+                r = (Z3_lbool)Native.Z3_solver_check(Context.nCtx, NativeObject);
+            else
+                r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)asms.Length, AST.ArrayToNative(asms));
             return lboolToStatus(r);
         }
 
@@ -253,10 +345,10 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// The model of the last <c>Check</c>.
+        /// The model of the last <c>Check(params Expr[] assumptions)</c>.
         /// </summary>
         /// <remarks>
-        /// The result is <c>null</c> if <c>Check</c> was not invoked before,
+        /// The result is <c>null</c> if <c>Check(params Expr[] assumptions)</c> was not invoked before,
         /// if its results was not <c>SATISFIABLE</c>, or if model production is not enabled.
         /// </remarks>
         public Model Model
@@ -272,10 +364,10 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// The proof of the last <c>Check</c>.
+        /// The proof of the last <c>Check(params Expr[] assumptions)</c>.
         /// </summary>
         /// <remarks>    
-        /// The result is <c>null</c> if <c>Check</c> was not invoked before,
+        /// The result is <c>null</c> if <c>Check(params Expr[] assumptions)</c> was not invoked before,
         /// if its results was not <c>UNSATISFIABLE</c>, or if proof production is disabled.
         /// </remarks>
         public Expr Proof
@@ -322,6 +414,42 @@ namespace Microsoft.Z3
             }
         }
 
+	/// <summary>
+	/// Backtrack level that can be adjusted by conquer process
+	/// </summary>
+        public uint BacktrackLevel { get; set; }
+
+	/// <summary>
+	/// Variables available and returned by the cuber.
+	/// </summary>
+	public BoolExpr[] CubeVariables { get; set; }
+        
+
+	/// <summary>
+	/// Return a set of cubes.
+	/// </summary>
+	public IEnumerable<BoolExpr[]> Cube()
+	{
+             ASTVector cv = new ASTVector(Context);
+             if (CubeVariables != null) 
+                foreach (var b in CubeVariables) cv.Push(b);
+
+	     while (true) {
+                var lvl = BacktrackLevel;
+                BacktrackLevel = uint.MaxValue;
+                ASTVector r = new ASTVector(Context, Native.Z3_solver_cube(Context.nCtx, NativeObject, cv.NativeObject, lvl));
+                var v = r.ToBoolExprArray();
+                CubeVariables = cv.ToBoolExprArray();
+                if (v.Length == 1 && v[0].IsFalse) {
+                   break;
+                }
+                yield return v; 
+                if (v.Length == 0) {
+                   break;
+                }
+	     }
+	}
+
         /// <summary>
         /// Create a clone of the current solver with respect to <c>ctx</c>.
         /// </summary>
@@ -332,6 +460,13 @@ namespace Microsoft.Z3
              return new Solver(ctx, Native.Z3_solver_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
 
+	/// <summary>
+	/// Import model converter from other solver. 
+	/// </summary>
+	public void ImportModelConverter(Solver src) 
+	{
+	     Native.Z3_solver_import_model_converter(Context.nCtx, src.NativeObject, NativeObject);
+	}
 
         /// <summary>
         /// Solver statistics.
@@ -359,6 +494,7 @@ namespace Microsoft.Z3
             : base(ctx, obj)
         {
             Contract.Requires(ctx != null);
+            this.BacktrackLevel = uint.MaxValue;
         }
 
         internal class DecRefQueue : IDecRefQueue

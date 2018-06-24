@@ -32,10 +32,10 @@ namespace smt {
         theory_var_list():
             m_th_id(null_theory_id),
             m_th_var(null_theory_var), 
-            m_next(0) {
+            m_next(nullptr) {
         }
         
-        theory_var_list(theory_id t, theory_var v, theory_var_list * n = 0):
+        theory_var_list(theory_id t, theory_var v, theory_var_list * n = nullptr):
             m_th_id(t),
             m_th_var(v),
             m_next(n) {
@@ -67,9 +67,9 @@ namespace smt {
     };
 
     // 32 bit machine
-    COMPILE_TIME_ASSERT(sizeof(expr*) != 4 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int)); 
+    static_assert(sizeof(expr*) != 4 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int), "32 bit"); 
     // 64 bit machine
-    COMPILE_TIME_ASSERT(sizeof(expr*) != 8 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int) + /* a structure must be aligned */ sizeof(int)); 
+    static_assert(sizeof(expr*) != 8 || sizeof(theory_var_list) == sizeof(theory_var_list *) + sizeof(int) + /* a structure must be aligned */ sizeof(int), "64 bit"); 
 };
 
 #endif /* SMT_THEORY_VAR_LIST_H_ */

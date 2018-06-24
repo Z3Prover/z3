@@ -770,7 +770,7 @@ public:
 
     void init_reduced_costs();
 
-    bool low_bounds_are_set() const { return true; }
+    bool low_bounds_are_set() const override { return true; }
 
     int advance_on_sorted_breakpoints(unsigned entering, X & t);
     

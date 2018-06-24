@@ -57,7 +57,6 @@ public:
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml);
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref_vector& conjs);
-
     /**
         \brief full rewriting based light-weight quantifier elimination round.
     */

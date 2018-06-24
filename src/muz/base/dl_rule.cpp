@@ -41,7 +41,7 @@ Revision History:
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/scoped_proof.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_util.h"
@@ -81,7 +81,7 @@ namespace datalog {
     }
 
     var_idx_set& rule_manager::collect_vars(expr* e) {
-        return collect_vars(e, 0);
+        return collect_vars(e, nullptr);
     }
 
     var_idx_set& rule_manager::collect_vars(expr* e1, expr* e2) {
@@ -141,7 +141,7 @@ namespace datalog {
 
 
     void rule_manager::mk_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
-        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         proof_ref pr(p, m);
         expr_ref fml1(m);
         bind_variables(fml, true, fml1);
@@ -274,11 +274,11 @@ namespace datalog {
         bind_variables(query, false, q);
 
         quantifier_hoister qh(m);
-        qh.pull_quantifier(false, q, 0, &names);
+        qh.pull_quantifier(false, q, nullptr, &names);
         // retrieve free variables.
         m_free_vars(q);
         vars.append(m_free_vars.size(), m_free_vars.c_ptr());
-        if (vars.contains(static_cast<sort*>(0))) {
+        if (vars.contains(static_cast<sort*>(nullptr))) {
             var_subst sub(m, false);
             expr_ref_vector args(m);
             // [s0, 0, s2, ..]
@@ -306,7 +306,7 @@ namespace datalog {
         }
         body.push_back(to_app(q));
         flatten_body(body);
-        func_decl* body_pred = 0;
+        func_decl* body_pred = nullptr;
         for (unsigned i = 0; i < body.size(); i++) {
             if (is_uninterp(body[i].get())) {
                 body_pred = body[i]->get_decl();
@@ -326,8 +326,8 @@ namespace datalog {
         rules.set_output_predicate(qpred);
 
         if (m_ctx.get_model_converter()) {
-            filter_model_converter* mc = alloc(filter_model_converter, m);
-            mc->insert(qpred);
+            generic_model_converter* mc = alloc(generic_model_converter, m, "dl_rule");
+            mc->hide(qpred);
             m_ctx.add_model_converter(mc);
         }
 
@@ -343,7 +343,7 @@ namespace datalog {
         }
         TRACE("dl", tout << rule_expr << "\n";);
 
-        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         proof_ref pr(m);
         if (m_ctx.generate_proof_trace()) {
             pr = m.mk_asserted(rule_expr);
@@ -468,7 +468,7 @@ namespace datalog {
         r->m_head       = head;
         r->m_name       = name;
         r->m_tail_size  = n;
-        r->m_proof      = 0;
+        r->m_proof      = nullptr;
         m.inc_ref(r->m_head);
 
         app * * uninterp_tail = r->m_tail; //grows upwards
@@ -478,7 +478,7 @@ namespace datalog {
         bool has_neg = false;
 
         for (unsigned i = 0; i < n; i++) {
-            bool  is_neg = (is_negated != 0 && is_negated[i]);
+            bool  is_neg = (is_negated != nullptr && is_negated[i]);
             app * curr = tail[i];
 
             if (is_neg && !m_ctx.is_predicate(curr)) {
@@ -544,7 +544,7 @@ namespace datalog {
         r->m_tail_size    = n;
         r->m_positive_cnt = source->m_positive_cnt;
         r->m_uninterp_cnt = source->m_uninterp_cnt;
-        r->m_proof        = 0;
+        r->m_proof        = nullptr;
         m.inc_ref(r->m_head);
         for (unsigned i = 0; i < n; i++) {
             r->m_tail[i] = source->m_tail[i];
@@ -974,7 +974,7 @@ namespace datalog {
                 subst_vals.push_back(m.mk_var(next_fresh_var++, var_srt));
             }
             else {
-                subst_vals.push_back(0);
+                subst_vals.push_back(nullptr);
             }
         }
 

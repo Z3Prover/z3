@@ -40,7 +40,7 @@ namespace nlsat {
         /**
            \brief Return the empty set.
         */
-        interval_set * mk_empty() { return 0; }
+        interval_set * mk_empty() { return nullptr; }
         
         /**
            \brief Return a set of composed of a single interval.
@@ -64,7 +64,7 @@ namespace nlsat {
            \brief Return true if s is the empty set.
         */
         bool is_empty(interval_set const * s) {
-            return s == 0;
+            return s == nullptr;
         }
         
         /**
@@ -108,7 +108,7 @@ namespace nlsat {
            
            \pre !is_full(s)
         */
-        void peek_in_complement(interval_set const * s, anum & w, bool randomize);
+        void peek_in_complement(interval_set const * s, bool is_int, anum & w, bool randomize);
     };
 
     typedef obj_ref<interval_set, interval_set_manager> interval_set_ref;

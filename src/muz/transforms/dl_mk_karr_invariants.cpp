@@ -111,7 +111,7 @@ namespace datalog {
         
         add_invariant_model_converter(ast_manager& m): m(m), a(m), m_funcs(m), m_invs(m) {}
 
-        virtual ~add_invariant_model_converter() { }
+        ~add_invariant_model_converter() override { }
 
         void add(func_decl* p, expr* inv) {
             if (!m.is_true(inv)) {
@@ -120,7 +120,9 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(model_ref & mr) {
+        void get_units(obj_map<expr, bool>& units) override {}
+
+        void operator()(model_ref & mr) override {
             for (unsigned i = 0; i < m_funcs.size(); ++i) {
                 func_decl* p = m_funcs[i].get();
                 func_interp* f = mr->get_func_interp(p);
@@ -142,12 +144,16 @@ namespace datalog {
             }            
         }
     
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             add_invariant_model_converter* mc = alloc(add_invariant_model_converter, m);
             for (unsigned i = 0; i < m_funcs.size(); ++i) {
                 mc->add(translator(m_funcs[i].get()), m_invs[i].get());
             }
             return mc;
+        }
+
+        void display(std::ostream& out) override { 
+            out << "(add-invariant-model-converter)\n"; 
         }
 
     private:
@@ -191,13 +197,13 @@ namespace datalog {
     
     rule_set * mk_karr_invariants::operator()(rule_set const & source) {
         if (!m_ctx.karr()) {
-            return 0;
+            return nullptr;
         }
         rule_set::iterator it = source.begin(), end = source.end();
         for (; it != end; ++it) {
             rule const& r = **it;
             if (r.has_negation()) {
-                return 0;
+                return nullptr;
             }
         }
         mk_loop_counter lc(m_ctx);
@@ -209,7 +215,7 @@ namespace datalog {
         get_invariants(*src_loop);
 
         if (m.canceled()) {
-            return 0;
+            return nullptr;
         }
 
         // figure out whether to update same rules as used for saturation.
@@ -248,7 +254,7 @@ namespace datalog {
             func_decl* p = dit->m_key;
             expr_ref fml = rctx.try_get_formula(p);
             if (fml && !m.is_true(fml)) {
-                expr* inv = 0;
+                expr* inv = nullptr;
                 if (m_fun2inv.find(p, inv)) {
                     fml = m.mk_and(inv, fml);
                 }
@@ -270,7 +276,7 @@ namespace datalog {
             rule_set::decl2rules::iterator gend = src.end_grouped_rules();
             for (; git != gend; ++git) {
                 func_decl* p = git->m_key;
-                expr* fml = 0;
+                expr* fml = nullptr;
                 if (m_fun2inv.find(p, fml)) {
                     kmc->add(p, fml);                    
                 }
@@ -292,7 +298,7 @@ namespace datalog {
         }
         for (unsigned i = 0; i < utsz; ++i) {
             func_decl* q = r.get_decl(i); 
-            expr* fml = 0;
+            expr* fml = nullptr;
             if (m_fun2inv.find(q, fml)) {
                 expr_safe_replace rep(m);
                 for (unsigned j = 0; j < q->get_arity(); ++j) {
@@ -306,7 +312,7 @@ namespace datalog {
         }
         rule* new_rule = &r;
         if (tail.size() != tsz) {
-            new_rule = rm.mk(r.get_head(), tail.size(), tail.c_ptr(), 0, r.name());
+            new_rule = rm.mk(r.get_head(), tail.size(), tail.c_ptr(), nullptr, r.name());
         }
         rules.add_rule(new_rule);
         rm.mk_rule_rewrite_proof(r, *new_rule); // should be weakening rule.        

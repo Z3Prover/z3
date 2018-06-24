@@ -155,7 +155,7 @@ namespace smt {
         virtual bool mbqi_enabled(quantifier *q) const {return true;}
 
         /**
-           \brief Give a change to the plugin to adjust the interpretation of unintepreted functions.
+           \brief Give a change to the plugin to adjust the interpretation of uninterpreted functions.
            It can basically change the "else" of each uninterpreted function.
         */
         virtual void adjust_model(proto_model * m) = 0;

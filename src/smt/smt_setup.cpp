@@ -507,7 +507,7 @@ namespace smt {
         m_params.m_nnf_cnf             = false;
         if (st.m_max_ite_tree_depth > 50) {
             m_params.m_arith_eq2ineq        = false;
-            m_params.m_pull_cheap_ite_trees = true;
+            m_params.m_pull_cheap_ite       = true;
             m_params.m_arith_propagate_eqs  = true;
             m_params.m_relevancy_lvl        = 2; 
             m_params.m_relevancy_lemma      = false;
@@ -574,19 +574,19 @@ namespace smt {
         m_params.m_bv_cc               = false;
         m_params.m_bb_ext_gates        = true;
         m_params.m_nnf_cnf             = false;
-        m_params.m_propagate_booleans  = true;
         m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AX() {
+        TRACE("setup", tout << "QF_AX\n";);
         m_params.m_array_mode          = AR_SIMPLE;
         m_params.m_nnf_cnf             = false;
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AX(static_features const & st) {
-        m_params.m_array_mode          = AR_SIMPLE;
+        m_params.m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
         m_params.m_nnf_cnf             = false;
         if (st.m_num_clauses == st.m_num_units) {
             m_params.m_relevancy_lvl       = 0;
@@ -595,7 +595,7 @@ namespace smt {
         else {
             m_params.m_relevancy_lvl       = 2;
         }
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AUFLIA() {
@@ -607,11 +607,11 @@ namespace smt {
         m_params.m_restart_factor      = 1.5;
         m_params.m_phase_selection     = PS_CACHING_CONSERVATIVE2;
         setup_i_arith();
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_QF_AUFLIA(static_features const & st) {
-        m_params.m_array_mode          = AR_SIMPLE;
+        m_params.m_array_mode          = st.m_has_ext_arrays ? AR_FULL : AR_SIMPLE;
         if (st.m_has_real)
             throw default_exception("Benchmark has real variables but it is marked as QF_AUFLIA (arrays, uninterpreted functions and linear integer arithmetic).");
         m_params.m_nnf_cnf             = false;
@@ -631,7 +631,7 @@ namespace smt {
         //    m_context.register_plugin(new smt::theory_si_arith(m_manager, m_params));
         // else 
         setup_i_arith();
-        m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
+        setup_arrays();
     }
 
     void setup::setup_AUFLIA(bool simple_array) {
@@ -643,7 +643,6 @@ namespace smt {
         m_params.m_restart_factor          = 1.5;
         m_params.m_eliminate_bounds        = true;
         m_params.m_qi_quick_checker        = MC_UNSAT;
-        m_params.m_propagate_booleans      = true;
         m_params.m_qi_lazy_threshold       = 20;
         // m_params.m_qi_max_eager_multipatterns = 10; /// <<< HACK
         m_params.m_mbqi                    = true; // enabling MBQI and MACRO_FINDER by default :-)
@@ -671,7 +670,6 @@ namespace smt {
         m_params.m_phase_selection         = PS_ALWAYS_FALSE;
         m_params.m_eliminate_bounds        = true;
         m_params.m_qi_quick_checker        = MC_UNSAT;
-        m_params.m_propagate_booleans      = true;
         m_params.m_qi_eager_threshold      = 5;
         // Added for MBQI release
         m_params.m_qi_lazy_threshold       = 20;
@@ -732,12 +730,11 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
+        // m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
         m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));        
     }
 
     void setup::setup_r_arith() {
-        // to disable theory lra
-        // m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));        
         m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
@@ -802,6 +799,9 @@ namespace smt {
             break;
         case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
+            break;
+        case AS_LRA:
+            setup_r_arith();
             break;
         default:
             if (m_params.m_arith_int_only && int_only)
@@ -968,7 +968,7 @@ namespace smt {
         if (st.num_theories() == 2 && st.has_uf() && is_arith(st)) {
             if (!st.m_has_real)
                 setup_QF_UFLIA(st);
-            else if (!st.m_has_int)
+            else if (!st.m_has_int && st.m_num_non_linear == 0)
                 setup_QF_UFLRA();
             else
                 setup_unknown();
@@ -991,17 +991,17 @@ namespace smt {
         }
 
         if (st.num_theories() == 1 && st.m_has_arrays) {
-            setup_QF_AX();
+            setup_QF_AX(st);
             return;
         }
 
-        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_bv) {
+        if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && !st.m_has_ext_arrays && st.m_has_bv) {
             setup_QF_AUFBV();
             return;
         }
 
         if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_int) {
-            setup_QF_AUFLIA();
+            setup_QF_AUFLIA(st);
             return;
         }
 

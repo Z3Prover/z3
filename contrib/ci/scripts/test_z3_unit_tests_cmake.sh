@@ -13,6 +13,9 @@ set -o pipefail
 # Set CMake generator args
 source ${SCRIPT_DIR}/set_generator_args.sh
 
+# Sanitizer environment variables
+source ${SCRIPT_DIR}/sanitizer_env.sh
+
 cd "${Z3_BUILD_DIR}"
 
 function build_unit_tests() {

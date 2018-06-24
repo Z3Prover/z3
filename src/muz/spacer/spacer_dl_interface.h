@@ -45,39 +45,46 @@ class dl_interface : public datalog::engine_base {
 
 public:
     dl_interface(datalog::context& ctx);
-    ~dl_interface();
+    ~dl_interface() override;
 
-    lbool query(expr* query);
+    lbool query(expr* query) override;
 
-    lbool query_from_lvl(expr* query, unsigned lvl);
+    lbool query_from_lvl(expr* query, unsigned lvl) override;
 
-    void display_certificate(std::ostream& out) const;
+    void display_certificate(std::ostream& out) const override;
 
-    void collect_statistics(statistics& st) const;
+    void collect_statistics(statistics& st) const override;
 
-    void reset_statistics();
+    void reset_statistics() override;
 
-    expr_ref get_answer();
+    expr_ref get_answer() override;
 
-    expr_ref get_ground_sat_answer();
+    expr_ref get_ground_sat_answer() override;
 
-    void get_rules_along_trace(datalog::rule_ref_vector& rules);
+    void get_rules_along_trace(datalog::rule_ref_vector& rules) override;
 
-    unsigned get_num_levels(func_decl* pred);
+    unsigned get_num_levels(func_decl* pred) override;
 
-    expr_ref get_cover_delta(int level, func_decl* pred);
+    expr_ref get_cover_delta(int level, func_decl* pred) override;
 
-    void add_cover(int level, func_decl* pred, expr* property);
+    void add_cover(int level, func_decl* pred, expr* property) override;
 
-    void add_invariant(func_decl* pred, expr* property);
+    void add_invariant(func_decl* pred, expr* property) override;
 
-    expr_ref get_reachable(func_decl *pred);
+    expr_ref get_reachable(func_decl *pred) override;
 
-    void updt_params();
+    void updt_params() override;
 
-    model_ref get_model();
+    model_ref get_model() override;
 
-    proof_ref get_proof();
+    proof_ref get_proof() override;
+
+    void add_callback(void *state,
+                      const datalog::t_new_lemma_eh new_lemma_eh,
+                      const datalog::t_predecessor_eh predecessor_eh,
+                      const datalog::t_unfold_eh unfold_eh) override;
+
+    void add_constraint (expr *c, unsigned lvl) override;
 
 };
 }

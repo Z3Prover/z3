@@ -23,9 +23,9 @@
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
-#include "ast/proof_checker/proof_checker.h"
+#include "ast/proofs/proof_checker.h"
 #include "smt/smt_value_sort.h"
-#include "muz/base/proof_utils.h"
+#include "ast/proofs/proof_utils.h"
 #include "ast/scoped_proof.h"
 #include "muz/spacer/spacer_qe_project.h"
 #include "tactic/core/blast_term_ite_tactic.h"
@@ -34,7 +34,7 @@
 #include "util/luby.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_abstract.h"
-#include "ast/factor_equivs.h"
+#include "ast/rewriter/factor_equivs.h"
 
 
 namespace spacer {
@@ -46,11 +46,8 @@ void pred_transformer::legacy_frames::simplify_formulas(tactic& tac,
     ast_manager &m = m_pt.get_ast_manager();
     goal_ref g(alloc(goal, m, false, false, false));
     for (unsigned j = 0; j < v.size(); ++j) { g->assert_expr(v[j].get()); }
-    model_converter_ref mc;
-    proof_converter_ref pc;
-    expr_dependency_ref core(m);
     goal_ref_buffer result;
-    tac(g, result, mc, pc, core);
+    tac(g, result);
     SASSERT(result.size() == 1);
     goal* r = result[0];
     v.reset();

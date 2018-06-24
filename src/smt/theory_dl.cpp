@@ -51,7 +51,7 @@ namespace smt {
             m_util(u)
         {}
 
-        virtual app * mk_value_core(unsigned const & val, sort * s) {
+        app * mk_value_core(unsigned const & val, sort * s) override {
             return m_util.mk_numeral(val, s);
         }
     };
@@ -74,11 +74,11 @@ namespace smt {
             
             dl_value_proc(theory_dl& th, smt::enode* n) : m_th(th), m_node(n) {}
             
-            virtual void get_dependencies(buffer<smt::model_value_dependency> & result) {}
+            void get_dependencies(buffer<smt::model_value_dependency> & result) override {}
             
-            virtual app * mk_value(smt::model_generator & mg, ptr_vector<expr> & ) {
+            app * mk_value(smt::model_generator & mg, ptr_vector<expr> & ) override {
                 smt::context& ctx = m_th.get_context();
-                app* result = 0;
+                app* result = nullptr;
                 expr* n = m_node->get_owner();
                 sort* s = m_th.m().get_sort(n);
                 func_decl* r, *v;
@@ -111,9 +111,9 @@ namespace smt {
         }
 
 
-        virtual char const * get_name() const { return "datalog"; }
+        char const * get_name() const override { return "datalog"; }
 
-        virtual bool internalize_atom(app * atom, bool gate_ctx) {
+        bool internalize_atom(app * atom, bool gate_ctx) override {
             TRACE("theory_dl", tout << mk_pp(atom, m()) << "\n";);
             context& ctx = get_context();
             if (ctx.b_internalized(atom)) {
@@ -136,7 +136,7 @@ namespace smt {
             return false;
         }
 
-        virtual bool internalize_term(app * term) {
+        bool internalize_term(app * term) override {
             TRACE("theory_dl", tout << mk_pp(term, m()) << "\n";);
             if (u().is_finite_sort(term)) {
                 return mk_rep(term);
@@ -146,27 +146,27 @@ namespace smt {
             }
         }
 
-        virtual void new_eq_eh(theory_var v1, theory_var v2) {
+        void new_eq_eh(theory_var v1, theory_var v2) override {
             
         }
 
-        virtual void new_diseq_eh(theory_var v1, theory_var v2) {
+        void new_diseq_eh(theory_var v1, theory_var v2) override {
 
         }
 
-        virtual theory * mk_fresh(context * new_ctx) {
+        theory * mk_fresh(context * new_ctx) override {
             return alloc(theory_dl, new_ctx->get_manager());
         }
 
-        virtual void init_model(smt::model_generator & m) {
+        void init_model(smt::model_generator & m) override {
             m.register_factory(alloc(dl_factory, m_util, m.get_model()));
         }
         
-        virtual smt::model_value_proc * mk_value(smt::enode * n, smt::model_generator&) {
+        smt::model_value_proc * mk_value(smt::enode * n, smt::model_generator&) override {
             return alloc(dl_value_proc, *this, n);
         }
 
-        virtual void apply_sort_cnstr(enode * n, sort * s) {
+        void apply_sort_cnstr(enode * n, sort * s) override {
             app* term = n->get_owner();
             if (u().is_finite_sort(term)) {
                 mk_rep(term);
@@ -174,7 +174,7 @@ namespace smt {
         }
 
         
-        virtual void relevant_eh(app * n) {
+        void relevant_eh(app * n) override {
             if (u().is_finite_sort(n)) {
                 sort* s = m().get_sort(n);
                 func_decl* r, *v;
@@ -182,7 +182,7 @@ namespace smt {
                 
                 if (n->get_decl() != v) {
                     expr* rep = m().mk_app(r, n);
-                    uint64 vl;
+                    uint64_t vl;
                     if (u().is_numeral_ext(n, vl)) {
                         assert_cnstr(m().mk_eq(rep, mk_bv_constant(vl, s)));
                     }
@@ -194,7 +194,7 @@ namespace smt {
             }
         }
 
-        virtual void display(std::ostream & out) const {
+        void display(std::ostream & out) const override {
         }
 
 
@@ -204,8 +204,8 @@ namespace smt {
             if(!m_reps.find(s, r) || !m_vals.find(s,v)) {
                 SASSERT(!m_reps.contains(s));
                 sort* bv = b().mk_sort(64);
-                r = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_REP, 0, 0, 1, &s, bv);
-                v = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_ABS, 0, 0, 1, &bv, s);
+                r = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_REP, 0, nullptr, 1, &s, bv);
+                v = m().mk_func_decl(m_util.get_family_id(), datalog::OP_DL_ABS, 0, nullptr, 1, &bv, s);
                 m_reps.insert(s, r);
                 m_vals.insert(s, v);
                 add_trail(r);
@@ -218,7 +218,7 @@ namespace smt {
         bool mk_rep(app* n) {
             context & ctx     = get_context();
             unsigned num_args = n->get_num_args();
-            enode * e = 0;
+            enode * e = nullptr;
             for (unsigned i = 0; i < num_args; i++) {
                 ctx.internalize(n->get_arg(i), false);
             }
@@ -237,12 +237,12 @@ namespace smt {
             return true;
         }
 
-        app* mk_bv_constant(uint64 val, sort* s) {
+        app* mk_bv_constant(uint64_t val, sort* s) {
             return b().mk_numeral(rational(val, rational::ui64()), 64);
         }
 
         app* max_value(sort* s) {
-            uint64 sz;
+            uint64_t sz;
             VERIFY(u().try_get_size(s, sz));
             SASSERT(sz > 0);
             return mk_bv_constant(sz-1, s);

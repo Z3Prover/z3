@@ -48,10 +48,10 @@ bool is_unbounded(goal const & g) {
 
 class is_unbounded_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return is_unbounded(g);
     }
-    virtual ~is_unbounded_probe() {}
+    ~is_unbounded_probe() override {}
 };
 
 probe * mk_is_unbounded_probe() {
@@ -111,11 +111,7 @@ class add_bounds_tactic : public tactic {
         };
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+                        goal_ref_buffer & result) {
             tactic_report report("add-bounds", *g);
             bound_manager bm(m);
             expr_fast_mark1 visited;
@@ -142,33 +138,30 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(add_bounds_tactic, m, m_params);
     }
     
-    virtual ~add_bounds_tactic() {
+    ~add_bounds_tactic() override {
         dealloc(m_imp);
     }
     
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("add_bound_lower", CPK_NUMERAL, "(default: -2) lower bound to be added to unbounded variables.");
         r.insert("add_bound_upper", CPK_NUMERAL, "(default: 2) upper bound to be added to unbounded variables.");
     }
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(g, result, mc, pc, core);
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(g, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);
         dealloc(d);

@@ -35,7 +35,7 @@ static void tst1() {
             std::cout << i << ": " << a << "\n";
         }
     }
-    catch (z3_exception & ex) {
+    catch (const z3_exception & ex) {
         std::cout << ex.msg() << "\n";
     }
 }
@@ -43,8 +43,8 @@ static void tst1() {
 static void tst2() {
     mpff_manager m;
     scoped_mpff a(m), b(m);
-    m.set(a, static_cast<uint64>(100));
-    m.set(b, static_cast<int64>(-100));
+    m.set(a, static_cast<uint64_t>(100));
+    m.set(b, static_cast<int64_t>(-100));
     std::cout << "[test2], a: " << a << ", b: " << b << "\n";
 }
 
@@ -75,7 +75,7 @@ static void tst4() {
 static void tst5() {
     mpff_manager m;
     scoped_mpff a(m), b(m);
-    m.set(a, static_cast<uint64>(1) << 63);
+    m.set(a, static_cast<uint64_t>(1) << 63);
     m.display_raw(std::cout, a); std::cout << "\n";
     ENSURE(m.is_zero(b));
     ENSURE(m.lt(b, a));
@@ -117,7 +117,7 @@ static void tst7() {
 
 
 #define MK_BIN_OP(OP)                                                   \
-static void tst_ ## OP ## _core(int64 n1, uint64 d1, int64 n2, uint64 d2, unsigned precision = 2, unsigned exp = 0) { \
+static void tst_ ## OP ## _core(int64_t n1, uint64_t d1, int64_t n2, uint64_t d2, unsigned precision = 2, unsigned exp = 0) { \
     TRACE("mpff_bug", tout << n1 << "/" << d1 << ", " << n2 << "/" << d2 << "\n";); \
     unsynch_mpq_manager qm;                                             \
     scoped_mpq  qa(qm), qb(qm), qc(qm), qt(qm);                         \
@@ -207,7 +207,7 @@ static void tst_set64(unsigned N, unsigned prec) {
     mpff_manager fm(prec);
     scoped_mpff a(fm);
 
-    fm.set(a, static_cast<int64>(INT64_MAX));
+    fm.set(a, static_cast<int64_t>(INT64_MAX));
     ENSURE(fm.is_int64(a));
     ENSURE(fm.is_uint64(a));
     fm.inc(a);
@@ -221,7 +221,7 @@ static void tst_set64(unsigned N, unsigned prec) {
     ENSURE(fm.is_int64(a));
     ENSURE(fm.is_uint64(a));
 
-    fm.set(a, static_cast<int64>(INT64_MIN));
+    fm.set(a, static_cast<int64_t>(INT64_MIN));
     ENSURE(fm.is_int64(a));
     ENSURE(!fm.is_uint64(a));
     fm.dec(a);
@@ -235,7 +235,7 @@ static void tst_set64(unsigned N, unsigned prec) {
     ENSURE(fm.is_int64(a));
     ENSURE(!fm.is_uint64(a));
 
-    fm.set(a, static_cast<uint64>(UINT64_MAX));
+    fm.set(a, static_cast<uint64_t>(UINT64_MAX));
     ENSURE(fm.is_uint64(a));
     ENSURE(!fm.is_int64(a));
     fm.inc(a);
@@ -250,23 +250,23 @@ static void tst_set64(unsigned N, unsigned prec) {
 
     for (unsigned i = 0; i < N; i++) {
         {
-            uint64 v = (static_cast<uint64>(rand()) << 32) + static_cast<uint64>(rand()); 
+            uint64_t v = (static_cast<uint64_t>(rand()) << 32) + static_cast<uint64_t>(rand()); 
             fm.set(a, v);
             ENSURE(fm.is_uint64(a));
             
-            v = (static_cast<uint64>(rand() % 3) << 32) + static_cast<uint64>(rand()); 
+            v = (static_cast<uint64_t>(rand() % 3) << 32) + static_cast<uint64_t>(rand()); 
             fm.set(a, v);
             ENSURE(fm.is_uint64(a));
         }
         {
-            int64 v = (static_cast<uint64>(rand() % INT_MAX) << 32) + static_cast<uint64>(rand());
+            int64_t v = (static_cast<uint64_t>(rand() % INT_MAX) << 32) + static_cast<uint64_t>(rand());
             if (rand()%2 == 0)
                 v = -v;
             fm.set(a, v);
             ENSURE(fm.is_int64(a));
 
 
-            v = (static_cast<uint64>(rand() % 3) << 32) + static_cast<uint64>(rand());
+            v = (static_cast<uint64_t>(rand() % 3) << 32) + static_cast<uint64_t>(rand());
             if (rand()%2 == 0)
                 v = -v;
             fm.set(a, v);
@@ -336,7 +336,7 @@ static void tst_power(unsigned prec = 2) {
     m.set(a, UINT_MAX);
     m.inc(a);
     ENSURE(m.is_power_of_two(a, k) && k == 32);
-    ENSURE(m.get_uint64(a) == static_cast<uint64>(UINT_MAX) + 1);
+    ENSURE(m.get_uint64(a) == static_cast<uint64_t>(UINT_MAX) + 1);
     m.power(a, 2, a);
     ENSURE(m.is_power_of_two(a, k) && k == 64);
     m.power(a, 4, a);
@@ -432,7 +432,7 @@ static void tst_limits(unsigned prec) {
     m.round_to_plus_inf();
     bool overflow = false;
     try { m.inc(a); }
-    catch (mpff_manager::overflow_exception) { overflow = true; }
+    catch (const mpff_manager::overflow_exception &) { overflow = true; }
     VERIFY(overflow);
     m.set_max(a);
     m.dec(a);
@@ -446,7 +446,7 @@ static void tst_limits(unsigned prec) {
     ENSURE(m.eq(a, b));
     overflow = true;
     try { m.dec(a); }
-    catch (mpff_manager::overflow_exception) { overflow = true; }
+    catch (const mpff_manager::overflow_exception &) { overflow = true; }
     ENSURE(overflow);
     m.round_to_plus_inf();
     m.set_min(a);
@@ -538,7 +538,7 @@ static void tst_add_corner(unsigned prec) {
 }
 #endif
 
-static void tst_decimal(int64 n, uint64 d, bool to_plus_inf, unsigned prec, char const * expected, unsigned decimal_places = UINT_MAX) {
+static void tst_decimal(int64_t n, uint64_t d, bool to_plus_inf, unsigned prec, char const * expected, unsigned decimal_places = UINT_MAX) {
     mpff_manager m(prec);
     scoped_mpff a(m);
     m.set_rounding(to_plus_inf);
@@ -567,7 +567,7 @@ static void tst_decimal() {
     tst_decimal(-32, 5, true, 2, "-6.39999999999999999965305530480463858111761510372161865234375");
 }
 
-static void tst_prev_power_2(int64 n, uint64 d, unsigned expected) {
+static void tst_prev_power_2(int64_t n, uint64_t d, unsigned expected) {
     mpff_manager m;
     scoped_mpff a(m);
     m.set(a, n, d);
@@ -598,7 +598,7 @@ static void tst_div(unsigned prec) {
     scoped_mpff a(m), b(m), c(m);
     m.round_to_plus_inf();
     m.set(a, 1);
-    m.set(b, static_cast<uint64>(UINT64_MAX));
+    m.set(b, static_cast<uint64_t>(UINT64_MAX));
     m.div(a, b, c);
     m.display_raw(std::cout, a); std::cout << "\n";
     m.display_raw(std::cout, b); std::cout << "\n";

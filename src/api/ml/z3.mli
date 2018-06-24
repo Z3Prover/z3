@@ -536,7 +536,7 @@ sig
       @return A Term with the given value and sort *)
   val mk_numeral_string : context -> string -> Sort.sort -> expr
 
-  (** Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
+  (** Create a numeral of a given sort. This function can be used to create numerals that fit in a machine integer.
       It is slightly faster than [MakeNumeral] since it is not necessary to parse a string.
       @return A Term with the given value and sort *)
   val mk_numeral_int : context -> int -> Sort.sort -> expr
@@ -667,7 +667,7 @@ sig
   end
 
 
-  (** The de-Burijn index of a bound variable.
+  (** The de-Bruijn index of a bound variable.
 
       Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain
       the meaning of de-Bruijn indices by indicating the compilation process from
@@ -830,7 +830,7 @@ sig
 
   (** Maps f on the argument arrays.
 
-      Eeach element of [args] must be of an array sort [[domain_i -> range_i]].
+      Each element of [args] must be of an array sort [[domain_i -> range_i]].
       The function declaration [f] must have type [ range_1 .. range_n -> range].
       [v] must have sort range. The sort of the result is [[domain_i -> range]].
       {!Z3Array.mk_sort}
@@ -962,7 +962,7 @@ sig
 
       Filter (restrict) a relation with respect to a predicate.
       The first argument is a relation.
-      The second argument is a predicate with free de-Brujin indices
+      The second argument is a predicate with free de-Bruijn indices
       corresponding to the columns of the relation.
       So the first column in the relation has index 0. *)
   val is_filter : Expr.expr -> bool
@@ -2085,7 +2085,7 @@ sig
   (** Indicates whether an expression is a floating-point lt expression *)
   val is_lt : Expr.expr -> bool
 
-  (** Indicates whether an expression is a floating-point geqexpression *)
+  (** Indicates whether an expression is a floating-point geq expression *)
   val is_geq : Expr.expr -> bool
 
   (** Indicates whether an expression is a floating-point gt expression *)
@@ -2233,7 +2233,7 @@ sig
   (** Conversion of a 2's complement unsigned bit-vector term into a term of FloatingPoint sort. *)
   val mk_to_fp_unsigned : context -> Expr.expr -> Expr.expr -> Sort.sort -> Expr.expr
 
-  (** C1onversion of a floating-point term into an unsigned bit-vector. *)
+  (** Conversion of a floating-point term into an unsigned bit-vector. *)
   val mk_to_ubv : context -> Expr.expr -> Expr.expr -> int -> Expr.expr
 
   (** Conversion of a floating-point term into a signed bit-vector. *)
@@ -2362,7 +2362,7 @@ sig
 
   (** Indicates whether the term is a proof by condensed transitivity of a relation
 
-      Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+      Condensed transitivity proof.
       It combines several symmetry and transitivity proofs.
       Example:
       T1: (R a b)
@@ -2385,7 +2385,7 @@ sig
       Tn: (R t_n s_n)
       [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))
       Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-      That is, reflexivity proofs are supressed to save space. *)
+      That is, reflexivity proofs are suppressed to save space. *)
   val is_monotonicity : Expr.expr -> bool
 
   (** Indicates whether the term is a quant-intro proof
@@ -2417,7 +2417,7 @@ sig
       [and-elim T1]: l_i *)
   val is_and_elimination : Expr.expr -> bool
 
-  (** Indicates whether the term is a proof by eliminiation of not-or
+  (** Indicates whether the term is a proof by elimination of not-or
 
       Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
       T1: (not (or l_1 ... l_n))
@@ -2443,27 +2443,17 @@ sig
   (** Indicates whether the term is a proof by rewriting
 
       A proof for rewriting an expression t into an expression s.
-      This proof object is used if the parameter PROOF_MODE is 1.
       This proof object can have n antecedents.
       The antecedents are proofs for equalities used as substitution rules.
-      The object is also used in a few cases if the parameter PROOF_MODE is 2.
-      The cases are:
+      The object is also used in a few cases. The cases are:
       - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
-      - When converting bit-vectors to Booleans (BIT2BOOL=true)
-      - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true) *)
+      - When converting bit-vectors to Booleans (BIT2BOOL=true) *)
   val is_rewrite_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pulling quantifiers out.
 
       A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents. *)
   val is_pull_quant : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for pulling quantifiers out.
-
-      A proof for (iff P Q) where Q is in prenex normal form.
-      This proof object is only used if the parameter PROOF_MODE is 1.
-      This proof object has no antecedents *)
-  val is_pull_quant_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pushing quantifiers in.
 
@@ -2500,7 +2490,7 @@ sig
       A proof of (or (not (forall (x) (P x))) (P a)) *)
   val is_quant_inst : Expr.expr -> bool
 
-  (** Indicates whether the term is a hypthesis marker.
+  (** Indicates whether the term is a hypothesis marker.
       Mark a hypothesis in a natural deduction style proof. *)
   val is_hypothesis : Expr.expr -> bool
 
@@ -2657,22 +2647,6 @@ sig
       [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
       (and (or r_1 r_2) (or r_1' r_2'))) *)
   val is_nnf_neg : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-
-      A proof for (~ P Q) where Q is in negation normal form.
-
-      This proof object is only used if the parameter PROOF_MODE is 1.
-
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO. *)
-  val is_nnf_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-
-      A proof for (~ P Q) where Q is in conjunctive normal form.
-      This proof object is only used if the parameter PROOF_MODE is 1.
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.           *)
-  val is_cnf_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for a Skolemization step
 
@@ -2882,7 +2856,7 @@ sig
 
   (** The uninterpreted sorts that the model has an interpretation for.
 
-      Z3 also provides an intepretation for uninterpreted sorts used in a formula.
+      Z3 also provides an interpretation for uninterpreted sorts used in a formula.
       The interpretation for a sort is a finite set of distinct values. We say this finite set is
       the "universe" of the sort.
       {!get_num_sorts}
@@ -2990,11 +2964,6 @@ sig
     (** Retrieves a subgoal from the apply_result. *)
     val get_subgoal : apply_result -> int -> Goal.goal
 
-    (** Convert a model for a subgoal into a model for the original
-        goal [g], that the ApplyResult was obtained from.
-        #return A model for [g] *)
-    val convert_model : apply_result -> int -> Model.model -> Model.model
-
     (** A string representation of the ApplyResult. *)
     val to_string : apply_result -> string
   end
@@ -3056,7 +3025,7 @@ sig
   (** Create a tactic that fails if the probe evaluates to false. *)
   val fail_if : context -> Probe.probe -> tactic
 
-  (** Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
+  (** Create a tactic that fails if the goal is not trivially satisfiable (i.e., empty)
       or trivially unsatisfiable (i.e., contains `false'). *)
   val fail_if_not_decided : context -> tactic
 
@@ -3105,7 +3074,7 @@ sig
     (** True if the entry is float-valued. *)
     val is_float : statistics_entry -> bool
 
-    (** The string representation of the the entry's value. *)
+    (** The string representation of the entry's value. *)
     val to_string_value : statistics_entry -> string
 
     (** The string representation of the entry (key and value) *)
@@ -3370,7 +3339,7 @@ sig
   (** Assert a constraints into the optimize solver. *)
   val add : optimize -> Expr.expr list -> unit
 
-  (** Asssert a soft constraint.
+  (** Assert a soft constraint.
       Supply integer weight and string that identifies a group
       of soft constraints. *)
   val add_soft : optimize -> Expr.expr -> string -> Symbol.symbol -> handle
@@ -3441,99 +3410,15 @@ sig
       @return A string representation of the benchmark. *)
   val benchmark_to_smtstring : context -> string -> string -> string -> string -> Expr.expr list -> Expr.expr -> string
 
-  (** Parse the given string using the SMT-LIB parser.
-
-      The symbol table of the parser can be initialized using the given sorts and declarations.
-      The symbols in the arrays in the third and fifth argument
-      don't need to match the names of the sorts and declarations in the arrays in the fourth
-      and sixth argument. This is a useful feature since we can use arbitrary names to
-      reference sorts and declarations. *)
-  val parse_smtlib_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
-
-  (** Parse the given file using the SMT-LIB parser.
-      {!parse_smtlib_string} *)
-  val parse_smtlib_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
-
-  (** The number of SMTLIB formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_formulas : context -> int
-
-  (** The formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_formulas : context -> Expr.expr list
-
-  (** The number of SMTLIB assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_assumptions : context -> int
-
-  (** The assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_assumptions : context -> Expr.expr list
-
-  (** The number of SMTLIB declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_decls : context -> int
-
-  (** The declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_decls : context -> FuncDecl.func_decl list
-
-  (** The number of SMTLIB sorts parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_num_smtlib_sorts : context -> int
-
-  (** The sort declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_sorts : context -> Sort.sort list
-
   (** Parse the given string using the SMT-LIB2 parser.
 
-      {!parse_smtlib_string}
       @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
   val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
 
-  (** Parse the given file using the SMT-LIB2 parser.
-      {!parse_smtlib2_string} *)
+  (** Parse the given file using the SMT-LIB2 parser. *)
   val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
 end
 
-(** Interpolation *)
-module Interpolation :
-sig
-
-  (** Create an AST node marking a formula position for interpolation.
-      The expression must have Boolean sort. *)
-  val mk_interpolant : context -> Expr.expr -> Expr.expr
-
-  (** The interpolation context is suitable for generation of interpolants.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val mk_interpolation_context : (string * string) list -> context
-
-  (** Gets an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> Expr.expr list
-
-  (** Computes an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val compute_interpolant : context -> Expr.expr -> Params.params -> (Z3enums.lbool * Expr.expr list option * Model.model option)
-
-  (** Retrieves an interpolation profile.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolation_profile : context -> string
-
-  (** Read an interpolation problem from file.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val read_interpolation_problem : context -> string -> (Expr.expr list * int list * Expr.expr list)
-
-  (** Check the correctness of an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val check_interpolant : context -> int -> Expr.expr list -> int list -> Expr.expr list -> int -> Expr.expr list -> unit
-
-  (** Write an interpolation problem to file suitable for reading with
-      Z3_read_interpolation_problem.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val write_interpolation_problem : context -> int -> Expr.expr list -> int list -> string -> int -> Expr.expr list -> unit
-
-end
 
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.
 

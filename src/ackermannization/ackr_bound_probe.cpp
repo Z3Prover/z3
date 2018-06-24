@@ -45,7 +45,7 @@ class ackr_bound_probe : public probe {
             if (a->get_num_args() == 0) return;
             if (!m_ackr_helper.should_ackermannize(a)) return;
             func_decl* const fd = a->get_decl();
-            app_set* ts = 0;
+            app_set* ts = nullptr;
             if (!m_fun2terms.find(fd, ts)) {
                 ts = alloc(app_set);
                 m_fun2terms.insert(fd, ts);
@@ -57,7 +57,7 @@ class ackr_bound_probe : public probe {
 public:
     ackr_bound_probe() {}
 
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         proc p(g.m());
         unsigned sz = g.size();
         expr_fast_mark1 visited;

@@ -29,7 +29,6 @@ enum quick_checker_mode {
 };
 
 struct qi_params {
-    bool               m_qi_ematching;
     std::string        m_qi_cost;
     std::string        m_qi_new_gen;
     double             m_qi_eager_threshold;
@@ -99,7 +98,7 @@ struct qi_params {
         m_mbqi_max_iterations(1000),
         m_mbqi_trace(false),
         m_mbqi_force_template(10),
-        m_mbqi_id(0)  
+        m_mbqi_id(nullptr)
     {
         updt_params(p);
     }

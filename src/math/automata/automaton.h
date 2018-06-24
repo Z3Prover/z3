@@ -43,7 +43,7 @@ public:
         unsigned m_src;
         unsigned m_dst;        
     public:
-        move(M& m, unsigned s, unsigned d, T* t = 0): m(m), m_t(t), m_src(s), m_dst(d) {
+        move(M& m, unsigned s, unsigned d, T* t = nullptr): m(m), m_t(t), m_src(s), m_dst(d) {
             if (t) m.inc_ref(t);
         }
         ~move() {
@@ -69,7 +69,7 @@ public:
         unsigned src() const { return m_src; }
         T* t() const { return m_t; }
 
-        bool is_epsilon() const { return m_t == 0; }
+        bool is_epsilon() const { return m_t == nullptr; }
     };
     typedef vector<move> moves;
 private:
@@ -407,7 +407,7 @@ public:
                             mvs1.push_back(move(m, mv1.src(), dst1, t));
                         }
                         for (move const& mv1 : mvs1) {
-                            remove(mv1.src(), dst, 0);
+                            remove(mv1.src(), dst, nullptr);
                             add(mv1);
                         }
                         remove(dst, dst1, t);    
@@ -431,7 +431,7 @@ public:
                     else {
                         continue;
                     }                    
-                    remove(src, dst, 0);
+                    remove(src, dst, nullptr);
                     --j;
                 }
             }

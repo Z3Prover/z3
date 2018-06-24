@@ -31,7 +31,7 @@ Revision History:
 #include "muz/spacer/spacer_farkas_learner.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_ll_pp.h"
-#include "muz/base/proof_utils.h"
+#include "ast/proofs/proof_utils.h"
 #include "ast/reg_decl_plugins.h"
 #include "smt/smt_farkas_util.h"
 
@@ -231,8 +231,8 @@ void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector
                     hyps = hyps2;
                 } else {
                     expr_set* hyps3 = alloc(expr_set);
-                    datalog::set_union(*hyps3, *hyps);
-                    datalog::set_union(*hyps3, *hyps2);
+                    set_union(*hyps3, *hyps);
+                    set_union(*hyps3, *hyps2);
                     hyps = hyps3;
                     hyprefs.push_back(hyps);
                 }
@@ -291,7 +291,7 @@ void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector
         case PR_LEMMA: {
             expr_set* hyps2 = alloc(expr_set);
             hyprefs.push_back(hyps2);
-            datalog::set_union(*hyps2, *hyps);
+            set_union(*hyps2, *hyps);
             hyps = hyps2;
             expr* fml = m.get_fact(p);
             hyps->remove(fml);

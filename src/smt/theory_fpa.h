@@ -43,16 +43,16 @@ namespace smt {
             value_factory(m, fid),
             m_util(m) {}
 
-        virtual ~fpa_value_factory() {}
+        ~fpa_value_factory() override {}
 
-        virtual expr * get_some_value(sort * s) {
+        expr * get_some_value(sort * s) override {
             mpf_manager & mpfm = m_util.fm();
             scoped_mpf q(mpfm);
             mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
             return m_util.mk_value(q);
         }
 
-        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+        bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
             mpf_manager & mpfm = m_util.fm();
             scoped_mpf q(mpfm);
             mpfm.set(q, m_util.get_ebits(s), m_util.get_sbits(s), 0);
@@ -62,8 +62,8 @@ namespace smt {
             return true;
         }
 
-        virtual expr * get_fresh_value(sort * s) { NOT_IMPLEMENTED_YET(); }
-        virtual void register_value(expr * n) { /* Ignore */ }
+        expr * get_fresh_value(sort * s) override { return get_some_value(s); }
+        void register_value(expr * n) override { /* Ignore */ }
 
         app * mk_value(mpf const & x) {
             return m_util.mk_value(x);
@@ -81,8 +81,8 @@ namespace smt {
                 fpa2bv_converter(m),
                 m_th(*th) {}
             virtual ~fpa2bv_converter_wrapped() {}
-            virtual void mk_const(func_decl * f, expr_ref & result);
-            virtual void mk_rm_const(func_decl * f, expr_ref & result);
+            void mk_const(func_decl * f, expr_ref & result) override;
+            void mk_rm_const(func_decl * f, expr_ref & result) override;
         };
 
         class fpa_value_proc : public model_value_proc {
@@ -100,15 +100,15 @@ namespace smt {
                 m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util),
                 m_ebits(ebits), m_sbits(sbits) {}
 
-            virtual ~fpa_value_proc() {}
+            ~fpa_value_proc() override {}
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
 
-            virtual void get_dependencies(buffer<model_value_dependency> & result) {
+            void get_dependencies(buffer<model_value_dependency> & result) override {
                 result.append(m_deps);
             }
 
-            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
+            app * mk_value(model_generator & mg, ptr_vector<expr> & values) override;
         };
 
         class fpa_rm_value_proc : public model_value_proc {
@@ -124,12 +124,12 @@ namespace smt {
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
 
-            virtual void get_dependencies(buffer<model_value_dependency> & result) {
+            void get_dependencies(buffer<model_value_dependency> & result) override {
                 result.append(m_deps);
             }
 
-            virtual ~fpa_rm_value_proc() {}
-            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
+            ~fpa_rm_value_proc() override {}
+            app * mk_value(model_generator & mg, ptr_vector<expr> & values) override;
         };
 
     protected:
@@ -145,32 +145,32 @@ namespace smt {
         bool                      m_is_initialized;
         obj_hashtable<func_decl>  m_is_added_to_model;
 
-        virtual final_check_status final_check_eh();
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term);
-        virtual void apply_sort_cnstr(enode * n, sort * s);
-        virtual void new_eq_eh(theory_var, theory_var);
-        virtual void new_diseq_eh(theory_var, theory_var);
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual void reset_eh();
-        virtual theory* mk_fresh(context* new_ctx);
-        virtual char const * get_name() const { return "fpa"; }
+        final_check_status final_check_eh() override;
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void apply_sort_cnstr(enode * n, sort * s) override;
+        void new_eq_eh(theory_var, theory_var) override;
+        void new_diseq_eh(theory_var, theory_var) override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        void reset_eh() override;
+        theory* mk_fresh(context* new_ctx) override;
+        char const * get_name() const override { return "fpa"; }
 
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
-        void assign_eh(bool_var v, bool is_true);
-        virtual void relevant_eh(app * n);
-        virtual void init_model(model_generator & m);
-        virtual void finalize_model(model_generator & mg);
+        void assign_eh(bool_var v, bool is_true) override;
+        void relevant_eh(app * n) override;
+        void init_model(model_generator & m) override;
+        void finalize_model(model_generator & mg) override;
 
     public:
         theory_fpa(ast_manager & m);
-        virtual ~theory_fpa();
+        ~theory_fpa() override;
 
-        virtual void init(context * ctx);
+        void init(context * ctx) override;
 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
 
     protected:
         expr_ref mk_side_conditions();

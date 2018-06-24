@@ -30,7 +30,7 @@ struct expr2subpaving::imp {
     struct frame {
         app *     m_curr;
         unsigned  m_idx;
-        frame():m_curr(0), m_idx(0) {}
+        frame():m_curr(nullptr), m_idx(0) {}
         frame(app * t):m_curr(t), m_idx(0) {}
     };
 
@@ -62,7 +62,7 @@ struct expr2subpaving::imp {
         m_cached_numerators(m_qm),
         m_cached_denominators(m_qm) {
 
-        if (e2v == 0) {
+        if (e2v == nullptr) {
             m_expr2var       = alloc(expr2var, m);
             m_expr2var_owner = true;
         }
@@ -107,7 +107,7 @@ struct expr2subpaving::imp {
             x = s().mk_var(is_int);
             m_expr2var->insert(t, x);
             if (x >= m_var2expr.size())
-                m_var2expr.resize(x+1, 0);
+                m_var2expr.resize(x+1, nullptr);
             m_var2expr.set(x, t);
         }
         return x;

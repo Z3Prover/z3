@@ -1,3 +1,4 @@
+
 /**
 Copyright (c) 2012-2014 Microsoft Corporation
    
@@ -120,6 +121,7 @@ public class Solver extends Z3Object {
         }
     }
 
+
     /** 
      *  Assert multiple constraints into the solver, and track them (in the
      * unsat) core
@@ -169,6 +171,23 @@ public class Solver extends Z3Object {
         Native.solverAssertAndTrack(getContext().nCtx(), getNativeObject(),
                 constraint.getNativeObject(), p.getNativeObject());
     }
+
+    /// <summary>
+    /// Load solver assertions from a file.
+    /// </summary>
+    public void fromFile(String file) 
+    {
+        Native.solverFromFile(getContext().nCtx(), getNativeObject(), file);	
+    }
+
+    /// <summary>
+    /// Load solver assertions from a string.
+    /// </summary>
+    public void fromString(String str) 
+    {
+        Native.solverFromString(getContext().nCtx(), getNativeObject(), str);	
+    }
+
 
     /**
      * The number of assertions in the solver.

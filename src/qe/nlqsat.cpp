@@ -205,8 +205,7 @@ namespace qe {
             nlsat::scoped_literal_vector new_result(m_solver);
             result.reset();
             // project quantified Boolean variables.
-            for (unsigned i = 0; i < m_asms.size(); ++i) {
-                nlsat::literal lit = m_asms[i];
+            for (nlsat::literal lit : m_asms) {
                 if (!m_b2a.contains(lit.var()) || fvars.contains(lit.var())) {
                     result.push_back(lit);
                 }
@@ -215,12 +214,13 @@ namespace qe {
             // project quantified real variables.
             // They are sorted by size, so we project the largest variables first to avoid 
             // renaming variables. 
-            for (unsigned i = vars.size(); i > 0;) {
-                --i;
+            for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
+                TRACE("qe", m_solver.display(tout << "project: ", vars[i]) << "\n";);
                 ex.project(vars[i], result.size(), result.c_ptr(), new_result);
                 result.swap(new_result);
-                TRACE("qe", m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
+                TRACE("qe", m_solver.display(tout, vars[i]) << ": ";
+                      m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
             }
             negate_clause(result);
         }
@@ -555,7 +555,7 @@ namespace qe {
         }
 
 
-        void reset() {
+        void reset() override {
             //m_solver.reset();
             m_asms.reset();
             m_cached_asms.reset();
@@ -596,6 +596,7 @@ namespace qe {
         }
 
         void display(std::ostream& out) {
+            out << "level " << level() << "\n";
             display_preds(out);
             display_assumptions(out);
             m_solver.display(out << "solver:\n");
@@ -658,11 +659,9 @@ namespace qe {
             fml = m.mk_iff(is_true, fml);
             goal_ref g = alloc(goal, m);
             g->assert_expr(fml);
-            proof_converter_ref pc;
             expr_dependency_ref core(m);
-            model_converter_ref mc;
             goal_ref_buffer result;
-            (*m_nftactic)(g, result, mc, pc, core);
+            (*m_nftactic)(g, result);
             SASSERT(result.size() == 1);
             TRACE("qe", result[0]->display(tout););
             g2s(*result[0], m_params, m_solver, m_a2b, m_t2x);
@@ -684,7 +683,7 @@ namespace qe {
                     }
                     else if (m_t2x.is_var(v)) {
                         nlsat::var w = m_t2x.to_var(v);
-                        TRACE("qe", tout << mk_pp(v, m) << " |-> " << w << "\n";);
+                        TRACE("qe", tout << mk_pp(v, m) << " |-> x" << w << "\n";);
                         m_bound_rvars.back().push_back(w);
                         m_rvar2level.setx(w, lvl, max_level());
                     }
@@ -726,13 +725,11 @@ namespace qe {
         }
 
         void init_var2expr() {
-            expr2var::iterator it = m_t2x.begin(), end = m_t2x.end();
-            for (; it != end; ++it) {
-                m_x2t.insert(it->m_value, it->m_key);
+            for (auto const& kv : m_t2x) {
+                m_x2t.insert(kv.m_value, kv.m_key);
             }
-            it = m_a2b.begin(), end = m_a2b.end();
-            for (; it != end; ++it) {
-                m_b2a.insert(it->m_value, it->m_key);
+            for (auto const& kv : m_a2b) {
+                m_b2a.insert(kv.m_value, kv.m_key);
             }
         }
 
@@ -743,10 +740,9 @@ namespace qe {
             bool ok = true;
             model_ref md = alloc(model, m);
             arith_util util(m);
-            expr2var::iterator it = m_t2x.begin(), end = m_t2x.end();
-            for (; it != end; ++it) {
-                nlsat::var x = it->m_value;
-                expr * t = it->m_key;
+            for (auto const& kv : m_t2x) {
+                nlsat::var x = kv.m_value;
+                expr * t = kv.m_key;
                 if (!is_uninterp_const(t) || !m_free_vars.contains(t) || m_aux_vars.contains(t))
                     continue;
                 expr * v;
@@ -762,11 +758,10 @@ namespace qe {
                 }
                 md->register_decl(to_app(t)->get_decl(), v);
             }
-            it = m_a2b.begin(), end = m_a2b.end();
-            for (; it != end; ++it) {
-                expr * a = it->m_key;
-                nlsat::bool_var b = it->m_value;
-                if (a == 0 || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
+            for (auto const& kv : m_a2b) {
+                expr * a = kv.m_key;
+                nlsat::bool_var b = kv.m_value;
+                if (a == nullptr || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
                     continue;
                 lbool val = m_bmodel0.get(b, l_undef);
                 if (val == l_undef)
@@ -782,8 +777,8 @@ namespace qe {
             m(m),
             m_mode(mode),
             m_params(p),
-            m_solver(m.limit(), p),
-            m_nftactic(0),
+            m_solver(m.limit(), p, true),
+            m_nftactic(nullptr),
             m_rmodel(m_solver.am()),
             m_rmodel0(m_solver.am()),
             m_valid_model(false),
@@ -798,30 +793,26 @@ namespace qe {
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 
-        virtual ~nlqsat() {
+        ~nlqsat() override {
         }
 
-        void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
             params_ref p2(p);
             p2.set_bool("factor", false);
             m_solver.updt_params(p2);
         }
         
-        void collect_param_descrs(param_descrs & r) {
+        void collect_param_descrs(param_descrs & r) override {
         }
 
         
         void operator()(/* in */  goal_ref const & in, 
-                        /* out */ goal_ref_buffer & result, 
-                        /* out */ model_converter_ref & mc, 
-                        /* out */ proof_converter_ref & pc,
-                        /* out */ expr_dependency_ref & core) {
+                        /* out */ goal_ref_buffer & result) override {
 
             tactic_report report("nlqsat-tactic", *in);
 
             ptr_vector<expr> fmls;
             expr_ref fml(m);
-            mc = 0; pc = 0; core = 0;
             in->get_formulas(fmls);
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             if (m_mode == elim_t) {
@@ -852,7 +843,9 @@ namespace qe {
                 in->inc_depth();
                 result.push_back(in.get());
                 if (in->models_enabled()) {
+                    model_converter_ref mc;
                     VERIFY(mk_model(mc));
+                    in->add(mc.get());
                 }
                 break;
             case l_undef:
@@ -863,197 +856,29 @@ namespace qe {
         }
 
 
-        void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             st.copy(m_st);
             st.update("qsat num rounds", m_stats.m_num_rounds); 
         }
 
-        void reset_statistics() {
+        void reset_statistics() override {
             m_stats.reset();
             m_solver.reset_statistics();
         }
 
-        void cleanup() {
+        void cleanup() override {
             reset();
         }
         
-        void set_logic(symbol const & l) {
+        void set_logic(symbol const & l) override {
         }
         
-        void set_progress_callback(progress_callback * callback) {
+        void set_progress_callback(progress_callback * callback) override {
         }
         
-        tactic * translate(ast_manager & m) {
+        tactic * translate(ast_manager & m) override {
             return alloc(nlqsat, m, m_mode, m_params);
         }
-
-#if 0        
-
-        /**
-         
-           Algorithm:
-           I := true
-           while there is M, such that M |= ~B & I:
-              find P, such that M => P => exists y . ~B & I
-              ; forall y B => ~P
-              C := core of P with respect to A
-              ; A => ~ C => ~ P 
-              I := I & ~C
-
-
-           Alternative Algorithm: 
-           R := false
-           while there is M, such that M |= A & ~R:
-              find I, such that M => I => forall y . B
-              R := R | I              
-              
-         */
-
-        lbool interpolate(expr* a, expr* b, expr_ref& result) {
-            SASSERT(m_mode == interp_t);
-            
-            reset();
-            app_ref enableA(m), enableB(m);
-            expr_ref A(m), B(m), fml(m);
-            expr_ref_vector fmls(m), answer(m);
-
-            // varsB are private to B.
-            nlsat::var_vector vars;
-            uint_set fvars;
-            private_vars(a, b, vars, fvars);
-            
-            enableA = m.mk_const(symbol("#A"), m.mk_bool_sort());
-            enableB = m.mk_not(enableA);
-            A = m.mk_implies(enableA, a);
-            B = m.mk_implies(enableB, m.mk_not(b));
-            fml = m.mk_and(A, B);
-            hoist(fml);
-
-            
-
-            nlsat::literal _enableB = nlsat::literal(m_a2b.to_var(enableB), false);
-            nlsat::literal _enableA = ~_enableB;
-
-            while (true) {
-                m_mode = qsat_t;
-                // enable B
-                m_assumptions.reset();
-                m_assumptions.push_back(_enableB);
-                lbool is_sat = check_sat();
-
-                switch (is_sat) {
-                case l_undef:
-                    return l_undef;
-                case l_true:                    
-                    break;
-                case l_false:
-                    result = mk_and(answer);
-                    return l_true;
-                }
-
-                // disable B, enable A
-                m_assumptions.reset();
-                m_assumptions.push_back(_enableA);
-                // add blocking clause to solver.
-
-                nlsat::scoped_literal_vector core(m_solver);
-                
-                m_mode = elim_t;
-
-                mbp(vars, fvars, core);
-
-                // minimize core.
-                nlsat::literal_vector _core(core.size(), core.c_ptr());
-                _core.push_back(_enableA);
-                is_sat = m_solver.check(_core); // TBD: only for quantifier-free A. Generalize output of elim_t to be a core.
-                switch (is_sat) {
-                case l_undef: 
-                    return l_undef;
-                case l_true:
-                    UNREACHABLE();
-                case l_false:
-                    core.reset();
-                    core.append(_core.size(), _core.c_ptr());
-                    break;
-                }
-                negate_clause(core);
-                // keep polarity of enableA, such that clause is only 
-                // used when checking satisfiability of B.
-                for (unsigned i = 0; i < core.size(); ++i) {
-                    if (core[i].var() == _enableA.var()) core.set(i, ~core[i]);
-                }
-                add_clause(core);                   // Invariant is added as assumption for B.
-                answer.push_back(clause2fml(core)); // TBD: remove answer literal.
-            }
-        }
-
-        /**
-           \brief extract variables that are private to a (not used in b).
-           vars cover the real variables, and fvars cover the Boolean variables.
-
-           TBD: We want fvars to be the complement such that returned core contains
-                Shared boolean variables, but not the ones private to B.
-         */
-        void private_vars(expr* a, expr* b, nlsat::var_vector& vars, uint_set& fvars) {
-            app_ref_vector varsA(m), varsB(m);
-            obj_hashtable<expr> varsAS;
-            pred_abs abs(m);
-            abs.get_free_vars(a, varsA);
-            abs.get_free_vars(b, varsB);
-            insert_set(varsAS, varsA);
-            for (unsigned i = 0; i < varsB.size(); ++i) {
-                if (varsAS.contains(varsB[i].get())) {
-                    varsB[i] = varsB.back();
-                    varsB.pop_back();
-                    --i;
-                }
-            }
-            for (unsigned j = 0; j < varsB.size(); ++j) {
-                app* v = varsB[j].get();
-                if (m_a2b.is_var(v)) {
-                    fvars.insert(m_a2b.to_var(v));
-                }
-                else if (m_t2x.is_var(v)) {
-                    vars.push_back(m_t2x.to_var(v));                    
-                }
-            }
-        }
-
-        lbool maximize(app* _x, expr* _fml, scoped_anum& result, bool& unbounded) {
-            expr_ref fml(_fml, m);
-            reset();
-            hoist(fml);
-            nlsat::literal_vector lits;
-            lbool is_sat = l_true;
-            nlsat::var x = m_t2x.to_var(_x);  
-            m_mode = qsat_t;
-            while (is_sat == l_true) {
-                is_sat = check_sat();
-                if (is_sat == l_true) {
-                    // m_asms is minimized set of literals that satisfy formula.
-                    nlsat::explain& ex = m_solver.get_explain();
-                    polynomial::manager& pm = m_solver.pm();
-                    anum_manager& am = m_solver.am();
-                    ex.maximize(x, m_asms.size(), m_asms.c_ptr(), result, unbounded);
-                    if (unbounded) {
-                        break;
-                    }
-                    // TBD: assert the new bound on x using the result.
-                    bool is_even = false;
-                    polynomial::polynomial_ref pr(pm);
-                    pr = pm.mk_polynomial(x);
-                    rational r;
-                    am.get_upper(result, r);
-                    // result is algebraic numeral, but polynomials are not defined over extension field.
-                    polynomial::polynomial* p = pr;
-                    nlsat::bool_var b = m_solver.mk_ineq_atom(nlsat::atom::GT, 1, &p, &is_even);
-                    nlsat::literal bound(b, false);
-                    m_solver.mk_clause(1, &bound);
-                }
-            }
-            return is_sat;
-        }
-#endif
     };
 };
 

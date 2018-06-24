@@ -9,7 +9,7 @@ Abstract:
 
     Put clauses in the assertion set in
     OOC (one constraint per clause) form.
-    Constraints occuring in formulas that
+    Constraints occurring in formulas that
     are not clauses are ignored.
     The formula can be put into CNF by
     using mk_sat_preprocessor strategy.
@@ -23,13 +23,13 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "tactic/core/occf_tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 
 class occf_tactic : public tactic {
     struct     imp {
         ast_manager &            m;
-        filter_model_converter * m_mc;
+        generic_model_converter * m_mc;
         
         imp(ast_manager & _m):
             m(_m) {
@@ -68,7 +68,7 @@ class occf_tactic : public tactic {
             expr *   m_bvar;
             unsigned m_gen_pos:1;
             unsigned m_gen_neg:1;
-            bvar_info():m_bvar(0), m_gen_pos(false), m_gen_neg(false) {}
+            bvar_info():m_bvar(nullptr), m_gen_pos(false), m_gen_neg(false) {}
             bvar_info(expr * var, bool sign):
                 m_bvar(var),
                                             m_gen_pos(!sign),
@@ -86,20 +86,20 @@ class occf_tactic : public tactic {
             }
             
             cnstr2bvar::obj_map_entry * entry = c2b.find_core(cnstr);
-            if (entry == 0)
-                return 0;
+            if (entry == nullptr)
+                return nullptr;
             bvar_info & info = entry->get_data().m_value;
             if (sign) {
                 if (!info.m_gen_neg) {
                     info.m_gen_neg = true;
-                    g->assert_expr(m.mk_or(info.m_bvar, m.mk_not(cnstr)), 0, 0);
+                    g->assert_expr(m.mk_or(info.m_bvar, m.mk_not(cnstr)), nullptr, nullptr);
                 }
                 return m.mk_not(info.m_bvar);
             }
             else {
                 if (!info.m_gen_pos) {
                     info.m_gen_pos = true;
-                    g->assert_expr(m.mk_or(m.mk_not(info.m_bvar), cnstr), 0, 0);
+                    g->assert_expr(m.mk_or(m.mk_not(info.m_bvar), cnstr), nullptr, nullptr);
                 }
                 return info.m_bvar;
             }
@@ -113,34 +113,29 @@ class occf_tactic : public tactic {
             }
             
             SASSERT(!c2b.contains(cnstr));
-            expr * bvar = m.mk_fresh_const(0, m.mk_bool_sort());
+            expr * bvar = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             if (produce_models)
-                m_mc->insert(to_app(bvar)->get_decl());
+                m_mc->hide(to_app(bvar)->get_decl());
             c2b.insert(cnstr, bvar_info(bvar, sign));
             if (sign) {
-                g->assert_expr(m.mk_or(bvar, m.mk_not(cnstr)), 0, 0);
+                g->assert_expr(m.mk_or(bvar, m.mk_not(cnstr)), nullptr, nullptr);
                 return m.mk_not(bvar);
             }
             else {
-                g->assert_expr(m.mk_or(m.mk_not(bvar), cnstr), 0, 0);
+                g->assert_expr(m.mk_or(m.mk_not(bvar), cnstr), nullptr, nullptr);
                 return bvar;
             }
         }
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
-
             fail_if_proof_generation("occf", g);
 
             bool produce_models = g->models_enabled();
             tactic_report report("occf", *g);
             
-            m_mc = 0;
+            m_mc = nullptr;
             
             ptr_vector<expr> new_lits;
             
@@ -157,20 +152,20 @@ class occf_tactic : public tactic {
                 if (!is_target(cls))
                     continue;
                 if (produce_models && !m_mc) {
-                    m_mc = alloc(filter_model_converter, m);
-                    mc = m_mc;
+                    m_mc = alloc(generic_model_converter, m, "occf");
+                    g->add(m_mc);
                 }
-                expr * keep = 0;
+                expr * keep = nullptr;
                 new_lits.reset();
                 unsigned num = cls->get_num_args();
                 for (unsigned j = 0; j < num; j++) {
                     expr * l = cls->get_arg(j);
                     if (is_constraint(l)) {
                         expr * new_l = get_aux_lit(c2b, l, g);
-                        if (new_l != 0) {
+                        if (new_l != nullptr) {
                             new_lits.push_back(new_l);
                         }
-                        else if (keep == 0) {
+                        else if (keep == nullptr) {
                             keep = l;
                         }
                         else {
@@ -182,9 +177,9 @@ class occf_tactic : public tactic {
                         new_lits.push_back(l);
                     }
                 }
-                if (keep != 0)
+                if (keep != nullptr)
                     new_lits.push_back(keep);
-                g->update(i, m.mk_or(new_lits.size(), new_lits.c_ptr()), 0, d);
+                g->update(i, m.mk_or(new_lits.size(), new_lits.c_ptr()), nullptr, d);
             }
             g->inc_depth();
             result.push_back(g.get());
@@ -199,26 +194,23 @@ public:
         m_imp = alloc(imp, m);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(occf_tactic, m);
     }
         
-    virtual ~occf_tactic() {
+    ~occf_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {}
-    virtual void collect_param_descrs(param_descrs & r) {}
+    void updt_params(params_ref const & p) override {}
+    void collect_param_descrs(param_descrs & r) override {}
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m);
         std::swap(d, m_imp);        
         dealloc(d);

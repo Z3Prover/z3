@@ -867,7 +867,7 @@ namespace smt {
         }
         else {
             context& ctx = get_context();
-            enode * e = 0;
+            enode * e = nullptr;
             theory_var v = 0;
             if (ctx.e_internalized(n)) {
                 e = ctx.get_enode(to_app(n));                
@@ -914,6 +914,8 @@ namespace smt {
                    }
                    verbose_stream() << " + " << m_objective_consts[v] << "\n";);
 
+        unsynch_mpq_manager mgr;
+        unsynch_mpq_inf_manager inf_mgr;
         unsigned num_nodes = get_num_vars();
         unsigned num_edges = m_edges.size();
         S.ensure_var(num_nodes + num_edges + m_objectives.size());
@@ -921,8 +923,9 @@ namespace smt {
             numeral const& a = m_assignment[i];
             rational fin = a.get_rational().to_rational();
             rational inf = a.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(), inf.to_mpq());
+            mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
             S.set_value(i, q);
+            inf_mgr.del(q);
         }
         for (unsigned i = 0; i < num_nodes; ++i) {
             enode * n = get_enode(i);
@@ -933,7 +936,6 @@ namespace smt {
             }
         }
         svector<unsigned> vars;
-        unsynch_mpq_manager mgr;
         scoped_mpq_vector coeffs(mgr);
         coeffs.push_back(mpq(1));
         coeffs.push_back(mpq(-1));
@@ -954,8 +956,9 @@ namespace smt {
             numeral const& w = e.m_offset;
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
             S.set_upper(base_var, q);            
+            inf_mgr.del(q);
         }
         unsigned w = num_nodes + num_edges + v;
 
@@ -1052,7 +1055,7 @@ namespace smt {
 
     template<typename Ext>
     expr_ref theory_dense_diff_logic<Ext>::mk_ge(
-        filter_model_converter& fm, theory_var v, inf_eps const& val) {
+        generic_model_converter& fm, theory_var v, inf_eps const& val) {
         return mk_ineq(v, val, false);
     }
 

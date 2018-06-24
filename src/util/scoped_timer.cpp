@@ -33,8 +33,8 @@ Revision History:
 #include<sys/time.h>
 #include<sys/errno.h>
 #include<pthread.h>
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-// Linux
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NetBSD_)
+// Linux & FreeBSD & NetBSD
 #include<errno.h>
 #include<pthread.h>
 #include<sched.h>
@@ -66,8 +66,8 @@ struct scoped_timer::imp {
     pthread_mutex_t  m_mutex;
     pthread_cond_t   m_condition_var;
     struct timespec  m_end_time;
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-    // Linux & FreeBSD
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
+    // Linux & FreeBSD & NetBSD
     pthread_t       m_thread_id;
     pthread_mutex_t m_mutex;
     pthread_cond_t  m_cond;
@@ -104,7 +104,7 @@ struct scoped_timer::imp {
 
         return st;
     }
-#elif defined(_LINUX_) || defined(_FREEBSD_)
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
     static void* thread_func(void *arg) {
         scoped_timer::imp *st = static_cast<scoped_timer::imp*>(arg);
 
@@ -157,9 +157,9 @@ struct scoped_timer::imp {
         m_interval = ms?ms:0xFFFFFFFF;
         if (pthread_attr_init(&m_attributes) != 0)
             throw default_exception("failed to initialize timer thread attributes");
-        if (pthread_cond_init(&m_condition_var, NULL) != 0)
+        if (pthread_cond_init(&m_condition_var, nullptr) != 0)
             throw default_exception("failed to initialize timer condition variable");
-        if (pthread_mutex_init(&m_mutex, NULL) != 0)
+        if (pthread_mutex_init(&m_mutex, nullptr) != 0)
             throw default_exception("failed to initialize timer mutex");
 
         clock_serv_t host_clock;
@@ -175,8 +175,8 @@ struct scoped_timer::imp {
 
         if (pthread_create(&m_thread_id, &m_attributes, &thread_func, this) != 0)
             throw default_exception("failed to start timer thread");
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-        // Linux & FreeBSD
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
+        // Linux & FreeBSD & NetBSD
         m_ms = ms;
         m_initialized = false;
         m_signal_sent = false;
@@ -208,16 +208,24 @@ struct scoped_timer::imp {
         pthread_cond_signal(&m_condition_var);
         pthread_mutex_unlock(&m_mutex);
 
-        if (pthread_join(m_thread_id, NULL) != 0)
-            throw default_exception("failed to join thread");
-        if (pthread_mutex_destroy(&m_mutex) != 0)
-            throw default_exception("failed to destroy pthread mutex");
-        if (pthread_cond_destroy(&m_condition_var) != 0)
-            throw default_exception("failed to destroy pthread condition variable");
-        if (pthread_attr_destroy(&m_attributes) != 0)
-            throw default_exception("failed to destroy pthread attributes object");
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-        // Linux & FreeBSD
+        if (pthread_join(m_thread_id, nullptr) != 0) {
+            warning_msg("failed to join thread");
+            return;
+        }
+        if (pthread_mutex_destroy(&m_mutex) != 0) {
+            warning_msg("failed to destroy pthread mutex");
+            return;
+        }
+        if (pthread_cond_destroy(&m_condition_var) != 0) {
+            warning_msg("failed to destroy pthread condition variable");
+            return;
+        }
+        if (pthread_attr_destroy(&m_attributes) != 0) {
+            warning_msg("failed to destroy pthread attributes object");
+            return;
+        }
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
+        // Linux & FreeBSD & NetBSD
         bool init = false;
 
         // spin until timer thread has been created
@@ -248,7 +256,7 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
     if (ms != UINT_MAX && ms != 0)
         m_imp = alloc(imp, ms, eh);
     else
-        m_imp = 0;
+        m_imp = nullptr;
 }
     
 scoped_timer::~scoped_timer() {

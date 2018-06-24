@@ -46,6 +46,9 @@ public:
         m_manager.set(m_one, ebits, sbits, 1);
     }
 
+    f2n(f2n && other) : m_manager(other.m_manager), m_mode(other.m_mode), m_ebits(other.m_ebits), m_sbits(other.m_sbits),
+        m_tmp1(std::move(other.m_tmp1)), m_one(std::move(other.m_one)) {}
+
     ~f2n() { 
         m().del(m_tmp1); 
         m().del(m_one); 

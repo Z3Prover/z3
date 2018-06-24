@@ -31,11 +31,10 @@ class mpq {
 public:
     mpq(int v):m_num(v), m_den(1) {}
     mpq():m_den(1) {}
+    mpq(mpq && other) : m_num(std::move(other.m_num)), m_den(std::move(other.m_den)) {}
     void swap(mpq & other) { m_num.swap(other.m_num); m_den.swap(other.m_den); }
     mpz const & numerator() const { return m_num; }
     mpz const & denominator() const { return m_den; }
-
-    double get_double() const;
 };
 
 inline void swap(mpq & m1, mpq & m2) { m1.swap(m2); }
@@ -502,6 +501,8 @@ public:
 
     void machine_div(mpz const & a, mpz const & b, mpz & c) { mpz_manager<SYNCH>::machine_div(a, b, c); }
 
+    void machine_div_rem(mpz const & a, mpz const & b, mpz & c, mpz& d) { mpz_manager<SYNCH>::machine_div_rem(a, b, c, d); }
+
     void div(mpz const & a, mpz const & b, mpz & c) { mpz_manager<SYNCH>::div(a, b, c); }
     
     void rat_div(mpz const & a, mpz const & b, mpq & c) {
@@ -514,6 +515,13 @@ public:
         SASSERT(is_int(a) && is_int(b));
         machine_div(a.m_num, b.m_num, c.m_num);
         reset_denominator(c);
+    }
+
+    void machine_idiv_rem(mpq const & a, mpq const & b, mpq & c, mpq & d) {
+        SASSERT(is_int(a) && is_int(b));
+        machine_div_rem(a.m_num, b.m_num, c.m_num, d.m_num);
+        reset_denominator(c);
+        reset_denominator(d);
     }
 
     void machine_idiv(mpq const & a, mpq const & b, mpz & c) {
@@ -687,7 +695,7 @@ public:
         normalize(a);
     }
 
-    void set(mpq & a, int64 n, uint64 d) {
+    void set(mpq & a, int64_t n, uint64_t d) {
         SASSERT(d != 0);
         set(a.m_num, n);
         set(a.m_den, d);
@@ -719,16 +727,16 @@ public:
 
     void set(mpq & a, char const * val);
 
-    void set(mpz & a, int64 val) { mpz_manager<SYNCH>::set(a, val); }
+    void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
 
-    void set(mpq & a, int64 val) {
+    void set(mpq & a, int64_t val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
 
-    void set(mpz & a, uint64 val) { mpz_manager<SYNCH>::set(a, val); }
+    void set(mpz & a, uint64_t val) { mpz_manager<SYNCH>::set(a, val); }
     
-    void set(mpq & a, uint64 val) { 
+    void set(mpq & a, uint64_t val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
@@ -743,6 +751,12 @@ public:
     void set(mpq & a, unsigned sz, digit_t const * digits) { 
         mpz_manager<SYNCH>::set(a.m_num, sz, digits); 
         reset_denominator(a); 
+    }
+
+    mpq dup(const mpq & source) {
+        mpq temp;
+        set(temp, source);
+        return temp;
     }
 
     void swap(mpz & a, mpz & b) { mpz_manager<SYNCH>::swap(a, b); }
@@ -760,17 +774,17 @@ public:
 
     bool is_int64(mpz const & a) const { return mpz_manager<SYNCH>::is_int64(a); }
 
-    uint64 get_uint64(mpz const & a) const { return mpz_manager<SYNCH>::get_uint64(a); }
+    uint64_t get_uint64(mpz const & a) const { return mpz_manager<SYNCH>::get_uint64(a); }
 
-    int64 get_int64(mpz const & a) const { return mpz_manager<SYNCH>::get_int64(a); }
+    int64_t get_int64(mpz const & a) const { return mpz_manager<SYNCH>::get_int64(a); }
 
     bool is_uint64(mpq const & a) const { return is_int(a) && is_uint64(a.m_num); }
 
     bool is_int64(mpq const & a) const { return is_int(a) && is_int64(a.m_num); }
 
-    uint64 get_uint64(mpq const & a) const { SASSERT(is_uint64(a)); return get_uint64(a.m_num); }
+    uint64_t get_uint64(mpq const & a) const { SASSERT(is_uint64(a)); return get_uint64(a.m_num); }
 
-    int64 get_int64(mpq const & a) const { SASSERT(is_int64(a)); return get_int64(a.m_num); }
+    int64_t get_int64(mpq const & a) const { SASSERT(is_int64(a)); return get_int64(a.m_num); }
 
     double get_double(mpz const & a) const { return mpz_manager<SYNCH>::get_double(a); }
 

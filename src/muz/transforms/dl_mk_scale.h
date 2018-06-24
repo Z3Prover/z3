@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Add scale factor to linear (Real) arithemetic Horn clauses.
+    Add scale factor to linear (Real) arithmetic Horn clauses.
     The transformation replaces occurrences of isolated constants by
     a scale multiplied to each constant. 
 
@@ -43,8 +43,8 @@ namespace datalog {
         app_ref mk_constraint(unsigned num_vars, app* q);
     public:
         mk_scale(context & ctx, unsigned priority = 33039);
-        virtual ~mk_scale();        
-        rule_set * operator()(rule_set const & source);
+        ~mk_scale() override;
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

@@ -298,7 +298,7 @@ void theory_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
 template<typename Ext>
 void theory_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
     m_stats.m_num_assertions++;
-    atom * a = 0;
+    atom * a = nullptr;
     VERIFY (m_bool_var2atom.find(v, a));
     SASSERT(a);
     SASSERT(get_context().get_assignment(v) != l_undef);
@@ -602,7 +602,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     ctx.mark_as_relevant(le.get());
     literal lit(ctx.get_literal(le));
     bool_var bv = lit.var();
-    atom* a = 0;
+    atom* a = nullptr;
     m_bool_var2atom.find(bv, a);
     SASSERT(a);
 
@@ -619,7 +619,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
           tout << "\n";
           );
 
-    justification * js = 0;
+    justification * js = nullptr;
     if (get_manager().proofs_enabled()) {
         vector<parameter> params;
         params.push_back(parameter(symbol("farkas")));
@@ -628,7 +628,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
                    lits.size(), lits.c_ptr(), 
                    params.size(), params.c_ptr());
     }
-    ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+    ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
     if (dump_lemmas()) {
         symbol logic(m_is_lia ? "QF_LIA" : "QF_LRA");
         ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
@@ -683,14 +683,16 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     vector<parameter> params;
     if (get_manager().proofs_enabled()) {
         params.push_back(parameter(symbol("farkas")));
-        params.resize(lits.size()+1, parameter(rational(1)));
+        for (unsigned i = 0; i <= lits.size(); ++i) {
+            params.push_back(parameter(rational(1)));
+        }
     } 
    
     ctx.set_conflict(
         ctx.mk_justification(
             ext_theory_conflict_justification(
                 get_id(), ctx.get_region(), 
-                lits.size(), lits.c_ptr(), 0, 0, params.size(), params.c_ptr())));
+                lits.size(), lits.c_ptr(), 0, nullptr, params.size(), params.c_ptr())));
 
 }
 
@@ -772,7 +774,7 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
     theory_var v = null_theory_var;
-    enode* e = 0;
+    enode* e = nullptr;
     context& ctx = get_context();
     if (r.is_zero()) {
         v = get_zero();
@@ -811,7 +813,7 @@ theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_var(app* n) {
     context & ctx = get_context();
-    enode* e = 0;
+    enode* e = nullptr;
     theory_var v = null_theory_var;
     if (ctx.e_internalized(n)) {
         e = ctx.get_enode(n);
@@ -1107,6 +1109,8 @@ unsigned theory_diff_logic<Ext>::simplex2edge(unsigned e) {
 
 template<typename Ext> 
 void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
+    unsynch_mpq_manager mgr;
+    unsynch_mpq_inf_manager inf_mgr;
     unsigned num_nodes = m_graph.get_num_nodes();
     vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
     S.ensure_var(num_simplex_vars());
@@ -1114,13 +1118,13 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
         numeral const& a = m_graph.get_assignment(i);
         rational fin = a.get_rational().to_rational();
         rational inf = a.get_infinitesimal().to_rational();
-        mpq_inf q(fin.to_mpq(), inf.to_mpq());
+        mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
         S.set_value(node2simplex(i), q);
+        inf_mgr.del(q);
     }
     S.set_lower(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
     S.set_upper(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
     svector<unsigned> vars;
-    unsynch_mpq_manager mgr;
     scoped_mpq_vector coeffs(mgr);
     coeffs.push_back(mpq(1));
     coeffs.push_back(mpq(-1));
@@ -1145,8 +1149,9 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
             numeral const& w = e.get_weight();
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
             S.set_upper(base_var, q);
+            inf_mgr.del(q);
         }
         else {
             S.unset_upper(base_var);
@@ -1333,7 +1338,7 @@ expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_eps const& val) {
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val) {
+expr_ref theory_diff_logic<Ext>::mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val) {
     return mk_ineq(v, val, false);
 }
 

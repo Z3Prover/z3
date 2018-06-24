@@ -58,7 +58,7 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
                 _sorts.push_back(m.mk_bool_sort());
                 _names.push_back(symbol(new_name.str().c_str()));
             }
-            bv = m.mk_app(bfid, OP_MKBV, 0, 0, args.size(), args.c_ptr());
+            bv = m.mk_app(bfid, OP_MKBV, 0, nullptr, args.size(), args.c_ptr());
             _subst_map.push_back(bv.get());
         }
         else {

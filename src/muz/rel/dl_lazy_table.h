@@ -48,37 +48,37 @@ namespace datalog {
             table_plugin(mk_name(p), p.get_manager()), 
             m_plugin(p) {}
         
-        virtual bool can_handle_signature(const table_signature & s) {
+        bool can_handle_signature(const table_signature & s) override {
             return m_plugin.can_handle_signature(s);
         } 
         
-        virtual table_base * mk_empty(const table_signature & s);
+        table_base * mk_empty(const table_signature & s) override;
                 
         static table_plugin* mk_sparse(relation_manager& rm);
         
     protected:
-        virtual table_join_fn * mk_join_fn(
+        table_join_fn * mk_join_fn(
             const table_base & t1, const table_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual table_union_fn * mk_union_fn(
-            const table_base & tgt, const table_base & src, 
-            const table_base * delta);
-        virtual table_transformer_fn * mk_project_fn(
-            const table_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual table_transformer_fn * mk_rename_fn(
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        table_union_fn * mk_union_fn(
+            const table_base & tgt, const table_base & src,
+            const table_base * delta) override;
+        table_transformer_fn * mk_project_fn(
+            const table_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        table_transformer_fn * mk_rename_fn(
             const table_base & t, unsigned permutation_cycle_len,
-            const unsigned * permutation_cycle);
-        virtual table_mutator_fn * mk_filter_identical_fn(
-            const table_base & t, unsigned col_cnt, const unsigned * identical_cols);
-        virtual table_mutator_fn * mk_filter_equal_fn(
-            const table_base & t, const table_element & value, unsigned col);
-        virtual table_mutator_fn * mk_filter_interpreted_fn(
-            const table_base & t, app * condition);
-        virtual table_intersection_filter_fn * mk_filter_by_negation_fn(
-            const table_base & t, 
-            const table_base & negated_obj, unsigned joined_col_cnt, 
-            const unsigned * t_cols, const unsigned * negated_cols);        
+            const unsigned * permutation_cycle) override;
+        table_mutator_fn * mk_filter_identical_fn(
+            const table_base & t, unsigned col_cnt, const unsigned * identical_cols) override;
+        table_mutator_fn * mk_filter_equal_fn(
+            const table_base & t, const table_element & value, unsigned col) override;
+        table_mutator_fn * mk_filter_interpreted_fn(
+            const table_base & t, app * condition) override;
+        table_intersection_filter_fn * mk_filter_by_negation_fn(
+            const table_base & t,
+            const table_base & negated_obj, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * negated_cols) override;
 
         static lazy_table const& get(table_base const& tb);
         static lazy_table& get(table_base& tb);
@@ -129,30 +129,30 @@ namespace datalog {
             m_ref(t)
         {}
 
-        virtual ~lazy_table() {}
+        ~lazy_table() override {}
 
         lazy_table_plugin& get_lplugin() const { 
             return dynamic_cast<lazy_table_plugin&>(table_base::get_plugin()); 
         }
 
-        virtual table_base * clone() const;
-        virtual table_base * complement(func_decl* p, const table_element * func_columns = 0) const;
-        virtual bool empty() const;
-        virtual bool contains_fact(const table_fact & f) const;
-        virtual void remove_fact(table_element const* fact);
-        virtual void remove_facts(unsigned fact_cnt, const table_fact * facts);
-        virtual void remove_facts(unsigned fact_cnt, const table_element * facts);
-        virtual void reset();
-        virtual void add_fact(table_fact const& f);
+        table_base * clone() const override;
+        table_base * complement(func_decl* p, const table_element * func_columns = nullptr) const override;
+        bool empty() const override;
+        bool contains_fact(const table_fact & f) const override;
+        void remove_fact(table_element const* fact) override;
+        void remove_facts(unsigned fact_cnt, const table_fact * facts) override;
+        void remove_facts(unsigned fact_cnt, const table_element * facts) override;
+        void reset() override;
+        void add_fact(table_fact const& f) override;
        
-        virtual unsigned get_size_estimate_rows() const { return 1; }
-        virtual unsigned get_size_estimate_bytes() const { return 1; }
-        virtual bool knows_exact_size() const { return false; }
+        unsigned get_size_estimate_rows() const override { return 1; }
+        unsigned get_size_estimate_bytes() const override { return 1; }
+        bool knows_exact_size() const override { return false; }
 
         table_base* eval() const;
 
-        virtual table_base::iterator begin() const;
-        virtual table_base::iterator end() const;
+        table_base::iterator begin() const override;
+        table_base::iterator end() const override;
 
         lazy_table_ref* get_ref() const { return m_ref.get(); }
         void set(lazy_table_ref* r) { m_ref = r; }
@@ -165,9 +165,9 @@ namespace datalog {
             m_table = table;
             // SASSERT(&p.m_plugin == &table->get_lplugin());
         }
-        virtual ~lazy_table_base() {}
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_BASE; }
-        virtual table_base* force() { return m_table.get(); }       
+        ~lazy_table_base() override {}
+        lazy_table_kind kind() const override { return LAZY_TABLE_BASE; }
+        table_base* force() override { return m_table.get(); }
     };
 
     class lazy_table_join : public lazy_table_ref {
@@ -184,13 +184,13 @@ namespace datalog {
               m_cols2(col_cnt, cols2),
               m_t1(t1.get_ref()),
               m_t2(t2.get_ref()) { }
-        virtual ~lazy_table_join() {}
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_JOIN; }
+        ~lazy_table_join() override {}
+        lazy_table_kind kind() const override { return LAZY_TABLE_JOIN; }
         unsigned_vector const& cols1() const { return m_cols1; }
         unsigned_vector const& cols2() const { return m_cols2; }
         lazy_table_ref* t1() const { return m_t1.get(); }
         lazy_table_ref* t2() const { return m_t2.get(); }
-        virtual table_base* force();
+        table_base* force() override;
     };
 
 
@@ -202,12 +202,12 @@ namespace datalog {
             : lazy_table_ref(src.get_lplugin(), sig), 
               m_cols(col_cnt, cols), 
               m_src(src.get_ref()) {}
-        virtual ~lazy_table_project() {}
+        ~lazy_table_project() override {}
         
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_PROJECT; }
+        lazy_table_kind kind() const override { return LAZY_TABLE_PROJECT; }
         unsigned_vector const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
-        virtual table_base* force();
+        table_base* force() override;
     };
 
     class lazy_table_rename : public lazy_table_ref {
@@ -218,12 +218,12 @@ namespace datalog {
             : lazy_table_ref(src.get_lplugin(), sig), 
               m_cols(col_cnt, cols), 
               m_src(src.get_ref()) {}
-        virtual ~lazy_table_rename() {}
+        ~lazy_table_rename() override {}
         
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_RENAME; }
+        lazy_table_kind kind() const override { return LAZY_TABLE_RENAME; }
         unsigned_vector const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
-        virtual table_base* force();
+        table_base* force() override;
     };
 
     class lazy_table_filter_identical : public lazy_table_ref {
@@ -232,12 +232,12 @@ namespace datalog {
     public:
         lazy_table_filter_identical(unsigned col_cnt, const unsigned * cols, lazy_table const& src)
             : lazy_table_ref(src.get_lplugin(), src.get_signature()), m_cols(col_cnt, cols), m_src(src.get_ref()) {}
-        virtual ~lazy_table_filter_identical() {}
+        ~lazy_table_filter_identical() override {}
         
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_FILTER_IDENTICAL; }
+        lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_IDENTICAL; }
         unsigned_vector const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
-        virtual table_base* force();
+        table_base* force() override;
     };
 
     class lazy_table_filter_equal : public lazy_table_ref {
@@ -250,13 +250,13 @@ namespace datalog {
             m_col(col), 
             m_value(value), 
             m_src(src.get_ref()) {}
-        virtual ~lazy_table_filter_equal() {}
+        ~lazy_table_filter_equal() override {}
         
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_FILTER_EQUAL; }
+        lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_EQUAL; }
         unsigned        col() const { return m_col; }
         table_element   value() const { return m_value; }
         lazy_table_ref* src() const { return m_src.get(); }
-        virtual table_base* force();
+        table_base* force() override;
     };
 
     class lazy_table_filter_interpreted : public lazy_table_ref {
@@ -266,12 +266,12 @@ namespace datalog {
         lazy_table_filter_interpreted(lazy_table const& src, app* condition)
             : lazy_table_ref(src.get_lplugin(), src.get_signature()), 
               m_condition(condition, src.get_lplugin().get_ast_manager()), m_src(src.get_ref()) {}
-        virtual ~lazy_table_filter_interpreted() {}
+        ~lazy_table_filter_interpreted() override {}
         
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_FILTER_INTERPRETED; }
+        lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_INTERPRETED; }
         app* condition() const { return m_condition; }        
         lazy_table_ref* src() const { return m_src.get(); }
-        virtual table_base* force();
+        table_base* force() override;
     };
 
 
@@ -288,13 +288,13 @@ namespace datalog {
             m_src(src.get_ref()), 
             m_cols1(c1),
             m_cols2(c2) {}
-        virtual ~lazy_table_filter_by_negation() {}
-        virtual lazy_table_kind kind() const { return LAZY_TABLE_FILTER_BY_NEGATION; }
+        ~lazy_table_filter_by_negation() override {}
+        lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_BY_NEGATION; }
         lazy_table_ref* tgt() const { return m_tgt.get(); }
         lazy_table_ref* src() const { return m_src.get(); }
         unsigned_vector const& cols1() const { return m_cols1; }
         unsigned_vector const& cols2() const { return m_cols2; }
-        virtual table_base* force();
+        table_base* force() override;
     };
 
 

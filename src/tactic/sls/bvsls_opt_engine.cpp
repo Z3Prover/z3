@@ -43,7 +43,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
     m_hard_tracker.initialize(m_assertions);
     setup_opt_tracker(objective, _maximize);
 
-    if (initial_model.get() != 0) {
+    if (initial_model.get() != nullptr) {
         TRACE("sls_opt", tout << "Initial model provided: " << std::endl;
                         for (unsigned i = 0; i < initial_model->get_num_constants(); i++) {
                             func_decl * fd = initial_model->get_constant(i);
@@ -238,7 +238,7 @@ bool bvsls_opt_engine::what_if(
 
 mpz bvsls_opt_engine::find_best_move(
     ptr_vector<func_decl> & to_evaluate,
-    mpz score,
+    mpz & score,
     unsigned & best_const,
     mpz & best_value,
     unsigned & new_bit,

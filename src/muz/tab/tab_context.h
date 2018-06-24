@@ -32,13 +32,13 @@ namespace datalog {
         imp* m_imp;
     public:
         tab(context& ctx);
-        ~tab();
-        virtual lbool query(expr* query);
-        virtual void cleanup();
-        virtual void reset_statistics();
-        virtual void collect_statistics(statistics& st) const;
-        virtual void display_certificate(std::ostream& out) const;        
-        virtual expr_ref get_answer();
+        ~tab() override;
+        lbool query(expr* query) override;
+        void cleanup() override;
+        void reset_statistics() override;
+        void collect_statistics(statistics& st) const override;
+        void display_certificate(std::ostream& out) const override;
+        expr_ref get_answer() override;
     };
 };
 

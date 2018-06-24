@@ -1011,7 +1011,7 @@ public:
         return ret;
     }
 
-    std::string get_column_name(unsigned j) const {
+    std::string get_column_name(unsigned j) const override {
         if (j >= m_terms_start_index)
             return std::string("_t") + T_to_string(j);
         if (j >= m_columns_to_ext_vars_or_term_indices.size())
@@ -1157,7 +1157,7 @@ public:
 
     bool explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const {
 #ifdef Z3DEBUG
-        lconstraint_kind kind;
+        lconstraint_kind kind = EQ; // initialize it just to avoid a warning
         SASSERT(the_relations_are_of_same_type(explanation, kind));
         SASSERT(the_left_sides_sum_to_zero(explanation));
         mpq rs = sum_of_right_sides_of_explanation(explanation);

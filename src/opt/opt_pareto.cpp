@@ -20,6 +20,7 @@ Notes:
 
 #include "opt/opt_pareto.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "model/model_smt2_pp.h"
 
 namespace opt {
@@ -29,7 +30,7 @@ namespace opt {
    
     lbool gia_pareto::operator()() {
         expr_ref fml(m);
-        lbool is_sat = m_solver->check_sat(0, 0);
+        lbool is_sat = m_solver->check_sat(0, nullptr);
         if (is_sat == l_true) {
             {
                 solver::scoped_push _s(*m_solver.get());
@@ -45,7 +46,7 @@ namespace opt {
                                model_smt2_pp(verbose_stream() << "new model:\n", m, *mdl, 0););
                     // TBD: we can also use local search to tune solution coordinate-wise.
                     mk_dominates();
-                    is_sat = m_solver->check_sat(0, 0);
+                    is_sat = m_solver->check_sat(0, nullptr);
                 }
             }
             if (is_sat == l_undef) {
@@ -66,8 +67,8 @@ namespace opt {
             fmls.push_back(cb.mk_ge(i, m_model));
             gt.push_back(cb.mk_gt(i, m_model));
         }
-        fmls.push_back(m.mk_or(gt.size(), gt.c_ptr()));
-        fml = m.mk_and(fmls.size(), fmls.c_ptr());
+        fmls.push_back(mk_or(gt));
+        fml = mk_and(fmls);
         IF_VERBOSE(10, verbose_stream() << "dominates: " << fml << "\n";);
         TRACE("opt", tout << fml << "\n"; model_smt2_pp(tout, m, *m_model, 0););
         m_solver->assert_expr(fml);        
@@ -80,7 +81,7 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             le.push_back(cb.mk_le(i, m_model));
         }
-        fml = m.mk_not(m.mk_and(le.size(), le.c_ptr()));
+        fml = m.mk_not(mk_and(le));
         IF_VERBOSE(10, verbose_stream() << "not dominated by: " << fml << "\n";);
         TRACE("opt", tout << fml << "\n";);
         m_solver->assert_expr(fml);        
@@ -91,7 +92,7 @@ namespace opt {
 
     lbool oia_pareto::operator()() {
         solver::scoped_push _s(*m_solver.get());
-        lbool is_sat = m_solver->check_sat(0, 0);
+        lbool is_sat = m_solver->check_sat(0, nullptr);
         if (m.canceled()) {
             is_sat = l_undef;
         }

@@ -37,22 +37,19 @@ struct unit_subsumption_tactic : public tactic {
         m_clauses(m) {
     }
 
-    void cleanup() {}
+    void cleanup() override {}
 
-    virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
-                            /* out */ expr_dependency_ref & core) {        
+    void operator()(/* in */  goal_ref const & in, 
+                    /* out */ goal_ref_buffer & result) override {        
         reduce_core(in, result);
     }
 
-    virtual void updt_params(params_ref const& p) {
+    void updt_params(params_ref const& p) override {
         m_params = p;
         // m_context.updt_params(p); does not exist.
     }
     
-    virtual tactic* translate(ast_manager& m) {
+    tactic* translate(ast_manager& m) override {
         return alloc(unit_subsumption_tactic, m, m_params);
     }
     
@@ -109,9 +106,7 @@ struct unit_subsumption_tactic : public tactic {
     }
 
     void insert_result(goal_ref& result) {        
-        for (unsigned i = 0; i < m_deleted.size(); ++i) {
-            result->update(m_deleted[i], m.mk_true()); // TBD proof?
-        }
+        for (auto  d : m_deleted) result->update(d, m.mk_true()); // TBD proof?
     }
 
     void init(goal_ref const& g) {

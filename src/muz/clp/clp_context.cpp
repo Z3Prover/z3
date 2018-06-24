@@ -197,7 +197,7 @@ namespace datalog {
     
     
         proof_ref get_proof() const {
-            return proof_ref(0, m);
+            return proof_ref(nullptr, m);
         }
     };
     

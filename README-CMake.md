@@ -5,7 +5,7 @@ of the project written in the ``CMakeLists.txt`` files and emits a build
 system for that project of your choice using one of CMake's "generators".
 This allows CMake to support many different platforms and build tools.
 You can run ``cmake --help`` to see the list of supported "generators"
-on your platform. Example generators include "UNIX Makfiles" and "Visual Studio
+on your platform. Example generators include "UNIX Makefiles" and "Visual Studio
 12 2013".
 
 ## Getting started
@@ -44,7 +44,7 @@ cmake -G "Unix Makefiles" ../
 make -j4 # Replace 4 with an appropriate number
 ```
 
-Note that on some platforms "Unix Makesfiles" is the default generator so on those
+Note that on some platforms "Unix Makefiles" is the default generator so on those
 platforms you don't need to pass ``-G "Unix Makefiles"`` command line option to
 ``cmake``.
 
@@ -270,6 +270,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
 * ``WARNINGS_AS_ERRORS`` - STRING. If set to ``TRUE`` compiler warnings will be treated as errors. If set to ``False`` compiler warnings will not be treated as errors.
     If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.
+* ``Z3_C_EXAMPLES_FORCE_CXX_LINKER`` - BOOL. If set to ``TRUE`` the C API examples will request that the C++ linker is used rather than the C linker.
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
 

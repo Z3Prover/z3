@@ -33,9 +33,9 @@ class obj_hash_entry {
     T *             m_ptr;
 public:
     typedef T * data;
-    obj_hash_entry():m_ptr(0) {}
+    obj_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return m_ptr->hash(); }
-    bool is_free() const { return m_ptr == 0; }
+    bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
     bool is_used() const { return m_ptr != reinterpret_cast<T *>(0) && m_ptr != reinterpret_cast<T *>(1); }
     T * get_data() const { return m_ptr; }
@@ -43,7 +43,7 @@ public:
     void set_data(T * d) { m_ptr = d; }
     void set_hash(unsigned h) { SASSERT(h == m_ptr->hash()); }
     void mark_as_deleted() { m_ptr = reinterpret_cast<T *>(1); }
-    void mark_as_free() { m_ptr = 0; }
+    void mark_as_free() { m_ptr = nullptr; }
 };
 
 template<typename T>
@@ -60,7 +60,7 @@ public:
     struct key_data {
         Key *  m_key;
         Value  m_value;
-        key_data():m_key(0) {
+        key_data():m_key(nullptr) {
         }
         key_data(Key * k):
             m_key(k) {
@@ -68,6 +68,10 @@ public:
         key_data(Key * k, Value const & v):
             m_key(k),
             m_value(v) {
+        }
+        key_data(Key * k, Value && v) :
+            m_key(k),
+            m_value(std::move(v)) {
         }
         Value const & get_value() const { return m_value; }
         Key & get_key () const { return *m_key; }
@@ -81,15 +85,15 @@ public:
         typedef key_data data;
         obj_map_entry() {}
         unsigned get_hash() const { return m_data.hash(); }
-        bool is_free() const { return m_data.m_key == 0; }
+        bool is_free() const { return m_data.m_key == nullptr; }
         bool is_deleted() const { return m_data.m_key == reinterpret_cast<Key *>(1); }
         bool is_used() const { return m_data.m_key != reinterpret_cast<Key *>(0) && m_data.m_key != reinterpret_cast<Key *>(1); }
         key_data const & get_data() const { return m_data; }
         key_data & get_data() { return m_data; }
-        void set_data(key_data const & d) { m_data = d; }
+        void set_data(key_data && d) { m_data = std::move(d); }
         void set_hash(unsigned h) { SASSERT(h == m_data.hash()); }
         void mark_as_deleted() { m_data.m_key = reinterpret_cast<Key *>(1); }
-        void mark_as_free() { m_data.m_key = 0; }
+        void mark_as_free() { m_data.m_key = nullptr; }
     };
 
     typedef core_hashtable<obj_map_entry, obj_hash<key_data>, default_eq<key_data> > table;
@@ -137,6 +141,10 @@ public:
     void insert(Key * const k, Value const & v) {
         m_table.insert(key_data(k, v));
     }
+
+    void insert(Key * const k, Value && v) {
+        m_table.insert(key_data(k, std::move(v)));
+    }
     
     key_data const & insert_if_not_there(Key * k, Value const & v) {
         return m_table.insert_if_not_there(key_data(k, v));
@@ -155,7 +163,7 @@ public:
         if (e) {
             v = e->get_data().m_value;
         }
-        return (0 != e);
+        return (nullptr != e);
     }
 
     value const & find(key * k) const {
@@ -183,7 +191,7 @@ public:
     }
 
     bool contains(Key * k) const { 
-        return find_core(k) != 0; 
+        return find_core(k) != nullptr;
     }
 
     void remove(Key * k) {
@@ -195,6 +203,14 @@ public:
     }
 
     unsigned long long get_num_collision() const { return m_table.get_num_collision(); }
+
+    void get_collisions(Key * k, vector<Key*>& collisions) {
+        vector<key_data> cs;
+        m_table.get_collisions(key_data(k), cs);
+        for (key_data const& kd : cs) {
+            collisions.push_back(kd.m_key);
+        }
+    }
 
     void swap(obj_map & other) {
         m_table.swap(other.m_table);

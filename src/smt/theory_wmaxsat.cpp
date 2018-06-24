@@ -25,7 +25,7 @@ Notes:
 
 namespace smt {
 
-    theory_wmaxsat::theory_wmaxsat(ast_manager& m, filter_model_converter& mc):
+    theory_wmaxsat::theory_wmaxsat(ast_manager& m, generic_model_converter& mc):
         theory(m.mk_family_id("weighted_maxsat")),
         m_mc(mc),
         m_vars(m),
@@ -92,7 +92,7 @@ namespace smt {
         ast_manager& m = get_manager();
         app_ref var(m), wfml(m);
         var = m.mk_fresh_const("w", m.mk_bool_sort());
-        m_mc.insert(var->get_decl());
+        m_mc.hide(var);
         wfml = m.mk_or(var, fml);
         ctx.assert_expr(wfml);
         m_rweights.push_back(w);
@@ -287,7 +287,7 @@ namespace smt {
         
         ctx.set_conflict(
             ctx.mk_justification(
-                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, 0, 0, 0)));
+                ext_theory_conflict_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, nullptr, 0, nullptr)));
     }     
 
     bool theory_wmaxsat::max_unassigned_is_blocked() {
@@ -337,7 +337,7 @@ namespace smt {
         region& r = ctx.get_region();
         ctx.assign(lit, ctx.mk_justification(
                        ext_theory_propagation_justification(
-                           get_id(), r, lits.size(), lits.c_ptr(), 0, 0, lit, 0, 0)));
+                           get_id(), r, lits.size(), lits.c_ptr(), 0, nullptr, lit, 0, nullptr)));
     }                
 
 

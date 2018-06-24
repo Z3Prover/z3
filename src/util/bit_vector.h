@@ -24,7 +24,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/memory_manager.h"
 
-COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
+static_assert(sizeof(unsigned) == 4, "unsigned are 4 bytes");
 #define BV_DEFAULT_CAPACITY 2
 
 class bit_vector {
@@ -62,7 +62,7 @@ public:
     bit_vector():
         m_num_bits(0),
         m_capacity(0),
-        m_data(0) {
+        m_data(nullptr) {
     }
 
     bit_vector(unsigned reserve_num_bits) :
@@ -75,7 +75,7 @@ public:
     bit_vector(bit_vector const & source):
         m_num_bits(source.m_num_bits),
         m_capacity(source.m_capacity),
-        m_data(0) {
+        m_data(nullptr) {
         if (source.m_data) {
             m_data = alloc_svect(unsigned, m_capacity);
             memcpy(m_data, source.m_data, m_capacity * sizeof(unsigned));

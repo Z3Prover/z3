@@ -302,3 +302,8 @@ void model_smt2_pp(std::ostream & out, ast_manager & m, model_core const & md, u
     pp_consts(out, *(ctx.get()), md, indent);
     pp_funs(out, *(ctx.get()), md, indent);
 }
+
+std::ostream& operator<<(std::ostream& out, model_core const& m) {
+    model_smt2_pp(out, m.get_manager(), m, 0);
+    return out;
+}

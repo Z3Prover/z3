@@ -51,7 +51,7 @@ namespace datalog {
 
     public:
         mk_separate_negated_tails(context& ctx, unsigned priority = 21000);
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 }
 

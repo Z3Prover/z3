@@ -22,6 +22,7 @@ set -o pipefail
 : ${USE_LTO?"USE_LTO must be specified"}
 : ${Z3_INSTALL_PREFIX?"Z3_INSTALL_PREFIX must be specified"}
 : ${Z3_WARNINGS_AS_ERRORS?"Z3_WARNINGS_AS_ERRORS must be specified"}
+: ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
 
 ADDITIONAL_Z3_OPTS=()
 
@@ -104,6 +105,16 @@ fi
 
 # Set compiler flags
 source ${SCRIPT_DIR}/set_compiler_flags.sh
+
+if [ "X${UBSAN_BUILD}" = "X1" ]; then
+  # HACK: When building with UBSan the C++ linker
+  # must be used to avoid the following linker errors.
+  # undefined reference to `__ubsan_vptr_type_cache'
+  # undefined reference to `__ubsan_handle_dynamic_type_cache_miss'
+  ADDITIONAL_Z3_OPTS+=( \
+    '-DZ3_C_EXAMPLES_FORCE_CXX_LINKER=ON' \
+  )
+fi
 
 # Sanity check
 if [ ! -e "${Z3_SRC_DIR}/CMakeLists.txt" ]; then

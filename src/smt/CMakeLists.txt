@@ -70,12 +70,13 @@ z3_add_component(smt
     euclid
     fpa
     grobner
+    nlsat
     lp
     macros
     normal_forms
     parser_util
     pattern
-    proof_checker
+    proofs
     proto_model
     simplex
     substitution

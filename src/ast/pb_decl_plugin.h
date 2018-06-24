@@ -53,14 +53,14 @@ class pb_decl_plugin : public decl_plugin {
     func_decl * mk_eq(unsigned arity, rational const* coeffs, int k);
 public:
     pb_decl_plugin();
-    virtual ~pb_decl_plugin() {}
+    ~pb_decl_plugin() override {}
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
-    virtual decl_plugin * mk_fresh() {
+    decl_plugin * mk_fresh() override {
         return alloc(pb_decl_plugin);
     }
     
@@ -69,11 +69,11 @@ public:
     //   parameters[0] - integer (at most k elements)
     //      all sorts are Booleans
     //    parameters[1] .. parameters[arity] - coefficients
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                     unsigned arity, sort * const * domain, sort * range);
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
 
-    virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
+    bool is_considered_uninterpreted(func_decl * f) override { return false; }
 
 };
 
@@ -122,7 +122,6 @@ public:
     bool is_eq(expr* e, rational& k) const;
 
     app* mk_fresh_bool();
-
 
 private:
     rational to_rational(parameter const& p) const;

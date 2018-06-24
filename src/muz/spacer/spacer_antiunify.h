@@ -22,32 +22,36 @@ Revision History:
 #define _SPACER_ANTIUNIFY_H_
 
 #include "ast/ast.h"
-
+#include "ast/substitution/substitution.h"
+#include "util/obj_pair_hashtable.h"
 namespace spacer {
+/**
+\brief Anti-unifier for ground expressions
+*/
 class anti_unifier
 {
-public:
-    anti_unifier(expr* t, ast_manager& m);
-    ~anti_unifier() {}
+    typedef std::pair<expr *, expr *> expr_pair;
+    typedef pair_hash<obj_ptr_hash<expr>, obj_ptr_hash<expr> > expr_pair_hash;
+    typedef obj_pair_map<expr, expr, expr*> cache_ty;
 
-    bool add_term(expr* t);
-    void finalize();
-
-    expr* get_generalization() {return m_g;}
-    unsigned get_num_substitutions() {return m_substitutions.size();}
-    obj_map<expr, expr*> get_substitution(unsigned index){
-        SASSERT(index < m_substitutions.size());
-        return m_substitutions[index];
-    }
-
-private:
-    ast_manager& m;
-    // tracking all created expressions
+    ast_manager &m;
     expr_ref_vector m_pinned;
 
-    expr_ref m_g;
+    svector<expr_pair> m_todo;
+    cache_ty m_cache;
+    svector<expr_pair> m_subs;
 
-    vector<obj_map<expr, expr*>> m_substitutions;
+public:
+    anti_unifier(ast_manager& m);
+
+    void reset();
+
+    /**
+       \brief Computes anti-unifier of two ground expressions. Returns
+       the anti-unifier and the corresponding substitutions
+     */
+    void operator() (expr *e1, expr *e2, expr_ref &res,
+                     substitution &s1, substitution &s2);
 };
 
 class naive_convex_closure
@@ -63,5 +67,8 @@ private:
                                          expr_ref& res);
 };
 
+/// Abstracts numbers in the given ground expression by variables
+/// Returns the created pattern and the corresponding substitution.
+void mk_num_pat(expr *e, expr_ref &result, app_ref_vector &subs);
 }
 #endif

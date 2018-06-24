@@ -33,13 +33,13 @@ class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
     void assert_eq_core(expr * t, app * val);
 public:
     ctx_propagate_assertions(ast_manager& m);
-    virtual ~ctx_propagate_assertions() {}
-    virtual bool assert_expr(expr * t, bool sign);
-    virtual bool simplify(expr* t, expr_ref& result);
+    ~ctx_propagate_assertions() override {}
+    bool assert_expr(expr * t, bool sign) override;
+    bool simplify(expr* t, expr_ref& result) override;
     void push();
-    virtual void pop(unsigned num_scopes);
-    virtual unsigned scope_level() const { return m_scopes.size(); }
-    virtual simplifier * translate(ast_manager & m);
+    void pop(unsigned num_scopes) override;
+    unsigned scope_level() const override { return m_scopes.size(); }
+    simplifier * translate(ast_manager & m) override;
 };
 
 
@@ -148,7 +148,7 @@ struct ctx_simplify_tactic::imp {
     struct cache_cell {
         expr *          m_from;
         cached_result * m_result;
-        cache_cell():m_from(0), m_result(0) {}
+        cache_cell():m_from(nullptr), m_result(nullptr) {}
     };
 
     ast_manager &               m;
@@ -217,7 +217,7 @@ struct ctx_simplify_tactic::imp {
     bool check_cache() {
         for (unsigned i = 0; i < m_cache.size(); i++) {
             cache_cell & cell = m_cache[i];
-            if (cell.m_from != 0) {
+            if (cell.m_from != nullptr) {
                 SASSERT(cell.m_result != 0);
                 cached_result * curr = cell.m_result;
                 while (curr) {
@@ -235,10 +235,10 @@ struct ctx_simplify_tactic::imp {
         m_cache.reserve(id+1);
         cache_cell & cell = m_cache[id];
         void * mem = m_allocator.allocate(sizeof(cached_result));
-        if (cell.m_from == 0) {
+        if (cell.m_from == nullptr) {
             // new_entry
             cell.m_from   = from;
-            cell.m_result = new (mem) cached_result(to, scope_level(), 0);
+            cell.m_result = new (mem) cached_result(to, scope_level(), nullptr);
             m.inc_ref(from);
             m.inc_ref(to);
         }
@@ -281,9 +281,9 @@ struct ctx_simplify_tactic::imp {
                   if (to_delete->m_next) tout << mk_ismt2_pp(to_delete->m_next->m_to, m); else tout << "<null>";
                   tout << "\n";);
             cell.m_result = to_delete->m_next;
-            if (cell.m_result == 0) {
+            if (cell.m_result == nullptr) {
                 m.dec_ref(cell.m_from);
-                cell.m_from = 0;
+                cell.m_from = nullptr;
             }
             m_allocator.deallocate(sizeof(cached_result), to_delete);
         }
@@ -316,7 +316,7 @@ struct ctx_simplify_tactic::imp {
             return false;
         cache_cell & cell = m_cache[id];
         SASSERT(cell.m_result == 0 || cell.m_result->m_lvl <= scope_level());
-        if (cell.m_result != 0 && cell.m_result->m_lvl == scope_level()) {
+        if (cell.m_result != nullptr && cell.m_result->m_lvl == scope_level()) {
             SASSERT(cell.m_from == t);
             SASSERT(cell.m_result->m_to != 0);
             r = cell.m_result->m_to;
@@ -326,7 +326,7 @@ struct ctx_simplify_tactic::imp {
     }
 
     void simplify(expr * t, expr_ref & r) {
-        r = 0;
+        r = nullptr;
         if (m_depth >= m_max_depth || m_num_steps >= m_max_steps || !is_app(t) || !m_simp->may_simplify(t)) {
             r = t;
             return;
@@ -534,7 +534,7 @@ struct ctx_simplify_tactic::imp {
             if (i < sz - 1 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
-            g.update(i, r, 0, g.dep(i));
+            g.update(i, r, nullptr, g.dep(i));
         }
         pop(scope_level() - old_lvl);
 
@@ -549,7 +549,7 @@ struct ctx_simplify_tactic::imp {
             if (i > 0 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !assert_expr(r, false)) {
                 r = m.mk_false();
             }
-            g.update(i, r, 0, g.dep(i));
+            g.update(i, r, nullptr, g.dep(i));
         }
         pop(scope_level() - old_lvl);
         SASSERT(scope_level() == 0);
@@ -582,7 +582,7 @@ struct ctx_simplify_tactic::imp {
             for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
                 expr * t = g.form(i);
                 process(t, r);
-                proof* new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(t, r, 0, 0)); // TODO :-)
+                proof* new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite(t, r));
                 g.update(i, r, new_pr, g.dep(i));
             }
         }
@@ -621,11 +621,7 @@ void ctx_simplify_tactic::get_param_descrs(param_descrs & r) {
 }
 
 void ctx_simplify_tactic::operator()(goal_ref const & in,
-                                     goal_ref_buffer & result,
-                                     model_converter_ref & mc,
-                                     proof_converter_ref & pc,
-                                     expr_dependency_ref & core) {
-    mc = 0; pc = 0; core = 0;
+                                     goal_ref_buffer & result) {
     (*m_imp)(*(in.get()));
     in->inc_depth();
     result.push_back(in.get());

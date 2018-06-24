@@ -43,11 +43,11 @@ public:
         m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(ctx_solver_simplify_tactic, m, m_params);
     }
 
-    virtual ~ctx_solver_simplify_tactic() {
+    ~ctx_solver_simplify_tactic() override {
         obj_map<sort, func_decl*>::iterator it = m_fns.begin(), end = m_fns.end();
         for (; it != end; ++it) {
             m.dec_ref(it->m_value);
@@ -55,33 +55,28 @@ public:
         m_fns.reset();
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_solver.updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         m_solver.collect_param_descrs(r); 
     }
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.update("solver-simplify-steps", m_num_steps);
     }
 
-    virtual void reset_statistics() { m_num_steps = 0; }
+    void reset_statistics() override { m_num_steps = 0; }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        
-        mc = 0; pc = 0; core = 0;
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         reduce(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         reset_statistics();
         m_solver.reset();
     }
@@ -127,7 +122,7 @@ protected:
             m_solver.pop(1);
         });
         g.reset();
-        g.assert_expr(fml, 0, 0); 
+        g.assert_expr(fml, nullptr, nullptr);
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(ctx-solver-simplify :num-steps " << m_num_steps << ")\n";);
         SASSERT(g.is_well_sorted());        
     }
@@ -141,7 +136,7 @@ protected:
             m_parent(p), m_self(s), m_idx(i), m_expr(e)
         {}
         expr_pos():
-            m_parent(0), m_self(0), m_idx(0), m_expr(0)
+            m_parent(0), m_self(0), m_idx(0), m_expr(nullptr)
         {}
     };
 
@@ -194,7 +189,7 @@ protected:
             
             a = to_app(e);
             sz = a->get_num_args();            
-            n2 = 0;
+            n2 = nullptr;
 
             for (unsigned i = 0; i < sz; ++i) {
                 expr* arg = a->get_arg(i);

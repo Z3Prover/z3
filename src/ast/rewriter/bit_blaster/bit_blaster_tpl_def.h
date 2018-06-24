@@ -272,7 +272,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         zero = m().mk_false();
 
         vector< expr_ref_vector > pps;
-        pps.resize(sz, m());
+        pps.resize(sz, expr_ref_vector(m()));
                
         for (unsigned i = 0; i < sz; i++) {
             checkpoint();
@@ -1193,7 +1193,6 @@ bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * 
         return false;
     }
     SASSERT(out_bits.empty());
-    
     ptr_buffer<expr, 128> na_bits;
     na_bits.append(sz, a_bits);
     ptr_buffer<expr, 128> nb_bits;

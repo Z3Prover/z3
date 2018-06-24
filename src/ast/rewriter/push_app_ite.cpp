@@ -63,7 +63,7 @@ br_status push_app_ite_cfg::reduce_app(func_decl * f, unsigned num, expr * const
         return BR_FAILED;
     }
     app * ite               = to_app(args[ite_arg_idx]);
-    expr * c = 0, * t = 0, * e = 0;
+    expr * c = nullptr, * t = nullptr, * e = nullptr;
     VERIFY(m.is_ite(ite, c, t, e));
     expr ** args_prime      = const_cast<expr**>(args);
     expr * old              = args_prime[ite_arg_idx];

@@ -34,11 +34,11 @@ void rewriter_core::init_cache_stack() {
 void rewriter_core::del_cache_stack() {
     std::for_each(m_cache_stack.begin(), m_cache_stack.end(), delete_proc<cache>());
     m_cache_stack.finalize();
-    m_cache = 0;
+    m_cache = nullptr;
     if (m_proof_gen) {
         std::for_each(m_cache_pr_stack.begin(), m_cache_pr_stack.end(), delete_proc<cache>());
         m_cache_pr_stack.finalize();
-        m_cache_pr = 0;
+        m_cache_pr = nullptr;
     }
 }
 
@@ -161,7 +161,7 @@ void rewriter_core::elim_reflex_prs(unsigned spos) {
     unsigned j = spos;
     for (unsigned i = spos; i < sz; i++) {
         proof * pr = m_result_pr_stack.get(i);
-        if (pr != 0) {
+        if (pr != nullptr) {
             if (i != j)
                 m_result_pr_stack.set(j, pr);
             j++;
@@ -192,7 +192,7 @@ void rewriter_core::reset() {
     m_result_stack.reset();
     if (m_proof_gen)
         m_result_pr_stack.reset();
-    m_root = 0;
+    m_root = nullptr;
     m_num_qvars = 0;
     m_scopes.reset();
 }
@@ -201,7 +201,7 @@ void rewriter_core::reset() {
 void rewriter_core::cleanup() {
     free_memory();
     init_cache_stack();
-    m_root       = 0;
+    m_root       = nullptr;
     m_num_qvars  = 0;
 }
 

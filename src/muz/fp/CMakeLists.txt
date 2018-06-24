@@ -8,9 +8,7 @@ z3_add_component(fp
     bmc
     clp
     ddnf
-    duality_intf
     muz
-    pdr
     rel
     spacer
     tab

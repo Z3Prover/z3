@@ -67,6 +67,7 @@ public:
     static unsigned long long get_allocation_size();
     static unsigned long long get_max_used_memory();
     static unsigned long long get_allocation_count();
+    static unsigned long long get_max_memory_size();
     // temporary hack to avoid out-of-memory crash in z3.exe
     static void exit_when_out_of_memory(bool flag, char const * msg);
 };
@@ -90,7 +91,7 @@ void deallocf(char const* file, int line, T * ptr) {
 
 template<typename T>
 void dealloc(T * ptr) {
-    if (ptr == 0) return;
+    if (ptr == nullptr) return;
     ptr->~T();
     memory::deallocate(ptr);
 }
@@ -111,7 +112,7 @@ T * alloc_vect(unsigned sz) {
 
 template<typename T>
 void dealloc_vect(T * ptr, unsigned sz) {
-    if (ptr == 0) return;
+    if (ptr == nullptr) return;
     T * curr = ptr;
     for (unsigned i = 0; i < sz; i++, curr++)
         curr->~T();
@@ -122,7 +123,7 @@ void dealloc_vect(T * ptr, unsigned sz) {
 
 template<typename T>
 void dealloc_svect(T * ptr) {
-    if (ptr == 0) return;
+    if (ptr == nullptr) return;
     memory::deallocate(ptr);
 }
 

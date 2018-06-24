@@ -41,11 +41,11 @@ struct goal2nlsat::imp {
             m_solver(s) {
         }
 
-        virtual bool is_int(polynomial::var x) const {
+        bool is_int(polynomial::var x) const override {
             return m_solver.is_int(x);
         }
 
-        virtual polynomial::var mk_var(bool is_int) {
+        polynomial::var mk_var(bool is_int) override {
             return m_solver.mk_var(is_int);
         }
     };
@@ -198,7 +198,6 @@ struct goal2nlsat::imp {
                     throw tactic_exception("apply simplify before applying nlsat");
                 case OP_AND:
                 case OP_OR:
-                case OP_IFF:
                 case OP_XOR:
                 case OP_NOT:
                 case OP_IMPLIES:
@@ -269,12 +268,12 @@ struct goal2nlsat::scoped_set_imp {
     }
     
     ~scoped_set_imp() {
-        m_owner.m_imp = 0;        
+        m_owner.m_imp = nullptr;
     }
 };
 
 goal2nlsat::goal2nlsat() {
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 goal2nlsat::~goal2nlsat() {

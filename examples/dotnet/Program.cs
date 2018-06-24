@@ -173,10 +173,9 @@ namespace test_mapi
                 throw new Exception("function must be binary, and argument types must be equal to return type");
             }
 
-            string bench = string.Format("(benchmark comm :formula (forall (x {0}) (y {1}) (= ({2} x y) ({3} y x))))",
+            string bench = string.Format("(assert (forall ((x {0}) (y {1})) (= ({2} x y) ({3} y x))))",
                              t.Name, t.Name, f.Name, f.Name);
-            ctx.ParseSMTLIBString(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f });
-            return ctx.SMTLIBFormulas[0];
+            return ctx.ParseSMTLIB2String(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f })[0];
         }
 
         /// <summary>
@@ -323,7 +322,6 @@ namespace test_mapi
             Status q = s.Check();
             Console.WriteLine("Solver says: " + q);
             Console.WriteLine("Model: \n" + s.Model);
-            Console.WriteLine("Converted Model: \n" + ar.ConvertModel(0, s.Model));
             if (q != Status.SATISFIABLE)
                 throw new TestFailedException();
         }
@@ -613,7 +611,6 @@ namespace test_mapi
                 Expr f_x = ctx.MkApp(f, x);
                 Expr f_y = ctx.MkApp(f, y);
                 Expr g_y = ctx.MkApp(g, y);
-                Pattern[] pats = new Pattern[] { ctx.MkPattern(new Expr[] { f_x, g_y }) };
                 Expr[] no_pats = new Expr[] { f_y };
                 Expr[] bound = new Expr[2] { x, y };
                 Expr body = ctx.MkAnd(ctx.MkEq(f_x, f_y), ctx.MkEq(f_y, g_y));
@@ -623,14 +620,13 @@ namespace test_mapi
                 Console.WriteLine("{0}", q1);
             }
 
-            // Quantifier with de-Brujin indices.
+            // Quantifier with de-Bruijn indices.
             {
                 Expr x = ctx.MkBound(1, ctx.IntSort);
                 Expr y = ctx.MkBound(0, ctx.IntSort);
                 Expr f_x = ctx.MkApp(f, x);
                 Expr f_y = ctx.MkApp(f, y);
                 Expr g_y = ctx.MkApp(g, y);
-                Pattern[] pats = new Pattern[] { ctx.MkPattern(new Expr[] { f_x, g_y }) };
                 Expr[] no_pats = new Expr[] { f_y };
                 Symbol[] names = new Symbol[] { ctx.MkSymbol("x"), ctx.MkSymbol("y") };
                 Sort[] sorts = new Sort[] { ctx.IntSort, ctx.IntSort };
@@ -731,7 +727,6 @@ namespace test_mapi
         {
             Console.WriteLine("BasicTests");
 
-            Symbol qi = ctx.MkSymbol(1);
             Symbol fname = ctx.MkSymbol("f");
             Symbol x = ctx.MkSymbol("x");
             Symbol y = ctx.MkSymbol("y");
@@ -965,21 +960,6 @@ namespace test_mapi
                 }
         }
 
-        /// <summary>
-        /// Shows how to read an SMT1 file.
-        /// </summary>
-        static void SMT1FileTest(string filename)
-        {
-            Console.Write("SMT File test ");
-
-            using (Context ctx = new Context(new Dictionary<string, string>() { { "MODEL", "true" } }))
-            {
-                ctx.ParseSMTLIBFile(filename);
-
-                BoolExpr a = ctx.MkAnd(ctx.SMTLIBFormulas);
-                Console.WriteLine("read formula: " + a);
-            }
-        }
 
         /// <summary>
         /// Shows how to read an SMT2 file.
@@ -993,7 +973,8 @@ namespace test_mapi
 
             using (Context ctx = new Context(new Dictionary<string, string>() { { "MODEL", "true" } }))
             {
-                Expr a = ctx.ParseSMTLIB2File(filename);
+                BoolExpr[] fmls = ctx.ParseSMTLIB2File(filename);
+                BoolExpr a = ctx.MkAnd(fmls);
 
                 Console.WriteLine("SMT2 file read time: " + (System.DateTime.Now - before).TotalSeconds + " sec");
 
@@ -1335,7 +1316,7 @@ namespace test_mapi
              new Sort[] { int_type, int_type } // types of projection operators
                 );
             FuncDecl first = tuple.FieldDecls[0];  // declarations are for projections
-            FuncDecl second = tuple.FieldDecls[1];
+            // FuncDecl second = tuple.FieldDecls[1];
             Expr x = ctx.MkConst("x", int_type);
             Expr y = ctx.MkConst("y", int_type);
             Expr n1 = tuple.MkDecl[x, y];
@@ -1399,11 +1380,12 @@ namespace test_mapi
         {
             Console.WriteLine("ParserExample1");
 
-            ctx.ParseSMTLIBString("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
-            foreach (BoolExpr f in ctx.SMTLIBFormulas)
-                Console.WriteLine("formula {0}", f);
+            var fmls = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
+            var fml = ctx.MkAnd(fmls);
 
-            Model m = Check(ctx, ctx.MkAnd(ctx.SMTLIBFormulas), Status.SATISFIABLE);
+            Console.WriteLine("formula {0}", fml);
+
+            Model m = Check(ctx, fml, Status.SATISFIABLE);
         }
 
         /// <summary>
@@ -1412,15 +1394,11 @@ namespace test_mapi
         public static void ParserExample2(Context ctx)
         {
             Console.WriteLine("ParserExample2");
-
             Symbol[] declNames = { ctx.MkSymbol("a"), ctx.MkSymbol("b") };
             FuncDecl a = ctx.MkConstDecl(declNames[0], ctx.MkIntSort());
             FuncDecl b = ctx.MkConstDecl(declNames[1], ctx.MkIntSort());
             FuncDecl[] decls = new FuncDecl[] { a, b };
-
-            ctx.ParseSMTLIBString("(benchmark tst :formula (> a b))",
-                                 null, null, declNames, decls);
-            BoolExpr f = ctx.SMTLIBFormulas[0];
+            BoolExpr f = ctx.ParseSMTLIB2String("(assert (> a b))", null, null, declNames, decls)[0];
             Console.WriteLine("formula: {0}", f);
             Check(ctx, f, Status.SATISFIABLE);
         }
@@ -1438,37 +1416,13 @@ namespace test_mapi
 
             BoolExpr ca = CommAxiom(ctx, g);
 
-            ctx.ParseSMTLIBString("(benchmark tst :formula (forall (x Int) (y Int) (implies (= x y) (= (gg x 0) (gg 0 y)))))",
+            BoolExpr thm = ctx.ParseSMTLIB2String("(assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
              null, null,
              new Symbol[] { ctx.MkSymbol("gg") },
-             new FuncDecl[] { g });
+             new FuncDecl[] { g })[0];
 
-            BoolExpr thm = ctx.SMTLIBFormulas[0];
             Console.WriteLine("formula: {0}", thm);
             Prove(ctx, thm, false, ca);
-        }
-
-        /// <summary>
-        /// Display the declarations, assumptions and formulas in a SMT-LIB string.
-        /// </summary>
-        public static void ParserExample4(Context ctx)
-        {
-            Console.WriteLine("ParserExample4");
-
-            ctx.ParseSMTLIBString
-            ("(benchmark tst :extrafuns ((x Int) (y Int)) :assumption (= x 20) :formula (> x y) :formula (> x 0))");
-            foreach (var decl in ctx.SMTLIBDecls)
-            {
-                Console.WriteLine("Declaration: {0}", decl);
-            }
-            foreach (var f in ctx.SMTLIBAssumptions)
-            {
-                Console.WriteLine("Assumption: {0}", f);
-            }
-            foreach (var f in ctx.SMTLIBFormulas)
-            {
-                Console.WriteLine("Formula: {0}", f);
-            }
         }
 
         /// <summary>
@@ -1481,9 +1435,9 @@ namespace test_mapi
 
             try
             {
-                ctx.ParseSMTLIBString(
+                ctx.ParseSMTLIB2String(
                     /* the following string has a parsing error: missing parenthesis */
-                         "(benchmark tst :extrafuns ((x Int (y Int)) :formula (> x y) :formula (> x 0))");
+                         "(declare-const x Int (declare-const y Int)) (assert (> x y))");
             }
             catch (Z3Exception e)
             {
@@ -1990,7 +1944,7 @@ namespace test_mapi
             BoolExpr p2 = ctx.MkBoolConst("P2");
             BoolExpr p3 = ctx.MkBoolConst("P3");
             BoolExpr p4 = ctx.MkBoolConst("P4");
-            BoolExpr[] assumptions = new BoolExpr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
+            Expr[] assumptions = new Expr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
             BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
             BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
             BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
@@ -2213,7 +2167,6 @@ namespace test_mapi
                     BitvectorExample2(ctx);
                     ParserExample1(ctx);
                     ParserExample2(ctx);
-                    ParserExample4(ctx);
                     ParserExample5(ctx);
                     ITEExample(ctx);
                     EvalExample1(ctx);

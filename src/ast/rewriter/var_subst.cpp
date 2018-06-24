@@ -25,6 +25,10 @@ Notes:
 
 expr_ref var_subst::operator()(expr * n, unsigned num_args, expr * const * args) {
     expr_ref result(m_reducer.m());
+    if (is_ground(n)) {
+        result = n;
+        return result;
+    }
     SASSERT(is_well_sorted(result.m(), n));
     m_reducer.reset();
     if (m_std_order)
@@ -102,7 +106,7 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
         }
         else {
             num_removed++;
-            var_mapping.push_back(0);
+            var_mapping.push_back(nullptr);
         }
     }
     // (VAR 0) is in the first position of var_mapping.
@@ -112,7 +116,7 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
         if (s)
             var_mapping.push_back(m.mk_var(i - num_removed, s));
         else
-            var_mapping.push_back(0);
+            var_mapping.push_back(nullptr);
     }
 
 

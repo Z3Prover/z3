@@ -258,7 +258,7 @@ namespace datalog {
             m_rule_manager(ctx.get_rule_manager()), 
             m_rules(m_rule_manager), 
             m_deps(ctx),
-            m_stratifier(0), 
+            m_stratifier(nullptr),
             m_refs(ctx.get_manager()) {
     }
 
@@ -267,7 +267,7 @@ namespace datalog {
           m_rule_manager(other.m_rule_manager), 
           m_rules(m_rule_manager),
           m_deps(other.m_context),
-          m_stratifier(0),
+          m_stratifier(nullptr),
           m_refs(m_context.get_manager()) {
         add_rules(other);
         if (other.m_stratifier) {
@@ -283,7 +283,7 @@ namespace datalog {
         m_rules.reset();
         reset_dealloc_values(m_head2rules);
         m_deps.reset();
-        m_stratifier = 0;
+        m_stratifier = nullptr;
         m_output_preds.reset();
         m_orig2pred.reset();
         m_pred2orig.reset();
@@ -369,7 +369,7 @@ namespace datalog {
         m_deps.populate(*this);
         m_stratifier = alloc(rule_stratifier, m_deps);
         if (!stratified_negation()) {
-            m_stratifier = 0;
+            m_stratifier = nullptr;
             m_deps.reset();
             return false;
         }
@@ -378,7 +378,7 @@ namespace datalog {
 
     void rule_set::reopen() {
         if (is_closed()) {
-            m_stratifier = 0;
+            m_stratifier = nullptr;
             m_deps.reset();
         }
     }

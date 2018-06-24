@@ -30,7 +30,7 @@ Revision History:
 #include "util/mpn.h"
 
 unsigned u_gcd(unsigned u, unsigned v);
-uint64 u64_gcd(uint64 u, uint64 v);
+uint64_t u64_gcd(uint64_t u, uint64_t v);
 
 #ifdef _MP_GMP
 typedef unsigned digit_t;
@@ -92,8 +92,11 @@ class mpz {
     friend class mpbq_manager;
     mpz & operator=(mpz const & other) { UNREACHABLE(); return *this; }
 public:
-    mpz(int v):m_val(v), m_ptr(0) {}
-    mpz():m_val(0), m_ptr(0) {}
+    mpz(int v):m_val(v), m_ptr(nullptr) {}
+    mpz():m_val(0), m_ptr(nullptr) {}
+    mpz(mpz && other) : m_val(other.m_val), m_ptr(nullptr) {
+        std::swap(m_ptr, other.m_ptr);
+    }
     void swap(mpz & other) { 
         std::swap(m_val, other.m_val);
         std::swap(m_ptr, other.m_ptr);
@@ -184,16 +187,16 @@ class mpz_manager {
 
     /**
        \brief Set \c a with the value stored at m_tmp[IDX], and the given sign.
-       \c sz is an overapproximation of the the size of the number stored at \c tmp.
+       \c sz is an overapproximation of the size of the number stored at \c tmp.
     */
     template<int IDX>
     void set(mpz & a, int sign, unsigned sz);
 
-    static int64 i64(mpz const & a) { return static_cast<int64>(a.m_val); }
+    static int64_t i64(mpz const & a) { return static_cast<int64_t>(a.m_val); }
 
-    void set_big_i64(mpz & c, int64 v);
+    void set_big_i64(mpz & c, int64_t v);
 
-    void set_i64(mpz & c, int64 v) { 
+    void set_i64(mpz & c, int64_t v) {
         if (v >= INT_MIN && v <= INT_MAX) {
             del(c);
             c.m_val = static_cast<int>(v); 
@@ -205,7 +208,7 @@ class mpz_manager {
         }
     }
 
-    void set_big_ui64(mpz & c, uint64 v);
+    void set_big_ui64(mpz & c, uint64_t v);
 
 #ifndef _MP_GMP
     static unsigned capacity(mpz const & c) { return c.m_ptr->m_capacity; }
@@ -218,24 +221,24 @@ class mpz_manager {
     static bool is_abs_uint64(mpz const & a) {
         if (is_small(a))
             return true;
-        if (sizeof(digit_t) == sizeof(uint64))
+        if (sizeof(digit_t) == sizeof(uint64_t))
             return size(a) <= 1;
         else
             return size(a) <= 2;
     }
     
     // CAST the absolute value into a UINT64
-    static uint64 big_abs_to_uint64(mpz const & a) {
+    static uint64_t big_abs_to_uint64(mpz const & a) {
         SASSERT(is_abs_uint64(a));
         SASSERT(!is_small(a));
         if (a.m_ptr->m_size == 1)
             return digits(a)[0];
-        if (sizeof(digit_t) == sizeof(uint64))
+        if (sizeof(digit_t) == sizeof(uint64_t))
             // 64-bit machine
             return digits(a)[0];
         else 
             // 32-bit machine
-            return ((static_cast<uint64>(digits(a)[1]) << 32) | (static_cast<uint64>(digits(a)[0])));
+            return ((static_cast<uint64_t>(digits(a)[1]) << 32) | (static_cast<uint64_t>(digits(a)[0])));
     }
 
     template<int IDX>
@@ -330,16 +333,16 @@ public:
 
     ~mpz_manager();
 
-    static bool is_small(mpz const & a) { return a.m_ptr == 0; }
+    static bool is_small(mpz const & a) { return a.m_ptr == nullptr; }
 
     static mpz mk_z(int val) { return mpz(val); }
     
     void del(mpz & a) { 
-        if (a.m_ptr != 0) {
+        if (a.m_ptr != nullptr) {
             MPZ_BEGIN_CRITICAL();
             deallocate(a.m_ptr); 
             MPZ_END_CRITICAL();
-            a.m_ptr = 0; 
+            a.m_ptr = nullptr;
         } 
     }
     
@@ -423,8 +426,8 @@ public:
     void machine_div_rem(mpz const & a, mpz const & b, mpz & q, mpz & r) {
         STRACE("mpz", tout << "[mpz-ext] divrem(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
         if (is_small(a) && is_small(b)) {
-            int64 _a = i64(a);
-            int64 _b = i64(b);
+            int64_t _a = i64(a);
+            int64_t _b = i64(b);
             set_i64(q, _a / _b);
             set_i64(r, _a % _b);
         }
@@ -668,6 +671,12 @@ public:
         }
     }
 
+    void set(mpz & target, mpz && source) {
+        del(target);
+        target.m_val = source.m_val;
+        std::swap(target.m_ptr, source.m_ptr);
+    }
+
     void set(mpz & a, int val) {
         del(a);
         a.m_val = val;
@@ -677,16 +686,16 @@ public:
         if (val <= INT_MAX)
             set(a, static_cast<int>(val));
         else
-            set(a, static_cast<int64>(static_cast<uint64>(val)));
+            set(a, static_cast<int64_t>(static_cast<uint64_t>(val)));
     }
 
     void set(mpz & a, char const * val);
 
-    void set(mpz & a, int64 val) {
+    void set(mpz & a, int64_t val) {
         set_i64(a, val);
     }
 
-    void set(mpz & a, uint64 val) {
+    void set(mpz & a, uint64_t val) {
         if (val < INT_MAX) {
             del(a);
             a.m_val = static_cast<int>(val);
@@ -699,6 +708,12 @@ public:
     }
 
     void set(mpz & target, unsigned sz, digit_t const * digits);
+
+    mpz dup(const mpz & source) {
+        mpz temp;
+        set(temp, source);
+        return temp;
+    }
 
     void reset(mpz & a) {
         del(a);
@@ -714,9 +729,9 @@ public:
 
     bool is_int64(mpz const & a) const;
 
-    uint64 get_uint64(mpz const & a) const;
+    uint64_t get_uint64(mpz const & a) const;
 
-    int64 get_int64(mpz const & a) const;
+    int64_t get_int64(mpz const & a) const;
 
     bool is_uint(mpz const & a) const { return is_uint64(a) && get_uint64(a) < UINT_MAX; }
     

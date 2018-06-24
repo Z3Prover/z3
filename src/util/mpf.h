@@ -35,7 +35,7 @@ typedef enum {
     MPF_ROUND_TOWARD_ZERO
 } mpf_rounding_mode;
 
-typedef int64 mpf_exp_t;
+typedef int64_t mpf_exp_t;
 
 class mpf {
     friend class mpf_manager;
@@ -50,7 +50,12 @@ class mpf {
 public:
     mpf();
     mpf(unsigned ebits, unsigned sbits);
-    mpf(mpf const & other);
+    mpf(mpf && other) :
+        ebits(other.ebits),
+        sbits(other.sbits),
+        sign(other.sign),
+        significand(std::move(other.significand)),
+        exponent(other.exponent) {}
     ~mpf();
     unsigned get_ebits() const { return ebits; }
     unsigned get_sbits() const { return sbits; }
@@ -75,7 +80,7 @@ public:
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpq const & value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, char const * value);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpz const & exponent, mpq const & significand);
-    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, uint64 significand);
+    void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, uint64_t significand);
     void set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, mpz const & significand);
     void set(mpf & o, mpf const & x);
     void set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode rm, mpf const & x);
@@ -185,8 +190,8 @@ public:
     void mk_pinf(unsigned ebits, unsigned sbits, mpf & o);
     void mk_ninf(unsigned ebits, unsigned sbits, mpf & o);
 
-    unsynch_mpz_manager & mpz_manager(void) { return m_mpz_manager; }
-    unsynch_mpq_manager & mpq_manager(void) { return m_mpq_manager; }
+    unsynch_mpz_manager & mpz_manager() { return m_mpz_manager; }
+    unsynch_mpq_manager & mpq_manager() { return m_mpq_manager; }
 
     unsigned hash(mpf const & a) {
         return hash_u_u(m_mpz_manager.hash(a.significand),

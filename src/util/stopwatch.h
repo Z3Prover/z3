@@ -134,6 +134,11 @@ public:
 
 #include<ctime>
 
+#ifndef CLOCK_PROCESS_CPUTIME_ID
+/* BSD */
+# define CLOCK_PROCESS_CPUTIME_ID CLOCK_MONOTONIC
+#endif
+
 class stopwatch {
     unsigned long long m_time; // elapsed time in ns
     bool               m_running;
@@ -184,5 +189,16 @@ public:
 };
 
 #endif
+
+struct scoped_watch {
+    stopwatch &m_sw;
+    scoped_watch (stopwatch &sw, bool reset=false): m_sw(sw) {
+        if (reset) m_sw.reset(); 
+        m_sw.start();
+    }
+    ~scoped_watch() {
+        m_sw.stop ();
+    }
+};
 
 #endif

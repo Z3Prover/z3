@@ -29,7 +29,8 @@ Revision History:
 
 model::model(ast_manager & m):
     model_core(m),
-    m_cleaned(false) {
+    m_cleaned(false),
+    m_mev(*this) {
 }
 
 model::~model() {
@@ -67,12 +68,10 @@ model * model::copy() const {
     return mdl;
 }
 
-// Remark: eval is for backward compatibility. We should use model_evaluator.
-bool model::eval(expr * e, expr_ref & result, bool model_completion) {
-    model_evaluator ev(*this);
-    ev.set_model_completion(model_completion);
+bool model::eval_expr(expr * e, expr_ref & result, bool model_completion) {
+    scoped_model_completion _smc(*this, model_completion);
     try {
-        ev(e, result);
+        result = (*this)(e);
         return true;
     }
     catch (model_evaluator_exception & ex) {
@@ -85,13 +84,13 @@ bool model::eval(expr * e, expr_ref & result, bool model_completion) {
 struct model::value_proc : public some_value_proc {
     model & m_model;
     value_proc(model & m):m_model(m) {}
-    virtual expr * operator()(sort * s) {
-        ptr_vector<expr> * u = 0;
+    expr * operator()(sort * s) override {
+        ptr_vector<expr> * u = nullptr;
         if (m_model.m_usort2universe.find(s, u)) {
             if (u->size() > 0)
                 return u->get(0);
         }
-        return 0;
+        return nullptr;
     }
 };
 
@@ -101,16 +100,16 @@ expr * model::get_some_value(sort * s) {
 }
 
 ptr_vector<expr> const & model::get_universe(sort * s) const {
-    ptr_vector<expr> * u = 0;
+    ptr_vector<expr> * u = nullptr;
     m_usort2universe.find(s, u);
     SASSERT(u != 0);
     return *u;
 }
 
 bool model::has_uninterpreted_sort(sort * s) const {
-    ptr_vector<expr> * u = 0;
+    ptr_vector<expr> * u = nullptr;
     m_usort2universe.find(s, u);
-    return u != 0;
+    return u != nullptr;
 }
 
 unsigned model::get_num_uninterpreted_sorts() const {
@@ -453,3 +452,31 @@ expr_ref model::get_inlined_const_interp(func_decl* f) {
     }
     return result2;
 }
+
+expr_ref model::operator()(expr* t) {
+    return m_mev(t);
+}
+
+expr_ref_vector model::operator()(expr_ref_vector const& ts) {
+    expr_ref_vector rs(m);
+    for (expr* t : ts) rs.push_back((*this)(t));
+    return rs;
+}
+
+bool model::is_true(expr* t) {
+    return m.is_true((*this)(t));
+}
+
+bool model::is_false(expr* t) {
+    return m.is_false((*this)(t));
+}
+
+bool model::is_true(expr_ref_vector const& ts) {
+    for (expr* t : ts) if (!is_true(t)) return false;
+    return true;
+}
+
+void model::reset_eval_cache() {
+    m_mev.reset();
+}
+

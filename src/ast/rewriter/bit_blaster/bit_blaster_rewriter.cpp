@@ -92,6 +92,8 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
     func_decl_ref_vector                     m_keys;
     expr_ref_vector                          m_values;
     unsigned_vector                          m_keyval_lim;
+    func_decl_ref_vector                     m_newbits;
+    unsigned_vector                          m_newbits_lim;
 
     bool                                     m_blast_mul;
     bool                                     m_blast_add;
@@ -118,7 +120,8 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         m_out(m),
         m_bindings(m),
         m_keys(m),
-        m_values(m) {
+        m_values(m),
+        m_newbits(m) {
         updt_params(p);
     }
 
@@ -160,6 +163,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
 
     void push() {
         m_keyval_lim.push_back(m_keys.size());
+        m_newbits_lim.push_back(m_newbits.size());
     }
 
     unsigned get_num_scopes() const {
@@ -178,7 +182,25 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
             m_keys.resize(lim);
             m_values.resize(lim);
             m_keyval_lim.resize(new_sz);
+
+            lim = m_newbits_lim[new_sz];
+            m_newbits.shrink(lim);
+            m_newbits_lim.shrink(new_sz);
         }
+    }
+
+    unsigned m_keypos;
+
+    void start_rewrite() {
+        m_keypos = m_keys.size();
+    }
+
+    void end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
+        for (unsigned i = m_keypos; i < m_keys.size(); ++i) {
+            const2bits.insert(m_keys[i].get(), m_values[i].get());
+        }
+        for (func_decl* f : m_newbits) newbits.push_back(f);
+        
     }
 
     template<typename V>
@@ -200,7 +222,8 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         sort * b = m().mk_bool_sort();
         m_out.reset();
         for (unsigned i = 0; i < bv_size; i++) {
-            m_out.push_back(m().mk_fresh_const(0, b));
+            m_out.push_back(m().mk_fresh_const(nullptr, b));
+            m_newbits.push_back(to_app(m_out.back())->get_decl());
         }
         r = mk_mkbv(m_out);
         m_const2bits.insert(f, r);
@@ -342,11 +365,11 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             bits.push_back(m().mk_app(butil().get_family_id(), OP_BIT2BOOL, 1, &p, 1, &t));
         }
         result    = mk_mkbv(bits);
-        result_pr = 0;
+        result_pr = nullptr;
     }
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         TRACE("bit_blaster", tout << f->get_name() << " ";
               for (unsigned i = 0; i < num; ++i) tout << mk_pp(args[i], m()) << " ";
               tout << "\n";);
@@ -569,7 +592,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             if (t->get_idx() >= m_bindings.size())
                 return false;
             result = m_bindings.get(m_bindings.size() - t->get_idx() - 1);
-            result_pr = 0;
+            result_pr = nullptr;
             return true;
         }
 
@@ -616,7 +639,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
                                    new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                    old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
-        result_pr = 0;
+        result_pr = nullptr;
         m_bindings.shrink(old_sz);
         return true;
     }
@@ -635,6 +658,8 @@ struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     }
     void push() { m_cfg.push(); }
     void pop(unsigned s) { m_cfg.pop(s); }
+    void start_rewrite() { m_cfg.start_rewrite(); }
+    void end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) { m_cfg.end_rewrite(const2bits, newbits); }
     unsigned get_num_scopes() const { return m_cfg.get_num_scopes(); }
 };
 
@@ -683,3 +708,10 @@ unsigned bit_blaster_rewriter::get_num_scopes() const {
     return m_imp->get_num_scopes();
 }
 
+void bit_blaster_rewriter::start_rewrite() {
+    m_imp->start_rewrite();
+}
+
+void bit_blaster_rewriter::end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
+    m_imp->end_rewrite(const2bits, newbits);
+}

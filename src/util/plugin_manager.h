@@ -27,7 +27,12 @@ class plugin_manager {
     ptr_vector<Plugin>   m_plugins;
 public:
     ~plugin_manager() {
+        reset();
+    }
+
+    void reset() {
         std::for_each(m_plugins.begin(), m_plugins.end(), delete_proc<Plugin>());
+        release();
     }
 
     /**
@@ -48,7 +53,7 @@ public:
     
     Plugin * get_plugin(family_id fid) const {
         if (fid == null_family_id) {
-            return 0;
+            return nullptr;
         }
         return m_fid2plugins.get(fid, 0);
     }

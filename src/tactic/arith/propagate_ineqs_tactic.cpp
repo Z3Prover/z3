@@ -43,18 +43,18 @@ class propagate_ineqs_tactic : public tactic {
 public:
     propagate_ineqs_tactic(ast_manager & m, params_ref const & p);
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(propagate_ineqs_tactic, m, m_params);
     }
 
-    virtual ~propagate_ineqs_tactic();
+    ~propagate_ineqs_tactic() override;
 
-    virtual void updt_params(params_ref const & p);
-    virtual void collect_param_descrs(param_descrs & r) {}
+    void updt_params(params_ref const & p) override;
+    void collect_param_descrs(param_descrs & r) override {}
 
-    virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override;
     
-    virtual void cleanup();
+    void cleanup() override;
 };
 
 tactic * mk_propagate_ineqs_tactic(ast_manager & m, params_ref const & p) {
@@ -354,7 +354,7 @@ struct propagate_ineqs_tactic::imp {
     void find_ite_bounds(expr * root) {
         TRACE("find_ite_bounds_bug", display_bounds(tout););
         expr * n = root;
-        expr * target = 0;
+        expr * target = nullptr;
         expr * c, * t, * e;
         expr * x, * y;
         bool has_l, has_u;
@@ -374,7 +374,7 @@ struct propagate_ineqs_tactic::imp {
                     break;
             }
             else if (is_x_minus_y_eq_0(n, x, y)) {
-                n = 0;
+                n = nullptr;
             }
             else {
                 break;
@@ -394,7 +394,7 @@ struct propagate_ineqs_tactic::imp {
                 break;
             }
             
-            if (target == 0) {
+            if (target == nullptr) {
                 target = x;
                 if (lower(y, curr, curr_strict)) {
                     has_l = true;
@@ -448,7 +448,7 @@ struct propagate_ineqs_tactic::imp {
             if (!has_l && !has_u)
                 break;
 
-            if (n == 0) {
+            if (n == nullptr) {
                 TRACE("find_ite_bounds", tout << "found bounds for: " << mk_ismt2_pp(target, m) << "\n";
                       tout << "has_l: " << has_l << " " << nm.to_string(l_min) << " l_strict: " << l_strict << "\n";
                       tout << "has_u: " << has_u << " " << nm.to_string(u_max) << " u_strict: " << u_strict << "\n";
@@ -484,7 +484,7 @@ struct propagate_ineqs_tactic::imp {
         m_new_goal->inc_depth();
         r = m_new_goal.get();
         if (!collect_bounds(*g)) {
-            m_new_goal = 0;
+            m_new_goal = nullptr;
             r = g;
             return; // nothing to be done
         }
@@ -527,14 +527,11 @@ void propagate_ineqs_tactic::updt_params(params_ref const & p) {
 }
 
 void propagate_ineqs_tactic::operator()(goal_ref const & g, 
-                                        goal_ref_buffer & result, 
-                                        model_converter_ref & mc, 
-                                        proof_converter_ref & pc,
-                                        expr_dependency_ref & core) {
+                                        goal_ref_buffer & result) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("propagate-ineqs", g);
     fail_if_unsat_core_generation("propagate-ineqs", g);
-    mc = 0; pc = 0; core = 0; result.reset();
+    result.reset();
     goal_ref r;
     (*m_imp)(g.get(), r);
     result.push_back(r.get());

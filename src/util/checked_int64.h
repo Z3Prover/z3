@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    A class for wrapping checked (and unchecked) int64 operations.
+    A class for wrapping checked (and unchecked) int64_t operations.
     Note: the mpfx class defines a more general class of fixed-point operations.
     A tradeoff is that it relies on a manager.
     This class several of the most common operations from rational, so
@@ -29,19 +29,19 @@ Revision History:
 
 template<bool CHECK>
 class checked_int64 {
-    int64 m_value;
+    int64_t m_value;
     typedef checked_int64 ci;
     
-    rational r64(int64 i) { return rational(i, rational::i64()); }
+    rational r64(int64_t i) { return rational(i, rational::i64()); }
 
 public:
 
     checked_int64(): m_value(0) {}
-    checked_int64(int64 v): m_value(v) {}
+    checked_int64(int64_t v): m_value(v) {}
     checked_int64(checked_int64 const& other) { m_value = other.m_value; }
 
     class overflow_exception : public z3_exception {
-        virtual char const * msg() const { return "checked_int64 overflow/underflow";}
+        char const * msg() const override { return "checked_int64 overflow/underflow";}
     };
 
     bool is_zero() const { return m_value == 0; }
@@ -57,7 +57,7 @@ public:
     static checked_int64 one() { return ci(1); }
     static checked_int64 minus_one() { return ci(-1);}
 
-    int64 get_int64() const { return m_value; }
+    int64_t get_int64() const { return m_value; }
 
     checked_int64 abs() const { 
         if (m_value >= 0) {
@@ -116,58 +116,48 @@ public:
     const checked_int64 operator--(int) { checked_int64 tmp(*this); --(*this); return tmp; }
 
     checked_int64& operator+=(checked_int64 const& other) { 
-        if (CHECK && m_value > 0 && other.m_value > 0 &&
-            (m_value > INT_MAX || other.m_value > INT_MAX)) {
-            rational r(r64(m_value) + r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        if (CHECK) {
+            uint64_t x = static_cast<uint64_t>(m_value);
+            uint64_t y = static_cast<uint64_t>(other.m_value);
+            int64_t r = static_cast<int64_t>(x + y);
+            if (m_value > 0 && other.m_value > 0 && r <= 0) throw overflow_exception();
+            if (m_value < 0 && other.m_value < 0 && r >= 0) throw overflow_exception();
+            m_value = r;
         }
-        if (CHECK && m_value < 0 && other.m_value < 0 &&
-            (m_value < INT_MIN || other.m_value < INT_MIN)) {
-            rational r(r64(m_value) + r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        else {
+            m_value += other.m_value; 
         }
-        m_value += other.m_value; 
         return *this;
     }
 
     checked_int64& operator-=(checked_int64 const& other) {
-        if (CHECK && m_value > 0 && other.m_value < 0 &&
-            (m_value > INT_MAX || other.m_value < INT_MIN)) {
-            rational r(r64(m_value) - r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        if (CHECK) {
+            uint64_t x = static_cast<uint64_t>(m_value);
+            uint64_t y = static_cast<uint64_t>(other.m_value);
+            int64_t r = static_cast<int64_t>(x - y);
+            if (m_value > 0 && other.m_value < 0 && r <= 0) throw overflow_exception();
+            if (m_value < 0 && other.m_value > 0 && r >= 0) throw overflow_exception();
+            m_value = r;            
         }
-        if (CHECK && m_value < 0 && other.m_value > 0 &&
-            (m_value < INT_MIN || other.m_value > INT_MAX)) {
-            rational r(r64(m_value) - r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
-            }
-            m_value = r.get_int64();
-            return *this;
+        else {
+            m_value -= other.m_value;
         }
-        m_value -= other.m_value;
         return *this;
     }
 
     checked_int64& operator*=(checked_int64 const& other) {
         if (CHECK) {
-            rational r(r64(m_value) * r64(other.m_value));
-            if (!r.is_int64()) {
-                throw overflow_exception();
+            if (INT_MIN < m_value && m_value <= INT_MAX && INT_MIN < other.m_value && other.m_value <= INT_MAX) {
+                m_value *= other.m_value;
             }
-            m_value = r.get_int64();
+            // TBD: could be tuned by using known techniques or 128-bit arithmetic.
+            else {
+                rational r(r64(m_value) * r64(other.m_value));
+                if (!r.is_int64()) {
+                    throw overflow_exception();
+                }
+                m_value = r.get_int64();
+            }
         }
         else {
             m_value *= other.m_value; 

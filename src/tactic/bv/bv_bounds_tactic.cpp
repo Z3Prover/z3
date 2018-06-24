@@ -11,7 +11,9 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2016-2-12
+    Nuno Lopes (nlopes) 2016-2-12
+
+    Nikolaj Bjorner (nbjorner) 
 
 
 --*/
@@ -23,7 +25,7 @@ Author:
 #include "ast/ast_pp.h"
 #include <climits>
 
-static uint64 uMaxInt(unsigned sz) {
+static uint64_t uMaxInt(unsigned sz) {
     SASSERT(sz <= 64);
     return ULLONG_MAX >> (64u - sz);
 }
@@ -33,12 +35,12 @@ namespace {
     struct interval {
         // l < h: [l, h]
         // l > h: [0, h] U [l, UMAX_INT]
-        uint64 l, h;
+        uint64_t l, h;
         unsigned sz;
         bool tight;
 
         interval() {}
-        interval(uint64 l, uint64 h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
+        interval(uint64_t l, uint64_t h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
             // canonicalize full set
             if (is_wrapped() && l == h + 1) {
                 this->l = 0;
@@ -181,7 +183,7 @@ namespace {
         svector<expr_set*> m_expr_vars;
         svector<expr_cnt*> m_bound_exprs;
 
-        bool is_number(expr *e, uint64& n, unsigned& sz) const {
+        bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
             rational r;
             if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
                 n = r.get_uint64();
@@ -191,8 +193,8 @@ namespace {
         }
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
-            uint64 n;
-            expr *lhs = 0, *rhs = 0;
+            uint64_t n;
+            expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz;
 
             if (m_bv.is_bv_ule(e, lhs, rhs)) {
@@ -303,7 +305,7 @@ namespace {
             updt_params(p);
         }
 
-        virtual void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
             m_propagate_eq = p.get_bool("propagate_eq", false);
         }
 
@@ -311,7 +313,7 @@ namespace {
             r.insert("propagate-eq", CPK_BOOL, "(default: false) propagate equalities from inequalities");
         }
 
-        virtual ~bv_bounds_simplifier() {
+        ~bv_bounds_simplifier() override {
             for (unsigned i = 0, e = m_expr_vars.size(); i < e; ++i) {
                 dealloc(m_expr_vars[i]);
             }
@@ -320,7 +322,7 @@ namespace {
             }
         }
 
-        virtual bool assert_expr(expr * t, bool sign) {
+        bool assert_expr(expr * t, bool sign) override {
             while (m.is_not(t, t)) {
                 sign = !sign;
             }
@@ -351,7 +353,7 @@ namespace {
             return true;
         }
 
-        virtual bool simplify(expr* t, expr_ref& result) {
+        bool simplify(expr* t, expr_ref& result) override {
             expr* t1;
             interval b;
 
@@ -380,7 +382,7 @@ namespace {
             }
 
             interval ctx, intr;
-            result = 0;
+            result = nullptr;
 
             if (b.is_full() && b.tight) {
                 result = m.mk_true();
@@ -463,7 +465,7 @@ namespace {
             return false;
         }
 
-        virtual bool may_simplify(expr* t) {
+        bool may_simplify(expr* t) override {
             if (m_bv.is_numeral(t))
                 return false;
 
@@ -502,7 +504,7 @@ namespace {
             return false;
         }
 
-        virtual void pop(unsigned num_scopes) {
+        void pop(unsigned num_scopes) override {
             TRACE("bv", tout << "pop: " << num_scopes << "\n";);
             if (m_scopes.empty())
                 return;
@@ -524,11 +526,11 @@ namespace {
             m_scopes.shrink(target);
         }
 
-        virtual simplifier * translate(ast_manager & m) {
+        simplifier * translate(ast_manager & m) override {
             return alloc(bv_bounds_simplifier, m, m_params);
         }
 
-        virtual unsigned scope_level() const {
+        unsigned scope_level() const override {
             return m_scopes.size();
         }
     };
@@ -548,7 +550,7 @@ namespace {
         svector<expr_set*> m_expr_vars;
         svector<expr_cnt*> m_bound_exprs;
 
-        bool is_number(expr *e, uint64& n, unsigned& sz) const {
+        bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
             rational r;
             if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
                 n = r.get_uint64();
@@ -558,8 +560,8 @@ namespace {
         }
 
         bool is_bound(expr *e, expr*& v, interval& b) const {
-            uint64 n;
-            expr *lhs = 0, *rhs = 0;
+            uint64_t n;
+            expr *lhs = nullptr, *rhs = nullptr;
             unsigned sz = 0;
 
             if (m_bv.is_bv_ule(e, lhs, rhs)) {
@@ -620,7 +622,7 @@ namespace {
             r.insert("propagate-eq", CPK_BOOL, "(default: false) propagate equalities from inequalities");
         }
 
-        virtual ~dom_bv_bounds_simplifier() {
+        ~dom_bv_bounds_simplifier() override {
             for (unsigned i = 0, e = m_expr_vars.size(); i < e; ++i) {
                 dealloc(m_expr_vars[i]);
             }
@@ -629,7 +631,7 @@ namespace {
             }
         }
 
-        virtual bool assert_expr(expr * t, bool sign) {
+        bool assert_expr(expr * t, bool sign) override {
             while (m.is_not(t, t)) {
                 sign = !sign;
             }
@@ -650,17 +652,17 @@ namespace {
                         return false;
                     if (old == intr)
                         return true;
-                    m_scopes.insert(undo_bound(t1, old, false));
+                    m_scopes.push_back(undo_bound(t1, old, false));
                     old = intr;
                 } else {
                     m_bound.insert(t1, b);
-                    m_scopes.insert(undo_bound(t1, interval(), true));
+                    m_scopes.push_back(undo_bound(t1, interval(), true));
                 }
             }
             return true;
         }
 
-        virtual void operator()(expr_ref& r) {
+        void operator()(expr_ref& r) override {
             expr* t1, * t = r;
             interval b;
 
@@ -692,7 +694,8 @@ namespace {
             bool was_updated = true;
             if (b.is_full() && b.tight) {
                 r = m.mk_true();
-            } else if (m_bound.find(t1, ctx)) {
+            } 
+            else if (m_bound.find(t1, ctx)) {
                 if (ctx.implies(b)) {
                     r = m.mk_true();
                 } 
@@ -703,12 +706,15 @@ namespace {
                     r = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
                                                     m.get_sort(t1)));
                 }
+                else {
+                    was_updated = false;
+                }
             }
             else {
                 was_updated = false;
             }
 
-            CTRACE("bv", was_updated, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
+            TRACE("bv", tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << r << "\n";);
             if (sign && was_updated)
                 r = m.mk_not(r);
         }
@@ -775,7 +781,7 @@ namespace {
             return false;
         }
 
-        virtual void pop(unsigned num_scopes) {
+        void pop(unsigned num_scopes) override {
             TRACE("bv", tout << "pop: " << num_scopes << "\n";);
             if (m_scopes.empty())
                 return;
@@ -797,8 +803,12 @@ namespace {
             m_scopes.shrink(target);
         }
 
-        virtual dom_simplifier * translate(ast_manager & m) {
+        dom_simplifier * translate(ast_manager & m) override {
             return alloc(dom_bv_bounds_simplifier, m, m_params);
+        }
+
+        unsigned scope_level() const override {
+            return m_scopes.size();
         }
 
     };

@@ -37,7 +37,7 @@ class ref {
 
 public:
     ref():
-        m_ptr(0) {
+        m_ptr(nullptr) {
     }
 
     ref(T * ptr):
@@ -64,7 +64,7 @@ public:
     }
 
     operator bool() const {
-        return m_ptr != 0;
+        return m_ptr != nullptr;
     }
 
     const T & operator*() const {
@@ -100,12 +100,12 @@ public:
 
     void reset() {
         dec_ref();
-        m_ptr = 0;
+        m_ptr = nullptr;
     }
 
     T* detach() { 
         T* tmp = m_ptr;
-        m_ptr = 0;
+        m_ptr = nullptr;
         return tmp;
     }
 

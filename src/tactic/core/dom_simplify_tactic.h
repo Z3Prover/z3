@@ -84,6 +84,8 @@ class dom_simplifier {
     virtual void pop(unsigned num_scopes) = 0;
     
     virtual dom_simplifier * translate(ast_manager & m) = 0;
+
+    virtual unsigned scope_level() const = 0;
     
 };
 
@@ -94,7 +96,6 @@ class dom_simplify_tactic : public tactic {
     expr_ref_vector      m_trail, m_args;
     obj_map<expr, expr*> m_result;
     expr_dominators      m_dominators;
-    unsigned             m_scope_level;
     unsigned             m_depth;
     unsigned             m_max_depth;
     ptr_vector<expr>     m_empty;
@@ -111,15 +112,15 @@ class dom_simplify_tactic : public tactic {
 
     bool is_subexpr(expr * a, expr * b);
 
-    expr_ref get_cached(expr* t) { expr* r = 0; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
+    expr_ref get_cached(expr* t) { expr* r = nullptr; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
     void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); }
 
     ptr_vector<expr> const & tree(expr * e);
     expr* idom(expr *e) const { return m_dominators.idom(e); }
 
-    unsigned scope_level() { return m_scope_level; }
-    void pop(unsigned n) { SASSERT(n <= m_scope_level); m_scope_level -= n; m_simplifier->pop(n); }
-    bool assert_expr(expr* f, bool sign) { m_scope_level++; return m_simplifier->assert_expr(f, sign); }
+    unsigned scope_level() { return m_simplifier->scope_level(); }
+    void pop(unsigned n) { SASSERT(n <= m_simplifier->scope_level()); m_simplifier->pop(n); }
+    bool assert_expr(expr* f, bool sign) { return m_simplifier->assert_expr(f, sign); }
 
     bool init(goal& g);
 
@@ -127,24 +128,16 @@ public:
     dom_simplify_tactic(ast_manager & m, dom_simplifier* s, params_ref const & p = params_ref()):
         m(m), m_simplifier(s), m_params(p), 
         m_trail(m), m_args(m), 
-        m_dominators(m), 
-        m_scope_level(0), m_depth(0), m_max_depth(1024), m_forward(true) {}
+        m_dominators(m), m_depth(0), m_max_depth(1024), m_forward(true) {}
 
+    ~dom_simplify_tactic() override;
 
-    virtual ~dom_simplify_tactic();
-
-    virtual tactic * translate(ast_manager & m);
-    virtual void updt_params(params_ref const & p) {}
+    tactic * translate(ast_manager & m) override;
+    void updt_params(params_ref const & p) override {}
     static  void get_param_descrs(param_descrs & r) {}
-    virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
-    
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core);
-
-    virtual void cleanup();
+    void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }    
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override;
+    void cleanup() override;
 };
 
 class expr_substitution_simplifier : public dom_simplifier {
@@ -161,16 +154,18 @@ class expr_substitution_simplifier : public dom_simplifier {
 
 public:
     expr_substitution_simplifier(ast_manager& m): m(m), m_subst(m), m_scoped_substitution(m_subst), m_trail(m) {}
-    virtual ~expr_substitution_simplifier() {}
-    virtual bool assert_expr(expr * t, bool sign);
+    ~expr_substitution_simplifier() override {}
+    bool assert_expr(expr * t, bool sign) override;
 
     void update_substitution(expr* n, proof* pr);
     
-    virtual void operator()(expr_ref& r) { r = m_scoped_substitution.find(r); }
+    void operator()(expr_ref& r) override { r = m_scoped_substitution.find(r); }
     
-    virtual void pop(unsigned num_scopes) { m_scoped_substitution.pop(num_scopes); }
+    void pop(unsigned num_scopes) override { m_scoped_substitution.pop(num_scopes); }
     
-    virtual dom_simplifier * translate(ast_manager & m) {
+    unsigned scope_level() const override { return m_scoped_substitution.scope_level(); }
+
+    dom_simplifier * translate(ast_manager & m) override {
         SASSERT(m_subst.empty());
         return alloc(expr_substitution_simplifier, m);
     }

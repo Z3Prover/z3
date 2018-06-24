@@ -30,7 +30,7 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/substitution/matcher.h"
 #include "ast/scoped_proof.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 #include "ast/ast_util.h"
 
 namespace tb {
@@ -693,13 +693,12 @@ namespace tb {
             m_solver.assert_expr(postcond);
             lbool is_sat = m_solver.check();
             if (is_sat == l_true) {
-                expr_ref tmp(m);
                 expr* n;
                 model_ref mdl;
                 m_solver.get_model(mdl);
                 for (unsigned i = 0; i < fmls.size(); ++i) {
                     n = fmls[i].get();
-                    if (mdl->eval(n, tmp) && m.is_false(tmp)) {
+                    if (mdl->is_false(n)) {
                         m_refs.push_back(normalize(n));
                         m_sat_lits.insert(m_refs.back());
                     }
@@ -1129,7 +1128,7 @@ namespace tb {
                 }
                 else {
                     change = true;
-                    m_rename.push_back(0);
+                    m_rename.push_back(nullptr);
                 }
             }
             if (change) {
@@ -1602,7 +1601,7 @@ namespace datalog {
 
             pc.invert();
             prs.push_back(m.mk_asserted(root));
-            pc(m, 1, prs.c_ptr(), pr);
+            pr = pc(m, 1, prs.c_ptr());
             return pr;
         }
 

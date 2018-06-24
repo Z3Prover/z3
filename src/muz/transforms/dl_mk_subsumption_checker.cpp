@@ -24,8 +24,10 @@ Revision History:
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_mk_subsumption_checker.h"
+#include "muz/base/fp_params.hpp"
+#include "tactic/generic_model_converter.h"
 
-#include "muz/base/fixedpoint_params.hpp"
+
 namespace datalog {
 
 
@@ -37,26 +39,28 @@ namespace datalog {
 
 
     bool mk_subsumption_checker::is_total_rule(const rule * r) {
-        if(r->get_tail_size()!=0) { return false; }
-
-        unsigned pt_len = r->get_positive_tail_size();
-        if(pt_len!=r->get_uninterpreted_tail_size()) {
-            //we dont' expect rules with negative tails to be total
+        if (r->get_tail_size() != 0) {
             return false;
         }
 
-        for(unsigned i=0; i<pt_len; i++) {
+        unsigned pt_len = r->get_positive_tail_size();
+        if(pt_len != r->get_uninterpreted_tail_size()) {
+            // we dont' expect rules with negative tails to be total
+            return false;
+        }
+
+        for (unsigned i = 0; i < pt_len; i++) {
             func_decl * tail_pred = r->get_tail(i)->get_decl();
-            if(!m_total_relations.contains(tail_pred)) {
-                //this rule has a non-total predicate in the tail
+            if (!m_total_relations.contains(tail_pred)) {
+                // this rule has a non-total predicate in the tail
                 return false;
             }
         }
 
         unsigned t_len = r->get_positive_tail_size();
-        for(unsigned i=pt_len; i<t_len; i++) {
+        for(unsigned i = pt_len; i < t_len; i++) {
             SASSERT(!r->is_neg_tail(i)); //we assume interpreted tail not to be negated
-            if(!m.is_true(r->get_tail(i))) {
+            if (!m.is_true(r->get_tail(i))) {
                 //this rule has an interpreted tail which is not constant true
                 return false;
             }
@@ -109,7 +113,7 @@ namespace datalog {
     }
 
 
-    bool mk_subsumption_checker::transform_rule(rule * r, 
+    bool mk_subsumption_checker::transform_rule(rule * r,
         rule_subsumption_index& subs_index, rule_ref & res)
     {
         unsigned u_len = r->get_uninterpreted_tail_size();
@@ -129,7 +133,7 @@ namespace datalog {
             if(m_total_relations.contains(tail_atom->get_decl())
                 || subs_index.is_subsumed(tail_atom)) {
                 if(neg) {
-                    //rule contains negated total relation, this means that it is unsatisfiable 
+                    //rule contains negated total relation, this means that it is unsatisfiable
                     //and can be removed
                     return false;
                 }
@@ -139,8 +143,8 @@ namespace datalog {
                 }
             }
             if(!neg && head.get()==tail_atom) {
-                //rule contains its head positively in the tail, therefore 
-                //it will never add any new facts to the relation, so it 
+                //rule contains its head positively in the tail, therefore
+                //it will never add any new facts to the relation, so it
                 //can be removed
                 return false;
             }
@@ -183,30 +187,24 @@ namespace datalog {
         rule_ref_vector orig_rules(m_context.get_rule_manager());
         orig_rules.append(orig.get_num_rules(), orig.begin());
 
-        rule * * rbegin = orig_rules.c_ptr();
-        rule * * rend = rbegin + orig_rules.size();
-
         //before traversing we sort rules so that the shortest are in the beginning.
         //this will help make subsumption checks more efficient
-        std::sort(rbegin, rend, rule_size_comparator);
+        std::sort(orig_rules.c_ptr(), orig_rules.c_ptr() + orig_rules.size(), rule_size_comparator);
 
-        for(rule_set::iterator rit = rbegin; rit!=rend; ++rit) {
-
-            rule * r = *rit;
+        for (rule * r : orig_rules) {
             func_decl * head_pred = r->get_decl();
 
-            if(m_total_relations.contains(head_pred)) {
-                if(!orig.is_output_predicate(head_pred) ||
+            if (m_total_relations.contains(head_pred)) {
+                if (!orig.is_output_predicate(head_pred) ||
                         total_relations_with_included_rules.contains(head_pred)) {
-                    //We just skip definitions of total non-output relations as 
+                    //We just skip definitions of total non-output relations as
                     //we'll eliminate them from the problem.
-                    //We also skip rules of total output relations for which we have 
+                    //We also skip rules of total output relations for which we have
                     //already output the rule which implies their totality.
                     modified = true;
                     continue;
                 }
-                rule * defining_rule;
-                VERIFY(m_total_relation_defining_rules.find(head_pred, defining_rule));
+                rule * defining_rule = m_total_relation_defining_rules.find(head_pred);
                 if (defining_rule) {
                     rule_ref totality_rule(m_context.get_rule_manager());
                     VERIFY(transform_rule(defining_rule, subs_index, totality_rule));
@@ -224,24 +222,31 @@ namespace datalog {
             }
 
             rule_ref new_rule(m_context.get_rule_manager());
-            if(!transform_rule(r, subs_index, new_rule)) {
+            if (!transform_rule(r, subs_index, new_rule)) {
                 modified = true;
                 continue;
             }
-            if(m_new_total_relation_discovery_during_transformation && is_total_rule(new_rule)) {
+            if (m_new_total_relation_discovery_during_transformation && is_total_rule(new_rule)) {
                 on_discovered_total_relation(head_pred, new_rule.get());
             }
-            if(subs_index.is_subsumed(new_rule)) {
+            if (subs_index.is_subsumed(new_rule)) {
                 modified = true;
                 continue;
             }
-            if(new_rule.get()!=r) {
+            if (new_rule.get()!=r) {
                 modified = true;
             }
             tgt.add_rule(new_rule);
             subs_index.add(new_rule);
         }
         tgt.inherit_predicates(orig);
+        if (!m_total_relations.empty() && m_context.get_model_converter()) {
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl-subsumption");
+            for (func_decl* p : m_total_relations) {
+                mc0->add(p, m.mk_true());
+            }
+            m_context.add_model_converter(mc0);
+        }
         TRACE("dl",
             tout << "original set size: "<<orig.get_num_rules()<<"\n"
                  << "reduced set size: "<<tgt.get_num_rules()<<"\n"; );
@@ -281,7 +286,7 @@ namespace datalog {
                 obj_hashtable<app> * head_store;
                 if(m_ground_unconditional_rule_heads.find(pred, head_store)) {
                     //Some relations may receive facts by ground unconditioned rules.
-                    //We scanned for those earlier, so now we check whether we cannot get a 
+                    //We scanned for those earlier, so now we check whether we cannot get a
                     //better estimate of relation size from these.
 
                     unsigned gnd_rule_cnt = head_store->size();
@@ -292,7 +297,7 @@ namespace datalog {
 
                 SASSERT(total_size>=rel_sz);
                 if(total_size==rel_sz) {
-                    on_discovered_total_relation(pred, 0);
+                    on_discovered_total_relation(pred, nullptr);
                 }
             }
         next_pred:;
@@ -329,8 +334,8 @@ namespace datalog {
 
     rule_set * mk_subsumption_checker::operator()(rule_set const & source) {
         // TODO mc
-        if (!m_context.get_params ().xform_subsumption_checker()) 
-          return 0;
+        if (!m_context.get_params ().xform_subsumption_checker())
+          return nullptr;
 
         m_have_new_total_rule = false;
         collect_ground_unconditional_rule_heads(source);
@@ -343,7 +348,7 @@ namespace datalog {
 
         if (!m_have_new_total_rule && !modified) {
             dealloc(res);
-            return 0;
+            return nullptr;
         }
 
 
@@ -361,6 +366,5 @@ namespace datalog {
 
         return res;
     }
-  
-};
 
+};

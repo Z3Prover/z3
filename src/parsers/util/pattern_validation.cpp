@@ -48,7 +48,7 @@ struct pattern_validation_functor {
 
     bool is_forbidden(func_decl const * decl) {
         family_id fid = decl->get_family_id();
-        if (fid == m_bfid && decl->get_decl_kind() != OP_TRUE && decl->get_decl_kind() != OP_FALSE)
+        if (fid == m_bfid && decl->get_decl_kind() != OP_EQ && decl->get_decl_kind() != OP_TRUE && decl->get_decl_kind() != OP_FALSE)
             return true;
         if (fid == m_lfid)
             return true;

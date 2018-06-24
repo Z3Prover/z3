@@ -34,7 +34,7 @@ class obj_pair_hash_entry {
     
 public:
     typedef std::pair<T1*, T2*> data;
-    obj_pair_hash_entry():m_data(static_cast<T1*>(0),static_cast<T2*>(0)) {}
+    obj_pair_hash_entry():m_data(static_cast<T1*>(nullptr),static_cast<T2*>(nullptr)) {}
     unsigned get_hash() const { return m_hash; }
     bool is_free() const { return m_data.first == 0; }
     bool is_deleted() const { return m_data.first == reinterpret_cast<T1 *>(1); }
@@ -68,8 +68,8 @@ public:
         friend class entry;
     public:
         key_data():
-            m_key1(0), 
-            m_key2(0),
+            m_key1(nullptr),
+            m_key2(nullptr),
             m_hash(0) {
         }
         key_data(Key1 * k1, Key2 * k2):
@@ -96,7 +96,7 @@ protected:
         typedef key_data data;
         entry() {}
         unsigned get_hash() const { return m_data.hash(); }
-        bool is_free() const { return m_data.m_key1 == 0; }
+        bool is_free() const { return m_data.m_key1 == nullptr; }
         bool is_deleted() const { return m_data.m_key1 == reinterpret_cast<Key1 *>(1); }
         bool is_used() const { return m_data.m_key1 != reinterpret_cast<Key1 *>(0) && m_data.m_key1 != reinterpret_cast<Key1 *>(1); }
         key_data const & get_data() const { return m_data; }
@@ -104,7 +104,7 @@ protected:
         void set_data(key_data const & d) { m_data = d; }
         void set_hash(unsigned h) { SASSERT(h == m_data.hash()); }
         void mark_as_deleted() { m_data.m_key1 = reinterpret_cast<Key1 *>(1); }
-        void mark_as_free() { m_data.m_key1 = 0; }
+        void mark_as_free() { m_data.m_key1 = nullptr; }
     };
 
     typedef core_hashtable<entry, obj_hash<key_data>, default_eq<key_data> > table;
@@ -158,11 +158,24 @@ public:
         if (e) {
             v = e->get_data().get_value();
         }
-        return (0 != e);
+        return (nullptr != e);
+    }
+
+    Value const & find(Key1 * k1, Key2 * k2) const {
+        entry * e = find_core(k1, k2);
+        return e->get_data().get_value();
+    }
+
+    Value const& operator[](std::pair<Key1 *, Key2 *> const& key) const {
+        return find(key.first, key.second);
     }
   
     bool contains(Key1 * k1, Key2 * k2) const { 
-        return find_core(k1, k2) != 0; 
+        return find_core(k1, k2) != nullptr;
+    }
+
+    bool contains(std::pair<Key1 *, Key2 *> const& key) const {
+        return contains(key.first, key.second);
     }
     
     void erase(Key1 * k1, Key2 * k2) {

@@ -35,7 +35,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
     if (std::find(m_kinds.begin(), m_kinds.end(), k) == m_kinds.end())
         return BR_FAILED;
     ptr_buffer<expr, 128> _args;
-    expr * numeral = 0;
+    expr * numeral = nullptr;
     if (is_numeral(args[0])) {
         numeral = args[0];
         for (unsigned i = 1; i < num_args; i++) 
@@ -54,13 +54,13 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
     TRACE("ac_sharing_detail", tout << "args: "; for (unsigned i = 0; i < num_args; i++) tout << mk_pp(_args[i], m) << "\n";);
     try_to_reuse:
     if (num_args > 1 && num_args < MAX_NUM_ARGS_FOR_OPT) {
-        for (unsigned i = 0; i < num_args - 1; i++) {
+        for (unsigned i = 0; i + 1 < num_args; i++) {
             for (unsigned j = i + 1; j < num_args; j++) {
                 if (contains(f, _args[i], _args[j])) {
                     TRACE("ac_sharing_detail", tout << "reusing args: " << i << " " << j << "\n";);
                     _args[i] = m.mk_app(f, _args[i], _args[j]);
                     SASSERT(num_args > 1);
-                    for (unsigned w = j; w < num_args - 1; w++) {
+                    for (unsigned w = j; w + 1 < num_args; w++) {
                         _args[w] = _args[w+1];
                     }
                     num_args--;
@@ -86,7 +86,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
         }
         num_args = j;
         if (num_args == 1) {
-            if (numeral == 0) { 
+            if (numeral == nullptr) {
                 result = _args[0];
             }
             else {
@@ -144,6 +144,7 @@ void maximize_ac_sharing::restore_entries(unsigned old_lim) {
     while (i != old_lim) {
         --i;
         entry * e = m_entries[i];
+        m_cache.remove(e);
         m.dec_ref(e->m_arg1);
         m.dec_ref(e->m_arg2);
     }

@@ -81,7 +81,7 @@ public:
     bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0) { updt_params(p); }
     ast_manager & m() const { return m_manager; }
     family_id get_fid() const { return m().get_basic_family_id(); }
-    bool is_eq(expr * t) const { return m().is_eq(t) || m().is_iff(t); }
+    bool is_eq(expr * t) const { return m().is_eq(t); }
     
     bool flat() const { return m_flat; }
     void set_flat(bool f) { m_flat = f; }
@@ -183,7 +183,7 @@ struct bool_rewriter_cfg : public default_rewriter_cfg {
     bool flat_assoc(func_decl * f) const { return m_r.flat() && (m_r.m().is_and(f) || m_r.m().is_or(f)); }
     bool rewrite_patterns() const { return false; }
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         if (f->get_family_id() != m_r.get_fid())
             return BR_FAILED;
         return m_r.mk_app_core(f, num, args, result);
