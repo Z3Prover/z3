@@ -65,8 +65,6 @@ namespace smt {
         bool result = false;
         var_data * d = m_var_data[v];
         var_data_full * d_full = m_var_data_full[v];
-        unsigned num_maps = d_full->m_parent_maps.size();
-        unsigned num_selects = d->m_parent_selects.size();
         for (enode* pm : d_full->m_parent_maps) 
             for (enode* ps : d->m_parent_selects) 
                 if (instantiate_select_map_axiom(ps, pm)) 

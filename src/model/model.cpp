@@ -30,8 +30,8 @@ Revision History:
 
 model::model(ast_manager & m):
     model_core(m),
-    m_cleaned(false),
-    m_mev(*this) {
+    m_mev(*this),
+    m_cleaned(false) {
 }
 
 model::~model() {
@@ -192,6 +192,7 @@ void model::cleanup() {
     // then for each function in order clean-up the interpretations
     // by substituting in auxiliary definitions that can be eliminated.
 
+    func_decl_ref_vector pinned(m);
     top_sort ts(m);
     collect_deps(ts);
     ts.topological_sort();
@@ -203,6 +204,7 @@ void model::cleanup() {
     func_decl_set removed;
     for (func_decl * f : ts.top_sorted()) {
         if (f->is_skolem() && ts.is_singleton_partition(f)) {
+            pinned.push_back(f);
             unregister_decl(f);
             removed.insert(f);
         }

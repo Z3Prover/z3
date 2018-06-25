@@ -468,8 +468,8 @@ namespace smt {
             auf_solver(ast_manager & m):
                 m(m),
                 m_arith(m),
-                m_array(m),
                 m_bv(m),
+                m_array(m),
                 m_next_node_id(0),
                 m_context(nullptr),
                 m_ks(m),

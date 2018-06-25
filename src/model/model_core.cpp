@@ -65,7 +65,6 @@ void model_core::register_decl(func_decl * d, expr * v) {
     }
 }
 
-static unsigned s_count = 0;
 void model_core::register_decl(func_decl * d, func_interp * fi) {
     SASSERT(d->get_arity() > 0);
     SASSERT(&fi->m() == &m);

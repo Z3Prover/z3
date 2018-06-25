@@ -305,8 +305,7 @@ public:
         if (num != m_q->get_num_decls())
             throw cmd_exception("invalid command, mismatch between the number of quantified variables and the number of arguments.");
         unsigned i = num;
-        while (i > 0) {
-            --i;
+        while (i-- > 0) {
             sort * s = ctx.m().get_sort(ts[i]);
             if (s != m_q->get_decl_sort(i)) {
                 std::ostringstream buffer;
@@ -317,7 +316,7 @@ public:
         m_args.append(num, ts);
     }
 
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         expr_ref r = instantiate(ctx.m(), m_q, m_args.c_ptr());
         ctx.display(ctx.regular_stream(), r);
         ctx.regular_stream() << std::endl;
