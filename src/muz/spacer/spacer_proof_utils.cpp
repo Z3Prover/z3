@@ -307,7 +307,10 @@ namespace spacer {
 
         rational rat1, rat2, coeff0;
         arith_util a(m);
-        if (a.is_numeral(val1, rat1) && a.is_numeral(val2, rat2)) {
+        CTRACE("spacer.fkab", !(val1 && val2),
+               tout << "Failed to match variables\n";);
+        if (val1 && val2 &&
+            a.is_numeral(val1, rat1) && a.is_numeral(val2, rat2)) {
             coeff0 = abs(rat2/rat1);
             coeff0 = coeff0 / lcb.lc();
             TRACE("spacer.fkab", tout << "coeff0: " << coeff0 << "\n";);
