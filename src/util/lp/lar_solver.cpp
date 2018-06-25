@@ -2244,16 +2244,13 @@ void lar_solver::set_cut_strategy(unsigned cut_frequency) {
     if (cut_frequency < 4) { // enable only gomory cut
         settings().m_int_gomory_cut_period = 2;
         settings().m_hnf_cut_period = 100000000;
-        settings().m_int_find_cube_period = 100000000;
     } else if (cut_frequency == 4) { // enable all cuts and cube equally
         settings().m_int_gomory_cut_period = 4;
         settings().m_hnf_cut_period = 4;
-        settings().m_int_find_cube_period = 4;
     } else {
         // disable all heuristics
         settings().m_int_gomory_cut_period = 10000000;
         settings().m_hnf_cut_period = 100000000;
-        settings().m_int_find_cube_period = 100000000;
     } 
 }
 
