@@ -39,14 +39,18 @@ protected:
     struct value_proc;
 
     struct deps_collector;    
+    struct occs_collector;    
     struct top_sort;
 
     func_decl_set* collect_deps(top_sort& ts, expr * e);
     func_decl_set* collect_deps(top_sort& ts, func_interp* fi);
     void collect_deps(top_sort& ts);    
+    void collect_occs(top_sort& ts, func_decl* f);
+    void collect_occs(top_sort& ts, expr* e);
     void cleanup_interp(top_sort& ts, func_decl * f);
     expr_ref cleanup_expr(top_sort& ts, expr* e, unsigned current_partition);
     void remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s);
+    bool can_inline_def(top_sort& ts, func_decl* f);
 
 public:
     model(ast_manager & m);

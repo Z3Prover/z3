@@ -25,6 +25,7 @@ Revision History:
 #include "ast/well_sorted.h"
 #include "ast/used_symbols.h"
 #include "ast/for_each_expr.h"
+#include "ast/for_each_ast.h"
 #include "model/model.h"
 #include "model/model_evaluator.h"
 
@@ -193,23 +194,29 @@ void model::cleanup() {
     // by substituting in auxiliary definitions that can be eliminated.
 
     func_decl_ref_vector pinned(m);
-    top_sort ts(m);
-    collect_deps(ts);
-    ts.topological_sort();
-    for (func_decl * f : ts.top_sorted()) {
-        cleanup_interp(ts, f);
-    }
-
-    // remove auxiliary declarations that are not used.
-    func_decl_set removed;
-    for (func_decl * f : ts.top_sorted()) {
-        if (f->is_skolem() && ts.is_singleton_partition(f)) {
-            pinned.push_back(f);
-            unregister_decl(f);
-            removed.insert(f);
+    while (true) {
+        top_sort ts(m);
+        collect_deps(ts);
+        ts.topological_sort();
+        for (func_decl * f : ts.top_sorted()) {
+            cleanup_interp(ts, f);
         }
-    }
-    if (!removed.empty()) {
+
+        func_decl_set removed;
+        ts.m_occur_count.reset();
+        for (func_decl * f : ts.top_sorted()) {
+            collect_occs(ts, f);
+        }
+        
+        // remove auxiliary declarations that are not used.
+        for (func_decl * f : ts.top_sorted()) {
+            if (f->is_skolem() && ts.occur_count(f) == 0) {
+                pinned.push_back(f);
+                unregister_decl(f);
+                removed.insert(f);
+            }
+        }
+        if (removed.empty()) break;
         remove_decls(m_decls, removed);
         remove_decls(m_func_decls, removed);
         remove_decls(m_const_decls, removed);
@@ -245,6 +252,15 @@ struct model::deps_collector {
         }
     }
     void operator()(expr* ) {}
+};
+
+struct model::occs_collector {
+    top_sort&      ts;
+    occs_collector(top_sort& ts): ts(ts) {}
+    void operator()(func_decl* f) {
+        ts.add_occurs(f);
+    }
+    void operator()(ast* ) {}
 };
 
 
@@ -286,6 +302,50 @@ void model::cleanup_interp(top_sort& ts, func_decl* f) {
     }
 }
 
+void model::collect_occs(top_sort& ts, func_decl* f) {
+    expr * e = get_const_interp(f);
+    if (e) {
+        collect_occs(ts, e);
+    }
+    else {
+        func_interp* fi = get_func_interp(f);
+        if (fi) {
+            e = fi->get_else();
+            collect_occs(ts, e);
+        }
+    }
+}
+
+void model::collect_occs(top_sort& ts, expr* e) {
+    occs_collector collector(ts);
+    for_each_ast(collector, e);
+}
+
+bool model::can_inline_def(top_sort& ts, func_decl* f) {
+    if (ts.occur_count(f) <= 1) return true;
+    func_interp* fi = get_func_interp(f);
+    if (!fi) return false;
+    if (fi->get_else() == nullptr) return false;
+    expr* e = fi->get_else();
+    obj_hashtable<expr> subs;
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    std::cout << "can inline " << expr_ref(e, m) << "\n";   
+    while (!todo.empty()) {
+        if (fi->num_entries() + subs.size() > 8) return false;
+        expr* e = todo.back();
+        todo.pop_back();
+        if (subs.contains(e)) continue;
+        subs.insert(e);
+        if (is_app(e)) {
+            for (expr* arg : *to_app(e)) {
+                todo.push_back(arg);
+            }
+        }
+    }
+    return true;
+}
+
 
 expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) {
     if (!e) return expr_ref(0, m);
@@ -300,6 +360,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
     array_util autil(m);
     func_interp* fi = nullptr;
     unsigned pid = 0;
+    expr_ref new_t(m);
 
     while (!todo.empty()) {
         expr* a = todo.back();
@@ -308,7 +369,6 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             app * t = to_app(a);
             func_decl* f = t->get_decl();
             bool visited = true;
-            expr_ref new_t(m);
             
             args.reset();
             for (expr* t_arg : *t) {
@@ -328,7 +388,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             if (autil.is_as_array(a)) {
                 func_decl* f = autil.get_as_array_func_decl(a);
                 // only expand auxiliary definitions that occur once.
-                if (ts.occur_count(f) <= 1) {
+                if (can_inline_def(ts, f)) {
                     fi = get_func_interp(f);
                 }
             }
@@ -344,7 +404,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
                 }
                 new_t = m.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), fi->get_interp());
             }
-            else if (f->is_skolem() && ts.occur_count(f) <= 1 && (fi = get_func_interp(f)) && 
+            else if (f->is_skolem() && can_inline_def(ts, f) && (fi = get_func_interp(f)) && 
                      fi->get_interp() && (!ts.partition_ids().find(f, pid) || pid != current_partition)) {
                 var_subst vs(m);
                 // ? TBD args.reverse();
@@ -373,7 +433,8 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
         }
     }
 
-    return expr_ref(cache[e], m);
+    ts.m_rewrite(cache[e], new_t);
+    return new_t;
 }
 
 void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s) {
