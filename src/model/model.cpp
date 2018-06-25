@@ -330,7 +330,6 @@ bool model::can_inline_def(top_sort& ts, func_decl* f) {
     obj_hashtable<expr> subs;
     ptr_buffer<expr> todo;
     todo.push_back(e);
-    std::cout << "can inline " << expr_ref(e, m) << "\n";   
     while (!todo.empty()) {
         if (fi->num_entries() + subs.size() > 8) return false;
         expr* e = todo.back();
