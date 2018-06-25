@@ -94,5 +94,7 @@ public:
     };
 };
 
+std::ostream& operator<<(std::ostream& out, model_core const& m);
+
 
 #endif /* MODEL_H_ */

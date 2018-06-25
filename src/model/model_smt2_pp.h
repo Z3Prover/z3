@@ -25,6 +25,5 @@ Revision History:
 
 void model_smt2_pp(std::ostream & out, ast_printer_context & ctx, model_core const & m, unsigned indent);
 void model_smt2_pp(std::ostream & out, ast_manager & m, model_core const & md, unsigned indent);
-std::ostream& operator<<(std::ostream& out, model_core const& m);
 
 #endif

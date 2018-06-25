@@ -31,7 +31,6 @@ Revision History:
 #include "qe/qe_arrays.h"
 #include "qe/qe_datatypes.h"
 #include "qe/qe_lite.h"
-#include "model/model_pp.h"
 #include "model/model_evaluator.h"
 
 
@@ -617,26 +616,25 @@ public:
             qe::array_project_plugin ap(m);
             ap(mdl, array_vars, fml, vars, m_reduce_all_selects);
             SASSERT (array_vars.empty ());
-            m_rw (fml);
+            m_rw(fml);
             SASSERT (!m.is_false (fml));
 
             TRACE ("qe",
-                   tout << "extended model:\n";
-                   model_pp (tout, mdl);
+                   tout << "extended model:\n" << mdl;
                    tout << "Vars: " << vars << "\n";
                    );            
         }
                         
         // project reals, ints and other variables.
         if (!other_vars.empty ()) {
-            TRACE ("qe", tout << "Other vars: " << other_vars << "\n";
-                   model_pp(tout, mdl););
+            TRACE ("qe", tout << "Other vars: " << other_vars << "\n" << mdl;);
                         
             expr_ref_vector fmls(m);
             flatten_and (fml, fmls);
             
             (*this)(false, other_vars, mdl, fmls);
             fml = mk_and (fmls);
+            m_rw(fml);
                         
             TRACE ("qe",
                    tout << "Projected other vars:\n" << fml << "\n";
@@ -646,14 +644,15 @@ public:
         
         if (!other_vars.empty ()) {
             project_vars (mdl, other_vars, fml);
+            m_rw(fml);
         }
         
         // substitute any remaining other vars
         if (!m_dont_sub && !other_vars.empty ()) {
             subst_vars (eval, other_vars, fml);
-            TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             // an extra round of simplification because subst_vars is not simplifying
             m_rw(fml);
+            TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             other_vars.reset();
         }
         
