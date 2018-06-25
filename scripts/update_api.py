@@ -60,7 +60,7 @@ FIRST_OBJ_ID = 100
 def is_obj(ty):
     return ty >= FIRST_OBJ_ID
 
-Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : '__int64', UINT64 : '__uint64', DOUBLE : 'double',
+Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : 'int64_t', UINT64 : 'uint64_t', DOUBLE : 'double',
              FLOAT : 'float', STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'Z3_bool', SYMBOL : 'Z3_symbol',
              PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code'
              }
@@ -577,9 +577,6 @@ def mk_java(java_dir, package_name):
     java_wrapper = open(java_wrapperf, 'w')
     pkg_str = package_name.replace('.', '_')
     java_wrapper.write('// Automatically generated file\n')
-    java_wrapper.write('#ifdef _CYGWIN\n')
-    java_wrapper.write('typedef long long __int64;\n')
-    java_wrapper.write('#endif\n')
     java_wrapper.write('#include<jni.h>\n')
     java_wrapper.write('#include<stdlib.h>\n')
     java_wrapper.write('#include"z3.h"\n')
@@ -957,11 +954,16 @@ def def_API(name, result, params):
                 log_c.write(" }\n")
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
-            elif ty == INT or ty == BOOL:
+            elif ty == INT:
                 log_c.write("U(a%s[i]);" % i)
                 log_c.write(" }\n")
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_int_array(%s)" % i)
+            elif ty == BOOL:
+                log_c.write("U(a%s[i]);" % i)
+                log_c.write(" }\n")
+                log_c.write("  Au(a%s);\n" % sz)
+                exe_c.write("in.get_bool_array(%s)" % i)
             else:
                 error ("unsupported parameter for %s, %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:
@@ -1655,7 +1657,7 @@ else:
   if hasattr(builtins, "Z3_LIB_DIRS"):
     _all_dirs = builtins.Z3_LIB_DIRS
 
-for v in ('Z3_LIBRARY_PATH', 'PATH'):
+for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
   if v in os.environ:
     lp = os.environ[v];
     lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
@@ -1696,7 +1698,11 @@ if _lib is None:
 
 def _to_ascii(s):
   if isinstance(s, str):
-    return s.encode('ascii')
+    try: 
+      return s.encode('ascii')
+    except:
+      # kick the bucket down the road.  :-J
+      return s
   else:
     return s
 

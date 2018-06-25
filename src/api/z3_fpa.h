@@ -349,7 +349,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_int64_uint64', AST, (_in(CONTEXT), _in(BOOL), _in(INT64), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, __int64 exp, __uint64 sig, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, int64_t exp, uint64_t sig, Z3_sort ty);
 
     /**
         \brief Floating-point absolute value
@@ -433,7 +433,7 @@ extern "C" {
         \param c logical context
         \param rm term of RoundingMode sort
         \param t1 term of FloatingPoint sort
-        \param t2 term of FloatingPoint sor
+        \param t2 term of FloatingPoint sort
         \param t3 term of FloatingPoint sort
 
         The result is round((t1 * t2) + t3)
@@ -756,7 +756,7 @@ extern "C" {
     /**
         \brief Conversion of a floating-point term into an unsigned bit-vector.
 
-        Produces a term that represents the conversion of the floating-poiunt term t into a
+        Produces a term that represents the conversion of the floating-point term t into a
         bit-vector term of size sz in unsigned 2's complement format. If necessary, the result
         will be rounded according to rounding mode rm.
 
@@ -772,7 +772,7 @@ extern "C" {
     /**
         \brief Conversion of a floating-point term into a signed bit-vector.
 
-        Produces a term that represents the conversion of the floating-poiunt term t into a
+        Produces a term that represents the conversion of the floating-point term t into a
         bit-vector term of size sz in signed 2's complement format. If necessary, the result
         will be rounded according to rounding mode rm.
 
@@ -788,7 +788,7 @@ extern "C" {
     /**
         \brief Conversion of a floating-point term into a real-numbered term.
 
-        Produces a term that represents the conversion of the floating-poiunt term t into a
+        Produces a term that represents the conversion of the floating-point term t into a
         real number. Note that this type of conversion will often result in non-linear
         constraints over real terms.
 
@@ -956,7 +956,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_significand_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, __uint64 * n);
+    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, uint64_t * n);
 
     /**
         \brief Return the exponent value of a floating-point numeral as a string.
@@ -985,7 +985,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _in(BOOL)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, __int64 * n, Z3_bool biased);
+    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, int64_t * n, Z3_bool biased);
 
     /**
         \brief Retrieves the exponent of a floating-point literal as a bit-vector expression.
@@ -1011,7 +1011,7 @@ extern "C" {
         determined.
 
         Note that IEEE 754-2008 allows multiple different representations of NaN. This conversion
-        knows only one NaN and it will always produce the same bit-vector represenatation of
+        knows only one NaN and it will always produce the same bit-vector representation of
         that NaN.
 
         def_API('Z3_mk_fpa_to_ieee_bv', AST, (_in(CONTEXT),_in(AST)))

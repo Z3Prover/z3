@@ -934,7 +934,7 @@ public class Context implements AutoCloseable {
      * exposed. It follows the semantics prescribed by the SMT-LIB standard.
      * 
      * You can take the floor of a real by creating an auxiliary integer Term
-     * {@code k} and and asserting
+     * {@code k} and asserting
      * {@code MakeInt2Real(k) &lt;= t1 &lt; MkInt2Real(k)+1}. The argument
      * must be of integer sort. 
      **/
@@ -1978,7 +1978,7 @@ public class Context implements AutoCloseable {
     }
     
     /**
-     * Concatentate sequences.
+     * Concatenate sequences.
      */
     public SeqExpr mkConcat(SeqExpr... t)
     {
@@ -2234,7 +2234,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a Term of a given sort. This function can be use to create
+     * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
@@ -2250,7 +2250,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a Term of a given sort. This function can be use to create
+     * Create a Term of a given sort. This function can be used to create
      * numerals that fit in a machine integer. It is slightly faster than
      * {@code MakeNumeral} since it is not necessary to parse a string.
      * 
@@ -2438,7 +2438,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Creates an existential quantifier using de-Brujin indexed variables. 
+     * Creates an existential quantifier using de-Bruijn indexed variables.
      * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr body,
@@ -2543,14 +2543,16 @@ public class Context implements AutoCloseable {
     /**
      * Parse the given string using the SMT-LIB2 parser. 
      * 
-     * @return A conjunction of assertions in the scope (up to push/pop) at the
-     *         end of the string.
+     * @return A conjunction of assertions.
+     *         
+     * If the string contains push/pop commands, the
+     * set of assertions returned are the ones in the 
+     * last scope level.
      **/
-    public BoolExpr parseSMTLIB2String(String str, Symbol[] sortNames,
+    public BoolExpr[] parseSMTLIB2String(String str, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
            
     {
-
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
         int cdn = Symbol.arrayLength(declNames);
@@ -2558,17 +2560,18 @@ public class Context implements AutoCloseable {
         if (csn != cs || cdn != cd) {
             throw new Z3Exception("Argument size mismatch");
         }
-        return (BoolExpr) Expr.create(this, Native.parseSmtlib2String(nCtx(),
+        ASTVector v = new ASTVector(this, Native.parseSmtlib2String(nCtx(),
                 str, AST.arrayLength(sorts), Symbol.arrayToNative(sortNames),
                 AST.arrayToNative(sorts), AST.arrayLength(decls),
                 Symbol.arrayToNative(declNames), AST.arrayToNative(decls)));
+        return v.ToBoolExprArray();
     }
 
     /**
      * Parse the given file using the SMT-LIB2 parser. 
      * @see #parseSMTLIB2String
      **/
-    public BoolExpr parseSMTLIB2File(String fileName, Symbol[] sortNames,
+    public BoolExpr[] parseSMTLIB2File(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
            
     {
@@ -2578,11 +2581,12 @@ public class Context implements AutoCloseable {
         int cd = AST.arrayLength(decls);
         if (csn != cs || cdn != cd)
             throw new Z3Exception("Argument size mismatch");
-        return (BoolExpr) Expr.create(this, Native.parseSmtlib2File(nCtx(),
+        ASTVector v = new ASTVector(this, Native.parseSmtlib2File(nCtx(),
                 fileName, AST.arrayLength(sorts),
                 Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
                 AST.arrayLength(decls), Symbol.arrayToNative(declNames),
                 AST.arrayToNative(decls)));
+        return v.ToBoolExprArray();
     }
 
     /**
@@ -2781,7 +2785,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a tactic that fails if the goal is not triviall satisfiable (i.e.,
+     * Create a tactic that fails if the goal is not trivially satisfiable (i.e.,
      * empty) or trivially unsatisfiable (i.e., contains `false').
      **/
     public Tactic failIfNotDecided()
@@ -3769,7 +3773,7 @@ public class Context implements AutoCloseable {
      * @param sz Size of the resulting bit-vector.
      * @param signed Indicates whether the result is a signed or unsigned bit-vector.
      * Remarks:
-     * Produces a term that represents the conversion of the floating-poiunt term t into a
+     * Produces a term that represents the conversion of the floating-point term t into a
      * bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary, 
      * the result will be rounded according to rounding mode rm.        
      * @throws Z3Exception 
@@ -3786,7 +3790,7 @@ public class Context implements AutoCloseable {
      * Conversion of a floating-point term into a real-numbered term.
      * @param t FloatingPoint term
      * Remarks:
-     * Produces a term that represents the conversion of the floating-poiunt term t into a
+     * Produces a term that represents the conversion of the floating-point term t into a
      * real number. Note that this type of conversion will often result in non-linear 
      * constraints over real terms.
      * @throws Z3Exception 
@@ -3802,7 +3806,7 @@ public class Context implements AutoCloseable {
      * Remarks:
      * The size of the resulting bit-vector is automatically determined. Note that 
      * IEEE 754-2008 allows multiple different representations of NaN. This conversion 
-     * knows only one NaN and it will always produce the same bit-vector represenatation of 
+     * knows only one NaN and it will always produce the same bit-vector representation of
      * that NaN. 
      * @throws Z3Exception 
      **/

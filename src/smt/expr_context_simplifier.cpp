@@ -110,13 +110,15 @@ void expr_context_simplifier::reduce_rec(app * a, expr_ref & result) {
         case OP_OR:
             reduce_or(a->get_num_args(), a->get_args(), result);
             return;
-        case OP_IFF: {
-            expr_ref tmp1(m_manager), tmp2(m_manager);
-            reduce_rec(a->get_arg(0), tmp1);
-            reduce_rec(a->get_arg(1), tmp2);
-            m_simp.mk_iff(tmp1.get(), tmp2.get(), result);
-            return;
-        }
+        case OP_EQ: 
+            if (m_manager.is_iff(a)) {
+                expr_ref tmp1(m_manager), tmp2(m_manager);
+                reduce_rec(a->get_arg(0), tmp1);
+                reduce_rec(a->get_arg(1), tmp2);
+                m_simp.mk_iff(tmp1.get(), tmp2.get(), result);
+                return;
+            }
+            break;
         case OP_XOR: {
             expr_ref tmp1(m_manager), tmp2(m_manager);
             reduce_rec(a->get_arg(0), tmp1);
@@ -311,7 +313,7 @@ bool expr_context_simplifier::is_false(expr* e) const {
 // 
 
 expr_strong_context_simplifier::expr_strong_context_simplifier(smt_params& p, ast_manager& m): 
-    m_manager(m), m_arith(m), m_fn(0,m), m_solver(m, p) {
+    m_manager(m), m_arith(m), m_fn(nullptr,m), m_solver(m, p) {
     sort* i_sort = m_arith.mk_int();
     m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
 }
@@ -358,7 +360,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
     m_solver.push();
     while (!todo.empty()) {
 
-        r = 0;
+        r = nullptr;
         ptr_buffer<expr> args;
         expr* e = todo.back();
         unsigned pos = parent_ids.back();
@@ -405,7 +407,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
         self_pos = self_ids.back();
         sz = a->get_num_args();
 
-        n2 = 0;
+        n2 = nullptr;
         for (unsigned i = 0; i < sz; ++i) {
             expr* arg = a->get_arg(i);
 
@@ -580,7 +582,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
                 }
                 assignment_map.insert(a, value);                
             }
-            else if (m.is_iff(a, n1, n2) || m.is_eq(a, n1, n2)) {
+            else if (m.is_eq(a, n1, n2)) {
                 lbool v1 = assignment_map.find(n1);
                 lbool v2 = assignment_map.find(n2);
                 if (v1 == l_undef || v2 == l_undef) {
@@ -620,7 +622,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
     m_solver.push();
     while (!todo.empty()) {
 
-        r = 0;
+        r = nullptr;
         ptr_buffer<expr> args;
         expr* e = todo.back();
         unsigned pos = parent_ids.back();
@@ -681,7 +683,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
         self_pos = self_ids.back();
         sz = a->get_num_args();
 
-        n2 = 0;
+        n2 = nullptr;
         for (unsigned i = 0; i < sz; ++i) {
             expr* arg = a->get_arg(i);
 

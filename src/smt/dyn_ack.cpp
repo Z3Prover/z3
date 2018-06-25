@@ -39,12 +39,12 @@ namespace smt {
             SASSERT(m_app1->get_id() < m_app2->get_id());
         }
 
-        virtual char const * get_name() const { return "dyn-ack"; }
+        char const * get_name() const override { return "dyn-ack"; }
 
-        virtual void get_antecedents(conflict_resolution & cr) {
+        void get_antecedents(conflict_resolution & cr) override {
         }
 
-        virtual void display_debug_info(conflict_resolution & cr, std::ostream & out) { 
+        void display_debug_info(conflict_resolution & cr, std::ostream & out) override {
             ast_manager & m = cr.get_manager();
             out << "m_app1:\n" << mk_pp(m_app1, m) << "\n";
             out << "m_app2:\n" << mk_pp(m_app2, m) << "\n";
@@ -70,7 +70,7 @@ namespace smt {
             }
         }
 
-        virtual proof * mk_proof(conflict_resolution & cr) {
+        proof * mk_proof(conflict_resolution & cr) override {
             ast_manager & m   = cr.get_manager();
             context & ctx     = cr.get_context();
             unsigned num_args = m_app1->get_num_args();
@@ -288,8 +288,8 @@ namespace smt {
         dyn_ack_clause_del_eh(dyn_ack_manager & m):
             m_manager(m) {
         }
-        virtual ~dyn_ack_clause_del_eh() {}
-        virtual void operator()(ast_manager & m, clause * cls) {
+        ~dyn_ack_clause_del_eh() override {}
+        void operator()(ast_manager & m, clause * cls) override {
             m_manager.del_clause_eh(cls);
             dealloc(this);
         }
@@ -299,7 +299,7 @@ namespace smt {
         TRACE("dyn_ack", tout << "del_clause_eh: "; m_context.display_clause(tout, cls); tout << "\n";);
         m_context.m_stats.m_num_del_dyn_ack++;
         
-        app_pair p((app*)0,(app*)0);
+        app_pair p((app*)nullptr,(app*)nullptr);
         if (m_clause2app_pair.find(cls, p)) {
             SASSERT(p.first && p.second);
             m_instantiated.erase(p);
@@ -371,7 +371,7 @@ namespace smt {
         lits.push_back(mk_eq(n1, n2));
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
 
-        justification * js = 0;
+        justification * js = nullptr;
         if (m_manager.proofs_enabled())
             js = alloc(dyn_ack_justification, n1, n2);
         clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
@@ -423,7 +423,7 @@ namespace smt {
         lits.push_back(mk_eq(n1, n2));
         clause_del_eh * del_eh = alloc(dyn_ack_clause_del_eh, *this);
 
-        justification * js = 0;
+        justification * js = nullptr;
         if (m_manager.proofs_enabled())
             js = alloc(dyn_ack_justification, n1, n2);
         clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);

@@ -141,8 +141,8 @@ namespace smt {
        \brief Return the number of variables that
        do not have bounds associated with it.
        The result is 0, 1, or 2. The value 2 means "2 or more".
-       The second value is the idx of the a variable that does not
-       have bounds associated with it. It is only usefull when the first value is 1.
+       The second value is the idx of the variable that does not
+       have bounds associated with it. It is only useful when the first value is 1.
        The second value is -1 if such variable does not exist, that is, the first
        value is 0.
 
@@ -161,14 +161,14 @@ namespace smt {
     template<typename Ext>
     std::pair<unsigned, int> theory_arith<Ext>::analyze_monomial(expr * m) const {
         SASSERT(is_pure_monomial(m));
-        expr * var       = 0;
+        expr * var       = nullptr;
         unsigned power   = 0;
         unsigned c       = 0;
         int free_var_idx = -1;
         int idx          = 0;
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
-            if (var == 0) {
+            if (var == nullptr) {
                 var   = arg;
                 power = 1;
             }
@@ -227,7 +227,7 @@ namespace smt {
         SASSERT(!m_util.is_numeral(m));
         if (m_util.is_mul(m)) {
             unsigned num_vars = 0;
-            expr * var        = 0;
+            expr * var        = nullptr;
             for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
                 expr * curr = to_app(m)->get_arg(i);
                 if (var != curr) {
@@ -252,12 +252,12 @@ namespace smt {
         m = get_monomial_body(m);
         if (m_util.is_mul(m)) {
             unsigned curr_idx = 0;
-            expr * var        = 0;
+            expr * var        = nullptr;
             unsigned power    = 0;
             unsigned j;
             for (j = 0; j < to_app(m)->get_num_args(); j++) {
                 expr * arg = to_app(m)->get_arg(j);
-                if (var == 0) {
+                if (var == nullptr) {
                     var   = arg;
                     power = 1;
                 }
@@ -471,7 +471,7 @@ namespace smt {
                 }
             }
             bound * old_lower = lower(v);
-            if (old_lower == 0 || new_lower > old_lower->get_value()) {
+            if (old_lower == nullptr || new_lower > old_lower->get_value()) {
                 TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << new_lower << "\n";
                       display_interval(tout, i); tout << "\n";);
                 mk_derived_nl_bound(v, new_lower, B_LOWER, i.get_lower_dependencies());
@@ -494,7 +494,7 @@ namespace smt {
                 }
             }
             bound * old_upper = upper(v);
-            if (old_upper == 0 || new_upper < old_upper->get_value()) {
+            if (old_upper == nullptr || new_upper < old_upper->get_value()) {
                 TRACE("non_linear", tout << "NEW upper bound for v" << v << " " << new_upper << "\n";
                       display_interval(tout, i); tout << "\n";);
                 mk_derived_nl_bound(v, new_upper, B_UPPER, i.get_upper_dependencies());
@@ -788,7 +788,7 @@ namespace smt {
         TRACE("non_linear", tout << "BRANCHING on v" << v << "\n";);
         m_stats.m_nl_branching++;
         SASSERT(is_int(v));
-        expr * bound = 0;
+        expr * bound = nullptr;
         if (lower(v))
             bound  = m_util.mk_le(var2expr(v), m_util.mk_numeral(lower_bound(v).get_rational().to_rational(), true));
         else if (upper(v))
@@ -857,7 +857,7 @@ namespace smt {
             if (!is_fixed(_var))
                 return arg;
         }
-        return 0;
+        return nullptr;
     }
 
     /**
@@ -882,12 +882,12 @@ namespace smt {
 
         numeral k                 = get_monomial_fixed_var_product(m);
         TRACE("non_linear", tout << "new linear monomial... k: " << k << "\n";);
-        expr *  x_n               = k.is_zero() ? 0 : get_monomial_non_fixed_var(m);
+        expr *  x_n               = k.is_zero() ? nullptr : get_monomial_non_fixed_var(m);
         TRACE("non_linear_bug", if (x_n != 0) { tout << "x_n: " << mk_bounded_pp(x_n, get_manager()) << "\nx_n: #" << x_n->get_id() << "\n"; });
         context & ctx             = get_context();
-        derived_bound * new_lower = 0;
-        derived_bound * new_upper = 0;
-        if (x_n != 0) {
+        derived_bound * new_lower = nullptr;
+        derived_bound * new_upper = nullptr;
+        if (x_n != nullptr) {
             // All but one of the x_i variables are assigned.
             // Let x_n be the unassigned variable.
             // Then, we know that x_1*...*x_n = k*x_n, where k is the product of beta(x_1)*...*beta(x_{n-1})
@@ -1267,7 +1267,7 @@ namespace smt {
             expr * var         = ce.second;
             if (!c.is_one()) {
                 rational c2;
-                expr * m = 0;
+                expr * m = nullptr;
                 if (m_util.is_numeral(var, c2))
                     m = m_util.mk_numeral(c*c2, m_util.is_int(var) && c.is_int() && c2.is_int());
                 else
@@ -1492,7 +1492,7 @@ namespace smt {
                 r.push_back(coeff_expr(kv.first, f));
             }
         }
-        expr * s = cross_nested(e, 0);
+        expr * s = cross_nested(e, nullptr);
         if (!r.empty()) {
             expr * q = horner(r, var);
             // TODO: improve here
@@ -1519,7 +1519,7 @@ namespace smt {
     template<typename Ext>
     expr * theory_arith<Ext>::cross_nested(sbuffer<coeff_expr> & p, expr * var) {
         TRACE("non_linear", tout << "p.size: " << p.size() << "\n";);
-        if (var == 0) {
+        if (var == nullptr) {
             sbuffer<var_num_occs> varinfo;
             get_polynomial_info(p, varinfo);
             if (varinfo.empty())
@@ -1556,7 +1556,7 @@ namespace smt {
                    tout << "b: "   << b << "\n";
                    tout << "nm: "  << nm << "\n";);
             SASSERT(n != nm);
-            expr * new_expr = 0;
+            expr * new_expr = nullptr;
             if (nm < n) {
                 std::swap(n, nm);
                 std::swap(a, b);
@@ -1576,7 +1576,7 @@ namespace smt {
                     expr * xm_a2b  = m_util.mk_add(m_util.mk_numeral(a2b, m_util.is_int(var)), xm);
                     expr * xm_a2b2 = m_util.mk_mul(xm_a2b, xm_a2b);
                     expr * rhs     = m_util.mk_add(xm_a2b2, m_util.mk_numeral(ma2b2, m_util.is_int(var)));
-                    expr * rhs2    = 0;
+                    expr * rhs2    = nullptr;
                     if (n > m)
                         rhs2       = m_util.mk_mul(power(var, n - m), rhs);
                     else
@@ -1593,7 +1593,7 @@ namespace smt {
                     if (rest.empty())
                         return new_expr;
                     TRACE("non_linear", tout << "rest size: " << rest.size() << ", i1: " << i1 << ", i2: " << i2 << "\n";);
-                    expr * h = cross_nested(rest, 0);
+                    expr * h = cross_nested(rest, nullptr);
                     expr * r = m_util.mk_add(new_expr, h);
                     m_nl_new_exprs.push_back(r);
                     return r;
@@ -1631,7 +1631,7 @@ namespace smt {
                   tout << "c:\n" << mk_ismt2_pp(cn, get_manager()) << "\n";);
             interval i  = evaluate_as_interval(cn);
             TRACE("cross_nested", tout << "interval: " << i << "\n";);
-            v_dependency * d = 0;
+            v_dependency * d = nullptr;
             if (!i.minus_infinity() && (i.get_lower_value().is_pos() || (i.get_lower_value().is_zero() && i.is_lower_open())))
                 d = i.get_lower_dependencies();
             else if (!i.plus_infinity() && (i.get_upper_value().is_neg() || (i.get_upper_value().is_zero() && i.is_upper_open())))
@@ -1823,7 +1823,7 @@ namespace smt {
         if (!coeff.is_zero())
             return gb.mk_monomial(coeff, vars.size(), vars.c_ptr());
         else
-            return 0;
+            return nullptr;
     }
 
     /**
@@ -1834,7 +1834,7 @@ namespace smt {
     void theory_arith<Ext>::add_row_to_gb(row const & r, grobner & gb) {
         TRACE("non_linear", tout << "adding row to gb\n"; display_row(tout, r););
         ptr_buffer<grobner::monomial> monomials;
-        v_dependency * dep = 0;
+        v_dependency * dep = nullptr;
         m_tmp_var_set.reset();
         typename vector<row_entry>::const_iterator it  = r.begin_entries();
         typename vector<row_entry>::const_iterator end = r.end_entries();
@@ -1860,7 +1860,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::add_monomial_def_to_gb(theory_var v, grobner & gb) {
         ptr_buffer<grobner::monomial> monomials;
-        v_dependency * dep = 0;
+        v_dependency * dep = nullptr;
         m_tmp_var_set.reset();
         expr * m = var2expr(v);
         SASSERT(is_pure_monomial(m));
@@ -1872,7 +1872,7 @@ namespace smt {
             dep = m_dep_manager.mk_join(dep, m_dep_manager.mk_join(m_dep_manager.mk_leaf(lower(v)), m_dep_manager.mk_leaf(upper(v))));
             coeff *= lower_bound(v).get_rational().to_rational();
             if (!coeff.is_zero())
-                monomials.push_back(gb.mk_monomial(coeff, 0, 0));
+                monomials.push_back(gb.mk_monomial(coeff, 0, nullptr));
         }
         else {
             monomials.push_back(gb.mk_monomial(coeff, 1, &m));
@@ -1904,12 +1904,12 @@ namespace smt {
     template<typename Ext>
     interval theory_arith<Ext>::mk_interval_for(grobner::monomial const * m) {
         interval r(m_dep_manager, rational(m->get_coeff()));
-        expr * var     = 0;
+        expr * var     = nullptr;
         unsigned power = 0;
         unsigned num_vars = m->get_degree();
         for (unsigned i = 0; i < num_vars; i++) {
             expr * curr = m->get_var(i);
-            if (var == 0) {
+            if (var == nullptr) {
                 var   = curr;
                 power = 1;
             }
@@ -1922,7 +1922,7 @@ namespace smt {
                 power = 1;
             }
         }
-        if (var != 0)
+        if (var != nullptr)
             mul_bound_of(var, power, r);
         return r;
     }
@@ -1957,7 +1957,7 @@ namespace smt {
                 return false;
         }
         TRACE("non_linear_bug", tout << "is_inconsistent, r: " << r << "\n";);
-        v_dependency * interval_deps = 0;
+        v_dependency * interval_deps = nullptr;
         bool conflict              = false;
         if (!r.minus_infinity() && (r.get_lower_value().is_pos() || (r.get_lower_value().is_zero() && r.is_lower_open()))) {
             interval_deps = r.get_lower_dependencies();
@@ -2002,11 +2002,11 @@ namespace smt {
             return false;
         if (!m->get_coeff().is_perfect_square(r))
             return false;
-        expr * var     = 0;
+        expr * var     = nullptr;
         unsigned power = 0;
         for (unsigned i = 0; i < num_vars; i++) {
             expr * curr = m->get_var(i);
-            if (var == 0) {
+            if (var == nullptr) {
                 var   = curr;
                 power = 1;
             }
@@ -2050,18 +2050,18 @@ namespace smt {
         unsigned i1, i2, i12;
         i1 = i2 = i12 = 0;
         while (true) {
-            expr * v1  = 0;
-            expr * v2  = 0;
-            expr * v12 = 0;
+            expr * v1  = nullptr;
+            expr * v2  = nullptr;
+            expr * v12 = nullptr;
             if (i1 < num1)
                 v1  = m1_sq->get_var(i1);
             if (i2 < num2)
                 v2  = m2_sq->get_var(i2);
             if (i12 < num12)
                 v12 = m1m2->get_var(i12);
-            if (v1 == 0 && v2 == 0 && v12 == 0)
+            if (v1 == nullptr && v2 == nullptr && v12 == nullptr)
                 return true;
-            if (v12 == 0)
+            if (v12 == nullptr)
                 return false;
             if (v1 == v12) {
                 SASSERT(m1_sq->get_var(i1+1) == v1);
@@ -2162,7 +2162,7 @@ namespace smt {
         }
         if (monomials.size() == num)
             return false; // didn't find any perfect square.
-        interval ge_zero(m_dep_manager, rational(0), false, true, 0);
+        interval ge_zero(m_dep_manager, rational(0), false, true, nullptr);
         if (is_inconsistent(ge_zero, monomials.size(), monomials.c_ptr(), eq->get_dependency())) {
             TRACE("non_linear", tout << "found conflict\n"; gb.display_equation(tout, *eq););
             return true;

@@ -60,7 +60,7 @@ namespace datalog {
 
             ACK_UNBOUND_VAR(var_index) - encodes that the column contains a variable that
                                          is unbound (by the corresponding rule body),
-                                         var_index is the de-Brujin index (var->get_idx())
+                                         var_index is the de-Bruijn index (var->get_idx())
                                          of the variable associated with the column.
 
             ACK_CONSTANT(constant) - encodes that the column contains the constant.
@@ -93,11 +93,11 @@ namespace datalog {
             compiler & m_parent;
             rule * m_current;
         public:
-            instruction_observer(compiler & parent) : m_parent(parent), m_current(0) {}
+            instruction_observer(compiler & parent) : m_parent(parent), m_current(nullptr) {}
 
             void start_rule(rule * r) { SASSERT(!m_current); m_current=r; }
-            void finish_rule() { m_current = 0; }
-            virtual void notify(instruction * i) {
+            void finish_rule() { m_current = nullptr; }
+            void notify(instruction * i) override {
                 if(m_current) {
                     i->set_accounting_parent_object(m_parent.m_context, m_current);
                 }

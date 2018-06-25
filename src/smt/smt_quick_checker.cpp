@@ -108,7 +108,7 @@ namespace smt {
                 if (n->get_family_id() != m_manager.get_basic_family_id())
                     collect(arg, n->get_decl(), j);
                 else
-                    collect(arg, 0, 0);
+                    collect(arg, nullptr, 0);
             }
         }
     }
@@ -157,7 +157,7 @@ namespace smt {
         flet<bool> l(m_conservative, conservative);
         init(q);
         TRACE("collector", tout << "model checking: #" << q->get_id() << "\n" << mk_pp(q, m_manager) << "\n";);
-        collect(q->get_expr(), 0, 0);
+        collect(q->get_expr(), nullptr, 0);
         save_result(candidates);
     }
 
@@ -251,7 +251,7 @@ namespace smt {
                     TRACE("quick_checker_sizes", tout << "found new candidate\n"; 
                           for (unsigned i = 0; i < m_num_bindings; i++) tout << "#" << m_bindings[i]->get_owner_id() << " "; tout << "\n";);
                     unsigned max_generation = get_max_generation(m_num_bindings, m_bindings.c_ptr());
-                    if (m_context.add_instance(q, 0 /* no pattern was used */, m_num_bindings, m_bindings.c_ptr(), max_generation, 
+                    if (m_context.add_instance(q, nullptr /* no pattern was used */, m_num_bindings, m_bindings.c_ptr(), max_generation,
                                                0,  // min_top_generation is only available for instances created by the MAM
                                                0,  // max_top_generation is only available for instances created by the MAM
                                                empty_used_enodes))
@@ -311,11 +311,6 @@ namespace smt {
                 return is_true ? any_arg(a, true) : all_args(a, false);
             case OP_AND:
                 return is_true ? all_args(a, true) : any_arg(a, false);
-            case OP_IFF:
-                if (is_true)
-                    return (check(a->get_arg(0), true)  && check(a->get_arg(1), true))  || (check(a->get_arg(0), false) && check(a->get_arg(1), false));
-                else
-                    return (check(a->get_arg(0), true)  && check(a->get_arg(1), false)) || (check(a->get_arg(0), false) && check(a->get_arg(1), true));
             case OP_ITE: 
                 if (check(a->get_arg(0), true))
                     return check(a->get_arg(1), is_true);
@@ -324,6 +319,13 @@ namespace smt {
                 else 
                     return check(a->get_arg(1), is_true) && check(a->get_arg(2), is_true);
             case OP_EQ: 
+                if (m_manager.is_iff(a)) {
+                    if (is_true)
+                        return (check(a->get_arg(0), true)  && check(a->get_arg(1), true))  || (check(a->get_arg(0), false) && check(a->get_arg(1), false));
+                    else
+                        return (check(a->get_arg(0), true)  && check(a->get_arg(1), false)) || (check(a->get_arg(0), false) && check(a->get_arg(1), true));
+                }
+
                 if (is_true) {
                     return canonize(a->get_arg(0)) == canonize(a->get_arg(1));
                 }

@@ -53,7 +53,9 @@ public:
     bool is_range() const { return m_ty == t_range; }
     sort* get_sort() const { return m_sort; }
     expr* get_char() const { SASSERT(is_char()); return m_t; }
-
+    expr* get_pred() const { SASSERT(is_pred()); return m_t; }
+    expr* get_lo() const { SASSERT(is_range()); return m_t; }
+    expr* get_hi() const { SASSERT(is_range()); return m_s; }
 };
 
 class sym_expr_manager {
@@ -87,6 +89,8 @@ public:
     ~re2automaton();
     eautomaton* operator()(expr* e);
     void set_solver(expr_solver* solver);
+    bool has_solver() const { return m_solver; }
+    eautomaton* mk_product(eautomaton *a1, eautomaton *a2);
 };
 
 /**

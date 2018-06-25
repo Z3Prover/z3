@@ -79,11 +79,11 @@ namespace datalog {
             : convenient_relation_join_fn(o1_sig, o2_sig, col_cnt, cols1, cols2) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             bound_relation const& r1 = get(_r1);
             bound_relation const& r2 = get(_r2);
             bound_relation_plugin& p = r1.get_plugin();
-            bound_relation* result = dynamic_cast<bound_relation*>(p.mk_full(0, get_result_signature()));            
+            bound_relation* result = dynamic_cast<bound_relation*>(p.mk_full(nullptr, get_result_signature()));
             result->mk_join(r1, r2, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr());
             return result;
         }
@@ -92,7 +92,7 @@ namespace datalog {
     relation_join_fn * bound_relation_plugin::mk_join_fn(const relation_base & r1, const relation_base & r2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if (!check_kind(r1) || !check_kind(r2)) {
-            return 0;
+            return nullptr;
         }
         return alloc(join_fn, r1.get_signature(), r2.get_signature(), col_cnt, cols1, cols2);
     }
@@ -104,10 +104,10 @@ namespace datalog {
             : convenient_relation_project_fn(orig_sig, removed_col_cnt, removed_cols) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             bound_relation const& r = get(_r);
             bound_relation_plugin& p = r.get_plugin();
-            bound_relation* result = get(p.mk_full(0, get_result_signature()));            
+            bound_relation* result = get(p.mk_full(nullptr, get_result_signature()));
             result->mk_project(r, m_removed_cols.size(), m_removed_cols.c_ptr());
             return result;
         }
@@ -124,10 +124,10 @@ namespace datalog {
             : convenient_relation_rename_fn(orig_sig, cycle_len, cycle) {
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             bound_relation const& r = get(_r);
             bound_relation_plugin& p = r.get_plugin();
-            bound_relation* result = get(p.mk_full(0, get_result_signature()));
+            bound_relation* result = get(p.mk_full(nullptr, get_result_signature()));
             result->mk_rename(r, m_cycle.size(), m_cycle.c_ptr());
             return result;
         }
@@ -138,7 +138,7 @@ namespace datalog {
         if(check_kind(r)) {
             return alloc(rename_fn, r.get_signature(), cycle_len, permutation_cycle);
         }
-        return 0;
+        return nullptr;
     }
      
 
@@ -148,7 +148,7 @@ namespace datalog {
         union_fn(bool is_widen) :
             m_is_widen(is_widen) {            
         }
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("bound_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             get(_r).mk_union(get(_src), get(_delta), m_is_widen);
         }
@@ -160,7 +160,7 @@ namespace datalog {
         union_fn_i(bool is_widen) :
             m_is_widen(is_widen) {            
         }
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("bound_relation", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););   
             get(_r).mk_union_i(get_interval_relation(_src), get(_delta), m_is_widen);
             TRACE("bound_relation", _r.display(tout << "dst':\n"););
@@ -176,7 +176,7 @@ namespace datalog {
         if (check_kind(tgt) && check_kind(src) && (!delta || check_kind(*delta))) {
             return alloc(union_fn, false);
         }
-        return 0;
+        return nullptr;
     }
 
     relation_union_fn * bound_relation_plugin::mk_widen_fn(
@@ -188,7 +188,7 @@ namespace datalog {
         if (check_kind(tgt) && check_kind(src) && (!delta || check_kind(*delta))) {
             return alloc(union_fn, true);
         }
-        return 0;
+        return nullptr;
     }
 
     class bound_relation_plugin::filter_identical_fn : public relation_mutator_fn {
@@ -197,7 +197,7 @@ namespace datalog {
         filter_identical_fn(unsigned col_cnt, const unsigned * identical_cols) 
             : m_cols(col_cnt, identical_cols) {}
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             for (unsigned i = 1; i < m_cols.size(); ++i) {
                 get(r).equate(m_cols[0], m_cols[i]);
             }
@@ -209,14 +209,14 @@ namespace datalog {
         if(check_kind(t)) {
             return alloc(filter_identical_fn, col_cnt, identical_cols);
         }
-        return 0;
+        return nullptr;
     }
 
     class bound_relation_plugin::filter_equal_fn : public relation_mutator_fn {
     public:
         filter_equal_fn(relation_element const& value, unsigned col) {}
 
-        virtual void operator()(relation_base & r) { }
+        void operator()(relation_base & r) override { }
     };
 
     relation_mutator_fn * bound_relation_plugin::mk_filter_equal_fn(const relation_base & r, 
@@ -224,7 +224,7 @@ namespace datalog {
         if (check_kind(r)) {
             return alloc(filter_equal_fn, value, col);
         }
-        return 0;
+        return nullptr;
     }
 
     class bound_relation_plugin::filter_interpreted_fn : public relation_mutator_fn {
@@ -280,7 +280,7 @@ namespace datalog {
 
         filter_interpreted_fn(ast_manager& m, app* cond) : 
             m_cond(cond, m), 
-            m_lt(m), m_arith(m), m_interval(0), m_kind(NOT_APPLICABLE) {
+            m_lt(m), m_arith(m), m_interval(nullptr), m_kind(NOT_APPLICABLE) {
             expr* l, *r, *r1, *r2, *c2;
             rational n1;
             if ((m_arith.is_lt(cond, l, r) || m_arith.is_gt(cond, r, l)) && 
@@ -342,7 +342,7 @@ namespace datalog {
         // x < y + z
         //  
 
-        void operator()(relation_base& t) {
+        void operator()(relation_base& t) override {
             TRACE("dl", tout << mk_pp(m_cond, m_cond.get_manager()) << "\n"; t.display(tout););
             bound_relation& r = get(t);
             switch(m_kind) {
@@ -370,11 +370,11 @@ namespace datalog {
             TRACE("dl", t.display(tout << "result\n"););   
         }
 
-        bool supports_attachment(relation_base& t) {
+        bool supports_attachment(relation_base& t) override {
             return is_interval_relation(t);
         }
 
-        void attach(relation_base& t) {
+        void attach(relation_base& t) override {
             SASSERT(is_interval_relation(t));
             interval_relation& r = get_interval_relation(t);
             m_interval = &r;
@@ -592,7 +592,7 @@ namespace datalog {
             scoped_ptr<relation_mutator_fn> fe = get_plugin().mk_filter_equal_fn(r, f[i], i);
             (*fe)(r);
         }
-        mk_union(r, 0, false);        
+        mk_union(r, nullptr, false);
     }
 
     bool bound_relation::contains_fact(const relation_fact & f) const {
@@ -604,12 +604,12 @@ namespace datalog {
     }
 
     bound_relation * bound_relation::clone() const {
-        bound_relation* result = 0;
+        bound_relation* result = nullptr;
         if (empty()) {
             result = bound_relation_plugin::get(get_plugin().mk_empty(get_signature()));
         }
         else {
-            result = bound_relation_plugin::get(get_plugin().mk_full(0, get_signature()));
+            result = bound_relation_plugin::get(get_plugin().mk_full(nullptr, get_signature()));
             result->copy(*this);
         }        
         return result;
@@ -647,7 +647,7 @@ namespace datalog {
 
     bound_relation * bound_relation::complement(func_decl* p) const {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     void bound_relation::to_formula(expr_ref& fml) const {

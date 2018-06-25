@@ -115,6 +115,10 @@ namespace smt {
             return m_kernel.check(num_assumptions, assumptions);
         }
 
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clause) {
+            return m_kernel.check(cube, clause);
+        }        
+
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
             return m_kernel.get_consequences(assumptions, vars, conseq, unfixed);
         }
@@ -122,7 +126,6 @@ namespace smt {
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
             return m_kernel.preferred_sat(asms, cores);
         }
-
 
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
             return m_kernel.find_mutexes(vars, mutexes);
@@ -175,11 +178,15 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result) {
             m_kernel.get_guessed_literals(result);
         }
-        
+
+        expr* next_decision() {
+            return m_kernel.next_decision();
+        }
+                
         void collect_statistics(::statistics & st) const {
             m_kernel.collect_statistics(st);
         }
-        
+
         void reset_statistics() {
         }
 
@@ -196,9 +203,7 @@ namespace smt {
         }
 
         void updt_params(params_ref const & p) {
-            // We don't need params2smt_params anymore. smt_params has support for reading params_ref.
-            // The update is performed at smt_kernel "users".
-            // params2smt_params(p, fparams());
+            m_kernel.updt_params(p);
         }
     };
 
@@ -217,7 +222,6 @@ namespace smt {
     void  kernel::copy(kernel& src, kernel& dst) {
         imp::copy(*src.m_imp, *dst.m_imp);
     }
-
 
     bool kernel::set_logic(symbol logic) {
         return m_imp->set_logic(logic);
@@ -263,9 +267,9 @@ namespace smt {
     }
 
     void kernel::reset() {
-        ast_manager & _m       = m();
+        ast_manager & _m = m();
         smt_params & fps = m_imp->fparams();
-        params_ref ps          = m_imp->params();
+        params_ref ps    = m_imp->params();
         #pragma omp critical (smt_kernel)
         {
             m_imp->~imp();
@@ -286,6 +290,11 @@ namespace smt {
         TRACE("smt_kernel", tout << "check result: " << r << "\n";);
         return r;
     }
+
+    lbool kernel::check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
+        return m_imp->check(cube, clauses);
+    }
+
 
     lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
         return m_imp->get_consequences(assumptions, vars, conseq, unfixed);
@@ -346,6 +355,10 @@ namespace smt {
     void kernel::get_guessed_literals(expr_ref_vector & result) {
         m_imp->get_guessed_literals(result);
     }
+
+    expr* kernel::next_decision() {
+        return m_imp->next_decision();
+    }        
 
     void kernel::display(std::ostream & out) const {
         m_imp->display(out);

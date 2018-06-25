@@ -1402,7 +1402,6 @@ struct
   let is_rewrite (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_REWRITE)
   let is_rewrite_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_REWRITE_STAR)
   let is_pull_quant (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_PULL_QUANT)
-  let is_pull_quant_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_PULL_QUANT_STAR)
   let is_push_quant (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_PUSH_QUANT)
   let is_elim_unused_vars (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_ELIM_UNUSED_VARS)
   let is_der (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_DER)
@@ -1419,8 +1418,6 @@ struct
   let is_iff_oeq (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_IFF_OEQ)
   let is_nnf_pos (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_NNF_POS)
   let is_nnf_neg (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_NNF_NEG)
-  let is_nnf_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_NNF_STAR)
-  let is_cnf_star (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_CNF_STAR)
   let is_skolemize (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_SKOLEMIZE)
   let is_modus_ponens_oeq (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_MODUS_PONENS_OEQ)
   let is_theory_lemma (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_PR_TH_LEMMA)
@@ -1657,7 +1654,6 @@ struct
       mk_list f n
 
     let get_subgoal (x:apply_result) (i:int) = Z3native.apply_result_get_subgoal (gc x) x i
-    let convert_model (x:apply_result) (i:int) (m:Model.model) = Z3native.apply_result_convert_model (gc x) x i m
     let to_string (x:apply_result) = Z3native.apply_result_to_string (gc x) x
   end
 
@@ -1994,56 +1990,10 @@ struct
     if csn <> cs || cdn <> cd then
       raise (Error "Argument size mismatch")
     else
-      Z3native.parse_smtlib2_string ctx file_name
+      Z3native.parse_smtlib2_file ctx file_name
         cs sort_names sorts cd decl_names decls
 end
 
-module Interpolation =
-struct
-  let mk_interpolant = Z3native.mk_interpolant
-
-  let mk_interpolation_context (settings:(string * string) list) =
-    let cfg = Z3native.mk_config () in
-    let f e = Z3native.set_param_value cfg (fst e) (snd e) in
-    List.iter f settings;
-    let res = Z3native.mk_interpolation_context cfg in
-    Z3native.del_config cfg;
-    Z3native.set_ast_print_mode res (int_of_ast_print_mode PRINT_SMTLIB2_COMPLIANT);
-    Z3native.set_internal_error_handler res;
-    res
-
-  let get_interpolant (ctx:context) (pf:expr) (pat:expr) (p:Params.params) =
-    let av = Z3native.get_interpolant ctx pf pat p in
-    AST.ASTVector.to_expr_list av
-
-  let compute_interpolant (ctx:context) (pat:expr) (p:Params.params) =
-    let (r, interp, model) = Z3native.compute_interpolant ctx pat p in
-    let res = lbool_of_int r in
-    match res with
-    | L_TRUE -> (res, None, Some model)
-    | L_FALSE -> (res, Some (AST.ASTVector.to_expr_list interp), None)
-    | _ -> (res, None, None)
-
-  let get_interpolation_profile = Z3native.interpolation_profile
-
-  let read_interpolation_problem (ctx:context) (filename:string) =
-    let (r, num, cnsts, parents, error, num_theory, theory) =
-      Z3native.read_interpolation_problem ctx filename
-    in
-    match r with
-    | 0 -> raise (Error "Interpolation problem could not be read.")
-    | _ -> (cnsts, parents, theory)
-
-  let check_interpolant (ctx:context) (num:int) (cnsts:Expr.expr list) (parents:int list) (interps:Expr.expr list) (num_theory:int) (theory:Expr.expr list) =
-    let (r, str) = Z3native.check_interpolant ctx num cnsts parents interps num_theory theory in
-    match (lbool_of_int r) with
-    | L_UNDEF -> raise (Error "Interpolant could not be verified.")
-    | L_FALSE -> raise (Error "Interpolant could not be verified.")
-    | _ -> ()
-
-  let write_interpolation_problem (ctx:context) (num:int) (cnsts:Expr.expr list) (parents:int list) (filename:string) (num_theory:int) (theory:Expr.expr list) =
-    Z3native.write_interpolation_problem ctx num cnsts parents filename num_theory theory
-end
 
 let set_global_param = Z3native.global_param_set
 

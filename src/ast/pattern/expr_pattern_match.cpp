@@ -83,7 +83,7 @@ expr_pattern_match::instantiate(expr* a, unsigned num_bound, subst& s, expr_ref&
     
     inst_proc proc(m_manager, s, b, m_regs);
     for_each_ast(proc, a);
-    expr* v = 0;
+    expr* v = nullptr;
     proc.m_memoize.find(a, v);
     SASSERT(v);
     result = v;
@@ -387,7 +387,7 @@ expr_pattern_match::initialize(char const * spec_string) {
     m_instrs.push_back(instr(BACKTRACK));
 
     std::istringstream is(spec_string);
-    cmd_context      ctx(true, &m_manager);
+    cmd_context      ctx(true, &m_manager);	
     bool ps = ctx.print_success_enabled();
     ctx.set_print_success(false);
     VERIFY(parse_smt2_commands(ctx, is));

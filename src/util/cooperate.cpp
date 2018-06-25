@@ -28,7 +28,7 @@ struct cooperation_lock {
     cooperation_lock() {
         omp_set_nested(1);
         omp_init_nest_lock(&m_lock);
-        m_task = 0;
+        m_task = nullptr;
         m_owner_thread = -1;
     }
     ~cooperation_lock() {

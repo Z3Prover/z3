@@ -23,7 +23,7 @@ Revision History:
 #include "smt/theory_arith.h"
 #include "smt/smt_farkas_util.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace smt {
 
@@ -279,7 +279,7 @@ namespace smt {
                 return it;
             }
         }
-        return 0;
+        return nullptr;
     }
 
     template<typename Ext>
@@ -357,7 +357,7 @@ namespace smt {
 
     template<typename Ext>
     parameter * theory_arith<Ext>::antecedents_t::params(char const* name) {
-        if (empty()) return 0;
+        if (empty()) return nullptr;
         init();
         m_params[0] = parameter(symbol(name));
         return m_params.c_ptr();
@@ -444,19 +444,19 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::at_bound(theory_var v) const {
         bound * l = lower(v);
-        if (l != 0 && get_value(v) == l->get_value())
+        if (l != nullptr && get_value(v) == l->get_value())
             return true;
         bound * u = upper(v);
-        return u != 0 && get_value(v) == u->get_value();
+        return u != nullptr && get_value(v) == u->get_value();
     }
 
     template<typename Ext>
     bool theory_arith<Ext>::is_fixed(theory_var v) const {
         bound * l = lower(v);
-        if (l == 0)
+        if (l == nullptr)
             return false;
         bound * u = upper(v);
-        if (u == 0) 
+        if (u == nullptr)
             return false;
         return l->get_value() == u->get_value();
     }
@@ -483,7 +483,7 @@ namespace smt {
         while (true) {
             column const & c = m_columns[v];
             if (c.size() == 0)
-                return 0;
+                return nullptr;
             int quasi_base_rid = -1;
             typename svector<col_entry>::const_iterator it  = c.begin_entries();
             typename svector<col_entry>::const_iterator end = c.end_entries();
@@ -533,7 +533,7 @@ namespace smt {
     typename theory_arith<Ext>::col_entry const * theory_arith<Ext>::get_row_for_eliminating(theory_var v) const {
         column const & c = m_columns[v];
         if (c.size() == 0)
-            return 0;
+            return nullptr;
         typename svector<col_entry>::const_iterator it  = c.begin_entries();
         typename svector<col_entry>::const_iterator end = c.end_entries();
         for (; it != end; ++it) {
@@ -556,7 +556,7 @@ namespace smt {
                 return it;
             }
         }
-        return 0;
+        return nullptr;
     }
 
     template<typename Ext>
@@ -1117,14 +1117,14 @@ namespace smt {
       This allows to handle inequalities with non-standard numbers.
     */
     template<typename Ext>
-    expr_ref theory_arith<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val) {
+    expr_ref theory_arith<Ext>::mk_ge(generic_model_converter& fm, theory_var v, inf_numeral const& val) {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
         strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
         app* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
         if (!ctx.b_internalized(b)) {
-            fm.insert(b->get_decl());
+            fm.hide(b->get_decl());
             bool_var bv = ctx.mk_bool_var(b);
             ctx.set_var_theory(bv, get_id());
             // ctx.set_enode_flag(bv, true);

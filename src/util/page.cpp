@@ -31,7 +31,7 @@ inline char * alloc_page(size_t s) { char * r = alloc_svect(char, s+PAGE_HEADER_
 inline void del_page(char * page) { dealloc_svect(page - PAGE_HEADER_SZ); }
 
 void del_pages(char * page) {
-    while (page != 0) {
+    while (page != nullptr) {
         char * prev = prev_page(page);
         del_page(page);
         page = prev;

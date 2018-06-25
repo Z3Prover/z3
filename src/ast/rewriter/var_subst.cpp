@@ -24,6 +24,10 @@ Notes:
 #include "ast/for_each_expr.h"
 
 void var_subst::operator()(expr * n, unsigned num_args, expr * const * args, expr_ref & result) {
+    if (is_ground(n)) {
+        result = n;
+        return;
+    }
     SASSERT(is_well_sorted(result.m(), n));
     m_reducer.reset();
     if (m_std_order)
@@ -94,7 +98,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         }
         else {
             num_removed++;
-            var_mapping.push_back(0);
+            var_mapping.push_back(nullptr);
         }
     }
     // (VAR 0) is in the first position of var_mapping.
@@ -104,7 +108,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         if (s)
             var_mapping.push_back(m.mk_var(i - num_removed, s));
         else
-            var_mapping.push_back(0);
+            var_mapping.push_back(nullptr);
     }
 
 

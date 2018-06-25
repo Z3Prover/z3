@@ -20,8 +20,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
 #include "tactic/bv/bvarray2uf_tactic.h"
@@ -54,24 +53,21 @@ class bvarray2uf_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core)
+                        goal_ref_buffer & result)
         {
             SASSERT(g->is_well_sorted());
             tactic_report report("bvarray2uf", *g);
-            mc = 0; pc = 0; core = 0; result.reset();
+            result.reset();
             fail_if_unsat_core_generation("bvarray2uf", g);
 
             TRACE("bvarray2uf", tout << "Before: " << std::endl; g->display(tout); );
             m_produce_models = g->models_enabled();
+            model_converter_ref mc;
 
             if (m_produce_models) {
-                extension_model_converter * emc = alloc(extension_model_converter, m_manager);
-                filter_model_converter * fmc = alloc(filter_model_converter, m_manager);
-                mc = concat(emc, fmc);
-                m_rw.set_mcs(emc, fmc);
+                generic_model_converter * fmc = alloc(generic_model_converter, m_manager, "bvarray2uf");
+                mc = fmc;
+                m_rw.set_mcs(fmc);
             }
 
 
@@ -95,6 +91,7 @@ class bvarray2uf_tactic : public tactic {
                 g->assert_expr(m_rw.m_cfg.extra_assertions[i].get());
 
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("bvarray2uf", tout << "After: " << std::endl; g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -113,32 +110,29 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(bvarray2uf_tactic, m, m_params);
     }
 
-    virtual ~bvarray2uf_tactic() {
+    ~bvarray2uf_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);

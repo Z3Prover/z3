@@ -19,20 +19,22 @@ Revision History:
 #include<iostream>
 #include "util/util.h"
 #include "util/heap.h"
-#include "util/hashtable.h"
 #include "util/trace.h"
+#include "util/uint_set.h"
+// include "util/hashtable.h"
 
 struct lt_proc { bool operator()(int v1, int v2) const { return v1 < v2; } };
+//struct int_hash_proc { unsigned operator()(int v) const { std::cout << "hash " << v << "\n"; VERIFY(v >= 0); return v; }};  
+//typedef int_hashtable<int_hash_proc, default_eq<int> > int_set; 
 typedef heap<lt_proc> int_heap;
-struct int_hash_proc { unsigned operator()(int v) const { return v * 17; }};
-typedef int_hashtable<int_hash_proc, default_eq<int> > int_set;
 #define N 10000
 
 static random_gen heap_rand(1);
 
 static void tst1() {
     int_heap h(N);
-    int_set  t;
+//    int_set t;
+    uint_set  t;
     for (int i = 0; i < N * 3; i++) {
         int val = heap_rand() % N;
         if (!h.contains(val)) {
@@ -41,14 +43,15 @@ static void tst1() {
             t.insert(val);
         }
         else {
+            if (!t.contains(val)) {
+                for (int v : t) std::cout << v << "\n";
+            }
             ENSURE(t.contains(val));
         }
     }
     ENSURE(h.check_invariant());
-    int_set::iterator it  = t.begin();
-    int_set::iterator end = t.end();
-    for (; it != end; ++it) {
-        ENSURE(h.contains(*it));
+    for (int v : t) {
+        ENSURE(h.contains(v));
     }
     while (!h.empty()) {
         int m1 = h.min_value();
@@ -84,6 +87,8 @@ static void dump_heap(const int_heap2 & h, std::ostream & out) {
 static void tst2() {
     int_heap2 h(N);
     for (int i = 0; i < N * 10; i++) {
+
+        if (i % 1 == 0) std::cout << "i: " << i << std::endl;
         if (i % 1000 == 0) std::cout << "i: " << i << std::endl;
         int cmd = heap_rand() % 10;
         if (cmd <= 3) {
@@ -134,6 +139,7 @@ void tst_heap() {
     enable_trace("heap");
     unsigned i = 0;
     while (i < 3) {
+        IF_VERBOSE(1, verbose_stream() << "test\n";);
         heap_rand.set_seed(i++);
         tst1();
         init_values();

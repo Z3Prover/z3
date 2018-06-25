@@ -82,7 +82,7 @@ class skolemizer {
         expr_ref_vector args(m());
         for (unsigned i = 0; i < sz; i++) {
             sort * s = uv.get(i);
-            if (s != 0) {
+            if (s != nullptr) {
                 sorts.push_back(s);
                 args.push_back(m().mk_var(i, s));
             }
@@ -105,10 +105,10 @@ class skolemizer {
         //
         for (unsigned i = 0; i < sz; i++) {
             sort * s = uv.get(i);
-            if (s != 0)
+            if (s != nullptr)
                 substitution.push_back(m().mk_var(i, s));
             else
-                substitution.push_back(0);
+                substitution.push_back(nullptr);
         }
         //
         // (VAR num_decls) ... (VAR num_decls+sz-1)
@@ -137,7 +137,7 @@ class skolemizer {
             }
         }
         s(body, substitution.size(), substitution.c_ptr(), r);
-        p = 0;
+        p = nullptr;
         if (m().proofs_enabled()) {
             if (q->is_forall())
                 p = m().mk_skolemization(m().mk_not(q), m().mk_not(r));
@@ -163,8 +163,8 @@ public:
 
     void operator()(quantifier * q, expr_ref & r, proof_ref & p) {
         r = m_cache.find(q);
-        if (r.get() != 0) {
-            p = 0;
+        if (r.get() != nullptr) {
+            p = nullptr;
             if (m().proofs_enabled())
                 p = static_cast<proof*>(m_cache_pr.find(q));
         }
@@ -496,7 +496,7 @@ struct nnf::imp {
                 return false;
         }
         expr  * r  = m_result_stack.back();
-        proof * pr = 0;
+        proof * pr = nullptr;
         if (proofs_enabled()) {
             pr = m_result_pr_stack.back();
             if (!fr.m_pol) {
@@ -582,7 +582,7 @@ struct nnf::imp {
         return true;
     }
 
-    bool is_eq(app * t) const { return m().is_eq(t) || m().is_iff(t); }
+    bool is_eq(app * t) const { return m().is_eq(t); }
 
     bool process_iff_xor(app * t, frame & fr) {
         SASSERT(t->get_num_args() == 2);
@@ -630,7 +630,7 @@ struct nnf::imp {
     }
 
     bool process_eq(app * t, frame & fr) {
-        if (m().is_bool(t->get_arg(0)))
+        if (m().is_iff(t))
             return process_iff_xor(t, fr);
         else
             return process_default(t, fr);
@@ -673,7 +673,7 @@ struct nnf::imp {
         }
 
         expr * arg = m_result_stack.back();
-        proof * arg_pr = proofs_enabled() ? m_result_pr_stack.back() : 0;
+        proof * arg_pr = proofs_enabled() ? m_result_pr_stack.back() : nullptr;
 
         if (m_ignore_labels && !proofs_enabled())
             return true; // the result is already on the stack
@@ -725,7 +725,6 @@ struct nnf::imp {
                 return process_implies(t, fr);
             case OP_ITE:
                 return process_ite(t, fr);
-            case OP_IFF:
             case OP_XOR:
                 return process_iff_xor(t, fr);
             case OP_EQ:
@@ -765,7 +764,7 @@ struct nnf::imp {
 
         if (q->is_forall() == fr.m_pol || !m_skolemize) {
             expr * new_expr     = m_result_stack.back();
-            proof * new_expr_pr = proofs_enabled() ? m_result_pr_stack.back() : 0;
+            proof * new_expr_pr = proofs_enabled() ? m_result_pr_stack.back() : nullptr;
 
             ptr_buffer<expr> new_patterns;
 
@@ -783,8 +782,8 @@ struct nnf::imp {
                 // So, ignore patterns
             }
 
-            quantifier * new_q = 0;
-            proof * new_q_pr   = 0;
+            quantifier * new_q = nullptr;
+            proof * new_q_pr   = nullptr;
             if (fr.m_pol) {
                 new_q = m().update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(), new_expr);
                 if (proofs_enabled())
@@ -827,7 +826,7 @@ struct nnf::imp {
         if (proofs_enabled()) {
             result_pr = m_result_pr_stack.back();
             m_result_pr_stack.pop_back();
-            if (result_pr.get() == 0)
+            if (result_pr.get() == nullptr)
                 result_pr = m().mk_reflexivity(t);
             SASSERT(m_result_pr_stack.empty());
         }
@@ -870,7 +869,7 @@ struct nnf::imp {
 
             if (status) {
                 if (fr.m_cache_result)
-                    cache_result(fr.m_curr, fr.m_pol, fr.m_in_q, m_result_stack.back(), proofs_enabled() ? m_result_pr_stack.back() : 0);
+                    cache_result(fr.m_curr, fr.m_pol, fr.m_in_q, m_result_stack.back(), proofs_enabled() ? m_result_pr_stack.back() : nullptr);
                 m_frame_stack.pop_back();
             }
         }

@@ -531,7 +531,7 @@ namespace datalog {
             }
         }
 
-        rule_set * result = static_cast<rule_set *>(0);
+        rule_set * result = static_cast<rule_set *>(nullptr);
         if (m_modified) {
             result = alloc(rule_set, m_context);
             unsigned fin_rule_cnt = m_result_rules.size();

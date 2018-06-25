@@ -46,7 +46,7 @@ namespace opt {
         for (unsigned i = 0; i < src.size(); ++i) {
             if (src[i] >= dst[i]) {
                 dst[i] = src[i];
-                m_models.set(i, m_s->get_model(i));
+                m_models.set(i, m_s->get_model_idx(i));
                 m_s->get_labels(m_labels);
                 m_lower_fmls[i] = fmls[i].get();
                 if (dst[i].is_pos() && !dst[i].is_finite()) { // review: likely done already.
@@ -112,7 +112,7 @@ namespace opt {
         while (!m.canceled()) {
             SASSERT(delta_per_step.is_int());
             SASSERT(delta_per_step.is_pos());
-            is_sat = m_s->check_sat(0, 0);
+            is_sat = m_s->check_sat(0, nullptr);
             if (is_sat == l_true) {                
                 bound = update_lower();
                 if (!get_max_delta(lower, delta_index)) {
@@ -188,7 +188,7 @@ namespace opt {
         while (!m.canceled()) {
             SASSERT(delta_per_step.is_int());
             SASSERT(delta_per_step.is_pos());
-            is_sat = m_s->check_sat(0, 0);
+            is_sat = m_s->check_sat(0, nullptr);
             if (is_sat == l_true) {                
                 m_s->maximize_objective(obj_index, bound);
                 m_s->get_model(m_model);
@@ -318,7 +318,7 @@ namespace opt {
                     m_s->get_labels(m_labels);            
                     for (unsigned i = 0; i < ors.size(); ++i) {
                         expr_ref tmp(m);
-                        if (m_model->eval(ors[i].get(), tmp) && m.is_true(tmp)) {
+                        if (m_model->is_true(ors[i].get())) {
                             m_lower[i] = m_upper[i];
                             ors[i]  = m.mk_false();
                             disj[i] = m.mk_false();
@@ -416,7 +416,7 @@ namespace opt {
                 bounds.push_back(bound);
             }
             else {
-                bounds.push_back(0);
+                bounds.push_back(nullptr);
                 mid.push_back(inf_eps());
             }
         }
@@ -429,7 +429,7 @@ namespace opt {
                 case l_true:
                     IF_VERBOSE(2, verbose_stream() << "(optsmt lower bound for v" << m_vars[i] << " := " << m_upper[i] << ")\n";);
                     m_lower[i] = mid[i];
-                    th.enable_record_conflict(0);
+                    th.enable_record_conflict(nullptr);
                     m_s->assert_expr(update_lower());
                     break;
                 case l_false:
@@ -444,10 +444,10 @@ namespace opt {
                     }
                     break;
                 default:
-                    th.enable_record_conflict(0);
+                    th.enable_record_conflict(nullptr);
                     return l_undef;
                 }
-                th.enable_record_conflict(0);
+                th.enable_record_conflict(nullptr);
                 progress = true;
             }
         }
@@ -505,7 +505,7 @@ namespace opt {
             commit_assignment(i);
         }
         while (is_sat == l_true && !m.canceled()) {
-            is_sat = m_s->check_sat(0, 0); 
+            is_sat = m_s->check_sat(0, nullptr);
             if (is_sat != l_true) break;
             
             m_s->maximize_objective(obj_index, bound);
@@ -599,7 +599,7 @@ namespace opt {
         m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
         m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
         m_lower_fmls.push_back(m.mk_true());
-        m_models.push_back(0);
+        m_models.push_back(nullptr);
         return m_objs.size()-1;
     }
 
@@ -615,7 +615,7 @@ namespace opt {
         m_vars.reset();
         m_model.reset();
         m_lower_fmls.reset();
-        m_s = 0;
+        m_s = nullptr;
     }
 }
 

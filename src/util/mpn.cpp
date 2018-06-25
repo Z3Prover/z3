@@ -23,7 +23,7 @@ Revision History:
 
 #define max(a,b)    (((a) > (b)) ? (a) : (b))
 
-typedef uint64 mpn_double_digit;
+typedef uint64_t mpn_double_digit;
 static_assert(sizeof(mpn_double_digit) == 2 * sizeof(mpn_digit), "size alignment");
 
 const mpn_digit mpn_manager::zero = 0;

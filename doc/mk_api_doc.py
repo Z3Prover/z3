@@ -226,12 +226,14 @@ try:
     website_dox_substitutions = {}
     bullet_point_prefix='\n   - '
     if Z3PY_ENABLED:
+        print("Python documentation enabled")
         website_dox_substitutions['PYTHON_API'] = (
             '{prefix}<a class="el" href="namespacez3py.html">Python API</a> '
             '(also available in <a class="el" href="z3.html">pydoc format</a>)'
             ).format(
                 prefix=bullet_point_prefix)
     else:
+        print("Python documentation disabled")
         website_dox_substitutions['PYTHON_API'] = ''
     if DOTNET_ENABLED:
         website_dox_substitutions['DOTNET_API'] = (
@@ -250,7 +252,7 @@ try:
         website_dox_substitutions['JAVA_API'] = ''
     if ML_ENABLED:
         website_dox_substitutions['OCAML_API'] = (
-            '<a class="el" href="ml/index.html">ML/OCaml API</a>'
+            '{prefix}<a class="el" href="ml/index.html">ML/OCaml API</a>'
             ).format(
                 prefix=bullet_point_prefix)
     else:
@@ -270,7 +272,6 @@ try:
     cleanup_API(doc_path('../src/api/z3_rcf.h'), temp_path('z3_rcf.h'))
     cleanup_API(doc_path('../src/api/z3_fixedpoint.h'), temp_path('z3_fixedpoint.h'))
     cleanup_API(doc_path('../src/api/z3_optimization.h'), temp_path('z3_optimization.h'))
-    cleanup_API(doc_path('../src/api/z3_interp.h'), temp_path('z3_interp.h'))
     cleanup_API(doc_path('../src/api/z3_fpa.h'), temp_path('z3_fpa.h'))
 
     print("Removed annotations from z3_api.h.")
@@ -316,7 +317,7 @@ try:
     if ML_ENABLED:
         ml_output_dir = os.path.join(OUTPUT_DIRECTORY, 'html', 'ml')
         mk_dir(ml_output_dir)
-        if subprocess.call(['ocamldoc', '-html', '-d', ml_output_dir, '-sort', '-hide', 'Z3', '-I', '%s/api/ml' % BUILD_DIR, doc_path('../src/api/ml/z3enums.mli'), doc_path('../src/api/ml/z3.mli')]) != 0:
+        if subprocess.call(['ocamldoc', '-html', '-d', ml_output_dir, '-sort', '-hide', 'Z3', '-I', '%s/api/ml' % BUILD_DIR, '%s/api/ml/z3enums.mli' % BUILD_DIR, '%s/api/ml/z3.mli' % BUILD_DIR]) != 0:
             print("ERROR: ocamldoc failed.")
             exit(1)
         print("Generated ML/OCaml documentation.")
@@ -326,3 +327,4 @@ except Exception:
     exctype, value = sys.exc_info()[:2]
     print("ERROR: failed to generate documentation: %s" % value)
     exit(1)
+

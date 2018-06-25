@@ -39,14 +39,14 @@ namespace qe {
 
     class is_relevant_default : public i_expr_pred {
     public:
-        bool operator()(expr* e) {
+        bool operator()(expr* e) override {
             return true;
         }
     };
 
     class mk_atom_default : public i_nnf_atom {
     public:
-        virtual void operator()(expr* e, bool pol, expr_ref& result) {
+        void operator()(expr* e, bool pol, expr_ref& result) override {
             if (pol) result = e; 
             else result = result.get_manager().mk_not(e);
         }
@@ -97,7 +97,7 @@ namespace qe {
                 m_fml(m),
                 m_projection_mode_param(true) {}
 
-            virtual ~solver_context() {
+            ~solver_context() override {
                 std::for_each(m_contains_app.begin(), m_contains_app.end(), delete_proc<contains_app>());
             }
 
@@ -111,28 +111,28 @@ namespace qe {
 
             void set_projection_mode(bool p) { m_projection_mode_param = p; }
 
-            ast_manager& get_manager() { return m; }
+            ast_manager& get_manager() override { return m; }
 
             expr* fml() { return m_fml; }
 
             // set of atoms in current formula.
-            virtual atom_set const& pos_atoms() const { return m_pos; }
-            virtual atom_set const& neg_atoms() const { return m_neg; }
+            atom_set const& pos_atoms() const override { return m_pos; }
+            atom_set const& neg_atoms() const override { return m_neg; }
             
             // Access current set of variables to solve
-            virtual unsigned      get_num_vars() const { return m_vars.size(); }
-            virtual app*          get_var(unsigned idx) const {  return m_vars[idx]; }
-            virtual app*const*    get_vars() const { return m_vars.c_ptr(); }
-            virtual bool          is_var(expr* e, unsigned& idx) const {
+            unsigned      get_num_vars() const override { return m_vars.size(); }
+            app*          get_var(unsigned idx) const override { return m_vars[idx]; }
+            app_ref_vector const& get_vars() const override { return m_vars; }
+            bool          is_var(expr* e, unsigned& idx) const override {
                 for (unsigned i = 0; i < m_vars.size(); ++i) {
                     if (e == m_vars[i]) return (idx = i, true);
                 }
                 return false;
             }
-            virtual contains_app& contains(unsigned idx) { return *m_contains_app[idx]; }
+            contains_app& contains(unsigned idx) override { return *m_contains_app[idx]; }
 
             // callback to replace variable at index 'idx' with definition 'def' and updated formula 'fml'
-            virtual void elim_var(unsigned idx, expr* fml, expr* def) {
+            void elim_var(unsigned idx, expr* fml, expr* def) override {
                 m_fml = fml;
                 m_pos.reset();
                 m_neg.reset();
@@ -143,13 +143,13 @@ namespace qe {
             }
             
             // callback to add new variable to branch.
-            virtual void add_var(app* x) {
+            void add_var(app* x) override {
                 m_vars.push_back(x);
                 m_contains_app.push_back(alloc(contains_app, m, x)); 
             }
             
             // callback to add constraints in branch.
-            virtual void add_constraint(bool use_var, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) {
+            void add_constraint(bool use_var, expr* l1 = nullptr, expr* l2 = nullptr, expr* l3 = nullptr) override {
                 ptr_buffer<expr> args;
                 if (l1) args.push_back(l1);
                 if (l2) args.push_back(l2);
@@ -160,7 +160,7 @@ namespace qe {
             }
             
             // eliminate finite domain variable 'var' from fml.
-            virtual void blast_or(app* var, expr_ref& fml) {
+            void blast_or(app* var, expr_ref& fml) override {
                 expr_ref result(m);
                 expr_quant_elim qelim(m, m_super.m_fparams);
                 qe::mk_exists(1, &var, fml);
@@ -179,7 +179,7 @@ namespace qe {
                 m_super.m_rewriter(m_fml);
                 TRACE("qe", model_v2_pp(tout, *model); tout << "\n";
                       tout << mk_pp(m_fml, m) << "\n";);
-                elim_var(i, m_fml, 0);
+                elim_var(i, m_fml, nullptr);
             }
 
             void project_var_full(unsigned i) {
@@ -191,7 +191,7 @@ namespace qe {
                 m_fml = result;
                 m_super.m_rewriter(m_fml);
                 TRACE("qe", tout << mk_pp(m_fml, m) << "\n";);
-                elim_var(i, m_fml, 0);
+                elim_var(i, m_fml, nullptr);
             }
 
             void project_var(unsigned i) {
@@ -223,21 +223,15 @@ namespace qe {
             m_fparams.m_model = true;
         }
 
-        virtual tactic * translate(ast_manager & m) {
+        tactic * translate(ast_manager & m) override {
             return alloc(sat_tactic, m);
         }
 
-        virtual ~sat_tactic() {
+        ~sat_tactic() override {
             reset();
         }
 
-        virtual void operator()(
-            goal_ref const& goal,  
-            goal_ref_buffer& result, 
-            model_converter_ref& mc, 
-            proof_converter_ref & pc, 
-            expr_dependency_ref& core) 
-        {
+        void operator()(goal_ref const& goal, goal_ref_buffer& result) override {
             try {
                 checkpoint();
                 reset();            
@@ -260,7 +254,7 @@ namespace qe {
                 else {
                     goal->reset();
                     // equi-satisfiable. What to do with model?
-                    mc = model2model_converter(&*model);
+                    goal->add(model2model_converter(&*model));
                 }
                 result.push_back(goal.get());
             }
@@ -269,25 +263,25 @@ namespace qe {
             }
         }
 
-        virtual void collect_statistics(statistics & st) const {
-            for (unsigned i = 0; i < m_solvers.size(); ++i) {
-                m_solvers[i]->collect_statistics(st);
+        void collect_statistics(statistics & st) const override {
+            for (auto const * s : m_solvers) {
+                s->collect_statistics(st);
             }
             m_solver.collect_statistics(st);
             m_ctx_rewriter.collect_statistics(st);
         }
 
-        virtual void reset_statistics() {
-            for (unsigned i = 0; i < m_solvers.size(); ++i) {
-                m_solvers[i]->reset_statistics();
+        void reset_statistics() override {
+            for (auto * s : m_solvers) {
+                s->reset_statistics();
             }            
             m_solver.reset_statistics();
             m_ctx_rewriter.reset_statistics();
         }
 
-        virtual void cleanup() {}   
+        void cleanup() override {}
 
-        virtual void updt_params(params_ref const & p) {            
+        void updt_params(params_ref const & p) override {
             m_extrapolate_strategy_param = p.get_uint("extrapolate_strategy", m_extrapolate_strategy_param);
             m_projection_mode_param = p.get_bool("projection_mode", m_projection_mode_param);
             m_strong_context_simplify_param = p.get_bool("strong_context_simplify", m_strong_context_simplify_param);
@@ -296,7 +290,7 @@ namespace qe {
             m_qe_rw.updt_params(p);
         }
 
-        virtual void collect_param_descrs(param_descrs & r) {
+        void collect_param_descrs(param_descrs & r) override {
             r.insert("extrapolate_strategy",CPK_UINT, "(default: 0 trivial extrapolation) 1 - nnf strengthening 2 - smt-test 3 - nnf_weakening");
             r.insert("projection_mode", CPK_BOOL, "(default: true - full) false - partial quantifier instantiation");
             r.insert("strong_context_simplify", CPK_BOOL, "(default: true) use strong context simplifier on result of quantifier elimination");
@@ -326,11 +320,11 @@ namespace qe {
 
         smt::kernel& solver(unsigned i) { return *m_solvers[i]; }
 
-        void reset() {
+        void reset() override {
             for (unsigned i = 0; i < m_solvers.size(); ++i) {
                 dealloc(m_solvers[i]);
             }
-            m_fml = 0;
+            m_fml = nullptr;
             m_Ms.reset();
             m_fparamv.reset();
             m_solvers.reset();

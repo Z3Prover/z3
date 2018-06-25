@@ -56,7 +56,7 @@ namespace qe {
         {
         }
 
-        virtual ~dl_plugin() {
+        ~dl_plugin() override {
             eqs_cache::iterator it = m_eqs_cache.begin(), end = m_eqs_cache.end();
             for (; it != end; ++it) {
                 dealloc(it->get_value());
@@ -65,12 +65,12 @@ namespace qe {
 
 
 
-        bool get_num_branches(contains_app & x,expr * fml,rational & num_branches) {
+        bool get_num_branches(contains_app & x,expr * fml,rational & num_branches) override {
             if (!update_eqs(x, fml)) {
                 return false;
             }
             eq_atoms& eqs = get_eqs(x.x(), fml);
-            uint64 domain_size;
+            uint64_t domain_size;
             if (is_small_domain(x, eqs, domain_size)) {
                 num_branches = rational(domain_size, rational::ui64());
             }
@@ -80,11 +80,11 @@ namespace qe {
             return true;
         }
 
-        void assign(contains_app & x,expr * fml,const rational & v) {
+        void assign(contains_app & x,expr * fml,const rational & v) override {
             SASSERT(v.is_unsigned());
             eq_atoms& eqs = get_eqs(x.x(), fml);            
             unsigned uv = v.get_unsigned();
-            uint64 domain_size;
+            uint64_t domain_size;
             if (is_small_domain(x, eqs, domain_size)) {
                 SASSERT(v < rational(domain_size, rational::ui64()));
                 assign_small_domain(x, eqs, uv);
@@ -94,11 +94,11 @@ namespace qe {
             }
         }
 
-        void subst(contains_app & x,const rational & v,expr_ref & fml, expr_ref* def) {
+        void subst(contains_app & x,const rational & v,expr_ref & fml, expr_ref* def) override {
             SASSERT(v.is_unsigned());
             eq_atoms& eqs = get_eqs(x.x(), fml);           
             unsigned uv = v.get_unsigned();
-            uint64 domain_size;
+            uint64_t domain_size;
             if (is_small_domain(x, eqs, domain_size)) {
                 SASSERT(uv < domain_size);
                 subst_small_domain(x, eqs, uv, fml);
@@ -107,15 +107,15 @@ namespace qe {
                 subst_large_domain(x, eqs, uv, fml);
             }
             if (def) {
-                *def = 0; // TBD
+                *def = nullptr; // TBD
             }
         }
 
-        virtual bool solve(conj_enum& conjs, expr* fml) { return false; }
+        bool solve(conj_enum& conjs, expr* fml) override { return false; }
 
     private:
 
-        bool is_small_domain(contains_app& x, eq_atoms& eqs, uint64& domain_size) {
+        bool is_small_domain(contains_app& x, eq_atoms& eqs, uint64_t& domain_size) {
             VERIFY(m_util.try_get_size(m.get_sort(x.x()), domain_size));
             return domain_size < eqs.num_eqs() + eqs.num_neqs();
         }
@@ -169,13 +169,13 @@ namespace qe {
 
 
         eq_atoms& get_eqs(app* x, expr* fml) {
-            eq_atoms* eqs = 0;
+            eq_atoms* eqs = nullptr;
             VERIFY(m_eqs_cache.find(x, fml, eqs));
             return *eqs;
         }
 
         bool update_eqs(contains_app& contains_x, expr* fml) {
-            eq_atoms* eqs = 0;
+            eq_atoms* eqs = nullptr;
             if (m_eqs_cache.find(contains_x.x(), fml, eqs)) {
                 return true;
             }

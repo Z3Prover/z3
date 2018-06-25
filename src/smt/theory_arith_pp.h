@@ -504,7 +504,7 @@ namespace smt {
                 pp.add_assumption(eq);
             }
             else {
-                if (lower(v) != 0) {
+                if (lower(v) != nullptr) {
                     inf_numeral k_inf = lower_bound(v);
                     rational k = k_inf.get_rational().to_rational();
                     expr_ref ineq(m);
@@ -514,7 +514,7 @@ namespace smt {
                         ineq = m_util.mk_lt(m_util.mk_numeral(k, is_int(v)), n);
                     pp.add_assumption(ineq);
                 }
-                if (upper(v) != 0) {
+                if (upper(v) != nullptr) {
                     inf_numeral k_inf = upper_bound(v);
                     rational k = k_inf.get_rational().to_rational();
                     expr_ref ineq(m);

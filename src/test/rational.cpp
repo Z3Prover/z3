@@ -194,8 +194,8 @@ static void tst2() {
     ENSURE(uint64_max.is_uint64());
 
     // get_int64, get_uint64
-    uint64 u1 = uint64_max.get_uint64();
-    uint64 u2 = UINT64_MAX;
+    uint64_t u1 = uint64_max.get_uint64();
+    uint64_t u2 = UINT64_MAX;
     VERIFY(u1 == u2);
     std::cout << "int64_max: " << int64_max << ", INT64_MAX: " << INT64_MAX << ", int64_max.get_int64(): " << int64_max.get_int64() << ", int64_max.get_uint64(): " << int64_max.get_uint64() << "\n";
     ENSURE(int64_max.get_int64() == INT64_MAX);
@@ -387,9 +387,9 @@ static void tst9() {
 
 static void tst10(bool use_ints) {
     if (use_ints) 
-        std::cout << "Testing multiplication performace using small ints\n";
+        std::cout << "Testing multiplication performance using small ints\n";
     else
-        std::cout << "Testing multiplication performace using small rationals\n";
+        std::cout << "Testing multiplication performance using small rationals\n";
     vector<rational> vals;
     vector<rational> vals2;
     vector<float>    fvals;

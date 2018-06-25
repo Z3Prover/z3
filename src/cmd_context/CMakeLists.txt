@@ -8,14 +8,12 @@ z3_add_component(cmd_context
     context_params.cpp
     echo_tactic.cpp
     eval_cmd.cpp
-    interpolant_cmds.cpp
     parametric_cmd.cpp
     pdecl.cpp
     simplify_cmd.cpp
     tactic_cmds.cpp
     tactic_manager.cpp
   COMPONENT_DEPENDENCIES
-    interp
     rewriter
     solver
   EXTRA_REGISTER_MODULE_HEADERS

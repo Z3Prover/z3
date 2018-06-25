@@ -61,8 +61,20 @@ namespace smt {
                 return is_true ? any_arg(a, true) : all_args(a, false);
             case OP_AND:
                 return is_true ? all_args(a, true) : any_arg(a, false);
-            case OP_IFF:
-                if (is_true) {
+            case OP_EQ:
+                if (!m_manager.is_iff(a)) {
+                    enode * lhs = get_enode_eq_to(a->get_arg(0));
+                    enode * rhs = get_enode_eq_to(a->get_arg(1));
+                    if (lhs && rhs && m_context.is_relevant(lhs) && m_context.is_relevant(rhs)) {
+                        if (is_true && lhs->get_root() == rhs->get_root())
+                            return true;
+                        // if (!is_true && m_context.is_ext_diseq(lhs, rhs, 2))
+                        if (!is_true && m_context.is_diseq(lhs, rhs))
+                            return true;
+                    }
+                    return false;
+                }
+                else if (is_true) {
                     return 
                         (check(a->get_arg(0), true) &&
                          check(a->get_arg(1), true)) ||
@@ -85,18 +97,6 @@ namespace smt {
                     }
                 }
                 return check(a->get_arg(1), is_true) && check(a->get_arg(2), is_true);
-            }
-            case OP_EQ: {
-                enode * lhs = get_enode_eq_to(a->get_arg(0));
-                enode * rhs = get_enode_eq_to(a->get_arg(1));
-                if (lhs && rhs && m_context.is_relevant(lhs) && m_context.is_relevant(rhs)) {
-                    if (is_true && lhs->get_root() == rhs->get_root())
-                        return true;
-                    // if (!is_true && m_context.is_ext_diseq(lhs, rhs, 2))
-                    if (!is_true && m_context.is_diseq(lhs, rhs))
-                        return true;
-                }
-                return false;
             }
             default:
                 break;
@@ -125,28 +125,28 @@ namespace smt {
         unsigned num = n->get_num_args();
         for (unsigned i = 0; i < num; i++) {
             enode * arg = get_enode_eq_to(n->get_arg(i));
-            if (arg == 0) 
-                return 0;
+            if (arg == nullptr)
+                return nullptr;
             buffer.push_back(arg);
         }
         enode * e = m_context.get_enode_eq_to(n->get_decl(), num, buffer.c_ptr());
-        if (e == 0)
-            return 0;
-        return m_context.is_relevant(e) ? e : 0;
+        if (e == nullptr)
+            return nullptr;
+        return m_context.is_relevant(e) ? e : nullptr;
     }
 
     enode * checker::get_enode_eq_to(expr * n) {
         if (is_var(n)) { 
             unsigned idx = to_var(n)->get_idx();
             if (idx >= m_num_bindings)
-                return 0;
+                return nullptr;
             return m_bindings[m_num_bindings - idx - 1];
         }
         if (m_context.e_internalized(n) && m_context.is_relevant(n))
             return m_context.get_enode(n);
         if (!is_app(n) || to_app(n)->get_num_args() == 0)
-            return 0;
-        enode * r = 0;
+            return nullptr;
+        enode * r = nullptr;
         if (n->get_ref_count() > 1 && m_to_enode_cache.find(n, r)) 
             return r;
         r = get_enode_eq_to_core(to_app(n));
@@ -179,7 +179,7 @@ namespace smt {
         m_context(c),
         m_manager(c.get_manager()),
         m_num_bindings(0),
-        m_bindings(0) {
+        m_bindings(nullptr) {
     }
    
 };

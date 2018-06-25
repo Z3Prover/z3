@@ -22,7 +22,11 @@ Notes:
 
 #include "solver/solver.h"
 
-solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p);
+class tactic;
+
+solver* mk_inc_sat_solver(ast_manager& m, params_ref const& p, bool incremental_mode = true);
+
+tactic* mk_psat_tactic(ast_manager& m, params_ref const& p);
 
 
 void  inc_sat_display(std::ostream& out, solver& s, unsigned sz, expr*const* soft, rational const* _weights);

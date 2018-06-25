@@ -290,7 +290,7 @@ namespace datalog {
     }
 
     template<class T>
-    void project_out_vector_columns(T & container, const unsigned_vector removed_cols) {
+    void project_out_vector_columns(T & container, const unsigned_vector & removed_cols) {
         project_out_vector_columns(container, removed_cols.size(), removed_cols.c_ptr());
     }
 
@@ -342,7 +342,7 @@ namespace datalog {
     }
 
     template<class T>
-    void permutate_by_cycle(T & container, const unsigned_vector permutation_cycle) {
+    void permutate_by_cycle(T & container, const unsigned_vector & permutation_cycle) {
         permutate_by_cycle(container, permutation_cycle.size(), permutation_cycle.c_ptr());
     }
 
@@ -578,13 +578,13 @@ namespace datalog {
     //
     // -----------------------------------
 
-    void get_file_names(std::string directory, std::string extension, bool traverse_subdirs, 
+    void get_file_names(std::string directory, const std::string & extension, bool traverse_subdirs, 
         string_vector & res);
 
-    bool file_exists(std::string name);
-    bool is_directory(std::string name);
+    bool file_exists(const std::string & name);
+    bool is_directory(const std::string & name);
 
-    std::string get_file_name_without_extension(std::string name);
+    std::string get_file_name_without_extension(const std::string & name);
 
     // -----------------------------------
     //
@@ -602,8 +602,8 @@ namespace datalog {
        \brief If it is possible to convert the beginning of \c s to uint64,
        store the result of conversion and return true; otherwise return false.
      */
-    bool string_to_uint64(const char * s, uint64 & res);
-    std::string to_string(uint64 num);
+    bool string_to_uint64(const char * s, uint64_t & res);
+    std::string to_string(uint64_t num);
     /**
        \brief Read the sequence of decimal digits starting at \c s and interpret it as
        uint64. If successful, \c res will contain the read number and \c s will point 
@@ -612,7 +612,7 @@ namespace datalog {
        overflows, \c points to the character which caused the overflow and false is 
        returned.
      */
-    bool read_uint64(const char * & s, uint64 & res);
+    bool read_uint64(const char * & s, uint64_t & res);
 };
 
 #endif /* DL_UTIL_H_ */

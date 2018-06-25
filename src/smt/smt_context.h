@@ -168,6 +168,8 @@ namespace smt {
         expr_ref_vector             m_units_to_reassert;
         svector<char>               m_units_to_reassert_sign;
         literal_vector              m_assigned_literals;
+        typedef std::pair<clause*, literal_vector> tmp_clause;
+        vector<tmp_clause>          m_tmp_clauses;
         unsigned                    m_qhead;
         unsigned                    m_simp_qhead;
         int                         m_simp_counter; //!< can become negative
@@ -203,11 +205,11 @@ namespace smt {
         struct scoped_mk_model {
             context & m_ctx;
             scoped_mk_model(context & ctx):m_ctx(ctx) {
-                m_ctx.m_proto_model = 0;
-                m_ctx.m_model       = 0;
+                m_ctx.m_proto_model = nullptr;
+                m_ctx.m_model       = nullptr;
             }
             ~scoped_mk_model() {
-                if (m_ctx.m_proto_model.get() != 0) {
+                if (m_ctx.m_proto_model.get() != nullptr) {
                     m_ctx.m_model = m_ctx.m_proto_model->mk_model();
                     try {
                         m_ctx.add_rec_funs_to_model();
@@ -215,7 +217,7 @@ namespace smt {
                     catch (...) {
                         // no op
                     }
-                    m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
+                    m_ctx.m_proto_model = nullptr; // proto_model is not needed anymore.
                 }
             }
         };
@@ -261,6 +263,8 @@ namespace smt {
         params_ref const & get_params() {
             return m_params;
         }
+
+        void updt_params(params_ref const& p);
 
         bool get_cancel_flag();
 
@@ -317,6 +321,7 @@ namespace smt {
         }
 #endif
 
+        clause_vector const& get_lemmas() const { return m_lemmas; }
 
         literal get_literal(expr * n) const;
 
@@ -514,12 +519,12 @@ namespace smt {
 
         enode_vector::const_iterator begin_enodes_of(func_decl const * decl) const {
             unsigned id = decl->get_decl_id();
-            return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : 0;
+            return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : nullptr;
         }
 
         enode_vector::const_iterator end_enodes_of(func_decl const * decl) const {
             unsigned id = decl->get_decl_id();
-            return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : 0;
+            return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : nullptr;
         }
 
         ptr_vector<enode>::const_iterator begin_enodes() const {
@@ -619,8 +624,6 @@ namespace smt {
 
         void remove_cls_occs(clause * cls);
 
-        void mark_as_deleted(clause * cls);
-
         void del_clause(clause * cls);
 
         void del_clauses(clause_vector & v, unsigned old_size);
@@ -644,6 +647,14 @@ namespace smt {
         void reinit_clauses(unsigned num_scopes, unsigned num_bool_vars);
 
         void reassert_units(unsigned units_to_reassert_lim);
+
+    public:
+        // \brief exposed for PB solver to participate in GC
+
+        void remove_watch(bool_var v);
+
+        void mark_as_deleted(clause * cls);
+
 
         // -----------------------------------
         //
@@ -746,7 +757,7 @@ namespace smt {
         friend class mk_bool_var_trail;
         class mk_bool_var_trail : public trail<context> {
         public:
-            virtual void undo(context & ctx) { ctx.undo_mk_bool_var(); }
+            void undo(context & ctx) override { ctx.undo_mk_bool_var(); }
         };
         mk_bool_var_trail   m_mk_bool_var_trail;
 
@@ -755,7 +766,7 @@ namespace smt {
         friend class mk_enode_trail;
         class mk_enode_trail : public trail<context> {
         public:
-            virtual void undo(context & ctx) { ctx.undo_mk_enode(); }
+            void undo(context & ctx) override { ctx.undo_mk_enode(); }
         };
 
         mk_enode_trail   m_mk_enode_trail;
@@ -822,17 +833,17 @@ namespace smt {
 
         void internalize(expr * n, bool gate_ctx, unsigned generation);
 
-        clause * mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k = CLS_AUX, clause_del_eh * del_eh = 0);
+        clause * mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k = CLS_AUX, clause_del_eh * del_eh = nullptr);
 
         void mk_clause(literal l1, literal l2, justification * j);
 
         void mk_clause(literal l1, literal l2, literal l3, justification * j);
 
-        void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = 0);
+        void mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params = 0, parameter * params = nullptr);
 
-        void mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = 0);
+        void mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params = 0, parameter * params = nullptr);
 
-        void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = 0);
+        void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr);
 
         /*
          * Provide a hint to the core solver that the specified literals form a "theory case split".
@@ -883,10 +894,11 @@ namespace smt {
         failure            m_last_search_failure;
         ptr_vector<theory> m_incomplete_theories; //!< theories that failed to produce a model
         bool               m_searching;
-        ptr_vector<expr>   m_assumption_core;
         unsigned           m_num_conflicts;
         unsigned           m_num_conflicts_since_restart;
         unsigned           m_num_conflicts_since_lemma_gc;
+        unsigned           m_num_restarts;
+        unsigned           m_num_simplifications;
         unsigned           m_restart_threshold;
         unsigned           m_restart_outer_threshold;
         unsigned           m_luby_idx;
@@ -897,7 +909,7 @@ namespace smt {
         void trace_assign(literal l, b_justification j, bool decision) const;
 
     public:
-        void assign(literal l, b_justification j, bool decision = false) {
+        void assign(literal l, const b_justification & j, bool decision = false) {
             SASSERT(l != false_literal);
             SASSERT(l != null_literal);
             switch (get_assignment(l)) {
@@ -998,9 +1010,9 @@ namespace smt {
 
         void assign_quantifier(quantifier * q);
 
-        void set_conflict(b_justification js, literal not_l);
+        void set_conflict(const b_justification & js, literal not_l);
 
-        void set_conflict(b_justification js) {
+        void set_conflict(const b_justification & js) {
             set_conflict(js, null_literal);
         }
 
@@ -1027,6 +1039,8 @@ namespace smt {
         bool is_ext_diseq(enode * n1, enode * n2, unsigned depth);
 
         enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args);
+
+        expr* next_decision();
 
     protected:
         bool decide();
@@ -1091,15 +1105,23 @@ namespace smt {
 
         void assert_assumption(expr * a);
 
-        bool validate_assumptions(unsigned num_assumptions, expr * const * assumptions);
+        bool validate_assumptions(expr_ref_vector const& asms);
 
-        void init_assumptions(unsigned num_assumptions, expr * const * assumptions);
+        void init_assumptions(expr_ref_vector const& asms);
+
+        void init_clause(expr_ref_vector const& clause);
+
+        lbool decide_clause();
+
+        void reset_tmp_clauses();
 
         void reset_assumptions();
 
+        void reset_clause();
+
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
-        lbool mk_unsat_core();
+        lbool mk_unsat_core(lbool result);
 
         void validate_unsat_core();
 
@@ -1387,7 +1409,7 @@ namespace smt {
         void flush();
         config_mode get_config_mode(bool use_static_features) const;
         virtual void setup_context(bool use_static_features);
-        void setup_components(void);
+        void setup_components();
         void pop_to_base_lvl();
         void pop_to_search_lvl();
 #ifdef Z3DEBUG
@@ -1460,7 +1482,7 @@ namespace smt {
            If l == 0, then the logic of this context is used in the new context.
            If p == 0, then this->m_params is used
         */
-        context * mk_fresh(symbol const * l = 0,  smt_params * p = 0);
+        context * mk_fresh(symbol const * l = nullptr,  smt_params * p = nullptr);
 
         static void copy(context& src, context& dst);
 
@@ -1482,7 +1504,9 @@ namespace smt {
 
         void pop(unsigned num_scopes);
 
-        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = 0, bool reset_cancel = true, bool already_did_theory_assumptions = false);
+        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
+
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
 
@@ -1510,6 +1534,8 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result);
 
         void internalize_assertion(expr * n, proof * pr, unsigned generation);
+
+        void internalize_proxies(expr_ref_vector const& asms, vector<std::pair<expr*,expr_ref>>& asm2proxy);
 
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
             internalize_assertion(body, pr, generation);

@@ -84,7 +84,7 @@ class max_bv_sharing_tactic : public tactic {
                 return m().mk_app(f, arg1, arg2);
             if (s.contains(expr_pair(arg2, arg1)))
                 return m().mk_app(f, arg2, arg1);
-            return 0;
+            return nullptr;
         }
 
         struct ref_count_lt {
@@ -106,10 +106,10 @@ class max_bv_sharing_tactic : public tactic {
 
             ptr_buffer<expr, 128> _args;
             bool first = false;
-            expr * num = 0;
+            expr * num = nullptr;
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = args[i];
-                if (num == 0 && m_util.is_numeral(arg)) {
+                if (num == nullptr && m_util.is_numeral(arg)) {
                     if (i == 0) first = true;
                     num = arg;
                 }
@@ -128,7 +128,7 @@ class max_bv_sharing_tactic : public tactic {
                 for (unsigned i = 0; i < num_args - 1; i++) {
                     for (unsigned j = i + 1; j < num_args; j++) {
                         expr * r = reuse(s, f, _args[i], _args[j]);
-                        if (r != 0) {
+                        if (r != nullptr) {
                             TRACE("bv_sharing_detail", tout << "reusing args: " << i << " " << j << "\n";);
                             _args[i] = r;
                             SASSERT(num_args > 1);
@@ -186,7 +186,7 @@ class max_bv_sharing_tactic : public tactic {
                 }
                 num_args = j;
                 if (num_args == 1) {
-                    if (num == 0) { 
+                    if (num == nullptr) {
                         result = _args[0];
                     }
                     else {
@@ -209,7 +209,7 @@ class max_bv_sharing_tactic : public tactic {
             case OP_BMUL:
             case OP_BOR:
             case OP_BXOR:
-                result_pr = 0;
+                result_pr = nullptr;
                 return reduce_ac_app(f, num, args, result);
             default:
                 return BR_FAILED;
@@ -237,12 +237,8 @@ class max_bv_sharing_tactic : public tactic {
         ast_manager & m() const { return m_rw.m(); }
                 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
             tactic_report report("max-bv-sharing", *g);
             bool produce_proofs = g->proofs_enabled();
             
@@ -278,35 +274,32 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(max_bv_sharing_tactic, m, m_params);
     }
         
-    virtual ~max_bv_sharing_tactic() {
+    ~max_bv_sharing_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
         r.insert("max_args", CPK_UINT, 
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m();
         params_ref p = std::move(m_params);
         m_imp->~imp();

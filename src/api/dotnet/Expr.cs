@@ -317,14 +317,6 @@ namespace Microsoft.Z3
 
         #endregion
 
-        #region Interpolation
-        /// <summary>
-        /// Indicates whether the term is marked for interpolation.
-        /// </summary>
-        /// <remarks></remarks>
-        public bool IsInterpolant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INTERP; } }
-        #endregion
-
         #region Arithmetic Terms
         /// <summary>
         /// Indicates whether the term is of integer sort.
@@ -932,7 +924,7 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a proof by condensed transitivity of a relation
         /// </summary>
         /// <remarks>
-        /// Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+        /// Condensed transitivity proof. 
         /// It combines several symmetry and transitivity proofs.
         /// Example:
         /// T1: (R a b)
@@ -959,7 +951,7 @@ namespace Microsoft.Z3
         /// Tn: (R t_n s_n)
         /// [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))
         /// Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-        /// That is, reflexivity proofs are supressed to save space.
+        /// That is, reflexivity proofs are suppressed to save space.
         /// </remarks>
         public bool IsProofMonotonicity { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MONOTONICITY; } }
 
@@ -1002,7 +994,7 @@ namespace Microsoft.Z3
         public bool IsProofAndElimination { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_AND_ELIM; } }
 
         /// <summary>
-        /// Indicates whether the term is a proof by eliminiation of not-or
+        /// Indicates whether the term is a proof by elimination of not-or
         /// </summary>
         /// <remarks>
         /// Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
@@ -1035,14 +1027,11 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// A proof for rewriting an expression t into an expression s.
-        /// This proof object is used if the parameter PROOF_MODE is 1.
         /// This proof object can have n antecedents.
         /// The antecedents are proofs for equalities used as substitution rules.
-        /// The object is also used in a few cases if the parameter PROOF_MODE is 2.
-        /// The cases are:
+        /// The object is used in a few cases:
         /// - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
         /// - When converting bit-vectors to Booleans (BIT2BOOL=true)
-        /// - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
         /// </remarks>
         public bool IsProofRewriteStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR; } }
 
@@ -1054,15 +1043,6 @@ namespace Microsoft.Z3
         /// </remarks>
         public bool IsProofPullQuant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT; } }
 
-        /// <summary>
-        /// Indicates whether the term is a proof for pulling quantifiers out.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (iff P Q) where Q is in prenex normal form.
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        /// This proof object has no antecedents
-        /// </remarks>
-        public bool IsProofPullQuantStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for pushing quantifiers in.
@@ -1112,7 +1092,7 @@ namespace Microsoft.Z3
         public bool IsProofQuantInst { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INST; } }
 
         /// <summary>
-        /// Indicates whether the term is a hypthesis marker.
+        /// Indicates whether the term is a hypothesis marker.
         /// </summary>
         /// <remarks>Mark a hypothesis in a natural deduction style proof.</remarks>
         public bool IsProofHypothesis { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS; } }
@@ -1305,28 +1285,6 @@ namespace Microsoft.Z3
         public bool IsProofNNFNeg { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_NEG; } }
 
         /// <summary>
-        /// Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (~ P Q) where Q is in negation normal form.
-        ///
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        ///
-        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-        /// </remarks>
-        public bool IsProofNNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } }
-
-        /// <summary>
-        /// Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (~ P Q) where Q is in conjunctive normal form.
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-        /// </remarks>
-        public bool IsProofCNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } }
-
-        /// <summary>
         /// Indicates whether the term is a proof for a Skolemization step
         /// </summary>
         /// <remarks>
@@ -1433,7 +1391,7 @@ namespace Microsoft.Z3
         /// <remarks>
         /// Filter (restrict) a relation with respect to a predicate.
         /// The first argument is a relation.
-        /// The second argument is a predicate with free de-Brujin indices
+        /// The second argument is a predicate with free de-Bruijn indices
         /// corresponding to the columns of the relation.
         /// So the first column in the relation has index 0.
         /// </remarks>
@@ -1649,7 +1607,7 @@ namespace Microsoft.Z3
         public bool IsFPMul { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_MUL; } }
 
         /// <summary>
-        /// Indicates whether the term is a floating-point divison term
+        /// Indicates whether the term is a floating-point division term
         /// </summary>
         public bool IsFPDiv { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_DIV; } }
 
@@ -1709,7 +1667,7 @@ namespace Microsoft.Z3
         public bool IsFPLe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_LE; } }
 
         /// <summary>
-        /// Indicates whether the term is a floating-point greater-than or erqual term
+        /// Indicates whether the term is a floating-point greater-than or equal term
         /// </summary>
         public bool IsFPGe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FPA_GE; } }
 
@@ -1789,7 +1747,7 @@ namespace Microsoft.Z3
 
         #region Bound Variables
         /// <summary>
-        /// The de-Burijn index of a bound variable.
+        /// The de-Bruijn index of a bound variable.
         /// </summary>
         /// <remarks>
         /// Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain

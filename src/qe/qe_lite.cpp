@@ -36,18 +36,21 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 
 #include "qe/qe_vartest.h"
+#include "qe/qe_solve_plugin.h"
 
 namespace eq {
 
     bool occurs_var(unsigned idx, expr* e) {
+        if (is_ground(e)) return false;
         ptr_buffer<expr> todo;
-        todo.push_back(e);        
+        todo.push_back(e);
         ast_mark mark;
         while (!todo.empty()) {
             expr* e = todo.back();
             todo.pop_back();
             if (mark.is_marked(e)) continue;
             mark.mark(e, true);
+            if (is_ground(e)) continue;
             if (is_var(e)) {
                 if (to_var(e)->get_idx() == idx) return true;
             }
@@ -67,15 +70,16 @@ namespace eq {
         arith_util      a;
         datatype_util   dt;
         is_variable_proc* m_is_variable;
-        var_subst       m_subst;
+        beta_reducer    m_subst;
+        expr_ref_vector m_subst_map;
         expr_ref_vector m_new_exprs;
+        plugin_manager<qe::solve_plugin> m_solvers;
 
         ptr_vector<expr> m_map;
         int_vector       m_pos2var;
         int_vector       m_var2pos;
         ptr_vector<var>  m_inx2var;
         unsigned_vector  m_order;
-        expr_ref_vector  m_subst_map;
         expr_ref_buffer  m_new_args;
         th_rewriter      m_rewriter;
         params_ref       m_params;
@@ -88,8 +92,8 @@ namespace eq {
             for (unsigned i = 0; i < definitions.size(); i++) {
                 var * v  = vars[i];
                 expr * t = definitions[i];
-                if (t == 0 || has_quantifiers(t) || occurs_var(v->get_idx(), t))
-                    definitions[i] = 0;
+                if (t == nullptr || has_quantifiers(t) || occurs_var(v->get_idx(), t))
+                    definitions[i] = nullptr;
                 else
                     found = true; // found at least one candidate
             }
@@ -106,7 +110,7 @@ namespace eq {
             unsigned vidx, num;
 
             for (unsigned i = 0; i < definitions.size(); i++) {
-                if (definitions[i] == 0)
+                if (definitions[i] == nullptr)
                     continue;
                 var * v = vars[i];
                 SASSERT(v->get_idx() == i);
@@ -116,7 +120,7 @@ namespace eq {
                 start:
                     frame & fr = todo.back();
                     expr * t   = fr.first;
-                    if (t->get_ref_count() > 1 && done.is_marked(t)) {
+                    if (done.is_marked(t)) {
                         todo.pop_back();
                         continue;
                     }
@@ -125,12 +129,12 @@ namespace eq {
                         vidx = to_var(t)->get_idx();
                         if (fr.second == 0) {
                             CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
-                            // Remark: The size of definitions may be smaller than the number of variables occuring in the quantified formula.
-                            if (definitions.get(vidx, 0) != 0) {
+                            // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
+                            if (definitions.get(vidx, nullptr) != nullptr) {
                                 if (visiting.is_marked(t)) {
                                     // cycle detected: remove t
                                     visiting.reset_mark(t);
-                                    definitions[vidx] = 0;
+                                    definitions[vidx] = nullptr;
                                 }
                                 else {
                                     visiting.mark(t);
@@ -142,16 +146,13 @@ namespace eq {
                         }
                         else {
                             SASSERT(fr.second == 1);
-                            if (definitions.get(vidx, 0) != 0) {
-                                visiting.reset_mark(t);
-                                order.push_back(vidx);
-                            }
-                            else {
-                                // var was removed from the list of candidate vars to elim cycle
-                                // do nothing
+                            visiting.reset_mark(t);
+                            if (!done.is_marked(t)) {
+                                if (definitions.get(vidx, nullptr) != nullptr)
+                                    order.push_back(vidx);
+                                done.mark(t);
                             }
                         }
-                        if (t->get_ref_count() > 1)
                             done.mark(t);
                         todo.pop_back();
                         break;
@@ -164,13 +165,11 @@ namespace eq {
                         while (fr.second < num) {
                             expr * arg = to_app(t)->get_arg(fr.second);
                             fr.second++;
-                            if (arg->get_ref_count() > 1 && done.is_marked(arg))
-                                continue;
+                            if (done.is_marked(arg)) continue;
                             todo.push_back(frame(arg, 0));
                             goto start;
                         }
-                        if (t->get_ref_count() > 1)
-                            done.mark(t);
+                        done.mark(t);
                         todo.pop_back();
                         break;
                     default:
@@ -224,97 +223,6 @@ namespace eq {
             }
         }
 
-        bool is_invertible_const(bool is_int, expr* x, rational& a_val) {
-            expr* y;
-            if (a.is_uminus(x, y) && is_invertible_const(is_int, y, a_val)) {
-                a_val.neg();
-                return true;
-            }
-            else if (a.is_numeral(x, a_val) && !a_val.is_zero()) {
-                if (!is_int || a_val.is_one() || a_val.is_minus_one()) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        bool is_invertible_mul(bool is_int, expr*& arg, rational& a_val) {
-            if (is_variable(arg)) {
-                a_val = rational(1);
-                return true;
-            }
-            expr* x, *y;
-            if (a.is_mul(arg, x, y)) {
-                if (is_variable(x) && is_invertible_const(is_int, y, a_val)) {
-                    arg = x;
-                    return true;
-                }
-                if (is_variable(y) && is_invertible_const(is_int, x, a_val)) {
-                    arg = y;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        typedef std::pair<bool,expr*> signed_expr;
-
-        expr_ref solve_arith(bool is_int, rational const& r, bool sign, svector<signed_expr> const& exprs) {
-            expr_ref_vector result(m);
-            for (unsigned i = 0; i < exprs.size(); ++i) {
-                bool sign2 = exprs[i].first;
-                expr* e    = exprs[i].second;
-                rational r2(r);
-                if (sign == sign2) {
-                    r2.neg();
-                }
-                if (!r2.is_one()) {
-                    result.push_back(a.mk_mul(a.mk_numeral(r2, is_int), e));
-                }
-                else {
-                    result.push_back(e);
-                }
-            }
-            return expr_ref(a.mk_add(result.size(), result.c_ptr()), m);
-        }
-
-        bool solve_arith(expr* lhs, expr* rhs, ptr_vector<var>& vs, expr_ref_vector& ts) {
-            if (!a.is_int(lhs) && !a.is_real(rhs)) {
-                return false;
-            }
-            rational a_val;
-            bool is_int = a.is_int(lhs);
-            svector<signed_expr> todo, done;
-            todo.push_back(std::make_pair(true,  lhs));
-            todo.push_back(std::make_pair(false, rhs));
-            while (!todo.empty()) {
-                expr* e = todo.back().second;
-                bool sign = todo.back().first;
-                todo.pop_back();
-                if (a.is_add(e)) {
-                    for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
-                        todo.push_back(std::make_pair(sign, to_app(e)->get_arg(i)));
-                    }
-                }
-                else if (is_invertible_mul(is_int, e, a_val)) {
-                    done.append(todo);
-                    vs.push_back(to_var(e));
-                    a_val = rational(1)/a_val;
-                    ts.push_back(solve_arith(is_int, a_val, sign, done));
-                    TRACE("qe_lite", tout << mk_pp(lhs, m) << " " << mk_pp(rhs, m) << " " << mk_pp(e, m) << " := " << mk_pp(ts.back(), m) << "\n";);
-                    return true;
-                }
-                else {
-                    done.push_back(std::make_pair(sign, e));
-                }
-            }
-            return false;
-        }
-
-        bool arith_solve(expr * lhs, expr * rhs, expr * eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
-            return solve_arith(lhs, rhs, vs, ts);
-        }
-
         bool trivial_solve(expr* lhs, expr* rhs, expr* eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
             if (!is_variable(lhs)) {
                 std::swap(lhs, rhs);
@@ -346,65 +254,25 @@ namespace eq {
         */
 
         bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
-            expr* lhs, *rhs;
-            var* v;
+            expr* lhs = nullptr, *rhs = nullptr;
 
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases
-            if (m.is_eq(e, lhs, rhs) || m.is_iff(e, lhs, rhs)) {
-                // (iff (not VAR) t) (iff t (not VAR)) cases
-                if (!is_variable(lhs) && !is_variable(rhs) && m.is_bool(lhs)) {
-                    if (!is_neg_var(m, lhs, v)) {
-                        std::swap(lhs, rhs);
-                    }
-                    if (!is_neg_var(m, lhs, v)) {
-                        return false;
-                    }
-                    vs.push_back(v);
-                    ts.push_back(m.mk_not(rhs));
-                    TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
-                    return true;
-                }
-                if (trivial_solve(lhs, rhs, e, vs, ts)) {
-                    return true;
-                }
-                if (arith_solve(lhs, rhs, e, vs, ts)) {
-                    return true;
-                }
-                return false;
-            }
-
-            // (ite cond (= VAR t) (= VAR t2)) case
-            expr* cond, *e2, *e3;
-            if (m.is_ite(e, cond, e2, e3)) {
-                if (is_var_eq(e2, vs, ts)) {
-                    expr_ref_vector ts2(m);
-                    ptr_vector<var> vs2;
-                    if (is_var_eq(e3, vs2, ts2) && same_vars(vs, vs2)) {
-                        for (unsigned i = 0; i < vs.size(); ++i) {
-                            ts[i] = m.mk_ite(cond, ts[i].get(), ts2[i].get());
-                        }
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            // VAR = true case
-            if (is_variable(e)) {
-                ts.push_back(m.mk_true());
-                vs.push_back(to_var(e));
-                TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
+            if (m.is_eq(e, lhs, rhs) && trivial_solve(lhs, rhs, e, vs, ts)) {
                 return true;
             }
-
-            // VAR = false case
-            if (is_neg_var(m, e, v)) {
-                ts.push_back(m.mk_false());
-                vs.push_back(v);
-                TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
-                return true;
+            family_id fid = get_sort(e)->get_family_id();
+            if (m.is_eq(e, lhs, rhs)) {
+                fid = get_sort(lhs)->get_family_id();
             }
-
+            qe::solve_plugin* p = m_solvers.get_plugin(fid);
+            if (p) {
+                expr_ref res = (*p)(e);
+                if (res != e && m.is_eq(res, lhs, rhs) && is_variable(lhs)) {
+                    vs.push_back(to_var(lhs));
+                    ts.push_back(rhs);
+                    return true;
+                }
+            }
             return false;
         }
 
@@ -431,26 +299,29 @@ namespace eq {
 
             TRACE("qe_lite",
                   tout << "Elimination m_order:" << std::endl;
-                  for(unsigned i=0; i<m_order.size(); i++)
-                      {
-                          if (i != 0) tout << ",";
-                          tout << m_order[i];
-                      }
-                  tout << std::endl;
+                  tout << m_order << std::endl;
                   );
         }
 
         void create_substitution(unsigned sz) {
             m_subst_map.reset();
-            m_subst_map.resize(sz, 0);
-            for (unsigned i = 0; i < m_order.size(); i++) {
-                expr_ref cur(m_map[m_order[i]], m);
+            m_subst_map.resize(sz, nullptr);
+            m_subst.reset();
+            m_subst.set_inv_bindings(sz, m_subst_map.c_ptr());
+            for (unsigned idx : m_order) {
                 // do all the previous substitutions before inserting
+                expr* cur = m_map[idx];
                 expr_ref r(m);
-                m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);
-                unsigned inx = sz - m_order[i]- 1;
-                SASSERT(m_subst_map[inx]==0);
+                if (is_ground(cur)) r = cur; else m_subst(cur, r);
+                unsigned inx = sz - idx - 1;
+                CTRACE("topo_sort", m_subst_map.get(inx) != nullptr,
+                       tout << "inx is " << inx << "\n"
+                       << "idx is " << idx << "\n"
+                       << "sz is " << sz << "\n"
+                       << "subst_map[inx]: " << mk_pp(m_subst_map.get(inx), m) << "\n";);
+                SASSERT(m_subst_map.get(inx) == nullptr);
                 m_subst_map[inx] = r;
+                m_subst.update_inv_binding_at(inx, r);
             }
         }
 
@@ -492,20 +363,20 @@ namespace eq {
                 rw.mk_and(m_new_args.size(), m_new_args.c_ptr(), t);
             }
             expr_ref new_e(m);
-            m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
+            m_subst(t, new_e);
 
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
             expr_ref_buffer  new_no_patterns(m);
             for (unsigned j = 0; j < q->get_num_patterns(); j++) {
                 expr_ref new_pat(m);
-                m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_pat);
+                m_subst(q->get_pattern(j), new_pat);
                 new_patterns.push_back(new_pat);
             }
 
             for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
                 expr_ref new_nopat(m);
-                m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_nopat);
+                m_subst(q->get_no_pattern(j), new_nopat);
                 new_no_patterns.push_back(new_nopat);
             }
 
@@ -544,7 +415,7 @@ namespace eq {
             }
 
             if (m.proofs_enabled()) {
-                pr = r == q ? 0 : m.mk_der(q, r);
+                pr = r == q ? nullptr : m.mk_der(q, r);
             }
         }
 
@@ -574,12 +445,15 @@ namespace eq {
                 checkpoint();
                 ptr_vector<var> vs;
                 expr_ref_vector ts(m);
+                expr_ref t(m);
                 if (is_var_def(is_exists, args[i], vs, ts)) {
                     for (unsigned j = 0; j < vs.size(); ++j) {
                         var* v = vs[j];
-                        expr* t = ts[j].get();
+                        t = ts.get(j);
+                        m_rewriter(t);
+                        if (t != ts.get(j)) m_new_exprs.push_back(t);
                         unsigned idx = v->get_idx();
-                        if (m_map.get(idx, 0) == 0) {
+                        if (m_map.get(idx, nullptr) == nullptr) {
                             m_map.reserve(idx + 1, 0);
                             m_inx2var.reserve(idx + 1, 0);
                             m_map[idx] = t;
@@ -692,7 +566,7 @@ namespace eq {
                 }
             }
             else {
-                func_decl* rec = dt.get_constructor_recognizer(d);
+                func_decl* rec = dt.get_constructor_is(d);
                 conjs.push_back(m.mk_app(rec, r));
                 ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(d);
                 for (unsigned i = 0; i < acc.size(); ++i) {
@@ -750,7 +624,7 @@ namespace eq {
                     expr_ref r(m), new_r(m);
                     r = m.mk_and(conjs.size(), conjs.c_ptr());
                     create_substitution(largest_vinx + 1);
-                    m_subst(r, m_subst_map.size(), m_subst_map.c_ptr(), new_r);
+                    m_subst(r, new_r);
                     m_rewriter(new_r);
                     conjs.reset();
                     flatten_and(new_r, conjs);
@@ -776,19 +650,25 @@ namespace eq {
             m(m),
             a(m),
             dt(m),
-            m_is_variable(0),
+            m_is_variable(nullptr),
             m_subst(m),
-            m_new_exprs(m),
             m_subst_map(m),
+            m_new_exprs(m),
             m_new_args(m),
             m_rewriter(m),
-            m_params(p) {}
+            m_params(p) {
+        }
 
-        void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
+        void set_is_variable_proc(is_variable_proc& proc) { 
+            m_is_variable = &proc;
+            m_solvers.reset();
+            m_solvers.register_plugin(qe::mk_arith_solve_plugin(m, proc));            
+            m_solvers.register_plugin(qe::mk_basic_solve_plugin(m, proc));            
+        }
 
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
             TRACE("qe_lite", tout << mk_pp(q, m) << "\n";);
-            pr = 0;
+            pr = nullptr;
             r  = q;
             reduce_quantifier(q, r, pr);
             if (r != q) {
@@ -955,7 +835,7 @@ namespace ar {
 
     public:
 
-        der(ast_manager& m): m(m), a(m), m_is_variable(0) {}
+        der(ast_manager& m): m(m), a(m), m_is_variable(nullptr) {}
 
         void operator()(expr_ref_vector& fmls) {
             for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -974,7 +854,7 @@ namespace ar {
 
 
 // ------------------------------------------------------------
-// fm_tactic adapted to eliminate designated de-Brujin indices.
+// fm_tactic adapted to eliminate designated de-Bruijn indices.
 
 namespace fm {
     typedef ptr_vector<app> clauses;
@@ -1473,7 +1353,7 @@ namespace fm {
 
         fm(ast_manager & _m):
             m(_m),
-            m_is_variable(0),
+            m_is_variable(nullptr),
             m_allocator("fm-elim"),
             m_util(m),
             m_bvar2expr(m),
@@ -1534,7 +1414,7 @@ namespace fm {
             reset_constraints();
             m_bvar2expr.reset();
             m_bvar2sign.reset();
-            m_bvar2expr.push_back(0); // bvar 0 is not used
+            m_bvar2expr.push_back(nullptr); // bvar 0 is not used
             m_bvar2sign.push_back(0);
             m_expr2var.reset();
             m_is_int.reset();
@@ -1547,7 +1427,7 @@ namespace fm {
             m_new_fmls.reset();
             m_counter = 0;
             m_inconsistent = false;
-            m_inconsistent_core = 0;
+            m_inconsistent_core = nullptr;
             init_forbidden_set(g);
         }
 
@@ -1583,7 +1463,7 @@ namespace fm {
                 // 0 <= 0 -- > true
                 if (c.m_c.is_pos() || (!c.m_strict && c.m_c.is_zero()))
                     return m.mk_true();
-                ineq = 0;
+                ineq = nullptr;
             }
             else {
                 bool int_cnstr = all_int(c);
@@ -1833,7 +1713,7 @@ namespace fm {
             for (unsigned i = 0; !m_inconsistent && i < sz; i++) {
                 expr * f = g[i];
                 if (is_occ(f))
-                    add_constraint(f, 0);
+                    add_constraint(f, nullptr);
                 else
                     m_new_fmls.push_back(f);
             }
@@ -2065,7 +1945,7 @@ namespace fm {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0; // no constraint needs to be created.
+                return nullptr; // no constraint needs to be created.
             }
 
             new_lits.reset();
@@ -2109,7 +1989,7 @@ namespace fm {
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0;
+                return nullptr;
             }
 
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
@@ -2121,7 +2001,7 @@ namespace fm {
                       display(tout, u); tout << "\n";);
                 m_inconsistent      = true;
                 m_inconsistent_core = new_dep;
-                return 0;
+                return nullptr;
             }
 
             constraint * new_cnstr = mk_constraint(new_lits.size(),
@@ -2191,7 +2071,7 @@ namespace fm {
                     constraint const & l_c = *(l[i]);
                     constraint const & u_c = *(u[j]);
                     constraint * new_c = resolve(l_c, u_c, x);
-                    if (new_c != 0) {
+                    if (new_c != nullptr) {
                         num_new_cnstrs++;
                         new_constraints.push_back(new_c);
                     }
@@ -2461,9 +2341,7 @@ public:
             fmls[index] = fml;
             return;
         }
-        TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) {
-                tout << mk_pp(fmls[i].get(), m) << "\n";
-            });
+        TRACE("qe_lite", tout << fmls << "\n";);
         is_variable_test is_var(index_set, index_of_bound);
         m_der.set_is_variable_proc(is_var);
         m_fm.set_is_variable_proc(is_var);
@@ -2555,12 +2433,8 @@ class qe_lite_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
             tactic_report report("qe-lite", *g);
             proof_ref new_pr(m);
             expr_ref new_f(m);
@@ -2607,43 +2481,40 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual ~qe_lite_tactic() {
+    ~qe_lite_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(qe_lite_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         // m_imp->updt_params(p);
     }
 
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         // m_imp->collect_param_descrs(r);
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
 
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         // m_imp->collect_statistics(st);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         // m_imp->reset_statistics();
     }
 
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         dealloc(m_imp);
         m_imp = alloc(imp, m, m_params);

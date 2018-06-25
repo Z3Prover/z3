@@ -2262,7 +2262,7 @@ namespace Microsoft.Z3
         /// Maps f on the argument arrays.
         /// </summary>
         /// <remarks>
-        /// Eeach element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
+        /// Each element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
         /// The function declaration <c>f</c> must have type <c> range_1 .. range_n -> range</c>.
         /// <c>v</c> must have sort range. The sort of the result is <c>[domain_i -> range]</c>.
         /// <seealso cref="MkArraySort(Sort, Sort)"/>
@@ -2515,7 +2515,7 @@ namespace Microsoft.Z3
 
 
         /// <summary>
-        /// Concatentate sequences.
+        /// Concatenate sequences.
         /// </summary>
         public SeqExpr MkConcat(params SeqExpr[] t)
         {
@@ -2862,7 +2862,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -2878,7 +2878,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -2894,7 +2894,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -2910,7 +2910,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+        /// Create a Term of a given sort. This function can be used to create numerals that fit in a machine integer.
         /// It is slightly faster than <c>MakeNumeral</c> since it is not necessary to parse a string.
         /// </summary>
         /// <param name="v">Value of the numeral</param>
@@ -3211,7 +3211,7 @@ namespace Microsoft.Z3
         /// Create an existential Quantifier.
         /// </summary>
         /// <remarks>
-        /// Creates an existential quantifier using de-Brujin indexed variables.
+        /// Creates an existential quantifier using de-Bruijn indexed variables.
         /// (<see cref="MkForall(Sort[], Symbol[], Expr, uint, Pattern[], Expr[], Symbol, Symbol)"/>).
         /// </remarks>
         public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
@@ -3325,7 +3325,7 @@ namespace Microsoft.Z3
         /// Parse the given string using the SMT-LIB2 parser.
         /// </summary>
         /// <returns>A conjunction of assertions in the scope (up to push/pop) at the end of the string.</returns>
-        public BoolExpr ParseSMTLIB2String(string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
+        public BoolExpr[] ParseSMTLIB2String(string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
         {
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
@@ -3335,16 +3335,17 @@ namespace Microsoft.Z3
             uint cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            return (BoolExpr)Expr.Create(this, Native.Z3_parse_smtlib2_string(nCtx, str,
+            ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_string(nCtx, str,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
+            return assertions.ToBoolExprArray();
         }
 
         /// <summary>
         /// Parse the given file using the SMT-LIB2 parser.
         /// </summary>
         /// <seealso cref="ParseSMTLIB2String"/>
-        public BoolExpr ParseSMTLIB2File(string fileName, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
+        public BoolExpr[] ParseSMTLIB2File(string fileName, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
         {
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
@@ -3354,9 +3355,10 @@ namespace Microsoft.Z3
             uint cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            return (BoolExpr)Expr.Create(this, Native.Z3_parse_smtlib2_file(nCtx, fileName,
+            ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_file(nCtx, fileName,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
+            return assertions.ToBoolExprArray();
         }
         #endregion
 
@@ -3597,7 +3599,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
+        /// Create a tactic that fails if the goal is not trivially satisfiable (i.e., empty)
         /// or trivially unsatisfiable (i.e., contains `false').
         /// </summary>
         public Tactic FailIfNotDecided()
@@ -4656,7 +4658,7 @@ namespace Microsoft.Z3
         /// Conversion of a floating-point term into a bit-vector.
         /// </summary>
         /// <remarks>
-        /// Produces a term that represents the conversion of the floating-poiunt term t into a
+        /// Produces a term that represents the conversion of the floating-point term t into a
         /// bit-vector term of size sz in 2's complement format (signed when signed==true). If necessary,
         /// the result will be rounded according to rounding mode rm.
         /// </remarks>
@@ -4677,7 +4679,7 @@ namespace Microsoft.Z3
         /// Conversion of a floating-point term into a real-numbered term.
         /// </summary>
         /// <remarks>
-        /// Produces a term that represents the conversion of the floating-poiunt term t into a
+        /// Produces a term that represents the conversion of the floating-point term t into a
         /// real number. Note that this type of conversion will often result in non-linear
         /// constraints over real terms.
         /// </remarks>
@@ -4696,7 +4698,7 @@ namespace Microsoft.Z3
         /// <remarks>
         /// The size of the resulting bit-vector is automatically determined. Note that
         /// IEEE 754-2008 allows multiple different representations of NaN. This conversion
-        /// knows only one NaN and it will always produce the same bit-vector represenatation of
+        /// knows only one NaN and it will always produce the same bit-vector representation of
         /// that NaN.
         /// </remarks>
         /// <param name="t">FloatingPoint term.</param>

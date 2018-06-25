@@ -1,7 +1,62 @@
 RELEASE NOTES
 
+Version 4.8.0
+=============
+
+- New requirements:
+  - A breaking change to the API is that parsers for SMT-LIB2 formulas return a vector of 
+    formulas as opposed to a conjunction of formulas. The vector of formulas correspond to 
+    the set of "assert" instructions in the SMT-LIB input.
+
+- New features
+   - A parallel mode is available for select theories, including QF_BV. 
+     By setting parallel.enable=true Z3 will spawn a number of worker threads proportional to the 
+     number of available CPU cores to apply cube and conquer solving on the goal.
+   - The SAT solver by default handle cardinality and PB constraints using a custom plugin 
+     that operates directly on cardinality and PB constraints.
+   - A "cube" interface is exposed over the solver API. 
+   - Model conversion is first class over the textual API, such that subgoals created from running a 
+     solver can be passed in text files and a model for the original formula can be recreated from the result.
+   - This has also led to changes in how models are tracked over tactic subgoals. The API for 
+     extracting models from apply_result have been replaced.
+   - An optional mode handles xor constraints using a custom xor propagator. 
+     It is off by default and its value not demonstrated.
+   - The SAT solver includes new inprocessing technques that are available during simplification. 
+     It performs asymmetric tautology elimination by default, and one can turn on more powerful inprocessing techniques 
+     (known as ACCE, ABCE, CCE). Asymmetric branching also uses features introduced in Lingeling by exploiting binary implication graphs.
+     Use sat.acce=true to enable the full repertoire of inprocessing methods. By default, clauses that are "eliminated" by acce are tagged
+     as lemmas (redundant) and are garbage collected if their glue level is high.
+   - Substantial overhaul of the spacer horn clause engine.
+
+- Removed features:
+  - interpolation API
+  - duality engine for constrained Horn clauses.
+  - pdr engine for constrained Horn clauses. The engine's functionality has been 
+    folded into spacer as one of optional strategies.
+  - long deprecated API functions have been removed from z3_api.h
+  
+  
+
+Version 4.7.1
+=============
+
+- New requirements:
+  - uses stdbool and stdint as part of z3.
+
+- New features:
+  - none
+
+- Removed features:
+  - none
+
+- Notes:
+   This is a minor release prior to a set of planned major updates.
+   It uses minor version 7 to indicate that the use of stdbool and
+   stdint are breaking changes to consumers of the C-based API.
+
 Version 4.6.0
 =============
+
 - New requirements:
   - C++11 capable compiler to build Z3.
   - C++ API now requires C++11 or newer.
@@ -13,6 +68,10 @@ Version 4.6.0
     Objective values are no longer printed by default. They can be retrieved by
     issuing the command (get-objectives). Pareto front objectives are accessed by
     issuing multiple (check-sat) calls until it returns unsat.
+
+- Removed features:
+  - Removed support for SMT-LIB 1.x
+
 
 Version 4.5.0
 =============
@@ -49,10 +108,9 @@ Version 4.5.0
     over compound formulas, introduce a fresh predicate whose 
     arguments are the relevant free variables in the formula and add a rule
     that uses the fresh predicate in the head and formula in the body.
-  - minimization of unsat cores is avaialble as an option for the SAT and SMT cores.
+  - Minimization of unsat cores is available as an option for the SAT and SMT cores.
     By setting smt.core.minimize=true resp. sat.core.minimize=true
-    cores produced by these modules are minimized.
-    
+    cores produced by these modules are minimized.    
 
 - A multitude of bugs has been fixed.
 
@@ -423,11 +481,11 @@ Version 3.0
 
 - New Bitvector (QF_BV) solver. The new solver is only available when using the new SMT2 front-end.
 
-- Major performace improvements. 
+- Major performance improvements.
 
 - New preprocessing stack.
 
-- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the the SMT2 front-end.
+- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the SMT2 front-end.
 
 - Added API for parsing SMT2 files.
 
@@ -708,7 +766,7 @@ The following bugs are fixed in this release:
   bvshl when using a shift amount that evaluates to the length
   of the bit-vector. Thanks to Trevor Hansen and Robert Brummayer. 
 
-- Incorrect NNF conversion in linear quantifier elimniation routines.
+- Incorrect NNF conversion in linear quantifier elimination routines.
   Thanks to Josh Berdine.
 
 - Missing constant folding of extraction for large bit-vectors.
@@ -768,7 +826,7 @@ This release also introduces some new preprocessing features:
 
 - More efficient destructive equality resolution DER=true.
         
-- DISTRIBUTE_FORALL=true (distributes universal quatifiers over conjunctions, this transformation may affect pattern inference). 
+- DISTRIBUTE_FORALL=true (distributes universal quantifiers over conjunctions, this transformation may affect pattern inference).
 
 - Rewriter that uses universally quantified equations PRE_DEMODULATOR=true (yes, the option name is not good, we will change it in a future release).
 
@@ -838,7 +896,7 @@ This release introduces the following features:
 
 It fixes the following bugs:
 
-- Incorrect simplification of map over store in the extendted array theory. Reported by Catalin Hritcu.
+- Incorrect simplification of map over store in the extended array theory. Reported by Catalin Hritcu.
 
 - Incomplete handling of equality propagation with constant arrays. Reported by Catalin Hritcu.
 
@@ -882,7 +940,7 @@ Version 2.0
   proof object.
 
 - Proof Objects.
-  The #Z3_check_assumptions retuns a proof object if 
+  The #Z3_check_assumptions returns a proof object if
   the configuration flag PROOF_MODE is set to 1 or 2.
 
 - Partial support for non-linear arithmetic. 
@@ -895,4 +953,4 @@ Version 2.0
   The theory of well-founded recursive data-types is supported
   over the binary APIs. It supports ground satisfiability checking
   for tuples, enumeration types (scalars), 
-  lists and mututally recursive data-types.
+  lists and mutually recursive data-types.

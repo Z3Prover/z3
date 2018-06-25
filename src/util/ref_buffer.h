@@ -82,6 +82,9 @@ public:
         return m_buffer[idx];
     }
 
+    T* const* begin() const { return c_ptr(); }
+    T* const* end() const { return c_ptr() + size(); }
+
     void set(unsigned idx, T * n) {
         inc_ref(n);
         dec_ref(m_buffer[idx]);

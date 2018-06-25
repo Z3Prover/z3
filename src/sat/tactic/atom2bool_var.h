@@ -31,6 +31,7 @@ public:
     void insert(expr * n, sat::bool_var v) { expr2var::insert(n, v); }
     sat::bool_var to_bool_var(expr * n) const;
     void mk_inv(expr_ref_vector & lit2expr) const;
+    void mk_var_inv(app_ref_vector & var2expr) const;
     // return true if the mapping contains uninterpreted atoms.
     bool interpreted_atoms() const { return expr2var::interpreted_vars(); }
 };

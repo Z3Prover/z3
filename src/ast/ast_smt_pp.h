@@ -24,8 +24,10 @@ Revision History:
 #include "util/map.h"
 
 class smt_renaming {
+    struct sym_b { symbol name; bool is_skolem; symbol name_aux; sym_b(symbol n, bool s): name(n), is_skolem(s) {} sym_b():name(),is_skolem(false) {}};
     typedef map<symbol, symbol, symbol_hash_proc, symbol_eq_proc> symbol2symbol;
-    symbol2symbol  m_translate;
+    typedef map<symbol, sym_b, symbol_hash_proc, symbol_eq_proc> symbol2sym_b;
+    symbol2sym_b   m_translate;
     symbol2symbol  m_rev_translate;
 
     symbol fix_symbol(symbol s, int k);
@@ -35,8 +37,8 @@ class smt_renaming {
     bool all_is_legal(char const* s);
 public:
     smt_renaming();
-    symbol get_symbol(symbol s0);
-    symbol operator()(symbol const & s) { return get_symbol(s); }
+    symbol get_symbol(symbol s0, bool is_skolem = false);
+    symbol operator()(symbol const & s, bool is_skolem = false) { return get_symbol(s, is_skolem); }
 };
 
 class ast_smt_pp {
@@ -76,8 +78,8 @@ public:
     void set_is_declared(is_declared* id) { m_is_declared = id; }
 
     void display_smt2(std::ostream& strm, expr* n);
-    void display_expr_smt2(std::ostream& strm, expr* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0);
-    void display_ast_smt2(std::ostream& strm, ast* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0);
+    void display_expr_smt2(std::ostream& strm, expr* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = nullptr);
+    void display_ast_smt2(std::ostream& strm, ast* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = nullptr);
 
 };
 
@@ -87,7 +89,7 @@ struct mk_smt_pp {
     unsigned m_indent;
     unsigned m_num_var_names;
     char const* const* m_var_names;
-    mk_smt_pp(ast* e, ast_manager & m, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0) :
+    mk_smt_pp(ast* e, ast_manager & m, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = nullptr) :
         m_ast(e), m_manager(m), m_indent(indent), m_num_var_names(num_var_names), m_var_names(var_names) {}
 };
 

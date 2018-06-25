@@ -21,31 +21,26 @@ Revision History:
 
 #include "util/debug.h"
 #include "util/memory_manager.h"
+#include "util/z3_omp.h"
 #include<iostream>
 #include<climits>
 #include<limits>
+#include<stdint.h>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
 #endif
 
-#ifndef uint64
-typedef unsigned long long uint64;
-#endif
 
-static_assert(sizeof(uint64) == 8, "64 bits please");
+static_assert(sizeof(uint64_t) == 8, "64 bits please");
 
-#ifndef int64
-typedef long long int64;
-#endif
-
-static_assert(sizeof(int64) == 8, "64 bits");
+static_assert(sizeof(int64_t) == 8, "64 bits");
 
 #ifndef INT64_MIN
-#define INT64_MIN static_cast<int64>(0x8000000000000000ull)
+#define INT64_MIN static_cast<int64_t>(0x8000000000000000ull)
 #endif
 #ifndef INT64_MAX
-#define INT64_MAX static_cast<int64>(0x7fffffffffffffffull)
+#define INT64_MAX static_cast<int64_t>(0x7fffffffffffffffull)
 #endif                              
 #ifndef UINT64_MAX
 #define UINT64_MAX 0xffffffffffffffffull
@@ -110,7 +105,7 @@ inline unsigned next_power_of_two(unsigned v) {
    \brief Return the position of the most significant bit.
 */
 unsigned log2(unsigned v);
-unsigned uint64_log2(uint64 v);
+unsigned uint64_log2(uint64_t v);
 
 static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
@@ -136,11 +131,11 @@ static inline unsigned get_num_1bits(unsigned v) {
 
 // Remark: on gcc, the operators << and >> do not produce zero when the second argument >= 64.
 // So, I'm using the following two definitions to fix the problem
-static inline uint64 shift_right(uint64 x, uint64 y) {
+static inline uint64_t shift_right(uint64_t x, uint64_t y) {
     return y < 64ull ? (x >> y) : 0ull;
 }
 
-static inline uint64 shift_left(uint64 x, uint64 y) {
+static inline uint64_t shift_left(uint64_t x, uint64_t y) {
     return y < 64ull ? (x << y) : 0ull;
 }
 
@@ -183,16 +178,38 @@ void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
+bool is_threaded();
 
-#define IF_VERBOSE(LVL, CODE) { if (get_verbosity_level() >= LVL) { CODE } } ((void) 0)
+  
+#define IF_VERBOSE(LVL, CODE) {                                 \
+    if (get_verbosity_level() >= LVL) {                         \
+        if (is_threaded()) {                                    \
+            LOCK_CODE(CODE);                                    \
+        }                                                       \
+        else {                                                  \
+            CODE;                                               \
+        }                                                       \
+    } } ((void) 0)              
 
-#ifdef _EXTERNAL_RELEASE
-#define IF_IVERBOSE(LVL, CODE) ((void) 0)
+#ifdef _MSC_VER
+#define DO_PRAGMA(x) __pragma(x)
+#define PRAGMA_LOCK __pragma(omp critical (verbose_lock))
 #else
-#define IF_IVERBOSE(LVL, CODE) { if (get_verbosity_level() >= LVL) { CODE } } ((void) 0)
+#define DO_PRAGMA(x) _Pragma(#x)
+#define PRAGMA_LOCK _Pragma("omp critical (verbose_lock)")
 #endif
 
-
+#ifdef _NO_OMP_
+#define LOCK_CODE(CODE) CODE;
+#else
+#define LOCK_CODE(CODE)                         \
+    {                                           \
+        PRAGMA_LOCK   \
+            {                                   \
+                CODE;                           \
+            }                                   \
+    }                      
+#endif
 
 template<typename T>
 struct default_eq {
@@ -222,7 +239,7 @@ template<typename T>
 class scoped_ptr {
     T * m_ptr;
 public:
-    scoped_ptr(T * ptr=0):
+    scoped_ptr(T * ptr=nullptr):
         m_ptr(ptr) {
     }
 
@@ -239,7 +256,7 @@ public:
     }
 
     operator bool() const { 
-        return m_ptr != 0; 
+        return m_ptr != nullptr;
     }
     
     const T & operator*() const {
@@ -260,7 +277,7 @@ public:
 
     T * detach() {
         T* tmp = m_ptr;
-        m_ptr = 0;
+        m_ptr = nullptr;
         return tmp;
     }
 

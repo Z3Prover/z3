@@ -45,25 +45,25 @@ void pb_rewriter_util<PBU>::unique(typename PBU::args_t& args, typename PBU::num
         }
     }
     // remove constants
-    for (unsigned i = 0; i < args.size(); ++i) {
+    unsigned j = 0, sz = args.size();
+    for (unsigned i = 0; i < sz; ++i) {
         if (m_util.is_true(args[i].first)) {
             k -= args[i].second;
-            std::swap(args[i], args[args.size()-1]);
-            args.pop_back();
-            --i;
         }
         else if (m_util.is_false(args[i].first)) {
-            std::swap(args[i], args[args.size()-1]);
-            args.pop_back();                
-            --i;
+            // no-op
+        }
+        else {
+            args[j++] = args[i];
         }
     }
+    args.shrink(j);
     // sort and coalesce arguments:
     typename PBU::compare cmp;
     std::sort(args.begin(), args.end(), cmp);
 
     // coallesce
-    unsigned i, j;
+    unsigned i;
     for (i = 0, j = 1; j < args.size(); ++j) {
         if (args[i].first == args[j].first) {
             args[i].second += args[j].second;

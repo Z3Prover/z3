@@ -24,7 +24,6 @@ Notes:
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
 #include "smt/tactic/smt_tactic.h"
-// include"mip_tactic.h"
 #include "tactic/arith/add_bounds_tactic.h"
 #include "tactic/arith/pb2bv_tactic.h"
 #include "tactic/arith/lia2pb_tactic.h"
@@ -37,7 +36,7 @@ Notes:
 #include "tactic/arith/probe_arith.h"
 
 struct quasi_pb_probe : public probe {
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         bool found_non_01 = false;
         bound_manager bm(g.m());
         bm(g);
@@ -90,7 +89,7 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
                                  mk_max_bv_sharing_tactic(m),
                                  mk_bit_blaster_tactic(m),
                                  mk_aig_tactic(),
-                                 mk_sat_tactic(m)),
+                                 mk_sat_tactic(m, solver_p)),
                         solver_p);
 }
 
@@ -221,7 +220,7 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
                                                          using_params(mk_lia2sat_tactic(m), quasi_pb_p),
                                                          mk_fail_if_undecided_tactic()),
                                                 mk_bounded_tactic(m),
-                                                mk_smt_tactic())),
+                                                mk_psmt_tactic(m, p))),
                                main_p);
     
     st->updt_params(p);

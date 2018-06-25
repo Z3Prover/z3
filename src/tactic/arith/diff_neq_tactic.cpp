@@ -313,13 +313,10 @@ class diff_neq_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             m_produce_models = g->models_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            result.reset();
             tactic_report report("diff-neq", *g);
             fail_if_proof_generation("diff-neq", g);
             fail_if_unsat_core_generation("diff-neq", g);
@@ -332,8 +329,9 @@ class diff_neq_tactic : public tactic {
             bool r = search();
             report_tactic_progress(":conflicts", m_num_conflicts);
             if (r) {
-                if (m_produce_models)
-                    mc = model2model_converter(mk_model());
+                if (m_produce_models) {
+                    g->add(model2model_converter(mk_model()));
+                }
                 g->reset();
             }
             else {
@@ -354,28 +352,28 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(diff_neq_tactic, m, m_params);
     }
 
-    virtual ~diff_neq_tactic() {
+    ~diff_neq_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("diff_neq_max_k", CPK_UINT, "(default: 1024) maximum variable upper bound for diff neq solver.");
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.update("conflicts", m_imp->m_num_conflicts);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_imp->m_num_conflicts = 0;
     }
 
@@ -383,15 +381,12 @@ public:
        \brief Fix a DL variable in s to 0.
        If s is not really in the difference logic fragment, then this is a NOOP.
     */
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         d->m_num_conflicts = m_imp->m_num_conflicts;
         std::swap(d, m_imp);        

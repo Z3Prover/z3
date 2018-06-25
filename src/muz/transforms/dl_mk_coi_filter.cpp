@@ -21,6 +21,7 @@ Author:
 #include "muz/dataflow/dataflow.h"
 #include "muz/dataflow/reachability.h"
 #include "ast/ast_pp.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_util.h"
 #include "tactic/extension_model_converter.h"
 
@@ -45,7 +46,7 @@ namespace datalog {
             for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
                 func_decl* decl_i = r->get_decl(i);
                 if (m_context.has_facts(decl_i)) {
-                    return 0;
+                    return nullptr;
                 }
 
                 bool reachable = engine.get_fact(decl_i).is_reachable();
@@ -79,6 +80,10 @@ namespace datalog {
             }
             if (contained) {
                 if (new_tail) {
+                    for (unsigned i = r->get_uninterpreted_tail_size(); i < r->get_tail_size(); ++i) {
+                        m_new_tail.push_back(r->get_tail(i));
+                        m_new_tail_neg.push_back(false);                        
+                    }
                     rule* new_r = m_context.get_rule_manager().mk(r->get_head(), m_new_tail.size(),
                         m_new_tail.c_ptr(), m_new_tail_neg.c_ptr(), symbol::null, false);
                     res->add_rule(new_r);
@@ -89,7 +94,7 @@ namespace datalog {
         }
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
-            res = 0;
+            res = nullptr;
         } 
         else {
             res->close();
@@ -97,14 +102,14 @@ namespace datalog {
         
         // set to false each unreached predicate 
         if (res && m_context.get_model_converter()) {
-            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
             for (auto const& kv : engine) {
                 if (!kv.m_value.is_reachable()) {
-                    mc0->insert(kv.m_key, m.mk_false());
+                    mc0->add(kv.m_key, m.mk_false());
                 }
             }
             for (func_decl* f : unreachable) {
-                mc0->insert(f, m.mk_false());
+                mc0->add(f, m.mk_false());
             }
             m_context.add_model_converter(mc0);
         }
@@ -130,10 +135,10 @@ namespace datalog {
 
         if (res->get_num_rules() == source.get_num_rules()) {
             TRACE("dl", tout << "No transformation\n";);
-            res = 0;
+            res = nullptr;
         }
         if (res && m_context.get_model_converter()) {
-            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            generic_model_converter* mc0 = alloc(generic_model_converter, m, "dl_coi");
             for (func_decl* f : pruned_preds) {
                 const rule_vector& rules = source.get_predicate_rules(f);
                 expr_ref_vector fmls(m);
@@ -148,7 +153,9 @@ namespace datalog {
                     }
                     fmls.push_back(mk_and(conj));
                 }
-                mc0->insert(f, mk_or(fmls));
+                expr_ref fml(m);
+                fml = m.mk_or(fmls.size(), fmls.c_ptr());
+                mc0->add(f, fml);
             }
             m_context.add_model_converter(mc0);
         }

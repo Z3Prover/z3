@@ -146,12 +146,10 @@ void rule_properties::check_existential_tail() {
         else if (is_quantifier(e)) {
             tocheck.push_back(to_quantifier(e)->get_expr());
         }
-        else if ((m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) && 
-                 m.is_true(e1)) {
+        else if (m.is_eq(e, e1, e2) && m.is_true(e1)) {
             todo.push_back(e2);
         }
-        else if ((m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) &&
-                 m.is_true(e2)) {
+        else if (m.is_eq(e, e1, e2) && m.is_true(e2)) {
             todo.push_back(e1);
         }
         else {

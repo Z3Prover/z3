@@ -1398,8 +1398,7 @@ public class Expr extends AST
     /**
      * Indicates whether the term is a proof by condensed transitivity of a
      * relation
-     * Remarks:  Condensed transitivity proof. This proof object is
-     * only used if the parameter PROOF_MODE is 1. It combines several symmetry
+     * Remarks:  Condensed transitivity proof. It combines several symmetry
      * and transitivity proofs. Example: T1: (R a b) T2: (R c b) T3: (R c d)
      * [trans* T1 T2 T3]: (R a d) R must be a symmetric and transitive relation.
      * 
@@ -1421,7 +1420,7 @@ public class Expr extends AST
      * Remarks:  T1:
      * (R t_1 s_1) ... Tn: (R t_n s_n) [monotonicity T1 ... Tn]: (R (f t_1 ...
      * t_n) (f s_1 ... s_n)) Remark: if t_i == s_i, then the antecedent Ti is
-     * suppressed. That is, reflexivity proofs are supressed to save space.
+     * suppressed. That is, reflexivity proofs are suppressed to save space.
      * 
      * @throws Z3Exception on error
      * @return a boolean
@@ -1473,7 +1472,7 @@ public class Expr extends AST
     }
 
     /**
-     * Indicates whether the term is a proof by eliminiation of not-or 
+     * Indicates whether the term is a proof by elimination of not-or
      * Remarks:  * Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i). * T1: (not (or l_1 ... l_n)) [not-or-elim T1]: (not l_i) 
      * @throws Z3Exception on error
      * @return a boolean
@@ -1506,14 +1505,11 @@ public class Expr extends AST
     /**
      * Indicates whether the term is a proof by rewriting
      * Remarks:  A proof for
-     * rewriting an expression t into an expression s. This proof object is used
-     * if the parameter PROOF_MODE is 1. This proof object can have n
+     * rewriting an expression t into an expression s. This proof object can have n
      * antecedents. The antecedents are proofs for equalities used as
-     * substitution rules. The object is also used in a few cases if the
-     * parameter PROOF_MODE is 2. The cases are: - When applying contextual
+     * substitution rules. The object is used in a few cases . The cases are: - When applying contextual
      * simplification (CONTEXT_SIMPLIFIER=true) - When converting bit-vectors to
-     * Booleans (BIT2BOOL=true) - When pulling ite expression up
-     * (PULL_CHEAP_ITE_TREES=true) 
+     * Booleans (BIT2BOOL=true) 
      * @throws Z3Exception on error
      * @return a boolean
      **/
@@ -1534,17 +1530,6 @@ public class Expr extends AST
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT;
     }
 
-    /**
-     * Indicates whether the term is a proof for pulling quantifiers out.
-     * 
-     * Remarks:  A proof for (iff P Q) where Q is in prenex normal form. This * proof object is only used if the parameter PROOF_MODE is 1. This proof * object has no antecedents 
-     * @throws Z3Exception on error
-     * @return a boolean
-     **/
-    public boolean isProofPullQuantStar()
-    {
-        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR;
-    }
 
     /**
      * Indicates whether the term is a proof for pushing quantifiers in.
@@ -1605,7 +1590,7 @@ public class Expr extends AST
     }
 
     /**
-     * Indicates whether the term is a hypthesis marker.
+     * Indicates whether the term is a hypothesis marker.
      * Remarks: Mark a
      * hypothesis in a natural deduction style proof.
      * @throws Z3Exception on error
@@ -1804,38 +1789,6 @@ public class Expr extends AST
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG;
     }
 
-    /**
-     * Indicates whether the term is a proof for (~ P Q) here Q is in negation
-     * normal form.
-     * Remarks:  A proof for (~ P Q) where Q is in negation normal
-     * form.
-     * 
-     * This proof object is only used if the parameter PROOF_MODE is 1.
-     * 
-     * This proof object may have n antecedents. Each antecedent is a
-     * PR_DEF_INTRO. 
-     * @throws Z3Exception on error
-     * @return a boolean
-     **/
-    public boolean isProofNNFStar()
-    {
-        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR;
-    }
-
-    /**
-     * Indicates whether the term is a proof for (~ P Q) where Q is in
-     * conjunctive normal form.
-     * Remarks:  A proof for (~ P Q) where Q is in
-     * conjunctive normal form. This proof object is only used if the parameter
-     * PROOF_MODE is 1. This proof object may have n antecedents. Each
-     * antecedent is a PR_DEF_INTRO. 
-     * @throws Z3Exception on error
-     * @return a boolean
-     **/
-    public boolean isProofCNFStar()
-    {
-        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR;
-    }
 
     /**
      * Indicates whether the term is a proof for a Skolemization step
@@ -1987,7 +1940,7 @@ public class Expr extends AST
      * Indicates whether the term is a relation filter
      * Remarks:  Filter
      * (restrict) a relation with respect to a predicate. The first argument is
-     * a relation. The second argument is a predicate with free de-Brujin
+     * a relation. The second argument is a predicate with free de-Bruijn
      * indices corresponding to the columns of the relation. So the first column
      * in the relation has index 0. 
      * @throws Z3Exception on error
@@ -2094,7 +2047,7 @@ public class Expr extends AST
     }
 
     /**
-     * The de-Burijn index of a bound variable.
+     * The de-Bruijn index of a bound variable.
      * Remarks:  Bound variables are
      * indexed by de-Bruijn indices. It is perhaps easiest to explain the
      * meaning of de-Bruijn indices by indicating the compilation process from

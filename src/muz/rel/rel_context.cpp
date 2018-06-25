@@ -96,7 +96,7 @@ namespace datalog {
           m(ctx.get_manager()),
           m_rmanager(ctx),
           m_answer(m), 
-          m_last_result_relation(0),
+          m_last_result_relation(nullptr),
           m_ectx(ctx),
           m_sw(0) {
 
@@ -121,7 +121,7 @@ namespace datalog {
     rel_context::~rel_context() {
         if (m_last_result_relation) {
             m_last_result_relation->deallocate();
-            m_last_result_relation = 0;
+            m_last_result_relation = nullptr;
         }        
     }
 
@@ -215,7 +215,7 @@ namespace datalog {
                 SASSERT(remaining_time_limit>restart_time);
                 remaining_time_limit -= restart_time;
             }
-            uint64 new_restart_time = static_cast<uint64>(restart_time)*m_context.initial_restart_timeout();
+            uint64_t new_restart_time = static_cast<uint64_t>(restart_time)*m_context.initial_restart_timeout();
             if (new_restart_time > UINT_MAX) {
                 restart_time = UINT_MAX;
             }

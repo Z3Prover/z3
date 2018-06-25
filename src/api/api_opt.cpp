@@ -17,8 +17,8 @@ Revision History:
 --*/
 #include<iostream>
 #include "util/cancel_eh.h"
-#include "util/file_path.h"
 #include "util/scoped_timer.h"
+#include "util/file_path.h"
 #include "parsers/smt2/smt2parser.h"
 #include "opt/opt_context.h"
 #include "opt/opt_cmds.h"
@@ -31,12 +31,13 @@ Revision History:
 #include "api/api_model.h"
 #include "api/api_ast_vector.h"
 
+
 extern "C" {
 
     struct Z3_optimize_ref : public api::object {
         opt::context* m_opt;
-        Z3_optimize_ref(api::context& c): api::object(c), m_opt(0) {}
-        virtual ~Z3_optimize_ref() { dealloc(m_opt); }
+        Z3_optimize_ref(api::context& c): api::object(c), m_opt(nullptr) {}
+        ~Z3_optimize_ref() override { dealloc(m_opt); }
     };
     inline Z3_optimize_ref * to_optimize(Z3_optimize o) { return reinterpret_cast<Z3_optimize_ref *>(o); }
     inline Z3_optimize of_optimize(Z3_optimize_ref * o) { return reinterpret_cast<Z3_optimize>(o); }
@@ -50,7 +51,7 @@ extern "C" {
         o->m_opt = alloc(opt::context,mk_c(c)->m());
         mk_c(c)->save_object(o);
         RETURN_Z3(of_optimize(o));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_optimize_inc_ref(Z3_context c, Z3_optimize o) {
@@ -139,8 +140,16 @@ extern "C" {
                 r = to_optimize_ptr(o)->optimize();
             }
             catch (z3_exception& ex) {
-                mk_c(c)->handle_exception(ex);
+                if (!mk_c(c)->m().canceled()) {
+                    mk_c(c)->handle_exception(ex);
+                }
                 r = l_undef;
+                if (ex.msg() == std::string("canceled") && mk_c(c)->m().canceled()) {
+                    to_optimize_ptr(o)->set_reason_unknown(ex.msg());
+                }
+                else {
+                    mk_c(c)->handle_exception(ex);
+                }
             }
             // to_optimize_ref(d).cleanup();
         }
@@ -171,7 +180,7 @@ extern "C" {
         }
         mk_c(c)->save_object(m_ref);
         RETURN_Z3(of_model(m_ref));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_optimize_set_params(Z3_context c, Z3_optimize o, Z3_params p) {
@@ -195,7 +204,7 @@ extern "C" {
         to_optimize_ptr(o)->collect_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     // get lower value or current approximation
@@ -206,7 +215,7 @@ extern "C" {
         expr_ref e = to_optimize_ptr(o)->get_lower(idx);
         mk_c(c)->save_ast_trail(e);
         RETURN_Z3(of_expr(e));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     // get upper or current approximation
@@ -217,7 +226,7 @@ extern "C" {
         expr_ref e = to_optimize_ptr(o)->get_upper(idx);
         mk_c(c)->save_ast_trail(e);
         RETURN_Z3(of_expr(e));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     // get lower value or current approximation
@@ -231,7 +240,7 @@ extern "C" {
         mk_c(c)->save_object(v);
         v->m_ast_vector.append(es.size(), (ast*const*)es.c_ptr());
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     // get upper or current approximation
@@ -245,7 +254,7 @@ extern "C" {
         mk_c(c)->save_object(v);
         v->m_ast_vector.append(es.size(), (ast*const*)es.c_ptr());
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_optimize_to_string(Z3_context c, Z3_optimize o) {
@@ -277,7 +286,7 @@ extern "C" {
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     static void Z3_optimize_from_stream(
@@ -294,6 +303,11 @@ extern "C" {
         if (ext && std::string("wcnf") == ext) {
             unsigned_vector h;
             parse_wcnf(*to_optimize_ptr(opt), s, h);
+            return;
+        }
+        if (ext && std::string("lp") == ext) {
+            unsigned_vector h;
+            parse_lp(*to_optimize_ptr(opt), s, h);
             return;
         }
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &m);
@@ -367,7 +381,7 @@ extern "C" {
             v->m_ast_vector.push_back(h);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);        
+        Z3_CATCH_RETURN(nullptr);
     }
     
     Z3_ast_vector Z3_API Z3_optimize_get_objectives(Z3_context c, Z3_optimize o) {
@@ -381,7 +395,7 @@ extern "C" {
             v->m_ast_vector.push_back(to_optimize_ptr(o)->get_objective(i));
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 

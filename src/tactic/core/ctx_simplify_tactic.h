@@ -46,21 +46,17 @@ protected:
 public:
     ctx_simplify_tactic(ast_manager & m, simplifier* simp, params_ref const & p = params_ref());
 
-    virtual tactic * translate(ast_manager & m);
+    tactic * translate(ast_manager & m) override;
 
-    virtual ~ctx_simplify_tactic();
+    ~ctx_simplify_tactic() override;
 
-    virtual void updt_params(params_ref const & p);
+    void updt_params(params_ref const & p) override;
     static  void get_param_descrs(param_descrs & r);
-    virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
+    void collect_param_descrs(param_descrs & r) override { get_param_descrs(r); }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core);
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override;
 
-    virtual void cleanup();
+    void cleanup() override;
 };
 
 tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());

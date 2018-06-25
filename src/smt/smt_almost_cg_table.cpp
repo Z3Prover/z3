@@ -108,8 +108,8 @@ namespace smt {
 
     void almost_cg_table::insert(enode * n) {
         table::entry * entry = m_table.find_core(n);
-        if (entry == 0) {
-            list<enode*> * new_lst = new (m_region) list<enode*>(n, 0);
+        if (entry == nullptr) {
+            list<enode*> * new_lst = new (m_region) list<enode*>(n, nullptr);
             m_table.insert(n, new_lst);
         }
         else {
@@ -119,7 +119,7 @@ namespace smt {
     }
 
     list<enode*> * almost_cg_table::find(enode * n) {
-        list<enode*> * result = 0;
+        list<enode*> * result = nullptr;
         m_table.find(n, result);
         return result;
     }

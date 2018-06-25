@@ -86,7 +86,7 @@ public:
 
     unsigned get_arity() const { return m_arity; }
 
-    bool is_partial() const { return m_else == 0; }
+    bool is_partial() const { return m_else == nullptr; }
     // A function interpretation is said to be simple if m_else is ground.
     bool is_simple() const { return is_partial() || is_ground(m_else); }
     bool is_constant() const;

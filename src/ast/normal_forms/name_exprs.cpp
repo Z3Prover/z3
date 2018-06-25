@@ -38,8 +38,8 @@ class name_exprs_core : public name_exprs {
             m_pred(pred),
             m_r(m),
             m_pr(m),
-            m_def_exprs(0),
-            m_def_proofs(0) {
+            m_def_exprs(nullptr),
+            m_def_proofs(nullptr) {
         }
 
         void gen_name_for_expr(expr * n, expr * & t, proof * & t_pr) {
@@ -77,10 +77,10 @@ public:
         m_rw(m, m.proofs_enabled(), m_cfg) {
     }
 
-    virtual ~name_exprs_core() {
+    ~name_exprs_core() override {
     }
 
-    virtual void operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & p) {
+    void operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & p) override {
         m_cfg.m_def_exprs  = &new_defs;
         m_cfg.m_def_proofs = &new_def_proofs;
         m_rw(n, r, p);
@@ -88,7 +88,7 @@ public:
     }
     
 
-    virtual void reset() {
+    void reset() override {
         m_rw.reset();
     }
 };
@@ -102,7 +102,7 @@ class name_quantifier_labels : public name_exprs_core {
         ast_manager & m_manager;
     public:
         pred(ast_manager & m):m_manager(m) {}
-        virtual bool operator()(expr * t) {
+        bool operator()(expr * t) override {
             return is_quantifier(t) || m_manager.is_label(t);
         }
     };
@@ -114,7 +114,7 @@ public:
         m_pred(m) {
     }
 
-    virtual ~name_quantifier_labels() {
+    ~name_quantifier_labels() override {
     }
 };
 
@@ -127,9 +127,9 @@ class name_nested_formulas : public name_exprs_core {
         ast_manager & m_manager;
         expr *        m_root;
 
-        pred(ast_manager & m):m_manager(m), m_root(0) {}
+        pred(ast_manager & m):m_manager(m), m_root(nullptr) {}
 
-        virtual bool operator()(expr * t) {
+        bool operator()(expr * t) override {
             TRACE("name_exprs", tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m_manager) << "\n";);
             if (is_app(t)) 
                 return to_app(t)->get_family_id() == m_manager.get_basic_family_id() && to_app(t)->get_num_args() > 0 && t != m_root;
@@ -145,10 +145,10 @@ public:
         m_pred(m) {
     }
 
-    virtual ~name_nested_formulas() {
+    ~name_nested_formulas() override {
     }
 
-    virtual void operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & p) {
+    void operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & p) override {
         m_pred.m_root = n;
         TRACE("name_exprs", tout << "operator()\n";);
         name_exprs_core::operator()(n, new_defs, new_def_proofs, r, p);

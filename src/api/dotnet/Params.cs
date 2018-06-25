@@ -91,7 +91,7 @@ namespace Microsoft.Z3
         public Params Add(string name, bool value)
         {
             Native.Z3_params_set_bool(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, (value) ? 1 : 0);
-            return this;
+	    return this;
         }
 
         /// <summary>
@@ -100,7 +100,7 @@ namespace Microsoft.Z3
         public Params Add(string name, uint value)
         {
             Native.Z3_params_set_uint(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
-            return this;
+	    return this;
         }
 
         /// <summary>

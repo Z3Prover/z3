@@ -48,17 +48,17 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_RM_TOWARD_POSITIVE:
     case OP_FPA_RM_TOWARD_NEGATIVE:
     case OP_FPA_RM_TOWARD_ZERO:
-        SASSERT(num_args == 0); result = m().mk_app(f, (expr * const *)0); st = BR_DONE; break;
+        SASSERT(num_args == 0); result = m().mk_app(f, (expr * const *)nullptr); st = BR_DONE; break;
 
     case OP_FPA_PLUS_INF:
     case OP_FPA_MINUS_INF:
     case OP_FPA_NAN:
     case OP_FPA_PLUS_ZERO:
     case OP_FPA_MINUS_ZERO:
-        SASSERT(num_args == 0); result = m().mk_app(f, (expr * const *)0); st = BR_DONE; break;
+        SASSERT(num_args == 0); result = m().mk_app(f, (expr * const *)nullptr); st = BR_DONE; break;
 
     case OP_FPA_NUM:
-        SASSERT(num_args == 0); result = m().mk_app(f, (expr * const *)0); st = BR_DONE; break;
+        SASSERT(num_args == 0); result = m().mk_app(f, (expr * const *)nullptr); st = BR_DONE; break;
 
     case OP_FPA_ADD:       SASSERT(num_args == 3); st = mk_add(args[0], args[1], args[2], result); break;
     case OP_FPA_SUB:       SASSERT(num_args == 3); st = mk_sub(args[0], args[1], args[2], result); break;
@@ -773,7 +773,7 @@ br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & resu
         if (m_fm.is_nan(v)) {
             if (m_hi_fp_unspecified) {
                 expr * args[4] = { bu.mk_numeral(0, 1),
-                                   bu.mk_numeral(-1, x.get_ebits()),
+                                   bu.mk_bv_neg(bu.mk_numeral(1, x.get_ebits())),
                                    bu.mk_numeral(0, x.get_sbits() - 2),
                                    bu.mk_numeral(1, 1) };
                 result = bu.mk_concat(4, args);

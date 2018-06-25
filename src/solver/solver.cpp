@@ -16,12 +16,14 @@ Author:
 Notes:
 
 --*/
-#include "solver/solver.h"
-#include "model/model_evaluator.h"
+#include "util/common_msgs.h"
+#include "util/stopwatch.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_pp_util.h"
-#include "util/common_msgs.h"
+#include "tactic/model_converter.h"
+#include "solver/solver.h"
+#include "model/model_evaluator.h"
 
 
 unsigned solver::get_num_assertions() const {
@@ -31,17 +33,27 @@ unsigned solver::get_num_assertions() const {
 
 expr * solver::get_assertion(unsigned idx) const {
     NOT_IMPLEMENTED_YET();
-    return 0;
+    return nullptr;
 }
 
 std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assumptions) const {
     expr_ref_vector fmls(get_manager());
-    get_assertions(fmls);
+    stopwatch sw;
+    sw.start();
+    get_assertions(fmls);    
     ast_pp_util visitor(get_manager());
+    model_converter_ref mc = get_model_converter();
+    if (mc.get()) { 
+        mc->set_env(&visitor); 
+    }
     visitor.collect(fmls);
     visitor.collect(n, assumptions);
     visitor.display_decls(out);
     visitor.display_asserts(out, fmls, true);
+    if (mc.get()) {
+        mc->display(out);
+        mc->set_env(nullptr);
+    }
     return out;
 }
 
@@ -51,6 +63,13 @@ void solver::get_assertions(expr_ref_vector& fmls) const {
         fmls.push_back(get_assertion(i));
     }
 }
+
+expr_ref_vector solver::get_assertions() const {
+    expr_ref_vector result(get_manager());
+    get_assertions(result);
+    return result;
+}
+
 
 struct scoped_assumption_push {
     expr_ref_vector& m_vec;
@@ -156,10 +175,84 @@ lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>&
 }
 
 lbool solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
-    return check_sat(0, 0);
+    return check_sat(0, nullptr);
 }
 
 bool solver::is_literal(ast_manager& m, expr* e) {
     return is_uninterp_const(e) || (m.is_not(e, e) && is_uninterp_const(e));
 }
 
+
+void solver::assert_expr(expr* f) {
+    expr_ref fml(f, get_manager());
+    if (m_enforce_model_conversion) {
+        model_converter_ref mc = get_model_converter();
+        if (mc) {
+            (*mc)(fml);        
+        }
+    }
+    assert_expr_core(fml);    
+}
+
+void solver::assert_expr(expr* f, expr* t) {
+    ast_manager& m = get_manager();
+    expr_ref fml(f, m);    
+    expr_ref a(t, m);
+    if (m_enforce_model_conversion) {
+        IF_VERBOSE(0, verbose_stream() << "enforce model conversion\n";);
+        exit(0);
+        model_converter_ref mc = get_model_converter();
+        if (mc) {
+            (*mc)(fml);        
+            // (*mc)(a);        
+        }
+    }
+    assert_expr_core2(fml, a);    
+}
+
+void solver::collect_param_descrs(param_descrs & r) {
+    r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: false) enforce model conversion when asserting formulas");
+}
+
+void solver::reset_params(params_ref const & p) {
+    m_params = p;
+    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
+}
+
+void solver::updt_params(params_ref const & p) {
+    m_params.copy(p);
+    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
+}
+
+
+expr_ref_vector solver::get_units(ast_manager& m) {
+    expr_ref_vector fmls(m), result(m), tmp(m);
+    get_assertions(fmls);
+    obj_map<expr, bool> units;
+    for (expr* f : fmls) {
+        if (m.is_not(f, f) && is_literal(m, f)) {
+            m.inc_ref(f);
+            units.insert(f, false);
+        }
+        else if (is_literal(m, f)) {
+            m.inc_ref(f);
+            units.insert(f, true);
+        }
+    }
+    model_converter_ref mc = get_model_converter();
+    if (mc) {
+        mc->get_units(units);
+    }
+    for (auto const& kv : units) {
+        tmp.push_back(kv.m_key);
+        if (kv.m_value) 
+            result.push_back(kv.m_key); 
+        else 
+            result.push_back(m.mk_not(kv.m_key));
+    }
+    for (expr* e : tmp) {
+        m.dec_ref(e);
+    }
+
+    return result;
+}

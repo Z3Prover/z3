@@ -12,9 +12,9 @@ See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z
 
 ## Build status
 
-| Windows x86 | Windows x64 | Ubuntu x64 | Debian x64 | OSX | TravisCI |
-| ----------- | ----------- | ---------- | ---------- | --- | -------- |
-[![win32-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/4/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=4) | [![win64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/7/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=7) | [![ubuntu-x64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/3/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=3) | [![debian-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/5/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=5) | [![osx-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/2/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=2) | [![Build Status](https://travis-ci.org/Z3Prover/z3.svg?branch=master)](https://travis-ci.org/Z3Prover/z3)
+| Windows x64 | Windows x86 | Windows x64 | Ubuntu x64 | Debian x64 | OSX | TravisCI |
+| ----------- | ----------- | ----------- | ---------- | ---------- | --- | -------- |
+[![win64-badge](https://z3build.visualstudio.com/_apis/public/build/definitions/2e0aa542-a22c-4b1a-8dcd-3ebae8e12db4/4/badge)](https://z3build.visualstudio.com/Z3Build/_build/index?definitionId=4) | [![win32-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/4/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=4) | [![win64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/7/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=7) | [![ubuntu-x64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/3/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=3) | [![debian-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/5/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=5) | [![osx-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/2/badge)](https://cz3.visualstudio.com/Z3/_build/index?definitionId=2) | [![Build Status](https://travis-ci.org/Z3Prover/z3.svg?branch=master)](https://travis-ci.org/Z3Prover/z3)
 
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
@@ -189,3 +189,6 @@ python -c 'import z3; print(z3.get_version_string())'
 
 See [``examples/python``](examples/python) for examples.
 
+### ``Web Assembly``
+
+[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.

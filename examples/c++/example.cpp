@@ -470,7 +470,7 @@ void unsat_core_example2() {
     // The solver s already contains p1 => F
     // To disable F, we add (not p1) as an additional assumption
     qs.push_back(!p1);
-    std::cout << s.check((unsigned)qs.size(), &qs[0]) << "\n";
+    std::cout << s.check(static_cast<unsigned>(qs.size()), &qs[0]) << "\n";
     expr_vector core2 = s.unsat_core();
     std::cout << core2 << "\n";
     std::cout << "size: " << core2.size() << "\n";
@@ -707,7 +707,7 @@ void tactic_example7() {
     std::cout << s.check() << "\n";
     model m = s.get_model();
     std::cout << "model for subgoal:\n" << m << "\n";
-    std::cout << "model for original goal:\n" << r.convert_model(m) << "\n";
+    std::cout << "model for original goal:\n" << subgoal.convert_model(m) << "\n";
 }
 
 void tactic_example8() {
@@ -918,6 +918,19 @@ void enum_sort_example() {
     apply_result result_of_elimination = qe.apply(g);
     goal result_goal = result_of_elimination[0];
     std::cout << "2: " << result_goal.as_expr() << std::endl;
+}
+
+void tuple_example() {
+    std::cout << "tuple example\n";
+    context ctx;
+    const char * names[] = { "first", "second" };
+    sort sorts[2] = { ctx.int_sort(), ctx.bool_sort() };
+    func_decl_vector projs(ctx);
+    func_decl pair = ctx.tuple_sort("pair", 2, names, sorts, projs);
+    sorts[1] = pair.range();
+    func_decl pair2 = ctx.tuple_sort("pair2", 2, names, sorts, projs);
+    
+    std::cout << pair2 << "\n";
 }
 
 void expr_vector_example() {
@@ -1136,7 +1149,7 @@ static void parse_example() {
     func_decl_vector decls(c);
     sort B = c.bool_sort();
     decls.push_back(c.function("a", 0, 0, B));
-    expr a = c.parse_string("(assert a)", sorts, decls);
+    expr_vector a = c.parse_string("(assert a)", sorts, decls);
     std::cout << a << "\n";
 
     // expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
@@ -1179,6 +1192,7 @@ int main() {
         incremental_example2(); std::cout << "\n";
         incremental_example3(); std::cout << "\n";
         enum_sort_example(); std::cout << "\n";
+        tuple_example(); std::cout << "\n";
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";

@@ -79,13 +79,14 @@ public:
 
     void apply_from_left_to_X(vector<X> & w, lp_settings & );
 
-    virtual void set_number_of_rows(unsigned /*m*/) {}
-    virtual void set_number_of_columns(unsigned /*n*/) { }
+    void set_number_of_rows(unsigned /*m*/) override {}
+    void set_number_of_columns(unsigned /*n*/) override {}
+#ifdef Z3DEBUG
+    T get_elem(unsigned i, unsigned j) const override { return m_values[i * m_n + j]; }
+#endif
 
-    T get_elem(unsigned i, unsigned j) const { return m_values[i * m_n + j]; }
-
-    unsigned row_count() const { return m_m; }
-    unsigned column_count() const { return m_n; }
+    unsigned row_count() const override { return m_m; }
+    unsigned column_count() const override { return m_n; }
 
     void set_elem(unsigned i, unsigned j, const T& val) {  m_values[i * m_n + j] = val;  }
 

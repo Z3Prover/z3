@@ -69,6 +69,7 @@ IS_WINDOWS=False
 IS_LINUX=False
 IS_OSX=False
 IS_FREEBSD=False
+IS_NETBSD=False
 IS_OPENBSD=False
 IS_CYGWIN=False
 IS_CYGWIN_MINGW=False
@@ -140,6 +141,9 @@ def is_linux():
 
 def is_freebsd():
     return IS_FREEBSD
+
+def is_netbsd():
+    return IS_NETBSD
 
 def is_openbsd():
     return IS_OPENBSD
@@ -604,6 +608,8 @@ elif os.name == 'posix':
         IS_LINUX=True
     elif os.uname()[0] == 'FreeBSD':
         IS_FREEBSD=True
+    elif os.uname()[0] == 'NetBSD':
+        IS_NETBSD=True
     elif os.uname()[0] == 'OpenBSD':
         IS_OPENBSD=True
     elif os.uname()[0][:6] == 'CYGWIN':
@@ -889,8 +895,13 @@ def is_CXX_gpp():
     return is_compiler(CXX, 'g++')
 
 def is_clang_in_gpp_form(cc):
-    version_string = check_output([cc, '--version']).encode('utf-8').decode('utf-8')
-    return version_string.find('clang') != -1
+    str = check_output([cc, '--version'])
+    try:
+       version_string = str.encode('utf-8')
+    except:
+       version_string = str
+    clang = 'clang'.encode('utf-8')
+    return version_string.find(clang) != -1
 
 def is_CXX_clangpp():
     if is_compiler(CXX, 'g++'):
@@ -1240,7 +1251,7 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD':
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'NetBSD' or sysname == 'OpenBSD':
         return 'so'
     elif sysname == 'CYGWIN' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'dll'
@@ -1790,6 +1801,8 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'linux')
             elif IS_FREEBSD:
                 t = t.replace('PLATFORM', 'freebsd')
+            elif IS_NETBSD:
+                t = t.replace('PLATFORM', 'netbsd')
             elif IS_OPENBSD:
                 t = t.replace('PLATFORM', 'openbsd')
             elif IS_CYGWIN:
@@ -1919,8 +1932,14 @@ class MLComponent(Component):
             OCAML_FLAGS = ''
             if DEBUG_MODE:
                 OCAML_FLAGS += '-g'
-            OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
-            OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
+
+            if OCAMLFIND:
+                # Load Big_int, which is no longer part of the standard library, via the num package: https://github.com/ocaml/num
+                OCAMLCF = OCAMLFIND + ' ' + 'ocamlc -package num' + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLFIND + ' ' + 'ocamlopt -package num' + ' ' + OCAML_FLAGS
+            else:
+                OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
 
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
@@ -2492,9 +2511,17 @@ def mk_config():
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+            SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
+            SO_EXT         = '.so'
+            LDFLAGS        = '%s -lrt' % LDFLAGS
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+        elif sysname == 'NetBSD':
+            CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
+            OS_DEFINES     = '-D_NETBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
@@ -2783,6 +2810,7 @@ def get_header_files_for_components(component_src_dirs):
 def mk_install_tactic_cpp(cnames, path):
     component_src_dirs = []
     for cname in cnames:
+        print("Component %s" % cname)
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
     h_files_full_path = get_header_files_for_components(component_src_dirs)
