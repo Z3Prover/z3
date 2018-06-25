@@ -243,13 +243,13 @@ namespace smt {
     }
 
     void model_checker::operator()(expr *n) {
-        if (m.is_model_value(n) || m_autil.is_as_array(n)) {
+        if (m.is_model_value(n) /*|| m_autil.is_as_array(n)*/) {
             throw is_model_value();
         }
     }
 
     bool model_checker::contains_model_value(expr* n) {
-        if (m.is_model_value(n) || m_autil.is_as_array(n)) {
+        if (m.is_model_value(n) /*|| m_autil.is_as_array(n)*/) {
             return true;
         }
         if (is_app(n) && to_app(n)->get_num_args() == 0) {
