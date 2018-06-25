@@ -81,7 +81,7 @@ public:
     //
     model * translate(ast_translation & translator) const;
 
-    void cleanup();
+    void compress();
 
     void set_model_completion(bool f) { m_mev.set_model_completion(f); }
     void updt_params(params_ref const & p) { m_mev.updt_params(p); }

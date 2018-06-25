@@ -185,7 +185,7 @@ struct model::top_sort : public ::top_sort<func_decl> {
     ~top_sort() override {}
 };
 
-void model::cleanup() {
+void model::compress() {
     if (m_cleaned) return;
 
     // stratify m_finterp and m_decls in a topological sort

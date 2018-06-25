@@ -280,7 +280,6 @@ void func_interp::compress() {
         m_else = new_else;
     }
     else if (!m_entries.empty() && is_identity()) {
-        std::cout << "identity\n";
         for (func_entry * curr : m_entries) {
             curr->deallocate(m_manager, m_arity);
         }

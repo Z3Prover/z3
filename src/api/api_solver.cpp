@@ -434,7 +434,7 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         if (_m) {
-            _m->cleanup();
+            if (mk_c(c)->params().m_model_compress) _m->compress();
         }
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         m_ref->m_model = _m;
