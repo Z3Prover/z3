@@ -116,6 +116,7 @@ public:
 
 private:
     bool is_fi_entry_expr(expr * e, ptr_vector<expr> & args);
+    bool is_identity() const;
 };
 
 #endif

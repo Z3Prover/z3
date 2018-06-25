@@ -100,7 +100,7 @@ expr * model::get_some_value(sort * s) {
 ptr_vector<expr> const & model::get_universe(sort * s) const {
     ptr_vector<expr> * u = nullptr;
     m_usort2universe.find(s, u);
-    SASSERT(u != 0);
+    SASSERT(u != nullptr);
     return *u;
 }
 
@@ -274,6 +274,7 @@ model::func_decl_set* model::collect_deps(top_sort& ts, expr * e) {
 model::func_decl_set* model::collect_deps(top_sort& ts, func_interp * fi) {
     func_decl_set* s = alloc(func_decl_set);
     deps_collector collector(*this, ts, *s);
+    fi->compress();
     expr* e = fi->get_else();
     if (e) for_each_expr(collector, e);
     return s;
@@ -340,6 +341,9 @@ bool model::can_inline_def(top_sort& ts, func_decl* f) {
             for (expr* arg : *to_app(e)) {
                 todo.push_back(arg);
             }
+        }
+        else if (is_quantifier(e)) {
+            todo.push_back(to_quantifier(e)->get_expr());
         }
     }
     return true;
@@ -425,7 +429,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             break;
         }
         default:
-            SASSERT(a != 0);
+            SASSERT(a != nullptr);
             cache.insert(a, a);
             todo.pop_back();
             break;
