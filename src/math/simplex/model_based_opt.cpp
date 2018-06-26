@@ -52,7 +52,20 @@ namespace opt {
             }
         }        
         m_coeff = r.m_coeff;
-        if (r.m_type == opt::t_lt) m_coeff += m_div;
+        switch (r.m_type) {
+        case opt::t_lt: 
+            m_coeff += m_div;
+            break;
+        case opt::t_le:
+            // for: ax >= t, then x := (t + a - 1) div a
+            if (m_div.is_pos()) {
+                m_coeff += m_div;
+                m_coeff -= rational::one();
+            }
+            break;
+        default:
+            break;
+        }
         normalize();
         SASSERT(m_div.is_pos());
     }
@@ -976,7 +989,7 @@ namespace opt {
         // There are only upper or only lower bounds.
         if (row_index == UINT_MAX) {
             if (compute_def) {
-                if (lub_index != UINT_MAX) {
+                if (lub_index != UINT_MAX) {                    
                     result = solve_for(lub_index, x, true);
                 }
                 else if (glb_index != UINT_MAX) {
@@ -998,11 +1011,6 @@ namespace opt {
         SASSERT(lub_index != UINT_MAX);
         SASSERT(glb_index != UINT_MAX);
         if (compute_def) {
-#if 0
-            def d1(m_rows[lub_index], x);
-            def d2(m_rows[glb_index], x);
-            result = (d1 + d2)/2;
-#else
             if (lub_size <= glb_size) {
                 result = def(m_rows[lub_index], x);
             }
@@ -1010,7 +1018,6 @@ namespace opt {
                 result = def(m_rows[glb_index], x);
             }
             m_var2value[x] = eval(result);
-#endif
         }
 
         // The number of matching lower and upper bounds is small.
