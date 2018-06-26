@@ -167,7 +167,7 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
     d.insert("model_validate", CPK_BOOL, "validate models produced by solvers", "false");
-    d.insert("model_compress", CPK_BOOL, "compress models for easier consumption", "false");
+    d.insert("model_compress", CPK_BOOL, "compress models for easier consumption", "true");
     d.insert("dump_models", CPK_BOOL, "dump models whenever check-sat returns sat", "false");
     d.insert("trace", CPK_BOOL, "trace generation for VCC", "false");
     d.insert("trace_file_name", CPK_STRING, "trace out file name (see option 'trace')", "z3.log");

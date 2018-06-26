@@ -992,7 +992,7 @@ namespace qe {
                     SASSERT(!is_lambda(e));
                     app_ref_vector vars(m);
                     quantifier* q = to_quantifier(e);
-                    bool is_fa = is_forall(q);
+                    bool is_fa = ::is_forall(q);
                     tmp = q->get_expr();
                     extract_vars(q, tmp, vars);
                     TRACE("qe", tout << vars << " " << mk_pp(q, m) << " " << tmp << "\n";);
