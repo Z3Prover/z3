@@ -128,6 +128,7 @@ class lemma {
     model_ref m_ctp; // counter-example to pushing
     bool m_external;
     unsigned m_bumped;
+    unsigned m_weakness;
 
     void mk_expr_core();
     void mk_cube_core();
@@ -154,7 +155,7 @@ public:
 
     bool has_pob() {return m_pob;}
     pob_ref &get_pob() {return m_pob;}
-    inline unsigned weakness();
+    unsigned weakness() {return m_weakness;}
 
     void add_skolem(app *zk, app* b);
 
@@ -690,7 +691,6 @@ struct pob_ref_gt :
         {return gt (n1.get (), n2.get ());}
 };
 
-inline unsigned lemma::weakness() {return m_pob ? m_pob->weakness() : UINT_MAX;}
 /**
  */
 class derivation {

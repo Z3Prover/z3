@@ -463,7 +463,8 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(lvl), m_init_lvl(m_lvl),
-    m_pob(nullptr), m_ctp(nullptr), m_external(false), m_bumped(0) {
+    m_pob(nullptr), m_ctp(nullptr), m_external(false),
+    m_bumped(0), m_weakness(UINT_MAX) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -472,7 +473,8 @@ lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0) {
+    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0),
+    m_weakness(p->weakness()) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -483,7 +485,8 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
     m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0)
+    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0),
+    m_weakness(p->weakness())
 {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
