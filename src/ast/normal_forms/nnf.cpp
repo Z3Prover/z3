@@ -165,8 +165,6 @@ public:
         m_sk_hack_enabled  = f;
     }
 
-    // ast_manager & m() const { return m; }
-
     void operator()(quantifier * q, expr_ref & r, proof_ref & p) {
         r = m_cache.find(q);
         if (r.get() != nullptr) {

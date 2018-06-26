@@ -610,46 +610,17 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
         result = m().mk_or(m().mk_eq(t, val), m().mk_not(cond));
         return BR_REWRITE2;
     }
-    if (m_ite_extra_rules) {
-        if (m().is_value(t)) {
-            if (m().are_equal(val, t)) {
-                result = m().mk_or(cond, m().mk_eq(val, e));
-            }
-            else if (m().are_distinct(val, t)) {
-                mk_not(cond, result);
-                result = m().mk_and(result, m().mk_eq(val, e));
-            }
-            else {
-                return BR_FAILED;
-            }
-            return BR_REWRITE2;
-        }
-        if (m().is_value(e)) {
-            if (m().are_equal(val, e)) {
-                mk_not(cond, result);
-                result = m().mk_or(result, m().mk_eq(val, t));
-            }
-            else if (m().are_distinct(val, e)) {
-                result = m().mk_and(cond, m().mk_eq(val, t));
-            }
-            else {
-                return BR_FAILED;
-            }
-            return BR_REWRITE2;
-        }
+
+    expr* cond2 = nullptr, *t2 = nullptr, *e2 = nullptr;
+    if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
+        try_ite_value(to_app(t), val, result);
+        result = m().mk_ite(cond, result, m().mk_eq(e, val));
+        return BR_REWRITE2;
     }
-    {
-        expr* cond2, *t2, *e2;
-        if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
-            try_ite_value(to_app(t), val, result);
-            result = m().mk_ite(cond, result, m().mk_eq(e, val));
-            return BR_REWRITE2;
-        }
-        if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
-            try_ite_value(to_app(e), val, result);
-            result = m().mk_ite(cond, m().mk_eq(t, val), result);
-            return BR_REWRITE2;
-        }
+    if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
+        try_ite_value(to_app(e), val, result);
+        result = m().mk_ite(cond, m().mk_eq(t, val), result);
+        return BR_REWRITE2;
     }
 
     return BR_FAILED;

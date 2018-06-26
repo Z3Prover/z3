@@ -967,7 +967,7 @@ protected:
     family_id     m_family_id;
 
     virtual void set_manager(ast_manager * m, family_id id) {
-        SASSERT(m_manager == 0);
+        SASSERT(m_manager == nullptr);
         m_manager   = m;
         m_family_id = id;
     }
@@ -1920,16 +1920,16 @@ public:
 
     quantifier * mk_forall(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
-                           unsigned num_patterns = 0, expr * const * patterns = 0,
-                           unsigned num_no_patterns = 0, expr * const * no_patterns = 0) {
+                           unsigned num_patterns = 0, expr * const * patterns = nullptr,
+                           unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr) {
         return mk_quantifier(forall_k, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
                              num_no_patterns, no_patterns);
     }
 
     quantifier * mk_exists(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
-                           unsigned num_patterns = 0, expr * const * patterns = 0,
-                           unsigned num_no_patterns = 0, expr * const * no_patterns = 0) {
+                           unsigned num_patterns = 0, expr * const * patterns = nullptr,
+                           unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr) {
         return mk_quantifier(exists_k, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
                              num_no_patterns, no_patterns);
     }

@@ -114,7 +114,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
                                      expr * const * new_no_patterns,
                                      expr_ref & result,
                                      proof_ref & result_pr) {
-    if (q->get_kind() != forall_k) {
+    if (!is_forall(q)) {
         return false;
     }
     unsigned num_vars = q->get_num_decls();

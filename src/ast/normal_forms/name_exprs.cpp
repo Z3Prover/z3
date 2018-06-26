@@ -102,7 +102,7 @@ class name_quantifier_labels : public name_exprs_core {
         ast_manager & m;
     public:
         pred(ast_manager & m):m(m) {}
-        virtual bool operator()(expr * t) {
+        bool operator()(expr * t) override {
             return is_quantifier(t) || m.is_label(t);
         }
     };
@@ -129,7 +129,7 @@ class name_nested_formulas : public name_exprs_core {
 
         pred(ast_manager & m):m(m), m_root(0) {}
 
-        virtual bool operator()(expr * t) {
+        bool operator()(expr * t) override {
             TRACE("name_exprs", tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m) << "\n";);
             if (is_app(t)) 
                 return to_app(t)->get_family_id() == m.get_basic_family_id() && to_app(t)->get_num_args() > 0 && t != m_root;

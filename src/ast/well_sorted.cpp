@@ -35,10 +35,10 @@ struct well_sorted_proc {
 
     void operator()(quantifier * n) {
         expr const * e  = n->get_expr();
-        if ((n->get_kind() != lambda_k) && !m_manager.is_bool(e)) {
-            UNREACHABLE();
+        if (!is_lambda(n) && !m_manager.is_bool(e)) {
             warning_msg("quantifier's body must be a boolean.");
             m_error = true;
+            UNREACHABLE();
         }
     }
 
