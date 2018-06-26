@@ -87,20 +87,16 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
     expr* const* sub  = subst_map.c_ptr();
     unsigned sub_size = subst_map.size();
 
-    subst(old_body, sub_size, sub, new_body);
+    new_body = subst(old_body, sub_size, sub);
 
     for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-        expr_ref pat(m);        
-        subst(new_patterns[j], sub_size, sub, pat);
-        pats.push_back(pat);
+        pats.push_back(subst(new_patterns[j], sub_size, sub));
     }
     for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-        expr_ref nopat(m);
-        subst(new_no_patterns[j], sub_size, sub, nopat);
-        no_pats.push_back(nopat);
+        no_pats.push_back(subst(new_no_patterns[j], sub_size, sub));
     }
 
-    result = m.mk_quantifier(true, 
+    result = m.mk_quantifier(forall_k, 
                         names.size(),
                         sorts.c_ptr(),
                         names.c_ptr(),

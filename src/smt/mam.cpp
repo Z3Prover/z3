@@ -16,15 +16,16 @@ Author:
 Revision History:
 
 --*/
-#include "smt/mam.h"
-#include "smt/smt_context.h"
+#include <algorithm>
+
 #include "util/pool.h"
-#include "ast/ast_pp.h"
-#include "ast/ast_ll_pp.h"
 #include "util/trail.h"
 #include "util/stopwatch.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
-#include<algorithm>
+#include "smt/mam.h"
+#include "smt/smt_context.h"
 
 // #define _PROFILE_MAM
 
@@ -569,9 +570,8 @@ namespace smt {
             if (m_context) {
                 ast_manager & m = m_context->get_manager();
                 out << "patterns:\n";
-                for (expr* p : m_patterns) {
-                    out << mk_pp(p, m) << "\n";
-                }
+                for (app* a : m_patterns) 
+                    out << mk_pp(a, m) << "\n";
             }
 #endif
             out << "function: " << m_root_lbl->get_name();
@@ -1482,8 +1482,8 @@ namespace smt {
             }
             if (num_instr > SIMPLE_SEQ_THRESHOLD || (curr != nullptr && curr->m_opcode == CHOOSE))
                 simple = false;
-            for (unsigned reg : m_to_reset) 
-                m_registers[reg] = 0;
+            for (unsigned r : m_to_reset) 
+                m_registers[r] = 0;
             return weight;
         }
 
@@ -1998,19 +1998,19 @@ namespace smt {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
             if (t->filter_candidates()) {
-                for (enode * app : t->get_candidates()) {
+                for (enode* app : t->get_candidates()) {
                     if (!app->is_marked() && app->is_cgr()) {
                         execute_core(t, app);
                         app->set_mark();
                     }
                 }
-                for (enode * app : t->get_candidates()) {
+                for (enode* app : t->get_candidates()) {
                     if (app->is_marked())
                         app->unset_mark();
                 }
             }
             else {
-                for (enode * app : t->get_candidates()) {
+                for (enode* app : t->get_candidates()) {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (app->is_cgr()) {
                         TRACE("trigger_bug", tout << "is_cgr\n";);
@@ -2797,7 +2797,7 @@ namespace smt {
 
     void display_trees(std::ostream & out, const ptr_vector<code_tree> & trees) {
         unsigned lbl = 0;
-        for (code_tree* tree : trees) {
+        for (code_tree * tree : trees) {
             if (tree) {
                 out << "tree for f" << lbl << "\n";
                 out << *tree;
@@ -3143,10 +3143,7 @@ namespace smt {
             m_trail_stack.push(set_bitvector_trail<mam_impl>(m_is_clbl, lbl_id));
             SASSERT(m_is_clbl[lbl_id]);
             unsigned h = m_lbl_hasher(lbl);
-            enode_vector::const_iterator it  = m_context.begin_enodes_of(lbl);
-            enode_vector::const_iterator end = m_context.end_enodes_of(lbl);
-            for (; it != end; ++it) {
-                enode * app     = *it;
+            for (enode* app : m_context.enodes_of(lbl)) {
                 if (m_context.is_relevant(app)) {
                     update_lbls(app, h);
                     TRACE("mam_bug", tout << "updating labels of: #" << app->get_owner_id() << "\n";
@@ -3188,10 +3185,7 @@ namespace smt {
             SASSERT(m_is_plbl[lbl_id]);
             SASSERT(is_plbl(lbl));
             unsigned h = m_lbl_hasher(lbl);
-            enode_vector::const_iterator it  = m_context.begin_enodes_of(lbl);
-            enode_vector::const_iterator end = m_context.end_enodes_of(lbl);
-            for (; it != end; ++it) {
-                enode * app = *it;
+            for (enode * app : m_context.enodes_of(lbl)) {
                 if (m_context.is_relevant(app))
                     update_children_plbls(app, h);
             }
@@ -3677,18 +3671,12 @@ namespace smt {
             approx_set & plbls = r1->get_plbls();
             approx_set & clbls = r2->get_lbls();
             if (!plbls.empty() && !clbls.empty()) {
-                approx_set::iterator it1  = plbls.begin();
-                approx_set::iterator end1 = plbls.end();
-                for (; it1 != end1; ++it1) {
+                for (unsigned plbl1 : plbls) {
                     if (m_context.get_cancel_flag()) {
                         break;
                     }
-                    unsigned plbl1 = *it1;
                     SASSERT(plbls.may_contain(plbl1));
-                    approx_set::iterator it2  = clbls.begin();
-                    approx_set::iterator end2 = clbls.end();
-                    for (; it2 != end2; ++it2) {
-                        unsigned lbl2 = *it2;
+                    for (unsigned lbl2 : clbls) {
                         SASSERT(clbls.may_contain(lbl2));
                         collect_parents(r1, m_pc[plbl1][lbl2]);
                     }
@@ -3699,14 +3687,12 @@ namespace smt {
         void match_new_patterns() {
             TRACE("mam_new_pat", tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
-            svector<qp_pair>::iterator it1  = m_new_patterns.begin();
-            svector<qp_pair>::iterator end1 = m_new_patterns.end();
-            for (; it1 != end1; ++it1) {
+            for (auto const& kv : m_new_patterns) {
                 if (m_context.get_cancel_flag()) {
                     break;
                 }
-                quantifier * qa    = it1->first;
-                app *        mp    = it1->second;
+                quantifier * qa    = kv.first;
+                app *        mp    = kv.second;
                 SASSERT(m_ast_manager.is_pattern(mp));
                 app *        p     = to_app(mp->get_arg(0));
                 func_decl *  lbl   = p->get_decl();
@@ -3723,19 +3709,13 @@ namespace smt {
                 }
             }
 
-            ptr_vector<func_decl>::iterator it2  = m_tmp_trees_to_delete.begin();
-            ptr_vector<func_decl>::iterator end2 = m_tmp_trees_to_delete.end();
-            for (; it2 != end2; ++it2) {
-                func_decl * lbl      = *it2;
+            for (func_decl * lbl : m_tmp_trees_to_delete) {
                 unsigned    lbl_id   = lbl->get_decl_id();
                 code_tree * tmp_tree = m_tmp_trees[lbl_id];
                 SASSERT(tmp_tree != 0);
                 SASSERT(m_context.get_num_enodes_of(lbl) > 0);
                 m_interpreter.init(tmp_tree);
-                enode_vector::const_iterator it3  = m_context.begin_enodes_of(lbl);
-                enode_vector::const_iterator end3 = m_context.end_enodes_of(lbl);
-                for (; it3 != end3; ++it3) {
-                    enode * app = *it3;
+                for (enode * app : m_context.enodes_of(lbl)) {
                     if (m_context.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
                 }
@@ -3824,10 +3804,7 @@ namespace smt {
 
         void pop_scope(unsigned num_scopes) override {
             if (!m_to_match.empty()) {
-                ptr_vector<code_tree>::iterator it  = m_to_match.begin();
-                ptr_vector<code_tree>::iterator end = m_to_match.end();
-                for (; it != end; ++it) {
-                    code_tree * t = *it;
+                for (code_tree* t : m_to_match) {
                     t->reset_candidates();
                 }
                 m_to_match.reset();
@@ -3860,10 +3837,7 @@ namespace smt {
 
         void match() override {
             TRACE("trigger_bug", tout << "match\n"; display(tout););
-            ptr_vector<code_tree>::iterator it  = m_to_match.begin();
-            ptr_vector<code_tree>::iterator end = m_to_match.end();
-            for (; it != end; ++it) {
-                code_tree * t = *it;
+            for (code_tree* t : m_to_match) {
                 SASSERT(t->has_candidates());
                 m_interpreter.execute(t);
                 t->reset_candidates();
@@ -3884,10 +3858,7 @@ namespace smt {
                 if (t) {
                     m_interpreter.init(t);
                     func_decl * lbl = t->get_root_lbl();
-                    enode_vector::const_iterator it2  = m_context.begin_enodes_of(lbl);
-                    enode_vector::const_iterator end2 = m_context.end_enodes_of(lbl);
-                    for (; it2 != end2; ++it2) {
-                        enode * curr = *it2;
+                    for (enode * curr : m_context.enodes_of(lbl)) {
                         if (use_irrelevant || m_context.is_relevant(curr))
                             m_interpreter.execute_core(t, curr);
                     }
@@ -3924,7 +3895,7 @@ namespace smt {
 #endif
             unsigned min_gen, max_gen;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
-            m_context.add_instance(qa, pat, num_bindings, bindings, max_generation, min_gen, max_gen, used_enodes);
+            m_context.add_instance(qa, pat, num_bindings, bindings, nullptr, max_generation, min_gen, max_gen, used_enodes);
         }
 
         bool is_shared(enode * n) const override {

@@ -30,11 +30,27 @@ typedef ref<model> model_ref;
 class model : public model_core {
 protected:
     typedef obj_map<sort, ptr_vector<expr>*> sort2universe;
+    typedef obj_hashtable<func_decl> func_decl_set;
 
     ptr_vector<sort>              m_usorts;
     sort2universe                 m_usort2universe;
     model_evaluator               m_mev;
+    bool                          m_cleaned;
     struct value_proc;
+
+    struct deps_collector;    
+    struct occs_collector;    
+    struct top_sort;
+
+    func_decl_set* collect_deps(top_sort& ts, expr * e);
+    func_decl_set* collect_deps(top_sort& ts, func_interp* fi);
+    void collect_deps(top_sort& ts);    
+    void collect_occs(top_sort& ts, func_decl* f);
+    void collect_occs(top_sort& ts, expr* e);
+    void cleanup_interp(top_sort& ts, func_decl * f);
+    expr_ref cleanup_expr(top_sort& ts, expr* e, unsigned current_partition);
+    void remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s);
+    bool can_inline_def(top_sort& ts, func_decl* f);
 
 public:
     model(ast_manager & m);
@@ -54,6 +70,8 @@ public:
     sort * get_uninterpreted_sort(unsigned idx) const override;
     bool has_uninterpreted_sort(sort * s) const;
 
+    expr_ref get_inlined_const_interp(func_decl* f);
+
     //
     // Primitives for building models
     //
@@ -62,6 +80,8 @@ public:
     // Model translation
     //
     model * translate(ast_translation & translator) const;
+
+    void compress();
 
     void set_model_completion(bool f) { m_mev.set_model_completion(f); }
     void updt_params(params_ref const & p) { m_mev.updt_params(p); }

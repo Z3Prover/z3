@@ -474,7 +474,6 @@ class tseitin_cnf_tactic : public tactic {
             bool sign = m.is_not(_b, _b);
             if (!m.is_or(_b)) return NO;
             app* b = to_app(_b);
-            unsigned num = b->get_num_args();
             if (first) {
                 bool visited = true;
                 visit(a, visited);

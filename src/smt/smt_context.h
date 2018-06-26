@@ -116,6 +116,7 @@ namespace smt {
         plugin_manager<theory>      m_theories;     // mapping from theory_id -> theory
         ptr_vector<theory>          m_theory_set;   // set of theories for fast traversal
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
+        enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
         dyn_ack_manager             m_dyn_ack_manager;
         struct new_eq {
@@ -456,6 +457,8 @@ namespace smt {
         theory * get_theory(theory_id th_id) const {
             return m_theories.get_plugin(th_id);
         }
+        
+        ptr_vector<theory> const& theories() const { return m_theories.plugins(); }
 
         ptr_vector<theory>::const_iterator begin_theories() const {
             return m_theories.begin();
@@ -517,6 +520,11 @@ namespace smt {
             return id < m_decl2enodes.size() ? m_decl2enodes[id].size() : 0;
         }
 
+        enode_vector const& enodes_of(func_decl const * d) const {
+            unsigned id = d->get_decl_id();
+            return id < m_decl2enodes.size() ? m_decl2enodes[id] : m_empty_vector;
+        }
+
         enode_vector::const_iterator begin_enodes_of(func_decl const * decl) const {
             unsigned id = decl->get_decl_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : nullptr;
@@ -526,6 +534,8 @@ namespace smt {
             unsigned id = decl->get_decl_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : nullptr;
         }
+
+        ptr_vector<enode> const& enodes() const { return m_enodes; }
 
         ptr_vector<enode>::const_iterator begin_enodes() const {
             return m_enodes.begin();
@@ -553,8 +563,8 @@ namespace smt {
             return m_asserted_formulas.has_quantifiers();
         }
 
-        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
-            return m_fingerprints.insert(data, data_hash, num_args, args);
+        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = 0) {
+            return m_fingerprints.insert(data, data_hash, num_args, args, def);
         }
 
         theory_id get_var_theory(bool_var v) const {
@@ -735,6 +745,8 @@ namespace smt {
         bool internalize_theory_atom(app * n, bool gate_ctx);
 
         void internalize_quantifier(quantifier * q, bool gate_ctx);
+
+        void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);
 
@@ -957,7 +969,7 @@ namespace smt {
 
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
-        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation,
+        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
                           unsigned min_top_generation, unsigned max_top_generation, ptr_vector<enode> & used_enodes);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }

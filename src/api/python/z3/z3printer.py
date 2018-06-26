@@ -959,8 +959,10 @@ class Formatter:
             ys_pp   = seq3(ys, '[', ']')
         if a.is_forall():
             header = 'ForAll'
-        else:
+        elif a.is_exists():
             header = 'Exists'
+        else:
+            header = 'Lambda'
         return seq1(header, (ys_pp, body_pp))
 
     def pp_expr(self, a, d, xs):

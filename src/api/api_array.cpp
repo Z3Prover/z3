@@ -47,6 +47,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
     Z3_ast Z3_API Z3_mk_select(Z3_context c, Z3_ast a, Z3_ast i) {
         Z3_TRY;
         LOG_Z3_mk_select(c, a, i);
@@ -98,6 +99,7 @@ extern "C" {
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(nullptr);
     }
+
 
     Z3_ast Z3_API Z3_mk_store(Z3_context c, Z3_ast a, Z3_ast i, Z3_ast v) {
         Z3_TRY;
@@ -154,6 +156,7 @@ extern "C" {
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(nullptr);
     }
+
 
     Z3_ast Z3_API Z3_mk_map(Z3_context c, Z3_func_decl f, unsigned n, Z3_ast const* args) {
         Z3_TRY;

@@ -22,7 +22,7 @@ Notes:
 
 class name_exprs_core : public name_exprs {
     struct cfg : public default_rewriter_cfg {
-        ast_manager &           m_manager;
+        ast_manager &           m;
         defined_names &         m_defined_names;
         expr_predicate &        m_pred;
         
@@ -33,7 +33,7 @@ class name_exprs_core : public name_exprs {
         proof_ref_vector *      m_def_proofs;
 
         cfg(ast_manager & m, defined_names & n, expr_predicate & pred):
-            m_manager(m),
+            m(m),
             m_defined_names(n),
             m_pred(pred),
             m_r(m),
@@ -43,12 +43,12 @@ class name_exprs_core : public name_exprs {
         }
 
         void gen_name_for_expr(expr * n, expr * & t, proof * & t_pr) {
-            expr_ref  new_def(m_manager);
-            proof_ref new_def_pr(m_manager);
+            expr_ref  new_def(m);
+            proof_ref new_def_pr(m);
             
             if (m_defined_names.mk_name(n, new_def, new_def_pr, m_r, m_pr)) {
                 m_def_exprs->push_back(new_def);
-                if (m_manager.proofs_enabled())
+                if (m.proofs_enabled())
                     m_def_proofs->push_back(new_def_pr);
             }
 
@@ -57,7 +57,7 @@ class name_exprs_core : public name_exprs {
         }
 
         bool get_subst(expr * s, expr * & t, proof * & t_pr) {
-            TRACE("name_exprs", tout << "get_subst:\n" << mk_ismt2_pp(s, m_manager) << "\n";);
+            TRACE("name_exprs", tout << "get_subst:\n" << mk_ismt2_pp(s, m) << "\n";);
             if (m_pred(s)) {
                 gen_name_for_expr(s, t, t_pr);
                 return true;
@@ -84,7 +84,7 @@ public:
         m_cfg.m_def_exprs  = &new_defs;
         m_cfg.m_def_proofs = &new_def_proofs;
         m_rw(n, r, p);
-        TRACE("name_exprs", tout << mk_ismt2_pp(n, m_rw.m()) << "\n---->\n" << mk_ismt2_pp(r, m_rw.m()) << "\n";);
+        TRACE("name_exprs", tout << mk_ismt2_pp(n, m_rw.m()) << "\n---->\n" << r << "\n";);
     }
     
 
@@ -99,11 +99,11 @@ name_exprs * mk_expr_namer(ast_manager & m, defined_names & n, expr_predicate & 
 
 class name_quantifier_labels : public name_exprs_core {
     class pred : public expr_predicate {
-        ast_manager & m_manager;
+        ast_manager & m;
     public:
-        pred(ast_manager & m):m_manager(m) {}
+        pred(ast_manager & m):m(m) {}
         bool operator()(expr * t) override {
-            return is_quantifier(t) || m_manager.is_label(t);
+            return is_quantifier(t) || m.is_label(t);
         }
     };
     
@@ -124,16 +124,16 @@ name_exprs * mk_quantifier_label_namer(ast_manager & m, defined_names & n) {
 
 class name_nested_formulas : public name_exprs_core {
     struct pred : public expr_predicate {
-        ast_manager & m_manager;
+        ast_manager & m;
         expr *        m_root;
 
-        pred(ast_manager & m):m_manager(m), m_root(nullptr) {}
+        pred(ast_manager & m):m(m), m_root(0) {}
 
         bool operator()(expr * t) override {
-            TRACE("name_exprs", tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m_manager) << "\n";);
+            TRACE("name_exprs", tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m) << "\n";);
             if (is_app(t)) 
-                return to_app(t)->get_family_id() == m_manager.get_basic_family_id() && to_app(t)->get_num_args() > 0 && t != m_root;
-            return m_manager.is_label(t) || is_quantifier(t);
+                return to_app(t)->get_family_id() == m.get_basic_family_id() && to_app(t)->get_num_args() > 0 && t != m_root;
+            return m.is_label(t) || is_quantifier(t);
         }
     };
     

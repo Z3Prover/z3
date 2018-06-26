@@ -283,13 +283,11 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
                 subst_args[nidx] = n->get_arg(i);
             }
             var_subst s(m);
-            expr_ref rr(m);
-            s(def, num, subst_args.c_ptr(), rr);
+            expr_ref rr = s(def, num, subst_args.c_ptr());
             m_trail.push_back(rr);
             r = rr;
             if (m.proofs_enabled()) {
-                expr_ref instance(m);
-                s(q->get_expr(), num, subst_args.c_ptr(), instance);
+                expr_ref instance = s(q->get_expr(), num, subst_args.c_ptr());
                 proof * qi_pr = m.mk_quant_inst(m.mk_or(m.mk_not(q), instance), num, subst_args.c_ptr());
                 proof * q_pr  = nullptr;
                 mm.m_decl2macro_pr.find(d, q_pr);

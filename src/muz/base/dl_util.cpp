@@ -115,8 +115,7 @@ namespace datalog {
         expr_ref tmp(m);
         for (unsigned i = 0; i < tgt.size(); ++i) {
             if (tgt[i].get()) {
-                vs(tgt[i].get(), sub.size(), sub.c_ptr(), tmp);
-                tgt[i] = tmp;
+                tgt[i] = vs(tgt[i].get(), sub.size(), sub.c_ptr());
             }
             else {
                 tgt[i] = sub[i];

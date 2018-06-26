@@ -37,7 +37,7 @@ public class Quantifier extends BoolExpr
      **/
     public boolean isExistential()
     {
-        return !isUniversal();
+        return Native.isQuantifierExists(getContext().nCtx(), getNativeObject());
     }
 
     /**

@@ -38,7 +38,7 @@ expr_ref bind_variables::operator()(expr* fml, bool is_forall) {
     if (!m_names.empty()) {
         m_bound.reverse();
         m_names.reverse();
-        result = m.mk_quantifier(is_forall, m_bound.size(), m_bound.c_ptr(), m_names.c_ptr(), result);
+        result = m.mk_quantifier(is_forall ? forall_k : exists_k, m_bound.size(), m_bound.c_ptr(), m_names.c_ptr(), result);
     }
     m_pinned.reset();
     m_cache.reset();
