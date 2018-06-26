@@ -5630,7 +5630,7 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e.num_args()
         2
@@ -5648,16 +5648,16 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e
-        [0, 1, 10]
+        [1, 2, 20]
         >>> e.num_args()
         2
         >>> e.arg_value(0)
-        0
-        >>> e.arg_value(1)
         1
+        >>> e.arg_value(1)
+        2
         >>> try:
         ...   e.arg_value(2)
         ... except IndexError:
@@ -5679,14 +5679,14 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e
-        [0, 1, 10]
+        [1, 2, 20]
         >>> e.num_args()
         2
         >>> e.value()
-        10
+        20
         """
         return _to_expr_ref(Z3_func_entry_get_value(self.ctx.ref(), self.entry), self.ctx)
 
@@ -5700,10 +5700,10 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e.as_list()
-        [0, 1, 10]
+        [1, 2, 20]
         """
         args = [ self.arg_value(i) for i in range(self.num_args())]
         args.append(self.value())
@@ -5741,7 +5741,7 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].else_value()
         1
         """
@@ -5761,9 +5761,9 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].num_entries()
-        3
+        1
         """
         return int(Z3_func_interp_get_num_entries(self.ctx.ref(), self.f))
 
@@ -5791,14 +5791,10 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].num_entries()
-        3
+        1
         >>> m[f].entry(0)
-        [0, 1]
-        >>> m[f].entry(1)
-        [1, 1]
-        >>> m[f].entry(2)
         [2, 0]
         """
         if idx >= self.num_entries():
@@ -5825,9 +5821,9 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].as_list()
-        [[0, 1], [1, 1], [2, 0], 1]
+        [[2, 0], 1]
         """
         r = [ self.entry(i).as_list() for i in range(self.num_entries())]
         r.append(self.else_value())
@@ -5939,7 +5935,7 @@ class ModelRef(Z3PPObject):
         >>> m[x]
         1
         >>> m[f]
-        [1 -> 0, else -> 0]
+        [else -> 0]
         """
         if __debug__:
             _z3_assert(isinstance(decl, FuncDeclRef) or is_const(decl), "Z3 declaration expected")
@@ -6056,10 +6052,10 @@ class ModelRef(Z3PPObject):
         >>> m[x]
         1
         >>> m[f]
-        [1 -> 0, else -> 0]
+        [else -> 0]
         >>> for d in m: print("%s -> %s" % (d, m[d]))
         x -> 1
-        f -> [1 -> 0, else -> 0]
+        f -> [else -> 0]
         """
         if _is_int(idx):
             if idx >= len(self):

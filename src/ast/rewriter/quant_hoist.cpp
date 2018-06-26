@@ -84,7 +84,7 @@ public:
 
     unsigned pull_quantifier(bool _is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh, bool rewrite_ok) {
         unsigned index = var_counter().get_next_var(fml);
-        while (_is_forall == is_forall(fml)) {
+        while (is_quantifier(fml) && _is_forall == is_forall(fml)) {
             quantifier* q = to_quantifier(fml);
             index += q->get_num_decls();
             if (names) {

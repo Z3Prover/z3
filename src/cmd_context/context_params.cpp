@@ -34,7 +34,7 @@ context_params::context_params() {
     m_debug_ref_count = false;
     m_smtlib2_compliant = false;
     m_well_sorted_check = false;
-    m_model_compress = false;
+    m_model_compress = true;
     m_timeout = UINT_MAX;
     m_rlimit  = 0;
     updt_params();
