@@ -2297,14 +2297,14 @@ public:
             vars.resize(j);
         }
         else {
-            fml = tmp;
+            fml = std::move(tmp);
         }
     }
 
     void operator()(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
         m_elim_star(fml, tmp, pr);
-        fml = tmp;
+        fml = std::move(tmp);
     }
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {

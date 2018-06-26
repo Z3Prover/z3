@@ -66,7 +66,7 @@ public:
         TRACE("qe_verbose", 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
-        fml = result;
+        fml = std::move(result);
     }
     
     void extract_quantifier(quantifier* q, app_ref_vector& vars, expr_ref& result, bool use_fresh) {
