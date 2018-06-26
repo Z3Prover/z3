@@ -101,7 +101,7 @@ class elim_small_bv_tactic : public tactic {
                                     });
 
             var_subst vsbst(m);
-            vsbst(e, substitution.size(), substitution.c_ptr(), res);
+            res = vsbst(e, substitution.size(), substitution.c_ptr());
             SASSERT(is_well_sorted(m, res));
 
             proof_ref pr(m);
@@ -123,6 +123,9 @@ class elim_small_bv_tactic : public tactic {
             expr * const * new_no_patterns,
             expr_ref & result,
             proof_ref & result_pr) {
+            if (is_lambda(q)) {
+                return false;
+            }
             TRACE("elim_small_bv", tout << "reduce_quantifier " << mk_ismt2_pp(q, m) << std::endl; );
             unsigned long long num_steps = 0;
             unsigned curr_sz = m_bindings.size();
@@ -158,8 +161,8 @@ class elim_small_bv_tactic : public tactic {
                                            for (unsigned k = 0; k < new_bodies.size(); k++)
                                                tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
 
-                    body = q->is_forall() ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
-                                            m.mk_or(new_bodies.size(), new_bodies.c_ptr());
+                    body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
+                                          m.mk_or(new_bodies.size(), new_bodies.c_ptr());
                     SASSERT(is_well_sorted(m, body));
 
                     proof_ref pr(m);
@@ -171,7 +174,7 @@ class elim_small_bv_tactic : public tactic {
             quantifier_ref new_q(m);
             new_q = m.update_quantifier(q, body);
             unused_vars_eliminator el(m, m_params);
-            el(new_q, result);
+            result = el(new_q);
 
             TRACE("elim_small_bv", tout << "elimination result: " << mk_ismt2_pp(result, m) << std::endl; );
 

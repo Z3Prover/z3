@@ -725,8 +725,7 @@ namespace datalog {
                 }
             }
 
-            expr_ref renamed(m);
-            m_context.get_var_subst()(filter_cond, binding.size(), binding.c_ptr(), renamed);
+            expr_ref renamed = m_context.get_var_subst()(filter_cond, binding.size(), binding.c_ptr());
             app_ref app_renamed(to_app(renamed), m);
             if (remove_columns.empty()) {
                 if (!dealloc)

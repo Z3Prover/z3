@@ -98,7 +98,7 @@ namespace datalog {
         }
         var_subst vs(m, false);
         for (unsigned i = r->get_uninterpreted_tail_size(); i < r->get_tail_size(); ++i) {
-            vs(r->get_tail(i), revsub.size(), revsub.c_ptr(), result);
+            result = vs(r->get_tail(i), revsub.size(), revsub.c_ptr());
             conjs.push_back(result);
         }
         bwr.mk_and(conjs.size(), conjs.c_ptr(), result);

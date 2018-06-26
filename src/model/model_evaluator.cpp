@@ -16,10 +16,12 @@ Author:
 Revision History:
 
 --*/
+#include "util/cooperate.h"
 #include "model/model.h"
 #include "model/model_evaluator_params.hpp"
-#include "ast/rewriter/rewriter_types.h"
 #include "model/model_evaluator.h"
+#include "model/model_v2_pp.h"
+#include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/rewriter/bv_rewriter.h"
@@ -29,7 +31,6 @@ Revision History:
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/fpa_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "util/cooperate.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "model/model_smt2_pp.h"
@@ -274,7 +275,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 fi->set_else(m.get_some_value(f->get_range()));
 
             var_subst vs(m, false);
-            vs(fi->get_interp(), num, args, result);
+            result = vs(fi->get_interp(), num, args);
             return BR_REWRITE_FULL;
         }
 

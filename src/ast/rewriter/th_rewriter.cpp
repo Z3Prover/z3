@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#include "util/cooperate.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_params.hpp"
 #include "ast/rewriter/bool_rewriter.h"
@@ -28,10 +29,9 @@ Notes:
 #include "ast/rewriter/pb_rewriter.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
-#include "util/cooperate.h"
-#include "ast/rewriter/var_subst.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 
@@ -606,7 +606,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         quantifier_ref q1(m());
         proof * p1 = nullptr;
         if (is_quantifier(new_body) &&
-            to_quantifier(new_body)->is_forall() == old_q->is_forall() &&
+            to_quantifier(new_body)->get_kind() == old_q->get_kind() &&
+            to_quantifier(new_body)->get_kind() != lambda_k && 
             !old_q->has_patterns() &&
             !to_quantifier(new_body)->has_patterns()) {
 
@@ -619,7 +620,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             sorts.append(nested_q->get_num_decls(), nested_q->get_decl_sorts());
             names.append(nested_q->get_num_decls(), nested_q->get_decl_names());
 
-            q1 = m().mk_quantifier(old_q->is_forall(),
+            q1 = m().mk_quantifier(old_q->get_kind(),
                                    sorts.size(),
                                    sorts.c_ptr(),
                                    names.c_ptr(),
@@ -653,17 +654,19 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             SASSERT(is_well_sorted(m(), q1));
         }
 
-        elim_unused_vars(m(), q1, params_ref(), result);
+        SASSERT(m().get_sort(old_q) == m().get_sort(q1));
+        result = elim_unused_vars(m(), q1, params_ref());
 
-        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << mk_ismt2_pp(result, m()) << "\n";);
+        TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << "\n";);
 
         result_pr = nullptr;
         if (m().proofs_enabled()) {
             proof * p2 = nullptr;
-            if (q1.get() != result.get())
+            if (q1.get() != result.get() && q1->get_kind() != lambda_k) 
                 p2 = m().mk_elim_unused_vars(q1, result);
             result_pr = m().mk_transitivity(p1, p2);
         }
+        SASSERT(m().get_sort(old_q) == m().get_sort(result));
         return true;
     }
 
@@ -784,8 +787,8 @@ void th_rewriter::operator()(expr * t, expr_ref & result, proof_ref & result_pr)
     m_imp->operator()(t, result, result_pr);
 }
 
-void th_rewriter::operator()(expr * n, unsigned num_bindings, expr * const * bindings, expr_ref & result) {
-    m_imp->operator()(n, num_bindings, bindings, result);
+expr_ref th_rewriter::operator()(expr * n, unsigned num_bindings, expr * const * bindings) {
+    return m_imp->operator()(n, num_bindings, bindings);
 }
 
 void th_rewriter::set_substitution(expr_substitution * s) {

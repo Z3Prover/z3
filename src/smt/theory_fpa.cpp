@@ -843,14 +843,12 @@ namespace smt {
         context & ctx = get_context();
 
         bool first = true;
-        ptr_vector<enode>::const_iterator it = ctx.begin_enodes();
-        ptr_vector<enode>::const_iterator end = ctx.end_enodes();
-        for (; it != end; it++) {
-            theory_var v = (*it)->get_th_var(get_family_id());
+        for (enode* n : ctx.enodes()) {
+            theory_var v = n->get_th_var(get_family_id());
             if (v != -1) {
                 if (first) out << "fpa theory variables:" << std::endl;
                 out << v << " -> " <<
-                    mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+                    mk_ismt2_pp(n->get_owner(), m) << std::endl;
                 first = false;
             }
         }
@@ -858,30 +856,24 @@ namespace smt {
         if (first) return;
 
         out << "bv theory variables:" << std::endl;
-        it = ctx.begin_enodes();
-        end = ctx.end_enodes();
-        for (; it != end; it++) {
-            theory_var v = (*it)->get_th_var(m_bv_util.get_family_id());
+        for (enode * n : ctx.enodes()) {
+            theory_var v = n->get_th_var(m_bv_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+                mk_ismt2_pp(n->get_owner(), m) << std::endl;
         }
 
         out << "arith theory variables:" << std::endl;
-        it = ctx.begin_enodes();
-        end = ctx.end_enodes();
-        for (; it != end; it++) {
-            theory_var v = (*it)->get_th_var(m_arith_util.get_family_id());
+        for (enode* n : ctx.enodes()) {
+            theory_var v = n->get_th_var(m_arith_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+                mk_ismt2_pp(n->get_owner(), m) << std::endl;
         }
 
         out << "equivalence classes:\n";
-        it = ctx.begin_enodes();
-        end = ctx.end_enodes();
-        for (; it != end; ++it) {
-            expr * n = (*it)->get_owner();
-            expr * r = (*it)->get_root()->get_owner();
-            out << r->get_id() << " --> " << mk_ismt2_pp(n, m) << std::endl;
+        for (enode * n : ctx.enodes()) {
+            expr * e = n->get_owner();
+            expr * r = n->get_root()->get_owner();
+            out << r->get_id() << " --> " << mk_ismt2_pp(e, m) << std::endl;
         }
     }
 };

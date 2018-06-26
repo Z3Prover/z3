@@ -793,11 +793,18 @@ public:
 //
 // -----------------------------------
 
+enum quantifier_kind {
+    forall_k,
+    exists_k,
+    lambda_k
+};
+
 class quantifier : public expr {
     friend class ast_manager;
-    bool                m_forall;
+    quantifier_kind     m_kind;
     unsigned            m_num_decls;
     expr *              m_expr;
+    sort *              m_sort;
     unsigned            m_depth;
     // extra fields
     int                 m_weight;
@@ -813,18 +820,26 @@ class quantifier : public expr {
         return sizeof(quantifier) + num_decls * (sizeof(sort *) + sizeof(symbol)) + (num_patterns + num_no_patterns) * sizeof(expr*);
     }
 
-    quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
+    quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, sort* s,
                int weight, symbol const & qid, symbol const & skid, unsigned num_patterns, expr * const * patterns,
                unsigned num_no_patterns, expr * const * no_patterns);
+
+    quantifier(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, sort* sort);
+
 public:
-    bool is_forall() const { return m_forall; }
-    bool is_exists() const { return !m_forall; }
+    quantifier_kind get_kind() const { return m_kind; }
+//    bool is_forall() const { return m_kind == forall_k; }
+//    bool is_exists() const { return m_kind == exists_k; }
+//    bool is_lambda() const { return m_kind == lambda_k; }
+
     unsigned get_num_decls() const { return m_num_decls; }
     sort * const * get_decl_sorts() const { return reinterpret_cast<sort * const *>(m_patterns_decls); }
     symbol const * get_decl_names() const { return reinterpret_cast<symbol const *>(get_decl_sorts() + m_num_decls); }
     sort * get_decl_sort(unsigned idx) const { return get_decl_sorts()[idx]; }
     symbol const & get_decl_name(unsigned idx) const { return get_decl_names()[idx]; }
     expr * get_expr() const { return m_expr; }
+
+    sort * get_sort() const { return m_sort; }
 
     unsigned get_depth() const { return m_depth; }
 
@@ -844,6 +859,7 @@ public:
     void set_no_unused_vars() { m_has_unused_vars = false; }
 
     bool has_labels() const { return m_has_labels; }
+    
 
     unsigned get_num_children() const { return 1 + get_num_patterns() + get_num_no_patterns(); }
     expr * get_child(unsigned idx) const {
@@ -871,8 +887,9 @@ inline bool is_app(ast const * n)        { return n->get_kind() == AST_APP; }
 inline bool is_var(ast const * n)        { return n->get_kind() == AST_VAR; }
 inline bool is_var(ast const * n, unsigned& idx) { return is_var(n) && (idx = static_cast<var const*>(n)->get_idx(), true); }
 inline bool is_quantifier(ast const * n) { return n->get_kind() == AST_QUANTIFIER; }
-inline bool is_forall(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->is_forall(); }
-inline bool is_exists(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->is_exists(); }
+inline bool is_forall(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == forall_k; }
+inline bool is_exists(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == exists_k; }
+inline bool is_lambda(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->get_kind() == lambda_k; }
 
 // -----------------------------------
 //
@@ -950,7 +967,7 @@ protected:
     family_id     m_family_id;
 
     virtual void set_manager(ast_manager * m, family_id id) {
-        SASSERT(m_manager == 0);
+        SASSERT(m_manager == nullptr);
         m_manager   = m;
         m_family_id = id;
     }
@@ -1043,7 +1060,7 @@ enum basic_sort_kind {
 enum basic_op_kind {
     OP_TRUE, OP_FALSE, OP_EQ, OP_DISTINCT, OP_ITE, OP_AND, OP_OR, OP_XOR, OP_NOT, OP_IMPLIES, OP_OEQ, LAST_BASIC_OP,
 
-    PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO,
+    PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO, PR_BIND,
     PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT,
     PR_PUSH_QUANT, PR_ELIM_UNUSED_VARS, PR_DER, PR_QUANT_INST,
 
@@ -1487,6 +1504,7 @@ protected:
 #endif
     ast_manager *             m_format_manager; // hack for isolating format objects in a different manager.
     symbol                    m_rec_fun;
+    symbol                    m_lambda_def;
 
     void init();
 
@@ -1594,8 +1612,11 @@ public:
     bool contains(ast * a) const { return m_ast_table.contains(a); }
 
     bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
+    bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     
     symbol const& rec_fun_qid() const { return m_rec_fun; }
+
+    symbol const& lambda_def_qid() const { return m_lambda_def; }
 
     unsigned get_num_asts() const { return m_ast_table.size(); }
 
@@ -1892,7 +1913,7 @@ public:
 
 public:
 
-    quantifier * mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
+    quantifier * mk_quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, 
                                int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
                                unsigned num_patterns = 0, expr * const * patterns = nullptr,
                                unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr);
@@ -1901,7 +1922,7 @@ public:
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
                            unsigned num_patterns = 0, expr * const * patterns = nullptr,
                            unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr) {
-        return mk_quantifier(true, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
+        return mk_quantifier(forall_k, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
                              num_no_patterns, no_patterns);
     }
 
@@ -1909,9 +1930,11 @@ public:
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
                            unsigned num_patterns = 0, expr * const * patterns = nullptr,
                            unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr) {
-        return mk_quantifier(false, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
+        return mk_quantifier(exists_k, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
                              num_no_patterns, no_patterns);
     }
+
+    quantifier * mk_lambda(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body);
 
     quantifier * update_quantifier(quantifier * q, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
 
@@ -1921,9 +1944,9 @@ public:
 
     quantifier * update_quantifier_weight(quantifier * q, int new_weight);
 
-    quantifier * update_quantifier(quantifier * q, bool new_is_forall, expr * new_body);
+    quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, expr * new_body);
 
-    quantifier * update_quantifier(quantifier * q, bool new_is_forall, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
+    quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
 
 // -----------------------------------
 //
@@ -2213,6 +2236,7 @@ public:
     proof * mk_rewrite(expr * s, expr * t);
     proof * mk_oeq_rewrite(expr * s, expr * t);
     proof * mk_rewrite_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs);
+    proof * mk_bind_proof(quantifier * q, proof * p);
     proof * mk_pull_quant(expr * e, quantifier * q);
     proof * mk_push_quant(quantifier * q, expr * e);
     proof * mk_elim_unused_vars(quantifier * q, expr * r);

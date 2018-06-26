@@ -27,6 +27,7 @@ Version 4.8.0
      Use sat.acce=true to enable the full repertoire of inprocessing methods. By default, clauses that are "eliminated" by acce are tagged
      as lemmas (redundant) and are garbage collected if their glue level is high.
    - Substantial overhaul of the spacer horn clause engine.
+   - Added basic features to support Lambda expressions.
 
 - Removed features:
   - interpolation API

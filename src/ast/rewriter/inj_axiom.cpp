@@ -32,7 +32,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
     expr* arg1 = nullptr, * arg2 = nullptr, *narg = nullptr;
     expr* app1 = nullptr, * app2 = nullptr;
     expr* var1 = nullptr, * var2 = nullptr;
-    if (q->is_forall() && m.is_or(n, arg1, arg2)) {
+    if (is_forall(q) && m.is_or(n, arg1, arg2)) {
         if (m.is_not(arg2)) 
             std::swap(arg1, arg2);
         if (m.is_not(arg1, narg) && 

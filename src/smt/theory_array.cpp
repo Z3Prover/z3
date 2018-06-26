@@ -383,7 +383,7 @@ namespace smt {
             }
         }
         TRACE("array", tout << "m_found_unsupported_op: " << m_found_unsupported_op << " " << r << "\n";);
-        if (r == FC_DONE && m_found_unsupported_op) 
+        if (r == FC_DONE && m_found_unsupported_op && !get_context().get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
         return r;
     }

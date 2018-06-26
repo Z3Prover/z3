@@ -526,7 +526,7 @@ void lemma::mk_expr_core() {
                 sorts.push_back(get_sort(zks.get(i)));
                 names.push_back(zks.get(i)->get_decl()->get_name());
             }
-            m_body = m.mk_quantifier(true, zks.size(),
+            m_body = m.mk_quantifier(forall_k, zks.size(),
                                      sorts.c_ptr(),
                                      names.c_ptr(),
                                      m_body, 15, symbol(m_body->get_id()));
@@ -633,7 +633,7 @@ void lemma::instantiate(expr * const * exprs, expr_ref &result, expr *e) {
     expr *body = to_quantifier(lem)->get_expr();
     unsigned num_decls = to_quantifier(lem)->get_num_decls();
     var_subst vs(m, false);
-    vs(body, num_decls, exprs, result);
+    result = vs(body, num_decls, exprs);
 }
 
 void lemma::set_level (unsigned lvl) {
@@ -1347,7 +1347,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     if (is_sat == l_true || is_sat == l_undef) {
         if (core) { core->reset(); }
-        if (model && model->get()) {
+        if (model) {
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
             TRACE ("spacer", tout << "reachable "
                    << "is_concrete " << is_concrete << " rused: ";
@@ -1621,9 +1621,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
         ground_free_vars(trans, var_reprs, aux_vars, ut_size == 0);
         SASSERT(is_all_non_null(var_reprs));
 
-        expr_ref tmp(m);
-        var_subst(m, false)(trans, var_reprs.size (),
-                            (expr*const*)var_reprs.c_ptr(), tmp);
+        expr_ref tmp = var_subst(m, false)(trans, var_reprs.size (), (expr*const*)var_reprs.c_ptr());
         flatten_and (tmp, side);
         trans = mk_and(side);
         side.reset ();
