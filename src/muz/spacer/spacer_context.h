@@ -269,9 +269,9 @@ class pred_transformer {
     };
 
     /**
-        manager of proof-obligations (pobs)
+        manager of proof-obligations (pob_manager)
      */
-    class pobs {
+    class pob_manager {
         typedef ptr_buffer<pob, 1> pob_buffer;
         typedef obj_map<expr, pob_buffer > expr2pob_buffer;
 
@@ -280,7 +280,7 @@ class pred_transformer {
         expr2pob_buffer m_pobs;
         pob_ref_vector m_pinned;
     public:
-        pobs(pred_transformer &pt) : m_pt(pt) {}
+        pob_manager(pred_transformer &pt) : m_pt(pt) {}
         pob* mk_pob(pob *parent, unsigned level, unsigned depth,
                     expr *post, app_ref_vector const &b);
 
@@ -362,7 +362,7 @@ class pred_transformer {
     ptr_vector<datalog::rule>    m_rules;           // rules used to derive transformer
     scoped_ptr<prop_solver>      m_solver;          // solver context
     ref<solver>                  m_reach_solver;       // context for reachability facts
-    pobs                         m_pobs;            // proof obligations created so far
+    pob_manager                         m_pobs;            // proof obligations created so far
     frames                       m_frames;          // frames with lemmas
     reach_fact_ref_vector        m_reach_facts;     // reach facts
     unsigned                     m_rf_init_sz;      // number of reach fact from INIT

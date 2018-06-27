@@ -2123,9 +2123,10 @@ void pred_transformer::frames::simplify_formulas ()
 
 /// pred_transformer::pobs
 
-pob* pred_transformer::pobs::mk_pob(pob *parent,
-                                    unsigned level, unsigned depth,
-                                    expr *post, app_ref_vector const &b) {
+pob* pred_transformer::pob_manager::mk_pob(pob *parent,
+                                           unsigned level, unsigned depth,
+                                           expr *post,
+                                           app_ref_vector const &b) {
 
     if (!m_pt.ctx.reuse_pobs()) {
         pob* n = alloc(pob, parent, m_pt, level, depth);
