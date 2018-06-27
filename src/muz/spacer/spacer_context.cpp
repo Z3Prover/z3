@@ -2168,7 +2168,21 @@ pob* pred_transformer::pob_manager::mk_pob(pob *parent,
     return n;
 }
 
-
+pob* pred_transformer::pob_manager::find_pob(pob* parent, expr *post) {
+    pob p(parent, m_pt, 0, 0, false);
+    p.set_post(post);
+    pob *res = nullptr;
+    if (m_pobs.contains(p.post())) {
+        for (auto *f : m_pobs[p.post()]) {
+            if (f->parent() == parent) {
+                // try to find pob not already in queue
+                if (!f->is_in_queue()) return f;
+                res = f;
+            }
+        }
+    }
+    return res;
+}
 
 
 // ----------------

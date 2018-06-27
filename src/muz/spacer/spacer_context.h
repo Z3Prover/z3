@@ -304,6 +304,7 @@ class pred_transformer {
         }
         unsigned size() const {return m_pinned.size();}
 
+        pob* find_pob(pob* parent, expr *post);
     };
 
     class pt_rule {
@@ -601,7 +602,6 @@ class pob {
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
 
-    void set_post(expr *post);
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
@@ -610,6 +610,7 @@ public:
 
     // TBD: move into constructor and make private
     void set_post(expr *post, app_ref_vector const &binding);
+    void set_post(expr *post);
 
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
