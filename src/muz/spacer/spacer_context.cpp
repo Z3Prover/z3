@@ -3474,7 +3474,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
     case l_undef:
         // something went wrong
-        if (n.weakness() < 100 /* MAX_WEAKENSS */) {
+        if (n.weakness() < 10 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
             SASSERT(m_weak_abs);
             m_stats.m_expand_pob_undef++;
