@@ -125,7 +125,7 @@ namespace qe {
             children(term const* _t):t(*_t) {}
             ptr_vector<term>::const_iterator begin() const { return t.m_children.begin(); }
             ptr_vector<term>::const_iterator end() const { return t.m_children.end(); }
-        };
+        };        
 
         // Congruence table hash function is based on
         // roots of children and function declaration.
@@ -198,8 +198,23 @@ namespace qe {
             }
             while (curr != this);
         }
+
+        std::ostream& display(std::ostream& out) const {
+            out << "expr: " << m_expr << " class: ";
+            term const* r = this;
+            do {
+                out << r->get_id() << " ";
+                r = &r->get_next();
+            }
+            while (r != this);
+            out << "\n";
+            return out;
+        }
     };
 
+    static std::ostream& operator<<(std::ostream& out, term const& t) {
+        return t.display(out);
+    }
 
     bool term_graph::is_variable_proc::operator()(const expr * e) const {
         if (!is_app(e)) return false;
@@ -516,10 +531,7 @@ namespace qe {
 
     void term_graph::display(std::ostream &out) {
         for (term * t : m_terms) {
-            out << mk_pp(t->get_expr(), m) << " is root " << t->is_root()
-                << " cls sz " << t->get_class_size()
-                << " term " << t
-                << "\n";
+            out << *t;
         }
     }
 
@@ -608,7 +620,7 @@ namespace qe {
                 term* t = worklist.back();
                 worklist.pop_back();
                 t->set_mark(false);
-                if (m_term2app.contains(t->get_id()))
+                if (m_term2app.contains(t->get_id())) 
                     continue;
                 if (!t->is_theory() && is_projected(*t))
                     continue;
@@ -641,6 +653,7 @@ namespace qe {
             // and can be mined using other means, such as theory
             // aware core minimization
             m_tg.reset_marks();
+            TRACE("qe", m_tg.display(tout << "after purify\n"););
         }
 
         void solve_core() {
@@ -695,6 +708,7 @@ namespace qe {
                 if (!m.is_eq(lit) && find_app(lit, e))
                     res.push_back(e);
             }
+            TRACE("qe", tout << "literals: " << res << "\n";);
         }
 
         void mk_pure_equalities(const term &t, expr_ref_vector &res) {
@@ -736,7 +750,8 @@ namespace qe {
             while (r != &t);
         }
 
-        void mk_equalities(bool pure, expr_ref_vector &res) {
+        template<bool pure>
+        void mk_equalities(expr_ref_vector &res) {
             for (term *t : m_tg.m_terms) {
                 if (!t->is_root()) continue;
                 if (!m_root2rep.contains(t->get_id())) continue;
@@ -745,14 +760,15 @@ namespace qe {
                 else
                     mk_unpure_equalities(*t, res);
             }
+            TRACE("qe", tout << "literals: " << res << "\n";);
         }
 
         void mk_pure_equalities(expr_ref_vector &res) {
-            return mk_equalities(true, res);
+            mk_equalities<true>(res);
         }
 
         void mk_unpure_equalities(expr_ref_vector &res) {
-            return mk_equalities(false, res);
+            mk_equalities<false>(res);
         }
 
         // TBD: generalize for also the case of a (:var n)
@@ -811,6 +827,11 @@ namespace qe {
                 i = j;
             }
             TRACE("qe", tout << "after distinct: " << res << "\n";);
+        }
+
+        std::ostream& display(std::ostream& out) const {
+            
+            return out;
         }
 
     public:

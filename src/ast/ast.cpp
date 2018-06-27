@@ -2847,10 +2847,10 @@ proof * ast_manager::mk_bind_proof(quantifier * q, proof * p) {
 }
 
 proof * ast_manager::mk_quant_intro(quantifier * q1, quantifier * q2, proof * p) {
-	if (!p) return nullptr;
-	SASSERT(q1->get_num_decls() == q2->get_num_decls());
-	SASSERT(has_fact(p));
-	SASSERT(is_eq(get_fact(p)) || is_lambda(get_fact(p)));
+    if (!p) return nullptr;
+    SASSERT(q1->get_num_decls() == q2->get_num_decls());
+    SASSERT(has_fact(p));
+    SASSERT(is_eq(get_fact(p)) || is_lambda(get_fact(p)));
     return mk_app(m_basic_family_id, PR_QUANT_INTRO, p, mk_iff(q1, q2));
 }
 
@@ -2858,7 +2858,7 @@ proof * ast_manager::mk_oeq_quant_intro(quantifier * q1, quantifier * q2, proof 
     if (!p) return nullptr;
     SASSERT(q1->get_num_decls() == q2->get_num_decls());
     SASSERT(has_fact(p));
-    SASSERT(is_oeq(get_fact(p)));
+    SASSERT(is_oeq(get_fact(p)) || is_lambda(get_fact(p)));
     return mk_app(m_basic_family_id, PR_QUANT_INTRO, p, mk_oeq(q1, q2));
 }
 
