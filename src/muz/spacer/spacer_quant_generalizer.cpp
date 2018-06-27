@@ -114,7 +114,7 @@ void lemma_quantifier_generalizer::find_candidates(expr *e,
     if (!contains_selects(e, m)) return;
 
     app_ref_vector indices(m);
-    get_select_indices(e, indices, m);
+    get_select_indices(e, indices);
 
     app_ref_vector extra(m);
     expr_sparse_mark marked_args;
@@ -155,7 +155,7 @@ bool lemma_quantifier_generalizer::match_sk_idx(expr *e, app_ref_vector const &z
 
     if (!contains_selects(e, m)) return false;
     app_ref_vector indicies(m);
-    get_select_indices(e, indicies, m);
+    get_select_indices(e, indicies);
     if (indicies.size() > 2) return false;
 
     unsigned i=0;
@@ -255,15 +255,17 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector
 
    lb and ub are null if no bound was found
  */
-void lemma_quantifier_generalizer::mk_abs_cube(lemma_ref &lemma, app *term, var *var,
+void lemma_quantifier_generalizer::mk_abs_cube(lemma_ref &lemma, app *term,
+                                               var *var,
                                                expr_ref_vector &gnd_cube,
                                                expr_ref_vector &abs_cube,
-                                               expr *&lb, expr *&ub, unsigned &stride) {
+                                               expr *&lb, expr *&ub,
+                                               unsigned &stride) {
 
     // create an abstraction function that maps candidate term to variables
     expr_safe_replace sub(m);
     // term -> var
-    sub.insert(term , var);
+    sub.insert(term, var);
     rational val;
     if (m_arith.is_numeral(term, val)) {
         bool is_int = val.is_int();
@@ -285,19 +287,17 @@ void lemma_quantifier_generalizer::mk_abs_cube(lemma_ref &lemma, app *term, var 
 
     for (expr *lit : m_cube) {
         expr_ref abs_lit(m);
-        sub (lit,  abs_lit);
-        if (lit == abs_lit) {
-            gnd_cube.push_back(lit);
-        }
+        sub(lit, abs_lit);
+        if (lit == abs_lit) {gnd_cube.push_back(lit);}
         else {
             expr *e1, *e2;
             // generalize v=num into v>=num
             if (m.is_eq(abs_lit, e1, e2) && (e1 == var || e2 == var)) {
-            if (m_arith.is_numeral(e1)) {
-                    abs_lit = m_arith.mk_ge (var, e1);
+                if (m_arith.is_numeral(e1)) {
+                    abs_lit = m_arith.mk_ge(var, e1);
                 } else if (m_arith.is_numeral(e2)) {
                     abs_lit = m_arith.mk_ge(var, e2);
-            }
+                }
             }
             abs_cube.push_back(abs_lit);
             if (contains_selects(abs_lit, m)) {
@@ -464,7 +464,7 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
           if (ub) tout << mk_pp(ub, m); else tout << "none";
           tout << "\n";);
 
-    if (!lb && !ub) 
+    if (!lb && !ub)
         return false;
 
     // -- guess lower or upper bound if missing
@@ -542,46 +542,50 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
     return false;
 }
 
-bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &c, expr_ref &pattern, unsigned &stride) {
+bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &cube,
+                                               expr_ref &pattern,
+                                               unsigned &stride) {
     expr_ref tmp(m);
-    tmp = mk_and(c);
+    tmp = mk_and(cube);
     normalize(tmp, tmp, false, true);
-    c.reset();
-    flatten_and(tmp, c);
+    cube.reset();
+    flatten_and(tmp, cube);
 
     app_ref_vector indices(m);
-    get_select_indices(pattern, indices, m);
+    get_select_indices(pattern, indices);
 
-    // TODO
-    if (indices.size() > 1)
-        return false;
+    CTRACE("spacer_qgen", indices.empty(),
+           tout << "Found no select indices in: " << pattern << "\n";);
+
+    // TBD: handle multi-dimensional arrays and literals with multiple
+    // select terms
+    if (indices.size() != 1) return false;
 
     app *p_index = indices.get(0);
-    if (is_var(p_index)) return false;
 
-    std::vector<unsigned> instances;
-    for (expr* lit : c) {
+    unsigned_vector instances;
+    for (expr* lit : cube) {
 
         if (!contains_selects(lit, m))
             continue;
 
         indices.reset();
-        get_select_indices(lit, indices, m);
+        get_select_indices(lit, indices);
 
-        // TODO:
-        if (indices.size() > 1)
+        // TBD: handle multi-dimensional arrays
+        if (indices.size() != 1)
             continue;
 
         app *candidate = indices.get(0);
 
         unsigned size = p_index->get_num_args();
         unsigned matched = 0;
-        for (unsigned p=0; p < size; p++) {
+        for (unsigned p = 0; p < size; p++) {
             expr *arg = p_index->get_arg(p);
             if (is_var(arg)) {
                 rational val;
-                if (p < candidate->get_num_args() && 
-                    m_arith.is_numeral(candidate->get_arg(p), val) && 
+                if (p < candidate->get_num_args() &&
+                    m_arith.is_numeral(candidate->get_arg(p), val) &&
                     val.is_unsigned()) {
                     instances.push_back(val.get_unsigned());
                 }
