@@ -222,7 +222,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        m_context.register_plugin(alloc(theory_seq, m_manager));
+        m_context.register_plugin(alloc(theory_seq, m_manager, m_params));
     }
 
     void setup::setup_QF_UF(static_features const & st) {        
@@ -895,7 +895,7 @@ namespace smt {
     }
 
     void setup::setup_seq() {
-        m_context.register_plugin(alloc(smt::theory_seq, m_manager));
+        m_context.register_plugin(alloc(smt::theory_seq, m_manager, m_params));
     }
 
     void setup::setup_unknown() {

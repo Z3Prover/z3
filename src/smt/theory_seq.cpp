@@ -191,9 +191,10 @@ void theory_seq::exclusion_table::display(std::ostream& out) const {
 }
 
 
-theory_seq::theory_seq(ast_manager& m):
+theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     theory(m.mk_family_id("seq")),
     m(m),
+    m_params(params),
     m_rep(m, m_dm),
     m_reset_cache(false),
     m_eq_id(0),
@@ -273,7 +274,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>zero_length\n";);
         return FC_CONTINUE;
     }
-    if (len_based_split()) {
+    if (m_params.m_split_w_len && len_based_split()) {
         ++m_stats.m_branch_variable;
         TRACE("seq", tout << ">>split_based_on_length\n";);
         return FC_CONTINUE;

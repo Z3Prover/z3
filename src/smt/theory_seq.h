@@ -49,6 +49,8 @@ namespace smt {
         typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
+        
+        theory_seq_params const & m_params;
 
         // cache to track evaluations under equalities
         class eval_cache {
@@ -361,7 +363,7 @@ namespace smt {
         void pop_scope_eh(unsigned num_scopes) override;
         void restart_eh() override;
         void relevant_eh(app* n) override;
-        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager()); }
+        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), m_params); }
         char const * get_name() const override { return "seq"; }
         theory_var mk_var(enode* n) override;
         void apply_sort_cnstr(enode* n, sort* s) override;
@@ -621,7 +623,7 @@ namespace smt {
         void display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
         void display_nc(std::ostream& out, nc const& nc) const;
     public:
-        theory_seq(ast_manager& m);
+        theory_seq(ast_manager& m, theory_seq_params const & params);
         ~theory_seq() override;
 
         // model building
