@@ -69,7 +69,7 @@ namespace datalog {
                     // Hedge that we don't have to handle the general case for models produced
                     // by Horn clause solvers.
                     SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);
-                    vs(new_fi->get_else(), subst.size(), subst.c_ptr(), tmp);
+                    tmp = vs(new_fi->get_else(), subst.size(), subst.c_ptr());
                     old_fi->set_else(tmp);
                     old_model->register_decl(old_p, old_fi);
                 }

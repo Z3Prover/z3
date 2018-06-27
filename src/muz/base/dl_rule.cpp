@@ -292,7 +292,7 @@ namespace datalog {
                     args.push_back(m.mk_var(0, m.mk_bool_sort()));
                 }
             }
-            sub(q, args.size(), args.c_ptr(), q);
+            q = sub(q, args.size(), args.c_ptr());
             vars.reset();
             m_free_vars(q);
             vars.append(m_free_vars.size(), m_free_vars.c_ptr());
@@ -438,11 +438,7 @@ namespace datalog {
                 e = e2;
             }
         }
-        if (is_quantifier(e)) {
-            q = to_quantifier(e);
-            return q->is_forall();
-        }
-        return false;
+        return ::is_forall(e);
     }
 
 
@@ -745,7 +741,7 @@ namespace datalog {
         expr_ref unbound_tail_pre_quant(m), fixed_tail(m), quant_tail(m);
 
         var_subst vs(m, false);
-        vs(unbound_tail, subst.size(), subst.c_ptr(), unbound_tail_pre_quant);
+        unbound_tail_pre_quant = vs(unbound_tail, subst.size(), subst.c_ptr());
 
         quant_tail = m.mk_exists(q_var_cnt, qsorts.c_ptr(), qnames.c_ptr(), unbound_tail_pre_quant);
 
@@ -816,10 +812,10 @@ namespace datalog {
         app_ref_vector new_tail(m);
         svector<bool> tail_neg;
         var_subst vs(m, false);
-        vs(r->get_head(), sz, es, tmp);
+        tmp = vs(r->get_head(), sz, es);
         new_head = to_app(tmp);
         for (unsigned i = 0; i < r->get_tail_size(); ++i) {
-            vs(r->get_tail(i), sz, es, tmp);
+            tmp = vs(r->get_tail(i), sz, es);
             new_tail.push_back(to_app(tmp));
             tail_neg.push_back(r->is_neg_tail(i));
         }
@@ -984,8 +980,7 @@ namespace datalog {
 
         var_subst vs(m, false);
 
-        expr_ref new_head_e(m);
-        vs(m_head, subst_vals.size(), subst_vals.c_ptr(), new_head_e);
+        expr_ref new_head_e = vs(m_head, subst_vals.size(), subst_vals.c_ptr());
 
         m.inc_ref(new_head_e);
         m.dec_ref(m_head);
@@ -993,8 +988,7 @@ namespace datalog {
 
         for (unsigned i = 0; i < m_tail_size; i++) {
             app * old_tail = get_tail(i);
-            expr_ref new_tail_e(m);
-            vs(old_tail, subst_vals.size(), subst_vals.c_ptr(), new_tail_e);
+            expr_ref new_tail_e = vs(old_tail, subst_vals.size(), subst_vals.c_ptr());
             bool  sign     = is_neg_tail(i);
             m.inc_ref(new_tail_e);
             m.dec_ref(old_tail);

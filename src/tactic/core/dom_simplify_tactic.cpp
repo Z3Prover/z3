@@ -337,10 +337,12 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
         }
         args.reverse();
     }
+    
     pop(scope_level() - old_lvl);
     r = is_and ? mk_and(args) : mk_or(args);
     return r;
 }
+
 
 
 bool dom_simplify_tactic::init(goal& g) {

@@ -785,7 +785,7 @@ namespace {
 
     void ground_expr(expr *e, expr_ref &out, app_ref_vector &vars) {
         expr_free_vars fv;
-        ast_manager &m = out.get_manager();
+        ast_manager &m = out.m();
 
         fv(e);
         if (vars.size() < fv.size()) {
@@ -795,7 +795,7 @@ namespace {
             sort *s = fv[i] ? fv[i] : m.mk_bool_sort();
             vars[i] = mk_zk_const(m, i, s);
             var_subst vs(m, false);
-            vs(e, vars.size(),(expr * *) vars.c_ptr(), out);
+            out = vs(e, vars.size(),(expr * *) vars.c_ptr());
         }
     }
 

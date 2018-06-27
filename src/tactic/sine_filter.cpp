@@ -177,7 +177,7 @@ private:
             }
             else if (is_quantifier(curr.first)) {
                 quantifier *q = to_quantifier(curr.first);
-                if (q->is_forall()) {
+                if (is_forall(q)) {
                     if (q->has_patterns()) {
                         ptr_vector<func_decl> next_consts;
                         if (quantifier_matches(q, consts, next_consts)) {
@@ -199,7 +199,7 @@ private:
                         stack.push_back(work_item(q->get_expr(), curr.second));
                     }
                 }
-                else if (q->is_exists()) {
+                else if (is_exists(q)) {
                     stack.push_back(work_item(q->get_expr(), curr.second));
                 }
             }

@@ -35,14 +35,14 @@ namespace spacer {
         virtual ~unsat_core_plugin() {};
         virtual void compute_partial_core(proof* step) = 0;
         virtual void finalize(){};
-        
-        unsat_core_learner& m_learner;
+
+        unsat_core_learner& m_ctx;
     };
 
-    class unsat_core_plugin_lemma : public unsat_core_plugin {        
+    class unsat_core_plugin_lemma : public unsat_core_plugin {
     public:
-        unsat_core_plugin_lemma(unsat_core_learner& learner) : unsat_core_plugin(learner){};        
-        void compute_partial_core(proof* step) override;        
+        unsat_core_plugin_lemma(unsat_core_learner& learner) : unsat_core_plugin(learner){};
+        void compute_partial_core(proof* step) override;
     private:
         void add_lowest_split_to_core(proof* step) const;
     };
@@ -54,7 +54,7 @@ namespace spacer {
                                        bool use_constant_from_a=true) :
             unsat_core_plugin(learner),
             m_split_literals(split_literals),
-            m_use_constant_from_a(use_constant_from_a) {};        
+            m_use_constant_from_a(use_constant_from_a) {};
         void compute_partial_core(proof* step) override;
     private:
         bool m_split_literals;
@@ -64,8 +64,8 @@ namespace spacer {
          */
         expr_ref compute_linear_combination(const coeff_lits_t& coeff_lits);
     };
-    
-    class unsat_core_plugin_farkas_lemma_optimized : public unsat_core_plugin {        
+
+    class unsat_core_plugin_farkas_lemma_optimized : public unsat_core_plugin {
     public:
         unsat_core_plugin_farkas_lemma_optimized(unsat_core_learner& learner, ast_manager& m) : unsat_core_plugin(learner) {};
         void compute_partial_core(proof* step) override;

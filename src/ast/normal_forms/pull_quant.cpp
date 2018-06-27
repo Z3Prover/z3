@@ -49,7 +49,8 @@ struct pull_quant::imp {
                 if (is_quantifier(child)) {
                     quantifier * q = to_quantifier(child);
                     expr * body = q->get_expr();
-                    result = m_manager.update_quantifier(q, !q->is_forall(), m_manager.mk_not(body));
+                    quantifier_kind k = q->get_kind() == forall_k ? exists_k : forall_k;
+                    result = m_manager.update_quantifier(q, k, m_manager.mk_not(body));
                     return true;
                 }
                 else {
@@ -149,7 +150,7 @@ struct pull_quant::imp {
                 // 3) MBQI 
                 std::reverse(var_sorts.begin(), var_sorts.end());
                 std::reverse(var_names.begin(), var_names.end());
-                result = m_manager.mk_quantifier(forall_children,
+                result = m_manager.mk_quantifier(forall_children ? forall_k : exists_k,
                                                  var_sorts.size(),
                                                  var_sorts.c_ptr(),
                                                  var_names.c_ptr(),
@@ -220,9 +221,7 @@ struct pull_quant::imp {
                 expr_ref_buffer   new_args(m_manager);
                 expr_ref          new_arg(m_manager);
                 ptr_buffer<proof> proofs;
-                unsigned num = to_app(n)->get_num_args();
-                for (unsigned i = 0; i < num; i++) {
-                    expr * arg = to_app(n)->get_arg(i); 
+                for (expr * arg : *to_app(n)) {
                     pull_quant1(arg , new_arg);
                     new_args.push_back(new_arg);
                     if (new_arg != arg)
@@ -277,8 +276,11 @@ struct pull_quant::imp {
                                expr_ref & result,
                                proof_ref & result_pr) {
 
-            if (old_q->is_exists()) {
+            if (is_exists(old_q)) {
                 UNREACHABLE();
+                return false;
+            }
+            if (is_lambda(old_q)) {
                 return false;
             }
 

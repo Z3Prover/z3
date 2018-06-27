@@ -808,8 +808,7 @@ extern "C" {
         expr * a = to_expr(_a);
         expr * const * to   = to_exprs(_to);
         var_subst subst(m, false);
-        expr_ref new_a(m);
-        subst(a, num_exprs, to, new_a);
+        expr_ref new_a = subst(a, num_exprs, to);
         mk_c(c)->save_ast_trail(new_a);
         RETURN_Z3(of_expr(new_a.get()));
         Z3_CATCH_RETURN(nullptr);
@@ -910,6 +909,7 @@ extern "C" {
             case PR_TRANSITIVITY_STAR: return Z3_OP_PR_TRANSITIVITY_STAR;
             case PR_MONOTONICITY: return Z3_OP_PR_MONOTONICITY;
             case PR_QUANT_INTRO: return Z3_OP_PR_QUANT_INTRO;
+            case PR_BIND: return Z3_OP_PR_BIND;
             case PR_DISTRIBUTIVITY: return Z3_OP_PR_DISTRIBUTIVITY;
             case PR_AND_ELIM: return Z3_OP_PR_AND_ELIM;
             case PR_NOT_OR_ELIM: return Z3_OP_PR_NOT_OR_ELIM;

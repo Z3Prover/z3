@@ -92,6 +92,15 @@ public:
         return *this;
     }
 
+    obj_ref & operator=(obj_ref && n) {
+        SASSERT(&m_manager == &n.m_manager);
+        if (this != &n) {
+            std::swap(m_obj, n.m_obj);
+            n.reset();
+        }
+        return *this;
+    }
+
     void reset() {
         dec_ref();
         m_obj = nullptr;

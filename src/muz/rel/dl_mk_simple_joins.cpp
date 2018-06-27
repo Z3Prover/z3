@@ -237,8 +237,8 @@ namespace datalog {
             expr_ref_vector norm_subst = get_normalizer(t1, t2);
             expr_ref t1n_ref(m);
             expr_ref t2n_ref(m);
-            m_var_subst(t1, norm_subst.size(), norm_subst.c_ptr(), t1n_ref);
-            m_var_subst(t2, norm_subst.size(), norm_subst.c_ptr(), t2n_ref);
+            t1n_ref = m_var_subst(t1, norm_subst.size(), norm_subst.c_ptr());
+            t2n_ref = m_var_subst(t2, norm_subst.size(), norm_subst.c_ptr());
             app * t1n = to_app(t1n_ref);
             app * t2n = to_app(t2n_ref);
             if (t1n->get_id() > t2n->get_id()) {
@@ -531,7 +531,7 @@ namespace datalog {
                     expr_ref_vector normalizer = get_normalizer(rt1, rt2);
                     reverse_renaming(m, normalizer, denormalizer);
                     expr_ref new_transf(m);
-                    m_var_subst(t_new, denormalizer.size(), denormalizer.c_ptr(), new_transf);
+                    new_transf = m_var_subst(t_new, denormalizer.size(), denormalizer.c_ptr());
                     var_idx_set transf_vars = rm.collect_vars(new_transf);
                     TRACE("dl", tout  << mk_pp(rt1, m) << " " << mk_pp(rt2, m) << " -> " << new_transf << "\n";);            
                     counter.count_vars(rt2, -1);
@@ -549,7 +549,7 @@ namespace datalog {
                         TRACE("dl", tout << normalizer << "\nnorm\n" << normalizer2 << "\n";);
                         denormalizer.reset();
                         reverse_renaming(m, normalizer2, denormalizer);
-                        m_var_subst(t_new, denormalizer.size(), denormalizer.c_ptr(), new_transf);
+                        new_transf = m_var_subst(t_new, denormalizer.size(), denormalizer.c_ptr());
                         SASSERT(non_local_vars.subset_of(rm.collect_vars(new_transf)));
                         TRACE("dl", tout  << mk_pp(rt2, m) << " " << mk_pp(rt1, m) << " -> " << new_transf << "\n";);            
                     }

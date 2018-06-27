@@ -45,7 +45,7 @@ public:
     void operator()(expr_ref& term);
     void operator()(expr * t, expr_ref & result);
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
-    void operator()(expr * n, unsigned num_bindings, expr * const * bindings, expr_ref & result);
+    expr_ref operator()(expr * n, unsigned num_bindings, expr * const * bindings);
 
     expr_ref mk_app(func_decl* f, unsigned num_args, expr* const* args);
 

@@ -31,6 +31,7 @@ Revision History:
 #include "qe/qe_arrays.h"
 #include "qe/qe_datatypes.h"
 #include "qe/qe_lite.h"
+#include "model/model_pp.h"
 #include "model/model_evaluator.h"
 
 
@@ -616,7 +617,7 @@ public:
             qe::array_project_plugin ap(m);
             ap(mdl, array_vars, fml, vars, m_reduce_all_selects);
             SASSERT (array_vars.empty ());
-            m_rw(fml);
+            m_rw (fml);
             SASSERT (!m.is_false (fml));
 
             TRACE ("qe",
@@ -650,9 +651,9 @@ public:
         // substitute any remaining other vars
         if (!m_dont_sub && !other_vars.empty ()) {
             subst_vars (eval, other_vars, fml);
+            TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             // an extra round of simplification because subst_vars is not simplifying
             m_rw(fml);
-            TRACE ("qe", tout << "After substituting remaining other vars:\n" << fml << "\n";);
             other_vars.reset();
         }
         
