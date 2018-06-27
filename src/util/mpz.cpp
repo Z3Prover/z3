@@ -144,7 +144,7 @@ mpz_manager<SYNCH>::mpz_manager():
     else {
         m_init_cell_capacity = 6;
     }
-    set(m_int_min, -static_cast<int64>(INT_MIN));
+    set(m_int_min, -static_cast<int64_t>(INT_MIN));
 #else
     // GMP
     mpz_init(m_tmp);
@@ -231,7 +231,7 @@ void mpz_manager<SYNCH>::sub(mpz const & a, mpz const & b, mpz & c) {
 }
 
 template<bool SYNCH>
-void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64 v) {
+void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
 #ifndef _MP_GMP
     if (c.m_ptr == nullptr) {
         c.m_ptr = allocate(m_init_cell_capacity);
@@ -505,8 +505,8 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::machine_div_rem(mpz const & a, mpz const & b, mpz & q, mpz & r) {
     STRACE("mpz", tout << "[mpz-ext] divrem(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
     if (is_small(a) && is_small(b)) {
-        int64 _a = i64(a);
-        int64 _b = i64(b);
+        int64_t _a = i64(a);
+        int64_t _b = i64(b);
         set_i64(q, _a / _b);
         set_i64(r, _a % _b);
     }

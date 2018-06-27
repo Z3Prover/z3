@@ -217,7 +217,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
     }
     for (auto const& r : A_r().m_rows[i]) {
         unsigned j = r.m_j;
-        if (j == m_j) continue;
+        if (j == bound_j) continue;
         mpq const& a = r.get_val();
         int a_sign = is_pos(a)? 1: -1;
         int sign = j_sign * a_sign;

@@ -25,6 +25,7 @@ Revision History:
 #include "util/z3_exception.h"
 #include "util/common_msgs.h"
 #include "util/vector.h"
+#include "util/uint_set.h"
 #include<iomanip>
 
 namespace sat {

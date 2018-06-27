@@ -12,12 +12,13 @@ namespace lp {
 
 
 void int_solver::trace_inf_rows() const {
-    unsigned num = m_lar_solver->A_r().column_count();
-    for (unsigned v = 0; v < num; v++) {
-        if (is_int(v) && !get_value(v).is_int()) {
-            display_column(tout, v);
-        }
-    }
+    TRACE("arith_int_rows",
+          unsigned num = m_lar_solver->A_r().column_count();
+          for (unsigned v = 0; v < num; v++) {
+              if (is_int(v) && !get_value(v).is_int()) {
+                  display_column(tout, v);
+              }
+          }
     
           num = 0;
           for (unsigned i = 0; i < m_lar_solver->A_r().row_count(); i++) {
