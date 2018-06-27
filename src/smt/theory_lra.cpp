@@ -379,9 +379,8 @@ class theory_lra::imp {
             expr* n = terms[index].get();
             st.terms_to_internalize().push_back(n);
             if (a.is_add(n)) {
-                unsigned sz = to_app(n)->get_num_args();
-                for (unsigned i = 0; i < sz; ++i) {
-                    st.push(to_app(n)->get_arg(i), coeffs[index]);
+                for (expr* arg : *to_app(n)) {
+                    st.push(arg, coeffs[index]);
                 }
                 st.set_back(index);
             }
@@ -487,8 +486,7 @@ class theory_lra::imp {
                 ++index;
             }
         }
-        for (unsigned i = st.terms_to_internalize().size(); i > 0; ) {
-            --i;
+        for (unsigned i = st.terms_to_internalize().size(); i-- > 0; ) {
             expr* n = st.terms_to_internalize()[i];
             if (is_app(n)) {
                 mk_enode(to_app(n));
@@ -691,18 +689,24 @@ class theory_lra::imp {
         ++m_stats.m_add_rows;
     }
         
-    void internalize_eq(theory_var v1, theory_var v2) {                  
+    void internalize_eq(theory_var v1, theory_var v2) {     
+        TRACE("arith", tout << "internalize-eq\n";);
         enode* n1 = get_enode(v1);
         enode* n2 = get_enode(v2);
-        expr* o1 = n1->get_owner();
-        expr* o2 = n2->get_owner();
-        app_ref term(a.mk_sub(o1, o2), m);
-        theory_var z = internalize_def(term);
+        expr*  o1 = n1->get_owner();
+        expr*  o2 = n2->get_owner();
+        app_ref term(m.mk_fresh_const("eq", a.mk_real()), m);
+        scoped_internalize_state st(*this);
+        st.vars().push_back(v1);
+        st.vars().push_back(v2);        
+        st.coeffs().push_back(rational::one());
+        st.coeffs().push_back(rational::minus_one());
+        theory_var z = internalize_linearized_def(term, st);      
         lp::var_index vi = get_var_index(z);
         add_eq_constraint(m_solver->add_var_bound(vi, lp::EQ, rational::zero()), n1, n2);
         TRACE("arith", 
               tout << "v" << v1 << " = " << "v" << v2 << ": "
-              << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";);
+              << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";);
     }
 
     void del_bounds(unsigned old_size) {
@@ -750,6 +754,10 @@ class theory_lra::imp {
     theory_var internalize_def(app* term) {
         scoped_internalize_state st(*this);
         linearize_term(term, st);
+        return internalize_linearized_def(term, st);
+    }
+
+    theory_var internalize_linearized_def(app* term, scoped_internalize_state& st) {
         if (is_unit_var(st)) {
             return st.vars()[0];
         }
@@ -757,6 +765,7 @@ class theory_lra::imp {
             init_left_side(st);
             theory_var v = mk_var(term);
             lp::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
+            TRACE("arith", tout << mk_pp(term, m) << " " << v << " " << vi << "\n";);
             if (vi == UINT_MAX) {
                 vi = m_solver->add_term(m_left_side, st.coeff());
                 m_theory_var2var_index.setx(v, vi, UINT_MAX);
@@ -2814,11 +2823,12 @@ public:
         }
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
+            if (!ctx().is_relevant(get_enode(v))) out << "irr: ";
             out << "v" << v;
-            if (can_get_value(v)) out << ", value: " << get_value(v);                
-            out << ", shared: " << ctx().is_shared(get_enode(v)) 
-                << ", rel: " << ctx().is_relevant(get_enode(v)) 
-                << ", def: "; th.display_var_flat_def(out, v) << "\n";
+            if (can_get_value(v)) out << " = " << get_value(v); 
+            if (is_int(v)) out << ", int";
+            if (ctx().is_shared(get_enode(v))) out << ", shared";
+            out << " := "; th.display_var_flat_def(out, v) << "\n";
         }
     }
 
