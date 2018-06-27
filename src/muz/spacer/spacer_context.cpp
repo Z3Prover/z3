@@ -1184,7 +1184,16 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
     }
 
     // bail out of if the model is insufficient
-    if (!mdl.is_true(summary)) return expr_ref(m);
+    // (skip quantified lemmas cause we can't validate them in the model)
+    // TBD: for quantified lemmas use current instances
+    flatten_and(summary);
+    for (auto *s : summary) {
+        if (!is_quantifier(s) && !mdl.is_true(s)) {
+            TRACE("spacer", tout << "Summary not true in the model: "
+                  << mk_pp(s, m) << "\n";);
+            return expr_ref(m);
+        }
+    }
 
     // -- pick an implicant
     expr_ref_vector lits(m);
