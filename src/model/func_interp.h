@@ -57,6 +57,7 @@ public:
     expr * get_result() const { return m_result; }
     expr * get_arg(unsigned idx) const { return m_args[idx]; }
     expr * const * get_args() const { return m_args; }
+    
     /**
        \brief Return true if m.are_equal(m_args[i], args[i]) for all i in [0, arity)
     */
@@ -101,6 +102,8 @@ public:
     func_entry * get_entry(expr * const * args) const;
     bool eval_else(expr * const * args, expr_ref & result) const;
     unsigned num_entries() const { return m_entries.size(); }
+    ptr_vector<func_entry>::const_iterator begin() const { return m_entries.begin(); }
+    ptr_vector<func_entry>::const_iterator end() const { return m_entries.end(); }
     func_entry const * const * get_entries() const { return m_entries.c_ptr(); }
     func_entry const * get_entry(unsigned idx) const { return m_entries[idx]; }
 
@@ -113,6 +116,7 @@ public:
 
 private:
     bool is_fi_entry_expr(expr * e, ptr_vector<expr> & args);
+    bool is_identity() const;
 };
 
 #endif

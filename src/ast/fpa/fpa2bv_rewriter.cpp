@@ -194,6 +194,9 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {
+    if (is_lambda(old_q)) {
+        return false;
+    }
     unsigned curr_sz   = m_bindings.size();
     SASSERT(old_q->get_num_decls() <= curr_sz);
     unsigned num_decls = old_q->get_num_decls();
@@ -217,7 +220,7 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
             new_decl_names.push_back(n);
         }
     }
-    result = m().mk_quantifier(old_q->is_forall(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
+    result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
                                new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
     result_pr = nullptr;

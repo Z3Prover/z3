@@ -121,7 +121,7 @@ namespace datalog {
                     m_ground[i] = m.mk_fresh_const("c", fv[i]);
                 }
             }
-            m_var_subst(e, m_ground.size(), m_ground.c_ptr(), e);
+            e = m_var_subst(e, m_ground.size(), m_ground.c_ptr());
         }
 
         static bool rule_sort_fn(const rule *r1, const rule *r2) {

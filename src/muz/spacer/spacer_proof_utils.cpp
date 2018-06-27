@@ -285,6 +285,8 @@ namespace spacer {
                                    unsigned num_params,
                                    parameter const *params) {
         SASSERT(num_params == parents.size() + 1 /* one param is missing */);
+        arith_util a(m);
+        th_rewriter rw(m);
 
         // compute missing coefficient
         linear_combinator lcb(m);
@@ -294,19 +296,22 @@ namespace spacer {
             lcb.add_lit(p, r);
         }
 
+        expr_ref lit0(m);
+        lit0 = m.get_fact(parents.get(0));
+        // put lit0 into canonical form
+        rw(lit0);
         TRACE("spacer.fkab",
-              tout << "lit0 is: " << mk_pp(m.get_fact(parents.get(0)), m) << "\n"
+              tout << "lit0 is: " << lit0 << "\n"
               << "LCB is: " << lcb() << "\n";);
 
         expr_ref var(m), val1(m), val2(m);
-        val1 = get_coeff(m.get_fact(parents.get(0)), var);
+        val1 = get_coeff(lit0, var);
         val2 = get_coeff(lcb(), var);
         TRACE("spacer.fkab",
               tout << "var: " << var
               << " val1: " << val1 << " val2: "  << val2 << "\n";);
 
         rational rat1, rat2, coeff0;
-        arith_util a(m);
         CTRACE("spacer.fkab", !(val1 && val2),
                tout << "Failed to match variables\n";);
         if (val1 && val2 &&
@@ -318,6 +323,7 @@ namespace spacer {
         else {
             IF_VERBOSE(1, verbose_stream()
                        << "\n\n\nFAILED TO FIND COEFFICIENT\n\n\n";);
+            TRACE("spacer.fkab", tout << "FAILED TO FIND COEFFICIENT\n";);
             // failed to find a coefficient
             return proof_ref(m);
         }

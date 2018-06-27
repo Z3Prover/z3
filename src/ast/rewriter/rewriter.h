@@ -350,11 +350,13 @@ public:
     void update_inv_binding_at(unsigned i, expr* binding);
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
     void operator()(expr * t, expr_ref & result) { operator()(t, result, m_pr); }
-    void operator()(expr * n, unsigned num_bindings, expr * const * bindings, expr_ref & result) {
+    expr_ref operator()(expr * n, unsigned num_bindings, expr * const * bindings) {
+        expr_ref result(m());
         SASSERT(!m_proof_gen);
         reset();
         set_inv_bindings(num_bindings, bindings);
         operator()(n, result);
+        return result;
     }
 
     void resume(expr_ref & result, proof_ref & result_pr);

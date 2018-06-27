@@ -66,7 +66,7 @@ public:
         TRACE("qe_verbose", 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
-        fml = result;
+        fml = std::move(result);
     }
     
     void extract_quantifier(quantifier* q, app_ref_vector& vars, expr_ref& result, bool use_fresh) {
@@ -79,12 +79,12 @@ public:
             vars.push_back(a);
         }
         expr * const * exprs = (expr* const*) (vars.c_ptr() + vars.size()- nd);
-        instantiate(m, q, exprs, result);
+        result = instantiate(m, q, exprs);
     }
 
-    unsigned pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh, bool rewrite_ok) {
+    unsigned pull_quantifier(bool _is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names, bool use_fresh, bool rewrite_ok) {
         unsigned index = var_counter().get_next_var(fml);
-        while (is_quantifier(fml) && (is_forall == to_quantifier(fml)->is_forall())) {
+        while (is_quantifier(fml) && _is_forall == is_forall(fml)) {
             quantifier* q = to_quantifier(fml);
             index += q->get_num_decls();
             if (names) {
@@ -99,7 +99,7 @@ public:
             return index;
         }
         app_ref_vector vars(m);
-        pull_quantifier(is_forall, fml, vars, use_fresh, rewrite_ok);
+        pull_quantifier(_is_forall, fml, vars, use_fresh, rewrite_ok);
         if (vars.empty()) {
             return index;
         }
@@ -277,12 +277,16 @@ private:
         }
         case AST_QUANTIFIER: {
             quantifier* q = to_quantifier(fml);
-            expr_ref tmp(m);
-            if (!is_compatible(qt, q->is_forall())) {
+            if (is_lambda(q)) {
                 result = fml;
                 break;
             }
-            set_quantifier_type(qt, q->is_forall());
+            expr_ref tmp(m);
+            if (!is_compatible(qt, is_forall(q))) {
+                result = fml;
+                break;
+            }
+            set_quantifier_type(qt, is_forall(q));
             extract_quantifier(q, vars, tmp, use_fresh);
             pull_quantifier(tmp, qt, vars, result, use_fresh, rewrite_ok);
             break;

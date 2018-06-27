@@ -1395,8 +1395,7 @@ namespace datalog {
                 args.push_back(m_decl_util.mk_numeral(el, m_free_vars[i]));
             }
 
-            expr_ref ground(m_ast_manager);
-            m_vs(m_condition.get(), args.size(), args.c_ptr(), ground);
+            expr_ref ground = m_vs(m_condition.get(), args.size(), args.c_ptr());
             m_simp(ground);
 
             return m_ast_manager.is_false(ground);

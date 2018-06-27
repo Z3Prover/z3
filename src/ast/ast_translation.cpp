@@ -279,7 +279,7 @@ ast * ast_translation::process(ast const * _n) {
                 expr **  pats         = reinterpret_cast<expr**>(m_result_stack.c_ptr() + fr.m_rpos + num_decls + 1);
                 unsigned num_no_pats  = to_quantifier(n)->get_num_no_patterns();
                 expr **  no_pats      = pats + num_pats;
-                quantifier * new_q    = m_to_manager.mk_quantifier(to_quantifier(n)->is_forall(),
+                quantifier * new_q    = m_to_manager.mk_quantifier(to_quantifier(n)->get_kind(),
                                                                    num_decls,
                                                                    dsorts,
                                                                    dnames,

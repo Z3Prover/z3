@@ -495,11 +495,10 @@ class smt_printer {
         m_qlists.push_back(q);
 
         m_out << "(";
-        if (q->is_forall()) {
-            m_out << "forall ";
-        }
-        else {
-            m_out << "exists ";
+        switch (q->get_kind()) {
+        case forall_k: m_out << "forall "; break;
+        case exists_k: m_out << "exists "; break;
+        case lambda_k: m_out << "lambda "; break;
         }
         m_out << "(";
         for (unsigned i = 0; i < q->get_num_decls(); ++i) {
