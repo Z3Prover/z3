@@ -1361,7 +1361,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     if (is_sat == l_true || is_sat == l_undef) {
         if (core) { core->reset(); }
-        if (model) {
+        if (model && model->get()) {
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
             TRACE ("spacer", tout << "reachable "
                    << "is_concrete " << is_concrete << " rused: ";
