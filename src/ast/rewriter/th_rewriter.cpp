@@ -776,7 +776,7 @@ void th_rewriter::reset() {
 void th_rewriter::operator()(expr_ref & term) {
     expr_ref result(term.get_manager());
     m_imp->operator()(term, result);
-    term = result;
+    term = std::move(result);
 }
 
 void th_rewriter::operator()(expr * t, expr_ref & result) {

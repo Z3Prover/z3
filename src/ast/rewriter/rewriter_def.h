@@ -448,7 +448,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             m_r = result_stack().back();
             if (!is_ground(m_r)) {
                 m_inv_shifter(m_r, num_args, tmp);
-                m_r = tmp;
+                m_r = std::move(tmp);
             }
             result_stack().shrink(fr.m_spos);
             result_stack().push_back(m_r);
