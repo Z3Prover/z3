@@ -122,13 +122,14 @@ class lemma {
     expr_ref_vector m_cube;
     app_ref_vector m_zks;
     app_ref_vector m_bindings;
+    pob_ref m_pob;
+    model_ref m_ctp;           // counter-example to pushing
     unsigned m_lvl;            // current level of the lemma
     unsigned m_init_lvl;       // level at which lemma was created
-    pob_ref m_pob;
-    model_ref m_ctp; // counter-example to pushing
-    bool m_external;
-    unsigned m_bumped;
-    unsigned m_weakness;
+    unsigned m_bumped:16;
+    unsigned m_weakness:16;
+    unsigned m_external:1;
+    unsigned m_blocked:1;
 
     void mk_expr_core();
     void mk_cube_core();
@@ -159,8 +160,11 @@ public:
 
     void add_skolem(app *zk, app* b);
 
-    inline void set_external(bool ext){m_external = ext;}
-    inline bool external() { return m_external;}
+    void set_external(bool ext){m_external = ext;}
+    bool external() { return m_external;}
+
+    bool is_blocked() {return m_blocked;}
+    void set_blocked(bool v) {m_blocked=v;}
 
     bool is_inductive() const {return is_infty_level(m_lvl);}
     unsigned level () const {return m_lvl;}
@@ -495,6 +499,9 @@ public:
     pob* mk_pob(pob *parent, unsigned level, unsigned depth,
                 expr *post, app_ref_vector const &b){
         return m_pobs.mk_pob(parent, level, depth, post, b);
+    }
+    pob* find_pob(pob *parent, expr *post) {
+        return m_pobs.find_pob(parent, post);
     }
 
     pob* mk_pob(pob *parent, unsigned level, unsigned depth,

@@ -55,6 +55,8 @@ Notes:
 
 #include "muz/spacer/spacer_sat_answer.h"
 
+#define WEAKNESS_MAX 65535
+
 namespace spacer {
 
 /// pob -- proof obligation
@@ -473,9 +475,11 @@ void derivation::premise::set_summary (expr * summary, bool must,
 lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(lvl), m_init_lvl(m_lvl),
-    m_pob(nullptr), m_ctp(nullptr), m_external(false),
-    m_bumped(0), m_weakness(UINT_MAX) {
+    m_zks(m), m_bindings(m),
+    m_pob(nullptr), m_ctp(nullptr),
+    m_lvl(lvl), m_init_lvl(m_lvl),
+    m_bumped(0), m_weakness(WEAKNESS_MAX),
+    m_external(false), m_blocked(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -483,9 +487,11 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
 lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0),
-    m_weakness(p->weakness()) {
+    m_zks(m), m_bindings(m),
+    m_pob(p), m_ctp(nullptr),
+    m_lvl(p->level()), m_init_lvl(m_lvl),
+    m_bumped(0), m_weakness(p->weakness()),
+    m_external(false), m_blocked(false) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -495,9 +501,11 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_ref_count(0),
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0),
-    m_weakness(p->weakness())
+    m_zks(m), m_bindings(m),
+    m_pob(p), m_ctp(nullptr),
+    m_lvl(p->level()), m_init_lvl(m_lvl),
+    m_bumped(0), m_weakness(p->weakness()),
+    m_external(false), m_blocked(false)
 {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
@@ -834,7 +842,7 @@ const datalog::rule *pred_transformer::find_rule(model &model) {
 
     for (auto &kv : m_pt_rules) {
         app *tag = kv.m_value->tag();
-        if (model.eval(tag->get_decl(), val) && m.is_true(val)) {
+        if (model.is_true_decl(tag->get_decl())) {
             return &kv.m_value->rule();
         }
     }
@@ -1401,7 +1409,12 @@ bool pred_transformer::is_ctp_blocked(lemma *lem) {
     // -- find rule of the ctp
     const datalog::rule *r;
     r = find_rule(*ctp);
-    if (r == nullptr) {return false;}
+    if (r == nullptr) {
+        // no rules means lemma is blocked forever because
+        // it does not satisfy some derived facts
+        lem->set_blocked(true);
+        return true;
+    }
 
     // -- find predicates along the rule
     find_predecessors(*r, m_predicates);
@@ -1424,6 +1437,8 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
                                     unsigned& solver_level,
                                     expr_ref_vector* core)
 {
+    if (lem->is_blocked()) return false;
+
     m_stats.m_num_is_invariant++;
     if (is_ctp_blocked(lem)) {
         m_stats.m_num_ctp_blocked++;
@@ -1465,7 +1480,7 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
         SASSERT (level <= solver_level);
     }
     else if (r == l_true) {
-        // optionally remove unused symbols from the model
+        // TBD: optionally remove unused symbols from the model
         if (mdl_ref_ptr) {lem->set_ctp(*mdl_ref_ptr);}
     }
     else {lem->reset_ctp();}
@@ -3427,11 +3442,21 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
-            NOT_IMPLEMENTED_YET();
-            // n.new_post (mk_and(lemma->get_cube()));
-            // n.set_farkas_generalizer (false);
-            // // XXX hack while refactoring is in progress
-            // n.clean();
+            expr_ref c(m);
+            c = mk_and(lemma->get_cube());
+            // check that the post condition is different
+            if (c  != n.post()) {
+                pob *f = n.pt().find_pob(n.parent(), c);
+                // skip if a similar pob is already in the queue
+                if (f != &n && (!f || !f->is_in_queue())) {
+                    f = n.pt().mk_pob(n.parent(), n.level(),
+                                      n.depth(), c, n.get_binding());
+                    SASSERT(!f->is_in_queue());
+                    f->inc_level();
+                    //f->set_farkas_generalizer(false);
+                    out.push_back(f);
+                }
+            }
         }
 
         // schedule the node to be placed back in the queue
