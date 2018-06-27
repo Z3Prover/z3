@@ -562,6 +562,7 @@ public:
  * A proof obligation.
  */
 class pob {
+    // TBD: remove this
     friend class context;
     unsigned m_ref_count;
     /// parent node
@@ -576,14 +577,15 @@ class pob {
     /// new post to be swapped in for m_post
     expr_ref                m_new_post;
     /// level at which to decide the post
-    unsigned                m_level;
-
-    unsigned                m_depth;
+    unsigned                m_level:16;
+    unsigned                m_depth:16;
 
     /// whether a concrete answer to the post is found
-    bool                    m_open;
+    unsigned                m_open:1;
     /// whether to use farkas generalizer to construct a lemma blocking this node
-    bool                    m_use_farkas;
+    unsigned                m_use_farkas:1;
+    /// true if this pob is in pob_queue
+    unsigned                m_in_queue:1;
 
     unsigned                m_weakness;
     /// derivation representing the position of this node in the parent's rule
@@ -598,17 +600,25 @@ class pob {
     // depth -> watch
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
+
+    void set_post(expr *post);
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
 
     ~pob() {if (m_parent) { m_parent->erase_child(*this); }}
 
+    // TBD: move into constructor and make private
+    void set_post(expr *post, app_ref_vector const &binding);
+
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
     void reset_weakness() {m_weakness=0;}
 
-    void inc_level () {m_level++; m_depth++;reset_weakness();}
+    void inc_level () {
+        SASSERT(!is_in_queue());
+        m_level++; m_depth++;reset_weakness();
+    }
 
     void inherit(pob const &p);
     void set_derivation (derivation *d) {m_derivation = d;}
@@ -628,32 +638,25 @@ public:
     unsigned level () const { return m_level; }
     unsigned depth () const {return m_depth;}
     unsigned width () const {return m_kids.size();}
-    unsigned blocked_at(unsigned lvl=0){return (m_blocked_lvl = std::max(lvl, m_blocked_lvl)); }
+    unsigned blocked_at(unsigned lvl=0){
+        return (m_blocked_lvl = std::max(lvl, m_blocked_lvl));
+    }
 
+    bool is_in_queue() const {return m_in_queue;}
+    void set_in_queue(bool v) {m_in_queue = v;}
     bool use_farkas_generalizer () const {return m_use_farkas;}
     void set_farkas_generalizer (bool v) {m_use_farkas = v;}
 
     expr* post() const { return m_post.get (); }
-    void set_post(expr *post);
-    void set_post(expr *post, app_ref_vector const &binding);
-
-    /// indicate that a new post should be set for the node
-    void new_post(expr *post) {if (post != m_post) {m_new_post = post;}}
-    /// true if the node needs to be updated outside of the priority queue
-    bool is_dirty () {return m_new_post;}
-    /// clean a dirty node
-    void clean();
-
-    void reset () {clean (); m_derivation = nullptr; m_open = true;}
 
     bool is_closed () const { return !m_open; }
     void close();
 
-    const ptr_vector<pob> &children() {return m_kids;}
+    const ptr_vector<pob> &children() const {return m_kids;}
     void add_child (pob &v) {m_kids.push_back (&v);}
     void erase_child (pob &v) {m_kids.erase (&v);}
 
-    const ptr_vector<lemma> &lemmas() {return m_lemmas;}
+    const ptr_vector<lemma> &lemmas() const {return m_lemmas;}
     void add_lemma(lemma* new_lemma) {m_lemmas.push_back(new_lemma);}
 
     bool is_ground () const { return m_binding.empty (); }
@@ -666,8 +669,14 @@ public:
      */
     void get_skolems(app_ref_vector& v);
 
-    void on_expand() { m_expand_watches[m_depth].start(); if (m_parent.get()){m_parent.get()->on_expand();} }
-    void off_expand() { m_expand_watches[m_depth].stop(); if (m_parent.get()){m_parent.get()->off_expand();} };
+    void on_expand() {
+        m_expand_watches[m_depth].start();
+        if (m_parent.get()){m_parent.get()->on_expand();}
+    }
+    void off_expand() {
+        m_expand_watches[m_depth].stop();
+        if (m_parent.get()){m_parent.get()->off_expand();}
+    }
     double get_expand_time(unsigned depth) { return m_expand_watches[depth].get_seconds();}
 
     void inc_ref () {++m_ref_count;}
@@ -782,18 +791,22 @@ class pob_queue {
 
 public:
     pob_queue(): m_root(nullptr), m_max_level(0), m_min_depth(0) {}
-    ~pob_queue();
+    ~pob_queue() {}
 
     void reset();
     pob* top();
-    void pop() {m_data.pop ();}
+    void pop();
     void push (pob &n);
 
     void inc_level () {
         SASSERT (!m_data.empty () || m_root);
         m_max_level++;
         m_min_depth++;
-        if (m_root && m_data.empty()) { m_data.push(m_root.get()); }
+        if (m_root && m_data.empty()) {
+            SASSERT(!m_root->is_in_queue());
+            m_root->set_in_queue(true);
+            m_data.push(m_root.get());
+        }
     }
 
     pob& get_root() const {return *m_root.get ();}

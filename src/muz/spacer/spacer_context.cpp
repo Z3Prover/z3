@@ -66,8 +66,8 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_binding(m_pt.get_ast_manager()),
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
-    m_open (true), m_use_farkas (true), m_weakness(0),
-    m_blocked_lvl(0) {
+    m_open (true), m_use_farkas (true), m_in_queue(false),
+    m_weakness(0), m_blocked_lvl(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -79,6 +79,7 @@ void pob::set_post(expr* post) {
 }
 
 void pob::set_post(expr* post, app_ref_vector const &binding) {
+    SASSERT(!is_in_queue());
     normalize(post, m_post,
               m_pt.get_context().simplify_pob(),
               m_pt.get_context().use_euf_gen());
@@ -88,6 +89,7 @@ void pob::set_post(expr* post, app_ref_vector const &binding) {
 }
 
 void pob::inherit(pob const &p) {
+    SASSERT(!is_in_queue());
     SASSERT(m_parent == p.m_parent);
     SASSERT(&m_pt == &p.m_pt);
     SASSERT(m_post == p.m_post);
@@ -105,17 +107,10 @@ void pob::inherit(pob const &p) {
     m_derivation = nullptr;
 }
 
-void pob::clean () {
-    if (m_new_post) {
-        m_post = m_new_post;
-        m_new_post.reset();
-    }
-}
-
 void pob::close () {
     if (!m_open) { return; }
 
-    reset ();
+    m_derivation = nullptr;
     m_open = false;
     for (unsigned i = 0, sz = m_kids.size (); i < sz; ++i)
     { m_kids [i]->close(); }
@@ -148,6 +143,13 @@ pob* pob_queue::top ()
     return m_data.top ();
 }
 
+void pob_queue::pop() {
+    pob *p = m_data.top();
+    p->set_in_queue(false);
+    m_data.pop();
+}
+
+
 void pob_queue::set_root(pob& root)
 {
     m_root = &root;
@@ -156,19 +158,28 @@ void pob_queue::set_root(pob& root)
     reset();
 }
 
-pob_queue::~pob_queue() {}
-
 void pob_queue::reset()
 {
-    while (!m_data.empty()) { m_data.pop(); }
-    if (m_root) { m_data.push(m_root.get()); }
+    while (!m_data.empty()) {
+        pob *p = m_data.top();
+        m_data.pop();
+        p->set_in_queue(false);
+    }
+    if (m_root) {
+        SASSERT(!m_root->is_in_queue());
+        m_root->set_in_queue(true);
+        m_data.push(m_root.get());
+    }
 }
 
 void pob_queue::push(pob &n) {
-    TRACE("pob_queue",
-          tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
-    m_data.push (&n);
-    n.get_context().new_pob_eh(&n);
+    if (!n.is_in_queue()) {
+        TRACE("pob_queue",
+              tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
+        n.set_in_queue(true);
+        m_data.push (&n);
+        n.get_context().new_pob_eh(&n);
+    }
 }
 
 // ----------------
@@ -2135,7 +2146,7 @@ pob* pred_transformer::pob_manager::mk_pob(pob *parent,
         auto &buf = m_pobs[p.post()];
         for (unsigned i = 0, sz = buf.size(); i < sz; ++i) {
             pob *f = buf.get(i);
-            if (f->parent() == parent) {
+            if (f->parent() == parent && !f->is_in_queue()) {
                 f->inherit(p);
                 return f;
             }
@@ -3051,27 +3062,19 @@ bool context::check_reachability ()
         }
 
         SASSERT (m_pob_queue.top ());
-        // -- remove all closed nodes and updated all dirty nodes
+        // -- remove all closed nodes
         // -- this is necessary because there is no easy way to
         // -- remove nodes from the priority queue.
-        while (m_pob_queue.top ()->is_closed () ||
-               m_pob_queue.top()->is_dirty()) {
-            pob_ref n = m_pob_queue.top ();
-            m_pob_queue.pop ();
-            if (n->is_closed()) {
-                IF_VERBOSE (1,
-                            verbose_stream () << "Deleting closed node: "
-                            << n->pt ().head ()->get_name ()
-                            << "(" << n->level () << ", " << n->depth () << ")"
-                            << " " << n->post ()->get_id () << "\n";);
-                if (m_pob_queue.is_root(*n)) { return true; }
-                SASSERT (m_pob_queue.top ());
-            } else if (n->is_dirty()) {
-                n->clean ();
-                // -- the node n might not be at the top after it is cleaned
-                m_pob_queue.push (*n);
-            } else
-            { UNREACHABLE(); }
+        while (m_pob_queue.top ()->is_closed ()) {
+            pob_ref n = m_pob_queue.top();
+            m_pob_queue.pop();
+            IF_VERBOSE (1,
+                        verbose_stream () << "Deleting closed node: "
+                        << n->pt ().head ()->get_name ()
+                        << "(" << n->level () << ", " << n->depth () << ")"
+                        << " " << n->post ()->get_id () << "\n";);
+            if (m_pob_queue.is_root(*n)) {return true;}
+            SASSERT (m_pob_queue.top ());
         }
 
         SASSERT (m_pob_queue.top ());
@@ -3165,6 +3168,7 @@ bool context::is_reachable(pob &n)
     unsigned num_reuse_reach = 0;
 
     unsigned saved = n.level ();
+    // TBD: don't expose private field
     n.m_level = infty_level ();
     lbool res = n.pt().is_reachable(n, nullptr, &mdl,
                                     uses_level, is_concrete, r,
@@ -3409,10 +3413,11 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
-            n.new_post (mk_and(lemma->get_cube()));
-            n.set_farkas_generalizer (false);
-            // XXX hack while refactoring is in progress
-            n.clean();
+            NOT_IMPLEMENTED_YET();
+            // n.new_post (mk_and(lemma->get_cube()));
+            // n.set_farkas_generalizer (false);
+            // // XXX hack while refactoring is in progress
+            // n.clean();
         }
 
         // schedule the node to be placed back in the queue
