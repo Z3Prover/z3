@@ -270,14 +270,27 @@ class pred_transformer {
 
     /**
         manager of proof-obligations (pob_manager)
+
+        Pobs are determined uniquely by their post-condition and a parent pob.
+        They are managed by pob_manager and remain live through the
+        life of the manager
      */
     class pob_manager {
+        // a buffer that contains space for one pob and allocates more
+        // space if needed
         typedef ptr_buffer<pob, 1> pob_buffer;
+        // Type for the map from post-conditions to pobs. The common
+        // case is that each post-condition corresponds to a single
+        // pob. Other cases are handled by expanding the buffer
         typedef obj_map<expr, pob_buffer > expr2pob_buffer;
 
+        // parent predicate transformer
         pred_transformer &m_pt;
 
+        // map from post-conditions to pobs
         expr2pob_buffer m_pobs;
+
+        // a store
         pob_ref_vector m_pinned;
     public:
         pob_manager(pred_transformer &pt) : m_pt(pt) {}
@@ -673,22 +686,14 @@ public:
 };
 
 
-struct pob_lt :
-        public std::binary_function<const pob*, const pob*, bool>
-{bool operator() (const pob *pn1, const pob *pn2) const;};
-
-struct pob_gt :
-        public std::binary_function<const pob*, const pob*, bool> {
-    pob_lt lt;
-    bool operator() (const pob *n1, const pob *n2) const
-        {return lt(n2, n1);}
+struct pob_lt_proc : public std::binary_function<const pob*, const pob*, bool> {
+    bool operator() (const pob *pn1, const pob *pn2) const;
 };
 
-struct pob_ref_gt :
-        public std::binary_function<const pob_ref&, const model_ref &, bool> {
-    pob_gt gt;
-    bool operator() (const pob_ref &n1, const pob_ref &n2) const
-        {return gt (n1.get (), n2.get ());}
+struct pob_gt_proc : public std::binary_function<const pob*, const pob*, bool> {
+    bool operator() (const pob *n1, const pob *n2) const {
+        return pob_lt_proc()(n2, n1);
+    }
 };
 
 /**
@@ -767,36 +772,37 @@ public:
 
 
 class pob_queue {
+
+    typedef std::priority_queue<pob*, std::vector<pob*>, pob_gt_proc> pob_queue_ty;
     pob_ref  m_root;
     unsigned m_max_level;
     unsigned m_min_depth;
 
-    std::priority_queue<pob_ref, std::vector<pob_ref>,
-                        pob_ref_gt>     m_obligations;
+    pob_queue_ty  m_data;
 
 public:
     pob_queue(): m_root(nullptr), m_max_level(0), m_min_depth(0) {}
     ~pob_queue();
 
     void reset();
-    pob * top ();
-    void pop () {m_obligations.pop ();}
+    pob* top();
+    void pop() {m_data.pop ();}
     void push (pob &n);
 
     void inc_level () {
-        SASSERT (!m_obligations.empty () || m_root);
+        SASSERT (!m_data.empty () || m_root);
         m_max_level++;
         m_min_depth++;
-        if (m_root && m_obligations.empty()) { m_obligations.push(m_root); }
+        if (m_root && m_data.empty()) { m_data.push(m_root.get()); }
     }
 
     pob& get_root() const {return *m_root.get ();}
     void set_root(pob& n);
-    bool is_root (pob& n) const {return m_root.get () == &n;}
+    bool is_root(pob& n) const {return m_root.get () == &n;}
 
     unsigned max_level() const {return m_max_level;}
     unsigned min_depth() const {return m_min_depth;}
-    size_t size() const {return m_obligations.size();}
+    size_t size() const {return m_data.size();}
 };
 
 
@@ -910,7 +916,6 @@ class context {
     bool                 m_use_ctp;
     bool                 m_use_inc_clause;
     bool                 m_blast_term_ite;
-    bool                 m_reuse_pobs;
     bool                 m_use_ind_gen;
     bool                 m_use_array_eq_gen;
     bool                 m_validate_lemmas;
@@ -1007,7 +1012,6 @@ public:
     bool use_ctp() {return m_use_ctp;}
     bool use_inc_clause() {return m_use_inc_clause;}
     bool blast_term_ite() {return m_blast_term_ite;}
-    bool reuse_pobs() {return m_reuse_pobs;}
     bool elim_aux() {return m_elim_aux;}
     bool reach_dnf() {return m_reach_dnf;}
 

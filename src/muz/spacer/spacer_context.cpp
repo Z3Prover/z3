@@ -137,15 +137,15 @@ void pob::get_skolems(app_ref_vector &v) {
 pob* pob_queue::top ()
 {
     /// nothing in the queue
-    if (m_obligations.empty()) { return nullptr; }
+    if (m_data.empty()) { return nullptr; }
     /// top queue element is above max level
-    if (m_obligations.top()->level() > m_max_level) { return nullptr; }
+    if (m_data.top()->level() > m_max_level) { return nullptr; }
     /// top queue element is at the max level, but at a higher than base depth
-    if (m_obligations.top ()->level () == m_max_level &&
-        m_obligations.top()->depth() > m_min_depth) { return nullptr; }
+    if (m_data.top ()->level () == m_max_level &&
+        m_data.top()->depth() > m_min_depth) { return nullptr; }
 
     /// there is something good in the queue
-    return m_obligations.top ().get ();
+    return m_data.top ();
 }
 
 void pob_queue::set_root(pob& root)
@@ -160,14 +160,14 @@ pob_queue::~pob_queue() {}
 
 void pob_queue::reset()
 {
-    while (!m_obligations.empty()) { m_obligations.pop(); }
-    if (m_root) { m_obligations.push(m_root); }
+    while (!m_data.empty()) { m_data.pop(); }
+    if (m_root) { m_data.push(m_root.get()); }
 }
 
 void pob_queue::push(pob &n) {
     TRACE("pob_queue",
           tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
-    m_obligations.push (&n);
+    m_data.push (&n);
     n.get_context().new_pob_eh(&n);
 }
 
@@ -2127,13 +2127,6 @@ pob* pred_transformer::pob_manager::mk_pob(pob *parent,
                                            unsigned level, unsigned depth,
                                            expr *post,
                                            app_ref_vector const &b) {
-
-    if (!m_pt.ctx.reuse_pobs()) {
-        pob* n = alloc(pob, parent, m_pt, level, depth);
-        n->set_post(post, b);
-        return n;
-    }
-
     // create a new pob and set its post to normalize it
     pob p(parent, m_pt, level, depth, false);
     p.set_post(post, b);
@@ -2211,7 +2204,6 @@ void context::updt_params() {
     m_use_ctp = m_params.spacer_ctp();
     m_use_inc_clause = m_params.spacer_use_inc_clause();
     m_blast_term_ite = m_params.spacer_blast_term_ite();
-    m_reuse_pobs = m_params.spacer_reuse_pobs();
     m_use_ind_gen = m_params.spacer_use_inductive_generalizer();
     m_use_array_eq_gen = m_params.spacer_use_array_eq_generalizer();
     m_validate_lemmas = m_params.spacer_validate_lemmas();
@@ -3936,7 +3928,7 @@ bool context::is_inductive() {
 }
 
 /// pob_lt operator
-inline bool pob_lt::operator() (const pob *pn1, const pob *pn2) const
+inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
 {
     SASSERT (pn1);
     SASSERT (pn2);
