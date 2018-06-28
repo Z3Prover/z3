@@ -80,6 +80,51 @@ struct index_lt_proc : public std::binary_function<app*, app *, bool> {
     }
 };
 
+
+    struct has_nlira_functor {
+        struct found{};
+
+        ast_manager &m;
+        arith_util   u;
+
+        has_nlira_functor(ast_manager &_m) : m(_m), u(m) {}
+
+        void operator()(var *) {}
+        void operator()(quantifier *) {}
+        void operator()(app *n) {
+            family_id fid = n->get_family_id();
+            if (fid != u.get_family_id()) return;
+
+            switch(n->get_decl_kind()) {
+            case OP_MUL:
+                if (n->get_num_args() != 2)
+                    throw found();
+                if (!u.is_numeral(n->get_arg(0)) && !u.is_numeral(n->get_arg(1)))
+                    throw found();
+                return;
+            case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
+                if (!u.is_numeral(n->get_arg(1)))
+                    throw found();
+                return;
+            default:
+                return;
+            }
+            return;
+        }
+    };
+
+    bool has_nlira(expr_ref_vector &v) {
+        has_nlira_functor fn(v.m());
+        expr_fast_mark1 visited;
+        try {
+            for (expr *e : v)
+                quick_for_each_expr(fn, visited, e);
+        }
+        catch (has_nlira_functor::found e) {
+            return true;
+        }
+        return false;
+    }
 }
 
 namespace spacer {
@@ -461,9 +506,15 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
 
     mk_abs_cube(lemma, term, var, gnd_cube, abs_cube, lb, ub, stride);
     if (abs_cube.empty()) {return false;}
+    if (has_nlira(abs_cube)) {
+        TRACE("spacer_qgen",
+              tout << "non-linear expression: " << abs_cube << "\n";);
+        return false;
+    }
 
     TRACE("spacer_qgen",
           tout << "abs_cube is: " << mk_and(abs_cube) << "\n";
+          tout << "term: " << mk_pp(term, m) << "\n";
           tout << "lb = ";
           if (lb) tout << mk_pp(lb, m); else tout << "none";
           tout << "\n";
