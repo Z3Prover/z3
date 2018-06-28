@@ -191,9 +191,15 @@ expr* times_minus_one(expr *e, arith_util &arith) {
     Find sub-expression of the form (select A (+ sk!0 t)) and replaces
     (+ sk!0 t) --> sk!0 and sk!0 --> (+ sk!0 (* (- 1) t))
 
-    Current implementation is an ugly hack for one special case
+
+    rewrites bind to  (+ bsk!0 t) where bsk!0 is the original binding for sk!0
+
+    Current implementation is an ugly hack for one special
+    case. Should be rewritten based on an equality solver from qe
 */
-void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector const &zks, expr_ref &bind) {
+void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube,
+                                           app_ref_vector const &zks,
+                                           expr_ref &bind) {
     if (zks.size() != 1) return;
 
     arith_util arith(m);
@@ -219,8 +225,8 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector
                     kids_bind.push_back(bind);
                 }
                 else {
-                    kids.push_back (times_minus_one(arg, arith));
-                    kids_bind.push_back (times_minus_one(arg, arith));
+                    kids.push_back(times_minus_one(arg, arith));
+                    kids_bind.push_back(arg);
                 }
             }
             if (!found) continue;
@@ -228,7 +234,8 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector
             rep = arith.mk_add(kids.size(), kids.c_ptr());
             bind = arith.mk_add(kids_bind.size(), kids_bind.c_ptr());
             TRACE("spacer_qgen",
-                  tout << "replace " << mk_pp(idx, m) << " with " << mk_pp(rep, m) << "\n";);
+                  tout << "replace " << mk_pp(idx, m) << " with " << mk_pp(rep, m) << "\n"
+                  << "bind is: " << bind << "\n";);
             break;
         }
     }
