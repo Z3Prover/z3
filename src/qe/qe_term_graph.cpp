@@ -200,13 +200,12 @@ namespace qe {
         }
 
         std::ostream& display(std::ostream& out) const {
-            out << "expr: " << m_expr << " class: ";
-            term const* r = this;
-            do {
+            out << get_id() << ": " << m_expr << " - ";
+            term const* r = &this->get_next();
+            while (r != this) {
                 out << r->get_id() << " ";
                 r = &r->get_next();
             }
-            while (r != this);
             out << "\n";
             return out;
         }
@@ -554,7 +553,7 @@ namespace qe {
         }
     }
 
-    expr_ref term_graph::to_app() {
+    expr_ref term_graph::to_expr() {
         expr_ref_vector lits(m);
         to_lits(lits);
         return mk_and(lits);
@@ -587,8 +586,15 @@ namespace qe {
             app* a = ::to_app(e);
             expr_ref_buffer kids(m);
             for (term* ch : term::children(t)) {
-                if (!m_root2rep.find(ch->get_root().get_id(), e)) return nullptr;
-                kids.push_back(e);
+                // prefer a node that resembles current child, 
+                // otherwise, pick a root representative, if present.
+                if (m_term2app.find(ch->get_id(), e))
+                    kids.push_back(e);
+                else if (m_root2rep.find(ch->get_root().get_id(), e)) 
+                    kids.push_back(e);
+                else 
+                    return nullptr;
+                TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
             }
             expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
             m_pinned.push_back(pure);
@@ -601,6 +607,12 @@ namespace qe {
             if (!t2) return t1 != nullptr;
             return m.is_unique_value(t1) && !m.is_unique_value(t2);
         }
+
+        struct term_depth {
+            bool operator()(term const* t1, term const* t2) const {
+                return get_depth(t1->get_expr()) < get_depth(t2->get_expr());
+            }
+        };           
 
         void purify() {
             // - propagate representatives up over parents.
@@ -615,10 +627,12 @@ namespace qe {
                 worklist.push_back(t);
                 t->set_mark(true);
             }
+            // traverse worklist in order of depth.
+            term_depth td;
+            std::sort(worklist.begin(), worklist.end(), td);
 
-            while (!worklist.empty()) {
-                term* t = worklist.back();
-                worklist.pop_back();
+            for (unsigned i = 0; i < worklist.size(); ++i) {
+                term* t = worklist[i];
                 t->set_mark(false);
                 if (m_term2app.contains(t->get_id())) 
                     continue;
@@ -629,8 +643,8 @@ namespace qe {
                 if (!pure) continue;
 
                 m_term2app.insert(t->get_id(), pure);
-                expr* rep = nullptr;
-                // ensure that the root has a representative
+                TRACE("qe_verbose", tout << "purified " << *t << " " << mk_pp(pure, m) << "\n";);
+                expr* rep = nullptr;                // ensure that the root has a representative
                 m_root2rep.find(t->get_root().get_id(), rep);
 
                 // update rep with pure if it is better
@@ -653,7 +667,7 @@ namespace qe {
             // and can be mined using other means, such as theory
             // aware core minimization
             m_tg.reset_marks();
-            TRACE("qe", m_tg.display(tout << "after purify\n"););
+            TRACE("qe", display(tout << "after purify\n"););
         }
 
         void solve_core() {
@@ -664,10 +678,11 @@ namespace qe {
                 worklist.push_back(t);
                 t->set_mark(true);
             }
+            term_depth td;
+            std::sort(worklist.begin(), worklist.end(), td);
 
-            while (!worklist.empty()) {
-                term* t = worklist.back();
-                worklist.pop_back();
+            for (unsigned i = 0; i < worklist.size(); ++i) {
+                term* t = worklist[i];
                 t->set_mark(false);
                 if (m_term2app.contains(t->get_id()))
                     continue;
@@ -695,11 +710,16 @@ namespace qe {
         }
 
         bool find_app(term &t, expr *&res) {
-            return m_root2rep.find(t.get_root().get_id(), res);
+            return 
+                m_term2app.find(t.get_id(), res) ||
+                m_root2rep.find(t.get_root().get_id(), res);
         }
 
         bool find_app(expr *lit, expr *&res) {
-            return m_root2rep.find(m_tg.get_term(lit)->get_root().get_id(), res);
+            term const* t = m_tg.get_term(lit);
+            return 
+                m_term2app.find(t->get_id(), res) ||
+                m_root2rep.find(t->get_root().get_id(), res);
         }
 
         void mk_lits(expr_ref_vector &res) {
@@ -709,6 +729,90 @@ namespace qe {
                     res.push_back(e);
             }
             TRACE("qe", tout << "literals: " << res << "\n";);
+        }
+
+        void lits2pure(expr_ref_vector& res) {
+            expr *e1 = nullptr, *e2 = nullptr, *p1 = nullptr, *p2 = nullptr;
+            for (auto *lit : m_tg.m_lits) {
+                if (m.is_eq(lit, e1, e2)) {
+                    if (find_app(e1, p1) && find_app(e2, p2)) {
+                        if (p1 != p2) 
+                            res.push_back(m.mk_eq(p1, p2));
+                    }
+                    else {
+                        TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
+                    }
+                }
+                else if (m.is_distinct(lit)) {
+                    ptr_buffer<expr> diff;
+                    for (expr* arg : *to_app(lit)) {
+                        if (find_app(arg, p1)) {
+                            diff.push_back(p1);
+                        }
+                    }
+                    if (diff.size() > 1) {
+                        res.push_back(m.mk_distinct(diff.size(), diff.c_ptr()));
+                    }
+                    else {
+                        TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
+                    }
+                }
+                else if (find_app(lit, p1)) {
+                    res.push_back(p1);
+                }
+                else {
+                    TRACE("qe", tout << "skipping " << mk_pp(lit, m) << "\n";);
+                }
+            }
+            TRACE("qe", tout << "literals: " << res << "\n";);            
+        }
+
+        void mk_distinct(expr_ref_vector& res) {
+            vector<ptr_vector<term>> decl2terms; // terms that use function f
+            ptr_vector<func_decl> decls;
+            decl2terms.reset();
+            // Collect the projected function symbols.
+            for (term *t : m_tg.m_terms) {
+                expr* e = t->get_expr();
+                if (!is_app(e)) continue;
+                if (!is_projected(*t)) continue;
+                app* a = to_app(e);
+                func_decl* d = a->get_decl();
+                if (d->get_arity() == 0) continue;
+                unsigned id = d->get_decl_id();
+                decl2terms.reserve(id+1);
+                if (decl2terms[id].empty()) decls.push_back(d);
+                decl2terms[id].push_back(t);
+            }
+            
+            //
+            // for each projected function that occurs 
+            // (may occur) in multiple congruence classes, 
+            // produce assertions that non-congruent arguments 
+            // are forced distinct.
+            //
+            for (func_decl* d : decls) {
+                unsigned id = d->get_decl_id();
+                ptr_vector<term> const& terms = decl2terms[id];
+                if (terms.size() <= 1) continue;
+                unsigned arity = d->get_arity();
+                for (unsigned i = 0; i < arity; ++i) {
+                    obj_hashtable<expr> roots;
+                    for (term* t : terms) {
+                        expr* arg = to_app(t->get_expr())->get_arg(i);
+                        term const& root = m_tg.get_term(arg)->get_root();
+                        roots.insert(root.get_expr());
+                    }
+                    if (roots.size() > 1) {
+                        ptr_buffer<expr> args;
+                        for (expr* r : roots) {
+                            args.push_back(r);
+                        }
+                        res.push_back(m.mk_distinct(args.size(), args.c_ptr()));
+                    }
+                }
+            }
+            TRACE("qe", tout << res << "\n";);
         }
 
         void mk_pure_equalities(const term &t, expr_ref_vector &res) {
@@ -830,7 +934,15 @@ namespace qe {
         }
 
         std::ostream& display(std::ostream& out) const {
-            
+            m_tg.display(out);
+            out << "term2app:\n";
+            for (auto const& kv : m_term2app) {
+                out << kv.m_key << " |-> " << mk_pp(kv.m_value, m) << "\n";
+            }
+            out << "root2rep:\n";
+            for (auto const& kv : m_root2rep) {
+                out << kv.m_key << " |-> " << mk_pp(kv.m_value, m) << "\n";
+            }
             return out;
         }
 
@@ -849,9 +961,8 @@ namespace qe {
         expr_ref_vector project() {
             expr_ref_vector res(m);
             purify();
-            mk_lits(res);
-            mk_pure_equalities(res);
-            model_complete(res);
+            lits2pure(res);
+            mk_distinct(res);
             reset();
             return res;
         }

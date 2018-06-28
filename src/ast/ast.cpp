@@ -1122,11 +1122,11 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(num_args, args), m_oeq_decls) : nullptr;
     case OP_DISTINCT:
         return decl_plugin::mk_func_decl(k, num_parameters, parameters, num_args, args, range);
-	case PR_BIND: {
-            ptr_buffer<sort> sorts;
-            for (unsigned i = 0; i < num_args; ++i) sorts.push_back(m_manager->get_sort(args[i]));
-            return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
-	}	
+    case PR_BIND: {
+        ptr_buffer<sort> sorts;
+        for (unsigned i = 0; i < num_args; ++i) sorts.push_back(m_manager->get_sort(args[i]));
+        return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
+    }
     default:
         break;
     }
