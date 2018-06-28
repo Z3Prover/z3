@@ -126,7 +126,15 @@ void pob::get_skolems(app_ref_vector &v) {
     }
 }
 
-
+    std::ostream &pob::display(std::ostream &out, bool full) const {
+        out << pt().head()->get_name ()
+            << " level: " << level()
+            << " depth: " << depth()
+            << " post_id: " << post()->get_id()
+            << (is_in_queue() ? " in_queue" : "");
+        if (full) out << "\n" << m_post;
+        return out;
+    }
 
 // ----------------
 // pob_queue
@@ -2174,9 +2182,7 @@ pob* pred_transformer::pob_manager::mk_pob(pob *parent,
     p.set_post(post, b);
 
     if (m_pobs.contains(p.post())) {
-        auto &buf = m_pobs[p.post()];
-        for (unsigned i = 0, sz = buf.size(); i < sz; ++i) {
-            pob *f = buf.get(i);
+        for (auto *f : m_pobs[p.post()]) {
             if (f->parent() == parent && !f->is_in_queue()) {
                 f->inherit(p);
                 return f;
