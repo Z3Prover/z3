@@ -1199,7 +1199,7 @@ void mk_smt2_format(unsigned sz, expr * const* es, smt2_pp_environment & env, pa
     for (unsigned i = 0; i < sz; ++i) {
         format_ref fr(fm(m));        
         pr(es[i], num_vars, var_prefix, fr, var_names);
-        fmts.push_back(fr);
+        fmts.push_back(std::move(fr));
     }
     r = mk_seq<format**, f2f>(m, fmts.c_ptr(), fmts.c_ptr() + fmts.size(), f2f());
 }
