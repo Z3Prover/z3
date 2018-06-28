@@ -237,7 +237,7 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
         c.m_ptr = allocate(m_init_cell_capacity);
         c.m_owner = mpz_self;        
     }
-    c.m_kind = mpz_ptr;
+    c.m_kind = mpz_ptr_k;
     SASSERT(capacity(c) >= m_init_cell_capacity);
     uint64_t _v;
     if (v < 0) {
@@ -293,7 +293,7 @@ void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
         c.m_ptr = allocate(m_init_cell_capacity);
         c.m_owner = mpz_self;
     }
-    c.m_kind = mpz_ptr;
+    c.m_kind = mpz_ptr_k;
     SASSERT(capacity(c) >= m_init_cell_capacity);
     c.m_val = 1;
     if (sizeof(digit_t) == sizeof(uint64_t)) {
@@ -368,7 +368,7 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
     set_digits(a, i, src.m_digits);
     a.m_val = sign;
     
-    SASSERT(a.m_kind == mpz_ptr);
+    SASSERT(a.m_kind == mpz_ptr_k);
 }
 #endif
 
@@ -413,7 +413,7 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
             target.m_ptr             = allocate(c);
             target.m_ptr->m_size     = sz;
             target.m_ptr->m_capacity = c;
-            target.m_kind            = mpz_ptr;
+            target.m_kind            = mpz_ptr_k;
             target.m_owner           = mpz_self;
             memcpy(target.m_ptr->m_digits, digits, sizeof(digit_t) * sz);
         }
@@ -426,14 +426,14 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
             deallocate(target);
             target.m_val    = 1;
             target.m_ptr    = ptr;
-            target.m_kind   = mpz_ptr;
+            target.m_kind   = mpz_ptr_k;
             target.m_owner  = mpz_self;
         }
         else {
             target.m_ptr->m_size = sz;
             if (target.m_ptr->m_digits != digits)
                 memcpy(target.m_ptr->m_digits, digits, sizeof(digit_t) * sz);
-            target.m_kind        = mpz_ptr;
+            target.m_kind        = mpz_ptr_k;
         }
 #else
         mk_big(target);
@@ -1453,7 +1453,7 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
-        target.m_kind = mpz_ptr;
+        target.m_kind = mpz_ptr_k;
         target.m_owner = mpz_self;
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
     }
@@ -1462,14 +1462,14 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
-        target.m_kind = mpz_ptr;
+        target.m_kind = mpz_ptr_k;
         target.m_owner = mpz_self;
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
     }
     else {
         target.m_ptr->m_size = size(source);
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
-        target.m_kind = mpz_ptr;
+        target.m_kind = mpz_ptr_k;
     }
 #else
     // GMP version
@@ -1736,7 +1736,7 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
                     b.m_ptr->m_digits[i] = 0;
                 b.m_ptr->m_digits[sz-1] = 1 << shift;
                 b.m_val = 1;
-                b.m_kind = mpz_ptr;
+                b.m_kind = mpz_ptr_k;
             }
             return;
         }
@@ -1822,7 +1822,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
     if (a.m_ptr == nullptr) {
         a.m_ptr = allocate(capacity);
         a.m_owner = mpz_self;
-        a.m_kind  = mpz_ptr;
+        a.m_kind  = mpz_ptr_k;
         SASSERT(a.m_ptr->m_capacity == capacity);
         if (a.m_val == INT_MIN) {
             unsigned intmin_sz = m_int_min.m_ptr->m_size;
@@ -1852,7 +1852,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         deallocate(a);
         a.m_ptr = new_cell;
         a.m_owner = mpz_self;
-        a.m_kind = mpz_ptr;
+        a.m_kind = mpz_ptr_k;
     }
 }
 
