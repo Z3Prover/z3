@@ -693,6 +693,7 @@ public:
         if (m_ref_count == 0) {dealloc(this);}
     }
 
+    std::ostream &display(std::ostream &out, bool full = false) const;
     class on_expand_event
     {
         pob &m_p;
@@ -702,6 +703,9 @@ public:
     };
 };
 
+inline std::ostream &operator<<(std::ostream &out, pob const &p) {
+    return p.display(out);
+}
 
 struct pob_lt_proc : public std::binary_function<const pob*, const pob*, bool> {
     bool operator() (const pob *pn1, const pob *pn2) const;

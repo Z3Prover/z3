@@ -666,9 +666,6 @@ namespace {
             flatten_and(out, v);
 
             if (v.size() > 1) {
-                // sort arguments of the top-level and
-                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), ast_lt_proc());
-
                 if (use_simplify_bounds) {
                     // remove redundant inequalities
                     simplify_bounds(v);
@@ -680,6 +677,8 @@ namespace {
                     v.reset();
                     egraph.to_lits(v);
                 }
+                // sort arguments of the top-level and
+                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), ast_lt_proc());
 
                 TRACE("spacer_normalize",
                       tout << "Normalized:\n"
