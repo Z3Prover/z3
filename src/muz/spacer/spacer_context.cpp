@@ -538,7 +538,8 @@ void lemma::mk_expr_core() {
     SASSERT(!m_cube.empty());
     m_body = ::mk_and(m_cube);
     // normalize works better with a cube
-    normalize(m_body, m_body);
+    normalize(m_body, m_body, false /* no simplify bounds */, false /* term_graph */);
+
     m_body = ::push_not(m_body);
 
     if (!m_zks.empty() && has_zk_const(m_body)) {
