@@ -48,6 +48,14 @@ public:
     func_interp * get_func_interp(func_decl * d) const { func_interp * fi; return m_finterp.find(d, fi) ? fi : nullptr; }
 
     bool eval(func_decl * f, expr_ref & r) const;
+    bool is_true_decl(func_decl *f) const {
+        expr_ref r(m);
+        return eval(f, r) && m.is_true(r);
+    }
+    bool is_false_decl(func_decl *f) const {
+        expr_ref r(m);
+        return eval(f, r) && m.is_false(r);
+    }
 
     unsigned get_num_constants() const { return m_const_decls.size(); }
     unsigned get_num_functions() const { return m_func_decls.size(); }
