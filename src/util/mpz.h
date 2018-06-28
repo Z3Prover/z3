@@ -79,7 +79,7 @@ class mpz_cell {
                            under winodws, m_ptr points to a mpz_cell that store the value. 
 */
 
-enum mpz_kind { mpz_small = 0, mpz_ptr_k = 1};
+enum mpz_kind { mpz_small = 0, mpz_ptr = 1};
 enum mpz_owner { mpz_self = 0, mpz_ext = 1};
 
 class mpz {
@@ -172,9 +172,12 @@ class mpz_manager {
         if (n.m_ptr == nullptr || capacity(n) < c) {
             deallocate(n);
             n.m_val             = 1;
-            n.m_kind            = mpz_ptr_k;
+            n.m_kind            = mpz_ptr;
             n.m_owner           = mpz_self;
             n.m_ptr             = allocate(c);
+        }
+        else {
+            n.m_kind = mpz_ptr;
         }
     }
 
