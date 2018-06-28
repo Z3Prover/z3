@@ -25,52 +25,6 @@ Notes:
   Other theories: DT, ARR reduced to EUF
   BV is EUF/Boolean.
 
-  Purify EUF1 & LIRA1 & EUF2 & LIRA2
-
-  Then EUF1 & EUF2   |- false
-       LIRA1 & LIRA2 |- false
-
-  Sketch of approach by example:
-
-       A: s <= 2a <= t     & f(a) = q
-
-       B: t <= 2b <= s + 1 & f(b) != q
-
-  1. Extract arithmetic consequences of A over shared vocabulary.
-
-       A -> s <= t & (even(t) | s < t)
-
-  2a. Send to B, have B solve shared variables with EUF_B.
-        epsilon b . B & A_pure
-        epsilon b . t <= 2b <= s + 1 & s <= t & (even(t) | s < t)
-        = t <= s + 1 & (even(t) | t <= s) & s <= t & (even(t) | s < t)
-        = even(t) & t = s
-        b := t div 2
-
-      B & A_pure -> B[b/t div 2] = f(t div 2) != q & t <= s + 1
-
-  3a. Send purified result to A
-      A & B_pure -> false
-
-      Invoke the ping-pong principle to extract interpolant.
-
-  2b. Solve for shared variables with EUF.
-
-    epsilon a . A
-  = a := (s + 1) div 2 & s < t & f((s + 1) div 2) = q
-
-  3b. Send to B. Produces core
-          s < t & f((s + 1) div 2) = q
-
-  4b Solve again in arithmetic for shared variables with EUF.
-
-    epsion a . A & (s >= t | f((s + 1) div 2) != q)
-
-         a := t div 2 | s = t & f(t div 2) = q & even(t)
-
-    Send to B, produces core (s != t | f(t div 2) != q)
-
-  5b. There is no longer a solution for A. A is unsat.
 
 --*/
 
@@ -240,15 +194,24 @@ namespace qe {
     // euf_arith_mbi
 
     struct euf_arith_mbi_plugin::is_atom_proc {
-        ast_manager& m;
-        expr_ref_vector& m_atoms;
-        is_atom_proc(expr_ref_vector& atoms): m(atoms.m()), m_atoms(atoms) {}
+        ast_manager&         m;
+        expr_ref_vector&     m_atoms;
+        obj_hashtable<expr>& m_atom_set;
+
+        is_atom_proc(expr_ref_vector& atoms, obj_hashtable<expr>& atom_set): 
+            m(atoms.m()), m_atoms(atoms), m_atom_set(atom_set) {}
+
         void operator()(app* a) {
-            if (m.is_eq(a)) {
+            if (m_atom_set.contains(a)) {
+                // continue
+            }
+            else if (m.is_eq(a)) {
                 m_atoms.push_back(a);
+                m_atom_set.insert(a);
             }
             else if (m.is_bool(a) && a->get_family_id() != m.get_basic_family_id()) {
                 m_atoms.push_back(a);
+                m_atom_set.insert(a);
             }
         }
         void operator()(expr*) {}
@@ -275,38 +238,44 @@ namespace qe {
     euf_arith_mbi_plugin::euf_arith_mbi_plugin(solver* s, solver* sNot):
         mbi_plugin(s->get_manager()),
         m_atoms(m),
+        m_fmls(m),
         m_solver(s),
         m_dual_solver(sNot) {
         params_ref p;
         p.set_bool("core.minimize", true);
         m_solver->updt_params(p);
         m_dual_solver->updt_params(p);
-        expr_ref_vector fmls(m);
-        m_solver->get_assertions(fmls);
+        m_solver->get_assertions(m_fmls);
+        collect_atoms(m_fmls);
+    }
+
+    void euf_arith_mbi_plugin::collect_atoms(expr_ref_vector const& fmls) {
         expr_fast_mark1 marks;
-        is_atom_proc proc(m_atoms);
+        is_atom_proc proc(m_atoms, m_atom_set);
         for (expr* e : fmls) {
             quick_for_each_expr(proc, marks, e);
         }
     }
 
     bool euf_arith_mbi_plugin::get_literals(model_ref& mdl, expr_ref_vector& lits) {
-            model_evaluator mev(*mdl.get());
-            lits.reset();
-            for (expr* e : m_atoms) {
-                if (mev.is_true(e)) {
-                    lits.push_back(e);
-                }
-                else if (mev.is_false(e)) {
-                    lits.push_back(m.mk_not(e));
-                }
+        lits.reset();
+        for (expr* e : m_atoms) {
+            if (mdl->is_true(e)) {
+                lits.push_back(e);
             }
-            TRACE("qe", tout << "atoms from model: " << lits << "\n";);
-        lbool r = m_dual_solver->check_sat(lits);
+            else if (mdl->is_false(e)) {
+                lits.push_back(m.mk_not(e));
+            }
+        }
+        TRACE("qe", tout << "atoms from model: " << lits << "\n";);
+        solver_ref dual = m_dual_solver->translate(m, m_dual_solver->get_params());
+        dual->assert_expr(mk_not(mk_and(m_fmls)));
+        lbool r = dual->check_sat(lits);
+        TRACE("qe", dual->display(tout << "dual result " << r << "\n"););
         if (l_false == r) {
-                // use the dual solver to find a 'small' implicant
-                lits.reset();
-            m_dual_solver->get_unsat_core(lits);
+            // use the dual solver to find a 'small' implicant
+            lits.reset();
+            dual->get_unsat_core(lits);
             return true;
         }
         else {
@@ -351,15 +320,15 @@ namespace qe {
             for (auto const& def : defs) {
                 lits.push_back(m.mk_eq(def.var, def.term));
             }
-            TRACE("qe", tout << "# arith defs" << defs.size() << " avars: " << avars << " " << lits << "\n";);
+            TRACE("qe", tout << "# arith defs " << defs.size() << " avars: " << avars << " " << lits << "\n";);
 
             // 3. Project the remaining literals with respect to EUF.
             term_graph tg(m);
             tg.set_vars(m_shared, false);
             tg.add_lits(lits);
             lits.reset();
-            lits.append(tg.project(*mdl));
-            //lits.append(tg.project());
+            //lits.append(tg.project(*mdl));
+            lits.append(tg.project());
             TRACE("qe", tout << "project: " << lits << "\n";);
             return mbi_sat;
         }
@@ -374,7 +343,9 @@ namespace qe {
     }
 
     void euf_arith_mbi_plugin::block(expr_ref_vector const& lits) {
-        m_solver->assert_expr(mk_not(mk_and(lits)));
+        collect_atoms(lits);
+        m_fmls.push_back(mk_not(mk_and(lits)));
+        m_solver->assert_expr(m_fmls.back());
     }
 
 

@@ -102,7 +102,7 @@ namespace qe {
 
         // deprecate?
         void to_lits(expr_ref_vector &lits, bool all_equalities = false);
-        expr_ref to_app();
+        expr_ref to_expr();
 
         /**
          * Return literals obtained by projecting added literals

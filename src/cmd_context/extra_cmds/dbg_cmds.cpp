@@ -480,11 +480,9 @@ public:
         solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sNotB = sf(m, p, false /* no proofs */, true, true, symbol::null);
         sA->assert_expr(a);
-        sNotA->assert_expr(m.mk_not(a));
         sB->assert_expr(b);
-        sNotB->assert_expr(m.mk_not(b));
         qe::euf_arith_mbi_plugin pA(sA.get(), sNotA.get());
-        qe::euf_arith_mbi_plugin pB(sB.get(), sNotB.get());
+        qe::prop_mbi_plugin pB(sB.get());
         pA.set_shared(vars);
         pB.set_shared(vars);
         lbool res = mbi.pogo(pA, pB, itp);

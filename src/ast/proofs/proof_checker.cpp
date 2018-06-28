@@ -338,6 +338,12 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1.get(), fml) &&
+            (is_lambda(fact) || is_lambda(fml)))
+            return true;
+
+        if (match_proof(p, p1) &&
+            match_fact(p, fact) &&
+            match_fact(p1.get(), fml) &&
             (match_iff(fact.get(), t1, t2) || match_oeq(fact.get(), t1, t2)) &&
             (match_iff(fml.get(), s1, s2) || match_oeq(fml.get(), s1, s2)) &&
             m.is_oeq(fact.get()) == m.is_oeq(fml.get()) &&
@@ -361,6 +367,13 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         UNREACHABLE();
         return false;
     }
+    case PR_BIND:
+        // it is a lambda expression returning a proof object.
+        if (!is_lambda(to_app(p)->get_arg(0)))
+            return false;
+        // check that body is a proof object.
+        return true;
+
     case PR_DISTRIBUTIVITY: {
         if (match_fact(p, fact) &&
             match_proof(p) &&

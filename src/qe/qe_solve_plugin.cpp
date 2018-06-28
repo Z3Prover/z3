@@ -99,7 +99,7 @@ namespace qe {
                     v = e;
                     a_val = rational(1)/a_val;
                     t = mk_term(is_int, a_val, sign, done);
-                    TRACE("qe", tout << mk_pp(lhs, m) << " " << mk_pp(rhs, m) << " " << e << " := " << t << "\n";);
+                    TRACE("qe", tout << mk_pp(lhs, m) << " " << mk_pp(rhs, m) << " " << mk_pp(e, m) << " := " << t << "\n";);
                     return true;
                 }
                 else {

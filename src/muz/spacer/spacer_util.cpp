@@ -690,7 +690,7 @@ namespace {
                       qe::term_graph egraph(out.m());
                       for (expr* e : v) egraph.add_lit(to_app(e));
                       tout << "Reduced app:\n"
-                      << mk_pp(egraph.to_app(), out.m()) << "\n";);
+                      << mk_pp(egraph.to_expr(), out.m()) << "\n";);
                 out = mk_and(v);
             }
         }
