@@ -61,6 +61,8 @@ private:
     bool                m_use_push_bg;
     unsigned            m_current_level;    // set when m_in_level
 
+    random_gen          m_random;
+
     void assert_level_atoms(unsigned level);
 
     void ensure_level(unsigned lvl);
