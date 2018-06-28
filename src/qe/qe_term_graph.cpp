@@ -200,7 +200,8 @@ namespace qe {
         }
 
         std::ostream& display(std::ostream& out) const {
-            out << get_id() << ": " << m_expr << " - ";
+            out << get_id() << ": " << m_expr 
+                << (is_root() ? " R" : "") << " - ";
             term const* r = &this->get_next();
             while (r != this) {
                 out << r->get_id() << " ";
@@ -371,20 +372,20 @@ namespace qe {
     }
 
     void term_graph::merge(term &t1, term &t2) {
-        // -- merge might invalidate term2app cache
-        m_term2app.reset();
-        m_pinned.reset();
-
         term *a = &t1.get_root();
         term *b = &t2.get_root();
 
         if (a == b) return;
 
+        // -- merge might invalidate term2app cache
+        m_term2app.reset();
+        m_pinned.reset();
+
         if (a->get_class_size() > b->get_class_size()) {
             std::swap(a, b);
         }
 
-        // Remove parents of it from the cg table.
+        // Remove parents of b from the cg table.
         for (term* p : term::parents(b)) {
             if (!p->is_marked()) {
                 p->set_mark(true);
@@ -401,7 +402,7 @@ namespace qe {
         a->merge_eq_class(*b);
 
         // Insert parents of b's old equilvalence class into the cg table
-        for (term* p : term::parents(a)) {
+        for (term* p : term::parents(b)) {
             if (p->is_marked()) {
                 term* p_old = m_cg_table.insert_if_not_there(p);
                 p->set_mark(false);
@@ -412,6 +413,7 @@ namespace qe {
                 }
             }
         }
+        SASSERT(marks_are_clear());
     }
 
     expr* term_graph::mk_app_core (expr *e) {
@@ -484,10 +486,16 @@ namespace qe {
         }
     }
 
+    bool term_graph::marks_are_clear() {
+        for (term * t : m_terms) {
+            if (t->is_marked()) return false;
+        }
+        return true;
+    }
+
     /// Order of preference for roots of equivalence classes
     /// XXX This should be factored out to let clients control the preference
     bool term_graph::term_lt(term const &t1, term const &t2) {
-
         // prefer constants over applications
         // prefer uninterpreted constants over values
         // prefer smaller expressions over larger ones
@@ -521,6 +529,7 @@ namespace qe {
 
     /// Choose better roots for equivalence classes
     void term_graph::pick_roots() {
+        SASSERT(marks_are_clear());
         for (term* t : m_terms) {
             if (!t->is_marked() && t->is_root())
                 pick_root(*t);
@@ -589,7 +598,7 @@ namespace qe {
                 // prefer a node that resembles current child, 
                 // otherwise, pick a root representative, if present.
                 if (m_term2app.find(ch->get_id(), e))
-                    kids.push_back(e);
+                kids.push_back(e);
                 else if (m_root2rep.find(ch->get_root().get_id(), e)) 
                     kids.push_back(e);
                 else 
