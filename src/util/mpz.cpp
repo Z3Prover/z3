@@ -1970,7 +1970,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     ensure_capacity(a, new_sz);
     TRACE("mpz_mul2k", tout << "word_shift: " << word_shift << "\nbit_shift: " << bit_shift << "\nold_sz: " << old_sz << "\nnew_sz: " << new_sz 
           << "\na after ensure capacity:\n" << to_string(a) << "\n";);
-    SASSERT(!is_small(a));
+    SASSERT(a.m_ptr != nullptr);
     mpz_cell * cell_a    = a.m_ptr;
     old_sz = cell_a->m_size;
     digit_t * ds         = cell_a->m_digits;
