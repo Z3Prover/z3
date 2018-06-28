@@ -473,7 +473,7 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
         lb = abs_cube.back();
     }
     if (!ub) {
-        abs_cube.push_back (m_arith.mk_lt(var, term));
+        abs_cube.push_back (m_arith.mk_le(var, term));
         ub = abs_cube.back();
     }
 
@@ -489,10 +489,10 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
         TRACE("spacer_qgen",
               tout << "mod=" << mod << " init=" << init << " stride=" << stride << "\n";
               tout.flush(););
-        abs_cube.push_back(m.mk_eq(
-                m_arith.mk_mod(var, m_arith.mk_numeral(rational(stride), true)),
-                m_arith.mk_numeral(rational(mod), true)));
-    }
+        abs_cube.push_back
+            (m.mk_eq(m_arith.mk_mod(var,
+                                    m_arith.mk_numeral(rational(stride), true)),
+                     m_arith.mk_numeral(rational(mod), true)));}
 
     // skolemize
     expr_ref gnd(m);
@@ -512,21 +512,21 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
               << "New CUBE is: " << gnd_cube << "\n";);
         SASSERT(zks.size() >= static_cast<unsigned>(m_offset));
 
-                // lift quantified variables to top of select
+        // lift quantified variables to top of select
         expr_ref ext_bind(m);
         ext_bind = term;
         cleanup(gnd_cube, zks, ext_bind);
 
-                // XXX better do that check before changing bind in cleanup()
-                // XXX Or not because substitution might introduce _n variable into bind
+        // XXX better do that check before changing bind in cleanup()
+        // XXX Or not because substitution might introduce _n variable into bind
         if (m_ctx.get_manager().is_n_formula(ext_bind)) {
-                    // XXX this creates an instance, but not necessarily the needed one
+            // XXX this creates an instance, but not necessarily the needed one
 
-                    // XXX This is sound because any instance of
-                    // XXX universal quantifier is sound
+            // XXX This is sound because any instance of
+            // XXX universal quantifier is sound
 
-                    // XXX needs better long term solution. leave
-                    // comment here for the future
+            // XXX needs better long term solution. leave
+            // comment here for the future
             m_ctx.get_manager().formula_n2o(ext_bind, ext_bind, 0);
         }
 
