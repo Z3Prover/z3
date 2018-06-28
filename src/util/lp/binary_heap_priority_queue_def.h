@@ -20,7 +20,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/lp/binary_heap_priority_queue.h"
 namespace lp {
-// is is the child place in heap
+// "i" is the child's place in the heap
 template <typename T> void binary_heap_priority_queue<T>::swap_with_parent(unsigned i) {
     unsigned parent = m_heap[i >> 1];
     put_at(i >> 1, m_heap[i]);
