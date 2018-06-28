@@ -279,6 +279,8 @@ pob *derivation::create_next_child(model &mdl)
         m_evars.reset();
         pt().mbp(vars, m_trans, mdl,
                  true, pt().get_context().use_ground_pob());
+        CTRACE("spacer", !vars.empty(),
+               tout << "Failed to eliminate: " << vars << "\n";);
         m_evars.append (vars);
         vars.reset();
     }
@@ -308,6 +310,8 @@ pob *derivation::create_next_child(model &mdl)
         vars.append(m_evars);
         pt().mbp(vars, post, mdl,
                  true, pt().get_context().use_ground_pob());
+        CTRACE("spacer", !vars.empty(),
+               tout << "Failed to eliminate: " << vars << "\n";);
         //qe::reduce_array_selects (*mev.get_model (), post);
     }
     else {
@@ -411,6 +415,8 @@ pob *derivation::create_next_child ()
             this->pt().mbp(vars, m_trans, *mdl,
                            true, this->pt().get_context().use_ground_pob());
             // keep track of implicitly quantified variables
+            CTRACE("spacer", !vars.empty(),
+                   tout << "Failed to eliminate: " << vars << "\n";);
             m_evars.append (vars);
             vars.reset();
         }
