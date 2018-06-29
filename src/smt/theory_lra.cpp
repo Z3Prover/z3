@@ -2611,6 +2611,16 @@ public:
         }
     }    
 
+    bool get_lower(enode* n, expr_ref& r) {
+        NOT_IMPLEMENTED_YET();
+        return false;
+    }
+
+    bool get_upper(enode* n, expr_ref& r) {
+        NOT_IMPLEMENTED_YET();
+        return false;
+    }
+
     bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
         SASSERT(v1 != null_theory_var);
         SASSERT(v2 != null_theory_var);
@@ -2980,6 +2990,13 @@ model_value_proc * theory_lra::mk_value(enode * n, model_generator & mg) {
 bool theory_lra::get_value(enode* n, expr_ref& r) {
     return m_imp->get_value(n, r);
 }
+bool theory_lra::get_lower(enode* n, expr_ref& r) {
+    return m_imp->get_lower(n, r);
+}
+bool theory_lra::get_upper(enode* n, expr_ref& r) {
+    return m_imp->get_upper(n, r);
+}
+
 bool theory_lra::validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
     return m_imp->validate_eq_in_model(v1, v2, is_true);
 }
