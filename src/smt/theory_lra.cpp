@@ -862,9 +862,6 @@ public:
         if (ctx().e_internalized(term) && th.is_attached_to_var(ctx().get_enode(term))) {
             // skip
         }
-        else if (a.is_numeral(term)) {
-            mk_enode(term);
-        }
         else {
             internalize_def(term);
         }
