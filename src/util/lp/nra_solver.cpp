@@ -105,7 +105,7 @@ namespace nra {
             // TBD: add variable bounds?
 
             lbool r = m_nlsat->check(); 
-            TRACE("arith", m_nlsat->display(tout << r << "\n"););
+            TRACE("arith", display(tout); m_nlsat->display(tout << r << "\n"););
             switch (r) {
             case l_true: 
                 break;

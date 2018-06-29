@@ -519,10 +519,10 @@ class theory_lra::imp {
         while (!todo.empty()) {
             expr* n = todo.back();
             todo.pop_back();
-            expr* n1, *n2;
-            if (a.is_mul(n, n1, n2)) {
-                todo.push_back(n1);
-                todo.push_back(n2);
+            if (a.is_mul(n)) {
+                for (expr* arg : *to_app(n)) {
+                    todo.push_back(arg);
+                }
             }
             else if (a.is_numeral(n, r1)) {
                 r *= r1;
@@ -534,7 +534,7 @@ class theory_lra::imp {
                 vars.push_back(get_var_index(mk_var(n)));
             }
         }
-        TRACE("arith", tout << mk_pp(t, m) << "\n";);
+        TRACE("arith", tout << mk_pp(t, m) << " " << _has_var << "\n";);
         if (!_has_var) {
             ensure_nra();
             m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
@@ -861,6 +861,9 @@ public:
     bool internalize_term(app * term) {
         if (ctx().e_internalized(term) && th.is_attached_to_var(ctx().get_enode(term))) {
             // skip
+        }
+        else if (a.is_numeral(term)) {
+            mk_enode(term);
         }
         else {
             internalize_def(term);
