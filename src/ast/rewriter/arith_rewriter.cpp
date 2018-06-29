@@ -1159,49 +1159,44 @@ br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
         result = m_util.mk_numeral(floor(a), true);
         return BR_DONE;
     }
-    else if (m_util.is_to_real(arg, x)) {
+
+    if (m_util.is_to_real(arg, x)) {
         result = x;
         return BR_DONE;
     }
-    else {
-        if (m_util.is_add(arg) || m_util.is_mul(arg) || m_util.is_power(arg)) {
-            // Try to apply simplifications such as:
-            //    (to_int (+ 1.0 (to_real x))) --> (+ 1 x)
 
-            // if all arguments of arg are
-            //   - integer numerals, OR
-            //   - to_real applications
-            // then, to_int can be eliminated
-            unsigned num_args = to_app(arg)->get_num_args();
-            unsigned i = 0;
-            for (; i < num_args; i++) {
-                expr * c = to_app(arg)->get_arg(i);
-                if (m_util.is_numeral(c, a) && a.is_int())
-                    continue;
-                if (m_util.is_to_real(c))
-                    continue;
-                break; // failed
+    if (m_util.is_add(arg) || m_util.is_mul(arg) || m_util.is_power(arg)) {
+        // Try to apply simplifications such as:
+        //    (to_int (+ 1.0 (to_real x)) y) --> (+ 1 x (to_int y))
+        
+        expr_ref_buffer int_args(m()), real_args(m());
+        for (expr* c : *to_app(arg)) {
+            if (m_util.is_numeral(c, a) && a.is_int()) {
+                int_args.push_back(m_util.mk_numeral(a, true));
             }
-            if (i == num_args) {
-                // simplification can be applied
-                expr_ref_buffer new_args(m());
-                for (i = 0; i < num_args; i++) {
-                    expr * c = to_app(arg)->get_arg(i);
-                    if (m_util.is_numeral(c, a) && a.is_int()) {
-                        new_args.push_back(m_util.mk_numeral(a, true));
-                    }
-                    else {
-                        VERIFY (m_util.is_to_real(c, x));
-                        new_args.push_back(x);
-                    }
-                }
-                SASSERT(num_args == new_args.size());
-                result = m().mk_app(get_fid(), to_app(arg)->get_decl()->get_decl_kind(), new_args.size(), new_args.c_ptr());
-                return BR_REWRITE1;
+            else if (m_util.is_to_real(c, x)) {
+                int_args.push_back(x);
+            }
+            else {
+                real_args.push_back(c);
             }
         }
-        return BR_FAILED;
+        if (real_args.empty()) {
+            result = m().mk_app(get_fid(), to_app(arg)->get_decl()->get_decl_kind(), int_args.size(), int_args.c_ptr());
+            return BR_REWRITE1;
+        }
+        if (!int_args.empty() && (m_util.is_add(arg) || m_util.is_mul(arg))) {
+            decl_kind k = to_app(arg)->get_decl()->get_decl_kind();
+            expr_ref t1(m().mk_app(get_fid(), k, int_args.size(), int_args.c_ptr()), m());
+            expr_ref t2(m().mk_app(get_fid(), k, real_args.size(), real_args.c_ptr()), m());
+            int_args.reset();
+            int_args.push_back(t1);
+            int_args.push_back(m_util.mk_to_int(t2));
+            result = m().mk_app(get_fid(), k, int_args.size(), int_args.c_ptr());
+            return BR_REWRITE3;
+        }
     }
+    return BR_FAILED;
 }
 
 br_status arith_rewriter::mk_to_real_core(expr * arg, expr_ref & result) {
