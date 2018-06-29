@@ -54,7 +54,6 @@ public:
     rational(mpz const & z) { m().set(m_val, z); }
 
     rational(double  z) { UNREACHABLE(); }
-
     
     explicit rational(char const * v) { m().set(m_val, v); }
 
@@ -186,6 +185,12 @@ public:
     friend inline rational machine_div(rational const & r1, rational const & r2) {
         rational r;
         rational::m().machine_idiv(r1.m_val, r2.m_val, r.m_val);
+        return r;
+    }
+
+    friend inline rational machine_div_rem(rational const & r1, rational const & r2, rational & rem) {
+        rational r;
+        rational::m().machine_idiv_rem(r1.m_val, r2.m_val, r.m_val, rem.m_val);
         return r;
     }
 
@@ -410,8 +415,6 @@ public:
         }
         return num_bits;
     }
-
-    
 };
 
 inline bool operator!=(rational const & r1, rational const & r2) { 
@@ -422,6 +425,10 @@ inline bool operator>(rational const & r1, rational const & r2) {
     return operator<(r2, r1); 
 }
 
+inline bool operator<(int r1, rational const & r2) {
+    return rational(r1) < r2;
+}
+
 inline bool operator<(rational const & r1, int r2) {
     return r1 < rational(r2);
 }
@@ -430,6 +437,11 @@ inline bool operator<=(rational const & r1, rational const & r2) {
     return !operator>(r1, r2); 
 }
 
+inline bool operator<=(rational const & r1, int r2) { 
+    return r1 <= rational(r2);
+}
+
+
 inline bool operator>=(rational const & r1, rational const & r2) { 
     return !operator<(r1, r2); 
 }
@@ -437,6 +449,11 @@ inline bool operator>=(rational const & r1, rational const & r2) {
 inline bool operator>(rational const & a, int b) {
     return a > rational(b);
 }
+
+inline bool operator>(int a, rational const & b) {
+    return rational(a) > b;
+}
+
 
 inline bool operator!=(rational const & a, int b) {
     return !(a == rational(b));

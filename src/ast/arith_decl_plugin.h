@@ -535,3 +535,4 @@ inline app_ref operator>(app_ref const& x, app_ref const& y) {
 }
 
 #endif /* ARITH_DECL_PLUGIN_H_ */
+

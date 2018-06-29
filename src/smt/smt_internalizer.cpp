@@ -849,7 +849,7 @@ namespace smt {
             std::cerr << v << " ::=\n" << mk_ll_pp(n, m_manager) << "<END-OF-FORMULA>\n";
         }
 #endif
-        TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << "\n";);
+        TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << " " << n->get_id() << "\n";);
         TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
         m_bdata.reserve(v+1);

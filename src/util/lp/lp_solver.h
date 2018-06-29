@@ -28,7 +28,6 @@ Revision History:
 #include "util/lp/static_matrix.h"
 #include "util/lp/lp_core_solver_base.h"
 #include "util/lp/scaler.h"
-#include "util/lp/linear_combination_iterator.h"
 #include "util/lp/bound_analyzer_on_row.h"
 namespace lp {
 enum lp_relation  {
@@ -114,9 +113,9 @@ public:
     // returns -1 if not found
     virtual int get_column_index_by_name(std::string name) const;
 
-    void set_low_bound(unsigned i, T bound) {
+    void set_lower_bound(unsigned i, T bound) {
         column_info<T> *ci = get_or_create_column_info(i);
-        ci->set_low_bound(bound);
+        ci->set_lower_bound(bound);
     }
 
     void set_upper_bound(unsigned i, T bound) {
@@ -124,8 +123,8 @@ public:
         ci->set_upper_bound(bound);
     }
 
-    void unset_low_bound(unsigned i) {
-        get_or_create_column_info(i)->unset_low_bound();
+    void unset_lower_bound(unsigned i) {
+        get_or_create_column_info(i)->unset_lower_bound();
     }
 
     void unset_upper_bound(unsigned i) {
@@ -194,9 +193,9 @@ protected:
 
     void pin_vars_on_row_with_sign(std::unordered_map<unsigned, T> & row, T sign );
 
-    bool get_minimal_row_value(std::unordered_map<unsigned, T> & row, T & low_bound);
+    bool get_minimal_row_value(std::unordered_map<unsigned, T> & row, T & lower_bound);
 
-    bool get_maximal_row_value(std::unordered_map<unsigned, T> & row, T & low_bound);
+    bool get_maximal_row_value(std::unordered_map<unsigned, T> & row, T & lower_bound);
 
     bool row_is_zero(std::unordered_map<unsigned, T> & row);
 
@@ -244,7 +243,7 @@ protected:
 
     void count_slacks_and_artificials_for_row(unsigned i);
 
-    T low_bound_shift_for_row(unsigned i);
+    T lower_bound_shift_for_row(unsigned i);
 
     void fill_m_b();
 

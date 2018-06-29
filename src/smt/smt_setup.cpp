@@ -730,8 +730,12 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
-        // m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
-        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));        
+        if (AS_OLD_ARITH == m_params.m_arith_mode) {
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+        }
+        else {
+            setup_r_arith();
+        }
     }
 
     void setup::setup_r_arith() {
@@ -739,13 +743,20 @@ namespace smt {
     }
 
     void setup::setup_mi_arith() {
-        if (m_params.m_arith_mode == AS_OPTINF) {
+        switch (m_params.m_arith_mode) {
+        case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
-        }
-        else {
+            break;
+        case AS_NEW_ARITH:
+            setup_r_arith();
+            break;
+        default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            break;
         }
     }
+
+
 
     void setup::setup_arith() {
         static_features    st(m_manager);
@@ -800,14 +811,14 @@ namespace smt {
         case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
             break;
-        case AS_LRA:
-            setup_r_arith();
-            break;
-        default:
+        case AS_OLD_ARITH:
             if (m_params.m_arith_int_only && int_only)
                 m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
             else
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            break;
+        default:
+            setup_i_arith();
             break;
         }
     }
@@ -968,7 +979,7 @@ namespace smt {
         if (st.num_theories() == 2 && st.has_uf() && is_arith(st)) {
             if (!st.m_has_real)
                 setup_QF_UFLIA(st);
-            else if (!st.m_has_int && st.m_num_non_linear == 0)
+            else if (!st.m_has_int && st.m_num_non_linear == 0) 
                 setup_QF_UFLRA();
             else
                 setup_unknown();

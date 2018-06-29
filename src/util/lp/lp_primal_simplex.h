@@ -26,12 +26,11 @@ Revision History:
 #include "util/lp/column_info.h"
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/lp_solver.h"
-#include "util/lp/iterator_on_row.h"
 namespace lp {
 template <typename T, typename X>
 class lp_primal_simplex: public lp_solver<T, X> {
     lp_primal_core_solver<T, X> * m_core_solver;
-    vector<X> m_low_bounds;
+    vector<X> m_lower_bounds;
 private:
     unsigned original_rows() { return this->m_external_rows_to_core_solver_rows.size(); }
 
