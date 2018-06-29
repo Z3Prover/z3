@@ -31,7 +31,7 @@ namespace smt {
         theory_lra(ast_manager& m, theory_arith_params& ap);
         ~theory_lra() override;
         theory* mk_fresh(context* new_ctx) override;
-        char const* get_name() const override { return "lra"; }
+        char const* get_name() const override { return "arithmetic"; }
         
         void init(context * ctx) override;
 

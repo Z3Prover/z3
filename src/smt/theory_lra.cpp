@@ -680,6 +680,7 @@ class theory_lra::imp {
 
     void add_def_constraint(lp::constraint_index index) {
         m_constraint_sources.setx(index, definition_source, null_source);
+        m_definitions.setx(index, null_theory_var, null_theory_var);
         ++m_stats.m_add_rows;
     }
         
@@ -690,7 +691,6 @@ class theory_lra::imp {
     }
         
     void internalize_eq(theory_var v1, theory_var v2) {     
-        TRACE("arith", tout << "internalize-eq\n";);
         enode* n1 = get_enode(v1);
         enode* n2 = get_enode(v2);
         expr*  o1 = n1->get_owner();
@@ -703,7 +703,8 @@ class theory_lra::imp {
         st.coeffs().push_back(rational::minus_one());
         theory_var z = internalize_linearized_def(term, st);      
         lp::var_index vi = get_var_index(z);
-        add_eq_constraint(m_solver->add_var_bound(vi, lp::EQ, rational::zero()), n1, n2);
+        add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero()));
+        add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero()));
         TRACE("arith", 
               tout << "v" << v1 << " = " << "v" << v2 << ": "
               << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";);
@@ -1503,6 +1504,7 @@ public:
     }
 
     void propagate() {
+		enable_trace("arith");
         flush_bound_axioms();
         if (!can_propagate()) {
             return;
@@ -1586,7 +1588,6 @@ public:
         if (v == null_theory_var) return false;
 
         if (m_unassigned_bounds[v] == 0 || m_bounds.size() <= static_cast<unsigned>(v)) {
-            TRACE("arith", tout << "return\n";);
             return false;
         }
         lp_bounds const& bounds = m_bounds[v];
@@ -2853,7 +2854,8 @@ public:
                 break;
             case definition_source: {
                 theory_var v = m_definitions[idx];
-                out << "def: v" << v << " := " << mk_pp(th.get_enode(v)->get_owner(), m) << "\n";
+                if (v != null_theory_var) 
+                    out << "def: v" << v << " := " << mk_pp(th.get_enode(v)->get_owner(), m) << "\n";
                 break;
             }
             case null_source:                    
