@@ -948,7 +948,7 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
           << " " << head ()->get_name ()
           << " " << mk_pp (l, m) << "\n";);
 
-    STRACE ("spacer.expand-add",
+    STRACE ("spacer_progress",
             tout << "** add-lemma: " << pp_level (lvl) << " "
             << head ()->get_name () << " "
             << mk_epp (l, m) << "\n";
@@ -1300,7 +1300,7 @@ bool pred_transformer::is_qblocked (pob &n) {
     //     solver->get_itp_core(core);
     //     expr_ref c(m);
     //     c = mk_and(core);
-    //     STRACE("spacer.expand-add", tout << "core: " << mk_epp(c,m) << "\n";);
+    //     STRACE("spacer_progress", tout << "core: " << mk_epp(c,m) << "\n";);
     // }
     return res == l_false;
 }
@@ -3059,7 +3059,7 @@ lbool context::solve_core (unsigned from_lvl)
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, lvl);
         IF_VERBOSE(1,verbose_stream() << "Entering level "<< lvl << "\n";);
 
-        STRACE("spacer.expand-add", tout << "\n* LEVEL " << lvl << "\n";);
+        STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
 
         IF_VERBOSE(1,
                    if (m_params.print_statistics ()) {
@@ -3310,7 +3310,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
            << " fvsz: " << n.get_free_vars_size() << "\n"
            << mk_pp(n.post(), m) << "\n";);
 
-    STRACE ("spacer.expand-add",
+    STRACE ("spacer_progress",
             tout << "** expand-pob: " << n.pt().head()->get_name()
             << " level: " << n.level()
             << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
@@ -3356,7 +3356,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
 
     if (/* XXX noop */ n.pt().is_qblocked(n)) {
-        STRACE("spacer.expand-add",
+        STRACE("spacer_progress",
                tout << "This pob can be blocked by instantiation\n";);
     }
 
@@ -3551,7 +3551,7 @@ bool context::propagate(unsigned min_prop_lvl,
     if (m_simplify_formulas_pre) {
         simplify_formulas();
     }
-    STRACE ("spacer.expand-add", tout << "Propagating\n";);
+    STRACE ("spacer_progress", tout << "Propagating\n";);
 
     IF_VERBOSE (1, verbose_stream () << "Propagating: " << std::flush;);
 
