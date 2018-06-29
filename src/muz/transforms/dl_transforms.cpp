@@ -35,6 +35,7 @@ Revision History:
 #include "muz/transforms/dl_mk_scale.h"
 #include "muz/transforms/dl_mk_array_eq_rewrite.h"
 #include "muz/transforms/dl_mk_array_instantiation.h"
+#include "muz/transforms/dl_mk_elim_term_ite.h"
 #include "muz/base/fp_params.hpp"
 
 namespace datalog {
@@ -95,6 +96,8 @@ namespace datalog {
         if (ctx.get_params().xform_magic()) {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));
         }
+
+        transf.register_plugin(alloc(datalog::mk_elim_term_ite, ctx, 34999));
         ctx.transform_rules(transf);
     }
 }

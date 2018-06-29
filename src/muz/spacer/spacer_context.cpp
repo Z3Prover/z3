@@ -1683,7 +1683,10 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
     // rewrite and simplify
     th_rewriter rw(m);
     rw(trans);
-    if (ctx.blast_term_ite()) {blast_term_ite(trans, 3); rw(trans);}
+    if (ctx.blast_term_ite_inflation() > 0) {
+        blast_term_ite(trans, ctx.blast_term_ite_inflation());
+        rw(trans);
+    }
     TRACE("spacer_init_rule", tout << mk_pp(trans, m) << "\n";);
 
     // allow quantifiers in init rule
@@ -2265,7 +2268,7 @@ void context::updt_params() {
     m_use_euf_gen = m_params.spacer_use_euf_gen();
     m_use_ctp = m_params.spacer_ctp();
     m_use_inc_clause = m_params.spacer_use_inc_clause();
-    m_blast_term_ite = m_params.spacer_blast_term_ite();
+    m_blast_term_ite_inflation = m_params.spacer_blast_term_ite_inflation();
     m_use_ind_gen = m_params.spacer_use_inductive_generalizer();
     m_use_array_eq_gen = m_params.spacer_use_array_eq_generalizer();
     m_validate_lemmas = m_params.spacer_validate_lemmas();
