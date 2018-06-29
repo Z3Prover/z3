@@ -504,7 +504,8 @@ lar_term lar_solver::get_term_to_maximize(unsigned ext_j) const {
         r. add_monomial(one_of_type<mpq>(), local_j);
         return r;
     }
-    
+    if (!is_term(ext_j) || adjust_term_index(ext_j) >= m_terms.size())
+        return lar_term(); // return an empty term
     return get_term(ext_j);
 }
 
@@ -513,6 +514,10 @@ lp_status lar_solver::maximize_term(unsigned ext_j,
     bool was_feasible = m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis();
     impq prev_value;
     lar_term term = get_term_to_maximize(ext_j);
+    if (term.is_empty()) {
+        return lp_status::UNBOUNDED;
+    }
+        
     auto backup = m_mpq_lar_core_solver.m_r_x;
     if (was_feasible) {
         prev_value = term.apply(m_mpq_lar_core_solver.m_r_x);
