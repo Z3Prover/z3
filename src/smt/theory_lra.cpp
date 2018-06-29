@@ -2612,12 +2612,26 @@ public:
     }    
 
     bool get_lower(enode* n, expr_ref& r) {
-        NOT_IMPLEMENTED_YET();
+        theory_var v = n->get_th_var(get_id());
+        lp::constraint_index ci;
+        rational val;
+        bool is_strict;
+        if (m_solver->has_lower_bound(v, ci, val, is_strict)) {
+            r = a.mk_numeral(val, is_int(n));
+            return true;
+        }
         return false;
     }
 
     bool get_upper(enode* n, expr_ref& r) {
-        NOT_IMPLEMENTED_YET();
+        theory_var v = n->get_th_var(get_id());
+        lp::constraint_index ci;
+        rational val;
+        bool is_strict;
+        if (m_solver->has_upper_bound(v, ci, val, is_strict)) {
+            r = a.mk_numeral(val, is_int(n));
+            return true;
+        }
         return false;
     }
 
