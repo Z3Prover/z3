@@ -2000,7 +2000,8 @@ namespace smt {
             if (t->filter_candidates()) {
                 for (enode* app : t->get_candidates()) {
                     if (!app->is_marked() && app->is_cgr()) {
-                        execute_core(t, app);
+                        if (m_context.resource_limits_exceeded() || !execute_core(t, app))
+                            return;
                         app->set_mark();
                     }
                 }
@@ -2014,14 +2015,15 @@ namespace smt {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (app->is_cgr()) {
                         TRACE("trigger_bug", tout << "is_cgr\n";);
-                        execute_core(t, app);
+                        if (m_context.resource_limits_exceeded() || !execute_core(t, app))
+                            return;
                     }
                 }
             }
         }
 
         // init(t) must be invoked before execute_core
-        void execute_core(code_tree * t, enode * n);
+        bool execute_core(code_tree * t, enode * n);
 
         // Return the min, max generation of the enodes in m_pattern_instances.
 
@@ -2250,7 +2252,7 @@ namespace smt {
         display_instr_input_reg(out, m_pc);
     }
 
-    void interpreter::execute_core(code_tree * t, enode * n) {
+    bool interpreter::execute_core(code_tree * t, enode * n) {
         TRACE("trigger_bug", tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_owner(), m_ast_manager) << "\n";);
         unsigned since_last_check = 0;
 
@@ -2494,7 +2496,7 @@ namespace smt {
 #define ON_MATCH(NUM)                                                   \
             m_max_generation = std::max(m_max_generation, get_max_generation(NUM, m_bindings.begin())); \
             if (m_context.get_cancel_flag()) {                          \
-                return;                                                 \
+                return false;                                           \
             }                                                           \
             m_mam.on_match(static_cast<const yield *>(m_pc)->m_qa,                                      \
                            static_cast<const yield *>(m_pc)->m_pat,                                     \
@@ -2647,7 +2649,7 @@ namespace smt {
 #ifdef _PROFILE_MAM
             t->get_watch().stop();
 #endif
-            return; // no more alternatives
+            return true; // no more alternatives
         }
         backtrack_point & bp = m_backtrack_stack[m_top - 1];
         m_max_generation     = bp.m_old_max_generation;
@@ -2675,7 +2677,7 @@ namespace smt {
 #ifdef _PROFILE_MAM
                t->get_watch().stop();
 #endif
-                return;
+                return false;
             }
         }
 

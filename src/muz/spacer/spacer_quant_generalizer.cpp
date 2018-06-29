@@ -80,6 +80,51 @@ struct index_lt_proc : public std::binary_function<app*, app *, bool> {
     }
 };
 
+
+    struct has_nlira_functor {
+        struct found{};
+
+        ast_manager &m;
+        arith_util   u;
+
+        has_nlira_functor(ast_manager &_m) : m(_m), u(m) {}
+
+        void operator()(var *) {}
+        void operator()(quantifier *) {}
+        void operator()(app *n) {
+            family_id fid = n->get_family_id();
+            if (fid != u.get_family_id()) return;
+
+            switch(n->get_decl_kind()) {
+            case OP_MUL:
+                if (n->get_num_args() != 2)
+                    throw found();
+                if (!u.is_numeral(n->get_arg(0)) && !u.is_numeral(n->get_arg(1)))
+                    throw found();
+                return;
+            case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
+                if (!u.is_numeral(n->get_arg(1)))
+                    throw found();
+                return;
+            default:
+                return;
+            }
+            return;
+        }
+    };
+
+    bool has_nlira(expr_ref_vector &v) {
+        has_nlira_functor fn(v.m());
+        expr_fast_mark1 visited;
+        try {
+            for (expr *e : v)
+                quick_for_each_expr(fn, visited, e);
+        }
+        catch (has_nlira_functor::found e) {
+            return true;
+        }
+        return false;
+    }
 }
 
 namespace spacer {
@@ -191,9 +236,15 @@ expr* times_minus_one(expr *e, arith_util &arith) {
     Find sub-expression of the form (select A (+ sk!0 t)) and replaces
     (+ sk!0 t) --> sk!0 and sk!0 --> (+ sk!0 (* (- 1) t))
 
-    Current implementation is an ugly hack for one special case
+
+    rewrites bind to  (+ bsk!0 t) where bsk!0 is the original binding for sk!0
+
+    Current implementation is an ugly hack for one special
+    case. Should be rewritten based on an equality solver from qe
 */
-void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector const &zks, expr_ref &bind) {
+void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube,
+                                           app_ref_vector const &zks,
+                                           expr_ref &bind) {
     if (zks.size() != 1) return;
 
     arith_util arith(m);
@@ -219,8 +270,8 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector
                     kids_bind.push_back(bind);
                 }
                 else {
-                    kids.push_back (times_minus_one(arg, arith));
-                    kids_bind.push_back (times_minus_one(arg, arith));
+                    kids.push_back(times_minus_one(arg, arith));
+                    kids_bind.push_back(arg);
                 }
             }
             if (!found) continue;
@@ -228,7 +279,8 @@ void lemma_quantifier_generalizer::cleanup(expr_ref_vector &cube, app_ref_vector
             rep = arith.mk_add(kids.size(), kids.c_ptr());
             bind = arith.mk_add(kids_bind.size(), kids_bind.c_ptr());
             TRACE("spacer_qgen",
-                  tout << "replace " << mk_pp(idx, m) << " with " << mk_pp(rep, m) << "\n";);
+                  tout << "replace " << mk_pp(idx, m) << " with " << mk_pp(rep, m) << "\n"
+                  << "bind is: " << bind << "\n";);
             break;
         }
     }
@@ -454,9 +506,15 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
 
     mk_abs_cube(lemma, term, var, gnd_cube, abs_cube, lb, ub, stride);
     if (abs_cube.empty()) {return false;}
+    if (has_nlira(abs_cube)) {
+        TRACE("spacer_qgen",
+              tout << "non-linear expression: " << abs_cube << "\n";);
+        return false;
+    }
 
     TRACE("spacer_qgen",
           tout << "abs_cube is: " << mk_and(abs_cube) << "\n";
+          tout << "term: " << mk_pp(term, m) << "\n";
           tout << "lb = ";
           if (lb) tout << mk_pp(lb, m); else tout << "none";
           tout << "\n";
@@ -473,7 +531,7 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
         lb = abs_cube.back();
     }
     if (!ub) {
-        abs_cube.push_back (m_arith.mk_lt(var, term));
+        abs_cube.push_back (m_arith.mk_le(var, term));
         ub = abs_cube.back();
     }
 
@@ -489,10 +547,10 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
         TRACE("spacer_qgen",
               tout << "mod=" << mod << " init=" << init << " stride=" << stride << "\n";
               tout.flush(););
-        abs_cube.push_back(m.mk_eq(
-                m_arith.mk_mod(var, m_arith.mk_numeral(rational(stride), true)),
-                m_arith.mk_numeral(rational(mod), true)));
-    }
+        abs_cube.push_back
+            (m.mk_eq(m_arith.mk_mod(var,
+                                    m_arith.mk_numeral(rational(stride), true)),
+                     m_arith.mk_numeral(rational(mod), true)));}
 
     // skolemize
     expr_ref gnd(m);
@@ -512,21 +570,21 @@ bool lemma_quantifier_generalizer::generalize (lemma_ref &lemma, app *term) {
               << "New CUBE is: " << gnd_cube << "\n";);
         SASSERT(zks.size() >= static_cast<unsigned>(m_offset));
 
-                // lift quantified variables to top of select
+        // lift quantified variables to top of select
         expr_ref ext_bind(m);
         ext_bind = term;
         cleanup(gnd_cube, zks, ext_bind);
 
-                // XXX better do that check before changing bind in cleanup()
-                // XXX Or not because substitution might introduce _n variable into bind
+        // XXX better do that check before changing bind in cleanup()
+        // XXX Or not because substitution might introduce _n variable into bind
         if (m_ctx.get_manager().is_n_formula(ext_bind)) {
-                    // XXX this creates an instance, but not necessarily the needed one
+            // XXX this creates an instance, but not necessarily the needed one
 
-                    // XXX This is sound because any instance of
-                    // XXX universal quantifier is sound
+            // XXX This is sound because any instance of
+            // XXX universal quantifier is sound
 
-                    // XXX needs better long term solution. leave
-                    // comment here for the future
+            // XXX needs better long term solution. leave
+            // comment here for the future
             m_ctx.get_manager().formula_n2o(ext_bind, ext_bind, 0);
         }
 
