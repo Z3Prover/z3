@@ -35,6 +35,7 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 
+namespace {
 struct th_rewriter_cfg : public default_rewriter_cfg {
     bool_rewriter       m_b_rw;
     arith_rewriter      m_a_rw;
@@ -337,16 +338,16 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         family_id fid = t->get_family_id();
         if (fid == m_a_rw.get_fid()) {
             switch (t->get_decl_kind()) {
-            case OP_ADD: n = m_a_util.mk_numeral(rational(0), m().get_sort(t)); return true;
-            case OP_MUL: n = m_a_util.mk_numeral(rational(1), m().get_sort(t)); return true;
+            case OP_ADD: n = m_a_util.mk_numeral(rational::zero(), m().get_sort(t)); return true;
+            case OP_MUL: n = m_a_util.mk_numeral(rational::one(), m().get_sort(t)); return true;
             default:
                 return false;
             }
         }
         if (fid == m_bv_rw.get_fid()) {
             switch (t->get_decl_kind()) {
-            case OP_BADD: n = m_bv_util.mk_numeral(rational(0), m().get_sort(t)); return true;
-            case OP_BMUL: n = m_bv_util.mk_numeral(rational(1), m().get_sort(t)); return true;
+            case OP_BADD: n = m_bv_util.mk_numeral(rational::zero(), m().get_sort(t)); return true;
+            case OP_BMUL: n = m_bv_util.mk_numeral(rational::one(), m().get_sort(t)); return true;
             default:
                 return false;
             }
@@ -468,9 +469,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         // terms matched...
         bool is_int = m_a_util.is_int(t1);
         if (!new_t1)
-            new_t1 = m_a_util.mk_numeral(rational(0), is_int);
+            new_t1 = m_a_util.mk_numeral(rational::zero(), is_int);
         if (!new_t2)
-            new_t2 = m_a_util.mk_numeral(rational(0), is_int);
+            new_t2 = m_a_util.mk_numeral(rational::zero(), is_int);
         // mk common part
         ptr_buffer<expr> args;
         for (unsigned i = 0; i < num1; i++) {
@@ -709,6 +710,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
 
 };
+}
 
 template class rewriter_tpl<th_rewriter_cfg>;
 
@@ -764,8 +766,8 @@ unsigned th_rewriter::get_num_steps() const {
 
 void th_rewriter::cleanup() {
     ast_manager & m = m_imp->m();
-    dealloc(m_imp);
-    m_imp = alloc(imp, m, m_params);
+    m_imp->~imp();
+    new (m_imp) imp(m, m_params);
 }
 
 void th_rewriter::reset() {

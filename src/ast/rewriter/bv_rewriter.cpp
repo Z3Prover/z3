@@ -1383,7 +1383,7 @@ br_status bv_rewriter::mk_bv2int(expr * arg, expr_ref & result) {
             --i;
             tmp = args[i].get();
             tmp = m_autil.mk_mul(m_autil.mk_numeral(power(numeral(2), sz), true), tmp);
-            args[i] = tmp;
+            args[i] = std::move(tmp);
             sz += get_bv_size(to_app(arg)->get_arg(i));
         }
         result = m_autil.mk_add(args.size(), args.c_ptr());
@@ -2400,8 +2400,8 @@ bool bv_rewriter::isolate_term(expr* lhs, expr* rhs, expr_ref& result) {
         return false;
     }
     unsigned sz = to_app(rhs)->get_num_args();
-    expr_ref t1(m()), t2(m());
-    t1 = to_app(rhs)->get_arg(0);
+    expr * t1 = to_app(rhs)->get_arg(0);
+    expr_ref t2(m());
     if (sz > 2) {
         t2 = m().mk_app(get_fid(), OP_BADD, sz-1, to_app(rhs)->get_args()+1);
     }
@@ -2597,14 +2597,10 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
                 result = m().mk_bool_val(new_lhs == new_rhs);
                 return BR_DONE;
             }
-        }
-        else {
-            new_lhs = lhs;
-            new_rhs = rhs;
+            lhs = new_lhs;
+            rhs = new_rhs;
         }
 
-        lhs = new_lhs;
-        rhs = new_rhs;
         // Try to rewrite t1 + t2 = c --> t1 = c - t2
         // Reason: it is much cheaper to bit-blast.
         if (isolate_term(lhs, rhs, result)) {
