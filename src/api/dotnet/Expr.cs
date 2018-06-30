@@ -1822,7 +1822,7 @@ namespace Microsoft.Z3
             IntPtr s = Native.Z3_get_sort(ctx.nCtx, obj);
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(ctx.nCtx, s);
 
-            if (Z3_sort_kind.Z3_REAL_SORT == sk && 
+            if ( // Z3_sort_kind.Z3_REAL_SORT == sk && 
                 Native.Z3_is_algebraic_number(ctx.nCtx, obj)) // is this a numeral ast?
                 return new AlgebraicNum(ctx, obj);
 
