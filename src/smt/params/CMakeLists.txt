@@ -8,6 +8,7 @@ z3_add_component(smt_params
     theory_array_params.cpp
     theory_bv_params.cpp
     theory_pb_params.cpp
+    theory_seq_params.cpp
     theory_str_params.cpp
   COMPONENT_DEPENDENCIES
     ast

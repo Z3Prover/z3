@@ -954,32 +954,29 @@ void theory_seq::prop_arith_to_len_offset() {
     }
 }
 
-int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& x) const {
-    context & ctx = get_context();
-    int i = 0;
-    for (; i < x.size(); ++i) {
-        if (!is_var(x[i])) return -1;
-        expr_ref e(m_util.str.mk_length(x[i]), m);
+int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& xs) const {
+    context & ctx = get_context();    
+    for (unsigned i = 0; i < xs.size(); ++i) {
+        expr* x = xs[i];
+        if (!is_var(x)) return -1;
+        expr_ref e(m_util.str.mk_length(x), m);
         if (ctx.e_internalized(e)) {
             enode* root = ctx.get_enode(e)->get_root();
             rational val;
-            if (m_autil.is_numeral(root->get_owner(), val) && val.is_zero())
+            if (m_autil.is_numeral(root->get_owner(), val) && val.is_zero()) {
                 continue;
+            }
         }
-        break;
-    }
-    if (i == x.size())
-        return -1;
-    else {
         return i;
     }
+    return -1;
 }
 
 expr* theory_seq::find_fst_non_empty_var(expr_ref_vector const& x) const {
     int i = find_fst_non_empty_idx(x);
     if (i >= 0)
         return x[i];
-    return NULL;
+    return nullptr;
 }
 
 void theory_seq::find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs) {
@@ -1094,7 +1091,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
         dependency*& deps, expr_ref_vector & res) {
     context& ctx = get_context();
 
-    if (ls.size() == 0 || rs.size() == 0)
+    if (ls.empty() || rs.empty())
         return false;
     expr* l_fst = find_fst_non_empty_var(ls);
     expr* r_fst = find_fst_non_empty_var(rs);
@@ -2338,10 +2335,10 @@ bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
     if (is_var(r) && !occurs(r, l) && add_solution(r, l, deps)) {
         return true;
     }
-    if (is_nth(l) && !occurs(l, r) && add_solution(l, r, deps))
-        return true;
-    if (is_nth(r) && !occurs(r, l) && add_solution(r, l, deps))
-        return true;
+//    if (is_nth(l) && !occurs(l, r) && add_solution(l, r, deps))
+//        return true;
+//    if (is_nth(r) && !occurs(r, l) && add_solution(r, l, deps))
+//        return true;
 
     return false;
 }
@@ -2731,10 +2728,12 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
     expr_ref r = mk_concat(r1, rs1);
     expr_ref lenl(m_util.str.mk_length(l), m);
     expr_ref lenr(m_util.str.mk_length(r), m);
-    expr_ref len_eq(m.mk_eq(lenl, lenr), m);
-    if (ctx.find_assignment(len_eq) == l_true) {
-        literal lit = mk_eq(lenl, lenr, false);
-        literal_vector lits;
+    literal lit = mk_eq(lenl, lenr, false);
+    if (ctx.get_assignment(lit) == l_true) {
+//    expr_ref len_eq(m.mk_eq(lenl, lenr), m);
+//    if (ctx.find_assignment(len_eq) == l_true) {
+//        literal lit = mk_eq(lenl, lenr, false);
+//        literal_vector lits;
         expr_ref_vector lhs(m), rhs(m);
         lhs.append(l2, ls2);
         rhs.append(r2, rs2);
@@ -4978,6 +4977,7 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
 }
 
 expr* theory_seq::coalesce_chars(expr* const& e) {
+    context& ctx = get_context();
     expr* s;
     if (m_util.str.is_concat(e)) {
         expr_ref_vector concats(m);
@@ -5020,7 +5020,9 @@ expr* theory_seq::coalesce_chars(expr* const& e) {
         if (bvu.is_bv(s)) {
             expr_ref result(m);
             expr * args[1] = {s};
-            if (m_seq_rewrite.mk_app_core(to_app(s)->get_decl(), 1, args, result)) {
+            if (m_seq_rewrite.mk_app_core(to_app(e)->get_decl(), 1, args, result)) {
+                if (!ctx.e_internalized(result))
+                    ctx.internalize(result, false);
                 return result;
             }
         }
