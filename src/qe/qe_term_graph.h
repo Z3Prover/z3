@@ -75,6 +75,7 @@ namespace qe {
         void pick_roots();
 
         void reset_marks();
+        bool marks_are_clear();
 
         expr* mk_app_core(expr* a);
         expr_ref mk_app(term const &t);

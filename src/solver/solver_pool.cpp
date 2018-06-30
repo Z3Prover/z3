@@ -101,9 +101,11 @@ public:
     proof * get_proof() override {
         scoped_watch _t_(m_pool.m_proof_watch);
         if (!m_proof.get()) {
-            elim_aux_assertions pc(m_pred);
             m_proof = m_base->get_proof();
-            pc(m, m_proof, m_proof);
+            if (m_proof) {
+                elim_aux_assertions pc(m_pred);
+                pc(m, m_proof, m_proof);
+            }
         }
         return m_proof;
     }

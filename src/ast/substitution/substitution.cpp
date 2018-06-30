@@ -196,16 +196,16 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             expr_ref_vector pats(m_manager), no_pats(m_manager);
             for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
                 subst.apply(num_actual_offsets, deltas, expr_offset(q->get_pattern(i), off), s1, t1, er);
-                pats.push_back(er);
+                pats.push_back(std::move(er));
             }
             for (unsigned i = 0; i < q->get_num_no_patterns(); ++i) {
                 subst.apply(num_actual_offsets, deltas, expr_offset(q->get_no_pattern(i), off), s1, t1, er);
-                no_pats.push_back(er);
+                no_pats.push_back(std::move(er));
             }
             subst.apply(num_actual_offsets, deltas, body, s1, t1, er);
             er = m_manager.update_quantifier(q, pats.size(), pats.c_ptr(), no_pats.size(), no_pats.c_ptr(), er);
             m_todo.pop_back();
-            m_new_exprs.push_back(er);
+            m_new_exprs.push_back(std::move(er));
             m_apply_cache.insert(n, er);            
             break;
         }            

@@ -99,6 +99,13 @@ public:
         return *this;
     }
 
+    template <typename W, typename M>
+    ref_vector_core& push_back(obj_ref<W,M> && n) {
+        m_nodes.push_back(n.get());
+        n.steal();
+        return *this;
+    }
+
     void pop_back() {
         SASSERT(!m_nodes.empty());
         T * n = m_nodes.back();
@@ -253,6 +260,13 @@ public:
             return *this;
         }
 
+        template <typename W, typename M>
+        element_ref & operator=(obj_ref<W,M> && n) {
+            m_manager.dec_ref(m_ref);
+            m_ref = n.steal();
+            return *this;
+        }
+
         T * get() const {
             return m_ref;
         }
@@ -288,9 +302,8 @@ public:
         return *this;
     }
     
-private:
     // prevent abuse:
-    ref_vector & operator=(ref_vector const & other);
+    ref_vector & operator=(ref_vector const & other) = delete;
 };
 
 template<typename T>

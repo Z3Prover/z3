@@ -121,7 +121,7 @@ namespace spacer {
     void mbqi_project(model &mdl, app_ref_vector &vars, expr_ref &fml);
 
     bool contains_selects (expr* fml, ast_manager& m);
-    void get_select_indices (expr* fml, app_ref_vector& indices, ast_manager& m);
+    void get_select_indices (expr* fml, app_ref_vector& indices);
 
     void find_decls (expr* fml, app_ref_vector& decls, std::string& prefix);
 

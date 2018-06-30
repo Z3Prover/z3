@@ -260,7 +260,7 @@ struct model::occs_collector {
     void operator()(func_decl* f) {
         ts.add_occurs(f);
     }
-    void operator()(ast* ) {}
+    void operator()(ast*) {}
 };
 
 
@@ -319,7 +319,7 @@ void model::collect_occs(top_sort& ts, func_decl* f) {
 
 void model::collect_occs(top_sort& ts, expr* e) {
     occs_collector collector(ts);
-    for_each_ast(collector, e);
+    for_each_ast(collector, e, true);
 }
 
 bool model::can_inline_def(top_sort& ts, func_decl* f) {
