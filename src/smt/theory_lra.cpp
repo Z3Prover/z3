@@ -1119,6 +1119,13 @@ public:
             (m_solver->is_term(m_theory_var2var_index[v]) || m_variable_values.count(m_theory_var2var_index[v]) > 0);
     }
 
+    bool can_get_bound(theory_var v) const {
+        return 
+            (v != null_theory_var) &&
+            (v < static_cast<theory_var>(m_theory_var2var_index.size())) && 
+            (UINT_MAX != m_theory_var2var_index[v]);
+    }
+
         
     bool can_get_ivalue(theory_var v) const {
         if (v == null_theory_var || (v >= static_cast<theory_var>(m_theory_var2var_index.size())))
@@ -2610,8 +2617,10 @@ public:
 
     bool get_lower(enode* n, expr_ref& r) {
         theory_var v = n->get_th_var(get_id());
-        if (!can_get_value(v))
+        if (!can_get_bound(v)) {
+            TRACE("arith", tout << "cannot get lower for " << v << "\n";);
             return false;
+        }
         lp::var_index vi = m_theory_var2var_index[v];
         lp::constraint_index ci;
         rational val;
@@ -2620,12 +2629,13 @@ public:
             r = a.mk_numeral(val, is_int(n));
             return true;
         }
+        TRACE("arith", m_solver->print_constraints(tout << "does not have lower bound " << vi << "\n"););
         return false;
     }
 
     bool get_upper(enode* n, expr_ref& r) {
         theory_var v = n->get_th_var(get_id());
-        if (!can_get_value(v))
+        if (!can_get_bound(v))
             return false;
         lp::var_index vi = m_theory_var2var_index[v];
         lp::constraint_index ci;
@@ -2635,6 +2645,7 @@ public:
             r = a.mk_numeral(val, is_int(n));
             return true;
         }
+        TRACE("arith", m_solver->print_constraints(tout << "does not have upper bound " << vi << "\n"););
         return false;
     }
 
@@ -2717,18 +2728,28 @@ public:
 
     theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         lp::impq term_max;
-        lp::lp_status st = m_solver->maximize_term(v, term_max);
-        inf_rational val(term_max.x, term_max.y);
-        if (st == lp::lp_status::OPTIMAL) {
+        lp::lp_status st;
+        if (!can_get_bound(v)) {
+            st = lp::lp_status::UNBOUNDED;
+        }
+        else {
+            lp::var_index vi = m_theory_var2var_index[v];
+            st = m_solver->maximize_term(vi, term_max);
+        }
+        switch (st) {
+        case lp::lp_status::OPTIMAL: {
+            inf_rational val(term_max.x, term_max.y);
             blocker = mk_gt(v);
             return inf_eps(rational::zero(), val);
-        } if (st == lp::lp_status::FEASIBLE) {
+        }
+        case lp::lp_status::FEASIBLE: {
+            inf_rational val(term_max.x, term_max.y);
             // todo , TODO , not sure what happens here
             return inf_eps(rational::zero(), val);
         }
-        else {
+        default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
-            TRACE("arith", tout << "Unbounded " << v << "\n";);
+           TRACE("arith", tout << "Unbounded v" << v << "\n";);
             has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());
