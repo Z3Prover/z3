@@ -2795,6 +2795,7 @@ namespace smt {
         default:
             UNREACHABLE();
         }
+        return false;
     } // end of execute_core
 
     void display_trees(std::ostream & out, const ptr_vector<code_tree> & trees) {
