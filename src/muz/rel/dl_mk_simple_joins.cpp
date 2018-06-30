@@ -107,7 +107,7 @@ namespace datalog {
                     SASSERT(m_consumers > 0);
                     m_consumers--;
                 }
-                SASSERT(!m_rules.empty() || m_consumers==0);
+                SASSERT(!m_rules.empty() || m_consumers == 0);
                 return m_rules.empty();
             }
         private:
@@ -307,7 +307,7 @@ namespace datalog {
             for (unsigned i = 0; i < pos_tail_size; i++) {
                 rule_content.push_back(r->get_tail(i));
             }
-            for (unsigned i=0; i+1 < pos_tail_size; i++) {
+            for (unsigned i = 0; i+1 < pos_tail_size; i++) {
                 app * t1 = r->get_tail(i);
                 var_idx_set t1_vars = rm.collect_vars(t1);
                 counter.count_vars(t1, -1);  //temporarily remove t1 variables from counter
@@ -443,13 +443,13 @@ namespace datalog {
             var_counter counter;
             counter.count_vars(head, 1);
 
-            unsigned tail_size=r->get_tail_size();
-            unsigned pos_tail_size=r->get_positive_tail_size();
+            unsigned tail_size = r->get_tail_size();
+            unsigned pos_tail_size = r->get_positive_tail_size();
 
-            for (unsigned i=pos_tail_size; i<tail_size; i++) {
+            for (unsigned i = pos_tail_size; i < tail_size; i++) {
                 counter.count_vars(r->get_tail(i), 1);
             }
-            for (unsigned i=0; i<len; i++) {
+            for (unsigned i = 0; i < len; i++) {
                 counter.count_vars(rule_content[i], 1);
             }
 
@@ -492,12 +492,11 @@ namespace datalog {
             if (len == 1) {
                 return;
             }
-            pair_info & inf = *m_costs[pair_key];
             TRACE("dl", 
                   r->display(m_context, tout << "rule ");
                   tout << "pair: " << mk_pp(t1, m) << " " << mk_pp(t2, m) << "\n";
                   tout << mk_pp(t_new, m) << "\n";
-                  tout << "all-non-local: " << inf.m_all_nonlocal_vars << "\n";
+                  tout << "all-non-local: " << m_costs[pair_key]->m_all_nonlocal_vars << "\n";
                   for (app* a : rule_content) tout << mk_pp(a, m) << " "; tout << "\n";);
 
             rule_counter counter;
@@ -596,10 +595,10 @@ namespace datalog {
                 || rm.is_saturated(pred)) {
                 SASSERT(rm.try_get_relation(pred)); //if it is saturated, it should exist
                 unsigned rel_size_int = rel->get_relation(pred).get_size_estimate_rows();
-                if (rel_size_int!=0) {
+                if (rel_size_int != 0) {
                     cost rel_size = static_cast<cost>(rel_size_int);
                     cost curr_size = rel_size;
-                    for (unsigned i=0; i<n; i++) {
+                    for (unsigned i = 0; i < n; i++) {
                         if (!is_var(t->get_arg(i))) {
                             curr_size /= get_domain_size(pred, i);
                         }
@@ -608,7 +607,7 @@ namespace datalog {
                 }
             }
             cost res = 1;
-            for (unsigned i=0; i<n; i++) {
+            for (unsigned i = 0; i < n; i++) {
                 if (is_var(t->get_arg(i))) {
                     res *= get_domain_size(pred, i);
                 }
@@ -624,7 +623,7 @@ namespace datalog {
             vi.populate(t1, t2);
             unsigned n = vi.size();
             // remove contributions from joined columns.
-            for (unsigned i=0; i<n; i++) {
+            for (unsigned i = 0; i < n; i++) {
                 unsigned arg_index1, arg_index2;
                 vi.get(i, arg_index1, arg_index2);
                 SASSERT(is_var(t1->get_arg(arg_index1)));
@@ -714,7 +713,7 @@ namespace datalog {
                 ptr_vector<app> tail(content);
                 svector<bool> negs(tail.size(), false);
                 unsigned or_len = orig_r->get_tail_size();
-                for (unsigned i=orig_r->get_positive_tail_size(); i<or_len; i++) {
+                for (unsigned i=orig_r->get_positive_tail_size(); i < or_len; i++) {
                     tail.push_back(orig_r->get_tail(i));
                     negs.push_back(orig_r->is_neg_tail(i));
                 }
