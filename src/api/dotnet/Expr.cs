@@ -1789,7 +1789,7 @@ namespace Microsoft.Z3
         [Pure]
         internal override void CheckNativeObject(IntPtr obj)
         {
-            if (Native.Z3_is_app(Context.nCtx, obj) == 0 &&
+            if (Native.Z3_is_app(Context.nCtx, obj) == false &&
                 Native.Z3_get_ast_kind(Context.nCtx, obj) != (uint)Z3_ast_kind.Z3_VAR_AST &&
                 Native.Z3_get_ast_kind(Context.nCtx, obj) != (uint)Z3_ast_kind.Z3_QUANTIFIER_AST)
                 throw new Z3Exception("Underlying object is not a term");
