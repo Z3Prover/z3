@@ -16,6 +16,7 @@ z3_add_component(core_tactics
     pb_preprocess_tactic.cpp
     propagate_values_tactic.cpp
     reduce_args_tactic.cpp
+    reduce_invertible_tactic.cpp
     simplify_tactic.cpp
     solve_eqs_tactic.cpp
     split_clause_tactic.cpp
