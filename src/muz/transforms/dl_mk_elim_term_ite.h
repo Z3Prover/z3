@@ -29,7 +29,10 @@ namespace datalog {
         ast_manager &m;
         rule_manager &rm;
 
+        expr_ref_vector m_ground;
+
         bool elim(rule &r, rule_set &new_rules);
+        expr_ref ground(expr_ref &e);
     public:
         mk_elim_term_ite(context &ctx, unsigned priority);
         ~mk_elim_term_ite() override;

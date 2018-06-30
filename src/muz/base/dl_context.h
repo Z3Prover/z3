@@ -281,6 +281,7 @@ namespace datalog {
         bool array_blast() const;
         bool array_blast_full() const;
         bool elim_term_ite() const;
+        unsigned blast_term_ite_inflation() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 

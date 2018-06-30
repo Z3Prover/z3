@@ -97,7 +97,7 @@ namespace datalog {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));
         }
 
-        transf.register_plugin(alloc(datalog::mk_elim_term_ite, ctx, 34999));
+        transf.register_plugin(alloc(datalog::mk_elim_term_ite, ctx, 35010));
         ctx.transform_rules(transf);
     }
 }
