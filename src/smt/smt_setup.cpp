@@ -222,7 +222,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        m_context.register_plugin(alloc(theory_seq, m_manager));
+        m_context.register_plugin(alloc(theory_seq, m_manager, m_params));
     }
 
     void setup::setup_QF_UF(static_features const & st) {        
@@ -721,8 +721,18 @@ namespace smt {
     }
 
     void setup::setup_QF_S() {
-        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-        m_context.register_plugin(alloc(smt::theory_str, m_manager, m_params));
+        if (m_params.m_string_solver == "z3str3") {
+            setup_str();
+        }
+        else if (m_params.m_string_solver == "seq") {
+            setup_unknown();
+        }
+        else if (m_params.m_string_solver == "auto") {
+            setup_unknown();
+        }
+        else {
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+        }
     }
 
     bool is_arith(static_features const & st) {
@@ -885,7 +895,7 @@ namespace smt {
     }
 
     void setup::setup_seq() {
-        m_context.register_plugin(alloc(smt::theory_seq, m_manager));
+        m_context.register_plugin(alloc(smt::theory_seq, m_manager, m_params));
     }
 
     void setup::setup_unknown() {
