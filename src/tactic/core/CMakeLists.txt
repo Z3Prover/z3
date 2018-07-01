@@ -43,6 +43,7 @@ z3_add_component(core_tactics
     pb_preprocess_tactic.h
     propagate_values_tactic.h
     reduce_args_tactic.h
+    reduce_invertible_tactic.h
     simplify_tactic.h
     solve_eqs_tactic.h
     split_clause_tactic.h
