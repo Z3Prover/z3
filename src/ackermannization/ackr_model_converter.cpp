@@ -134,7 +134,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         info->abstract(arg, aarg);
         expr_ref arg_value(m);
         evaluator(aarg, arg_value);
-        args.push_back(arg_value);
+        args.push_back(std::move(arg_value));
     }
     if (fi->get_entry(args.c_ptr()) == nullptr) {
         TRACE("ackr_model",

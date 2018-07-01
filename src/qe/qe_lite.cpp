@@ -320,8 +320,8 @@ namespace eq {
                        << "sz is " << sz << "\n"
                        << "subst_map[inx]: " << mk_pp(m_subst_map.get(inx), m) << "\n";);
                 SASSERT(m_subst_map.get(inx) == nullptr);
-                m_subst_map[inx] = r;
                 m_subst.update_inv_binding_at(inx, r);
+                m_subst_map[inx] = std::move(r);
             }
         }
 
@@ -470,7 +470,7 @@ namespace eq {
                             m_var2pos[idx] = i;
                             def_count++;
                             largest_vinx = std::max(idx, largest_vinx);
-                            m_new_exprs.push_back(t);
+                            m_new_exprs.push_back(std::move(t));
                         }
                         else if (!m.is_value(m_map[idx])) {
                             // check if the new definition is simpler
@@ -482,7 +482,7 @@ namespace eq {
                                 m_pos2var[i] = idx;
                                 m_var2pos[idx] = i;
                                 m_map[idx] = t;
-                                m_new_exprs.push_back(t);
+                                m_new_exprs.push_back(std::move(t));
                           }
                           // -- prefer ground
                           else if (is_app(t) && to_app(t)->is_ground() &&
@@ -492,7 +492,7 @@ namespace eq {
                               m_pos2var[i] = idx;
                               m_var2pos[idx] = i;
                               m_map[idx] = t;
-                              m_new_exprs.push_back(t);
+                              m_new_exprs.push_back(std::move(t));
                           }
                           // -- prefer constants
                           else if (is_uninterp_const(t)
@@ -501,7 +501,7 @@ namespace eq {
                               m_pos2var[i] = idx;
                               m_var2pos[idx] = i;
                               m_map[idx] = t;
-                              m_new_exprs.push_back(t);
+                              m_new_exprs.push_back(std::move(t));
                           }
                           TRACE ("qe_def",
                                  tout << "Replacing definition of VAR " << idx << " from "

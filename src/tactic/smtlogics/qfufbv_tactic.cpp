@@ -62,7 +62,7 @@ public:
 
         TRACE("qfufbv_ackr_tactic", g->display(tout << "goal:\n"););
         // running implementation
-        expr_ref_vector flas(m);
+        ptr_vector<expr> flas;
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
         scoped_ptr<solver> uffree_solver = setup_sat();

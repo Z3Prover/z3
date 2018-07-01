@@ -3108,12 +3108,12 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
         expr_ref exp_bv(m), exp_all_ones(m);
         exp_bv = m_bv_util.mk_extract(ebits+sbits-2, sbits-1, result);
         exp_all_ones = m.mk_eq(exp_bv, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, ebits)));
-        m_extra_assertions.push_back(exp_all_ones);
+        m_extra_assertions.push_back(std::move(exp_all_ones));
 
         expr_ref sig_bv(m), sig_is_non_zero(m);
         sig_bv = m_bv_util.mk_extract(sbits-2, 0, result);
         sig_is_non_zero = m.mk_not(m.mk_eq(sig_bv, m_bv_util.mk_numeral(0, sbits-1)));
-        m_extra_assertions.push_back(sig_is_non_zero);
+        m_extra_assertions.push_back(std::move(sig_is_non_zero));
     }
 
     TRACE("fpa2bv_to_ieee_bv_unspecified", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);

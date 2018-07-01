@@ -218,10 +218,9 @@ namespace api {
             // Corner case bug: n may be in m_last_result, and this is the only reference to n.
             // When, we execute reset() it is deleted
             // To avoid this bug, I bump the reference counter before reseting m_last_result
-            m().inc_ref(n);
+            ast_ref node(n, m());
             m_last_result.reset();
-            m_last_result.push_back(n);
-            m().dec_ref(n);
+            m_last_result.push_back(std::move(node));
         }
         else {
             m_ast_trail.push_back(n);

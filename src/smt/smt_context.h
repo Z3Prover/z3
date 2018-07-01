@@ -1115,8 +1115,6 @@ namespace smt {
 
         void internalize_assertions();
 
-        void assert_assumption(expr * a);
-
         bool validate_assumptions(expr_ref_vector const& asms);
 
         void init_assumptions(expr_ref_vector const& asms);
@@ -1128,8 +1126,6 @@ namespace smt {
         void reset_tmp_clauses();
 
         void reset_assumptions();
-
-        void reset_clause();
 
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
@@ -1584,8 +1580,6 @@ namespace smt {
         void get_asserted_formulas(ptr_vector<expr>& r) const { m_asserted_formulas.get_assertions(r); }
 
         //proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
-
-        void get_assumptions_core(ptr_vector<expr> & result);
 
         void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
 

@@ -1594,7 +1594,7 @@ namespace smt {
         for (literal lit : m_assigned_literals) {
             expr_ref e(m_manager);
             literal2expr(lit, e);
-            assignments.push_back(e);
+            assignments.push_back(std::move(e));
         }
     }
 
@@ -4180,7 +4180,7 @@ namespace smt {
             SASSERT(get_justification(guess.var()).get_kind() == b_justification::AXIOM);
             expr_ref lit(m_manager);
             literal2expr(guess, lit);
-            result.push_back(lit);
+            result.push_back(std::move(lit));
         }
     }
 

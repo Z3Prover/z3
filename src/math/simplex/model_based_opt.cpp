@@ -266,6 +266,7 @@ namespace opt {
     void model_based_opt::update_value(unsigned x, rational const& val) {
         rational old_val = m_var2value[x];
         m_var2value[x] = val;
+        SASSERT(val.is_int() || !is_int(x));
         unsigned_vector const& row_ids = m_var2row_ids[x];
         for (unsigned row_id : row_ids) {
             rational coeff = get_coefficient(row_id, x);
@@ -530,6 +531,7 @@ namespace opt {
         SASSERT(t_le == dst.m_type && t_le == src.m_type);
         SASSERT(src_c.is_int());
         SASSERT(dst_c.is_int());
+        SASSERT(m_var2value[x].is_int());
 
         rational abs_src_c = abs(src_c);
         rational abs_dst_c = abs(dst_c);            
@@ -805,6 +807,7 @@ namespace opt {
         unsigned v = m_var2value.size();
         m_var2value.push_back(value);
         m_var2is_int.push_back(is_int);
+        SASSERT(value.is_int() || !is_int);
         m_var2row_ids.push_back(unsigned_vector());
         return v;
     }
@@ -1017,7 +1020,6 @@ namespace opt {
             else {
                 result = def(m_rows[glb_index], x);
             }
-            m_var2value[x] = eval(result);
         }
 
         // The number of matching lower and upper bounds is small.
@@ -1114,8 +1116,7 @@ namespace opt {
         }
         def result = project(y, compute_def);
         if (compute_def) {
-            result = (result * D) + u;      
-            m_var2value[x] = eval(result);
+            result = (result * D) + u;     
         }
         SASSERT(!compute_def || eval(result) == eval(x));
         return result;

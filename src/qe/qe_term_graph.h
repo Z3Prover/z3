@@ -75,6 +75,7 @@ namespace qe {
         void pick_roots();
 
         void reset_marks();
+        bool marks_are_clear();
 
         expr* mk_app_core(expr* a);
         expr_ref mk_app(term const &t);
@@ -102,7 +103,7 @@ namespace qe {
 
         // deprecate?
         void to_lits(expr_ref_vector &lits, bool all_equalities = false);
-        expr_ref to_app();
+        expr_ref to_expr();
 
         /**
          * Return literals obtained by projecting added literals
