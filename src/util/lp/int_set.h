@@ -35,7 +35,7 @@ public:
         return m_data[j] >= 0;
     }
     void insert(unsigned j) {
-        SASSERT(j < m_data.size());
+        lp_assert(j < m_data.size());
         if (contains(j)) return;
         m_data[j] = m_index.size();
         m_index.push_back(j);

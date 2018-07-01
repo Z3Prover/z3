@@ -74,27 +74,7 @@ class mpq_manager : public mpz_manager<SYNCH> {
         }
     }
 
-    void rat_add(mpq const & a, mpq const & b, mpq & c) {
-        STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
-        if (SYNCH) {
-            mpz tmp1, tmp2;
-            mul(a.m_num, b.m_den, tmp1);
-            mul(b.m_num, a.m_den, tmp2);
-            mul(a.m_den, b.m_den, c.m_den);
-            add(tmp1, tmp2, c.m_num);
-            normalize(c);
-            del(tmp1);
-            del(tmp2);
-        }
-        else {
-            mul(a.m_num, b.m_den, m_add_tmp1);
-            mul(b.m_num, a.m_den, m_add_tmp2);
-            mul(a.m_den, b.m_den, c.m_den);
-            add(m_add_tmp1, m_add_tmp2, c.m_num);
-            normalize(c);
-        }
-        STRACE("rat_mpq", tout << to_string(c) << "\n";);
-    }
+    void rat_add(mpq const & a, mpq const & b, mpq & c);
 
     void rat_add(mpq const & a, mpz const & b, mpq & c) {
         STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
@@ -115,45 +95,18 @@ class mpq_manager : public mpz_manager<SYNCH> {
         STRACE("rat_mpq", tout << to_string(c) << "\n";);
     }
 
-    void rat_sub(mpq const & a, mpq const & b, mpq & c) {
-        STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " - " << to_string(b) << " == ";); 
-        if (SYNCH) {
-            mpz tmp1, tmp2;
-            mul(a.m_num, b.m_den, tmp1);
-            mul(b.m_num, a.m_den, tmp2);
-            mul(a.m_den, b.m_den, c.m_den);
-            sub(tmp1, tmp2, c.m_num);
-            normalize(c);
-            del(tmp1);
-            del(tmp2);
-        }
-        else {
-            mul(a.m_num, b.m_den, m_add_tmp1);
-            mul(b.m_num, a.m_den, m_add_tmp2);
-            mul(a.m_den, b.m_den, c.m_den);
-            sub(m_add_tmp1, m_add_tmp2, c.m_num);
-            normalize(c);
-        }
-        STRACE("rat_mpq", tout << to_string(c) << "\n";);
-    }
+    void rat_sub(mpq const & a, mpq const & b, mpq & c);
 
-    void rat_mul(mpq const & a, mpq const & b, mpq & c) {
-        STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
-        mul(a.m_num, b.m_num, c.m_num);
-        mul(a.m_den, b.m_den, c.m_den);
-        normalize(c);
-        STRACE("rat_mpq", tout << to_string(c) << "\n";);
-    }
+    void rat_mul(mpq const & a, mpq const & b, mpq & c);
 
-    void rat_mul(mpz const & a, mpq const & b, mpq & c) {
-        STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
-        mul(a, b.m_num, c.m_num);
-        set(c.m_den, b.m_den);
-        normalize(c);
-        STRACE("rat_mpq", tout << to_string(c) << "\n";);
-    }
+    void rat_mul(mpz const & a, mpq const & b, mpq & c);
 
     bool rat_lt(mpq const & a, mpq const & b);
+
+    template<bool SUB>
+    void lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g, mpz& tmp1, mpz& tmp2, mpz& tmp3);
+
+    void rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2);
 
 public:
     typedef mpq numeral;
@@ -501,7 +454,7 @@ public:
 
     void machine_div(mpz const & a, mpz const & b, mpz & c) { mpz_manager<SYNCH>::machine_div(a, b, c); }
 
-    void machine_div_rem(mpz const & a, mpz const & b, mpz & c, mpz& d) { mpz_manager<SYNCH>::machine_div_rem(a, b, c, d); }
+    void machine_div_rem(mpz const & a, mpz const & b, mpz & c, mpz & d) { mpz_manager<SYNCH>::machine_div_rem(a, b, c, d); }
 
     void div(mpz const & a, mpz const & b, mpz & c) { mpz_manager<SYNCH>::div(a, b, c); }
     
@@ -746,10 +699,12 @@ public:
         reset_denominator(a);
     }
 
-    void set(mpz & a, unsigned sz, digit_t const * digits) { mpz_manager<SYNCH>::set(a, sz, digits); }
+    void set(mpz & a, unsigned sz, digit_t const * digits) { 
+        mpz_manager<SYNCH>::set_digits(a, sz, digits); 
+    }
 
     void set(mpq & a, unsigned sz, digit_t const * digits) { 
-        mpz_manager<SYNCH>::set(a.m_num, sz, digits); 
+        mpz_manager<SYNCH>::set_digits(a.m_num, sz, digits); 
         reset_denominator(a); 
     }
 

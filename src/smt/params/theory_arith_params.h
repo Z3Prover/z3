@@ -25,11 +25,11 @@ Revision History:
 enum arith_solver_id {
     AS_NO_ARITH,              // 0
     AS_DIFF_LOGIC,            // 1
-    AS_ARITH,                 // 2
+    AS_OLD_ARITH,             // 2
     AS_DENSE_DIFF_LOGIC,      // 3
     AS_UTVPI,                 // 4
     AS_OPTINF,                // 5
-    AS_LRA                    // 6
+    AS_NEW_ARITH              // 6
 };
 
 enum bound_prop_mode {
@@ -113,7 +113,7 @@ struct theory_arith_params {
     theory_arith_params(params_ref const & p = params_ref()):
         m_arith_eq2ineq(false),
         m_arith_process_all_eqs(false),
-        m_arith_mode(AS_ARITH),
+        m_arith_mode(AS_NEW_ARITH),
         m_arith_auto_config_simplex(false),
         m_arith_blands_rule_threshold(1000),
         m_arith_propagate_eqs(true),

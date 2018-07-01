@@ -30,6 +30,10 @@ public:
         m_stack.push(m_value);
     }
 
+    void clear() {
+        m_stack.clear();
+    }
+    
     unsigned stack_size() const {
         return static_cast<unsigned>(m_stack.size());
     }
