@@ -178,11 +178,12 @@ private:
         if (m_bv.is_bv_mul(p)) {
             expr_ref rest(m);
             for (expr* arg : *to_app(p)) {
-                if (arg != v) 
+                if (arg != v) { 
                     if (rest) 
                         rest = m_bv.mk_bv_mul(rest, arg);
                     else
                         rest = arg;
+                }
             }
             if (!rest) return false;
 
@@ -251,11 +252,12 @@ private:
         if (m_arith.is_mul(p) && m_arith.is_real(p)) {
             expr_ref rest(m);
             for (expr* arg : *to_app(p)) {
-                if (arg != v) 
+                if (arg != v) {
                     if (rest) 
                         rest = m_arith.mk_mul(rest, arg);
                     else
                         rest = arg;
+                }
             }
             if (!rest) return false;
             expr_ref zero(m_arith.mk_real(0), m);
