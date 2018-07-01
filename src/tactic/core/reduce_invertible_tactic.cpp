@@ -173,7 +173,6 @@ private:
             return true;
         }
         if (m_bv.is_bv_mul(p)) {
-
             expr_ref rest(m);
             for (expr* arg : *to_app(p)) {
                 if (arg != v) 
@@ -184,14 +183,24 @@ private:
             }
             if (!rest) return false;
 
-            // if multiplier by odd number, then just return division.
-            // if general multiplier, then create case split on
+            // create case split on
             // divisbility of 2
-            // v * t -> if (t & 0x1) v / t (if (!(t & 0x1) && (t & 0x3)) ..
+            // v * t -> 
+            // def for v:
+            //   if t is odd -> v / t
+            //   if t/2 is odd -> 2*(v/t)
+            //   if t/4 is odd -> 4*(v/t)
+            // .. if t = 0 -> 0
 
             unsigned sz = m_bv.get_bv_size(p);
             expr_ref bit1(m_bv.mk_numeral(1, 1), m);
             new_v = m_bv.mk_numeral(0, sz);
+            expr_ref div(m), def(m);
+            if (mc) {
+                ensure_mc(mc);
+                div = m.mk_app(m_bv.get_fid(), OP_BUDIV_I, v, rest);
+                def = new_v;
+            }
             for (unsigned i = sz; i-- > 0; ) {
                 expr_ref extr_i(m_bv.mk_extract(i, i, rest), m);
                 expr_ref cond(m.mk_eq(extr_i, bit1), m);
@@ -200,11 +209,14 @@ private:
                     part = m_bv.mk_concat(m_bv.mk_extract(sz-1, i, v), m_bv.mk_numeral(0, i));
                 }
                 new_v = m.mk_ite(cond, part, new_v);
+                if (def) {
+                    expr_ref shl = div;
+                    if (i > 0) shl = m_bv.mk_bv_shl(div, m_bv.mk_numeral(i, sz));
+                    def = m.mk_ite(cond, shl, def);
+                }
             }
-
-            if (mc) {
-                ensure_mc(mc);
-                // TBD: represent inverse
+            if (def) {
+                (*mc)->add(v, def);
             }
             return true;
         }
@@ -217,32 +229,34 @@ private:
             return true;
         }
         if (m_bv.is_bv_sub(p)) {
-
+            // TBD
         }
         if (m_bv.is_bv_neg(p)) {
-
+            // TBD
         }
         if (m_bv.is_bv_udivi(p)) {
-            
+            // TBD
         }
         // sdivi, sremi, uremi, smodi
+        // TBD
+
 
         expr* e1 = nullptr, *e2 = nullptr;
         if (m.is_eq(p, e1, e2)) {
-            if (mc && m_bv.is_bv(e1)) {
-                if (!is_ground(p)) return false;
+            if (mc && has_diagonal(e1)) {
                 ensure_mc(mc);
                 new_v = m.mk_fresh_const("eq", m.mk_bool_sort());
+                SASSERT(v == e1 || v == e2);
                 expr* other = (v == e1) ? e2 : e1;
                 (*mc)->hide(new_v);
-                (*mc)->add(v, m.mk_ite(new_v, other, m_bv.mk_bv_neg(other)));
+                (*mc)->add(v, m.mk_ite(new_v, other, mk_diagonal(other)));
                 return true;
             }
             else if (mc) {
                 // diagonal functions for other types depend on theory.
                 return false;
             }
-            else if (is_var(v) && non_singleton_sort(m.get_sort(v))) {
+            else if (is_var(v) && is_non_singleton_sort(m.get_sort(v))) {
                 new_v = m.mk_var(to_var(v)->get_idx(), m.mk_bool_sort());                
                 return true;
             }
@@ -250,11 +264,24 @@ private:
         return false;
     }
 
-    bool non_singleton_sort(sort* s) {
-        if (m_bv.is_bv_sort(s) && m_bv.get_bv_size(s) > 0) return true;
-        if (m.is_bool(s)) return true;
-        // TBD: add arithmetic and other relevant theories.
-        return false;
+    bool has_diagonal(expr* e) {
+        return 
+            m_bv.is_bv(e) || 
+            m.is_bool(e);
+    }
+
+    expr * mk_diagonal(expr* e) {
+        if (m_bv.is_bv(e)) return m_bv.mk_bv_neg(e);
+        if (m.is_bool(e)) return m.mk_not(e);
+        UNREACHABLE();
+        return e;
+    }
+
+    bool is_non_singleton_sort(sort* s) {
+        if (m.is_uninterp(s)) return false;
+        sort_size sz = s->get_num_elements();
+        if (sz.is_finite() && sz.size() == 1) return false;
+        return true;
     }
 
     struct reduce_q_rw_cfg : public default_rewriter_cfg {
