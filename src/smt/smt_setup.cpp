@@ -332,7 +332,7 @@ namespace smt {
         m_params.m_arith_propagate_eqs = false;
         m_params.m_arith_small_lemma_size = 30;
         m_params.m_nnf_cnf             = false;
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_IDL(static_features & st) {
@@ -404,7 +404,7 @@ namespace smt {
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;
         m_params.m_restart_adaptive = false;
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_UFIDL(static_features & st) {
@@ -454,7 +454,7 @@ namespace smt {
         m_params.m_arith_propagate_eqs = false;
         m_params.m_eliminate_term_ite  = true;
         m_params.m_nnf_cnf             = false;
-        setup_r_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_LRA(static_features const & st) {
@@ -479,7 +479,7 @@ namespace smt {
             m_params.m_restart_adaptive      = false;
         }
         m_params.m_arith_small_lemma_size = 32;
-        setup_r_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_LIRA(static_features const& st) {
@@ -493,7 +493,7 @@ namespace smt {
         m_params.m_arith_reflect       = false; 
         m_params.m_arith_propagate_eqs = false; 
         m_params.m_nnf_cnf             = false;
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_LIA(static_features const & st) {
@@ -534,7 +534,7 @@ namespace smt {
             m_params.m_arith_bound_prop      = BP_NONE;
             m_params.m_arith_stronger_lemmas = false;
         }
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_UFLIA() {
@@ -542,7 +542,7 @@ namespace smt {
         m_params.m_arith_reflect       = false; 
         m_params.m_nnf_cnf             = false;
         m_params.m_arith_propagation_threshold = 1000;
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_UFLIA(static_features & st) {
@@ -555,7 +555,7 @@ namespace smt {
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_reflect       = false; 
         m_params.m_nnf_cnf             = false;
-        setup_r_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_BV() {
@@ -744,11 +744,11 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
         }
         else {
-            setup_r_arith();
+            setup_lra_arith();
         }
     }
 
-    void setup::setup_r_arith() {
+    void setup::setup_lra_arith() {
         m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
@@ -758,7 +758,7 @@ namespace smt {
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
             break;
         case AS_NEW_ARITH:
-            setup_r_arith();
+            setup_lra_arith();
             break;
         default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
@@ -827,8 +827,11 @@ namespace smt {
             else
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
+        case AS_NEW_ARITH:
+            setup_lra_arith();
+            break;
         default:
-            setup_i_arith();
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         }
     }
