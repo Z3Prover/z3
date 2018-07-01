@@ -199,6 +199,9 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_reset_cache(false),
     m_eq_id(0),
     m_find(*this),
+    m_overlap(m),
+    m_overlap2(m),
+    m_len_prop_lvl(-1),
     m_factory(nullptr),
     m_exclude(m),
     m_axioms(m),
@@ -216,9 +219,6 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_atoms_qhead(0),
     m_new_solution(false),
     m_new_propagation(false),
-    m_len_prop_lvl(-1),
-    m_overlap(m),
-    m_overlap2(m),
     m_mk_aut(m) {
     m_prefix         = "seq.p.suffix";
     m_suffix         = "seq.s.prefix";

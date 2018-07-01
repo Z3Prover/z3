@@ -119,10 +119,10 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_is_algebraic_number(Z3_context c, Z3_ast a) {
+    int Z3_API Z3_is_algebraic_number(Z3_context c, Z3_ast a) {
         LOG_Z3_is_algebraic_number(c, a);
-        Z3_bool r = mk_c(c)->autil().is_irrational_algebraic_numeral(to_expr(a)) ? Z3_TRUE : Z3_FALSE;
-        IF_VERBOSE(10, verbose_stream() << r << "\n");
+        int r = mk_c(c)->autil().is_irrational_algebraic_numeral(to_expr(a)) ? 1 : 0;
+        //IF_VERBOSE(10, verbose_stream() << r << "\n");
         return r;
     }
 

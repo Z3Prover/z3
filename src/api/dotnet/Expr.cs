@@ -239,7 +239,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsAlgebraicNumber
         {
-            get { return Native.Z3_is_algebraic_number(Context.nCtx, NativeObject); }
+            get { return 0 != Native.Z3_is_algebraic_number(Context.nCtx, NativeObject); }
         }
         #endregion
 
@@ -1823,7 +1823,7 @@ namespace Microsoft.Z3
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(ctx.nCtx, s);
 
             if ( // Z3_sort_kind.Z3_REAL_SORT == sk && 
-                Native.Z3_is_algebraic_number(ctx.nCtx, obj)) // is this a numeral ast?
+                0 != Native.Z3_is_algebraic_number(ctx.nCtx, obj)) // is this a numeral ast?
                 return new AlgebraicNum(ctx, obj);
 
             if (Native.Z3_is_numeral_ast(ctx.nCtx, obj))
