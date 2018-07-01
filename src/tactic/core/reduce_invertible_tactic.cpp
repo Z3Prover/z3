@@ -22,6 +22,7 @@ Notes:
 
 #include "util/cooperate.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -33,11 +34,13 @@ Notes:
 class reduce_invertible_tactic : public tactic {
     ast_manager& m;
     bv_util      m_bv;
+    arith_util   m_arith;
 
 public:
     reduce_invertible_tactic(ast_manager & m):
         m(m),
-        m_bv(m)
+        m_bv(m),
+        m_arith(m)
     {}
 
     ~reduce_invertible_tactic() override { }
@@ -186,21 +189,25 @@ private:
             // create case split on
             // divisbility of 2
             // v * t -> 
-            // def for v:
-            //   if t is odd -> v / t
-            //   if t/2 is odd -> 2*(v/t)
-            //   if t/4 is odd -> 4*(v/t)
-            // .. if t = 0 -> 0
+            // if t = 0, set v' := 0 and the solution for v is 0.
+            // otherwise,
+            // let i be the position of the least bit of t set to 1
+            // then extract[sz-1:i](v) ++ zero[i-1:0] is the invertible of v * t
+            // thus
+            //    extract[i+1:0](t) = 1 ++ zero[i-1:0] -> extract[sz-1:i](v) ++ zero[i-1:0]
+            // to reproduce the original v from t
+            // solve for v*t = extract[sz-1:i](v') ++ zero[i-1:0]
+            // using values for t and v'
+            // thus
+            //
+            //    udiv(extract[sz-1:i](v') ++ zero[i-1:0], t)
+            // 
+            // TBD: this argument is flawed. Unit test breaks with either
+            // the above or udiv(v, t)
 
             unsigned sz = m_bv.get_bv_size(p);
             expr_ref bit1(m_bv.mk_numeral(1, 1), m);
             new_v = m_bv.mk_numeral(0, sz);
-            expr_ref div(m), def(m);
-            if (mc) {
-                ensure_mc(mc);
-                div = m.mk_app(m_bv.get_fid(), OP_BUDIV_I, v, rest);
-                def = new_v;
-            }
             for (unsigned i = sz; i-- > 0; ) {
                 expr_ref extr_i(m_bv.mk_extract(i, i, rest), m);
                 expr_ref cond(m.mk_eq(extr_i, bit1), m);
@@ -209,14 +216,15 @@ private:
                     part = m_bv.mk_concat(m_bv.mk_extract(sz-1, i, v), m_bv.mk_numeral(0, i));
                 }
                 new_v = m.mk_ite(cond, part, new_v);
-                if (def) {
-                    expr_ref shl = div;
-                    if (i > 0) shl = m_bv.mk_bv_shl(div, m_bv.mk_numeral(i, sz));
-                    def = m.mk_ite(cond, shl, def);
-                }
             }
-            if (def) {
+            if (mc) {
+                ensure_mc(mc);
+                expr_ref div(m), def(m);
+                div = m.mk_app(m_bv.get_fid(), OP_BUDIV_I, v, rest);
+                def = m_bv.mk_numeral(0, sz);
+                def = m.mk_ite(m.mk_eq(def, rest), def, div);
                 (*mc)->add(v, def);
+                TRACE("invertible_tactic", tout << def << "\n";);
             }
             return true;
         }
@@ -240,6 +248,25 @@ private:
         // sdivi, sremi, uremi, smodi
         // TBD
 
+        if (m_arith.is_mul(p) && m_arith.is_real(p)) {
+            expr_ref rest(m);
+            for (expr* arg : *to_app(p)) {
+                if (arg != v) 
+                    if (rest) 
+                        rest = m_arith.mk_mul(rest, arg);
+                    else
+                        rest = arg;
+            }
+            if (!rest) return false;
+            expr_ref zero(m_arith.mk_numeral(rational::zero(), false), m);
+            new_v = m.mk_ite(m.mk_eq(zero, rest), zero, v);
+            if (mc) {
+                ensure_mc(mc);
+                expr_ref def(m_arith.mk_div(v, rest), m);
+                (*mc)->add(v, def);
+            }
+            return true;
+        }
 
         expr* e1 = nullptr, *e2 = nullptr;
         if (m.is_eq(p, e1, e2)) {
