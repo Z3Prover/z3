@@ -844,8 +844,7 @@ namespace qe {
                 break;
             case l_undef:
                 result.push_back(in.get());
-                std::string s = "search failed";
-                throw tactic_exception(s.c_str()); 
+                throw tactic_exception("search failed");
             }        
         }
 

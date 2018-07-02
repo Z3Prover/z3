@@ -19,6 +19,7 @@ Author:
 Notes:
 
 --*/
+#include "solver/tactic2solver.h"
 #include "solver/solver_na2as.h"
 #include "tactic/tactic.h"
 #include "ast/ast_translation.h"
@@ -31,6 +32,8 @@ Notes:
    option for applications trying to solve many easy queries that a
    similar to each other.
 */
+
+namespace {
 class tactic2solver : public solver_na2as {
     expr_ref_vector              m_assertions;
     unsigned_vector              m_scopes;
@@ -258,6 +261,7 @@ unsigned tactic2solver::get_num_assertions() const {
 expr * tactic2solver::get_assertion(unsigned idx) const {
     return m_assertions.get(idx);
 }
+}
 
 
 solver * mk_tactic2solver(ast_manager & m, 
@@ -270,6 +274,7 @@ solver * mk_tactic2solver(ast_manager & m,
     return alloc(tactic2solver, m, t, p, produce_proofs, produce_models, produce_unsat_cores, logic);
 }
 
+namespace {
 class tactic2solver_factory : public solver_factory {
     ref<tactic> m_tactic;
 public:
@@ -284,24 +289,23 @@ public:
 };
 
 class tactic_factory2solver_factory : public solver_factory {
-    scoped_ptr<tactic_factory> m_factory;
+    tactic_factory m_factory;
 public:
-    tactic_factory2solver_factory(tactic_factory * f):m_factory(f) {
+    tactic_factory2solver_factory(tactic_factory f):m_factory(f) {
     }
-    
-    ~tactic_factory2solver_factory() override {}
     
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         tactic * t = (*m_factory)(m, p);
         return mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }
 };
+}
 
 solver_factory * mk_tactic2solver_factory(tactic * t) {
     return alloc(tactic2solver_factory, t);
 }
 
-solver_factory * mk_tactic_factory2solver_factory(tactic_factory * f) {
+solver_factory * mk_tactic_factory2solver_factory(tactic_factory f) {
     return alloc(tactic_factory2solver_factory, f);
 }
 

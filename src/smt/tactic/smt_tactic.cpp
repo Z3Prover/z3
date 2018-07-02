@@ -39,7 +39,6 @@ class smt_tactic : public tactic {
     smt_params                   m_params;
     params_ref                   m_params_ref;
     statistics                   m_stats;
-    std::string                  m_failure;
     smt::kernel *                m_ctx;
     symbol                       m_logic;
     progress_callback *          m_callback;
@@ -259,7 +258,7 @@ public:
                 if (m_fail_if_inconclusive && !m_candidate_models) {
                     std::stringstream strm;
                     strm << "smt tactic failed to show goal to be sat/unsat " << m_ctx->last_failure_as_string();
-                    throw tactic_exception(strm.str().c_str());
+                    throw tactic_exception(strm.str());
                 }
                 result.push_back(in.get());
                 if (m_candidate_models) {
@@ -281,8 +280,7 @@ public:
                         break;
                     }
                 }
-                m_failure = m_ctx->last_failure_as_string();
-                throw tactic_exception(m_failure.c_str());
+                throw tactic_exception(m_ctx->last_failure_as_string());
             }
         }
         catch (rewriter_exception & ex) {
