@@ -2610,6 +2610,7 @@ public:
         lp::var_index vi = m_theory_var2var_index[v];
         rational val;
         if (m_solver->has_value(vi, val)) {
+            if (is_int(n) && !val.is_int()) return false;
             r = a.mk_numeral(val, is_int(n));
             return true;
         }

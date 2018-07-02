@@ -1024,7 +1024,6 @@ bool lar_solver::the_right_sides_do_not_sum_to_zero(const vector<std::pair<mpq, 
 bool lar_solver::explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const {
 #ifdef Z3DEBUG
     lconstraint_kind kind;
-    lp_assert(the_relations_are_of_same_type(explanation, kind));
     lp_assert(the_left_sides_sum_to_zero(explanation));
     mpq rs = sum_of_right_sides_of_explanation(explanation);
     switch (kind) {
