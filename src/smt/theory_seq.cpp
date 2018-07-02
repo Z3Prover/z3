@@ -200,6 +200,9 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_reset_cache(false),
     m_eq_id(0),
     m_find(*this),
+    m_overlap(m),
+    m_overlap2(m),
+    m_len_prop_lvl(-1),
     m_factory(nullptr),
     m_exclude(m),
     m_axioms(m),
@@ -217,9 +220,6 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_atoms_qhead(0),
     m_new_solution(false),
     m_new_propagation(false),
-    m_len_prop_lvl(-1),
-    m_overlap(m),
-    m_overlap2(m),
     m_mk_aut(m) {
     m_prefix         = "seq.p.suffix";
     m_suffix         = "seq.s.prefix";
@@ -416,9 +416,9 @@ bool theory_seq::branch_binary_variable(eq const& e) {
         expr_ref Y1(mk_skolem(symbol("seq.left"), x, y), m);
         expr_ref Y2(mk_skolem(symbol("seq.right"), x, y), m);
         ys.push_back(Y1);
-        expr_ref ysY1(mk_concat(ys));
-        expr_ref xsE(mk_concat(xs));
-        expr_ref Y1Y2(mk_concat(Y1, Y2)); 
+        expr_ref ysY1 = mk_concat(ys);
+        expr_ref xsE = mk_concat(xs);
+        expr_ref Y1Y2 = mk_concat(Y1, Y2); 
         dependency* dep = e.dep();
         propagate_eq(dep, ~lit, x, ysY1);
         propagate_eq(dep, ~lit, y, Y1Y2);
@@ -525,9 +525,9 @@ bool theory_seq::eq_unit(expr* const& l, expr* const &r) const {
 unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
-    expr* l = mk_concat(ls);
-    expr* r = mk_concat(rs);
-    expr* pair = m.mk_eq(l,r);
+    expr_ref l = mk_concat(ls);
+    expr_ref r = mk_concat(rs);
+    expr_ref pair(m.mk_eq(l,r), m);
     if (m_overlap.find(pair, res)) {
         return res;
     }
@@ -536,7 +536,7 @@ unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector c
         if (eq_unit(ls[i], rs.back())) {
             bool same = true;
             if (i >= 1) {
-                for (unsigned j = i-1; j>=0 && rs.size()+j-i>=1; --j) {
+                for (unsigned j = i - 1; rs.size() + j >= 1 + i; --j) {
                     if (!eq_unit(ls[j], rs[rs.size()+j-i-1])) {
                         same = false;
                         break;
@@ -557,9 +557,9 @@ unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector c
 unsigned_vector theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
     unsigned_vector res;
-    expr* l = mk_concat(ls);
-    expr* r = mk_concat(rs);
-    expr* pair = m.mk_eq(l,r);
+    expr_ref l = mk_concat(ls);
+    expr_ref r = mk_concat(rs);
+    expr_ref pair(m.mk_eq(l,r), m);
     if (m_overlap2.find(pair, res)) {
         return res;
     }
@@ -568,7 +568,7 @@ unsigned_vector theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector 
         if (eq_unit(ls[i],rs[0])) {
             bool same = true;
             unsigned j = i+1;
-            while (j<ls.size() && j-i<rs.size()) {
+            while (j < ls.size() && j-i < rs.size()) {
                 if (!eq_unit(ls[j], rs[j-i])) {
                     same = false;
                     break;
@@ -583,8 +583,9 @@ unsigned_vector theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector 
     return result;
 }
 
-bool theory_seq::branch_ternary_variable_base(dependency* dep, unsigned_vector indexes,
-        expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2) {
+bool theory_seq::branch_ternary_variable_base(
+    dependency* dep, unsigned_vector indexes,
+    expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2) {
     context& ctx = get_context();
     bool change = false;
     for (auto ind : indexes) {
@@ -611,7 +612,7 @@ bool theory_seq::branch_ternary_variable_base(dependency* dep, unsigned_vector i
             propagate_eq(dep, lits, y2, xs2E, true);
             if (ind > ys.size()) {
                 expr_ref xs1E(m_util.str.mk_concat(ind-ys.size(), xs.c_ptr()), m);
-                expr_ref xxs1E(mk_concat(x, xs1E), m);
+                expr_ref xxs1E = mk_concat(x, xs1E);
                 propagate_eq(dep, lits, xxs1E, y1, true);
             }
             else if (ind == ys.size()) {
@@ -619,7 +620,7 @@ bool theory_seq::branch_ternary_variable_base(dependency* dep, unsigned_vector i
             }
             else {
                 expr_ref ys1E(m_util.str.mk_concat(ys.size()-ind, ys.c_ptr()), m);
-                expr_ref y1ys1E(mk_concat(y1, ys1E), m);
+                expr_ref y1ys1E = mk_concat(y1, ys1E);
                 propagate_eq(dep, lits, x, y1ys1E, true);
             }
             return true;
@@ -662,12 +663,12 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
         return true;
     
     // x ++ xs = y1 ++ ys ++ y2 => x = y1 ++ ys ++ z, z ++ xs = y2 
-    expr_ref xsE(mk_concat(xs), m);
-    expr_ref ysE(mk_concat(ys), m);
-    expr_ref y1ys(mk_concat(y1, ysE));
+    expr_ref xsE = mk_concat(xs);
+    expr_ref ysE = mk_concat(ys);
+    expr_ref y1ys = mk_concat(y1, ysE);
     expr_ref Z(mk_skolem(m_seq_align, y2, xsE, x, y1ys), m);
-    expr_ref ZxsE(mk_concat(Z, xsE), m);
-    expr_ref y1ysZ(mk_concat(y1ys, Z), m);
+    expr_ref ZxsE = mk_concat(Z, xsE);
+    expr_ref y1ysZ = mk_concat(y1ys, Z);
     if (indexes.empty()) {
         TRACE("seq", tout << "one case\n";);
         TRACE("seq", display_equation(tout, e););
@@ -727,7 +728,7 @@ bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector 
             propagate_eq(dep, lits, y1, xs1E, true);
             if (xs.size() - ind > ys.size()) {
                 expr_ref xs2E(m_util.str.mk_concat(xs.size()-ind-ys.size(), xs.c_ptr()+ind+ys.size()), m);
-                expr_ref xs2x(mk_concat(xs2E, x), m);
+                expr_ref xs2x = mk_concat(xs2E, x);
                 propagate_eq(dep, lits, xs2x, y2, true);
             }
             else if (xs.size() - ind == ys.size()) {
@@ -735,7 +736,7 @@ bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector 
             }
             else {
                 expr_ref ys1E(m_util.str.mk_concat(ys.size()-xs.size()+ind, ys.c_ptr()+xs.size()-ind), m);
-                expr_ref ys1y2(mk_concat(ys1E, y2), m);
+                expr_ref ys1y2 = mk_concat(ys1E, y2);
                 propagate_eq(dep, lits, x, ys1y2, true);
             }
             return true;
@@ -777,12 +778,12 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
         return true;
     
     // xs ++ x = y1 ++ ys ++ y2 => xs ++ z = y1, x = z ++ ys ++ y2 
-    expr_ref xsE(mk_concat(xs), m);
-    expr_ref ysE(mk_concat(ys), m);
-    expr_ref ysy2(mk_concat(ysE, y2), m);
+    expr_ref xsE = mk_concat(xs);
+    expr_ref ysE = mk_concat(ys);
+    expr_ref ysy2 = mk_concat(ysE, y2);
     expr_ref Z(mk_skolem(m_seq_align, x, ysy2, y1, xsE), m);
-    expr_ref xsZ(mk_concat(xsE, Z), m);
-    expr_ref Zysy2(mk_concat(Z, ysy2), m);
+    expr_ref xsZ = mk_concat(xsE, Z);
+    expr_ref Zysy2 = mk_concat(Z, ysy2);
     if (indexes.empty()) {
         TRACE("seq", tout << "one case\n";);
         TRACE("seq", display_equation(tout, e););
@@ -851,9 +852,9 @@ bool theory_seq::branch_quat_variable(eq const& e) {
     SASSERT(!xs.empty() && !ys.empty());
     
     xs.push_back(x2);
-    expr_ref xsx2(mk_concat(xs), m);
+    expr_ref xsx2 = mk_concat(xs);
     ys.push_back(y2);
-    expr_ref ysy2(mk_concat(ys), m);
+    expr_ref ysy2 = mk_concat(ys);
     expr_ref x1(x1_l, m);
     expr_ref y1(y1_l, m);
     expr_ref sub(mk_sub(m_util.str.mk_length(x1_l), m_util.str.mk_length(y1_l)), m);
@@ -870,8 +871,8 @@ bool theory_seq::branch_quat_variable(eq const& e) {
         TRACE("seq", tout << "false branch\n";);
         TRACE("seq", display_equation(tout, e););
         expr_ref Z1(mk_skolem(m_seq_align, ysy2, xsx2, x1, y1), m);
-        expr_ref y1Z1(mk_concat(y1, Z1), m);
-        expr_ref Z1xsx2(mk_concat(Z1, xsx2), m);
+        expr_ref y1Z1 = mk_concat(y1, Z1);
+        expr_ref Z1xsx2 = mk_concat(Z1, xsx2);
         literal_vector lits;
         lits.push_back(~lit2);
         dependency* dep = e.dep();
@@ -883,8 +884,8 @@ bool theory_seq::branch_quat_variable(eq const& e) {
         TRACE("seq", tout << "true branch\n";);
         TRACE("seq", display_equation(tout, e););
         expr_ref Z2(mk_skolem(m_seq_align, xsx2, ysy2, y1, x1), m);
-        expr_ref x1Z2(mk_concat(x1, Z2), m);
-        expr_ref Z2ysy2(mk_concat(Z2, ysy2), m);
+        expr_ref x1Z2 = mk_concat(x1, Z2);
+        expr_ref Z2ysy2 = mk_concat(Z2, ysy2);
         literal_vector lits;
         lits.push_back(lit2);
         dependency* dep = e.dep();
@@ -1385,8 +1386,8 @@ bool theory_seq::branch_variable_mb() {
         for (auto elem : len2) l2 += elem;
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
-            expr_ref l(mk_concat(e.ls()), m);
-            expr_ref r(mk_concat(e.rs()), m);
+            expr_ref l = mk_concat(e.ls());
+            expr_ref r = mk_concat(e.rs());
             expr_ref lnl(m_util.str.mk_length(l), m), lnr(m_util.str.mk_length(r), m);
             propagate_eq(e.dep(), lnl, lnr, false);
             change = true;

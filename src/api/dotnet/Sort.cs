@@ -41,7 +41,7 @@ namespace Microsoft.Z3
                    (!Object.ReferenceEquals(a, null) &&
                     !Object.ReferenceEquals(b, null) &&
                     a.Context == b.Context &&
-                    Native.Z3_is_eq_sort(a.Context.nCtx, a.NativeObject, b.NativeObject));
+	            0 != Native.Z3_is_eq_sort(a.Context.nCtx, a.NativeObject, b.NativeObject));
         }
 
         /// <summary>

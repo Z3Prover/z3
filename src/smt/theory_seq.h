@@ -293,7 +293,7 @@ namespace smt {
         typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
 
         ast_manager&               m;
-        theory_seq_params const &  m_params;
+        theory_seq_params const&   m_params;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
         bool                       m_reset_cache; // invalidate cache.
@@ -442,7 +442,7 @@ namespace smt {
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
         expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
-        expr* mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return m_util.str.mk_concat(es.size(), es.c_ptr()); }
+        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr()), m); }
         expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(m_util.str.mk_concat(e1, e2), m); }
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }

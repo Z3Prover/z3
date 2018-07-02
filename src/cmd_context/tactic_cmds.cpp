@@ -32,14 +32,6 @@ Notes:
 #include "cmd_context/cmd_context_to_goal.h"
 #include "cmd_context/echo_tactic.h"
 
-tactic_cmd::~tactic_cmd() {
-    dealloc(m_factory);
-}
-
-tactic * tactic_cmd::mk(ast_manager & m) {
-    return (*m_factory)(m, params_ref());
-}
-
 probe_info::probe_info(symbol const & n, char const * d, probe * p):
     m_name(n),
     m_descr(d),

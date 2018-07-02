@@ -178,11 +178,12 @@ private:
         if (m_bv.is_bv_mul(p)) {
             expr_ref rest(m);
             for (expr* arg : *to_app(p)) {
-                if (arg != v) 
+                if (arg != v) { 
                     if (rest) 
                         rest = m_bv.mk_bv_mul(rest, arg);
                     else
                         rest = arg;
+                }
             }
             if (!rest) return false;
 
@@ -251,24 +252,45 @@ private:
         if (m_arith.is_mul(p) && m_arith.is_real(p)) {
             expr_ref rest(m);
             for (expr* arg : *to_app(p)) {
-                if (arg != v) 
+                if (arg != v) {
                     if (rest) 
                         rest = m_arith.mk_mul(rest, arg);
                     else
                         rest = arg;
+                }
             }
             if (!rest) return false;
-            expr_ref zero(m_arith.mk_numeral(rational::zero(), false), m);
+            expr_ref zero(m_arith.mk_real(0), m);
             new_v = m.mk_ite(m.mk_eq(zero, rest), zero, v);
             if (mc) {
                 ensure_mc(mc);
                 expr_ref def(m_arith.mk_div(v, rest), m);
                 (*mc)->add(v, def);
             }
-            return true;
+            return true;        
         }
 
+
         expr* e1 = nullptr, *e2 = nullptr;
+
+        // t / v -> if t = 0 then 0 else v 
+        // inverse: t = 0 then 1 else v / t
+        if (m_arith.is_div(p, e1, e2) && e2 == v) {
+            expr_ref zero(m_arith.mk_real(0), m);
+            new_v = m.mk_ite(m.mk_eq(zero, e1), zero, v);
+            if (mc) {
+                ensure_mc(mc);
+                expr_ref def(m.mk_ite(m.mk_eq(zero, e1), m_arith.mk_real(1), m_arith.mk_div(e1, v)), m);
+                (*mc)->add(v, def);
+            }
+            return true;
+        }
+        
+        // v / t unless t != 0
+        if (m_arith.is_div(p, e1, e2) && e1 == v) {
+            return false;
+        }
+       
         if (m.is_eq(p, e1, e2)) {
             if (mc && has_diagonal(e1)) {
                 ensure_mc(mc);
@@ -294,12 +316,15 @@ private:
     bool has_diagonal(expr* e) {
         return 
             m_bv.is_bv(e) || 
-            m.is_bool(e);
+            m.is_bool(e) ||
+            m_arith.is_int_real(e);
     }
 
     expr * mk_diagonal(expr* e) {
         if (m_bv.is_bv(e)) return m_bv.mk_bv_neg(e);
         if (m.is_bool(e)) return m.mk_not(e);
+        if (m_arith.is_int(e)) return m_arith.mk_add(m_arith.mk_int(1), e);
+        if (m_arith.is_real(e)) return m_arith.mk_add(m_arith.mk_real(1), e);
         UNREACHABLE();
         return e;
     }
