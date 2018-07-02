@@ -426,6 +426,7 @@ public:
     
     bool has_upper_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const;
 
+    bool has_value(var_index var, mpq& value) const;
 
     void get_infeasibility_explanation(vector<std::pair<mpq, constraint_index>> & explanation) const;
 

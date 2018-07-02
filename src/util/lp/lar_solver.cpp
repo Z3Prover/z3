@@ -1104,6 +1104,25 @@ bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value
     }
 }
 
+bool lar_solver::has_value(var_index var, mpq& value) const {
+    if (is_term(var)) {
+        lar_term const& t = get_term(var);
+        value = t.m_v;
+        for (auto const& cv : t) {
+            impq const& r = get_column_value(cv.var());
+            if (!numeric_traits<mpq>::is_zero(r.y)) return false;
+            value += r.x * cv.coeff();
+        }
+        return true;
+    }
+    else {
+        impq const& r = get_column_value(var);
+        value = r.x;
+        return numeric_traits<mpq>::is_zero(r.y);
+    }
+}
+
+
 void lar_solver::get_infeasibility_explanation(vector<std::pair<mpq, constraint_index>> & explanation) const {
     explanation.clear();
     if (m_infeasible_column_index != -1) {

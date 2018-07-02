@@ -2606,8 +2606,11 @@ public:
 
     bool get_value(enode* n, expr_ref& r) {
         theory_var v = n->get_th_var(get_id());            
-        if (can_get_value(v)) {
-            r = a.mk_numeral(get_value(v), is_int(n));
+        if (!can_get_bound(v)) return false;
+        lp::var_index vi = m_theory_var2var_index[v];
+        rational val;
+        if (m_solver->has_value(vi, val)) {
+            r = a.mk_numeral(val, is_int(n));
             return true;
         }
         else {
