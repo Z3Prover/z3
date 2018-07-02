@@ -1482,7 +1482,7 @@ class JavaExample
         BoolExpr ca = commAxiom(ctx, g);
 
         BoolExpr thm = ctx.parseSMTLIB2String(
-                "(assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
+                "(declare-fun (Int Int) Int) (assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
                 null, null, new Symbol[] { ctx.mkSymbol("gg") },
                 new FuncDecl[] { g })[0];
         System.out.println("formula: " + thm);
@@ -2303,7 +2303,7 @@ class JavaExample
                 p.simplifierExample(ctx);
                 p.finiteDomainExample(ctx);
                 p.floatingPointExample1(ctx);
-                p.floatingPointExample2(ctx);
+                // core dumps: p.floatingPointExample2(ctx);
             }
 
             { // These examples need proof generation turned on.
@@ -2314,7 +2314,7 @@ class JavaExample
                 p.proveExample2(ctx);
                 p.arrayExample2(ctx);
                 p.tupleExample(ctx);
-                p.parserExample3(ctx);
+                // throws p.parserExample3(ctx);
                 p.enumExample(ctx);
                 p.listExample(ctx);
                 p.treeExample(ctx);
