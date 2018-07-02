@@ -1151,8 +1151,8 @@ public:
             if (m_solver->is_term(vi)) {
                 const lp::lar_term& term = m_solver->get_term(vi);
                 result += term.m_v * coeff;
-                for (const auto & i:  term.m_coeffs) {
-                    m_todo_terms.push_back(std::make_pair(i.first, coeff * i.second));
+                for (const auto & i:  term) {
+                    m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
                 }                    
             }
             else {
@@ -2095,8 +2095,8 @@ public:
             vi = m_todo_vars.back();
             m_todo_vars.pop_back();
             lp::lar_term const& term = m_solver->get_term(vi);
-            for (auto const& coeff : term.m_coeffs) {
-                lp::var_index wi = coeff.first;
+            for (auto const& p : term) {
+                lp::var_index wi = p.var();
                 if (m_solver->is_term(wi)) {
                     m_todo_vars.push_back(wi);
                 }
@@ -2808,20 +2808,20 @@ public:
 
     app_ref mk_term(lp::lar_term const& term, bool is_int) {     
         expr_ref_vector args(m);
-        for (auto & ti : term.m_coeffs) {
+        for (const auto & ti : term) {
             theory_var w;
-            if (m_solver->is_term(ti.first)) {
-                w = m_term_index2theory_var[m_solver->adjust_term_index(ti.first)];
+            if (m_solver->is_term(ti.var())) {
+                w = m_term_index2theory_var[m_solver->adjust_term_index(ti.var())];
             }
             else {
-                w = m_var_index2theory_var[ti.first];
+                w = m_var_index2theory_var[ti.var()];
             }
             expr* o = get_enode(w)->get_owner();
-            if (ti.second.is_one()) {
+            if (ti.coeff().is_one()) {
                 args.push_back(o);
             }
             else {
-                args.push_back(a.mk_mul(a.mk_numeral(ti.second, is_int), o));
+                args.push_back(a.mk_mul(a.mk_numeral(ti.coeff(), is_int), o));
             }
         }
         if (!term.m_v.is_zero()) {
