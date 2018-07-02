@@ -356,7 +356,7 @@ public:
             }
         }
         if (error)
-            throw exception(error_msg);
+            throw exception(std::move(error_msg));
     }
 
     std::string get_value(params_ref const & ps, symbol const & p) {
@@ -417,7 +417,7 @@ public:
             }
         }
         if (error)
-            throw exception(error_msg);
+            throw exception(std::move(error_msg));
         return r;
     }
 
@@ -509,7 +509,7 @@ public:
             }
         }
         if (error)
-            throw exception(error_msg);
+            throw exception(std::move(error_msg));
     }
 
     void display_parameter(std::ostream & out, char const * name) {
@@ -550,7 +550,7 @@ public:
             }
         }
         if (error)
-            throw exception(error_msg);
+            throw exception(std::move(error_msg));
     }
 };
 

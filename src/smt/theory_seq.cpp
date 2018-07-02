@@ -5036,7 +5036,7 @@ expr* theory_seq::coalesce_chars(expr* const& e) {
         if (bvu.is_bv(s)) {
             expr_ref result(m);
             expr * args[1] = {s};
-            if (m_seq_rewrite.mk_app_core(to_app(e)->get_decl(), 1, args, result)) {
+            if (BR_FAILED != m_seq_rewrite.mk_app_core(to_app(e)->get_decl(), 1, args, result)) {
                 if (!ctx.e_internalized(result))
                     ctx.internalize(result, false);
                 return result;

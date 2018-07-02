@@ -968,7 +968,7 @@ private:
         void throw_tactic(expr* e) {
             std::stringstream strm;
             strm << "goal is in a fragment unsupported by pb2bv. Offending expression: " << mk_pp(e, m);
-            throw tactic_exception(strm.str().c_str());
+            throw tactic_exception(strm.str());
         }
     };
 

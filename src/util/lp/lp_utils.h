@@ -49,6 +49,7 @@ bool contains(const std::unordered_map<A, B> & map, const A& key) {
 #endif
 
 namespace lp {
+
 inline void throw_exception(const std::string & str) {
     throw default_exception(str);
 }
