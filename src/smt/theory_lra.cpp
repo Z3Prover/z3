@@ -273,7 +273,7 @@ class theory_lra::imp {
                 return m_th.is_int(v);
             }
             else {
-                return (unsigned)std::hash<lp::impq>()(m_th.get_ivalue(v)); 
+                return (unsigned)std::hash<lp::mpq>()(m_th.get_value(v)); 
             }
         }
     };
@@ -1115,7 +1115,8 @@ public:
         return 
             (v != null_theory_var) &&
             (v < static_cast<theory_var>(m_theory_var2var_index.size())) && 
-            (UINT_MAX != m_theory_var2var_index[v]);
+            (UINT_MAX != m_theory_var2var_index[v]) &&
+            !m_variable_values.empty();
     }
 
     bool can_get_bound(theory_var v) const {
@@ -1160,11 +1161,36 @@ public:
     }
         
     rational get_value(theory_var v) const {
-        return get_ivalue(v).x;
+        if (!can_get_value(v)) return rational::zero();
+        lp::var_index vi = m_theory_var2var_index[v];
+        if (m_variable_values.count(vi) > 0)
+            return m_variable_values[vi];
+        
+        SASSERT (m_solver->is_term(vi));
+        m_todo_terms.push_back(std::make_pair(vi, rational::one()));
+        rational result(0);
+        while (!m_todo_terms.empty()) {
+            lp::var_index wi = m_todo_terms.back().first;
+            rational coeff = m_todo_terms.back().second;
+            m_todo_terms.pop_back();
+            if (m_solver->is_term(wi)) {
+                const lp::lar_term& term = m_solver->get_term(wi);
+                result += term.m_v * coeff;
+                for (const auto & i:  term.m_coeffs) {
+                    m_todo_terms.push_back(std::make_pair(i.first, coeff * i.second));
+                }                    
+            }
+            else {
+                result += m_variable_values[wi] * coeff;
+            }
+        }
+        m_variable_values[vi] = result;
+        return result;
     }
 
     void init_variable_values() {
         if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
+            reset_variable_values();
             m_solver->get_model(m_variable_values);
         }
     }
@@ -1174,7 +1200,6 @@ public:
     }
 
     bool assume_eqs() {        
-        reset_variable_values();
         svector<lp::var_index> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
@@ -1185,6 +1210,7 @@ public:
         if (vars.empty()) {
             return false;
         }
+        init_variable_values();
         TRACE("arith", 
               for (theory_var v = 0; v < sz; ++v) {
                   if (th.is_relevant_and_shared(get_enode(v))) { 
@@ -1205,15 +1231,13 @@ public:
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
             if (!th.is_relevant_and_shared(n1)) {                    
-                TRACE("arith", tout << "not relevant v" << v << "\n";);
                 continue;
             }
-            if (!can_get_ivalue(v)) {
-                TRACE("arith", tout << "no ivalue for v" << v << "\n";);
+            if (!can_get_value(v)) {
                 continue;
             }
             theory_var other = m_model_eqs.insert_if_not_there(v);
-            TRACE("arith", tout << "insert: v" << v << " := " << get_ivalue(v) << " found: v" << other << "\n";);
+            TRACE("arith", tout << "insert: v" << v << " := " << get_value(v) << " found: v" << other << "\n";);
             if (other == v) {
                 continue;
             }
@@ -1261,7 +1285,7 @@ public:
             return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
         }
         else {
-            return get_ivalue(v1) == get_ivalue(v2); 
+            return get_value(v1) == get_value(v2); 
         }
     }
 
