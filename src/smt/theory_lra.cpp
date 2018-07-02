@@ -802,7 +802,7 @@ public:
         m_num_conflicts(0),
         m_use_nra_model(false),
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
-        m_solver(0),
+        m_solver(nullptr),
         m_resource_limit(*this) {
     }
         
@@ -1115,8 +1115,7 @@ public:
         return 
             (v != null_theory_var) &&
             (v < static_cast<theory_var>(m_theory_var2var_index.size())) && 
-            (UINT_MAX != m_theory_var2var_index[v]) && 
-            (m_solver->is_term(m_theory_var2var_index[v]) || m_variable_values.count(m_theory_var2var_index[v]) > 0);
+            (UINT_MAX != m_theory_var2var_index[v]);
     }
 
     bool can_get_bound(theory_var v) const {
@@ -1136,7 +1135,7 @@ public:
     mutable vector<std::pair<lp::var_index, rational>> m_todo_terms;
  
     lp::impq get_ivalue(theory_var v) const {
-        lp_assert(can_get_ivalue(v));
+        SASSERT(can_get_ivalue(v));
         lp::var_index vi = m_theory_var2var_index[v];
         if (!m_solver->is_term(vi))
             return m_solver->get_column_value(vi);
@@ -1161,30 +1160,7 @@ public:
     }
         
     rational get_value(theory_var v) const {
-        if (!can_get_value(v)) return rational::zero();
-        lp::var_index vi = m_theory_var2var_index[v];
-        if (m_variable_values.count(vi) > 0) {
-            return m_variable_values[vi];
-        }
-        m_todo_terms.push_back(std::make_pair(vi, rational::one()));
-        rational result(0);
-        while (!m_todo_terms.empty()) {
-            lp::var_index wi = m_todo_terms.back().first;
-            rational coeff = m_todo_terms.back().second;
-            m_todo_terms.pop_back();
-            if (m_solver->is_term(wi)) {
-                const lp::lar_term& term = m_solver->get_term(wi);
-                result += term.m_v * coeff;
-                for (auto const& i : term.m_coeffs) {
-                    m_todo_terms.push_back(std::make_pair(i.first, i.second * coeff));
-                }
-            }
-            else {
-                result += m_variable_values[wi] * coeff;
-            }
-        }
-        m_variable_values[vi] = result;
-        return result;
+        return get_ivalue(v).x;
     }
 
     void init_variable_values() {
@@ -1198,6 +1174,7 @@ public:
     }
 
     bool assume_eqs() {        
+        reset_variable_values();
         svector<lp::var_index> vars;
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
@@ -1211,11 +1188,10 @@ public:
         TRACE("arith", 
               for (theory_var v = 0; v < sz; ++v) {
                   if (th.is_relevant_and_shared(get_enode(v))) { 
-                      tout << "v" << v << " " << m_theory_var2var_index[v] << " ";
+                      tout << "v" << v << " ";
                   }
               }
-              tout << "\n";
-              );
+              tout << "\n"; );
         if (!m_use_nra_model) {
             m_solver->random_update(vars.size(), vars.c_ptr());
         }
@@ -1229,12 +1205,15 @@ public:
             theory_var v = (i + start) % sz;
             enode* n1 = get_enode(v);
             if (!th.is_relevant_and_shared(n1)) {                    
+                TRACE("arith", tout << "not relevant v" << v << "\n";);
                 continue;
             }
             if (!can_get_ivalue(v)) {
+                TRACE("arith", tout << "no ivalue for v" << v << "\n";);
                 continue;
             }
             theory_var other = m_model_eqs.insert_if_not_there(v);
+            TRACE("arith", tout << "insert: v" << v << " := " << get_ivalue(v) << " found: v" << other << "\n";);
             if (other == v) {
                 continue;
             }
@@ -2527,19 +2506,23 @@ public:
     }
 
     justification * why_is_diseq(theory_var v1, theory_var v2) {
-        return 0;
+        return nullptr;
     }
 
     void reset_eh() {
+        m_use_nra_model = false;
         m_arith_eq_adapter.reset_eh();
-        m_solver = 0;
+        m_solver = nullptr;
+        m_internalize_head = 0;
         m_not_handled = nullptr;
         del_bounds(0);
         m_unassigned_bounds.reset();
         m_asserted_qhead  = 0;
+        m_assume_eq_head = 0;
         m_scopes.reset();
         m_stats.reset();
         m_to_check.reset();
+        reset_variable_values();
     }
 
     void init_model(model_generator & mg) {

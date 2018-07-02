@@ -115,7 +115,6 @@ void prove_example1() {
 */
 void prove_example2() {
     std::cout << "prove_example1\n";
-    
     context c;
     expr x      = c.int_const("x");
     expr y      = c.int_const("y");
@@ -139,6 +138,7 @@ void prove_example2() {
     s.reset();
     s.add(!conjecture2);
     std::cout << "conjecture 2:\n" << conjecture2 << "\n";
+
     if (s.check() == unsat) {
         std::cout << "proved" << "\n";
     }
