@@ -95,7 +95,7 @@ public class Model extends Z3Object {
                       long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
                       return getFuncInterp(new FuncDecl(getContext(), fd));
                     }
-                    return FuncInterp(getContext(), n);
+                    return new FuncInterp(getContext(), n);
                 }
             } else
             {
