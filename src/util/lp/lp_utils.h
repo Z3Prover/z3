@@ -50,10 +50,11 @@ bool contains(const std::unordered_map<A, B> & map, const A& key) {
 
 namespace lp {
 
-inline void throw_exception(const std::string & str) {
-    throw default_exception(str);
-}
-typedef z3_exception exception;
+
+   inline void throw_exception(std::string && str) {
+        throw default_exception(std::move(str));
+    }
+    typedef z3_exception exception;
 
 #define lp_assert(_x_) { SASSERT(_x_); }
 inline void lp_unreachable() { lp_assert(false); }
