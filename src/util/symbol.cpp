@@ -21,6 +21,7 @@ Revision History:
 #include "util/region.h"
 #include "util/string_buffer.h"
 #include "util/z3_omp.h"
+#include <cstring>
 
 symbol symbol::m_dummy(TAG(void*, nullptr, 2));
 const symbol symbol::null;
@@ -60,7 +61,7 @@ public:
     }
 };
 
-internal_symbol_table* g_symbol_table = nullptr;
+static internal_symbol_table* g_symbol_table = nullptr;
 
 void initialize_symbols() {
     if (!g_symbol_table) {
@@ -140,27 +141,7 @@ bool lt(symbol const & s1, symbol const & s2) {
         return false;
     }
     SASSERT(!s1.is_numerical() && !s2.is_numerical());
-    char const * str1 = s1.bare_str();
-    char const * str2 = s2.bare_str();
-    while (true) {
-        if (*str1 < *str2) {
-            return true;
-        }
-        else if (*str1 == *str2) {
-            str1++;
-            str2++;
-            if (!*str1) {
-                SASSERT(*str2); // the strings can't be equal.
-                return true;
-            }
-            if (!*str2) {
-                SASSERT(*str1); // the strings can't be equal.
-                return false;
-            }
-        }
-        else {
-            SASSERT(*str1 > *str2);
-            return false;
-        }
-    }
+    auto cmp = strcmp(s1.bare_str(), s2.bare_str());
+    SASSERT(cmp != 0);
+    return cmp < 0;
 }
