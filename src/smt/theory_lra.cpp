@@ -693,8 +693,6 @@ class theory_lra::imp {
     void internalize_eq(theory_var v1, theory_var v2) {     
         enode* n1 = get_enode(v1);
         enode* n2 = get_enode(v2);
-        expr*  o1 = n1->get_owner();
-        expr*  o2 = n2->get_owner();
         app_ref term(m.mk_fresh_const("eq", a.mk_real()), m);
         scoped_internalize_state st(*this);
         st.vars().push_back(v1);
@@ -706,8 +704,12 @@ class theory_lra::imp {
         add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero()));
         add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero()));
         TRACE("arith", 
-              tout << "v" << v1 << " = " << "v" << v2 << ": "
-              << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";);
+              {
+                  expr*  o1 = n1->get_owner();
+                  expr*  o2 = n2->get_owner();                  
+                  tout << "v" << v1 << " = " << "v" << v2 << ": "
+                       << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";
+              });
     }
 
     void del_bounds(unsigned old_size) {
@@ -1177,7 +1179,12 @@ public:
                 const lp::lar_term& term = m_solver->get_term(wi);
                 result += term.m_v * coeff;
                 for (const auto & i : term.m_coeffs) {
-                    m_todo_terms.push_back(std::make_pair(i.first, coeff * i.second));
+                    if (m_variable_values.count(i.first) > 0) {
+                        result += m_variable_values[i.first] * coeff * i.second;
+                    }
+                    else {
+                        m_todo_terms.push_back(std::make_pair(i.first, coeff * i.second));
+                    }
                 }                    
             }
             else {

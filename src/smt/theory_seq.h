@@ -50,8 +50,6 @@ namespace smt {
 
         class seq_value_proc;
         
-        theory_seq_params const & m_params;
-
         // cache to track evaluations under equalities
         class eval_cache {
             eqdep_map_t             m_map;
@@ -295,6 +293,7 @@ namespace smt {
         typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
 
         ast_manager&               m;
+        theory_seq_params const &  m_params;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
         bool                       m_reset_cache; // invalidate cache.
