@@ -59,7 +59,7 @@ public:
         if (c == nullptr) {
             std::string err_msg("unknown command '");
             err_msg = err_msg + s.bare_str() + "'";
-            throw cmd_exception(err_msg);
+            throw cmd_exception(std::move(err_msg));
         }
         m_cmds.push_back(s);
     }
@@ -384,7 +384,7 @@ class set_option_cmd : public set_get_option_cmd {
             std::string msg = "error setting '";
             msg += opt_name.str();
             msg += "', option value cannot be modified after initialization";
-            throw cmd_exception(msg);
+            throw cmd_exception(std::move(msg));
         }
     }
 

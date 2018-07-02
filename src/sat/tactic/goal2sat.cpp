@@ -92,7 +92,7 @@ struct goal2sat::imp {
 
     void throw_op_not_handled(std::string const& s) {
         std::string s0 = "operator " + s + " not supported, apply simplifier before invoking translator";
-        throw tactic_exception(s0.c_str());
+        throw tactic_exception(std::move(s0));
     }
     
     void mk_clause(sat::literal l) {

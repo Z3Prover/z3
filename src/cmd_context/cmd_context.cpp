@@ -369,7 +369,7 @@ void stream_ref::set(char const * name) {
             std::string msg = "failed to set output stream '";
             msg += name;
             msg += "'";
-            throw cmd_exception(msg);
+            throw cmd_exception(std::move(msg));
         }
         SASSERT(m_stream);
     }
