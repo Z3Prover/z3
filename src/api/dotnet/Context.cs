@@ -2777,25 +2777,25 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an at-most-k constraint.
         /// </summary>
-        public BoolExpr MkAtMost(BoolExpr[] args, uint k)
+        public BoolExpr MkAtMost(IEnumerable<BoolExpr> args, uint k)
         {
            Contract.Requires(args != null);
            Contract.Requires(Contract.Result<BoolExpr[]>() != null);
            CheckContextMatch<BoolExpr>(args);
-           return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Length,
-                                                          AST.ArrayToNative(args), k));
+           return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Count(),
+                                                          AST.EnumToNative(args), k));
         }
 
         /// <summary>
         /// Create an at-least-k constraint.
         /// </summary>
-        public BoolExpr MkAtLeast(BoolExpr[] args, uint k)
+        public BoolExpr MkAtLeast(IEnumerable<BoolExpr> args, uint k)
         {
            Contract.Requires(args != null);
            Contract.Requires(Contract.Result<BoolExpr[]>() != null);
            CheckContextMatch<BoolExpr>(args);
-           return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) args.Length,
-                                                          AST.ArrayToNative(args), k));
+           return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) args.Count(),
+                                                          AST.EnumToNative(args), k));
         }
 
         /// <summary>
