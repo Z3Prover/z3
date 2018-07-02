@@ -3505,7 +3505,7 @@ void test_maximize_term() {
     std::cout << "calling int_solver\n";
     lar_term t; mpq k; explanation ex; bool upper;
     lia_move lm = i_solver.check(t, k, ex, upper);
-    lp_assert(lm == lia_move::sat);
+    VERIFY(lm == lia_move::sat);
     impq term_max;
     lp_status st = solver.maximize_term(term_2x_pl_2y, term_max);
     
