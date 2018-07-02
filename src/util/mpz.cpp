@@ -197,6 +197,27 @@ mpz_manager<SYNCH>::~mpz_manager() {
 }
 
 template<bool SYNCH>
+mpz_cell * mpz_manager<SYNCH>::allocate(unsigned capacity) {
+    SASSERT(capacity >= m_init_cell_capacity);
+    MPZ_BEGIN_CRITICAL();
+    mpz_cell * cell  = reinterpret_cast<mpz_cell *>(m_allocator.allocate(cell_size(capacity)));
+    MPZ_END_CRITICAL();
+    cell->m_capacity = capacity;
+    return cell;
+}
+
+template<bool SYNCH>
+void mpz_manager<SYNCH>::deallocate(bool is_heap, mpz_cell * ptr) { 
+    if (is_heap) {
+        MPZ_BEGIN_CRITICAL();
+        m_allocator.deallocate(cell_size(ptr->m_capacity), ptr); 
+        MPZ_END_CRITICAL();
+    }
+}
+
+
+
+template<bool SYNCH>
 void mpz_manager<SYNCH>::del(mpz & a) { 
     if (a.m_ptr) {
         deallocate(a.m_owner == mpz_self, a.m_ptr); 
@@ -237,7 +258,7 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
         c.m_ptr = allocate(m_init_cell_capacity);
         c.m_owner = mpz_self;        
     }
-    c.m_kind = mpz_ptr;
+    c.m_kind = mpz_large;
     SASSERT(capacity(c) >= m_init_cell_capacity);
     uint64_t _v;
     if (v < 0) {
@@ -264,7 +285,7 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
         c.m_ptr = allocate();
         c.m_owner = mpz_self;
     }
-    c.m_kind = mpz_ptr;
+    c.m_kind = mpz_large;
     uint64_t _v;
     bool sign;
     if (v < 0) {
@@ -293,7 +314,7 @@ void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
         c.m_ptr = allocate(m_init_cell_capacity);
         c.m_owner = mpz_self;
     }
-    c.m_kind = mpz_ptr;
+    c.m_kind = mpz_large;
     SASSERT(capacity(c) >= m_init_cell_capacity);
     c.m_val = 1;
     if (sizeof(digit_t) == sizeof(uint64_t)) {
@@ -312,7 +333,7 @@ void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
         c.m_ptr = allocate();
         c.m_owner = mpz_self;
     }
-    c.m_kind = mpz_ptr;
+    c.m_kind = mpz_large;
     mpz_set_ui(*c.m_ptr, static_cast<unsigned>(v));
     MPZ_BEGIN_CRITICAL();
     mpz_set_ui(m_tmp,    static_cast<unsigned>(v >> 32));
@@ -368,7 +389,7 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
     set_digits(a, i, src.m_digits);
     a.m_val = sign;
     
-    SASSERT(a.m_kind == mpz_ptr);
+    SASSERT(a.m_kind == mpz_large);
 }
 #endif
 
@@ -413,7 +434,7 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
             target.m_ptr             = allocate(c);
             target.m_ptr->m_size     = sz;
             target.m_ptr->m_capacity = c;
-            target.m_kind            = mpz_ptr;
+            target.m_kind            = mpz_large;
             target.m_owner           = mpz_self;
             memcpy(target.m_ptr->m_digits, digits, sizeof(digit_t) * sz);
         }
@@ -426,14 +447,14 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
             deallocate(target);
             target.m_val    = 1;
             target.m_ptr    = ptr;
-            target.m_kind   = mpz_ptr;
+            target.m_kind   = mpz_large;
             target.m_owner  = mpz_self;
         }
         else {
             target.m_ptr->m_size = sz;
             if (target.m_ptr->m_digits != digits)
                 memcpy(target.m_ptr->m_digits, digits, sizeof(digit_t) * sz);
-            target.m_kind        = mpz_ptr;
+            target.m_kind        = mpz_large;
         }
 #else
         mk_big(target);
@@ -537,7 +558,7 @@ void mpz_manager<SYNCH>::rem(mpz const & a, mpz const & b, mpz & c) {
     else {
         big_rem(a, b, c);
     }
-        STRACE("mpz", tout << to_string(c) << "\n";);
+    STRACE("mpz", tout << to_string(c) << "\n";);
 }
 
 
@@ -797,6 +818,7 @@ void mpz_manager<SYNCH>::big_div(mpz const & a, mpz const & b, mpz & c) {
     mpz dummy;
     quot_rem_core<QUOT_ONLY>(a, b, c, dummy);
     SASSERT(is_zero(dummy));
+    del(dummy);
 #else
     // GMP version
     ensure_mpz a1(a), b1(b);
@@ -811,6 +833,7 @@ void mpz_manager<SYNCH>::big_rem(mpz const & a, mpz const & b, mpz & c) {
     mpz dummy;
     quot_rem_core<REM_ONLY>(a, b, dummy, c);
     SASSERT(is_zero(dummy));
+    del(dummy);
 #else
     // GMP version
     ensure_mpz a1(a), b1(b);
@@ -1453,7 +1476,7 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
-        target.m_kind = mpz_ptr;
+        target.m_kind = mpz_large;
         target.m_owner = mpz_self;
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
     }
@@ -1462,14 +1485,14 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
         target.m_ptr = allocate(capacity(source));
         target.m_ptr->m_size     = size(source);
         target.m_ptr->m_capacity = capacity(source);
-        target.m_kind = mpz_ptr;
+        target.m_kind = mpz_large;
         target.m_owner = mpz_self;
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
     }
     else {
         target.m_ptr->m_size = size(source);
         memcpy(target.m_ptr->m_digits, source.m_ptr->m_digits, sizeof(digit_t) * size(source));
-        target.m_kind = mpz_ptr;
+        target.m_kind = mpz_large;
     }
 #else
     // GMP version
@@ -1736,7 +1759,7 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
                     b.m_ptr->m_digits[i] = 0;
                 b.m_ptr->m_digits[sz-1] = 1 << shift;
                 b.m_val = 1;
-                b.m_kind = mpz_ptr;
+                b.m_kind = mpz_large;
             }
             return;
         }
@@ -1823,7 +1846,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
     if (is_small(a)) {
         int val = a.m_val;
         allocate_if_needed(a, capacity);
-        a.m_kind = mpz_ptr;
+        a.m_kind = mpz_large;
         SASSERT(a.m_ptr->m_capacity >= capacity);
         if (val == INT_MIN) {
             unsigned intmin_sz = m_int_min.m_ptr->m_size;
@@ -1853,7 +1876,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         deallocate(a);
         a.m_ptr = new_cell;
         a.m_owner = mpz_self;
-        a.m_kind = mpz_ptr;
+        a.m_kind = mpz_large;
     }
 }
 

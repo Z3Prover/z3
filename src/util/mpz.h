@@ -74,12 +74,12 @@ class mpz_cell {
    \brief Multi-precision integer.
    
    If m_kind == mpz_small, it is a small number and the value is stored in m_val.
-   If m_kind == mpz_ptr,   the value is stored in m_ptr and m_ptr != nullptr.
+   If m_kind == mpz_large,   the value is stored in m_ptr and m_ptr != nullptr.
                            m_val contains the sign (-1 negative, 1 positive)   
                            under winodws, m_ptr points to a mpz_cell that store the value. 
 */
 
-enum mpz_kind { mpz_small = 0, mpz_ptr = 1};
+enum mpz_kind { mpz_small = 0, mpz_large = 1};
 enum mpz_owner { mpz_self = 0, mpz_ext = 1};
 
 class mpz {
@@ -149,14 +149,7 @@ class mpz_manager {
         return sizeof(mpz_cell) + sizeof(digit_t) * capacity; 
     }
 
-    mpz_cell * allocate(unsigned capacity) {
-        SASSERT(capacity >= m_init_cell_capacity);
-        MPZ_BEGIN_CRITICAL();
-        mpz_cell * cell  = reinterpret_cast<mpz_cell *>(m_allocator.allocate(cell_size(capacity)));
-        MPZ_END_CRITICAL();
-        cell->m_capacity = capacity;
-        return cell;
-    }
+    mpz_cell * allocate(unsigned capacity);
 
     void deallocate(mpz& n) {
         if (n.m_ptr) {
@@ -172,22 +165,16 @@ class mpz_manager {
         if (n.m_ptr == nullptr || capacity(n) < c) {
             deallocate(n);
             n.m_val             = 1;
-            n.m_kind            = mpz_ptr;
+            n.m_kind            = mpz_large;
             n.m_owner           = mpz_self;
             n.m_ptr             = allocate(c);
         }
         else {
-            n.m_kind = mpz_ptr;
+            n.m_kind = mpz_large;
         }
     }
 
-    void deallocate(bool is_heap, mpz_cell * ptr) { 
-        if (is_heap) {
-            MPZ_BEGIN_CRITICAL();
-            m_allocator.deallocate(cell_size(ptr->m_capacity), ptr); 
-            MPZ_END_CRITICAL();
-        }
-    }
+    void deallocate(bool is_heap, mpz_cell * ptr);
     
     // Expand capacity of a while preserving its content.
     void ensure_capacity(mpz & a, unsigned sz);
@@ -339,7 +326,7 @@ class mpz_manager {
             a.m_ptr = allocate();
             a.m_owner = mpz_self;
         }
-        a.m_kind = mpz_ptr;
+        a.m_kind = mpz_large;
     }
 
 
