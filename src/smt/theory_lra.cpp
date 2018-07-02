@@ -1616,7 +1616,7 @@ public:
         imp & m_imp;
         local_bound_propagator(imp& i) : bound_propagator(*i.m_solver), m_imp(i) {}
 
-        bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) {
+        bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) override {
             return m_imp.bound_is_interesting(j, kind, v);
         }
 
