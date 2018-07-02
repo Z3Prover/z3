@@ -30,7 +30,9 @@ Notes:
 #include "tactic/core/reduce_invertible_tactic.h"
 #include "tactic/core/collect_occs.h"
 #include "tactic/generic_model_converter.h"
+#include <cstdint>
 
+namespace {
 class reduce_invertible_tactic : public tactic {
     ast_manager& m;
     bv_util      m_bv;
@@ -60,7 +62,8 @@ public:
         generic_model_converter_ref mc;
         occs(*g, vars);
         expr_safe_replace sub(m);
-        expr_ref p(m), new_v(m);
+        expr_ref new_v(m);
+        expr * p;
         for (expr* v : vars) {
             if (is_invertible(v, p, new_v, &mc)) {
                 mark_inverted(p);
@@ -75,8 +78,8 @@ public:
             expr_ref f_new(m);
             sub(f, f_new);
             rw(f_new, f_new);
-            proof_ref new_pr(m);
             if (f == f_new) continue;
+            proof_ref new_pr(m);
             if (g->proofs_enabled()) {
                 proof * pr = g->pr(idx);
                 new_pr     = m.mk_modus_ponens(pr, new_pr);
@@ -120,11 +123,20 @@ private:
         }
     }
 
-    // store up to two parents of expression.
+    // store one parent of expression, or null if multiple
     struct parents {
-        parents(): m_p1(nullptr), m_p2(nullptr) {}
-        expr* m_p1;
-        expr* m_p2;
+        parents(): m_p(0) {}
+        uintptr_t m_p;
+
+        void set(expr * e) {
+            SASSERT((uintptr_t)e != 1);
+            if (!m_p) m_p = (uintptr_t)e;
+            else m_p = 1;
+        }
+
+        expr * get() const {
+          return m_p == 1 ? nullptr : (expr*)m_p;
+        }
     };
     svector<parents> m_parents;
     struct parent_collector {
@@ -132,9 +144,8 @@ private:
         parent_collector(reduce_invertible_tactic& c):c(c) {}
         void operator()(app* n) {
             for (expr* arg : *n) {
-                c.m_parents.reserve(arg->get_id() + 1, parents());
-                parents& p = c.m_parents[arg->get_id()];
-                if (!p.m_p1) p.m_p1 = n; else p.m_p2 = n;
+                c.m_parents.reserve(arg->get_id() + 1);
+                c.m_parents[arg->get_id()].set(n);
             }
         }
         void operator()(expr*) {}
@@ -156,11 +167,13 @@ private:
 
     // TBD: could be made to be recursive, by walking multiple layers of parents.
     
-    bool is_invertible(expr* v, expr_ref& p, expr_ref& new_v, generic_model_converter_ref* mc) {
-        p = m_parents[v->get_id()].m_p1;
-        if (m_parents[v->get_id()].m_p2 || !p) return false;
+    bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc) {
+        p = m_parents[v->get_id()].get();
+        SASSERT(p);
+
         if (m_inverted.is_marked(p)) return false;
         if (mc && !is_ground(p)) return false;
+
         if (m_bv.is_bv_add(p)) {
             if (mc) {
                 ensure_mc(mc);
@@ -175,6 +188,24 @@ private:
             new_v = v;
             return true;
         }
+
+        expr *a, *b;
+        // shift(a, b), where both a,b are single use. Set b = 0 and return a
+        // FIXME: needs to check that both variables are grounded by same quantifier
+        if (m_bv.is_bv_shl(p, a, b) ||
+            m_bv.is_bv_ashr(p, a, b) ||
+            m_bv.is_bv_lshr(p, a, b)) {
+            if (!m_parents[(v == a ? b : a)->get_id()].get())
+                return false;
+
+            if (mc) {
+                ensure_mc(mc);
+                (*mc)->add(b, m_bv.mk_numeral(rational::zero(), get_sort(b)));
+            }
+            new_v = a;
+            return true;
+        }
+
         if (m_bv.is_bv_mul(p)) {
             expr_ref rest(m);
             for (expr* arg : *to_app(p)) {
@@ -365,7 +396,8 @@ private:
             expr_safe_replace sub(m);
             t.m_parents.reset();
             t.m_inverted.reset();
-            expr_ref p(m), new_v(m);
+            expr_ref new_v(m);
+            expr * p;
             
             {
                 parent_collector proc(t);           
@@ -409,11 +441,9 @@ private:
             rewriter_tpl<reduce_q_rw_cfg>(t.m, false, m_cfg),
             m_cfg(t) {}
     };
-
-
 };
+}
 
 tactic * mk_reduce_invertible_tactic(ast_manager & m, params_ref const &) {
     return alloc(reduce_invertible_tactic, m);
 }
-

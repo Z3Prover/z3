@@ -354,6 +354,8 @@ public:
     MATCH_BINARY(is_bv_mul);
     MATCH_BINARY(is_bv_sle);
     MATCH_BINARY(is_bv_ule);
+    MATCH_BINARY(is_bv_ashr);
+    MATCH_BINARY(is_bv_lshr);
     MATCH_BINARY(is_bv_shl);
     MATCH_BINARY(is_bv_urem);
     MATCH_BINARY(is_bv_srem);
