@@ -4397,9 +4397,9 @@ extern "C" {
     /**
        \brief Return true if the given AST is a real algebraic number.
 
-       def_API('Z3_is_algebraic_number', INT, (_in(CONTEXT), _in(AST)))
+       def_API('Z3_is_algebraic_number', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    int Z3_API Z3_is_algebraic_number(Z3_context c, Z3_ast a);
+    Z3_bool Z3_API Z3_is_algebraic_number(Z3_context c, Z3_ast a);
 
     /**
        \brief Convert an \c ast into an \c APP_AST. This is just type casting.

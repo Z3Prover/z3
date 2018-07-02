@@ -134,9 +134,9 @@ namespace Microsoft.Z3
                 {
                     Entry e;
                     string k = Native.Z3_stats_get_key(Context.nCtx, NativeObject, i);
-                    if (Native.Z3_stats_is_uint(Context.nCtx, NativeObject, i) )
+                    if (Native.Z3_stats_is_uint(Context.nCtx, NativeObject, i) != 0)
                         e = new Entry(k, Native.Z3_stats_get_uint_value(Context.nCtx, NativeObject, i));
-                    else if (Native.Z3_stats_is_double(Context.nCtx, NativeObject, i) )
+                    else if (Native.Z3_stats_is_double(Context.nCtx, NativeObject, i) != 0)
                         e = new Entry(k, Native.Z3_stats_get_double_value(Context.nCtx, NativeObject, i));
                     else
                         throw new Z3Exception("Unknown data entry value");

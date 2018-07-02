@@ -65,7 +65,7 @@ namespace Microsoft.Z3
         public static string GetParameter(string id)
         {
             IntPtr t;
-            if (Native.Z3_global_param_get(id, out t) == false)
+            if (Native.Z3_global_param_get(id, out t) == 0)
                 return null;
             else
                 return Marshal.PtrToStringAnsi(t);
@@ -91,7 +91,7 @@ namespace Microsoft.Z3
         /// all contexts globally.</remarks>
         public static void ToggleWarningMessages(bool enabled)
         {
-            Native.Z3_toggle_warning_messages(enabled);
+            Native.Z3_toggle_warning_messages((byte)(enabled ? 1 : 0));
         }
 
         /// <summary>

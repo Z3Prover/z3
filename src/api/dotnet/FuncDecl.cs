@@ -38,7 +38,7 @@ namespace Microsoft.Z3
                    (!Object.ReferenceEquals(a, null) &&
                     !Object.ReferenceEquals(b, null) &&
                     a.Context.nCtx == b.Context.nCtx &&
-                    Native.Z3_is_eq_func_decl(a.Context.nCtx, a.NativeObject, b.NativeObject));
+                    Native.Z3_is_eq_func_decl(a.Context.nCtx, a.NativeObject, b.NativeObject) != 0);
         }
 
         /// <summary>

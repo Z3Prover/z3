@@ -52,7 +52,7 @@ namespace Microsoft.Z3
             get
             {
                 int res = 0;
-                if (Native.Z3_fpa_get_numeral_sign(Context.nCtx, NativeObject, ref res) == false)
+                if (Native.Z3_fpa_get_numeral_sign(Context.nCtx, NativeObject, ref res) == 0)
                     throw new Z3Exception("Sign is not a Boolean value");
                 return res != 0;
             }
@@ -86,7 +86,7 @@ namespace Microsoft.Z3
             get
             {
                 UInt64 result = 0;
-                if (Native.Z3_fpa_get_numeral_significand_uint64(Context.nCtx, NativeObject, ref result) == false)
+                if (Native.Z3_fpa_get_numeral_significand_uint64(Context.nCtx, NativeObject, ref result) == 0)
                     throw new Z3Exception("Significand is not a 64 bit unsigned integer");
                 return result;
             }
@@ -111,7 +111,7 @@ namespace Microsoft.Z3
         /// </summary>
         public string Exponent(bool biased = true)
         {
-            return Native.Z3_fpa_get_numeral_exponent_string(Context.nCtx, NativeObject, biased);
+            return Native.Z3_fpa_get_numeral_exponent_string(Context.nCtx, NativeObject, (byte)(biased ? 1 : 0));
         }
 
         /// <summary>
@@ -120,7 +120,7 @@ namespace Microsoft.Z3
         public Int64 ExponentInt64(bool biased = true)
         {
             Int64 result = 0;
-            if (Native.Z3_fpa_get_numeral_exponent_int64(Context.nCtx, NativeObject, ref result, biased) == false)
+            if (Native.Z3_fpa_get_numeral_exponent_int64(Context.nCtx, NativeObject, ref result, (byte)(biased? 1 : 0)) == 0)
                 throw new Z3Exception("Exponent is not a 64 bit integer");
             return result;
         }
@@ -133,43 +133,43 @@ namespace Microsoft.Z3
         /// </remarks>
         public BitVecExpr ExponentBV(bool biased = true)
         {
-            return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_exponent_bv(Context.nCtx, NativeObject, biased));
+            return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_exponent_bv(Context.nCtx, NativeObject, (byte)(biased ? 1 : 0)));
         }
 
         /// <summary>
         /// Indicates whether the numeral is a NaN.
         /// </summary>
-        public bool IsNaN { get { return Native.Z3_fpa_is_numeral_nan(Context.nCtx, NativeObject) ; } }
+        public bool IsNaN { get { return Native.Z3_fpa_is_numeral_nan(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Indicates whether the numeral is a +oo or -oo.
         /// </summary>
-        public bool IsInf { get { return Native.Z3_fpa_is_numeral_inf(Context.nCtx, NativeObject) ; } }
+        public bool IsInf { get { return Native.Z3_fpa_is_numeral_inf(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Indicates whether the numeral is +zero or -zero.
         /// </summary>
-        public bool IsZero{ get { return Native.Z3_fpa_is_numeral_zero(Context.nCtx, NativeObject) ; } }
+        public bool IsZero{ get { return Native.Z3_fpa_is_numeral_zero(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Indicates whether the numeral is normal.
         /// </summary>
-        public bool IsNormal { get { return Native.Z3_fpa_is_numeral_normal(Context.nCtx, NativeObject) ; } }
+        public bool IsNormal { get { return Native.Z3_fpa_is_numeral_normal(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Indicates whether the numeral is subnormal.
         /// </summary>
-        public bool IsSubnormal { get { return Native.Z3_fpa_is_numeral_subnormal(Context.nCtx, NativeObject) ; } }
+        public bool IsSubnormal { get { return Native.Z3_fpa_is_numeral_subnormal(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Indicates whether the numeral is positive.
         /// </summary>
-        public bool IsPositive { get { return Native.Z3_fpa_is_numeral_positive(Context.nCtx, NativeObject) ; } }
+        public bool IsPositive { get { return Native.Z3_fpa_is_numeral_positive(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Indicates whether the numeral is negative.
         /// </summary>
-        public bool IsNegative { get { return Native.Z3_fpa_is_numeral_negative(Context.nCtx, NativeObject) ; } }
+        public bool IsNegative { get { return Native.Z3_fpa_is_numeral_negative(Context.nCtx, NativeObject) != 0; } }
 
         #region Internal
         internal FPNum(Context ctx, IntPtr obj)

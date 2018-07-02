@@ -1963,7 +1963,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<IntExpr>() != null);
 
             CheckContextMatch(t);
-            return new IntExpr(this, Native.Z3_mk_bv2int(nCtx, t.NativeObject, (signed)));
+            return new IntExpr(this, Native.Z3_mk_bv2int(nCtx, t.NativeObject, (byte)(signed ? 1 : 0)));
         }
 
         /// <summary>
@@ -1980,7 +1980,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.Z3_mk_bvadd_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned)));
+            return new BoolExpr(this, Native.Z3_mk_bvadd_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (byte)(isSigned ? 1 : 0)));
         }
 
         /// <summary>
@@ -2031,7 +2031,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.Z3_mk_bvsub_no_underflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned)));
+            return new BoolExpr(this, Native.Z3_mk_bvsub_no_underflow(nCtx, t1.NativeObject, t2.NativeObject, (byte)(isSigned ? 1 : 0)));
         }
 
         /// <summary>
@@ -2080,7 +2080,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.Z3_mk_bvmul_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned)));
+            return new BoolExpr(this, Native.Z3_mk_bvmul_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (byte)(isSigned ? 1 : 0)));
         }
 
         /// <summary>
@@ -3135,7 +3135,9 @@ namespace Microsoft.Z3
         public BitVecNum MkBV(bool[] bits)
         {
             Contract.Ensures(Contract.Result<BitVecNum>() != null);
-            return (BitVecNum)Expr.Create(this, Native.Z3_mk_bv_numeral(nCtx, (uint)bits.Length, bits));
+            byte[] _bits = new byte[bits.Length];
+            for (int i = 0; i < bits.Length; ++i) _bits[i] = (byte)(bits[i] ? 1 : 0);
+            return (BitVecNum)Expr.Create(this, Native.Z3_mk_bv_numeral(nCtx, (uint)bits.Length, _bits));
         }
 
 
@@ -4184,7 +4186,7 @@ namespace Microsoft.Z3
         public FPNum MkFPInf(FPSort s, bool negative)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_inf(nCtx, s.NativeObject, negative));
+            return new FPNum(this, Native.Z3_mk_fpa_inf(nCtx, s.NativeObject, (byte)(negative ? 1 : 0)));
         }
 
         /// <summary>
@@ -4195,7 +4197,7 @@ namespace Microsoft.Z3
         public FPNum MkFPZero(FPSort s, bool negative)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_zero(nCtx, s.NativeObject, negative));
+            return new FPNum(this, Native.Z3_mk_fpa_zero(nCtx, s.NativeObject, (byte)(negative  ? 1 : 0)));
         }
 
         /// <summary>
@@ -4241,7 +4243,7 @@ namespace Microsoft.Z3
         public FPNum MkFPNumeral(bool sgn, uint sig, int exp, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_numeral_int_uint(nCtx, sgn, exp, sig, s.NativeObject));
+            return new FPNum(this, Native.Z3_mk_fpa_numeral_int_uint(nCtx, (byte)(sgn  ? 1 : 0), exp, sig, s.NativeObject));
         }
 
         /// <summary>
@@ -4254,7 +4256,7 @@ namespace Microsoft.Z3
         public FPNum MkFPNumeral(bool sgn, Int64 exp, UInt64 sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_numeral_int64_uint64(nCtx, sgn, exp, sig, s.NativeObject));
+            return new FPNum(this, Native.Z3_mk_fpa_numeral_int64_uint64(nCtx, (byte)(sgn  ? 1 : 0), exp, sig, s.NativeObject));
         }
 
         /// <summary>
