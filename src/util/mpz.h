@@ -135,11 +135,11 @@ inline void swap(mpz & m1, mpz & m2) { m1.swap(m2); }
 
 template<bool SYNCH = true>
 class mpz_manager {
-    small_object_allocator  m_allocator;
-    omp_nest_lock_t         m_lock;
+    mutable small_object_allocator  m_allocator;
+    mutable omp_nest_lock_t         m_lock;
 #define MPZ_BEGIN_CRITICAL() if (SYNCH) omp_set_nest_lock(&m_lock);
 #define MPZ_END_CRITICAL()   if (SYNCH) omp_unset_nest_lock(&m_lock);
-    mpn_manager             m_mpn_manager;
+    mutable mpn_manager             m_mpn_manager;
 
 #ifndef _MP_GMP
     unsigned                m_init_cell_capacity;
@@ -192,12 +192,12 @@ class mpz_manager {
 
 #else
     // GMP code
-    mpz_t     m_tmp, m_tmp2;
-    mpz_t     m_two32;
+    mutable mpz_t     m_tmp, m_tmp2;
+    mutable mpz_t     m_two32;
     mpz_t  *  m_arg[2];
-    mpz_t     m_uint64_max;
-    mpz_t     m_int64_max;
-    mpz_t     m_int64_min;
+    mutable mpz_t     m_uint64_max;
+    mutable mpz_t     m_int64_max;
+    mutable mpz_t     m_int64_min;
 
     mpz_t * allocate() {        
         MPZ_BEGIN_CRITICAL();

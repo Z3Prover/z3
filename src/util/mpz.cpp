@@ -356,7 +356,7 @@ void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
 #ifdef _MP_GMP
 
 template<bool SYNCH>
-mpz_manager<SYNCH>::ensure_mpz_t(mpz_const& a) {
+mpz_manager<SYNCH>::ensure_mpz_t(mpz const& a) {
     if (is_small(a)) {
         m_result = &m_local;
         mpz_init(m_local);
@@ -735,7 +735,7 @@ void mpz_manager<SYNCH>::big_add(mpz const & a, mpz const & b, mpz & c) {
     big_add_sub<false>(a, b, c);
 #else
     // GMP version
-    ensure_mpz a1(a), b1(b);
+    ensure_mpz_t a1(a), b1(b);
     mk_big(c);
     mpz_add(*c.m_ptr, a1(), b1());
 #endif
@@ -747,7 +747,7 @@ void mpz_manager<SYNCH>::big_sub(mpz const & a, mpz const & b, mpz & c) {
     big_add_sub<true>(a, b, c);
 #else
     // GMP version
-    ensure_mpz a1(a), b1(b);
+    ensure_mpz_t a1(a), b1(b);
     mk_big(c);
     mpz_sub(*c.m_ptr, a1(), b1());
 #endif
@@ -770,7 +770,7 @@ void mpz_manager<SYNCH>::big_mul(mpz const & a, mpz const & b, mpz & c) {
     del(tmp);
 #else
     // GMP version
-    ensure_mpz a1(a), b1(b);
+    ensure_mpz_t a1(a), b1(b);
     mk_big(c);
     mpz_mul(*c.m_ptr, a1(), b1());
 #endif
@@ -783,7 +783,7 @@ void mpz_manager<SYNCH>::big_div_rem(mpz const & a, mpz const & b, mpz & q, mpz 
     quot_rem_core<QUOT_AND_REM>(a, b, q, r);
 #else
     // GMP version
-    ensure_mpz a1(a), b1(b);
+    ensure_mpz_t a1(a), b1(b);
     mk_big(q);
     mk_big(r);
     mpz_tdiv_qr(*q.m_ptr, *r.m_ptr, a1(), b1());
@@ -837,7 +837,7 @@ void mpz_manager<SYNCH>::big_div(mpz const & a, mpz const & b, mpz & c) {
     del(dummy);
 #else
     // GMP version
-    ensure_mpz a1(a), b1(b);
+    ensure_mpz_t a1(a), b1(b);
     mk_big(c);
     mpz_tdiv_q(*c.m_ptr, a1(), b1());
 #endif
@@ -852,7 +852,7 @@ void mpz_manager<SYNCH>::big_rem(mpz const & a, mpz const & b, mpz & c) {
     del(dummy);
 #else
     // GMP version
-    ensure_mpz a1(a), b1(b);
+    ensure_mpz_t a1(a), b1(b);
     mk_big(c);
     mpz_tdiv_r(*c.m_ptr, a1(), b1());
 #endif
@@ -872,7 +872,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
     }
     else {
 #ifdef _MP_GMP
-        ensure_mpz a1(a), b1(b);
+        ensure_mpz_t a1(a), b1(b);
         mk_big(c);
         mpz_gcd(*c.m_ptr, a1(), b1());
         return;
@@ -1357,7 +1357,7 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
         }
         del(a1); del(b1); del(a2); del(b2); del(m); del(tmp);
 #else
-        ensure_mpz a1(a), b1(b);
+        ensure_mpz_t a1(a), b1(b);
         mk_big(c);
         mpz_ior(*c.m_ptr, a1(), b1());
 #endif
@@ -1392,7 +1392,7 @@ void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
         }
         del(a1); del(b1); del(a2); del(b2); del(m); del(tmp);
 #else
-        ensure_mpz a1(a), b1(b);
+        ensure_mpz_t a1(a), b1(b);
         mk_big(c);
         mpz_and(*c.m_ptr, a1(), b1());
 #endif
@@ -1434,7 +1434,7 @@ void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
         }
         del(a1); del(b1); del(a2); del(b2); del(m); del(tmp);
 #else
-        ensure_mpz a1(a), b1(b);
+        ensure_mpz_t a1(a), b1(b);
         mk_big(c);
         mpz_xor(*c.m_ptr, a1(), b1());
 #endif
@@ -1542,7 +1542,7 @@ int mpz_manager<SYNCH>::big_compare(mpz const & a, mpz const & b) {
     }
 #else
     // GMP version
-    ensure_mpz a1(a), b1(b);
+    ensure_mpz_t a1(a), b1(b);
     return mpz_cmp(a1(), b1());
 #endif
 }
@@ -1978,7 +1978,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
     c->m_size = new_sz;
     normalize(a);
 #else
-    ensure_mpz a1(a);
+    ensure_mpz_t a1(a);
     MPZ_BEGIN_CRITICAL();
     mpz_tdiv_q_2exp(m_tmp, a1(), k);
     mk_big(a);
@@ -2043,7 +2043,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     normalize(a);
     TRACE("mpz_mul2k", tout << "mul2k result:\n" << to_string(a) << "\n";);
 #else
-    ensure_mpz a1(a);
+    ensure_mpz_t a1(a);
     mk_big(a);
     mpz_mul_2exp(*a.m_ptr, a1(), k);
 #endif
