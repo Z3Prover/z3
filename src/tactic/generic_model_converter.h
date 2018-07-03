@@ -30,13 +30,6 @@ class generic_model_converter : public model_converter {
         instruction   m_instruction;
         entry(func_decl* f, expr* d, ast_manager& m, instruction i):
             m_f(f, m), m_def(d, m), m_instruction(i) {}
-
-        entry& operator=(entry const& other) {
-            m_f = other.m_f;
-            m_def = other.m_def;
-            m_instruction = other.m_instruction;
-            return *this;
-        }
     };
     ast_manager& m;
     std::string  m_orig;
