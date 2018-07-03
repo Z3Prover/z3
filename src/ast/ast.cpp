@@ -1371,11 +1371,6 @@ void ast_manager::update_fresh_id(ast_manager const& m) {
     m_fresh_id = std::max(m_fresh_id, m.m_fresh_id);
 }
 
-void ast_manager::inc_ref(ast * n) {
-    if (n) {
-        n->inc_ref();
-    }
-}
 
 void ast_manager::init() {
     m_int_real_coercions = true;
