@@ -2106,6 +2106,7 @@ namespace test_mapi
             Console.WriteLine("OK, model: {0}", s.Model.ToString());
         }
 
+
         public static void TranslationExample()
         {
             Context ctx1 = new Context();

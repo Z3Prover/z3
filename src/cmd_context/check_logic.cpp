@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "cmd_context/check_logic.h"
+#include "solver/smt_logics.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -453,7 +454,7 @@ struct check_logic::imp {
         else if (fid == m_dt_util.get_family_id() && m_dt) {
             // nothing to check
         }
-        else if (fid == m_pb_util.get_family_id() && m_logic == "QF_FD") {
+        else if (fid == m_pb_util.get_family_id() && smt_logics::logic_has_pb(m_logic)) {
             // nothing to check
         }
         else {

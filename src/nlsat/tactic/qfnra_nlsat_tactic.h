@@ -25,8 +25,6 @@ class tactic;
 
 tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-MK_SIMPLE_TACTIC_FACTORY(qfnra_nlsat_fct, mk_qfnra_nlsat_tactic(m, p));
-
 /*
   ADD_TACTIC("qfnra-nlsat", "builtin strategy for solving QF_NRA problems using only nlsat.", "mk_qfnra_nlsat_tactic(m, p)")
 */

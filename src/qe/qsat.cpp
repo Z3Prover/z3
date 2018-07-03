@@ -1279,7 +1279,7 @@ namespace qe {
                 if (s == "ok" || s == "unknown") {
                     s = m_fa.s().reason_unknown();
                 }
-                throw tactic_exception(s.c_str()); 
+                throw tactic_exception(std::move(s));
             }        
         }
         
@@ -1344,7 +1344,7 @@ namespace qe {
                     s = m_fa.s().reason_unknown();
                 }
 
-                throw tactic_exception(s.c_str()); 
+                throw tactic_exception(std::move(s));
             }        
             return l_true;
         }

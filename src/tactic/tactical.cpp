@@ -463,9 +463,9 @@ public:
         if (finished_id == UINT_MAX) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
-            case TACTIC_EX: throw tactic_exception(ex_msg.c_str());
+            case TACTIC_EX: throw tactic_exception(std::move(ex_msg));
             default:
-                throw default_exception(ex_msg.c_str());
+                throw default_exception(std::move(ex_msg));
             }
         }
     }    
@@ -660,9 +660,9 @@ public:
             if (failed) {
                 switch (ex_kind) {
                 case ERROR_EX: throw z3_error(error_code);
-                case TACTIC_EX: throw tactic_exception(ex_msg.c_str());
+                case TACTIC_EX: throw tactic_exception(std::move(ex_msg));
                 default:
-                    throw default_exception(ex_msg.c_str());
+                    throw default_exception(std::move(ex_msg));
                 }
             }
 

@@ -86,7 +86,7 @@ namespace Microsoft.Z3
                         return null;
                     else
                     {
-                        if (Native.Z3_is_as_array(Context.nCtx, n) == false)
+                        if (Native.Z3_is_as_array(Context.nCtx, n) == 0)
                             throw new Z3Exception("Argument was not an array constant");
                         IntPtr fd = Native.Z3_get_as_array_func_decl(Context.nCtx, n);
                         return FuncInterp(new FuncDecl(Context, fd));
@@ -227,7 +227,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<Expr>() != null);
 
             IntPtr v = IntPtr.Zero;
-            if (Native.Z3_model_eval(Context.nCtx, NativeObject, t.NativeObject, (completion), ref v) == false)
+            if (Native.Z3_model_eval(Context.nCtx, NativeObject, t.NativeObject, (byte)(completion ? 1 : 0), ref v) == (byte)0)
                 throw new ModelEvaluationFailedException();
             else
                 return Expr.Create(Context, v);

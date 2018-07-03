@@ -179,7 +179,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsNumeral
         {
-            get { return Native.Z3_is_numeral_ast(Context.nCtx, NativeObject) ; }
+            get { return Native.Z3_is_numeral_ast(Context.nCtx, NativeObject) != 0; }
         }
 
         /// <summary>
@@ -188,7 +188,7 @@ namespace Microsoft.Z3
         /// <returns>True if the term is well-sorted, false otherwise.</returns>
         public bool IsWellSorted
         {
-            get { return Native.Z3_is_well_sorted(Context.nCtx, NativeObject) ; }
+            get { return Native.Z3_is_well_sorted(Context.nCtx, NativeObject) != 0; }
         }
 
         /// <summary>
@@ -256,7 +256,7 @@ namespace Microsoft.Z3
                 return (IsExpr &&
                         Native.Z3_is_eq_sort(Context.nCtx,
                                               Native.Z3_mk_bool_sort(Context.nCtx),
-                                              Native.Z3_get_sort(Context.nCtx, NativeObject)) );
+                                              Native.Z3_get_sort(Context.nCtx, NativeObject)) != 0);
             }
         }
 
@@ -423,7 +423,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                return (Native.Z3_is_app(Context.nCtx, NativeObject)  &&
+                return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
                         (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject))
                         == Z3_sort_kind.Z3_ARRAY_SORT);
             }
@@ -789,7 +789,7 @@ namespace Microsoft.Z3
         /// Check whether expression is a string constant.
         /// </summary>
         /// <returns>a Boolean</returns>
-        public bool IsString  { get { return IsApp && Native.Z3_is_string(Context.nCtx, NativeObject); } }
+        public bool IsString  { get { return IsApp && Native.Z3_is_string(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Retrieve string corresponding to string constant.
@@ -1336,7 +1336,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                return (Native.Z3_is_app(Context.nCtx, NativeObject)  &&
+                return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
                         Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject))
                         == (uint)Z3_sort_kind.Z3_RELATION_SORT);
             }
@@ -1458,7 +1458,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                return (Native.Z3_is_app(Context.nCtx, NativeObject)  &&
+                return (Native.Z3_is_app(Context.nCtx, NativeObject)  != 0 &&
                         Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_FINITE_DOMAIN_SORT);
             }
         }
@@ -1789,7 +1789,7 @@ namespace Microsoft.Z3
         [Pure]
         internal override void CheckNativeObject(IntPtr obj)
         {
-            if (Native.Z3_is_app(Context.nCtx, obj) == false &&
+            if (Native.Z3_is_app(Context.nCtx, obj) == 0 &&
                 Native.Z3_get_ast_kind(Context.nCtx, obj) != (uint)Z3_ast_kind.Z3_VAR_AST &&
                 Native.Z3_get_ast_kind(Context.nCtx, obj) != (uint)Z3_ast_kind.Z3_QUANTIFIER_AST)
                 throw new Z3Exception("Underlying object is not a term");
@@ -1822,11 +1822,10 @@ namespace Microsoft.Z3
             IntPtr s = Native.Z3_get_sort(ctx.nCtx, obj);
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(ctx.nCtx, s);
 
-            if ( // Z3_sort_kind.Z3_REAL_SORT == sk && 
-                0 != Native.Z3_is_algebraic_number(ctx.nCtx, obj)) // is this a numeral ast?
+            if (0 != Native.Z3_is_algebraic_number(ctx.nCtx, obj)) // is this a numeral ast?
                 return new AlgebraicNum(ctx, obj);
 
-            if (Native.Z3_is_numeral_ast(ctx.nCtx, obj))
+            if (Native.Z3_is_numeral_ast(ctx.nCtx, obj) != 0)
             {
 
                 switch (sk)

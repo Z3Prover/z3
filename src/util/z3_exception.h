@@ -41,7 +41,7 @@ class default_exception : public z3_exception {
     std::string m_msg;
 public:
     struct fmt {};
-    default_exception(std::string const& msg);
+    default_exception(std::string && msg) : m_msg(std::move(msg)) {}
     default_exception(fmt, char const* msg, ...);
     ~default_exception() override {}
     char const * msg() const override;

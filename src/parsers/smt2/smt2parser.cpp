@@ -909,7 +909,7 @@ namespace smt2 {
                     std::string err_msg = "invalid datatype declaration, unknown sort '";
                     err_msg += missing.str();
                     err_msg += "'";
-                    throw parser_exception(err_msg, line, pos);
+                    throw parser_exception(std::move(err_msg), line, pos);
                 }
                 dts->commit(pm());
                 m_ctx.insert_aux_pdecl(dts.get());
@@ -989,7 +989,7 @@ namespace smt2 {
                 std::string err_msg = "invalid datatype declaration, unknown sort '";
                 err_msg += missing.str();
                 err_msg += "'";
-                throw parser_exception(err_msg, line, pos);
+                throw parser_exception(std::move(err_msg), line, pos);
             }
         }
 
@@ -999,7 +999,7 @@ namespace smt2 {
                 std::string err_msg = "invalid datatype declaration, repeated accessor identifier '";
                 err_msg += duplicated.str();
                 err_msg += "'";
-                throw parser_exception(err_msg, line, pos);
+                throw parser_exception(std::move(err_msg), line, pos);
             }
         }
 

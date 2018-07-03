@@ -39,7 +39,7 @@ namespace Microsoft.Z3
             get
             {
                 UInt64 res = 0;
-                if (Native.Z3_get_numeral_uint64(Context.nCtx, NativeObject, ref res) == false)
+                if (Native.Z3_get_numeral_uint64(Context.nCtx, NativeObject, ref res) == 0)
                     throw new Z3Exception("Numeral is not a 64 bit unsigned");
                 return res;
             }
@@ -53,7 +53,7 @@ namespace Microsoft.Z3
             get
             {
                 int res = 0;
-                if (Native.Z3_get_numeral_int(Context.nCtx, NativeObject, ref res) == false)
+                if (Native.Z3_get_numeral_int(Context.nCtx, NativeObject, ref res) == 0)
                     throw new Z3Exception("Numeral is not an int");
                 return res;
             }
@@ -67,7 +67,7 @@ namespace Microsoft.Z3
             get
             {
                 Int64 res = 0;
-                if (Native.Z3_get_numeral_int64(Context.nCtx, NativeObject, ref res) == false)
+                if (Native.Z3_get_numeral_int64(Context.nCtx, NativeObject, ref res) == 0)
                     throw new Z3Exception("Numeral is not an int64");
                 return res;
             }
@@ -81,7 +81,7 @@ namespace Microsoft.Z3
             get
             {
                 uint res = 0;
-                if (Native.Z3_get_numeral_uint(Context.nCtx, NativeObject, ref res) == false)
+                if (Native.Z3_get_numeral_uint(Context.nCtx, NativeObject, ref res) == 0)
                     throw new Z3Exception("Numeral is not a uint");
                 return res;
             }

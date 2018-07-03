@@ -37,7 +37,7 @@ namespace Microsoft.Z3
         {
             Contract.Requires(k != null);
 
-            return Native.Z3_ast_map_contains(Context.nCtx, NativeObject, k.NativeObject);
+            return 0 != Native.Z3_ast_map_contains(Context.nCtx, NativeObject, k.NativeObject);
         }
 
         /// <summary>

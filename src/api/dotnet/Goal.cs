@@ -103,7 +103,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool Inconsistent
         {
-            get { return Native.Z3_goal_inconsistent(Context.nCtx, NativeObject) ; }
+            get { return Native.Z3_goal_inconsistent(Context.nCtx, NativeObject) != 0; }
         }
 
         /// <summary>
@@ -163,7 +163,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsDecidedSat
         {
-            get { return Native.Z3_goal_is_decided_sat(Context.nCtx, NativeObject) ; }
+            get { return Native.Z3_goal_is_decided_sat(Context.nCtx, NativeObject) != 0; }
         }
 
         /// <summary>
@@ -171,7 +171,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsDecidedUnsat
         {
-            get { return Native.Z3_goal_is_decided_unsat(Context.nCtx, NativeObject) ; }
+            get { return Native.Z3_goal_is_decided_unsat(Context.nCtx, NativeObject) != 0; }
         }
 
 	/// <summary>
@@ -251,7 +251,7 @@ namespace Microsoft.Z3
         internal Goal(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
         internal Goal(Context ctx, bool models, bool unsatCores, bool proofs)
-            : base(ctx, Native.Z3_mk_goal(ctx.nCtx, (models), (unsatCores), (proofs)))
+            : base(ctx, Native.Z3_mk_goal(ctx.nCtx, (byte)(models ? 1 : 0), (byte)(unsatCores ? 1 : 0), (byte)(proofs ? 1 : 0)))
         {
             Contract.Requires(ctx != null);
         }

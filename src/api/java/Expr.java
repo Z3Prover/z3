@@ -275,7 +275,7 @@ public class Expr extends AST
      **/
     public boolean isAlgebraicNumber()
     {
-        return 0 != Native.isAlgebraicNumber(getContext().nCtx(), getNativeObject());
+        return Native.isAlgebraicNumber(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -2108,7 +2108,7 @@ public class Expr extends AST
         Z3_sort_kind sk = Z3_sort_kind
                 .fromInt(Native.getSortKind(ctx.nCtx(), s));
 
-        if (Native.isAlgebraicNumber(ctx.nCtx(), obj) != 0) // is this a numeral ast?
+        if (Native.isAlgebraicNumber(ctx.nCtx(), obj)) // is this a numeral ast?
             return new AlgebraicNum(ctx, obj);
 
         if (Native.isNumeralAst(ctx.nCtx(), obj))

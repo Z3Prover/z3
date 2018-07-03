@@ -2455,7 +2455,7 @@ def _is_numeral(ctx, a):
     return Z3_is_numeral_ast(ctx.ref(), a)
 
 def _is_algebraic(ctx, a):
-    return 0 != Z3_is_algebraic_number(ctx.ref(), a)
+    return Z3_is_algebraic_number(ctx.ref(), a)
 
 def is_int_value(a):
     """Return `True` if `a` is an integer value of sort Int.
