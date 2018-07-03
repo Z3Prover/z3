@@ -962,11 +962,11 @@ namespace smt {
         m_stats.m_num_conflicts++;
         context& ctx = get_context();
         justification* js = 0;
-        if (proofs_enabled()) {
-            js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
-        }
         c.inc_propagations(*this);
         if (!resolve_conflict(c, lits)) {
+			if (proofs_enabled()) {
+				js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
+			}
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         }
         SASSERT(ctx.inconsistent());

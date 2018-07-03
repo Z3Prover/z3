@@ -1622,11 +1622,7 @@ public:
 
     void debug_ref_count() { m_debug_ref_count = true; }
 
-    void inc_ref(ast * n) {
-        if (n) {
-            n->inc_ref();
-        }
-    }
+    void inc_ref(ast * n);
     
     void dec_ref(ast* n) {
         if (n) {
