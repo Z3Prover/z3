@@ -321,7 +321,7 @@ class mpz_manager {
     };
     
     void mk_big(mpz & a) {
-        if (a.m_ptr == null) {
+        if (a.m_ptr == nullptr) {
             a.m_val = 0;
             a.m_ptr = allocate();
             a.m_owner = mpz_self;
