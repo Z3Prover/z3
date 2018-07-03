@@ -114,6 +114,14 @@ namespace qe {
         expr_ref_vector solve();
         expr_ref_vector project(model &mdl);
 
+        /**
+         * Return disequalities to ensure that disequalities between 
+         * excluded functions are preserved.
+         * For example if f(a) = b, f(c) = d, and b and d are not 
+         * congruent, then produce the disequality a != c.
+         */
+        expr_ref_vector get_ackerman_disequalities();
+
     };
 
 }
