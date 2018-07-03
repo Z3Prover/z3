@@ -521,31 +521,28 @@ bool theory_seq::eq_unit(expr* const& l, expr* const &r) const {
 }
 
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = rs' ++ x && rs = y ++ rs')
+// TBD: spec comment above doesn't seem to match what this function does.
 unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
-    unsigned_vector res;
+    unsigned_vector result;
     expr_ref l = mk_concat(ls);
     expr_ref r = mk_concat(rs);
     expr_ref pair(m.mk_eq(l,r), m);
-    if (m_overlap.find(pair, res)) {
-        return res;
+    if (m_overlap.find(pair, result)) {
+        return result;
     }
-    unsigned_vector result;
-    for (unsigned i = 0; i < ls.size(); ++i) {
+    result.reset();
+    if (eq_unit(ls[0], rs.back())) {
+       result.push_back(1);
+    }
+    for (unsigned i = 1; i < ls.size(); ++i) {
         if (eq_unit(ls[i], rs.back())) {
-            bool same = true;
-            if (i >= 1) {
-                for (unsigned j = i - 1; rs.size() + j >= 1 + i; --j) {
-                    if (!eq_unit(ls[j], rs[rs.size()+j-i-1])) {
-                        same = false;
-                        break;
-                    }
-                }
-                if (same)
-                    result.push_back(i+1);
+            bool same = rs.size() > i;
+            for (unsigned j = 0; same && j < i; ++j) {
+                same = eq_unit(ls[j], rs[rs.size() - 1 - i + j]);        
             }
-            else 
-                result.push_back(1);
+            if (same)
+                result.push_back(i+1);
         }
     }
     m_overlap.insert(pair, result);
