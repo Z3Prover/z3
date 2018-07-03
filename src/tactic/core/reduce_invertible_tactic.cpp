@@ -94,8 +94,6 @@ public:
     void cleanup() override {}
 
 private:
-
-
     void checkpoint() { 
         if (m.canceled())
             throw tactic_exception(m.limit().get_cancel_msg());
@@ -148,7 +146,12 @@ private:
                 c.m_parents[arg->get_id()].set(n);
             }
         }
-        void operator()(expr*) {}
+
+        void operator()(var* v) {
+            c.m_parents.reserve(v->get_id() + 1);
+        }
+
+        void operator()(quantifier* q) {}
     };
 
     void collect_parents(goal_ref const& g) {
@@ -167,10 +170,9 @@ private:
 
     // TBD: could be made to be recursive, by walking multiple layers of parents.
     
-    bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc) {
+    bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc, unsigned max_var = 0) {
         p = m_parents[v->get_id()].get();
-        SASSERT(p);
-
+        if (!p) return false;
         if (m_inverted.is_marked(p)) return false;
         if (mc && !is_ground(p)) return false;
 
@@ -191,11 +193,13 @@ private:
 
         expr *a, *b;
         // shift(a, b), where both a,b are single use. Set b = 0 and return a
-        // FIXME: needs to check that both variables are grounded by same quantifier
         if (m_bv.is_bv_shl(p, a, b) ||
             m_bv.is_bv_ashr(p, a, b) ||
             m_bv.is_bv_lshr(p, a, b)) {
-            if (!m_parents[(v == a ? b : a)->get_id()].get())
+            if (!m_parents[(v == a ? b : a)->get_id()].get() || is_var(a) != is_var(b))
+                return false;
+
+            if (is_var(a) && to_var(v == a ? b : a)->get_idx() >= max_var)
                 return false;
 
             if (mc) {
@@ -390,7 +394,7 @@ private:
                 new_sorts.push_back(srt);
             }
             // for each variable, collect parents,
-            // ensure they are in uniqe location and not under other quantifiers.
+            // ensure they are in unique location and not under other quantifiers.
             // if they are invertible, then produce inverting expression.
             //
             expr_safe_replace sub(m);
@@ -407,7 +411,7 @@ private:
             bool has_new_var = false;
             for (unsigned i = 0; i < vars.size(); ++i) {
                 var* v = vars[i];
-                if (!occurs_under_nested_q(v, new_body) && t.is_invertible(v, p, new_v, nullptr)) {
+                if (!occurs_under_nested_q(v, new_body) && t.is_invertible(v, p, new_v, nullptr, vars.size())) {
                     t.mark_inverted(p);
                     sub.insert(p, new_v);
                     new_sorts[i] = m.get_sort(new_v);
