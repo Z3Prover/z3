@@ -374,7 +374,7 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
 
     if (i == 0) {
         // src is zero
-        reset(a);
+        set(a, 0);
         return;
     }
     
@@ -396,7 +396,7 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::set(mpz & a, char const * val) {
-    reset(a);
+    set(a, 0);
     mpz ten(10);
     mpz tmp;
     char const * str = val;
@@ -423,7 +423,7 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
     while (sz > 0 && digits[sz - 1] == 0)
         sz--;
     if (sz == 0)
-        reset(target);
+        set(target, 0);
     else if (sz == 1)
         set(target, digits[0]);
     else {
@@ -547,6 +547,12 @@ void mpz_manager<SYNCH>::machine_div(mpz const & a, mpz const & b, mpz & c) {
         big_div(a, b, c);
     }
     STRACE("mpz", tout << to_string(c) << "\n";);
+}
+
+template<bool SYNCH>
+void mpz_manager<SYNCH>::reset(mpz & a) {
+    deallocate(a);
+    set(a, 0);
 }
 
 template<bool SYNCH>
@@ -678,7 +684,7 @@ void mpz_manager<SYNCH>::big_add_sub(mpz const & a, mpz const & b, mpz & c) {
         int r = m_mpn_manager.compare(ca.cell()->m_digits, ca.cell()->m_size,
                                       cb.cell()->m_digits, cb.cell()->m_size);
         if (r == 0) {
-            reset(c);
+            set(c, 0);
         }
         else if (r < 0) {
             // a < b
@@ -792,7 +798,7 @@ void mpz_manager<SYNCH>::quot_rem_core(mpz const & a, mpz const & b, mpz & q, mp
         if (MODE == REM_ONLY || MODE == QUOT_AND_REM)
             set(r, a); 
         if (MODE == QUOT_ONLY || MODE == QUOT_AND_REM)
-            reset(q);
+            set(q, 0);
         return;
     }
     unsigned q_sz = ca.cell()->m_size - cb.cell()->m_size + 1;
@@ -1141,7 +1147,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
     // The optimization did not really help.
     switch (sz) {
     case 0:
-        reset(g);
+        set(g, 0);
         return;
     case 1:
         set(g, as[0]);
@@ -1186,7 +1192,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
     // Vanilla implementation
     switch (sz) {
     case 0:
-        reset(g);
+        set(g, 0);
         return;
     case 1:
         set(g, as[0]);
@@ -1322,7 +1328,7 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
         set(a1, a);
         set(b1, b);
         set(m, 1);
-        reset(c);
+        set(c, 0);
         while (!is_zero(a1) && !is_zero(b1)) {
             TRACE("mpz", tout << "a1: " << to_string(a1) << ", b1: " << to_string(b1) << "\n";);
             mod(a1, m_two64, a2);
@@ -1368,7 +1374,7 @@ void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
         set(a1, a);
         set(b1, b);
         set(m, 1);
-        reset(c);
+        set(c, 0);
         while (!is_zero(a1) && !is_zero(b1)) {
             mod(a1, m_two64, a2);
             mod(b1, m_two64, b2);
@@ -1402,7 +1408,7 @@ void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
         set(a1, a);
         set(b1, b);
         set(m, 1);
-        reset(c);
+        set(c, 0);
         while (!is_zero(a1) && !is_zero(b1)) {
             mod(a1, m_two64, a2);
             mod(b1, m_two64, b2);
@@ -1765,7 +1771,7 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
         }
         if (a.m_val == 0) {
             SASSERT(p != 0);
-            reset(b);
+            set(b, 0);
             return;
         }
         if (a.m_val == 1) {
@@ -1892,7 +1898,7 @@ void mpz_manager<SYNCH>::normalize(mpz & a) {
 
     if (i == 0) {
         // a is zero...
-        reset(a);
+        set(a, 0);
         return;
     }
     
@@ -1927,7 +1933,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
     mpz_cell * c         = a.m_ptr;
     unsigned sz          = c->m_size;
     if (digit_shift >= sz) {
-        reset(a);
+        set(a, 0);
         return;
     }
     unsigned bit_shift   = k % (8 * sizeof(digit_t));
@@ -2159,7 +2165,7 @@ template<bool SYNCH>
 bool mpz_manager<SYNCH>::is_perfect_square(mpz const & a, mpz & root) {
     if (is_neg(a))
         return false;
-    reset(root);
+    set(root, 0);
     if (is_zero(a)) {
         return true;
     }

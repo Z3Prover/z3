@@ -554,10 +554,8 @@ public:
         return temp;
     }
 
-    void reset(mpz & a) {
-        a.m_val = 0;
-        a.m_kind = mpz_small;
-    }
+    // deallocates any memory.
+    void reset(mpz & a);
 
     void swap(mpz & a, mpz & b) {
         std::swap(a.m_val, b.m_val);
