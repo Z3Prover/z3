@@ -216,7 +216,7 @@ class mpz_manager {
         }
     }
 
-    void clear(mpz& n) { if (n.m_ptr) mpz_clear(n.m_ptr); }
+    void clear(mpz& n) { if (n.m_ptr) mpz_clear(*n.m_ptr); }
 #endif
 
 
