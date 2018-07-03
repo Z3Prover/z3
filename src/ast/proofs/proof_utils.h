@@ -164,10 +164,12 @@ public:
                 // skip (asserted m_aux)
                 else if (m.is_asserted(arg, a) && a == m_aux.get()) {
                     dirty = true;
+                    args.push_back(m.mk_true_proof());
                 }
                 // skip (hypothesis m_aux)
                 else if (m.is_hypothesis(arg, a) && a == m_aux.get()) {
                     dirty = true;
+                    args.push_back(m.mk_true_proof());
                 } else if (is_app(arg) && cache.find(to_app(arg), r)) {
                     dirty |= (arg != r);
                     args.push_back(r);
@@ -188,13 +190,18 @@ public:
             app_ref newp(m);
             if (!dirty) { newp = p; }
             else if (m.is_unit_resolution(p)) {
-                if (args.size() == 2)
-                    // unit resolution with m_aux that got collapsed to nothing
-                { newp = to_app(args.get(0)); }
+                ptr_buffer<proof> parents;
+                for (unsigned i = 0, sz = args.size() - 1; i < sz; ++i) {
+                    app *arg = to_app(args.get(i));
+                    if (!m.is_true(m.get_fact(arg)))
+                        parents.push_back(arg);
+                }
+                // unit resolution that collapsed to nothing
+                if (parents.size() == 1) {
+                    newp = parents.get(0);
+                }
                 else {
-                    ptr_vector<proof> parents;
-                    for (unsigned i = 0, sz = args.size() - 1; i < sz; ++i)
-                    { parents.push_back(to_app(args.get(i))); }
+                    // rebuild unit resolution
                     SASSERT(parents.size() == args.size() - 1);
                     newp = m.mk_unit_resolution(parents.size(), parents.c_ptr());
                     // XXX the old and new facts should be
@@ -203,9 +210,11 @@ public:
                     SASSERT(m.get_fact(newp) == args.back());
                     pinned.push_back(newp);
                 }
-            } else if (matches_fact(args, a)) {
+            }
+            else if (matches_fact(args, a)) {
                 newp = to_app(a);
-            } else {
+            }
+            else {
                 expr_ref papp(m);
                 mk_app(p->get_decl(), args, papp);
                 newp = to_app(papp.get());
