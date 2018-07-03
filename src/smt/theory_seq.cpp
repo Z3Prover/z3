@@ -532,10 +532,7 @@ unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector c
         return result;
     }
     result.reset();
-    if (eq_unit(ls[0], rs.back())) {
-       result.push_back(1);
-    }
-    for (unsigned i = 1; i < ls.size(); ++i) {
+    for (unsigned i = 0; i < ls.size(); ++i) {
         if (eq_unit(ls[i], rs.back())) {
             bool same = rs.size() > i;
             for (unsigned j = 0; same && j < i; ++j) {
