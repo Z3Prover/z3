@@ -196,6 +196,7 @@ mpz_manager<SYNCH>::~mpz_manager() {
         omp_destroy_nest_lock(&m_lock);
 }
 
+#ifndef _MP_GMP
 template<bool SYNCH>
 mpz_cell * mpz_manager<SYNCH>::allocate(unsigned capacity) {
     SASSERT(capacity >= m_init_cell_capacity);
@@ -215,6 +216,15 @@ void mpz_manager<SYNCH>::deallocate(bool is_heap, mpz_cell * ptr) {
     }
 }
 
+template<bool SYNCH>
+mpz_manager<SYNCH>::sign_cell::sign_cell(mpz_manager& m, mpz const& a): 
+    m_local(reinterpret_cast<mpz_cell*>(m_bytes)), m_a(a) {
+    m_local.m_ptr->m_capacity = capacity;
+    m.get_sign_cell(a, m_sign, m_cell, m_local.m_ptr);
+}
+
+
+#endif
 
 
 template<bool SYNCH>
@@ -1119,12 +1129,6 @@ unsigned mpz_manager<SYNCH>::size_info(mpz const & a) {
 #endif
 }
 
-template<bool SYNCH>
-mpz_manager<SYNCH>::sign_cell::sign_cell(mpz_manager& m, mpz const& a): 
-    m_local(reinterpret_cast<mpz_cell*>(m_bytes)), m_a(a) {
-    m_local.m_ptr->m_capacity = capacity;
-    m.get_sign_cell(a, m_sign, m_cell, m_local.m_ptr);
-}
 
 
 template<bool SYNCH>

@@ -183,6 +183,13 @@ class mpz_manager {
 
     void clear(mpz& n) { }
 
+    /**
+       \brief Set \c a with the value stored at src, and the given sign.
+       \c sz is an overapproximation of the size of the number stored at \c src.
+    */
+    void set(mpz_cell& src, mpz & a, int sign, unsigned sz); 
+
+
 #else
     // GMP code
     mpz_t     m_tmp, m_tmp2;
@@ -215,11 +222,6 @@ class mpz_manager {
 
     mpz                     m_two64;
 
-    /**
-       \brief Set \c a with the value stored at src, and the given sign.
-       \c sz is an overapproximation of the size of the number stored at \c src.
-    */
-    void set(mpz_cell& src, mpz & a, int sign, unsigned sz); 
 
     static int64_t i64(mpz const & a) { return static_cast<int64_t>(a.m_val); }
 
