@@ -940,7 +940,6 @@ class context {
     bool                 m_use_euf_gen;
     bool                 m_use_ctp;
     bool                 m_use_inc_clause;
-    bool                 m_blast_term_ite;
     bool                 m_use_ind_gen;
     bool                 m_use_array_eq_gen;
     bool                 m_validate_lemmas;
@@ -962,6 +961,7 @@ class context {
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
+    unsigned             m_blast_term_ite_inflation;
     scoped_ptr_vector<spacer_callback> m_callbacks;
     json_marshaller      m_json_marshaller;
 
@@ -1036,7 +1036,7 @@ public:
     bool simplify_pob() {return m_simplify_pob;}
     bool use_ctp() {return m_use_ctp;}
     bool use_inc_clause() {return m_use_inc_clause;}
-    bool blast_term_ite() {return m_blast_term_ite;}
+    unsigned blast_term_ite_inflation() {return m_blast_term_ite_inflation;}
     bool elim_aux() {return m_elim_aux;}
     bool reach_dnf() {return m_reach_dnf;}
 
