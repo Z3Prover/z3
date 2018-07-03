@@ -1,4 +1,6 @@
-add_executable(lp_tst lp_main.cpp lp.cpp $<TARGET_OBJECTS:util> $<TARGET_OBJECTS:polynomial> $<TARGET_OBJECTS:nlsat>  $<TARGET_OBJECTS:lp> )
+add_executable(lp_tst
+EXCLUDE_FROM_ALL
+lp_main.cpp lp.cpp $<TARGET_OBJECTS:util> $<TARGET_OBJECTS:polynomial> $<TARGET_OBJECTS:nlsat>  $<TARGET_OBJECTS:lp> )
 target_compile_definitions(lp_tst PRIVATE ${Z3_COMPONENT_CXX_DEFINES})
 target_compile_options(lp_tst PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_include_directories(lp_tst PRIVATE ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
