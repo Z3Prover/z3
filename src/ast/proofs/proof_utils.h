@@ -202,7 +202,6 @@ public:
                 }
                 else {
                     // rebuild unit resolution
-                    SASSERT(parents.size() == args.size() - 1);
                     newp = m.mk_unit_resolution(parents.size(), parents.c_ptr());
                     // XXX the old and new facts should be
                     // equivalent. The test here is much
