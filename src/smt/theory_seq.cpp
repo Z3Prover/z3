@@ -1931,6 +1931,11 @@ bool theory_seq::is_unit_nth(expr* e) const {
     return m_util.str.is_unit(e, s) && is_nth(s);
 }
 
+bool theory_seq::is_var_nth(expr* e) const {
+    expr *e1 = nullptr, *e2 = nullptr;
+    return is_nth(e, e1, e2) && is_var(e1);
+}
+
 bool theory_seq::is_nth(expr* e) const {
     return is_skolem(m_nth, e);
 }
@@ -2336,10 +2341,10 @@ bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
     if (is_var(r) && !occurs(r, l) && add_solution(r, l, deps)) {
         return true;
     }
-//    if (is_nth(l) && !occurs(l, r) && add_solution(l, r, deps))
-//        return true;
-//    if (is_nth(r) && !occurs(r, l) && add_solution(r, l, deps))
-//        return true;
+    if (is_var_nth(l) && !occurs(l, r) && add_solution(l, r, deps))
+        return true;
+    if (is_var_nth(r) && !occurs(r, l) && add_solution(r, l, deps))
+        return true;
 
     return false;
 }
@@ -2354,7 +2359,7 @@ bool theory_seq::occurs(expr* a, expr_ref_vector const& b) {
 
 bool theory_seq::occurs(expr* a, expr* b) {
      // true if a occurs under an interpreted function or under left/right selector.
-    SASSERT(is_var(a));
+    SASSERT(is_var(a) || is_var_nth(a));
     SASSERT(m_todo.empty());
     expr* e1 = nullptr, *e2 = nullptr;
     m_todo.push_back(b);

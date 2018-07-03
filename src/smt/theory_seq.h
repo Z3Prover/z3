@@ -490,6 +490,7 @@ namespace smt {
         bool is_var(expr* b) const;
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_unit_nth(expr* a) const;
+        bool is_var_nth(expr* a) const;
         bool is_nth(expr* a) const;
         bool is_nth(expr* a, expr*& e1, expr*& e2) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
