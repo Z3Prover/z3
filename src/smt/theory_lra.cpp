@@ -1521,7 +1521,6 @@ public:
     }
 
     void propagate() {
-		enable_trace("arith");
         flush_bound_axioms();
         if (!can_propagate()) {
             return;
