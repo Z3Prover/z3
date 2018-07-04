@@ -356,7 +356,7 @@ void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
 #ifdef _MP_GMP
 
 template<bool SYNCH>
-mpz_manager<SYNCH>::ensure_mpz_t(mpz const& a) {
+mpz_manager<SYNCH>::ensure_mpz_t::ensure_mpz_t(mpz const& a) {
     if (is_small(a)) {
         m_result = &m_local;
         mpz_init(m_local);

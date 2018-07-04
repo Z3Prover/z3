@@ -150,14 +150,6 @@ class mpz_manager {
     }
 
     mpz_cell * allocate(unsigned capacity);
-
-    void deallocate(mpz& n) {
-        if (n.m_ptr) {
-            deallocate(n.m_owner == mpz_self, n.m_ptr);
-            n.m_ptr = nullptr;
-            n.m_kind = mpz_small;
-        }
-    }
     
     // make sure that n is a big number and has capacity equal to at least c.
     void allocate_if_needed(mpz & n, unsigned c) {
@@ -181,7 +173,7 @@ class mpz_manager {
 
     void normalize(mpz & a);
 
-    void clear(mpz& n) { }
+    void clear(mpz& n) { reset(n); }
 
     /**
        \brief Set \c a with the value stored at src, and the given sign.
@@ -216,9 +208,16 @@ class mpz_manager {
         }
     }
 
-    void clear(mpz& n) { if (n.m_ptr) mpz_clear(*n.m_ptr); }
+    void clear(mpz& n) { if (n.m_ptr) { mpz_clear(*n.m_ptr); }}
 #endif
 
+    void deallocate(mpz& n) {
+        if (n.m_ptr) {
+            deallocate(n.m_owner == mpz_self, n.m_ptr);
+            n.m_ptr = nullptr;
+            n.m_kind = mpz_small;
+        }
+    }
 
     mpz                     m_two64;
 
