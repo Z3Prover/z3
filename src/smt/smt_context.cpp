@@ -3763,6 +3763,7 @@ namespace smt {
         }
 
         m_stats.m_num_final_checks++;
+		TRACE("final_check_stats", tout << "m_stats.m_num_final_checks = " << m_stats.m_num_final_checks << "\n";);
 
         final_check_status ok = m_qmanager->final_check_eh(false);
         if (ok != FC_DONE)

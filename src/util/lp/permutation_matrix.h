@@ -101,7 +101,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         void apply_reverse_from_right_to_X(vector<X> & w);
 
         void set_val(unsigned i, unsigned pi) {
-            SASSERT(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
+            lp_assert(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
 
         void transpose_from_left(unsigned i, unsigned j);
 
@@ -131,8 +131,6 @@ class permutation_matrix : public tail_matrix<T, X> {
         bool is_identity() const;
 
         unsigned size() const { return static_cast<unsigned>(m_rev.size()); }
-
-        unsigned * values() const { return m_permutation.c_ptr(); }
 
         void resize(unsigned size) {
             unsigned old_size = m_permutation.size();

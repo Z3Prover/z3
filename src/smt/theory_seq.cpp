@@ -26,6 +26,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/theory_seq.h"
 #include "smt/theory_arith.h"
+#include "smt/theory_lra.h"
 #include "smt/smt_kernel.h"
 
 using namespace smt;
@@ -4546,6 +4547,8 @@ static bool get_arith_value(context& ctx, theory_id afid, expr* e, expr_ref& v) 
     if (tha) return tha->get_value(ctx.get_enode(e), v);
     theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, afid, e);
     if (thi) return thi->get_value(ctx.get_enode(e), v);
+    theory_lra* thr = get_th_arith<theory_lra>(ctx, afid, e);
+    if (thr) return thr->get_value(ctx.get_enode(e), v);
     TRACE("seq", tout << "no arithmetic theory\n";);
     return false;
 }
@@ -4571,12 +4574,18 @@ bool theory_seq::lower_bound(expr* _e, rational& lo) const {
     context& ctx = get_context();
     expr_ref e(m_util.str.mk_length(_e), m);
     expr_ref _lo(m);
-    theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, m_autil.get_family_id(), e);
-    if (tha && !tha->get_lower(ctx.get_enode(e), _lo)) return false;
-    if (!tha) {
-        theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, m_autil.get_family_id(), e);
-        if (!thi || !thi->get_lower(ctx.get_enode(e), _lo)) return false;
+    family_id afid = m_autil.get_family_id();
+    do {
+        theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, afid, e);
+        if (tha && tha->get_lower(ctx.get_enode(e), _lo)) break;
+        theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, afid, e);
+        if (thi && thi->get_lower(ctx.get_enode(e), _lo)) break;
+        theory_lra* thr = get_th_arith<theory_lra>(ctx, afid, e);
+        if (thr && thr->get_lower(ctx.get_enode(e), _lo)) break;
+        TRACE("seq", tout << "no lower bound " << mk_pp(_e, m) << "\n";);
+        return false;
     }
+    while (false);
     return m_autil.is_numeral(_lo, lo) && lo.is_int();
 }
 
@@ -4622,13 +4631,19 @@ bool theory_seq::lower_bound2(expr* _e, rational& lo) {
 bool theory_seq::upper_bound(expr* _e, rational& hi) const {
     context& ctx = get_context();
     expr_ref e(m_util.str.mk_length(_e), m);
-    theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, m_autil.get_family_id(), e);
+    family_id afid = m_autil.get_family_id();
     expr_ref _hi(m);
-    if (tha && !tha->get_upper(ctx.get_enode(e), _hi)) return false;
-    if (!tha) {
-        theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, m_autil.get_family_id(), e);
-        if (!thi || !thi->get_upper(ctx.get_enode(e), _hi)) return false;
+    do {
+        theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, afid, e);
+        if (tha && tha->get_upper(ctx.get_enode(e), _hi)) break;
+        theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, afid, e);
+        if (thi && thi->get_upper(ctx.get_enode(e), _hi)) break;
+        theory_lra* thr = get_th_arith<theory_lra>(ctx, afid, e);
+        if (thr && thr->get_upper(ctx.get_enode(e), _hi)) break;
+        TRACE("seq", tout << "no upper bound " << mk_pp(_e, m) << "\n";);
+        return false;
     }
+    while (false);
     return m_autil.is_numeral(_hi, hi) && hi.is_int();
 }
 

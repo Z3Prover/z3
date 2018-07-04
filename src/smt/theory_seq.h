@@ -50,7 +50,6 @@ namespace smt {
 
         class seq_value_proc;
         
-
         // cache to track evaluations under equalities
         class eval_cache {
             eqdep_map_t             m_map;

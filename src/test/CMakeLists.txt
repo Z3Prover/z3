@@ -1,4 +1,5 @@
 add_subdirectory(fuzzing)
+add_subdirectory(lp)
 ################################################################################
 # z3-test executable
 ################################################################################
@@ -120,6 +121,7 @@ add_executable(test-z3
   upolynomial.cpp
   var_subst.cpp
   vector.cpp
+  lp/lp.cpp
   ${z3_test_extra_object_files}
 )
 z3_add_install_tactic_rule(${z3_test_deps})

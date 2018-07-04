@@ -188,6 +188,24 @@ public:
         m_data = nullptr;
     }
 
+    bool operator==(vector const & other) const {
+        if (this == &other) {
+            return true;
+        }
+        if (size() != other.size())
+            return false;
+        for (unsigned i = 0; i < size(); i++) {
+            if ((*this)[i] != other[i])
+                return false;
+        }
+        return true;
+    }
+
+    bool operator!=(vector const & other) const {
+        return !(*this == other);
+    }
+
+    
     vector & operator=(vector const & source) {
         if (this == &source) {
             return *this;

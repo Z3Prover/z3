@@ -35,7 +35,7 @@ void quick_xplain::copy_constraint_and_add_constraint_vars(const lar_constraint&
     vector < std::pair<mpq, unsigned>> ls;
     for (auto & p : lar_c.get_left_side_coefficients()) {
         unsigned j = p.second;
-        unsigned lj = m_qsol.add_var(j);
+        unsigned lj = m_qsol.add_var(j, false);
         ls.push_back(std::make_pair(p.first, lj));
     }
     m_constraints_in_local_vars.push_back(lar_constraint(ls, lar_c.m_kind, lar_c.m_right_side));
@@ -44,7 +44,7 @@ void quick_xplain::copy_constraint_and_add_constraint_vars(const lar_constraint&
 
 bool quick_xplain::infeasible() {
     m_qsol.solve();
-    return m_qsol.get_status() == INFEASIBLE;
+    return m_qsol.get_status() == lp_status::INFEASIBLE;
 }
 
 // u - unexplored constraints
@@ -71,7 +71,7 @@ void quick_xplain::minimize(const vector<unsigned>& u) {
         }
     }
     if (m > 0) {
-        SASSERT(m_qsol.constraint_stack_size() >= initial_stack_size);
+        lp_assert(m_qsol.constraint_stack_size() >= initial_stack_size);
         m_qsol.pop(m_qsol.constraint_stack_size() - initial_stack_size);
         for (auto j : m_x)
             add_constraint_to_qsol(j);
@@ -88,7 +88,7 @@ void quick_xplain::minimize(const vector<unsigned>& u) {
 void quick_xplain::run(vector<std::pair<mpq, constraint_index>> & explanation, const lar_solver & ls){
     if (explanation.size() <= 2) return;
     lar_solver qsol;
-    SASSERT(ls.explanation_is_correct(explanation));
+    lp_assert(ls.explanation_is_correct(explanation));
     quick_xplain q(explanation, ls, qsol);
     q.solve();
 }
@@ -109,13 +109,13 @@ bool quick_xplain::is_feasible(const vector<unsigned> & x, unsigned k) const {
         vector < std::pair<mpq, unsigned>> ls;
         const lar_constraint & c = m_constraints_in_local_vars[i];
         for (auto & p : c.get_left_side_coefficients()) {
-            unsigned lj = l.add_var(p.second);
+            unsigned lj = l.add_var(p.second, false);
             ls.push_back(std::make_pair(p.first, lj));
         }
         l.add_constraint(ls, c.m_kind, c.m_right_side);
     }
     l.solve();
-    return l.get_status() != INFEASIBLE;
+    return l.get_status() != lp_status::INFEASIBLE;
 }
 
 bool quick_xplain::x_is_minimal() const {
@@ -124,7 +124,7 @@ bool quick_xplain::x_is_minimal() const {
         x.push_back(j);
 
     for (unsigned k = 0; k < x.size(); k++) {
-        SASSERT(is_feasible(x, x[k]));
+        lp_assert(is_feasible(x, x[k]));
     }
     return true;
 }
@@ -132,8 +132,8 @@ bool quick_xplain::x_is_minimal() const {
 void quick_xplain::solve() {
     copy_constraints_to_local_constraints();
     m_qsol.push();
-    SASSERT(m_qsol.constraint_count() == 0);
-    vector<unsigned> u;
+    lp_assert(m_qsol.constraint_count() == 0)
+        vector<unsigned> u;
     for (unsigned k = 0; k < m_constraints_in_local_vars.size(); k++)
         u.push_back(k);
     minimize(u);
@@ -142,10 +142,10 @@ void quick_xplain::solve() {
     for (unsigned i : m_x)
         add_constraint_to_qsol(i);
     m_qsol.solve();
-    SASSERT(m_qsol.get_status() == INFEASIBLE);
+    lp_assert(m_qsol.get_status() == lp_status::INFEASIBLE);
     m_qsol.get_infeasibility_explanation(m_explanation);
-    SASSERT(m_qsol.explanation_is_correct(m_explanation));
-    SASSERT(x_is_minimal());
+    lp_assert(m_qsol.explanation_is_correct(m_explanation));
+    lp_assert(x_is_minimal());
     for (auto & p : m_explanation) {
         p.second = this->m_local_constraint_offset_to_external_ci[m_local_ci_to_constraint_offsets[p.second]];
     }
