@@ -1,6 +1,5 @@
 z3_add_component(lp
   SOURCES
-    lp_utils.cpp
     binary_heap_priority_queue.cpp
     binary_heap_upair_queue.cpp
     bound_propagator.cpp
@@ -19,15 +18,16 @@ z3_add_component(lp
     lp_settings.cpp
     lp_solver.cpp
     lu.cpp
+    lp_utils.cpp
     matrix.cpp
     nra_solver.cpp
     permutation_matrix.cpp
+    random_updater.cpp      
     row_eta_matrix.cpp
     scaler.cpp
-    square_sparse_matrix.cpp
     square_dense_submatrix.cpp
+    square_sparse_matrix.cpp
     static_matrix.cpp
-    random_updater.cpp      
   COMPONENT_DEPENDENCIES
     util
     polynomial
