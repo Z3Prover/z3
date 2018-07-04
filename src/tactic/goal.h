@@ -77,7 +77,7 @@ protected:
     unsigned get_not_idx(expr * f) const;
     void shrink(unsigned j);
     void reset_core();
-
+    bool is_literal(expr* f) const;
     
 public:
     goal(ast_manager & m, bool models_enabled = true, bool core_enabled = false);
@@ -158,6 +158,8 @@ public:
     void set(dependency_converter* d) { m_dc = d; }
     void set(model_converter* m) { m_mc = m; }
     void set(proof_converter* p) { m_pc = p; }
+
+    bool is_cnf() const;
 
     goal * translate(ast_translation & translator) const;
 };

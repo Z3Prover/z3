@@ -169,7 +169,7 @@ namespace z3 {
         void check_parser_error() const {
             Z3_error_code e = Z3_get_error_code(*this);
             if (e != Z3_OK && enable_exceptions()) {
-                Z3_string s = Z3_get_parser_error(*this);
+                Z3_string s = Z3_get_error_message(*this);
                 if (s && *s) Z3_THROW(exception(s));
             }
             check_error();

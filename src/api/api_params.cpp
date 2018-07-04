@@ -171,7 +171,7 @@ extern "C" {
         LOG_Z3_param_descrs_get_name(c, p, i);
         RESET_ERROR_CODE();
         if (i >= to_param_descrs_ptr(p)->size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         Z3_symbol result = of_symbol(to_param_descrs_ptr(p)->get_param_name(i));
@@ -185,7 +185,7 @@ extern "C" {
         RESET_ERROR_CODE();
         char const* result = to_param_descrs_ptr(p)->get_descr(to_symbol(s));
         if (result == nullptr) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         return mk_c(c)->mk_external_string(result);

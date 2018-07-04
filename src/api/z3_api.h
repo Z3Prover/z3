@@ -5280,12 +5280,6 @@ extern "C" {
 
     Z3_string Z3_API Z3_eval_smtlib2_string(Z3_context, Z3_string str);
     
-    /**
-       \brief Retrieve that last error message information generated from parsing.
-
-       def_API('Z3_get_parser_error', STRING, (_in(CONTEXT), ))
-    */
-    Z3_string Z3_API Z3_get_parser_error(Z3_context c);
     /*@}*/
 
     /** @name Error Handling */
@@ -5332,11 +5326,6 @@ extern "C" {
     */
     Z3_string Z3_API Z3_get_error_msg(Z3_context c, Z3_error_code err);
 
-    /**
-       \brief Return a string describing the given error code.
-       Retained function name for backwards compatibility within v4.1
-    */
-    Z3_string Z3_API Z3_get_error_msg_ex(Z3_context c, Z3_error_code err);
     /*@}*/
 
     /** @name Miscellaneous */

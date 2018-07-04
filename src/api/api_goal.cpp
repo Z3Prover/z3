@@ -30,7 +30,7 @@ extern "C" {
         LOG_Z3_mk_goal(c, models, unsat_cores, proofs);
         RESET_ERROR_CODE();
         if (proofs != 0 && !mk_c(c)->m().proofs_enabled()) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "proofs are required, but proofs are not enabled on the context");
             RETURN_Z3(nullptr);
         }
         Z3_goal_ref * g = alloc(Z3_goal_ref, *mk_c(c));
@@ -119,7 +119,7 @@ extern "C" {
         LOG_Z3_goal_formula(c, g, idx);
         RESET_ERROR_CODE();
         if (idx >= to_goal_ref(g)->size()) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         expr * result = to_goal_ref(g)->form(idx);
@@ -198,6 +198,10 @@ extern "C" {
         LOG_Z3_goal_to_dimacs_string(c, g);
         RESET_ERROR_CODE();
         std::ostringstream buffer;
+        if (!to_goal_ref(g)->is_cnf()) { 
+            warning_msg("goal is not in CNF. This will produce a propositional abstraction. "
+                        "If this is not what you want, then preprocess by optional bit-blasting and applying tseitin-cnf");
+        }
         to_goal_ref(g)->display_dimacs(buffer);
         // Hack for removing the trailing '\n'
         std::string result = buffer.str();

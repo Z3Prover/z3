@@ -52,7 +52,7 @@ extern "C" {
         RESET_ERROR_CODE();
         tactic_cmd * t = mk_c(c)->find_tactic_cmd(symbol(name));
         if (t == nullptr) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         tactic * new_t = t->mk(mk_c(c)->m());
@@ -82,7 +82,7 @@ extern "C" {
         RESET_ERROR_CODE();
         probe_info * p = mk_c(c)->find_probe(symbol(name));
         if (p == nullptr) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         probe * new_p = p->get();
@@ -324,7 +324,7 @@ extern "C" {
         LOG_Z3_get_tactic_name(c, idx);
         RESET_ERROR_CODE();
         if (idx >= mk_c(c)->num_tactics()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }
         return mk_c(c)->get_tactic(idx)->get_name().bare_str();
@@ -344,7 +344,7 @@ extern "C" {
         LOG_Z3_get_probe_name(c, idx);
         RESET_ERROR_CODE();
         if (idx >= mk_c(c)->num_probes()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }
         return mk_c(c)->get_probe(idx)->get_name().bare_str();
@@ -381,7 +381,7 @@ extern "C" {
         RESET_ERROR_CODE();
         tactic_cmd * t = mk_c(c)->find_tactic_cmd(symbol(name));
         if (t == nullptr) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return "";
         }
         return t->get_descr();
@@ -394,7 +394,7 @@ extern "C" {
         RESET_ERROR_CODE();
         probe_info * p = mk_c(c)->find_probe(symbol(name));
         if (p == nullptr) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return "";
         }
         return p->get_descr();
@@ -504,7 +504,7 @@ extern "C" {
         LOG_Z3_apply_result_get_subgoal(c, r, i);
         RESET_ERROR_CODE();
         if (i > to_apply_result(r)->m_subgoals.size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         Z3_goal_ref * g = alloc(Z3_goal_ref, *mk_c(c));

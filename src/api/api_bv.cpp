@@ -27,9 +27,6 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_bv_sort(c, sz);
         RESET_ERROR_CODE();
-        if (sz == 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-        }
         parameter p(sz);
         Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_bv_fid(), BV_SORT, 1, &p));
         RETURN_Z3(r);
@@ -163,7 +160,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         // Not logging this one, since it is just syntax sugar.
         unsigned sz = Z3_get_bv_sort_size(c, s);
         if (sz == 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "zero length bit-vector supplied");
             return nullptr;
         }
         Z3_ast x = Z3_mk_int64(c, 1, s);
@@ -393,7 +390,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         if (to_sort(t)->get_family_id() == mk_c(c)->get_bv_fid() && to_sort(t)->get_decl_kind() == BV_SORT) {
             return to_sort(t)->get_parameter(0).get_int();
         }
-        SET_ERROR_CODE(Z3_INVALID_ARG);
+        SET_ERROR_CODE(Z3_INVALID_ARG, "sort is not a bit-vector");
         return 0;
         Z3_CATCH_RETURN(0);
     }

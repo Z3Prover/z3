@@ -29,14 +29,14 @@ Notes:
 
 #define CHECK_IS_ALGEBRAIC(ARG, RET) {          \
     if (!Z3_algebraic_is_value_core(c, ARG)) {  \
-        SET_ERROR_CODE(Z3_INVALID_ARG);         \
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);         \
         return RET;                             \
     }                                           \
 }
 
 #define CHECK_IS_ALGEBRAIC_X(ARG, RET) {        \
     if (!Z3_algebraic_is_value_core(c, ARG)) {  \
-        SET_ERROR_CODE(Z3_INVALID_ARG);         \
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);         \
         RETURN_Z3(RET);                         \
     }                                           \
 }
@@ -196,7 +196,7 @@ extern "C" {
         CHECK_IS_ALGEBRAIC_X(b, nullptr);
         if ((is_rational(c, b) && get_rational(c, b).is_zero()) ||
             (!is_rational(c, b) && am(c).is_zero(get_irrational(c, b)))) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         BIN_OP(/,div);
@@ -211,7 +211,7 @@ extern "C" {
         if (k % 2 == 0) {
             if ((is_rational(c, a) && get_rational(c, a).is_neg()) ||
                 (!is_rational(c, a) && am(c).is_neg(get_irrational(c, a)))) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
                 RETURN_Z3(nullptr);
             }
         }
@@ -360,13 +360,13 @@ extern "C" {
         expr2polynomial converter(mk_c(c)->m(), pm, nullptr, true);
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             static_cast<unsigned>(max_var(_p)) >= n + 1) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
         }
         algebraic_numbers::manager & _am = am(c);
         scoped_anum_vector as(_am);
         if (!to_anum_vector(c, n, a, as)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
         }
         scoped_anum_vector roots(_am);
@@ -396,13 +396,13 @@ extern "C" {
         expr2polynomial converter(mk_c(c)->m(), pm, nullptr, true);
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             static_cast<unsigned>(max_var(_p)) >= n) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         algebraic_numbers::manager & _am = am(c);
         scoped_anum_vector as(_am);
         if (!to_anum_vector(c, n, a, as)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         {

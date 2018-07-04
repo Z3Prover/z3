@@ -318,17 +318,15 @@ extern "C" {
         ctx->set_ignore_check(true);
         try {
             if (!parse_smt2_commands(*ctx.get(), s)) {
-                mk_c(c)->m_parser_error_buffer = errstrm.str();            
                 ctx = nullptr;
-                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
                 return;
             }        
         }
         catch (z3_exception& e) {
             errstrm << e.msg();
-            mk_c(c)->m_parser_error_buffer = errstrm.str();            
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
             return;
         }
 

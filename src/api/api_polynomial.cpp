@@ -49,7 +49,7 @@ extern "C" {
         default_expr2polynomial converter(mk_c(c)->m(), pm);
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             !converter.to_polynomial(to_expr(q), _q, d)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
         }
         Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());

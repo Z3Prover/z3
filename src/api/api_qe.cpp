@@ -55,7 +55,7 @@ extern "C"
 
         app_ref_vector vars(mk_c(c)->m ());
         if (!to_apps(num_bounds, bound, vars)) {
-            SET_ERROR_CODE (Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
 
@@ -141,7 +141,7 @@ extern "C"
         for (unsigned i = 0; i < vVars.size (); ++i) {
             app *a = to_app (vVars.get (i));
             if (a->get_kind () != AST_APP) {
-                SET_ERROR_CODE (Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
                 RETURN_Z3(nullptr);
             }
             vApps.push_back (a);

@@ -51,7 +51,7 @@ extern "C" {
         LOG_Z3_mk_real(c, num, den);
         RESET_ERROR_CODE();
         if (den == 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         sort* s = mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT);
@@ -97,7 +97,7 @@ extern "C" {
         LOG_Z3_mk_sub(c, num_args, args);
         RESET_ERROR_CODE();
         if (num_args == 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         expr* r = to_expr(args[0]);
@@ -129,7 +129,7 @@ extern "C" {
         LOG_Z3_get_algebraic_number_lower(c, a, precision);
         RESET_ERROR_CODE();
         if (!Z3_is_algebraic_number(c, a)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         expr * e = to_expr(a);
@@ -147,7 +147,7 @@ extern "C" {
         LOG_Z3_get_algebraic_number_upper(c, a, precision);
         RESET_ERROR_CODE();
         if (!Z3_is_algebraic_number(c, a)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         expr * e = to_expr(a);
@@ -167,7 +167,7 @@ extern "C" {
         rational val;
         ast * _a = to_ast(a);
         if (!is_expr(_a) || !mk_c(c)->autil().is_numeral(to_expr(_a), val)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         expr * r = mk_c(c)->autil().mk_numeral(numerator(val), true);
@@ -183,7 +183,7 @@ extern "C" {
         rational val;
         ast * _a = to_ast(a);
         if (!is_expr(_a) || !mk_c(c)->autil().is_numeral(to_expr(_a), val)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         expr * r = mk_c(c)->autil().mk_numeral(denominator(val), true);
