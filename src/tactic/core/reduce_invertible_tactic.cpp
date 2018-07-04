@@ -168,7 +168,7 @@ private:
         if (mc && !(*mc)) *mc = alloc(generic_model_converter, m, "reduce-invertible");        
     }
 
-    bool is_full_domain_var(expr* v, const rational*& model) {
+    bool is_full_domain_var(expr* v, rational& model) {
         auto f = is_app(v) ? to_app(v)->get_decl() : nullptr;
         if (!f || f->get_family_id() != m_bv.get_family_id() || f->get_arity() == 0)
             return false;
@@ -180,11 +180,11 @@ private:
         case OP_BASHR:
         case OP_BLSHR:
         case OP_BOR:
-            model = &rational::zero();
+            model = rational::zero();
             return true;
 
         case OP_BAND:
-            model = &rational::minus_one();
+            model = rational::power_of_two(m_bv.get_bv_size(v)) - rational::one();
             return true;
 
         case OP_BMUL:
@@ -194,7 +194,7 @@ private:
         case OP_BUDIV:
         case OP_BUDIV0:
         case OP_BUDIV_I:
-            model = &rational::one();
+            model = rational::one();
             return true;
 
         default:
@@ -203,10 +203,11 @@ private:
     }
 
     bool rewrite_unconstr(expr* v, expr_ref& new_v, generic_model_converter_ref* mc, unsigned max_var) {
-        const rational* mdl;
+        rational mdl;
         if (!is_full_domain_var(v, mdl))
             return false;
 
+        rational r;
         app* a = to_app(v);
         expr* fst_arg = a->get_arg(0);
         bool fst_is_var = is_var(fst_arg);
@@ -218,11 +219,14 @@ private:
 
             if (fst_is_var && to_var(arg)->get_idx() >= max_var)
                 return false;
+
+            if (m_bv.is_numeral(arg, r) && r != mdl)
+                return false;
         }
 
         if (mc) {
             ensure_mc(mc);
-            expr_ref num(m_bv.mk_numeral(*mdl, get_sort(fst_arg)), m);
+            expr_ref num(m_bv.mk_numeral(mdl, get_sort(fst_arg)), m);
             for (unsigned i = 1, n = a->get_num_args(); i != n; ++i) {
                 (*mc)->add(a->get_arg(i), num);
             }
