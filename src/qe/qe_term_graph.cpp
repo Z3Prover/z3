@@ -975,6 +975,22 @@ namespace qe {
             reset();
             return res;
         }
+
+        expr_ref_vector get_ackerman_disequalities() {
+            expr_ref_vector res(m);
+            purify();
+            lits2pure(res);
+            unsigned sz = res.size();
+            mk_distinct(res);
+            reset();
+            unsigned j = 0;
+            for (unsigned i = sz; i < res.size(); ++i) {
+                res[j++] = res.get(i);
+            }
+            res.shrink(j);
+            return res;
+        }
+
         expr_ref_vector solve() {
             expr_ref_vector res(m);
             purify();
@@ -1010,5 +1026,12 @@ namespace qe {
         term_graph::projector p(*this);
         return p.solve();
     }
+
+    expr_ref_vector term_graph::get_ackerman_disequalities() {
+        m_is_var.reset_solved();
+        term_graph::projector p(*this);
+        return p.get_ackerman_disequalities();
+    }
+
 
 }

@@ -219,16 +219,23 @@ namespace qe {
 
     struct euf_arith_mbi_plugin::is_arith_var_proc {
         ast_manager&    m;
-        app_ref_vector& m_vars;
+        app_ref_vector& m_pvars;
+        app_ref_vector& m_svars;
         arith_util      arith;
-        obj_hashtable<func_decl> m_exclude;
-        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared):
-            m(vars.m()), m_vars(vars), arith(m) {
-            for (func_decl* f : shared) m_exclude.insert(f);
+        obj_hashtable<func_decl> m_shared;
+        is_arith_var_proc(func_decl_ref_vector const& shared, app_ref_vector& pvars, app_ref_vector& svars):
+            m(pvars.m()), m_pvars(pvars), m_svars(svars), arith(m) {
+            for (func_decl* f : shared) m_shared.insert(f);
         }
         void operator()(app* a) {
-            if (arith.is_int_real(a) && a->get_family_id() != arith.get_family_id() && !m_exclude.contains(a->get_decl())) {
-                m_vars.push_back(a);
+            if (!arith.is_int_real(a) || a->get_family_id() == arith.get_family_id()) {
+                // no-op
+            }
+            else if (m_shared.contains(a->get_decl())) {
+                m_svars.push_back(a);
+            }
+            else {
+                m_pvars.push_back(a);
             }
         }
         void operator()(expr*) {}
@@ -283,12 +290,28 @@ namespace qe {
         }
     }
 
-    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(expr_ref_vector const& lits) {
+    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(model_ref& mdl, expr_ref_vector& lits) {
         arith_util a(m);
-        app_ref_vector avars(m);
-        is_arith_var_proc _proc(avars, m_shared);
+        app_ref_vector pvars(m), svars(m); // private and shared arithmetic variables.
+        is_arith_var_proc _proc(m_shared, pvars, svars);
         for_each_expr(_proc, lits);
-        return avars;
+        rational v1, v2;
+        for (expr* p : pvars) {
+            VERIFY(a.is_numeral((*mdl)(p), v1));
+            for (expr* s : svars) {
+                VERIFY(a.is_numeral((*mdl)(s), v2));                
+                if (v1 < v2) {
+                    lits.push_back(a.mk_lt(p, s));
+                }
+                else if (v2 < v1) {
+                    lits.push_back(a.mk_lt(s, p));                    
+                }
+                else {
+                    lits.push_back(m.mk_eq(s, p));
+                }
+            }
+        }
+        return pvars;
     }
 
     mbi_result euf_arith_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
@@ -306,29 +329,45 @@ namespace qe {
             if (!get_literals(mdl, lits)) {
                 return mbi_undef;
             }
-            app_ref_vector avars = get_arith_vars(lits);
+            TRACE("qe", tout << lits << "\n";);
 
+            // 1. Extract projected variables, add inequalities between
+            //    projected variables and non-projected terms according to model.
+            // 2. Extract disequalities implied by congruence closure.
+            // 3. project arithmetic variables from pure literals.
+            // 4. Add projected definitions as equalities to EUF.
+            // 5. project remaining literals with respect to EUF.
+
+            app_ref_vector avars = get_arith_vars(mdl, lits);
             TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
 
-            // 1. project arithmetic variables using mdl that satisfies core.
-            //    ground any remaining arithmetic variables using model.
+            // 2.
+            term_graph tg1(m);
+            func_decl_ref_vector no_shared(m);
+            tg1.set_vars(no_shared, false);
+            tg1.add_lits(lits);
+            expr_ref_vector diseq = tg1.get_ackerman_disequalities();
+            lits.append(diseq);
+            TRACE("qe", tout << "diseq: " << diseq << "\n";);
+
             arith_project_plugin ap(m);
             ap.set_check_purified(false);
 
+            // 3.
             auto defs = ap.project(*mdl.get(), avars, lits);
-            // 2. Add the projected definitions to the remaining (euf) literals
+
+            // 4.
             for (auto const& def : defs) {
                 lits.push_back(m.mk_eq(def.var, def.term));
             }
             TRACE("qe", tout << "# arith defs " << defs.size() << " avars: " << avars << " " << lits << "\n";);
 
-            // 3. Project the remaining literals with respect to EUF.
-            term_graph tg(m);
-            tg.set_vars(m_shared, false);
-            tg.add_lits(lits);
+            // 5.
+            term_graph tg2(m);
+            tg2.set_vars(m_shared, false);
+            tg2.add_lits(lits);
             lits.reset();
-            //lits.append(tg.project(*mdl));
-            lits.append(tg.project());
+            lits.append(tg2.project());
             TRACE("qe", tout << "project: " << lits << "\n";);
             return mbi_sat;
         }

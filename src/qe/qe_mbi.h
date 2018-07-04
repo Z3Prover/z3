@@ -112,7 +112,7 @@ namespace qe {
         struct is_atom_proc;
         struct is_arith_var_proc;
 
-        app_ref_vector get_arith_vars(expr_ref_vector const& lits);
+        app_ref_vector get_arith_vars(model_ref& mdl, expr_ref_vector& lits);
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
         void collect_atoms(expr_ref_vector const& fmls);
     public:
