@@ -155,8 +155,6 @@ public:
 
     bool var_is_int(var_index v) const;
 
-    bool ext_var_is_int(var_index ext_var) const;
-    
     void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
 
     void add_new_var_to_core_fields_for_doubles(bool register_in_basis);
