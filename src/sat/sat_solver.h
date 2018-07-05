@@ -682,10 +682,10 @@ namespace sat {
         bool m_deleted;
     public:
         scoped_detach(solver& s, clause& c): s(s), c(c), m_deleted(false) {
-            s.detach_clause(c);
+            if (!c.frozen()) s.detach_clause(c);
         }            
         ~scoped_detach() {
-            if (!m_deleted) s.attach_clause(c);
+            if (!m_deleted && !c.frozen()) s.attach_clause(c);
         }
         
         void del_clause() {
