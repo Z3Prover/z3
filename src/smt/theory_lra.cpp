@@ -2763,12 +2763,12 @@ public:
         }
         case lp::lp_status::FEASIBLE: {
             inf_rational val(term_max.x, term_max.y);
-            // todo , TODO , not sure what happens here
+            blocker = mk_gt(v);
             return inf_eps(rational::zero(), val);
         }
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
-           TRACE("arith", tout << "Unbounded v" << v << "\n";);
+            TRACE("arith", tout << "Unbounded v" << v << "\n";);
             has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());
