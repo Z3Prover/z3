@@ -1507,11 +1507,6 @@ bool lar_solver::column_is_fixed(unsigned j) const {
     return m_mpq_lar_core_solver.column_is_fixed(j);
 }
 
-    
-bool lar_solver::ext_var_is_int(var_index ext_var) const {
-    return m_var_register.external_is_int(ext_var);
-}
-
 // below is the initialization functionality of lar_solver
 
 bool lar_solver::strategy_is_undecided() const {

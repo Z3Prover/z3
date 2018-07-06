@@ -733,7 +733,9 @@ bool goal::is_cnf() const {
 bool goal::is_literal(expr* f) const {
     m_manager.is_not(f, f);
     if (!is_app(f)) return false;
-    if (to_app(f)->get_family_id() == m_manager.get_basic_family_id() &&
-        !m_manager.is_false(f) && !m_manager.is_true(f)) return false;
+    if (to_app(f)->get_family_id() == m_manager.get_basic_family_id()) {
+        for (expr* arg : *to_app(f)) 
+            if (m_manager.is_bool(arg)) return false;
+    }
     return true;
 }

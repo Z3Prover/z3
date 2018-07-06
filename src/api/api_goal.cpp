@@ -199,8 +199,8 @@ extern "C" {
         RESET_ERROR_CODE();
         std::ostringstream buffer;
         if (!to_goal_ref(g)->is_cnf()) { 
-            warning_msg("goal is not in CNF. This will produce a propositional abstraction. "
-                        "If this is not what you want, then preprocess by optional bit-blasting and applying tseitin-cnf");
+            SET_ERROR_CODE(Z3_INVALID_ARG, "If this is not what you want, then preprocess by optional bit-blasting and applying tseitin-cnf");
+            RETURN_Z3(nullptr);
         }
         to_goal_ref(g)->display_dimacs(buffer);
         // Hack for removing the trailing '\n'
