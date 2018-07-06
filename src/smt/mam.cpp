@@ -1847,6 +1847,9 @@ namespace smt {
         enode *             m_n2;
         enode *             m_app;
         const bind *        m_b;
+
+        // equalities used for pattern match. The first element of the tuple gives the argument (or null) of some term that was matched against some higher level
+        // structure of the trigger, the second element gives the term that argument is replaced with in order to match the trigger. Used for logging purposes only.
         vector<std::tuple<enode *, enode *>> m_used_enodes;
         unsigned            m_curr_used_enodes_size;
         ptr_vector<enode>   m_pattern_instances; // collect the pattern instances... used for computing min_top_generation and max_top_generation
@@ -2275,7 +2278,7 @@ namespace smt {
 
         if (m_ast_manager.has_trace_stream()) {
             m_used_enodes.reset();
-            m_used_enodes.push_back(std::make_tuple(nullptr, n));
+            m_used_enodes.push_back(std::make_tuple(nullptr, n)); // null indicates that n was matched against the trigger at the top-level
         }
 
         m_pc             = t->get_root();
@@ -2381,6 +2384,7 @@ namespace smt {
             if (m_n1->get_root() != m_n2->get_root())
                 goto backtrack;
 
+            // we used the equality m_n1 = m_n2 for the match and need to make sure it ends up in the log
             m_used_enodes.push_back(std::make_tuple(m_n1, m_n2));
 
             m_pc = m_pc->m_next;
@@ -2777,7 +2781,7 @@ namespace smt {
                     m_pattern_instances.pop_back();
                     m_pattern_instances.push_back(m_app);
                     // continue succeeded
-                    update_max_generation(m_app, nullptr);
+                    update_max_generation(m_app, nullptr); // null indicates a top-level match
                     TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_owner(), m_ast_manager););
                     m_num_args = c->m_num_args;
                     m_oreg     = c->m_oreg;

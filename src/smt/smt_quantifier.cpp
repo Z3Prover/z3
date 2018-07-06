@@ -204,9 +204,13 @@ namespace smt {
             if (f) {
                 if (has_trace_stream()) {
                     std::ostream & out = trace_stream();
+
+                    // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
+                    // is used. We need to make sure that all of these equalities appear in the log.
                     for (unsigned i = 0; i < num_bindings; ++i) {
                         log_justification_to_root(out, bindings[i]);
                     }
+
                     for (auto n : used_enodes) {
                         enode *orig = std::get<0>(n);
                         enode *substituted = std::get<1>(n);
@@ -215,6 +219,8 @@ namespace smt {
                             log_justification_to_root(out, substituted);
                         }
                     }
+
+                    // At this point all relevant equalities for the match are logged.
                     out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id() << " #" << pat->get_id();
                     for (unsigned i = 0; i < num_bindings; i++) {
                         // I don't want to use mk_pp because it creates expressions for pretty printing.
