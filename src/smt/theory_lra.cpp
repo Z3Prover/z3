@@ -1168,8 +1168,9 @@ public:
         if (m_variable_values.count(vi) > 0)
             return m_variable_values[vi];
         
-		if (!m_solver->is_term(vi))
-			return rational::zero();
+        if(!m_solver->is_term(vi))
+            return rational::zero();
+        
         m_todo_terms.push_back(std::make_pair(vi, rational::one()));
         rational result(0);
         while (!m_todo_terms.empty()) {
