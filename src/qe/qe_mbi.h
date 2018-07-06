@@ -104,17 +104,19 @@ namespace qe {
     };
 
     class euf_arith_mbi_plugin : public mbi_plugin {
-        expr_ref_vector m_atoms;
-        solver_ref   m_solver;
-        solver_ref   m_dual_solver;
+        expr_ref_vector     m_atoms;
+        obj_hashtable<expr> m_atom_set;
+        expr_ref_vector     m_fmls;
+        solver_ref          m_solver;
+        solver_ref          m_dual_solver;
         struct is_atom_proc;
         struct is_arith_var_proc;
 
-        app_ref_vector get_arith_vars(expr_ref_vector const& lits);
+        app_ref_vector get_arith_vars(model_ref& mdl, expr_ref_vector& lits);
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
-
+        void collect_atoms(expr_ref_vector const& fmls);
     public:
-        euf_arith_mbi_plugin(solver* s, solver* sNot);
+        euf_arith_mbi_plugin(solver* s, solver* emptySolver);
         ~euf_arith_mbi_plugin() override {}
         mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
         void block(expr_ref_vector const& lits) override;

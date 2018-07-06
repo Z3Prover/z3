@@ -35,7 +35,7 @@ namespace Microsoft.Z3
         {
             Contract.Requires(name != null);
 
-            Native.Z3_params_set_bool(Context.nCtx, NativeObject, name.NativeObject, (value) ? 1 : 0);
+            Native.Z3_params_set_bool(Context.nCtx, NativeObject, name.NativeObject, (byte)(value ? 1 : 0));
             return this;
         }
 
@@ -90,7 +90,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(string name, bool value)
         {
-            Native.Z3_params_set_bool(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, (value) ? 1 : 0);
+            Native.Z3_params_set_bool(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, (byte)(value ? 1 : 0));
 	    return this;
         }
 

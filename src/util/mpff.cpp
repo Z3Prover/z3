@@ -1070,7 +1070,7 @@ bool mpff_manager::is_power_of_two(mpff const & a) const {
 
 template<bool SYNCH>
 void mpff_manager::significand_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) {
-    m.set(t, m_precision, sig(n));
+    m.set_digits(t, m_precision, sig(n));
 }
 
 void mpff_manager::significand(mpff const & n, unsynch_mpz_manager & m, mpz & t) {
@@ -1090,10 +1090,10 @@ void mpff_manager::to_mpz_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) 
         to_buffer(0, n);
         unsigned * b = m_buffers[0].c_ptr();
         shr(m_precision, b, -exp, m_precision, b);
-        m.set(t, m_precision, b);
+        m.set_digits(t, m_precision, b);
     }
     else {
-        m.set(t, m_precision, sig(n));
+        m.set_digits(t, m_precision, sig(n));
         if (exp > 0) {
             _scoped_numeral<mpz_manager<SYNCH> > p(m);
             m.set(p, 2);

@@ -409,11 +409,11 @@ namespace smt {
         for (unsigned i = 0; i < num_antecedents; i++) {
             literal l = antecedents[i];
             literal2expr(l, n);
-            fmls.push_back(n);
+            fmls.push_back(std::move(n));
         }
         if (consequent != false_literal) {
             literal2expr(~consequent, n);
-            fmls.push_back(n);
+            fmls.push_back(std::move(n));
         }
         if (logic != symbol::null) out << "(set-logic " << logic << ")\n";
         visitor.collect(fmls);

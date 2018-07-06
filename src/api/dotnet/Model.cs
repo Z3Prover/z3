@@ -227,7 +227,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<Expr>() != null);
 
             IntPtr v = IntPtr.Zero;
-            if (Native.Z3_model_eval(Context.nCtx, NativeObject, t.NativeObject, (completion) ? 1 : 0, ref v) == 0)
+            if (Native.Z3_model_eval(Context.nCtx, NativeObject, t.NativeObject, (byte)(completion ? 1 : 0), ref v) == (byte)0)
                 throw new ModelEvaluationFailedException();
             else
                 return Expr.Create(Context, v);

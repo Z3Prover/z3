@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 
+
 #include <cmath>
 #include "sat/sat_solver.h"
 #include "sat/sat_integrity_checker.h"
@@ -298,6 +299,9 @@ namespace sat {
         if (!c.is_learned()) {
             m_stats.m_non_learned_generation++;
         } 
+        if (c.frozen()) {
+            --m_num_frozen;
+        }
         if (m_config.m_drat && !m_drat.is_cleaned(c)) {
             m_drat.del(c);
         }
@@ -481,9 +485,10 @@ namespace sat {
         }
         unsigned some_idx = c.size() >> 1;
         literal block_lit = c[some_idx];
-        DEBUG_CODE(for (auto const& w : m_watches[(~c[0]).index()]) VERIFY(!w.is_clause() || w.get_clause_offset() != cls_off););
-        DEBUG_CODE(for (auto const& w : m_watches[(~c[1]).index()]) VERIFY(!w.is_clause() || w.get_clause_offset() != cls_off););
-        VERIFY(c[0] != c[1]);
+        VERIFY(!c.frozen());
+        DEBUG_CODE(for (auto const& w : m_watches[(~c[0]).index()]) SASSERT(!w.is_clause() || w.get_clause_offset() != cls_off););
+        DEBUG_CODE(for (auto const& w : m_watches[(~c[1]).index()]) SASSERT(!w.is_clause() || w.get_clause_offset() != cls_off););
+        SASSERT(c[0] != c[1]);
         m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
         m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
         return reinit;
@@ -2139,7 +2144,6 @@ namespace sat {
                 else {
                     c.inc_inact_rounds();
                     if (c.inact_rounds() > m_config.m_gc_k) {
-                        m_num_frozen--;
                         del_clause(c);
                         m_stats.m_gc_clause++;
                         deleted++;

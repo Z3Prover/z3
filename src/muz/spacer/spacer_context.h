@@ -122,12 +122,14 @@ class lemma {
     expr_ref_vector m_cube;
     app_ref_vector m_zks;
     app_ref_vector m_bindings;
+    pob_ref m_pob;
+    model_ref m_ctp;           // counter-example to pushing
     unsigned m_lvl;            // current level of the lemma
     unsigned m_init_lvl;       // level at which lemma was created
-    pob_ref m_pob;
-    model_ref m_ctp; // counter-example to pushing
-    bool m_external;
-    unsigned m_bumped;
+    unsigned m_bumped:16;
+    unsigned m_weakness:16;
+    unsigned m_external:1;
+    unsigned m_blocked:1;
 
     void mk_expr_core();
     void mk_cube_core();
@@ -154,12 +156,15 @@ public:
 
     bool has_pob() {return m_pob;}
     pob_ref &get_pob() {return m_pob;}
-    inline unsigned weakness();
+    unsigned weakness() {return m_weakness;}
 
     void add_skolem(app *zk, app* b);
 
-    inline void set_external(bool ext){m_external = ext;}
-    inline bool external() { return m_external;}
+    void set_external(bool ext){m_external = ext;}
+    bool external() { return m_external;}
+
+    bool is_blocked() {return m_blocked;}
+    void set_blocked(bool v) {m_blocked=v;}
 
     bool is_inductive() const {return is_infty_level(m_lvl);}
     unsigned level () const {return m_lvl;}
@@ -268,18 +273,31 @@ class pred_transformer {
     };
 
     /**
-        manager of proof-obligations (pobs)
+        manager of proof-obligations (pob_manager)
+
+        Pobs are determined uniquely by their post-condition and a parent pob.
+        They are managed by pob_manager and remain live through the
+        life of the manager
      */
-    class pobs {
+    class pob_manager {
+        // a buffer that contains space for one pob and allocates more
+        // space if needed
         typedef ptr_buffer<pob, 1> pob_buffer;
+        // Type for the map from post-conditions to pobs. The common
+        // case is that each post-condition corresponds to a single
+        // pob. Other cases are handled by expanding the buffer
         typedef obj_map<expr, pob_buffer > expr2pob_buffer;
 
+        // parent predicate transformer
         pred_transformer &m_pt;
 
+        // map from post-conditions to pobs
         expr2pob_buffer m_pobs;
+
+        // a store
         pob_ref_vector m_pinned;
     public:
-        pobs(pred_transformer &pt) : m_pt(pt) {}
+        pob_manager(pred_transformer &pt) : m_pt(pt) {}
         pob* mk_pob(pob *parent, unsigned level, unsigned depth,
                     expr *post, app_ref_vector const &b);
 
@@ -290,6 +308,7 @@ class pred_transformer {
         }
         unsigned size() const {return m_pinned.size();}
 
+        pob* find_pob(pob* parent, expr *post);
     };
 
     class pt_rule {
@@ -361,7 +380,7 @@ class pred_transformer {
     ptr_vector<datalog::rule>    m_rules;           // rules used to derive transformer
     scoped_ptr<prop_solver>      m_solver;          // solver context
     ref<solver>                  m_reach_solver;       // context for reachability facts
-    pobs                         m_pobs;            // proof obligations created so far
+    pob_manager                         m_pobs;            // proof obligations created so far
     frames                       m_frames;          // frames with lemmas
     reach_fact_ref_vector        m_reach_facts;     // reach facts
     unsigned                     m_rf_init_sz;      // number of reach fact from INIT
@@ -481,6 +500,9 @@ public:
                 expr *post, app_ref_vector const &b){
         return m_pobs.mk_pob(parent, level, depth, post, b);
     }
+    pob* find_pob(pob *parent, expr *post) {
+        return m_pobs.find_pob(parent, post);
+    }
 
     pob* mk_pob(pob *parent, unsigned level, unsigned depth,
                 expr *post) {
@@ -548,6 +570,7 @@ public:
  * A proof obligation.
  */
 class pob {
+    // TBD: remove this
     friend class context;
     unsigned m_ref_count;
     /// parent node
@@ -562,14 +585,15 @@ class pob {
     /// new post to be swapped in for m_post
     expr_ref                m_new_post;
     /// level at which to decide the post
-    unsigned                m_level;
-
-    unsigned                m_depth;
+    unsigned                m_level:16;
+    unsigned                m_depth:16;
 
     /// whether a concrete answer to the post is found
-    bool                    m_open;
+    unsigned                m_open:1;
     /// whether to use farkas generalizer to construct a lemma blocking this node
-    bool                    m_use_farkas;
+    unsigned                m_use_farkas:1;
+    /// true if this pob is in pob_queue
+    unsigned                m_in_queue:1;
 
     unsigned                m_weakness;
     /// derivation representing the position of this node in the parent's rule
@@ -584,17 +608,25 @@ class pob {
     // depth -> watch
     std::map<unsigned, stopwatch> m_expand_watches;
     unsigned m_blocked_lvl;
+
 public:
     pob (pob* parent, pred_transformer& pt,
          unsigned level, unsigned depth=0, bool add_to_parent=true);
 
     ~pob() {if (m_parent) { m_parent->erase_child(*this); }}
 
+    // TBD: move into constructor and make private
+    void set_post(expr *post, app_ref_vector const &binding);
+    void set_post(expr *post);
+
     unsigned weakness() {return m_weakness;}
     void bump_weakness() {m_weakness++;}
     void reset_weakness() {m_weakness=0;}
 
-    void inc_level () {m_level++; m_depth++;reset_weakness();}
+    void inc_level () {
+        SASSERT(!is_in_queue());
+        m_level++; m_depth++;reset_weakness();
+    }
 
     void inherit(pob const &p);
     void set_derivation (derivation *d) {m_derivation = d;}
@@ -614,32 +646,25 @@ public:
     unsigned level () const { return m_level; }
     unsigned depth () const {return m_depth;}
     unsigned width () const {return m_kids.size();}
-    unsigned blocked_at(unsigned lvl=0){return (m_blocked_lvl = std::max(lvl, m_blocked_lvl)); }
+    unsigned blocked_at(unsigned lvl=0){
+        return (m_blocked_lvl = std::max(lvl, m_blocked_lvl));
+    }
 
+    bool is_in_queue() const {return m_in_queue;}
+    void set_in_queue(bool v) {m_in_queue = v;}
     bool use_farkas_generalizer () const {return m_use_farkas;}
     void set_farkas_generalizer (bool v) {m_use_farkas = v;}
 
     expr* post() const { return m_post.get (); }
-    void set_post(expr *post);
-    void set_post(expr *post, app_ref_vector const &binding);
-
-    /// indicate that a new post should be set for the node
-    void new_post(expr *post) {if (post != m_post) {m_new_post = post;}}
-    /// true if the node needs to be updated outside of the priority queue
-    bool is_dirty () {return m_new_post;}
-    /// clean a dirty node
-    void clean();
-
-    void reset () {clean (); m_derivation = nullptr; m_open = true;}
 
     bool is_closed () const { return !m_open; }
     void close();
 
-    const ptr_vector<pob> &children() {return m_kids;}
+    const ptr_vector<pob> &children() const {return m_kids;}
     void add_child (pob &v) {m_kids.push_back (&v);}
     void erase_child (pob &v) {m_kids.erase (&v);}
 
-    const ptr_vector<lemma> &lemmas() {return m_lemmas;}
+    const ptr_vector<lemma> &lemmas() const {return m_lemmas;}
     void add_lemma(lemma* new_lemma) {m_lemmas.push_back(new_lemma);}
 
     bool is_ground () const { return m_binding.empty (); }
@@ -652,8 +677,14 @@ public:
      */
     void get_skolems(app_ref_vector& v);
 
-    void on_expand() { m_expand_watches[m_depth].start(); if (m_parent.get()){m_parent.get()->on_expand();} }
-    void off_expand() { m_expand_watches[m_depth].stop(); if (m_parent.get()){m_parent.get()->off_expand();} };
+    void on_expand() {
+        m_expand_watches[m_depth].start();
+        if (m_parent.get()){m_parent.get()->on_expand();}
+    }
+    void off_expand() {
+        m_expand_watches[m_depth].stop();
+        if (m_parent.get()){m_parent.get()->off_expand();}
+    }
     double get_expand_time(unsigned depth) { return m_expand_watches[depth].get_seconds();}
 
     void inc_ref () {++m_ref_count;}
@@ -662,6 +693,7 @@ public:
         if (m_ref_count == 0) {dealloc(this);}
     }
 
+    std::ostream &display(std::ostream &out, bool full = false) const;
     class on_expand_event
     {
         pob &m_p;
@@ -671,26 +703,20 @@ public:
     };
 };
 
+inline std::ostream &operator<<(std::ostream &out, pob const &p) {
+    return p.display(out);
+}
 
-struct pob_lt :
-        public std::binary_function<const pob*, const pob*, bool>
-{bool operator() (const pob *pn1, const pob *pn2) const;};
-
-struct pob_gt :
-        public std::binary_function<const pob*, const pob*, bool> {
-    pob_lt lt;
-    bool operator() (const pob *n1, const pob *n2) const
-        {return lt(n2, n1);}
+struct pob_lt_proc : public std::binary_function<const pob*, const pob*, bool> {
+    bool operator() (const pob *pn1, const pob *pn2) const;
 };
 
-struct pob_ref_gt :
-        public std::binary_function<const pob_ref&, const model_ref &, bool> {
-    pob_gt gt;
-    bool operator() (const pob_ref &n1, const pob_ref &n2) const
-        {return gt (n1.get (), n2.get ());}
+struct pob_gt_proc : public std::binary_function<const pob*, const pob*, bool> {
+    bool operator() (const pob *n1, const pob *n2) const {
+        return pob_lt_proc()(n2, n1);
+    }
 };
 
-inline unsigned lemma::weakness() {return m_pob ? m_pob->weakness() : UINT_MAX;}
 /**
  */
 class derivation {
@@ -767,36 +793,41 @@ public:
 
 
 class pob_queue {
+
+    typedef std::priority_queue<pob*, std::vector<pob*>, pob_gt_proc> pob_queue_ty;
     pob_ref  m_root;
     unsigned m_max_level;
     unsigned m_min_depth;
 
-    std::priority_queue<pob_ref, std::vector<pob_ref>,
-                        pob_ref_gt>     m_obligations;
+    pob_queue_ty  m_data;
 
 public:
     pob_queue(): m_root(nullptr), m_max_level(0), m_min_depth(0) {}
-    ~pob_queue();
+    ~pob_queue() {}
 
     void reset();
-    pob * top ();
-    void pop () {m_obligations.pop ();}
+    pob* top();
+    void pop();
     void push (pob &n);
 
     void inc_level () {
-        SASSERT (!m_obligations.empty () || m_root);
+        SASSERT (!m_data.empty () || m_root);
         m_max_level++;
         m_min_depth++;
-        if (m_root && m_obligations.empty()) { m_obligations.push(m_root); }
+        if (m_root && m_data.empty()) {
+            SASSERT(!m_root->is_in_queue());
+            m_root->set_in_queue(true);
+            m_data.push(m_root.get());
+        }
     }
 
     pob& get_root() const {return *m_root.get ();}
     void set_root(pob& n);
-    bool is_root (pob& n) const {return m_root.get () == &n;}
+    bool is_root(pob& n) const {return m_root.get () == &n;}
 
     unsigned max_level() const {return m_max_level;}
     unsigned min_depth() const {return m_min_depth;}
-    size_t size() const {return m_obligations.size();}
+    size_t size() const {return m_data.size();}
 };
 
 
@@ -909,8 +940,6 @@ class context {
     bool                 m_use_euf_gen;
     bool                 m_use_ctp;
     bool                 m_use_inc_clause;
-    bool                 m_blast_term_ite;
-    bool                 m_reuse_pobs;
     bool                 m_use_ind_gen;
     bool                 m_use_array_eq_gen;
     bool                 m_validate_lemmas;
@@ -932,6 +961,7 @@ class context {
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
+    unsigned             m_blast_term_ite_inflation;
     scoped_ptr_vector<spacer_callback> m_callbacks;
     json_marshaller      m_json_marshaller;
 
@@ -1006,8 +1036,7 @@ public:
     bool simplify_pob() {return m_simplify_pob;}
     bool use_ctp() {return m_use_ctp;}
     bool use_inc_clause() {return m_use_inc_clause;}
-    bool blast_term_ite() {return m_blast_term_ite;}
-    bool reuse_pobs() {return m_reuse_pobs;}
+    unsigned blast_term_ite_inflation() {return m_blast_term_ite_inflation;}
     bool elim_aux() {return m_elim_aux;}
     bool reach_dnf() {return m_reach_dnf;}
 

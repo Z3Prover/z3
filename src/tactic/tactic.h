@@ -119,21 +119,6 @@ tactic * mk_fail_if_undecided_tactic();
 tactic * mk_report_verbose_tactic(char const * msg, unsigned lvl);
 tactic * mk_trace_tactic(char const * tag);
 
-class tactic_factory {
-public:
-    virtual ~tactic_factory() {}
-    virtual tactic * operator()(ast_manager & m, params_ref const & p) = 0;
-};
-
-#define MK_TACTIC_FACTORY(NAME, CODE)                                           \
-class NAME : public tactic_factory {                                            \
-public:                                                                         \
-    virtual ~NAME() {}                                                          \
-    virtual tactic * operator()(ast_manager & m, params_ref const & p) { CODE } \
-};
-
-#define MK_SIMPLE_TACTIC_FACTORY(NAME, ST)  MK_TACTIC_FACTORY(NAME, return ST;)
-
 void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result);
 lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
 

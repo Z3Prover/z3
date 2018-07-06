@@ -20,6 +20,7 @@ Notes:
 #include "ast/rewriter/array_rewriter_params.hpp"
 #include "ast/ast_lt.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/var_subst.h"
 
 void array_rewriter::updt_params(params_ref const & _p) {
     array_rewriter_params p(_p);
@@ -194,6 +195,17 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         // select(const(v), I) --> v
         result = to_app(args[0])->get_arg(0);
         return BR_DONE;
+    }
+
+    if (is_lambda(args[0])) {
+        // anywhere lambda reduction as opposed to whnf
+        // select(lambda(X) M, N) -> M[N/X]
+        quantifier* q = to_quantifier(args[0]);
+        SASSERT(q->get_num_decls() == num_args - 1);
+        var_subst subst(m());
+        result = subst(q->get_expr(), num_args - 1, args + 1);
+        return BR_REWRITE_FULL;
+        
     }
 
     if (m_util.is_as_array(args[0])) {

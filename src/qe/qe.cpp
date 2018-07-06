@@ -2269,8 +2269,7 @@ namespace qe {
                 bound.push_back(m.mk_fresh_const("bound", fv[i]));
             }
             var_subst subst(m);
-            subst(fml, bound.size(), bound.c_ptr(), tmp);
-            fml = tmp;
+            fml = subst(fml, bound.size(), bound.c_ptr());
         }
     }
 
@@ -2291,7 +2290,7 @@ namespace qe {
         }
         expr* const* exprs = (expr* const*)(vars.c_ptr());
         var_subst subst(m);
-        subst(new_body, vars.size(), exprs, tmp);
+        tmp = subst(new_body, vars.size(), exprs);
         inv_var_shifter shift(m);
         shift(tmp, vars.size(), new_body);        
     }
@@ -2337,13 +2336,18 @@ namespace qe {
             case AST_QUANTIFIER: {
                 app_ref_vector vars(m);
                 quantifier* q = to_quantifier(e);
-                bool is_fa = q->is_forall();
-                tmp = q->get_expr();
-                extract_vars(q, tmp, vars);
-                elim(tmp);
-                init_qe();
-                m_qe->set_assumption(m_assumption);
-                m_qe->eliminate(is_fa, vars.size(), vars.c_ptr(), tmp);
+                if (is_lambda(q)) {
+                    tmp = e;
+                }
+                else {
+                    bool is_fa = is_forall(q);
+                    tmp = q->get_expr();
+                    extract_vars(q, tmp, vars);
+                    elim(tmp);
+                    init_qe();
+                    m_qe->set_assumption(m_assumption);
+                    m_qe->eliminate(is_fa, vars.size(), vars.c_ptr(), tmp);
+                }
                 m_trail.push_back(tmp);
                 m_visited.insert(e, tmp);
                 todo.pop_back();
@@ -2593,6 +2597,9 @@ namespace qe {
             ) 
         {
             
+            if (is_lambda(old_q)) {
+                return false;
+            }
             // bool is_forall = old_q->is_forall();
             app_ref_vector vars(m);
             TRACE("qe", tout << "simplifying" << mk_pp(new_body, m) << "\n";);
@@ -2600,11 +2607,11 @@ namespace qe {
             extract_vars(old_q, result, vars);
             TRACE("qe", tout << "variables extracted" << mk_pp(result, m) << "\n";);
 
-            if (old_q->is_forall()) {
+            if (is_forall(old_q)) {
                 result = mk_not(m, result);
             }
             m_ctx.solve(result, vars);
-            if (old_q->is_forall()) {
+            if (is_forall(old_q)) {
                 expr* e = nullptr;
                 result = m.is_not(result, e)?e:mk_not(m, result);
             }       
@@ -2619,7 +2626,7 @@ namespace qe {
                 names.push_back(vars[i]->get_decl()->get_name());
             }
             if (!vars.empty()) {
-                result = m.mk_quantifier(old_q->is_forall(), vars.size(), sorts.c_ptr(), names.c_ptr(), result, 1);
+                result = m.mk_quantifier(old_q->get_kind(), vars.size(), sorts.c_ptr(), names.c_ptr(), result, 1);
             }            
             result_pr = nullptr;
             return true;

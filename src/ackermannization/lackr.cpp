@@ -23,8 +23,8 @@
 #include "ast/for_each_expr.h"
 #include "model/model_smt2_pp.h"
 
-lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas,
-    solver * uffree_solver)
+lackr::lackr(ast_manager& m, const params_ref& p, lackr_stats& st,
+             const ptr_vector<expr>& formulas, solver * uffree_solver)
     : m_m(m)
     , m_p(p)
     , m_formulas(formulas)
@@ -173,11 +173,10 @@ void lackr::abstract() {
     }
     m_info->seal();
     // perform abstraction of the formulas
-    const unsigned sz = m_formulas.size();
-    for (unsigned i = 0; i < sz; ++i) {
+    for (expr * f : m_formulas) {
         expr_ref a(m_m);
-        m_info->abstract(m_formulas.get(i), a);
-        m_abstr.push_back(a);
+        m_info->abstract(f, a);
+        m_abstr.push_back(std::move(a));
     }
 }
 
@@ -249,13 +248,9 @@ lbool lackr::lazy() {
 // Collect all uninterpreted terms, skipping 0-arity.
 //
 bool lackr::collect_terms() {
-    ptr_vector<expr> stack;
+    ptr_vector<expr> stack = m_formulas;
     expr *           curr;
     expr_mark        visited;
-    for(unsigned i = 0; i < m_formulas.size(); ++i) {
-        stack.push_back(m_formulas.get(i));
-        TRACE("lackr", tout << "infla: " <<mk_ismt2_pp(m_formulas.get(i), m_m, 2) <<  "\n";);
-    }
 
     while (!stack.empty()) {
         curr = stack.back();

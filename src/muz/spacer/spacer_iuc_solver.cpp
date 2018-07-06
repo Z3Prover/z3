@@ -322,6 +322,24 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
         // -- new hypothesis reducer
         else
         {
+#if 0
+            static unsigned bcnt = 0;
+            {
+                bcnt++;
+                TRACE("spacer", tout << "Dumping pf bcnt: " << bcnt << "\n";);
+                if (bcnt == 123) {
+                    std::ofstream ofs;
+                    ofs.open("/tmp/bpf_" + std::to_string(bcnt) + ".dot");
+                    iuc_proof iuc_pf_before(m, res.get(), core_lits);
+                    iuc_pf_before.display_dot(ofs);
+                    ofs.close();
+
+                    proof_checker pc(m);
+                    expr_ref_vector side(m);
+                    ENSURE(pc.check(res, side));
+                }
+            }
+#endif
             scoped_watch _t_ (m_hyp_reduce2_sw);
 
             // pre-process proof for better iuc extraction
@@ -356,6 +374,22 @@ void iuc_solver::get_iuc(expr_ref_vector &core)
 
         iuc_proof iuc_pf(m, res, core_lits);
 
+#if 0
+        static unsigned cnt = 0;
+        {
+            cnt++;
+            TRACE("spacer", tout << "Dumping pf cnt: " << cnt << "\n";);
+            if (cnt == 123) {
+                std::ofstream ofs;
+                ofs.open("/tmp/pf_" + std::to_string(cnt) + ".dot");
+                iuc_pf.display_dot(ofs);
+                ofs.close();
+                proof_checker pc(m);
+                expr_ref_vector side(m);
+                ENSURE(pc.check(res, side));
+            }
+        }
+#endif
         unsat_core_learner learner(m, iuc_pf);
 
         unsat_core_plugin* plugin;

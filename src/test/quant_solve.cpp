@@ -147,7 +147,7 @@ static void parse_fml(char const* str, app_ref_vector& vars, expr_ref& fml) {
         }
         fml = q->get_expr();
         var_subst vs(m, true);
-        vs(fml, vars.size(), (expr*const*)vars.c_ptr(), fml);
+        fml = vs(fml, vars.size(), (expr*const*)vars.c_ptr());
     }
 }
 

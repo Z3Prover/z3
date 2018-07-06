@@ -26,7 +26,7 @@ class tactic_exception : public z3_exception {
 protected:
     std::string m_msg;
 public:
-    tactic_exception(char const * msg):m_msg(msg) {}
+    tactic_exception(std::string && msg) : m_msg(std::move(msg)) {}
     ~tactic_exception() override {}
     char const * msg() const override { return m_msg.c_str(); }
 };

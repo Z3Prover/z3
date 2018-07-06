@@ -251,7 +251,7 @@ namespace Microsoft.Z3
         internal Goal(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
         internal Goal(Context ctx, bool models, bool unsatCores, bool proofs)
-            : base(ctx, Native.Z3_mk_goal(ctx.nCtx, (models) ? 1 : 0, (unsatCores) ? 1 : 0, (proofs) ? 1 : 0))
+            : base(ctx, Native.Z3_mk_goal(ctx.nCtx, (byte)(models ? 1 : 0), (byte)(unsatCores ? 1 : 0), (byte)(proofs ? 1 : 0)))
         {
             Contract.Requires(ctx != null);
         }

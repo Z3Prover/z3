@@ -148,7 +148,7 @@ namespace smt {
     }
 
     void qi_queue::instantiate() {
-        unsigned                 since_last_check = 0;
+        unsigned since_last_check = 0;
         for (entry & curr : m_new_entries) {
             fingerprint * f    = curr.m_qb;
             quantifier * qa    = static_cast<quantifier*>(f->get_data());
@@ -169,7 +169,6 @@ namespace smt {
             // Periodically check if we didn't run out of time/memory.
             if (since_last_check++ > 100) {
                 if (m_context.resource_limits_exceeded()) {
-                    // verbose_stream() << "EXCEEDED...\n";
                     break;
                 }
                 since_last_check = 0;
@@ -182,16 +181,7 @@ namespace smt {
     void qi_queue::display_instance_profile(fingerprint * f, quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned proof_id, unsigned generation) {
         if (m_manager.has_trace_stream()) {
             m_manager.trace_stream() << "[instance] ";
-#if 1
             m_manager.trace_stream() << static_cast<void*>(f);
-#else
-            for (unsigned i = 0; i < num_bindings; i++) {
-                // I don't want to use mk_pp because it creates expressions for pretty printing.
-                // This nasty side-effect may change the behavior of Z3.
-                m_manager.trace_stream() << " #" << bindings[i]->get_owner_id();
-            }
-
-#endif
             if (m_manager.proofs_enabled())
                 m_manager.trace_stream() << " #" << proof_id;
             m_manager.trace_stream() << " ; " << generation;
@@ -208,10 +198,7 @@ namespace smt {
 
         ent.m_instantiated = true;
 
-        TRACE("qi_queue_profile",
-              tout << q->get_qid() << ", gen: " << generation;
-              for (unsigned i = 0; i < num_bindings; i++) tout << " #" << bindings[i]->get_owner_id();
-              tout << "\n";);
+        TRACE("qi_queue_profile", tout << q->get_qid() << ", gen: " << generation << " " << *f;);
 
         if (m_checker.is_sat(q->get_expr(), num_bindings, bindings)) {
             TRACE("checker", tout << "instance already satisfied\n";);
@@ -288,6 +275,9 @@ namespace smt {
         unsigned gen = get_new_gen(q, generation, ent.m_cost);
         display_instance_profile(f, q, num_bindings, bindings, proof_id, gen);
         m_context.internalize_instance(lemma, pr1, gen);
+        if (f->get_def()) {
+            m_context.internalize(f->get_def(), true);
+        }
         TRACE_CODE({
             static unsigned num_useless = 0;
             if (m_manager.is_or(lemma)) {
@@ -412,10 +402,7 @@ namespace smt {
     void qi_queue::display_delayed_instances_stats(std::ostream & out) const {
         obj_map<quantifier, delayed_qa_info> qa2info;
         ptr_vector<quantifier> qas;
-        svector<entry>::const_iterator it  = m_delayed_entries.begin();
-        svector<entry>::const_iterator end = m_delayed_entries.end();
-        for (; it != end; ++it) {
-            entry const & e = *it;
+        for (entry const & e : m_delayed_entries) {
             if (e.m_instantiated)
                 continue;
             quantifier * qa = static_cast<quantifier*>(e.m_qb->get_data());
@@ -433,10 +420,7 @@ namespace smt {
             }
             qa2info.insert(qa, info);
         }
-        ptr_vector<quantifier>::iterator it2  = qas.begin();
-        ptr_vector<quantifier>::iterator end2 = qas.end();
-        for (; it2 != end2; ++it2) {
-            quantifier * qa = *it2;
+        for (quantifier * qa : qas) {
             delayed_qa_info info;
             qa2info.find(qa, info);
             out << qa->get_qid() << ": " << info.m_num << " [" << info.m_min_cost << ", " << info.m_max_cost << "]\n";

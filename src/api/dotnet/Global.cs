@@ -91,7 +91,7 @@ namespace Microsoft.Z3
         /// all contexts globally.</remarks>
         public static void ToggleWarningMessages(bool enabled)
         {
-            Native.Z3_toggle_warning_messages((enabled) ? 1 : 0);
+            Native.Z3_toggle_warning_messages((byte)(enabled ? 1 : 0));
         }
 
         /// <summary>

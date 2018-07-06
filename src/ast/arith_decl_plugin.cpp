@@ -638,6 +638,11 @@ bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int
     return true;
 }
 
+bool arith_recognizers::is_irrational_algebraic_numeral(expr const * n) const { 
+    return is_app(n) && to_app(n)->is_app_of(m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); 
+}
+
+
 #define IS_INT_EXPR_DEPTH_LIMIT 100
 bool arith_recognizers::is_int_expr(expr const *e) const {
     if (is_int(e)) return true;
@@ -678,7 +683,7 @@ void arith_util::init_plugin() {
     m_plugin = static_cast<arith_decl_plugin*>(m_manager.get_plugin(m_afid));
 }
 
-bool arith_util::is_irrational_algebraic_numeral(expr const * n, algebraic_numbers::anum & val) {
+bool arith_util::is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) {
     if (!is_app_of(n, m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM))
         return false;
     am().set(val, to_irrational_algebraic_numeral(n));

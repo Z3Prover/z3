@@ -92,7 +92,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
 }
 
 void pb_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-    if (logic == symbol::null || logic == "QF_FD" || logic == "ALL") {
+    if (logic == symbol::null || logic == "QF_FD" || logic == "ALL" || logic == "HORN") {
         op_names.push_back(builtin_name(m_at_most_sym.bare_str(), OP_AT_MOST_K));
         op_names.push_back(builtin_name(m_at_least_sym.bare_str(), OP_AT_LEAST_K));
         op_names.push_back(builtin_name(m_pble_sym.bare_str(), OP_PB_LE));

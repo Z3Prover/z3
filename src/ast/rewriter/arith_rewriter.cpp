@@ -801,106 +801,104 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         return BR_DONE;
     }
     if (m_util.is_numeral(arg2, v2, is_int) && v2.is_one()) {
-        result = arg1;
-        return BR_DONE;
-    }
-    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_zero()) {
-        return BR_FAILED;
-    }
-    if (arg1 == arg2) {
-        expr_ref zero(m_util.mk_int(0), m());
-        result = m().mk_ite(m().mk_eq(arg1, zero), m_util.mk_idiv(zero, zero), m_util.mk_int(1));
-        return BR_REWRITE3;
-    }
-    if (divides(arg1, arg2, result)) {
-        return BR_REWRITE_FULL;
-    }
+        result = arg1; 
+        return BR_DONE; 
+    } 
+    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_zero()) { 
+        return BR_FAILED; 
+    } 
+    if (arg1 == arg2) { 
+        expr_ref zero(m_util.mk_int(0), m()); 
+        result = m().mk_ite(m().mk_eq(arg1, zero), m_util.mk_idiv(zero, zero), m_util.mk_int(1)); 
+        return BR_REWRITE3; 
+    } 
+    if (divides(arg1, arg2, result)) { 
+        return BR_REWRITE_FULL; 
+    }  
     return BR_FAILED;
 }
-
-
-// 
-// implement div ab ac = floor( ab / ac) = floor (b / c) = div b c
+ 
+//  
+// implement div ab ac = floor( ab / ac) = floor (b / c) = div b c 
 //
-bool arith_rewriter::divides(expr* num, expr* den, expr_ref& result) {
-    expr_fast_mark1 mark;
-    rational num_r(1), den_r(1);
-    expr* num_e = nullptr, *den_e = nullptr;
-    ptr_buffer<expr> args1, args2;
-    flat_mul(num, args1);
-    flat_mul(den, args2);
-    for (expr * arg : args1) {
-        mark.mark(arg);
-        if (m_util.is_numeral(arg, num_r)) num_e = arg;
-    }
-    for (expr* arg : args2) {
-        if (mark.is_marked(arg)) {
-            result = remove_divisor(arg, num, den);
-            return true;
-        }
-        if (m_util.is_numeral(arg, den_r)) den_e = arg;
-    }
-    rational g = gcd(num_r, den_r);
-    if (!g.is_one()) {
-        SASSERT(g.is_pos());
-        // replace num_e, den_e by their gcd reduction.
-        for (unsigned i = 0; i < args1.size(); ++i) {
-            if (args1[i] == num_e) {
-                args1[i] = m_util.mk_numeral(num_r / g, true);
-                break;
-            }
-        }
-        for (unsigned i = 0; i < args2.size(); ++i) {
-            if (args2[i] == den_e) {
-                args2[i] = m_util.mk_numeral(den_r / g, true);
-                break;
-            }
-        }
-        
-        num = m_util.mk_mul(args1.size(), args1.c_ptr());
-        den = m_util.mk_mul(args2.size(), args2.c_ptr());
-        result = m_util.mk_idiv(num, den);
-        return true;
-    }
-    return false;
-}
+bool arith_rewriter::divides(expr* num, expr* den, expr_ref& result) { 
+    expr_fast_mark1 mark; 
+    rational num_r(1), den_r(1); 
+    expr* num_e = nullptr, *den_e = nullptr; 
+    ptr_buffer<expr> args1, args2; 
+    flat_mul(num, args1); 
+    flat_mul(den, args2); 
+    for (expr * arg : args1) { 
+        mark.mark(arg); 
+        if (m_util.is_numeral(arg, num_r)) num_e = arg; 
+    } 
+    for (expr* arg : args2) { 
+        if (mark.is_marked(arg)) { 
+            result = remove_divisor(arg, num, den); 
+            return true; 
+        } 
+        if (m_util.is_numeral(arg, den_r)) den_e = arg; 
+    } 
+    rational g = gcd(num_r, den_r); 
+    if (!g.is_one()) { 
+        SASSERT(g.is_pos()); 
+        // replace num_e, den_e by their gcd reduction. 
+        for (unsigned i = 0; i < args1.size(); ++i) { 
+            if (args1[i] == num_e) { 
+                args1[i] = m_util.mk_numeral(num_r / g, true); 
+                break; 
+            } 
+        } 
+        for (unsigned i = 0; i < args2.size(); ++i) { 
+            if (args2[i] == den_e) { 
+                args2[i] = m_util.mk_numeral(den_r / g, true); 
+                break; 
+            } 
+        } 
+        num = m_util.mk_mul(args1.size(), args1.c_ptr()); 
+        den = m_util.mk_mul(args2.size(), args2.c_ptr()); 
+        result = m_util.mk_idiv(num, den); 
+        return true; 
+    } 
+    return false; 
+} 
 
-expr_ref arith_rewriter::remove_divisor(expr* arg, expr* num, expr* den) {
-    ptr_buffer<expr> args1, args2;
-    flat_mul(num, args1);
-    flat_mul(den, args2);
-    remove_divisor(arg, args1);
-    remove_divisor(arg, args2);
-    expr_ref zero(m_util.mk_int(0), m());
-    num = args1.empty() ? m_util.mk_int(1) : m_util.mk_mul(args1.size(), args1.c_ptr());
-    den = args2.empty() ? m_util.mk_int(1) : m_util.mk_mul(args2.size(), args2.c_ptr());
-    return expr_ref(m().mk_ite(m().mk_eq(zero, arg), m_util.mk_idiv(zero, zero), m_util.mk_idiv(num, den)), m());
-}
-
-void arith_rewriter::flat_mul(expr* e, ptr_buffer<expr>& args) {
-    args.push_back(e);
-    for (unsigned i = 0; i < args.size(); ++i) {
-        e = args[i];
-        if (m_util.is_mul(e)) {
-            args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            args[i] = args.back();
-            args.shrink(args.size()-1);
-            --i;
-        }                
-    }
-}
-
-void arith_rewriter::remove_divisor(expr* d, ptr_buffer<expr>& args) {
-    for (unsigned i = 0; i < args.size(); ++i) {
-        if (args[i] == d) {
-            args[i] = args.back();
-            args.shrink(args.size()-1);
-            return;
-        }
-    }
-    UNREACHABLE();
-}
-
+expr_ref arith_rewriter::remove_divisor(expr* arg, expr* num, expr* den) { 
+    ptr_buffer<expr> args1, args2; 
+    flat_mul(num, args1); 
+    flat_mul(den, args2); 
+    remove_divisor(arg, args1); 
+    remove_divisor(arg, args2); 
+    expr_ref zero(m_util.mk_int(0), m()); 
+    num = args1.empty() ? m_util.mk_int(1) : m_util.mk_mul(args1.size(), args1.c_ptr()); 
+    den = args2.empty() ? m_util.mk_int(1) : m_util.mk_mul(args2.size(), args2.c_ptr()); 
+    return expr_ref(m().mk_ite(m().mk_eq(zero, arg), m_util.mk_idiv(zero, zero), m_util.mk_idiv(num, den)), m()); 
+} 
+ 
+void arith_rewriter::flat_mul(expr* e, ptr_buffer<expr>& args) { 
+    args.push_back(e); 
+    for (unsigned i = 0; i < args.size(); ++i) { 
+        e = args[i]; 
+        if (m_util.is_mul(e)) { 
+            args.append(to_app(e)->get_num_args(), to_app(e)->get_args()); 
+            args[i] = args.back(); 
+            args.shrink(args.size()-1); 
+            --i; 
+        }                 
+    } 
+} 
+ 
+void arith_rewriter::remove_divisor(expr* d, ptr_buffer<expr>& args) { 
+    for (unsigned i = 0; i < args.size(); ++i) { 
+        if (args[i] == d) { 
+            args[i] = args.back(); 
+            args.shrink(args.size()-1); 
+            return; 
+        } 
+    } 
+    UNREACHABLE(); 
+} 
+    
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(m().get_sort(arg1));
     numeral v1, v2;
@@ -1159,49 +1157,44 @@ br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
         result = m_util.mk_numeral(floor(a), true);
         return BR_DONE;
     }
-    else if (m_util.is_to_real(arg, x)) {
+
+    if (m_util.is_to_real(arg, x)) {
         result = x;
         return BR_DONE;
     }
-    else {
-        if (m_util.is_add(arg) || m_util.is_mul(arg) || m_util.is_power(arg)) {
-            // Try to apply simplifications such as:
-            //    (to_int (+ 1.0 (to_real x))) --> (+ 1 x)
 
-            // if all arguments of arg are
-            //   - integer numerals, OR
-            //   - to_real applications
-            // then, to_int can be eliminated
-            unsigned num_args = to_app(arg)->get_num_args();
-            unsigned i = 0;
-            for (; i < num_args; i++) {
-                expr * c = to_app(arg)->get_arg(i);
-                if (m_util.is_numeral(c, a) && a.is_int())
-                    continue;
-                if (m_util.is_to_real(c))
-                    continue;
-                break; // failed
+    if (m_util.is_add(arg) || m_util.is_mul(arg) || m_util.is_power(arg)) {
+        // Try to apply simplifications such as:
+        //    (to_int (+ 1.0 (to_real x)) y) --> (+ 1 x (to_int y))
+        
+        expr_ref_buffer int_args(m()), real_args(m());
+        for (expr* c : *to_app(arg)) {
+            if (m_util.is_numeral(c, a) && a.is_int()) {
+                int_args.push_back(m_util.mk_numeral(a, true));
             }
-            if (i == num_args) {
-                // simplification can be applied
-                expr_ref_buffer new_args(m());
-                for (i = 0; i < num_args; i++) {
-                    expr * c = to_app(arg)->get_arg(i);
-                    if (m_util.is_numeral(c, a) && a.is_int()) {
-                        new_args.push_back(m_util.mk_numeral(a, true));
-                    }
-                    else {
-                        VERIFY (m_util.is_to_real(c, x));
-                        new_args.push_back(x);
-                    }
-                }
-                SASSERT(num_args == new_args.size());
-                result = m().mk_app(get_fid(), to_app(arg)->get_decl()->get_decl_kind(), new_args.size(), new_args.c_ptr());
-                return BR_REWRITE1;
+            else if (m_util.is_to_real(c, x)) {
+                int_args.push_back(x);
+            }
+            else {
+                real_args.push_back(c);
             }
         }
-        return BR_FAILED;
+        if (real_args.empty()) {
+            result = m().mk_app(get_fid(), to_app(arg)->get_decl()->get_decl_kind(), int_args.size(), int_args.c_ptr());
+            return BR_REWRITE1;
+        }
+        if (!int_args.empty() && (m_util.is_add(arg) || m_util.is_mul(arg))) {
+            decl_kind k = to_app(arg)->get_decl()->get_decl_kind();
+            expr_ref t1(m().mk_app(get_fid(), k, int_args.size(), int_args.c_ptr()), m());
+            expr_ref t2(m().mk_app(get_fid(), k, real_args.size(), real_args.c_ptr()), m());
+            int_args.reset();
+            int_args.push_back(t1);
+            int_args.push_back(m_util.mk_to_int(t2));
+            result = m().mk_app(get_fid(), k, int_args.size(), int_args.c_ptr());
+            return BR_REWRITE3;
+        }
     }
+    return BR_FAILED;
 }
 
 br_status arith_rewriter::mk_to_real_core(expr * arg, expr_ref & result) {

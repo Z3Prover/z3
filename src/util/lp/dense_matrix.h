@@ -46,7 +46,7 @@ public:
     dense_matrix(unsigned m, unsigned n);
 
     dense_matrix operator*=(matrix<T, X> const & a) {
-        SASSERT(column_count() == a.row_count());
+        lp_assert(column_count() == a.row_count());
         dense_matrix c(row_count(), a.column_count());
         for (unsigned i = 0; i < row_count(); i++) {
             for (unsigned j = 0; j < a.column_count(); j++) {
@@ -100,7 +100,7 @@ public:
     void swap_rows(unsigned a, unsigned b);
 
     void multiply_row_by_constant(unsigned row, T & t);
-
+    
 };
 template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b);

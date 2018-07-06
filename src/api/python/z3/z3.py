@@ -1766,6 +1766,34 @@ class QuantifierRef(BoolRef):
         """
         return Z3_is_quantifier_forall(self.ctx_ref(), self.ast)
 
+    def is_exists(self):
+        """Return `True` if `self` is an existential quantifier.
+
+        >>> f = Function('f', IntSort(), IntSort())
+        >>> x = Int('x')
+        >>> q = ForAll(x, f(x) == 0)
+        >>> q.is_exists()
+        False
+        >>> q = Exists(x, f(x) != 0)
+        >>> q.is_exists()
+        True
+        """
+        return Z3_is_quantifier_exists(self.ctx_ref(), self.ast)
+
+    def is_lambda(self):
+        """Return `True` if `self` is a lambda expression.
+
+        >>> f = Function('f', IntSort(), IntSort())
+        >>> x = Int('x')
+        >>> q = Lambda(x, f(x))
+        >>> q.is_lambda()
+        True
+        >>> q = Exists(x, f(x) != 0)
+        >>> q.is_lambda()
+        False
+        """
+        return Z3_is_lambda(self.ctx_ref(), self.ast)
+
     def weight(self):
         """Return the weight annotation of `self`.
 
@@ -1972,6 +2000,26 @@ def Exists(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     False
     """
     return _mk_quantifier(False, vs, body, weight, qid, skid, patterns, no_patterns)
+
+def Lambda(vs, body):
+    """Create a Z3 lambda expression.
+
+    >>> f = Function('f', IntSort(), IntSort(), IntSort())
+    >>> mem0 = Array('mem0', IntSort(), IntSort())
+    >>> lo, hi, e, i = Ints('lo hi e i')
+    >>> mem1 = Lambda([i], If(And(lo <= i, i <= hi), e, mem0[i]))
+    >>> mem1
+    Lambda(i, If(And(lo <= i, i <= hi), e, mem0[i]))
+    """
+    ctx = body.ctx
+    if is_app(vs):
+        vs = [vs]
+    num_vars = len(vs)
+    _vs = (Ast * num_vars)()
+    for i in range(num_vars):
+        ## TODO: Check if is constant
+        _vs[i] = vs[i].as_ast()
+    return QuantifierRef(Z3_mk_lambda_const(ctx.ref(), num_vars, _vs, body.as_ast()), ctx)
 
 #########################################
 #
@@ -5582,7 +5630,7 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e.num_args()
         2
@@ -5600,16 +5648,16 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e
-        [0, 1, 10]
+        [1, 2, 20]
         >>> e.num_args()
         2
         >>> e.arg_value(0)
-        0
-        >>> e.arg_value(1)
         1
+        >>> e.arg_value(1)
+        2
         >>> try:
         ...   e.arg_value(2)
         ... except IndexError:
@@ -5631,14 +5679,14 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e
-        [0, 1, 10]
+        [1, 2, 20]
         >>> e.num_args()
         2
         >>> e.value()
-        10
+        20
         """
         return _to_expr_ref(Z3_func_entry_get_value(self.ctx.ref(), self.entry), self.ctx)
 
@@ -5652,10 +5700,10 @@ class FuncEntry:
         >>> m = s.model()
         >>> f_i = m[f]
         >>> f_i.num_entries()
-        3
+        1
         >>> e = f_i.entry(0)
         >>> e.as_list()
-        [0, 1, 10]
+        [1, 2, 20]
         """
         args = [ self.arg_value(i) for i in range(self.num_args())]
         args.append(self.value())
@@ -5693,7 +5741,7 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].else_value()
         1
         """
@@ -5713,9 +5761,9 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].num_entries()
-        3
+        1
         """
         return int(Z3_func_interp_get_num_entries(self.ctx.ref(), self.f))
 
@@ -5743,14 +5791,10 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].num_entries()
-        3
+        1
         >>> m[f].entry(0)
-        [0, 1]
-        >>> m[f].entry(1)
-        [1, 1]
-        >>> m[f].entry(2)
         [2, 0]
         """
         if idx >= self.num_entries():
@@ -5777,9 +5821,9 @@ class FuncInterp(Z3PPObject):
         sat
         >>> m = s.model()
         >>> m[f]
-        [0 -> 1, 1 -> 1, 2 -> 0, else -> 1]
+        [2 -> 0, else -> 1]
         >>> m[f].as_list()
-        [[0, 1], [1, 1], [2, 0], 1]
+        [[2, 0], 1]
         """
         r = [ self.entry(i).as_list() for i in range(self.num_entries())]
         r.append(self.else_value())
@@ -5891,7 +5935,7 @@ class ModelRef(Z3PPObject):
         >>> m[x]
         1
         >>> m[f]
-        [1 -> 0, else -> 0]
+        [else -> 0]
         """
         if __debug__:
             _z3_assert(isinstance(decl, FuncDeclRef) or is_const(decl), "Z3 declaration expected")
@@ -6008,10 +6052,10 @@ class ModelRef(Z3PPObject):
         >>> m[x]
         1
         >>> m[f]
-        [1 -> 0, else -> 0]
+        [else -> 0]
         >>> for d in m: print("%s -> %s" % (d, m[d]))
         x -> 1
-        f -> [1 -> 0, else -> 0]
+        f -> [else -> 0]
         """
         if _is_int(idx):
             if idx >= len(self):
@@ -8351,11 +8395,6 @@ def _dict2darray(decls, ctx):
         i = i + 1
     return sz, _names, _decls
 
-def _handle_parse_error(ex, ctx):
-    msg = Z3_get_parser_error(ctx.ref())
-    if msg != "":
-        raise Z3Exception(msg)
-    raise ex
 
 def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     """Parse a string in SMT 2.0 format using the given sorts and decls.
@@ -8375,10 +8414,7 @@ def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-    try: 
-        return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
-    except Z3Exception as e:
-        _handle_parse_error(e, ctx)
+    return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
 
 def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     """Parse a file in SMT 2.0 format using the given sorts and decls.
@@ -8388,10 +8424,7 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-    try:
-        return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
-    except Z3Exception as e:
-        _handle_parse_error(e, ctx)
+    return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
 
 
 #########################################

@@ -29,6 +29,7 @@ Revision History:
 #include "math/automata/automaton.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/union_find.h"
+#include "util/obj_ref_hashtable.h"
 
 namespace smt {
 
@@ -48,7 +49,7 @@ namespace smt {
         typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
-
+        
         // cache to track evaluations under equalities
         class eval_cache {
             eqdep_map_t             m_map;
@@ -292,6 +293,7 @@ namespace smt {
         typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
 
         ast_manager&               m;
+        theory_seq_params const&   m_params;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
         bool                       m_reset_cache; // invalidate cache.
@@ -300,6 +302,12 @@ namespace smt {
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
         unsigned                   m_eq_id;
         th_union_find              m_find;
+
+        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap;
+        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap2;
+        obj_map<enode, obj_map<enode, int>>   m_len_offset;
+        int                                   m_len_prop_lvl;
+
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
@@ -321,7 +329,7 @@ namespace smt {
         stats            m_stats;
         symbol           m_prefix, m_suffix, m_accept, m_reject;
         symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
-        symbol           m_pre, m_post, m_eq;
+        symbol           m_pre, m_post, m_eq, m_seq_align;
         ptr_vector<expr> m_todo;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
 
@@ -354,7 +362,7 @@ namespace smt {
         void pop_scope_eh(unsigned num_scopes) override;
         void restart_eh() override;
         void relevant_eh(app* n) override;
-        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager()); }
+        theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), m_params); }
         char const * get_name() const override { return "seq"; }
         theory_var mk_var(enode* n) override;
         void apply_sort_cnstr(enode* n, sort* s) override;
@@ -366,23 +374,44 @@ namespace smt {
         void init_search_eh() override;
 
         void init_model(expr_ref_vector const& es);
+        
+        void len_offset(expr* const& e, rational val);
+        void prop_arith_to_len_offset();
+        int find_fst_non_empty_idx(expr_ref_vector const& x) const;
+        expr* find_fst_non_empty_var(expr_ref_vector const& x) const;
+        void find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & diff);
+        bool find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned const& idx, dependency*& deps, expr_ref_vector & res);
+        
         // final check 
         bool simplify_and_solve_eqs();   // solve unitary equalities
         bool reduce_length_eq();
         bool branch_unit_variable();     // branch on XYZ = abcdef
         bool branch_binary_variable();   // branch on abcX = Ydefg 
+        bool branch_ternary_variable1(); // branch on XabcY = Zdefg or XabcY = defgZ
+        bool branch_ternary_variable2(); // branch on XabcY = defgZmnpq
+        bool branch_quat_variable();     // branch on XabcY = ZdefgT
+        bool len_based_split();          // split based on len offset
         bool branch_variable_mb();       // branch on a variable, model based on length
         bool branch_variable();          // branch on a variable
-        bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();
         bool check_length_coherence0(expr* e);
         bool check_length_coherence(expr* e);
-        bool fixed_length();
-        bool fixed_length(expr* e);
+        bool fixed_length(bool is_zero = false);
+        bool fixed_length(expr* e, bool is_zero);
         void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
         bool branch_variable(eq const& e);
         bool branch_binary_variable(eq const& e);
+        bool eq_unit(expr* const& l, expr* const &r) const;       
+        unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool branch_ternary_variable_base(dependency* dep, unsigned_vector indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable(eq const& e, bool flag1 = false);
+        bool branch_ternary_variable2(eq const& e, bool flag1 = false);
+        bool branch_quat_variable(eq const& e);
+        bool len_based_split(eq const& e);
         bool is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool propagate_length_coherence(expr* e);  
         bool split_lengths(dependency* dep,
@@ -394,11 +423,14 @@ namespace smt {
         bool check_extensionality();
         bool check_contains();
         bool solve_eqs(unsigned start);
-        bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
+        bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep, unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr*& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr*& y);
+        bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x1, expr_ref_vector& xs, expr*& x2, expr*& y1, expr_ref_vector& ys, expr*& y2);
+        bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x, expr_ref_vector& xs, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1);
+        bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr*& x, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1);
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
 
@@ -410,7 +442,7 @@ namespace smt {
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
         expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
-        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return mk_concat(es.size(), es.c_ptr()); }
+        expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr()), m); }
         expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(m_util.str.mk_concat(e1, e2), m); }
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }
@@ -454,8 +486,9 @@ namespace smt {
         // variable solving utilities
         bool occurs(expr* a, expr* b);
         bool occurs(expr* a, expr_ref_vector const& b);
-        bool is_var(expr* b);
+        bool is_var(expr* b) const;
         bool add_solution(expr* l, expr* r, dependency* dep);
+        bool is_unit_nth(expr* a) const;
         bool is_nth(expr* a) const;
         bool is_nth(expr* a, expr*& e1, expr*& e2) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
@@ -521,6 +554,7 @@ namespace smt {
         literal mk_seq_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
+        expr_ref mk_add(expr* a, expr* b);
         enode* ensure_enode(expr* a);
         
         dependency* mk_join(dependency* deps, literal lit);
@@ -530,11 +564,13 @@ namespace smt {
         // arithmetic integration
         bool get_num_value(expr* s, rational& val) const;
         bool lower_bound(expr* s, rational& lo) const;
+        bool lower_bound2(expr* s, rational& lo);
         bool upper_bound(expr* s, rational& hi) const;
         bool get_length(expr* s, rational& val) const;
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, sort* range = nullptr);
+        expr* coalesce_chars(expr* const& str);
+        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr);
         bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);
@@ -586,7 +622,7 @@ namespace smt {
         void display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
         void display_nc(std::ostream& out, nc const& nc) const;
     public:
-        theory_seq(ast_manager& m);
+        theory_seq(ast_manager& m, theory_seq_params const & params);
         ~theory_seq() override;
 
         // model building

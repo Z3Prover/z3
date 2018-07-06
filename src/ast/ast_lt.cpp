@@ -102,7 +102,7 @@ bool lt(ast * n1, ast * n2) {
         UNREACHABLE();
         return false;
     case AST_QUANTIFIER:
-        check_bool(to_quantifier(n1)->is_forall(), to_quantifier(n2)->is_forall());
+        check_value(to_quantifier(n1)->get_kind(), to_quantifier(n2)->get_kind());
         check_value(to_quantifier(n1)->get_num_decls(), to_quantifier(n2)->get_num_decls());
         check_value(to_quantifier(n1)->get_num_patterns(), to_quantifier(n2)->get_num_patterns());
         check_value(to_quantifier(n1)->get_num_no_patterns(), to_quantifier(n2)->get_num_no_patterns());

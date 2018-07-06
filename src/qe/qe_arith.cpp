@@ -41,7 +41,7 @@ namespace qe {
         bool              m_check_purified;  // check that variables are properly pure 
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
-            TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
+            // TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
             rational w;
             if (ts.find(x, w)) {
                 ts.insert(x, w + v);
@@ -92,8 +92,8 @@ namespace qe {
                 rational r1, r2;
                 expr_ref val1 = eval(e1); 
                 expr_ref val2 = eval(e2);
-                TRACE("qe", tout << mk_pp(e1, m) << " " << val1 << "\n";);
-                TRACE("qe", tout << mk_pp(e2, m) << " " << val2 << "\n";);
+                //TRACE("qe", tout << mk_pp(e1, m) << " " << val1 << "\n";);
+                //TRACE("qe", tout << mk_pp(e2, m) << " " << val2 << "\n";);
                 if (!a.is_numeral(val1, r1)) return false;
                 if (!a.is_numeral(val2, r2)) return false;
                 SASSERT(r1 != r2);
@@ -306,14 +306,14 @@ namespace qe {
                 return vector<def>();
             }
             model_evaluator eval(model);
-            TRACE("qe", model_smt2_pp(tout, m, model, 0););
+            TRACE("qe", tout << model;);
             // eval.set_model_completion(true);
 
             opt::model_based_opt mbo;
             obj_map<expr, unsigned> tids;
             expr_ref_vector pinned(m);
             unsigned j = 0;
-            TRACE("qe", tout << "fmls: " << fmls << "\n";);
+            TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";);
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr * fml = fmls.get(i);
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
@@ -325,7 +325,6 @@ namespace qe {
                 }
             }
             fmls.shrink(j);
-            TRACE("qe", tout << "linearized: " << fmls << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
@@ -454,30 +453,12 @@ namespace qe {
                     else if (!d.m_div.is_one() && !is_int) {
                         t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
                     }
-                    update_model(model, to_app(x), eval(t));
                     
-                    SASSERT(eval(t) == eval(x));
                     result.push_back(def(expr_ref(x, m), t));
                 }
             }
             return result;
         }        
-
-        void update_model(model& mdl, app* x, expr_ref const& val) {
-            if (is_uninterp_const(x)) {
-                mdl.register_decl(x->get_decl(), val);
-            }
-            else {
-                func_interp* fi = mdl.get_func_interp(x->get_decl());
-                if (!fi) return;
-                model_evaluator eval(mdl);
-                expr_ref_vector args(m);
-                for (expr* arg : *x) {
-                    args.push_back(eval(arg));
-                }
-                fi->insert_entry(args.c_ptr(), val);
-            }
-        }
 
         expr_ref mk_add(expr_ref_vector const& ts) {
             switch (ts.size()) {

@@ -141,6 +141,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   IntNum.java
   IntSort.java
   IntSymbol.java
+  Lambda.java
   ListSort.java
   Log.java
   ModelDecRefQueue.java

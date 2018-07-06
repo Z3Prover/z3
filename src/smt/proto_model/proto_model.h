@@ -38,6 +38,7 @@ Revision History:
 #include "util/params.h"
 #include "ast/rewriter/th_rewriter.h"
 
+
 class proto_model : public model_core {
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;

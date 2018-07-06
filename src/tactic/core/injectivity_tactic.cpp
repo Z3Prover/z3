@@ -79,11 +79,11 @@ class injectivity_tactic : public tactic {
         ast_manager & m() const { return m_manager; }
 
         bool is_axiom(expr* n, func_decl* &f, func_decl* &g) {
-            if (!is_quantifier(n))
+            if (!is_forall(n))
                 return false;
 
             quantifier* const q = to_quantifier(n);
-            if (!q->is_forall() || q->get_num_decls() != 1)
+            if (q->get_num_decls() != 1)
                 return false;
 
             const expr * const body = q->get_expr();

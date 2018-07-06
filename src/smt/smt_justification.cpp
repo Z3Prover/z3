@@ -281,7 +281,7 @@ namespace smt {
         for (unsigned i = 0; i < m_num_literals; i++) {
             expr_ref l(m);
             ctx.literal2expr(m_literals[i], l);
-            lits.push_back(l);
+            lits.push_back(std::move(l));
         }
         if (lits.size() == 1)
             return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.c_ptr());
@@ -407,12 +407,7 @@ namespace smt {
         for (unsigned i = 0; i < m_num_literals; i++) {
             bool sign   = GET_TAG(m_literals[i]) != 0;
             expr * v    = UNTAG(expr*, m_literals[i]);
-            expr_ref l(m);
-            if (sign) 
-                l       = m.mk_not(v);
-            else
-                l       = v;
-            lits.push_back(l);
+            lits.push_back(sign ? m.mk_not(v) : v);
         }
         if (lits.size() == 1)
             return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.c_ptr());

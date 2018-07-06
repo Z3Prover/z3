@@ -49,7 +49,7 @@ void __declspec(noinline) _Z3_append_log(char const * msg) { *g_z3_log << "M \""
 static std::ostream & operator<<(std::ostream & out, ll_escaped const & d) {
     char const * s = d.m_str;
     while (*s) {
-        char c = *s;
+        unsigned char c = *s;
         if (('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
             c == '~' || c == '!' || c == '@' || c == '#' || c == '$' || c == '%' || c == '^' || c == '&' ||
             c == '*' || c == '-' || c == '_' || c == '+' || c == '.' || c == '?' || c == '/' || c == ' ' ||
@@ -57,7 +57,7 @@ static std::ostream & operator<<(std::ostream & out, ll_escaped const & d) {
             out << c;
         }
         else {
-            char str[4] = {'0', '0', '0', 0};
+            unsigned char str[4] = {'0', '0', '0', 0};
             str[2] = '0' + (c % 10);
             c /= 10;
             str[1] = '0' + (c % 10);

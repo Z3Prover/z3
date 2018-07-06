@@ -329,6 +329,9 @@ namespace smt {
             SASSERT(is_quantifier(n) || is_app(n));
             internalize_formula(n, gate_ctx);
         }
+        else if (is_lambda(n)) {
+            internalize_lambda(to_quantifier(n));
+        }
         else {
             SASSERT(is_app(n));
             SASSERT(!gate_ctx);
@@ -514,7 +517,7 @@ namespace smt {
         CTRACE("internalize_quantifier_zero", q->get_weight() == 0, tout << mk_pp(q, m_manager) << "\n";);
         SASSERT(gate_ctx); // limitation of the current implementation
         SASSERT(!b_internalized(q));
-        SASSERT(q->is_forall());
+        SASSERT(is_forall(q));
         SASSERT(check_patterns(q));
         bool_var v             = mk_bool_var(q);
         unsigned generation    = m_generation;
@@ -526,6 +529,31 @@ namespace smt {
         bool_var_data & d      = get_bdata(v);
         d.set_quantifier_flag();
         m_qmanager->add(q, generation);
+    }
+
+    void context::internalize_lambda(quantifier * q) {
+        UNREACHABLE();
+
+#if 0
+        TRACE("internalize_quantifier", tout << mk_pp(q, m_manager) << "\n";);
+        SASSERT(is_lambda(q));
+        app_ref lam_name(m_manager.mk_fresh_const("lambda", m_manager.get_sort(q)), m_manager);
+        enode * e = mk_enode(lam_name, true, false, false);
+        expr_ref eq(m_manager), lam_app(m_manager);
+        expr_ref_vector vars(m_manager);
+        vars.push_back(lam_name);
+        unsigned sz = q->get_num_decls();
+        for (unsigned i = 0; i < sz; ++i) {
+            vars.push_back(m_manager.mk_var(sz - i - 1, q->get_decl_sort(i)));
+        }
+        array_util autil(m_manager);
+        lam_app = autil.mk_select(vars.size(), vars.c_ptr());
+        eq = m_manager.mk_eq(lam_app, q->get_expr());
+        quantifier_ref fa(m_manager);
+        expr * patterns[1] = { m_manager.mk_pattern(lam_name) };
+        fa = m_manager.mk_forall(sz, q->get_decl_sorts(), q->get_decl_names(), eq, 0, m_manager.lambda_def_qid(), symbol::null, 1, patterns);
+        internalize_quantifier(fa, true);
+#endif
     }
 
     /**
@@ -821,7 +849,7 @@ namespace smt {
             std::cerr << v << " ::=\n" << mk_ll_pp(n, m_manager) << "<END-OF-FORMULA>\n";
         }
 #endif
-        TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << "\n";);
+        TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << " " << n->get_id() << "\n";);
         TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
         m_bdata.reserve(v+1);

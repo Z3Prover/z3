@@ -47,6 +47,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
     Z3_ast Z3_API Z3_mk_select(Z3_context c, Z3_ast a, Z3_ast i) {
         Z3_TRY;
         LOG_Z3_mk_select(c, a, i);
@@ -57,7 +58,7 @@ extern "C" {
         sort * a_ty = m.get_sort(_a);
         sort * i_ty = m.get_sort(_i);
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
-            SET_ERROR_CODE(Z3_SORT_ERROR);
+            SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
         sort * domain[2] = {a_ty, i_ty};
@@ -80,7 +81,7 @@ extern "C" {
         sort * a_ty = m.get_sort(_a);
         // sort * i_ty = m.get_sort(_i);
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
-            SET_ERROR_CODE(Z3_SORT_ERROR);
+            SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
         ptr_vector<sort> domain;
@@ -99,6 +100,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
     Z3_ast Z3_API Z3_mk_store(Z3_context c, Z3_ast a, Z3_ast i, Z3_ast v) {
         Z3_TRY;
         LOG_Z3_mk_store(c, a, i, v);
@@ -111,7 +113,7 @@ extern "C" {
         sort * i_ty = m.get_sort(_i);
         sort * v_ty = m.get_sort(_v);
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
-            SET_ERROR_CODE(Z3_SORT_ERROR);
+            SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
         sort * domain[3] = {a_ty, i_ty, v_ty};
@@ -134,7 +136,7 @@ extern "C" {
         sort * a_ty = m.get_sort(_a);
         sort * v_ty = m.get_sort(_v);
         if (a_ty->get_family_id() != mk_c(c)->get_array_fid()) {
-            SET_ERROR_CODE(Z3_SORT_ERROR);
+            SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
         ptr_vector<sort> domain;
@@ -155,12 +157,13 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
     Z3_ast Z3_API Z3_mk_map(Z3_context c, Z3_func_decl f, unsigned n, Z3_ast const* args) {
         Z3_TRY;
         LOG_Z3_mk_map(c, f, n, args);
         RESET_ERROR_CODE();
         if (n == 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         ast_manager & m = mk_c(c)->m();
@@ -295,7 +298,7 @@ extern "C" {
             Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(0).get_ast());
             RETURN_Z3(r);
         }
-        SET_ERROR_CODE(Z3_INVALID_ARG);
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
         RETURN_Z3(nullptr);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -311,7 +314,7 @@ extern "C" {
             Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(n-1).get_ast());
             RETURN_Z3(r);
         }
-        SET_ERROR_CODE(Z3_INVALID_ARG);
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
         RETURN_Z3(nullptr);
         Z3_CATCH_RETURN(nullptr);
     }

@@ -173,6 +173,7 @@ extern "C" {
         to_optimize_ptr(o)->get_model(_m);
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         if (_m) {
+            if (mk_c(c)->params().m_model_compress) _m->compress();
             m_ref->m_model = _m;
         }
         else {
@@ -317,17 +318,15 @@ extern "C" {
         ctx->set_ignore_check(true);
         try {
             if (!parse_smt2_commands(*ctx.get(), s)) {
-                mk_c(c)->m_parser_error_buffer = errstrm.str();            
                 ctx = nullptr;
-                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
                 return;
             }        
         }
         catch (z3_exception& e) {
             errstrm << e.msg();
-            mk_c(c)->m_parser_error_buffer = errstrm.str();            
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
             return;
         }
 

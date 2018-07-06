@@ -989,9 +989,10 @@ namespace qe {
                     break;
                 }
                 case AST_QUANTIFIER: {
+                    SASSERT(!is_lambda(e));
                     app_ref_vector vars(m);
                     quantifier* q = to_quantifier(e);
-                    bool is_fa = q->is_forall();
+                    bool is_fa = ::is_forall(q);
                     tmp = q->get_expr();
                     extract_vars(q, tmp, vars);
                     TRACE("qe", tout << vars << " " << mk_pp(q, m) << " " << tmp << "\n";);
@@ -1235,6 +1236,9 @@ namespace qe {
                 fml = push_not(fml);
             }
             hoist(fml);
+            if (!is_ground(fml)) {
+                throw tactic_exception("formula is not hoistable");
+            }
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_ex.assert_expr(mk_and(defs));
@@ -1275,7 +1279,7 @@ namespace qe {
                 if (s == "ok" || s == "unknown") {
                     s = m_fa.s().reason_unknown();
                 }
-                throw tactic_exception(s.c_str()); 
+                throw tactic_exception(std::move(s));
             }        
         }
         
@@ -1340,7 +1344,7 @@ namespace qe {
                     s = m_fa.s().reason_unknown();
                 }
 
-                throw tactic_exception(s.c_str()); 
+                throw tactic_exception(std::move(s));
             }        
             return l_true;
         }

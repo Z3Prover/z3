@@ -34,82 +34,81 @@ Revision History:
 
 namespace spacer {
 
-    unsat_core_plugin::unsat_core_plugin(unsat_core_learner& learner): 
-        m(learner.m), m_learner(learner) {};
-    
+    unsat_core_plugin::unsat_core_plugin(unsat_core_learner& ctx):
+        m(ctx.get_manager()), m_ctx(ctx) {};
+
     void unsat_core_plugin_lemma::compute_partial_core(proof* step) {
-        SASSERT(m_learner.m_pr.is_a_marked(step));
-        SASSERT(m_learner.m_pr.is_b_marked(step));
-        
-        for (proof* premise : m.get_parents(step)) {
-            
-            if (m_learner.is_b_open (premise))  {
+        SASSERT(m_ctx.is_a(step));
+        SASSERT(m_ctx.is_b(step));
+
+        for (auto* p : m.get_parents(step)) {
+            if (m_ctx.is_b_open (p))  {
                 // by IH, premises that are AB marked are already closed
-                SASSERT(!m_learner.m_pr.is_a_marked(premise));
-                add_lowest_split_to_core(premise);
+                SASSERT(!m_ctx.is_a(p));
+                add_lowest_split_to_core(p);
             }
         }
-        m_learner.set_closed(step, true);
+        m_ctx.set_closed(step, true);
     }
-    
-    void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const
-    {
-        SASSERT(m_learner.is_b_open(step));
-        
+
+    void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const {
+        SASSERT(m_ctx.is_b_open(step));
+
         ptr_buffer<proof> todo;
         todo.push_back(step);
-        
+
         while (!todo.empty()) {
             proof* pf = todo.back();
             todo.pop_back();
-            
+
             // if current step hasn't been processed,
-            if (!m_learner.is_closed(pf)) {
-                m_learner.set_closed(pf, true);
+            if (!m_ctx.is_closed(pf)) {
+                m_ctx.set_closed(pf, true);
                 // the step is b-marked and not closed.
                 // by I.H. the step must be already visited
                 // so if it is also a-marked, it must be closed
-                SASSERT(m_learner.m_pr.is_b_marked(pf));
-                SASSERT(!m_learner.m_pr.is_a_marked(pf));
-                
+                SASSERT(m_ctx.is_b(pf));
+                SASSERT(!m_ctx.is_a(pf));
+
                 // the current step needs to be interpolated:
                 expr* fact = m.get_fact(pf);
                 // if we trust the current step and we are able to use it
-                if (m_learner.m_pr.is_b_pure (pf) &&
-                    (m.is_asserted(pf) || is_literal(m, fact))) {
+                if (m_ctx.is_b_pure (pf) && (m.is_asserted(pf) || is_literal(m, fact))) {
                     // just add it to the core
-                    m_learner.add_lemma_to_core(fact);
+                    m_ctx.add_lemma_to_core(fact);
                 }
                 // otherwise recurse on premises
                 else {
-                    for (proof* premise : m.get_parents(pf)) 
-                        if (m_learner.is_b_open(premise)) 
+                    for (proof* premise : m.get_parents(pf))
+                        if (m_ctx.is_b_open(premise))
                             todo.push_back(premise);
                 }
-                
             }
         }
     }
 
 
-    void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step)
-    {
-        SASSERT(m_learner.m_pr.is_a_marked(step));
-        SASSERT(m_learner.m_pr.is_b_marked(step));
+    /***
+     * FARKAS
+     */
+    void unsat_core_plugin_farkas_lemma::compute_partial_core(proof* step) {
+        SASSERT(m_ctx.is_a(step));
+        SASSERT(m_ctx.is_b(step));
         // XXX this assertion should be true so there is no need to check for it
-        SASSERT (!m_learner.is_closed (step));
+        SASSERT (!m_ctx.is_closed (step));
         func_decl* d = step->get_decl();
         symbol sym;
-        if (!m_learner.is_closed(step) && // if step is not already interpolated
-            is_farkas_lemma(m, step)) { 
-            // weaker check: d->get_num_parameters() >= m.get_num_parents(step) + 2 
-            
+        TRACE("spacer.farkas",
+              tout << "looking at: " << mk_pp(step, m) << "\n";);
+        if (!m_ctx.is_closed(step) && is_farkas_lemma(m, step)) {
+            // weaker check : d->get_num_parameters() >= m.get_num_parents(step) + 2
+
             SASSERT(d->get_num_parameters() == m.get_num_parents(step) + 2);
             SASSERT(m.has_fact(step));
-            
+
             coeff_lits_t coeff_lits;
             expr_ref_vector pinned(m);
-            
+
             /* The farkas lemma represents a subproof starting from premise(-set)s A, BNP and BP(ure) and
              * ending in a disjunction D. We need to compute the contribution of BP, i.e. a formula, which
              * is entailed by BP and together with A and BNP entails D.
@@ -134,34 +133,35 @@ namespace spacer {
              * as workaround we take the absolute value of the provided coefficients.
              */
             parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
-            
-            STRACE("spacer.farkas",
-                   verbose_stream() << "Farkas input: "<< "\n";
-                   for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
-                       proof * prem = m.get_parent(step, i);                       
-                       rational coef = params[i].get_rational();                       
-                       bool b_pure = m_learner.m_pr.is_b_pure (prem);
-                       verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m) << "\n";
-                   }
-                   );
-            
-            bool can_be_closed = true;
-            
+
+            TRACE("spacer.farkas",
+                  tout << "Farkas input: "<< "\n";
+                  for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
+                      proof * prem = m.get_parent(step, i);
+                      rational coef = params[i].get_rational();
+                      bool b_pure = m_ctx.is_b_pure (prem);
+                      tout << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m) << "\n";
+                  }
+                );
+
+            bool done = true;
+
             for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
                 proof * premise = m.get_parent(step, i);
-                
-                if (m_learner.is_b_open (premise)) {
-                    SASSERT(!m_learner.m_pr.is_a_marked(premise));
-                
-                    if (m_learner.m_pr.is_b_pure (step)) {
+
+                if (m_ctx.is_b_open (premise)) {
+                    SASSERT(!m_ctx.is_a(premise));
+
+                    if (m_ctx.is_b_pure (premise)) {
                         if (!m_use_constant_from_a) {
                             rational coefficient = params[i].get_rational();
                             coeff_lits.push_back(std::make_pair(abs(coefficient), (app*)m.get_fact(premise)));
                         }
                     }
                     else {
-                        can_be_closed = false;
-                        
+                        // -- mixed premise, won't be able to close this proof step
+                        done = false;
+
                         if (m_use_constant_from_a) {
                             rational coefficient = params[i].get_rational();
                             coeff_lits.push_back(std::make_pair(abs(coefficient), (app*)m.get_fact(premise)));
@@ -175,10 +175,11 @@ namespace spacer {
                     }
                 }
             }
-            
+
+            // TBD: factor into another method
             if (m_use_constant_from_a) {
                 params += m.get_num_parents(step); // point to the first Farkas coefficient, which corresponds to a formula in the conclusion
-                
+
                 // the conclusion can either be a single formula or a disjunction of several formulas, we have to deal with both situations
                 if (m.get_num_parents(step) + 2 < d->get_num_parameters()) {
                     unsigned num_args = 1;
@@ -190,7 +191,7 @@ namespace spacer {
                         args = _or->get_args();
                     }
                     SASSERT(m.get_num_parents(step) + 2 + num_args == d->get_num_parameters());
-                    
+
                     bool_rewriter brw(m);
                     for (unsigned i = 0; i < num_args; ++i) {
                         expr* premise = args[i];
@@ -205,13 +206,12 @@ namespace spacer {
             }
 
             // only if all b-premises can be used directly, add the farkas core and close the step
-            if (can_be_closed) {
-                m_learner.set_closed(step, true);
-                
-                expr_ref res = compute_linear_combination(coeff_lits);
-                
-                m_learner.add_lemma_to_core(res);
-            }
+            // AG: this decision needs to be re-evaluated. If the proof cannot be closed, literals above
+            // AG: it will go into the core. However, it does not mean that this literal should/could not be added.
+            m_ctx.set_closed(step, done);
+            expr_ref res = compute_linear_combination(coeff_lits);
+            TRACE("spacer.farkas", tout << "Farkas core: " << res << "\n";);
+            m_ctx.add_lemma_to_core(res);
         }
     }
 
@@ -235,12 +235,12 @@ namespace spacer {
 
     void unsat_core_plugin_farkas_lemma_optimized::compute_partial_core(proof* step)
     {
-        SASSERT(m_learner.m_pr.is_a_marked(step));
-        SASSERT(m_learner.m_pr.is_b_marked(step));
+        SASSERT(m_ctx.is_a(step));
+        SASSERT(m_ctx.is_b(step));
 
         func_decl* d = step->get_decl();
         symbol sym;
-        if (!m_learner.is_closed(step) && // if step is not already interpolated
+        if (!m_ctx.is_closed(step) && // if step is not already interpolated
            is_farkas_lemma(m, step)) {
             SASSERT(d->get_num_parameters() == m.get_num_parents(step) + 2);
             SASSERT(m.has_fact(step));
@@ -249,25 +249,25 @@ namespace spacer {
 
             parameter const* params = d->get_parameters() + 2; // point to the first Farkas coefficient
 
-            STRACE("spacer.farkas",
-                   verbose_stream() << "Farkas input: "<< "\n";
-                   for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
-                       proof * prem = m.get_parent(step, i);
-                       rational coef = params[i].get_rational();                       
-                       bool b_pure = m_learner.m_pr.is_b_pure (prem);
-                       verbose_stream() << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m_learner.m) << "\n";
-                   }
-                   );
+            TRACE("spacer.farkas",
+                  tout << "Farkas input: "<< "\n";
+                  for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
+                      proof * prem = m.get_parent(step, i);
+                      rational coef = params[i].get_rational();
+                      bool b_pure = m_ctx.is_b_pure (prem);
+                      tout << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m) << "\n";
+                  }
+                );
 
             bool can_be_closed = true;
             for (unsigned i = 0; i < m.get_num_parents(step); ++i) {
                 proof * premise = m.get_parent(step, i);
 
-                if (m_learner.m_pr.is_b_marked(premise) && !m_learner.is_closed(premise))
+                if (m_ctx.is_b(premise) && !m_ctx.is_closed(premise))
                 {
-                    SASSERT(!m_learner.m_pr.is_a_marked(premise));
+                    SASSERT(!m_ctx.is_a(premise));
 
-                    if (m_learner.m_pr.is_b_pure(premise))
+                    if (m_ctx.is_b_pure(premise))
                     {
                         rational coefficient = params[i].get_rational();
                         linear_combination.push_back
@@ -283,7 +283,7 @@ namespace spacer {
             // only if all b-premises can be used directly, close the step and add linear combinations for later processing
             if (can_be_closed)
             {
-                m_learner.set_closed(step, true);
+                m_ctx.set_closed(step, true);
                 if (!linear_combination.empty())
                 {
                     m_linear_combinations.push_back(linear_combination);
@@ -340,7 +340,7 @@ namespace spacer {
         // 4. extract linear combinations from matrix and add result to core
         for (unsigned k = 0; k < i; ++k)// i points to the row after the last row which is non-zero
         {
-            coeff_lits_t coeff_lits;        
+            coeff_lits_t coeff_lits;
             for (unsigned l = 0; l < matrix.num_cols(); ++l) {
                 if (!matrix.get(k,l).is_zero()) {
                     coeff_lits.push_back(std::make_pair(matrix.get(k, l), ordered_basis[l]));
@@ -349,19 +349,19 @@ namespace spacer {
             SASSERT(!coeff_lits.empty());
             expr_ref linear_combination = compute_linear_combination(coeff_lits);
 
-            m_learner.add_lemma_to_core(linear_combination);
+            m_ctx.add_lemma_to_core(linear_combination);
         }
 
     }
 
-    expr_ref unsat_core_plugin_farkas_lemma_optimized::compute_linear_combination(const coeff_lits_t& coeff_lits) {         
+    expr_ref unsat_core_plugin_farkas_lemma_optimized::compute_linear_combination(const coeff_lits_t& coeff_lits) {
          smt::farkas_util util(m);
          for (auto const & p : coeff_lits) {
              util.add(p.first, p.second);
          }
          expr_ref negated_linear_combination = util.get();
          SASSERT(m.is_not(negated_linear_combination));
-         return expr_ref(mk_not(m, negated_linear_combination), m); 
+         return expr_ref(mk_not(m, negated_linear_combination), m);
          //TODO: rewrite the get-method to return nonnegated stuff?
      }
 
@@ -449,7 +449,7 @@ namespace spacer {
                 for (unsigned j = 0; j < matrix.num_cols(); ++j) {
                     SASSERT(matrix.get(i, j).is_int());
                     app_ref a_ij(util.mk_numeral(matrix.get(i,j), true), m);
-                    
+
                     app_ref sum(util.mk_int(0), m);
                     for (unsigned k = 0; k < n; ++k) {
                         sum = util.mk_add(sum, util.mk_mul(coeffs[i][k].get(), bounded_vectors[j][k].get()));
@@ -458,7 +458,7 @@ namespace spacer {
                     s->assert_expr(eq);
                 }
             }
-            
+
             // check result
             lbool res = s->check_sat(0, nullptr);
 
@@ -480,7 +480,7 @@ namespace spacer {
                     SASSERT(!coeff_lits.empty()); // since then previous outer loop would have found solution already
                     expr_ref linear_combination = compute_linear_combination(coeff_lits);
 
-                    m_learner.add_lemma_to_core(linear_combination);
+                    m_ctx.add_lemma_to_core(linear_combination);
                 }
                 return;
             }
@@ -504,10 +504,10 @@ namespace spacer {
     {
         ptr_vector<proof> todo;
 
-        SASSERT(m_learner.m_pr.is_a_marked(step));
-        SASSERT(m_learner.m_pr.is_b_marked(step));
+        SASSERT(m_ctx.is_a(step));
+        SASSERT(m_ctx.is_b(step));
         SASSERT(m.get_num_parents(step) > 0);
-        SASSERT(!m_learner.is_closed(step));
+        SASSERT(!m_ctx.is_closed(step));
         todo.push_back(step);
 
         while (!todo.empty())
@@ -516,7 +516,7 @@ namespace spacer {
             todo.pop_back();
 
             // if we need to deal with the node and if we haven't added the corresponding edges so far
-            if (!m_learner.is_closed(current) && !m_visited.is_marked(current))
+            if (!m_ctx.is_closed(current) && !m_visited.is_marked(current))
             {
                 // compute smallest subproof rooted in current, which has only good edges
                 // add an edge from current to each leaf of that subproof
@@ -527,7 +527,7 @@ namespace spacer {
 
             }
         }
-        m_learner.set_closed(step, true);
+        m_ctx.set_closed(step, true);
     }
 
 
@@ -538,7 +538,7 @@ namespace spacer {
         ptr_buffer<proof> todo_subproof;
 
         for (proof* premise : m.get_parents(step)) {
-            if (m_learner.m_pr.is_b_marked(premise)) {
+            if (m_ctx.is_b(premise)) {
                 todo_subproof.push_back(premise);
             }
         }
@@ -548,21 +548,21 @@ namespace spacer {
             todo_subproof.pop_back();
 
             // if we need to deal with the node
-            if (!m_learner.is_closed(current))
+            if (!m_ctx.is_closed(current))
             {
-                SASSERT(!m_learner.m_pr.is_a_marked(current)); // by I.H. the step must be already visited
+                SASSERT(!m_ctx.is_a(current)); // by I.H. the step must be already visited
 
                 // and the current step needs to be interpolated:
-                if (m_learner.m_pr.is_b_marked(current))
+                if (m_ctx.is_b(current))
                 {
                     // if we trust the current step and we are able to use it
-                    if (m_learner.m_pr.is_b_pure (current) &&
+                    if (m_ctx.is_b_pure (current) &&
                         (m.is_asserted(current) ||
                          is_literal(m, m.get_fact(current))))
                     {
                         // we found a leaf of the subproof, so
                         // 1) we add corresponding edges
-                        if (m_learner.m_pr.is_a_marked(step))
+                        if (m_ctx.is_a(step))
                         {
                             add_edge(nullptr, current); // current is sink
                         }
@@ -682,9 +682,9 @@ namespace spacer {
     void unsat_core_plugin_min_cut::finalize() {
         unsigned_vector cut_nodes;
         m_min_cut.compute_min_cut(cut_nodes);
-        
+
         for (unsigned cut_node : cut_nodes)   {
-            m_learner.add_lemma_to_core(m_node_to_formula[cut_node]);
+            m_ctx.add_lemma_to_core(m_node_to_formula[cut_node]);
         }
     }
 }

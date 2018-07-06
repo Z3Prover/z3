@@ -115,7 +115,7 @@ void expr_abstract(ast_manager& m, unsigned base, unsigned num_bound, expr* cons
           tout << result << "\n";);
 }
 
-expr_ref mk_quantifier(bool is_forall, ast_manager& m, unsigned num_bound, app* const* bound, expr* n) {
+expr_ref mk_quantifier(quantifier_kind k, ast_manager& m, unsigned num_bound, app* const* bound, expr* n) {
     expr_ref result(m);
     expr_abstract(m, 0, num_bound, (expr* const*)bound, n, result);    
     if (num_bound > 0) {
@@ -125,7 +125,7 @@ expr_ref mk_quantifier(bool is_forall, ast_manager& m, unsigned num_bound, app* 
             sorts.push_back(m.get_sort(bound[i]));
             names.push_back(bound[i]->get_decl()->get_name());
         }
-        result = m.mk_quantifier(is_forall, num_bound, sorts.c_ptr(), names.c_ptr(), result);
+        result = m.mk_quantifier(k, num_bound, sorts.c_ptr(), names.c_ptr(), result);
     }
     TRACE("expr_abstract",
           tout << expr_ref(n, m) << "\n";
@@ -137,9 +137,9 @@ expr_ref mk_quantifier(bool is_forall, ast_manager& m, unsigned num_bound, app* 
 }
 
 expr_ref mk_forall(ast_manager& m, unsigned num_bound, app* const* bound, expr* n) {
-    return mk_quantifier(true, m, num_bound, bound, n);
+    return mk_quantifier(forall_k, m, num_bound, bound, n);
 }
 
 expr_ref mk_exists(ast_manager& m, unsigned num_bound, app* const* bound, expr* n) {
-    return mk_quantifier(false, m, num_bound, bound, n);
+    return mk_quantifier(exists_k, m, num_bound, bound, n);
 }

@@ -38,6 +38,8 @@ namespace smt {
         st.update("arith gcd tests", m_stats.m_gcd_tests);
         st.update("arith ineq splits", m_stats.m_branches);
         st.update("arith gomory cuts", m_stats.m_gomory_cuts);
+        st.update("arith patches", m_stats.m_patches);
+        st.update("arith patches_succ", m_stats.m_patches_succ);
         st.update("arith max-min", m_stats.m_max_min);
         st.update("arith grobner", m_stats.m_gb_compute_basis);
         st.update("arith pseudo nonlinear", m_stats.m_nl_linear);
@@ -389,8 +391,19 @@ namespace smt {
     void theory_arith<Ext>::display_vars(std::ostream & out) const {
         out << "vars:\n";
         int n = get_num_vars();
-        for (theory_var v = 0; v < n; v++)
-            display_var(out, v);
+		int inf_vars = 0;
+		int int_inf_vars = 0;
+		for (theory_var v = 0; v < n; v++) {
+			if ((lower(v) && lower(v)->get_value() > get_value(v))
+				|| (upper(v) && upper(v)->get_value() < get_value(v)))
+				inf_vars++;
+			if (is_int(v) && !get_value(v).is_int())
+				int_inf_vars++;
+		}
+		out << "infeasibles = " << inf_vars << " int_inf = " << int_inf_vars << std::endl;
+		for (theory_var v = 0; v < n; v++) {
+			display_var(out, v);
+		}
     }
 
     template<typename Ext>

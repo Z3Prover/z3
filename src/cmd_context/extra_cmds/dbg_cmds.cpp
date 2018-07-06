@@ -135,9 +135,8 @@ public:
         m_idx++;
     }
     void execute(cmd_context & ctx) override {
-        expr_ref r(ctx.m());
         beta_reducer p(ctx.m());
-        p(m_source, m_subst.size(), m_subst.c_ptr(), r);
+        expr_ref r = p(m_source, m_subst.size(), m_subst.c_ptr());
         store_expr_ref(ctx, m_target, r.get());
     }
 };
@@ -274,8 +273,7 @@ UNARY_CMD(elim_unused_vars_cmd, "dbg-elim-unused-vars", "<expr>", "eliminate unu
         ctx.display(ctx.regular_stream(), arg);
         return;
     }
-    expr_ref r(ctx.m());
-    elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get_ref(), r);
+    expr_ref r = elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get_ref());
     SASSERT(!is_quantifier(r) || !to_quantifier(r)->may_have_unused_vars());
     ctx.display(ctx.regular_stream(), r);
     ctx.regular_stream() << std::endl;
@@ -307,8 +305,7 @@ public:
         if (num != m_q->get_num_decls())
             throw cmd_exception("invalid command, mismatch between the number of quantified variables and the number of arguments.");
         unsigned i = num;
-        while (i > 0) {
-            --i;
+        while (i-- > 0) {
             sort * s = ctx.m().get_sort(ts[i]);
             if (s != m_q->get_decl_sort(i)) {
                 std::ostringstream buffer;
@@ -320,8 +317,7 @@ public:
     }
 
     void execute(cmd_context & ctx) override {
-        expr_ref r(ctx.m());
-        instantiate(ctx.m(), m_q, m_args.c_ptr(), r);
+        expr_ref r = instantiate(ctx.m(), m_q, m_args.c_ptr());
         ctx.display(ctx.regular_stream(), r);
         ctx.regular_stream() << std::endl;
     }
@@ -484,11 +480,9 @@ public:
         solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
         solver_ref sNotB = sf(m, p, false /* no proofs */, true, true, symbol::null);
         sA->assert_expr(a);
-        sNotA->assert_expr(m.mk_not(a));
         sB->assert_expr(b);
-        sNotB->assert_expr(m.mk_not(b));
         qe::euf_arith_mbi_plugin pA(sA.get(), sNotA.get());
-        qe::euf_arith_mbi_plugin pB(sB.get(), sNotB.get());
+        qe::prop_mbi_plugin pB(sB.get());
         pA.set_shared(vars);
         pB.set_shared(vars);
         lbool res = mbi.pogo(pA, pB, itp);

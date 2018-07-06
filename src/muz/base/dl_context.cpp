@@ -307,6 +307,10 @@ namespace datalog {
     bool context::instantiate_quantifiers() const { return m_params->xform_instantiate_quantifiers(); }
     bool context::array_blast() const { return m_params->xform_array_blast(); }
     bool context::array_blast_full() const { return m_params->xform_array_blast_full(); }
+    bool context::elim_term_ite() const {return m_params->xform_elim_term_ite();}
+    unsigned context::blast_term_ite_inflation() const {
+        return m_params->xform_elim_term_ite_inflation();
+    }
 
 
     void context::register_finite_sort(sort * s, sort_kind k) {
@@ -1044,7 +1048,7 @@ namespace datalog {
                     quantifier* q = to_quantifier(body);
                     expr* e = q->get_expr();
                     if (m.is_implies(e, body, e2)) {
-                        fml = m.mk_quantifier(false, q->get_num_decls(),
+                        fml = m.mk_quantifier(exists_k, q->get_num_decls(),
                                               q->get_decl_sorts(), q->get_decl_names(),
                                               body);
                     }
@@ -1251,13 +1255,10 @@ namespace datalog {
         obj_map<sort, unsigned> max_vars;
         for (unsigned i = 0; i < rules.size(); ++i) {
             expr* r = rules[i].get();
-            if (!is_quantifier(r)) {
+            if (!is_forall(r)) {
                 continue;
             }
             quantifier* q = to_quantifier(r);
-            if (!q->is_forall()) {
-                continue;
-            }
             if (has_quantifiers(q->get_expr())) {
                 continue;
             }
@@ -1292,7 +1293,7 @@ namespace datalog {
                 subst.push_back(fresh_vars[vars[max_var]].get());
             }
 
-            vsubst(q->get_expr(), subst.size(), subst.c_ptr(), res);
+            res = vsubst(q->get_expr(), subst.size(), subst.c_ptr());
             rules[i] = res.get();
         }
     }

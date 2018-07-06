@@ -53,7 +53,7 @@ namespace smt {
         m_flushing(false),
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
-        m_fingerprints(m_region),
+        m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
         m_final_check_idx(0),
@@ -1598,7 +1598,7 @@ namespace smt {
         for (literal lit : m_assigned_literals) {
             expr_ref e(m_manager);
             literal2expr(lit, e);
-            assignments.push_back(e);
+            assignments.push_back(std::move(e));
         }
     }
 
@@ -1789,9 +1789,9 @@ namespace smt {
         return m_fingerprints.contains(q, q->get_id(), num_bindings, bindings);
     }
 
-    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation,
+    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
                                unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
-        return m_qmanager->add_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_top_generation, used_enodes);
+        return m_qmanager->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
     void context::rescale_bool_var_activity() {
@@ -2936,7 +2936,7 @@ namespace smt {
     void context::assert_expr_core(expr * e, proof * pr) {
         if (get_cancel_flag()) return;
         SASSERT(is_well_sorted(m_manager, e));
-        TRACE("begin_assert_expr", tout << mk_pp(e, m_manager) << "\n";);
+        TRACE("begin_assert_expr", tout << this << " " << mk_pp(e, m_manager) << "\n";);
         TRACE("begin_assert_expr_ll", tout << mk_ll_pp(e, m_manager) << "\n";);
         pop_to_base_lvl();
         if (pr == nullptr)
@@ -3767,6 +3767,7 @@ namespace smt {
         }
 
         m_stats.m_num_final_checks++;
+		TRACE("final_check_stats", tout << "m_stats.m_num_final_checks = " << m_stats.m_num_final_checks << "\n";);
 
         final_check_status ok = m_qmanager->final_check_eh(false);
         if (ok != FC_DONE)
@@ -4184,7 +4185,7 @@ namespace smt {
             SASSERT(get_justification(guess.var()).get_kind() == b_justification::AXIOM);
             expr_ref lit(m_manager);
             literal2expr(guess, lit);
-            result.push_back(lit);
+            result.push_back(std::move(lit));
         }
     }
 
@@ -4405,9 +4406,9 @@ namespace smt {
         for (unsigned i = 0; !get_cancel_flag() && i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
-                TRACE("context", tout << mk_pp(e, m) << "\n";);
                 quantifier* q = to_quantifier(e);
                 if (!m.is_rec_fun_def(q)) continue;
+                TRACE("context", tout << mk_pp(e, m) << "\n";);
                 SASSERT(q->get_num_patterns() == 2);
                 expr* fn = to_app(q->get_pattern(0))->get_arg(0);
                 expr* body = to_app(q->get_pattern(1))->get_arg(0);
@@ -4421,7 +4422,7 @@ namespace smt {
                 expr_ref bodyr(m);
                 var_subst sub(m, true);
                 TRACE("context", tout << expr_ref(q, m) << " " << subst << "\n";);
-                sub(body, subst.size(), subst.c_ptr(), bodyr);
+                bodyr = sub(body, subst.size(), subst.c_ptr());
                 func_decl* f = to_app(fn)->get_decl();
                 func_interp* fi = alloc(func_interp, m, f->get_arity());
                 fi->set_else(bodyr);

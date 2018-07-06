@@ -369,7 +369,7 @@ void stream_ref::set(char const * name) {
             std::string msg = "failed to set output stream '";
             msg += name;
             msg += "'";
-            throw cmd_exception(msg);
+            throw cmd_exception(std::move(msg));
         }
         SASSERT(m_stream);
     }
@@ -493,6 +493,7 @@ cmd_context::~cmd_context() {
     if (m_main_ctx) {
         set_verbose_stream(std::cerr);
     }
+    pop(m_scopes.size());
     finalize_cmds();
     finalize_tactic_cmds();
     finalize_probes();
@@ -1070,7 +1071,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
-        subst(_t, num_args, args, result);
+        result = subst(_t, num_args, args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return;
@@ -1625,6 +1626,7 @@ void cmd_context::display_dimacs() {
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
         if (m_mc0) (*m_mc0)(mdl);
+        if (m_params.m_model_compress) mdl->compress();
         model_params p;
         if (p.v1() || p.v2()) {
             std::ostringstream buffer;

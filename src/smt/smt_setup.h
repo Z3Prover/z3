@@ -101,7 +101,7 @@ namespace smt {
         void setup_card();
         void setup_i_arith();
         void setup_mi_arith();
-        void setup_r_arith();
+        void setup_lra_arith();
         void setup_fpa();
         void setup_str();
 

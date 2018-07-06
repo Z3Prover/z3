@@ -320,15 +320,15 @@ namespace eq {
                        << "sz is " << sz << "\n"
                        << "subst_map[inx]: " << mk_pp(m_subst_map.get(inx), m) << "\n";);
                 SASSERT(m_subst_map.get(inx) == nullptr);
-                m_subst_map[inx] = r;
                 m_subst.update_inv_binding_at(inx, r);
+                m_subst_map[inx] = std::move(r);
             }
         }
 
         void flatten_args(quantifier* q, unsigned& num_args, expr*const*& args) {
             expr * e = q->get_expr();
-            if ((q->is_forall() && m.is_or(e)) ||
-                (q->is_exists() && m.is_and(e))) {
+            if ((is_forall(q) && m.is_or(e)) ||
+                (is_exists(q) && m.is_and(e))) {
                 num_args = to_app(e)->get_num_args();
                 args     = to_app(e)->get_args();
             }
@@ -356,27 +356,29 @@ namespace eq {
             }
 
             expr_ref t(m);
-            if (q->is_forall()) {
+            switch (q->get_kind()) {
+            case forall_k:
                 rw.mk_or(m_new_args.size(), m_new_args.c_ptr(), t);
-            }
-            else {
+                break;
+            case exists_k:
                 rw.mk_and(m_new_args.size(), m_new_args.c_ptr(), t);
+                break;
+            default:
+                t = e;
+                break;
             }
-            expr_ref new_e(m);
-            m_subst(t, new_e);
+            expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
 
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
             expr_ref_buffer  new_no_patterns(m);
             for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-                expr_ref new_pat(m);
-                m_subst(q->get_pattern(j), new_pat);
+                expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
                 new_patterns.push_back(new_pat);
             }
 
             for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-                expr_ref new_nopat(m);
-                m_subst(q->get_no_pattern(j), new_nopat);
+                expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
                 new_no_patterns.push_back(new_nopat);
             }
 
@@ -390,12 +392,17 @@ namespace eq {
             set_is_variable_proc(is_v);
             unsigned num_args = 1;
             expr* const* args = &e;
+            if (is_lambda(q)) {
+                r = q;
+                pr = 0;
+                return;
+            }
             flatten_args(q, num_args, args);
 
             unsigned def_count = 0;
             unsigned largest_vinx = 0;
 
-            find_definitions(num_args, args, q->is_exists(), def_count, largest_vinx);
+            find_definitions(num_args, args, is_exists(q), def_count, largest_vinx);
 
             if (def_count > 0) {
                 get_elimination_order();
@@ -423,7 +430,7 @@ namespace eq {
             if (is_quantifier(r)) {
                 quantifier * q = to_quantifier(r);
 
-                ::elim_unused_vars(m, q, m_params, r);
+                r = ::elim_unused_vars(m, q, m_params);
                 if (m.proofs_enabled()) {
                     proof * p1 = m.mk_elim_unused_vars(q, r);
                     pr = m.mk_transitivity(pr, p1);
@@ -463,7 +470,7 @@ namespace eq {
                             m_var2pos[idx] = i;
                             def_count++;
                             largest_vinx = std::max(idx, largest_vinx);
-                            m_new_exprs.push_back(t);
+                            m_new_exprs.push_back(std::move(t));
                         }
                         else if (!m.is_value(m_map[idx])) {
                             // check if the new definition is simpler
@@ -475,7 +482,7 @@ namespace eq {
                                 m_pos2var[i] = idx;
                                 m_var2pos[idx] = i;
                                 m_map[idx] = t;
-                                m_new_exprs.push_back(t);
+                                m_new_exprs.push_back(std::move(t));
                           }
                           // -- prefer ground
                           else if (is_app(t) && to_app(t)->is_ground() &&
@@ -485,7 +492,7 @@ namespace eq {
                               m_pos2var[i] = idx;
                               m_var2pos[idx] = i;
                               m_map[idx] = t;
-                              m_new_exprs.push_back(t);
+                              m_new_exprs.push_back(std::move(t));
                           }
                           // -- prefer constants
                           else if (is_uninterp_const(t)
@@ -494,7 +501,7 @@ namespace eq {
                               m_pos2var[i] = idx;
                               m_var2pos[idx] = i;
                               m_map[idx] = t;
-                              m_new_exprs.push_back(t);
+                              m_new_exprs.push_back(std::move(t));
                           }
                           TRACE ("qe_def",
                                  tout << "Replacing definition of VAR " << idx << " from "
@@ -624,7 +631,7 @@ namespace eq {
                     expr_ref r(m), new_r(m);
                     r = m.mk_and(conjs.size(), conjs.c_ptr());
                     create_substitution(largest_vinx + 1);
-                    m_subst(r, new_r);
+                    new_r = m_subst(r, m_subst_map.size(), m_subst_map.c_ptr());
                     m_rewriter(new_r);
                     conjs.reset();
                     flatten_and(new_r, conjs);
@@ -1756,16 +1763,12 @@ namespace fm {
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
             TRACE("qe_lite",
-                  svector<x_cost>::iterator it2  = x_cost_vector.begin();
-                  svector<x_cost>::iterator end2 = x_cost_vector.end();
-                  for (; it2 != end2; ++it2) {
-                      tout << "(" << mk_ismt2_pp(m_var2expr.get(it2->first), m) << " " << it2->second << ") ";
+                  for (auto const& kv : x_cost_vector) {
+                      tout << "(" << mk_ismt2_pp(m_var2expr.get(kv.first), m) << " " << kv.second << ") ";
                   }
                   tout << "\n";);
-            svector<x_cost>::iterator it2  = x_cost_vector.begin();
-            svector<x_cost>::iterator end2 = x_cost_vector.end();
-            for (; it2 != end2; ++it2) {
-                xs.push_back(it2->first);
+            for (auto const& kv : x_cost_vector) {
+                xs.push_back(kv.first);
             }
         }
 
@@ -1802,11 +1805,9 @@ namespace fm {
         void analyze(constraints const & cs, var x, bool & all_int, bool & unit_coeff) const {
             all_int    = true;
             unit_coeff = true;
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it) {
+            for (constraint const* c : cs) {
                 bool curr_unit_coeff;
-                analyze(*(*it), x, all_int, curr_unit_coeff);
+                analyze(*c, x, all_int, curr_unit_coeff);
                 if (!all_int)
                     return;
                 if (!curr_unit_coeff)
@@ -1830,10 +1831,8 @@ namespace fm {
         }
 
         void copy_constraints(constraints const & s, clauses & t) {
-            constraints::const_iterator it  = s.begin();
-            constraints::const_iterator end = s.end();
-            for (; it != end; ++it) {
-                app * c = to_expr(*(*it));
+            for (constraint const* cns : s) {
+                app * c = to_expr(*cns);
                 t.push_back(c);
             }
         }
@@ -1842,10 +1841,8 @@ namespace fm {
         void save_constraints(var x) {  }
 
         void mark_constraints_dead(constraints const & cs) {
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it)
-                (*it)->m_dead = true;
+            for (constraint* c : cs) 
+                c->m_dead = true;
         }
 
         void mark_constraints_dead(var x) {
@@ -2094,14 +2091,8 @@ namespace fm {
         }
 
         void copy_remaining(vector<constraints> & v2cs) {
-            vector<constraints>::iterator it  = v2cs.begin();
-            vector<constraints>::iterator end = v2cs.end();
-            for (; it != end; ++it) {
-                constraints & cs = *it;
-                constraints::iterator it2  = cs.begin();
-                constraints::iterator end2 = cs.end();
-                for (; it2 != end2; ++it2) {
-                    constraint * c = *it2;
+            for (constraints& cs : v2cs) {
+                for (constraint* c : cs) {
                     if (!c->m_dead) {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
@@ -2170,11 +2161,8 @@ namespace fm {
         }
 
         void display_constraints(std::ostream & out, constraints const & cs) const {
-            constraints::const_iterator it  = cs.begin();
-            constraints::const_iterator end = cs.end();
-            for (; it != end; ++it) {
-                out << "  ";
-                display(out, *(*it));
+            for (constraint const* c : cs) {
+                display(out << "  ", *c);
                 out << "\n";
             }
         }
@@ -2215,7 +2203,9 @@ public:
             for (unsigned i = 0; i < q->get_num_decls(); ++i) {
                 indices.insert(i);
             }
-            m_imp(indices, true, result);
+            if (q->get_kind() != lambda_k) {
+                m_imp(indices, true, result);
+            }
             if (is_forall(q)) {
                 result = push_not(result);
             }
@@ -2295,7 +2285,7 @@ public:
             tmp = to_quantifier(tmp)->get_expr();
             used.process(tmp);
             var_subst vs(m, true);
-            vs(tmp, vars.size(), (expr*const*)vars.c_ptr(), fml);
+            fml = vs(tmp, vars.size(), (expr*const*)vars.c_ptr());
             // collect set of variables that were used.
             unsigned j = 0;
             for (unsigned i = 0; i < vars.size(); ++i) {
@@ -2307,14 +2297,14 @@ public:
             vars.resize(j);
         }
         else {
-            fml = tmp;
+            fml = std::move(tmp);
         }
     }
 
     void operator()(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
         m_elim_star(fml, tmp, pr);
-        fml = tmp;
+        fml = std::move(tmp);
     }
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {

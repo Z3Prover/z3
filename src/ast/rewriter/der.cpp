@@ -133,7 +133,7 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
     // Eliminate variables that have become unused
     if (reduced && is_forall(r)) {
         quantifier * q = to_quantifier(r);
-        elim_unused_vars(m_manager, q, params_ref(), r);
+        r = elim_unused_vars(m_manager, q, params_ref());
         if (m_manager.proofs_enabled()) {
             proof * p1 = m_manager.mk_elim_unused_vars(q, r);
             pr = m_manager.mk_transitivity(pr, p1);
@@ -343,8 +343,7 @@ void der::create_substitution(unsigned sz) {
         expr_ref cur(m_map[m_order[i]], m_manager);
 
         // do all the previous substitutions before inserting
-        expr_ref r(m_manager);
-        m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);
+        expr_ref r = m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr());
 
         unsigned inx = sz - m_order[i]- 1;
         SASSERT(m_subst_map[inx]==0);
@@ -369,21 +368,18 @@ void der::apply_substitution(quantifier * q, expr_ref & r) {
     unsigned sz = m_new_args.size();
     expr_ref t(m_manager);
     t = (sz == 1) ? m_new_args[0] : m_manager.mk_or(sz, m_new_args.c_ptr());
-    expr_ref new_e(m_manager);
-    m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
+    expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
 
     // don't forget to update the quantifier patterns
     expr_ref_buffer  new_patterns(m_manager);
     expr_ref_buffer  new_no_patterns(m_manager);
     for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-        expr_ref new_pat(m_manager);
-        m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_pat);
+        expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
         new_patterns.push_back(new_pat);
     }
 
     for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-        expr_ref new_nopat(m_manager);
-        m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_nopat);
+        expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
         new_no_patterns.push_back(new_nopat);
     }
 

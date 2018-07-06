@@ -33,8 +33,12 @@ namespace smt {
     }
 
     void theory_array_base::found_unsupported_op(expr * n) {
-        TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
-        if (!m_found_unsupported_op) {
+        if (!get_context().get_fparams().m_array_fake_support && !m_found_unsupported_op) {
+            //array_util autil(get_manager());
+            //func_decl* f = 0;
+            //if (autil.is_as_array(n, f) && f->is_skolem()) return;
+            TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
+            
             get_context().push_trail(value_trail<context, bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;
         }

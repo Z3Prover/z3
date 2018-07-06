@@ -352,7 +352,7 @@ namespace datalog {
                     }
                     if (!new_fi->is_partial()) {
                         TRACE("dl", tout << mk_pp(new_fi->get_else(), m) << "\n";);
-                        vs(new_fi->get_else(), subst.size(), subst.c_ptr(), tmp);
+                        tmp = vs(new_fi->get_else(), subst.size(), subst.c_ptr());
                         old_fi->set_else(tmp);
                     }
                     unsigned num_entries = new_fi->num_entries();
@@ -362,7 +362,7 @@ namespace datalog {
                         func_entry const* e = new_fi->get_entry(j);
                         for (unsigned k = 0, l = 0; k < old_p->get_arity(); ++k) {
                             if (!is_sliced.get(k)) {
-                                vs(e->get_arg(l++), subst.size(), subst.c_ptr(), tmp);
+                                tmp = vs(e->get_arg(l++), subst.size(), subst.c_ptr());
                                 args.push_back(tmp);
                             }
                             else {
@@ -370,7 +370,7 @@ namespace datalog {
                             }
                             SASSERT(l <= new_p->get_arity());
                         }
-                        vs(e->get_result(), subst.size(), subst.c_ptr(), res);
+                        res = vs(e->get_result(), subst.size(), subst.c_ptr());
                         old_fi->insert_entry(args.c_ptr(), res.get());
                     }
                     old_model->register_decl(old_p, old_fi);

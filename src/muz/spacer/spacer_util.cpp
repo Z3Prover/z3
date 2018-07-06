@@ -666,9 +666,6 @@ namespace {
             flatten_and(out, v);
 
             if (v.size() > 1) {
-                // sort arguments of the top-level and
-                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), ast_lt_proc());
-
                 if (use_simplify_bounds) {
                     // remove redundant inequalities
                     simplify_bounds(v);
@@ -680,6 +677,8 @@ namespace {
                     v.reset();
                     egraph.to_lits(v);
                 }
+                // sort arguments of the top-level and
+                std::stable_sort(v.c_ptr(), v.c_ptr() + v.size(), ast_lt_proc());
 
                 TRACE("spacer_normalize",
                       tout << "Normalized:\n"
@@ -690,7 +689,7 @@ namespace {
                       qe::term_graph egraph(out.m());
                       for (expr* e : v) egraph.add_lit(to_app(e));
                       tout << "Reduced app:\n"
-                      << mk_pp(egraph.to_app(), out.m()) << "\n";);
+                      << mk_pp(egraph.to_expr(), out.m()) << "\n";);
                 out = mk_and(v);
             }
         }
@@ -785,7 +784,7 @@ namespace {
 
     void ground_expr(expr *e, expr_ref &out, app_ref_vector &vars) {
         expr_free_vars fv;
-        ast_manager &m = out.get_manager();
+        ast_manager &m = out.m();
 
         fv(e);
         if (vars.size() < fv.size()) {
@@ -795,7 +794,7 @@ namespace {
             sort *s = fv[i] ? fv[i] : m.mk_bool_sort();
             vars[i] = mk_zk_const(m, i, s);
             var_subst vs(m, false);
-            vs(e, vars.size(),(expr * *) vars.c_ptr(), out);
+            out = vs(e, vars.size(),(expr * *) vars.c_ptr());
         }
     }
 
@@ -900,17 +899,22 @@ namespace {
     struct collect_indices {
         app_ref_vector& m_indices;
         array_util      a;
-        collect_indices(app_ref_vector& indices): m_indices(indices), a(indices.get_manager()) {}
+        collect_indices(app_ref_vector& indices): m_indices(indices),
+                                                  a(indices.get_manager()) {}
         void operator()(expr* n) {}
         void operator()(app* n) {
-            if (a.is_select(n))
-                for (unsigned i = 1; i < n->get_num_args(); ++i)
-                    if (is_app(n->get_arg(i)))
-                        m_indices.push_back(to_app(n->get_arg(i)));
+            if (a.is_select(n)) {
+                // for all but first argument
+                for (unsigned i = 1; i < n->get_num_args(); ++i) {
+                    expr *arg = n->get_arg(i);
+                    if (is_app(arg))
+                        m_indices.push_back(to_app(arg));
+                }
+            }
         }
     };
 
-    void get_select_indices(expr* fml, app_ref_vector &indices, ast_manager& m) {
+    void get_select_indices(expr* fml, app_ref_vector &indices) {
         collect_indices ci(indices);
         for_each_expr(ci, fml);
     }

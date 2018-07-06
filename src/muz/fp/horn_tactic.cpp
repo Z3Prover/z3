@@ -211,7 +211,7 @@ class horn_tactic : public tactic {
                 default:
                     msg << "formula is not in Horn fragment: " << mk_pp(g->form(i), m) << "\n";
                     TRACE("horn", tout << msg.str(););
-                    throw tactic_exception(msg.str().c_str());
+                    throw tactic_exception(msg.str());
                 }
             }
 

@@ -23,7 +23,6 @@ Author:
 #include "ast/ast_pp.h"
 #include "tactic/generic_model_converter.h"
 #include "ast/ast_util.h"
-#include "tactic/extension_model_converter.h"
 
 namespace datalog {
     rule_set * mk_coi_filter::operator()(rule_set const & source) {

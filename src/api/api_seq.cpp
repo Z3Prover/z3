@@ -107,7 +107,7 @@ extern "C" {
         RESET_ERROR_CODE();
         zstring str;
         if (!mk_c(c)->sutil().str.is_string(to_expr(s), str)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "expression is not a string literal");
             return "";
         }
         std::string result = str.encode();

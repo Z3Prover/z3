@@ -27,9 +27,10 @@ Revision History:
 #include "util/event_handler.h"
 #include "util/scoped_timer.h"
 
-scoped_timer * g_timeout = nullptr;
-void (* g_on_timeout)() = nullptr;
+static scoped_timer * g_timeout = nullptr;
+static void (* g_on_timeout)() = nullptr;
 
+namespace {
 class g_timeout_eh : public event_handler {
 public:
     void operator()(event_handler_caller_t caller_id) override {
@@ -46,6 +47,7 @@ public:
         }
     }
 };
+}
 
 void set_timeout(long ms) {
     if (g_timeout) 

@@ -109,10 +109,17 @@ protected:
             m_stats["quantifiers"]++;
             SASSERT(is_app(q->get_expr()));
             app * body = to_app(q->get_expr());
-            if (q->is_forall())
+            switch (q->get_kind()) {
+            case forall_k:
                 m_stats["forall-variables"] += q->get_num_decls();
-            else
+                break;
+            case exists_k:
                 m_stats["exists-variables"] += q->get_num_decls();
+                break;
+            case lambda_k:
+                m_stats["lambda-variables"] += q->get_num_decls();
+                break;
+            }
             m_stats["patterns"] += q->get_num_patterns();
             m_stats["no-patterns"] += q->get_num_no_patterns();
             m_qdepth++;

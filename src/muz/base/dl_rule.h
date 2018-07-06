@@ -82,12 +82,10 @@ namespace datalog {
         quantifier_finder_proc() : m_exist(false), m_univ(false) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) {
-            if (n->is_forall()) {
-                m_univ = true;
-            }
-            else {
-                SASSERT(n->is_exists());
-                m_exist = true;
+            switch (n->get_kind()) {
+            case forall_k: m_univ = true; break;
+            case exists_k: m_exist = true; break;
+            case lambda_k: UNREACHABLE();
             }
         }
         void operator()(app * n) { }

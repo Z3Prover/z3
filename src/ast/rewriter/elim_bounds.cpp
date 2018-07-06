@@ -114,7 +114,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
                                      expr * const * new_no_patterns,
                                      expr_ref & result,
                                      proof_ref & result_pr) {
-    if (!q->is_forall()) {
+    if (!is_forall(q)) {
         return false;
     }
     unsigned num_vars = q->get_num_decls();
@@ -194,7 +194,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
     }
     quantifier_ref new_q(m);
     new_q = m.update_quantifier(q, new_body);
-    elim_unused_vars(m, new_q, params_ref(), result);
+    result = elim_unused_vars(m, new_q, params_ref());
     result_pr = m.mk_rewrite(q, result);
     TRACE("elim_bounds", tout << mk_pp(q, m) << "\n" << result << "\n";);
     return true;

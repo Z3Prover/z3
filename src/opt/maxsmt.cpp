@@ -449,7 +449,6 @@ namespace opt {
         }
         lbool r = maxsmt();
         if (r == l_true) {
-            ast_manager& m = m_solver->get_manager();
             svector<symbol> labels;
             maxsmt.get_model(m_model, labels);
             // TBD: is m_fm applied or not?

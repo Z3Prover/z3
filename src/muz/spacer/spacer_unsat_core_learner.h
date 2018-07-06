@@ -22,6 +22,7 @@ Revision History:
 #include "ast/ast.h"
 #include "muz/spacer/spacer_util.h"
 #include "muz/spacer/spacer_proof_utils.h"
+#include "muz/spacer/spacer_iuc_proof.h"
 
 namespace spacer {
 
@@ -31,13 +32,32 @@ namespace spacer {
     class unsat_core_learner {
         typedef obj_hashtable<expr> expr_set;
 
+        ast_manager& m;
+        iuc_proof&   m_pr;
+
+        ptr_vector<unsat_core_plugin> m_plugins;
+        ast_mark m_closed;
+
+        expr_ref_vector m_unsat_core;
+
     public:
         unsat_core_learner(ast_manager& m, iuc_proof& pr) :
             m(m), m_pr(pr), m_unsat_core(m) {};
         virtual ~unsat_core_learner();
 
-        ast_manager& m;
-        iuc_proof&   m_pr;
+        ast_manager& get_manager() {return m;}
+
+
+        bool is_a(proof *pr) {
+            // AG: treat hypotheses as A
+            // AG: assume that all B-hyp have been eliminated
+            // AG: this is not yet true in case of arithmetic eq_prop
+            return m_pr.is_a_marked(pr) || is_h(pr);
+        }
+        bool is_b(proof *pr) {return m_pr.is_b_marked(pr);}
+        bool is_h(proof *pr) {return m_pr.is_h_marked(pr);}
+        bool is_b_pure(proof *pr) { return m_pr.is_b_pure(pr);}
+        bool is_b_open(proof *p) {return m_pr.is_b_marked(p) && !is_closed (p);}
 
         /*
          * register a plugin for computation of partial unsat cores
@@ -59,7 +79,6 @@ namespace spacer {
         bool is_closed(proof* p);
         void set_closed(proof* p, bool value);
 
-        bool is_b_open (proof *p);
 
         /*
          * adds a lemma to the unsat core
@@ -67,14 +86,6 @@ namespace spacer {
         void add_lemma_to_core(expr* lemma);
 
     private:
-        ptr_vector<unsat_core_plugin> m_plugins;
-        ast_mark m_closed;
-
-        /*
-         * collects the lemmas of the unsat-core
-         * will at the end be inserted into unsat_core.
-         */
-        expr_ref_vector m_unsat_core;
 
         /*
          * computes partial core for step by delegating computation to plugins

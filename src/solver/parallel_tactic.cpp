@@ -635,7 +635,7 @@ private:
             t.join();
         m_manager.limit().reset_cancel();
         if (m_exn_code == -1) 
-            throw default_exception(m_exn_msg);
+            throw default_exception(std::move(m_exn_msg));
         if (m_exn_code != 0) 
             throw z3_error(m_exn_code);            
         if (!m_models.empty()) {

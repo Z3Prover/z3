@@ -1963,7 +1963,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<IntExpr>() != null);
 
             CheckContextMatch(t);
-            return new IntExpr(this, Native.Z3_mk_bv2int(nCtx, t.NativeObject, (signed) ? 1 : 0));
+            return new IntExpr(this, Native.Z3_mk_bv2int(nCtx, t.NativeObject, (byte)(signed ? 1 : 0)));
         }
 
         /// <summary>
@@ -1980,7 +1980,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.Z3_mk_bvadd_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned) ? 1 : 0));
+            return new BoolExpr(this, Native.Z3_mk_bvadd_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (byte)(isSigned ? 1 : 0)));
         }
 
         /// <summary>
@@ -2031,7 +2031,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.Z3_mk_bvsub_no_underflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned) ? 1 : 0));
+            return new BoolExpr(this, Native.Z3_mk_bvsub_no_underflow(nCtx, t1.NativeObject, t2.NativeObject, (byte)(isSigned ? 1 : 0)));
         }
 
         /// <summary>
@@ -2080,7 +2080,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.Z3_mk_bvmul_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned) ? 1 : 0));
+            return new BoolExpr(this, Native.Z3_mk_bvmul_no_overflow(nCtx, t1.NativeObject, t2.NativeObject, (byte)(isSigned ? 1 : 0)));
         }
 
         /// <summary>
@@ -2777,25 +2777,25 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create an at-most-k constraint.
         /// </summary>
-        public BoolExpr MkAtMost(BoolExpr[] args, uint k)
+        public BoolExpr MkAtMost(IEnumerable<BoolExpr> args, uint k)
         {
            Contract.Requires(args != null);
            Contract.Requires(Contract.Result<BoolExpr[]>() != null);
            CheckContextMatch<BoolExpr>(args);
-           return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Length,
-                                                          AST.ArrayToNative(args), k));
+           return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Count(),
+                                                          AST.EnumToNative(args), k));
         }
 
         /// <summary>
         /// Create an at-least-k constraint.
         /// </summary>
-        public BoolExpr MkAtLeast(BoolExpr[] args, uint k)
+        public BoolExpr MkAtLeast(IEnumerable<BoolExpr> args, uint k)
         {
            Contract.Requires(args != null);
            Contract.Requires(Contract.Result<BoolExpr[]>() != null);
            CheckContextMatch<BoolExpr>(args);
-           return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) args.Length,
-                                                          AST.ArrayToNative(args), k));
+           return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) args.Count(),
+                                                          AST.EnumToNative(args), k));
         }
 
         /// <summary>
@@ -3135,8 +3135,8 @@ namespace Microsoft.Z3
         public BitVecNum MkBV(bool[] bits)
         {
             Contract.Ensures(Contract.Result<BitVecNum>() != null);
-            int[] _bits = new int[bits.Length];
-            for (int i = 0; i < bits.Length; ++i) _bits[i] = bits[i] ? 1 : 0;	
+            byte[] _bits = new byte[bits.Length];
+            for (int i = 0; i < bits.Length; ++i) _bits[i] = (byte)(bits[i] ? 1 : 0);
             return (BitVecNum)Expr.Create(this, Native.Z3_mk_bv_numeral(nCtx, (uint)bits.Length, _bits));
         }
 
@@ -3291,6 +3291,53 @@ namespace Microsoft.Z3
             else
                 return MkExists(boundConstants, body, weight, patterns, noPatterns, quantifierID, skolemID);
         }
+
+        /// <summary>
+        /// Create a lambda expression.
+        /// </summary>
+        /// <remarks>
+        /// Creates a lambda expression.
+        /// <paramref name="sorts"/> is an array
+        /// with the sorts of the bound variables, <paramref name="names"/> is an array with the
+        /// 'names' of the bound variables, and <paramref name="body"/> is the body of the
+        /// lambda. 
+        /// Note that the bound variables are de-Bruijn indices created using <see cref="MkBound"/>.
+        /// Z3 applies the convention that the last element in <paramref name="names"/> and
+        /// <paramref name="sorts"/> refers to the variable with index 0, the second to last element
+        /// of <paramref name="names"/> and <paramref name="sorts"/> refers to the variable
+        /// with index 1, etc.
+        /// </remarks>
+        /// <param name="sorts">the sorts of the bound variables.</param>
+        /// <param name="names">names of the bound variables</param>
+        /// <param name="body">the body of the quantifier.</param>
+        public Lambda MkLambda(Sort[] sorts, Symbol[] names, Expr body)
+        {
+            Contract.Requires(sorts != null);
+            Contract.Requires(names != null);
+            Contract.Requires(body != null);
+            Contract.Requires(sorts.Length == names.Length);
+            Contract.Requires(Contract.ForAll(sorts, s => s != null));
+            Contract.Requires(Contract.ForAll(names, n => n != null));
+            Contract.Ensures(Contract.Result<Lambda>() != null);
+            return new Lambda(this, sorts, names, body);
+        }
+
+        /// <summary>
+        /// Create a lambda expression.
+        /// </summary>
+        /// <remarks>
+        /// Creates a lambda expression using a list of constants that will
+        /// form the set of bound variables.
+        /// <seealso cref="MkLambda(Sort[], Symbol[], Expr)"/>
+        /// </remarks>
+        public Lambda MkLambda(Expr[] boundConstants, Expr body)
+        {
+            Contract.Requires(body != null);
+            Contract.Requires(boundConstants != null && Contract.ForAll(boundConstants, b => b != null));
+            Contract.Ensures(Contract.Result<Lambda>() != null);
+            return new Lambda(this, boundConstants, body);
+        }
+
 
         #endregion
 
@@ -4139,7 +4186,7 @@ namespace Microsoft.Z3
         public FPNum MkFPInf(FPSort s, bool negative)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_inf(nCtx, s.NativeObject, negative ? 1 : 0));
+            return new FPNum(this, Native.Z3_mk_fpa_inf(nCtx, s.NativeObject, (byte)(negative ? 1 : 0)));
         }
 
         /// <summary>
@@ -4150,7 +4197,7 @@ namespace Microsoft.Z3
         public FPNum MkFPZero(FPSort s, bool negative)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_zero(nCtx, s.NativeObject, negative ? 1 : 0));
+            return new FPNum(this, Native.Z3_mk_fpa_zero(nCtx, s.NativeObject, (byte)(negative  ? 1 : 0)));
         }
 
         /// <summary>
@@ -4196,7 +4243,7 @@ namespace Microsoft.Z3
         public FPNum MkFPNumeral(bool sgn, uint sig, int exp, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_numeral_int_uint(nCtx, sgn ? 1 : 0, exp, sig, s.NativeObject));
+            return new FPNum(this, Native.Z3_mk_fpa_numeral_int_uint(nCtx, (byte)(sgn  ? 1 : 0), exp, sig, s.NativeObject));
         }
 
         /// <summary>
@@ -4209,7 +4256,7 @@ namespace Microsoft.Z3
         public FPNum MkFPNumeral(bool sgn, Int64 exp, UInt64 sig, FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMExpr>() != null);
-            return new FPNum(this, Native.Z3_mk_fpa_numeral_int64_uint64(nCtx, sgn ? 1 : 0, exp, sig, s.NativeObject));
+            return new FPNum(this, Native.Z3_mk_fpa_numeral_int64_uint64(nCtx, (byte)(sgn  ? 1 : 0), exp, sig, s.NativeObject));
         }
 
         /// <summary>

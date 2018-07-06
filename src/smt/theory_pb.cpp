@@ -752,9 +752,10 @@ namespace smt {
     class theory_pb::card_justification : public justification {
         card& m_card;
         family_id m_fid;
+        literal m_lit;
     public:
-        card_justification(card& c, family_id fid)
-            : justification(true), m_card(c), m_fid(fid) {}
+        card_justification(card& c, literal lit, family_id fid)
+            : justification(true), m_card(c), m_fid(fid), m_lit(lit) {}
 
         card& get_card() { return m_card; }
 
@@ -769,7 +770,28 @@ namespace smt {
             return m_fid;
         }
         
-        virtual proof* mk_proof(smt::conflict_resolution& cr) { return 0; }
+        virtual proof* mk_proof(smt::conflict_resolution& cr) { 
+            ptr_buffer<proof> prs;
+            ast_manager& m = cr.get_context().get_manager(); 
+            expr_ref fact(m);
+            cr.get_context().literal2expr(m_lit, fact);
+            bool all_valid = true;
+            proof* pr = nullptr;
+            pr = cr.get_proof(m_card.lit());
+            all_valid &= pr != nullptr;
+            prs.push_back(pr);
+            for (unsigned i = m_card.k(); i < m_card.size(); ++i) {
+                pr = cr.get_proof(~m_card.lit(i));
+                all_valid &= pr != nullptr;
+                prs.push_back(pr);
+            }
+            if (!all_valid) {
+                return nullptr;
+            }
+            else {
+                return m.mk_th_lemma(m_fid, fact, prs.size(), prs.c_ptr());
+            }
+        }
 
 
     };
@@ -940,11 +962,11 @@ namespace smt {
         m_stats.m_num_conflicts++;
         context& ctx = get_context();
         justification* js = 0;
-        if (proofs_enabled()) {
-            js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
-        }
         c.inc_propagations(*this);
         if (!resolve_conflict(c, lits)) {
+			if (proofs_enabled()) {
+				js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
+			}
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         }
         SASSERT(ctx.inconsistent());
@@ -959,7 +981,7 @@ namespace smt {
         m_stats.m_num_propagations++;
         TRACE("pb", tout << "#prop: " << c.num_propagations() << " - " << c.lit() << " => " << l << "\n";);
         SASSERT(validate_unit_propagation(c));
-        ctx.assign(l, ctx.mk_justification(card_justification(c, get_id())));
+        ctx.assign(l, ctx.mk_justification(card_justification(c, l, get_id())));
     }
 
     void theory_pb::clear_watch(card& c) {

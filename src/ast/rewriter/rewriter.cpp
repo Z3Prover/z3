@@ -208,12 +208,10 @@ void rewriter_core::cleanup() {
 
 #ifdef _TRACE
 void rewriter_core::display_stack(std::ostream & out, unsigned pp_depth) {
-    svector<frame>::iterator it  = m_frame_stack.begin();
-    svector<frame>::iterator end = m_frame_stack.end();
-    for (; it != end; ++it) {
-        out << mk_bounded_pp(it->m_curr, m(), pp_depth) << "\n";
-        out << "state: " << it->m_state << "\n";
-        out << "cache: " << it->m_cache_result << ", new_child: " << it->m_new_child << ", max-depth: " << it->m_max_depth << ", i: " << it->m_i << "\n";
+    for (frame& f : m_frame_stack) {
+        out << mk_bounded_pp(f.m_curr, m(), pp_depth) << "\n";
+        out << "state: " << f.m_state << "\n";
+        out << "cache: " << f.m_cache_result << ", new_child: " << f.m_new_child << ", max-depth: " << f.m_max_depth << ", i: " << f.m_i << "\n";
         out << "------------------\n";
     }
 }

@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "cmd_context/pdecl.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/ast_pp.h"
 #include <sstream>
 using namespace format_ns;
 
@@ -768,9 +769,8 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
         }
         else {
             out << "(" << m_decl->get_name();
-            for (unsigned i = 0; i < m_args.size(); i++) {
-                out << " ";
-                m.display(out, m_args[i]);
+            for (auto arg : m_args) {
+                m.display(out << " ", arg);
             }
             out << ")";
         }
@@ -782,8 +782,8 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
         }
         else {
             ptr_buffer<format> b;
-            for (unsigned i = 0; i < m_args.size(); i++)
-                b.push_back(m.pp(m_args[i]));
+            for (auto arg : m_args)
+                b.push_back(m.pp(arg));
             return mk_seq1(m.m(), b.begin(), b.end(), f2f(), m_decl->get_name().str().c_str());
         }
     }
@@ -807,8 +807,8 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
         }
         else {
             out << "(_ " << m_decl->get_name();
-            for (unsigned i = 0; i < m_indices.size(); i++) {
-                out << " " << m_indices[i];
+            for (auto idx : m_indices)  {
+                out << " " << idx;
             }
             out << ")";
         }
@@ -821,8 +821,8 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
         else {
             ptr_buffer<format> b;
             b.push_back(mk_string(m.m(), m_decl->get_name().str().c_str()));
-            for (unsigned i = 0; i < m_indices.size(); i++)
-                b.push_back(mk_unsigned(m.m(), m_indices[i]));
+            for (auto idx : m_indices)
+                b.push_back(mk_unsigned(m.m(), idx));
             return mk_seq1(m.m(), b.begin(), b.end(), f2f(), "_");
         }
     }
@@ -853,6 +853,15 @@ pdecl_manager::pdecl_manager(ast_manager & m):
 pdecl_manager::~pdecl_manager() {
     dec_ref(m_list);
     reset_sort_info();
+    for (auto const& kv : m_sort2psort) {
+        del_decl_core(kv.m_value);
+        TRACE("pdecl_manager", tout << "orphan: " << mk_pp(kv.m_key, m()) << "\n";);
+    }
+    for (auto* p : m_table) {
+        del_decl_core(p);
+    }
+    m_sort2psort.reset();
+    m_table.reset();
     SASSERT(m_sort2psort.empty());
     SASSERT(m_table.empty());
 }
@@ -946,13 +955,15 @@ void pdecl_manager::del_decl_core(pdecl * p) {
 }
 
 void pdecl_manager::del_decl(pdecl * p) {
-    TRACE("register_psort", tout << "del psort "; p->display(tout); tout << "\n";);   
+    TRACE("pdecl_manager", tout << "del psort "; p->display(tout); tout << "\n";);   
     if (p->is_psort()) {
         psort * _p = static_cast<psort*>(p);
-        if (_p->is_sort_wrapper())
+        if (_p->is_sort_wrapper()) {
             m_sort2psort.erase(static_cast<psort_sort*>(_p)->get_sort());
-        else
+        }
+        else {
             m_table.erase(_p);
+        }
     }
     del_decl_core(p);
 }

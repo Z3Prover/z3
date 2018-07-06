@@ -27,6 +27,24 @@ Version 4.8.0
      Use sat.acce=true to enable the full repertoire of inprocessing methods. By default, clauses that are "eliminated" by acce are tagged
      as lemmas (redundant) and are garbage collected if their glue level is high.
    - Substantial overhaul of the spacer horn clause engine.
+   - Added basic features to support Lambda bindings.
+   - Added model compression to eliminate local function definitions in models when
+     inlining them does not incur substantial overhead. The old behavior, where models are left
+     uncompressed can be replayed by setting the top-level parameter model_compress=false.
+   - Integration of a new solver for linear integer arithmetic and mixed linear integer arithmetic by Lev Nachmanson.
+     It incorporates several improvements to QF_LIA solving based on
+     . using a better LP engine, which is already the foundation for QF_LRA
+     . including cuts based on Hermite Normal Form (thanks to approaches described 
+       in "cuts from proofs" and "cutting the mix").
+     . extracting integer solutions from LP solutions by tightening bounds selectively.
+       We use a generalization of Bromberger and Weidenbach that allows avoiding selected
+       bounds tighthenings (https://easychair.org/publications/paper/qGfG).
+     It solves significantly more problems in the QF_LIA category and may at this point also 
+     be the best solver for your problem as well.
+     The new solver is enabled only for select SMT-LIB logics. These include QF_LIA, QF_IDL, and QF_UFLIA.
+     Other theories (still) use the legacy solver for arithmetic. You can enable the new solver by setting
+     the parameter smt.arith.solver=6 to give it a spin.
+
 
 - Removed features:
   - interpolation API

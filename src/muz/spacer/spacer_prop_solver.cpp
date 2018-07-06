@@ -56,6 +56,7 @@ prop_solver::prop_solver(ast_manager &m,
     m_use_push_bg(p.spacer_keep_proxy())
 {
 
+    m_random.set_seed(p.spacer_random_seed());
     m_solvers[0] = solver0;
     m_solvers[1] = solver1;
 
@@ -362,6 +363,8 @@ lbool prop_solver::check_assumptions(const expr_ref_vector & _hard,
     expr_ref_vector hard(m);
     hard.append(_hard.size(), _hard.c_ptr());
     flatten_and(hard);
+
+    shuffle(hard.size(), hard.c_ptr(), m_random);
 
     m_ctx = m_contexts [solver_id == 0 ? 0 : 0 /* 1 */].get();
 

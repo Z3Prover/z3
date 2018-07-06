@@ -125,7 +125,7 @@ struct bv_trailing::imp {
         for (unsigned i = 0; i < num; ++i) {
             expr * const curr = a->get_arg(i);
             VERIFY(to_rm == remove_trailing(curr, to_rm, tmp, depth - 1));
-            new_args.push_back(tmp);
+            new_args.push_back(std::move(tmp));
         }
         result = m.mk_app(m_util.get_fid(), OP_BADD, new_args.size(), new_args.c_ptr());
         return to_rm;
@@ -150,7 +150,7 @@ struct bv_trailing::imp {
         numeral c_val;
         unsigned c_sz;
         if (!m_util.is_numeral(tmp, c_val, c_sz) || !c_val.is_one())
-            new_args.push_back(tmp);
+            new_args.push_back(std::move(tmp));
         const unsigned sz = m_util.get_bv_size(coefficient);
         const unsigned new_sz = sz - retv;
 
@@ -204,7 +204,7 @@ struct bv_trailing::imp {
         expr_ref_vector new_args(m);
         for (unsigned j = 0; j < i; ++j)
             new_args.push_back(a->get_arg(j));
-        if (new_last) new_args.push_back(new_last);
+        if (new_last) new_args.push_back(std::move(new_last));
         result = new_args.size() == 1 ? new_args.get(0)
                                       : m_util.mk_concat(new_args.size(), new_args.c_ptr());
         return retv;

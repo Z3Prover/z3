@@ -150,7 +150,7 @@ bool smt_logics::logic_has_horn(symbol const& s) {
 }
 
 bool smt_logics::logic_has_pb(symbol const& s) {
-    return s == "QF_FD" || s == "ALL";
+    return s == "QF_FD" || s == "ALL" || logic_has_horn(s);
 }
 
 bool smt_logics::logic_has_datatype(symbol const& s) {

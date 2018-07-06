@@ -67,9 +67,6 @@ default_exception::default_exception(fmt, char const* msg, ...) {
     m_msg = out.str();
 }
 
-default_exception::default_exception(std::string const & msg): m_msg(msg) {
-}
-
 char const * default_exception::msg() const { 
     return m_msg.c_str(); 
 }

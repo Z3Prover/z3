@@ -147,7 +147,7 @@ void model2expr(model& md, expr_ref& result) {
         }
         if (f->get_arity() > 0) {
             var_subst vs(m, false);
-            vs(tmp, rev_vars.size(), rev_vars.c_ptr(), tmp);
+            tmp = vs(tmp, rev_vars.size(), rev_vars.c_ptr());
             tmp = m.mk_forall(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp);
         }
         conjs.push_back(tmp);

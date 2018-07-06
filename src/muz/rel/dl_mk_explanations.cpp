@@ -471,8 +471,7 @@ namespace datalog {
                 SASSERT(!r.is_undefined(i) || !contains_var(m_new_rule, i));
                 subst_arg[ofs-i] = r.m_data.get(i);
             }
-            expr_ref res(m_manager);
-            m_subst(m_new_rule, subst_arg.size(), subst_arg.c_ptr(), res);
+            expr_ref res = m_subst(m_new_rule, subst_arg.size(), subst_arg.c_ptr());
             r.m_data[m_col_idx] = to_app(res);
         }
     };

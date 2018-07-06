@@ -75,7 +75,7 @@ class top_sort {
 
 public:
 
-    ~top_sort() {
+    virtual ~top_sort() {
         for (auto & kv : m_deps) dealloc(kv.m_value);
     }
 
@@ -96,6 +96,20 @@ public:
     }
 
     ptr_vector<T> const& top_sorted() { return m_top_sorted; }    
+
+    obj_map<T, unsigned> const& partition_ids() const { return m_partition_id; }
+
+    unsigned partition_id(T* t) const { return m_partition_id[t]; }
+
+    bool is_singleton_partition(T* f) const {
+        unsigned pid = m_partition_id[f];
+        return f == m_top_sorted[pid] &&
+            (pid == 0 || m_partition_id[m_top_sorted[pid-1]] != pid) && 
+            (pid + 1 == m_top_sorted.size() || m_partition_id[m_top_sorted[pid+1]] != pid);        
+    }
+
+    obj_map<T, T_set*> const& deps() const { return m_deps; }
+
 };
 
 #endif /* TOP_SORT_H_ */

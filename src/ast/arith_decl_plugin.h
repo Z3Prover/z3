@@ -229,7 +229,7 @@ public:
     family_id get_family_id() const { return m_afid; }
 
     bool is_arith_expr(expr const * n) const { return is_app(n) && to_app(n)->get_family_id() == m_afid; }
-    bool is_irrational_algebraic_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); }
+    bool is_irrational_algebraic_numeral(expr const * n) const;
     bool is_numeral(expr const * n, rational & val, bool & is_int) const;
     bool is_numeral(expr const * n, rational & val) const { bool is_int; return is_numeral(n, val, is_int); }
     bool is_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_NUM); }
@@ -338,8 +338,7 @@ public:
         return plugin().am();
     }
 
-    bool is_irrational_algebraic_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); }
-    bool is_irrational_algebraic_numeral(expr const * n, algebraic_numbers::anum & val);
+    bool is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val);
     algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
 
     sort * mk_int() { return m_manager.mk_sort(m_afid, INT_SORT); }
@@ -535,3 +534,4 @@ inline app_ref operator>(app_ref const& x, app_ref const& y) {
 }
 
 #endif /* ARITH_DECL_PLUGIN_H_ */
+

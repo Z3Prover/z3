@@ -33,7 +33,7 @@ public:
     bool is_h_marked(proof* p) {return m_h_mark.is_marked(p);}
 
     bool is_b_pure (proof *p) {
-        return !is_h_marked (p) && is_core_pure(m.get_fact (p));
+        return !is_h_marked (p) && !this->is_a_marked(p) && is_core_pure(m.get_fact (p));
     }
 
     void display_dot(std::ostream &out);

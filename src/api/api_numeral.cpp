@@ -40,7 +40,7 @@ bool is_numeral_sort(Z3_context c, Z3_sort ty) {
 bool check_numeral_sort(Z3_context c, Z3_sort ty) {
     bool is_num = is_numeral_sort(c, ty);
     if (!is_num) {
-        SET_ERROR_CODE(Z3_INVALID_ARG);
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
     }
     return is_num;
 }
@@ -55,7 +55,7 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         if (!n) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         sort * _ty = to_sort(ty);
@@ -72,7 +72,7 @@ extern "C" {
                     (('p' == *m) ||
                      ('P' == *m) ||
                      ('+' == *m))))) {
-                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
                 RETURN_Z3(nullptr);
             }
             ++m;
@@ -162,7 +162,7 @@ extern "C" {
         RESET_ERROR_CODE();
         expr* e = to_expr(a);
         if (!e) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
         }
         if (mk_c(c)->autil().is_numeral(e, r)) {
@@ -221,7 +221,7 @@ extern "C" {
                 return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
             }
             else {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
                 return "";
             }
         }
@@ -234,7 +234,7 @@ extern "C" {
         RESET_ERROR_CODE();
         expr* e = to_expr(a);
         if (!e) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return "";
         }
         rational r;
@@ -256,7 +256,7 @@ extern "C" {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return "";
         }
         Z3_CATCH_RETURN("");
@@ -281,7 +281,7 @@ extern "C" {
                 return Z3_FALSE;
             }
         }
-        SET_ERROR_CODE(Z3_INVALID_ARG);
+        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
         return Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
     }
@@ -293,7 +293,7 @@ extern "C" {
         LOG_Z3_get_numeral_int(c, v, i);
         RESET_ERROR_CODE();
         if (!i) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
         }
         int64_t l;
@@ -311,7 +311,7 @@ extern "C" {
         LOG_Z3_get_numeral_uint(c, v, u);
         RESET_ERROR_CODE();
         if (!u) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
         }
         uint64_t l;
@@ -329,7 +329,7 @@ extern "C" {
         LOG_Z3_get_numeral_uint64(c, v, u);
         RESET_ERROR_CODE();
         if (!u) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
         }
         rational r;
@@ -349,7 +349,7 @@ extern "C" {
         LOG_Z3_get_numeral_int64(c, v, i);
         RESET_ERROR_CODE();
         if (!i) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
         }
         rational r;
@@ -368,7 +368,7 @@ extern "C" {
         LOG_Z3_get_numeral_rational_int64(c, v, num, den);
         RESET_ERROR_CODE();
         if (!num || !den) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
         }
         rational r;

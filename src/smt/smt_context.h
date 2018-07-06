@@ -117,6 +117,7 @@ namespace smt {
         plugin_manager<theory>      m_theories;     // mapping from theory_id -> theory
         ptr_vector<theory>          m_theory_set;   // set of theories for fast traversal
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
+        enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
         dyn_ack_manager             m_dyn_ack_manager;
         struct new_eq {
@@ -457,6 +458,8 @@ namespace smt {
         theory * get_theory(theory_id th_id) const {
             return m_theories.get_plugin(th_id);
         }
+        
+        ptr_vector<theory> const& theories() const { return m_theories.plugins(); }
 
         ptr_vector<theory>::const_iterator begin_theories() const {
             return m_theories.begin();
@@ -518,6 +521,11 @@ namespace smt {
             return id < m_decl2enodes.size() ? m_decl2enodes[id].size() : 0;
         }
 
+        enode_vector const& enodes_of(func_decl const * d) const {
+            unsigned id = d->get_decl_id();
+            return id < m_decl2enodes.size() ? m_decl2enodes[id] : m_empty_vector;
+        }
+
         enode_vector::const_iterator begin_enodes_of(func_decl const * decl) const {
             unsigned id = decl->get_decl_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].begin() : nullptr;
@@ -527,6 +535,8 @@ namespace smt {
             unsigned id = decl->get_decl_id();
             return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : nullptr;
         }
+
+        ptr_vector<enode> const& enodes() const { return m_enodes; }
 
         ptr_vector<enode>::const_iterator begin_enodes() const {
             return m_enodes.begin();
@@ -554,8 +564,8 @@ namespace smt {
             return m_asserted_formulas.has_quantifiers();
         }
 
-        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
-            return m_fingerprints.insert(data, data_hash, num_args, args);
+        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = 0) {
+            return m_fingerprints.insert(data, data_hash, num_args, args, def);
         }
 
         theory_id get_var_theory(bool_var v) const {
@@ -736,6 +746,8 @@ namespace smt {
         bool internalize_theory_atom(app * n, bool gate_ctx);
 
         void internalize_quantifier(quantifier * q, bool gate_ctx);
+
+        void internalize_lambda(quantifier * q);
 
         void internalize_formula_core(app * n, bool gate_ctx);
 
@@ -958,7 +970,7 @@ namespace smt {
 
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
-        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation,
+        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
                           unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }
@@ -1104,8 +1116,6 @@ namespace smt {
 
         void internalize_assertions();
 
-        void assert_assumption(expr * a);
-
         bool validate_assumptions(expr_ref_vector const& asms);
 
         void init_assumptions(expr_ref_vector const& asms);
@@ -1117,8 +1127,6 @@ namespace smt {
         void reset_tmp_clauses();
 
         void reset_assumptions();
-
-        void reset_clause();
 
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
@@ -1573,8 +1581,6 @@ namespace smt {
         void get_asserted_formulas(ptr_vector<expr>& r) const { m_asserted_formulas.get_assertions(r); }
 
         //proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
-
-        void get_assumptions_core(ptr_vector<expr> & result);
 
         void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
 

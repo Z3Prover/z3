@@ -236,7 +236,7 @@ lbool context::gpdr_solve_core() {
     for (lvl = 0; lvl < max_level; ++lvl) {
         checkpoint();
         IF_VERBOSE(1,verbose_stream() << "GPDR Entering level "<< lvl << "\n";);
-        STRACE("spacer.expand-add", tout << "\n* LEVEL " << lvl << "\n";);
+        STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
         m_expanded_lvl = infty_level();
         m_stats.m_max_query_lvl = lvl;
         if (gpdr_check_reachability(lvl, ms)) {return l_true;}

@@ -52,7 +52,20 @@ namespace opt {
             }
         }        
         m_coeff = r.m_coeff;
-        if (r.m_type == opt::t_lt) m_coeff += m_div;
+        switch (r.m_type) {
+        case opt::t_lt: 
+            m_coeff += m_div;
+            break;
+        case opt::t_le:
+            // for: ax >= t, then x := (t + a - 1) div a
+            if (m_div.is_pos()) {
+                m_coeff += m_div;
+                m_coeff -= rational::one();
+            }
+            break;
+        default:
+            break;
+        }
         normalize();
         SASSERT(m_div.is_pos());
     }
@@ -253,6 +266,7 @@ namespace opt {
     void model_based_opt::update_value(unsigned x, rational const& val) {
         rational old_val = m_var2value[x];
         m_var2value[x] = val;
+        SASSERT(val.is_int() || !is_int(x));
         unsigned_vector const& row_ids = m_var2row_ids[x];
         for (unsigned row_id : row_ids) {
             rational coeff = get_coefficient(row_id, x);
@@ -517,6 +531,7 @@ namespace opt {
         SASSERT(t_le == dst.m_type && t_le == src.m_type);
         SASSERT(src_c.is_int());
         SASSERT(dst_c.is_int());
+        SASSERT(m_var2value[x].is_int());
 
         rational abs_src_c = abs(src_c);
         rational abs_dst_c = abs(dst_c);            
@@ -792,6 +807,7 @@ namespace opt {
         unsigned v = m_var2value.size();
         m_var2value.push_back(value);
         m_var2is_int.push_back(is_int);
+        SASSERT(value.is_int() || !is_int);
         m_var2row_ids.push_back(unsigned_vector());
         return v;
     }
@@ -976,7 +992,7 @@ namespace opt {
         // There are only upper or only lower bounds.
         if (row_index == UINT_MAX) {
             if (compute_def) {
-                if (lub_index != UINT_MAX) {
+                if (lub_index != UINT_MAX) {                    
                     result = solve_for(lub_index, x, true);
                 }
                 else if (glb_index != UINT_MAX) {
@@ -998,19 +1014,12 @@ namespace opt {
         SASSERT(lub_index != UINT_MAX);
         SASSERT(glb_index != UINT_MAX);
         if (compute_def) {
-#if 0
-            def d1(m_rows[lub_index], x);
-            def d2(m_rows[glb_index], x);
-            result = (d1 + d2)/2;
-#else
             if (lub_size <= glb_size) {
                 result = def(m_rows[lub_index], x);
             }
             else {
                 result = def(m_rows[glb_index], x);
             }
-            m_var2value[x] = eval(result);
-#endif
         }
 
         // The number of matching lower and upper bounds is small.
@@ -1107,8 +1116,7 @@ namespace opt {
         }
         def result = project(y, compute_def);
         if (compute_def) {
-            result = (result * D) + u;      
-            m_var2value[x] = eval(result);
+            result = (result * D) + u;     
         }
         SASSERT(!compute_def || eval(result) == eval(x));
         return result;

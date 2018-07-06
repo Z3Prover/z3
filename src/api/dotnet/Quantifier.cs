@@ -33,7 +33,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsUniversal
         {
-            get { return Native.Z3_is_quantifier_forall(Context.nCtx, NativeObject) != 0; }
+            get { return 0 != Native.Z3_is_quantifier_forall(Context.nCtx, NativeObject); }
         }
 
         /// <summary>
@@ -41,7 +41,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsExistential
         {
-            get { return !IsUniversal; }
+            get { return 0 != Native.Z3_is_quantifier_exists(Context.nCtx, NativeObject); }
         }
 
         /// <summary>
@@ -193,7 +193,7 @@ namespace Microsoft.Z3
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject = Native.Z3_mk_quantifier(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier(ctx.nCtx, (byte)(isForall ? 1 : 0) , weight,
                                            AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                            AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
                                            Symbol.ArrayToNative(names),
@@ -201,7 +201,7 @@ namespace Microsoft.Z3
             }
             else
             {
-                NativeObject = Native.Z3_mk_quantifier_ex(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier_ex(ctx.nCtx, (byte)(isForall ? 1 : 0), weight,
                                   AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
                                   AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                   AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
@@ -229,14 +229,14 @@ namespace Microsoft.Z3
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject = Native.Z3_mk_quantifier_const(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier_const(ctx.nCtx, (byte)(isForall ? 1 : 0) , weight,
                                                  AST.ArrayLength(bound), AST.ArrayToNative(bound),
                                                  AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                                  body.NativeObject);
             }
             else
             {
-                NativeObject = Native.Z3_mk_quantifier_const_ex(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier_const_ex(ctx.nCtx, (byte)(isForall ? 1 : 0), weight,
                                         AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
                                         AST.ArrayLength(bound), AST.ArrayToNative(bound),
                                         AST.ArrayLength(patterns), AST.ArrayToNative(patterns),

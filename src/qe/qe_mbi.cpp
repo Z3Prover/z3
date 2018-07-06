@@ -25,52 +25,6 @@ Notes:
   Other theories: DT, ARR reduced to EUF
   BV is EUF/Boolean.
 
-  Purify EUF1 & LIRA1 & EUF2 & LIRA2
-
-  Then EUF1 & EUF2   |- false
-       LIRA1 & LIRA2 |- false
-
-  Sketch of approach by example:
-
-       A: s <= 2a <= t     & f(a) = q
-
-       B: t <= 2b <= s + 1 & f(b) != q
-
-  1. Extract arithmetic consequences of A over shared vocabulary.
-
-       A -> s <= t & (even(t) | s < t)
-
-  2a. Send to B, have B solve shared variables with EUF_B.
-        epsilon b . B & A_pure
-        epsilon b . t <= 2b <= s + 1 & s <= t & (even(t) | s < t)
-        = t <= s + 1 & (even(t) | t <= s) & s <= t & (even(t) | s < t)
-        = even(t) & t = s
-        b := t div 2
-
-      B & A_pure -> B[b/t div 2] = f(t div 2) != q & t <= s + 1
-
-  3a. Send purified result to A
-      A & B_pure -> false
-
-      Invoke the ping-pong principle to extract interpolant.
-
-  2b. Solve for shared variables with EUF.
-
-    epsilon a . A
-  = a := (s + 1) div 2 & s < t & f((s + 1) div 2) = q
-
-  3b. Send to B. Produces core
-          s < t & f((s + 1) div 2) = q
-
-  4b Solve again in arithmetic for shared variables with EUF.
-
-    epsion a . A & (s >= t | f((s + 1) div 2) != q)
-
-         a := t div 2 | s = t & f(t div 2) = q & even(t)
-
-    Send to B, produces core (s != t | f(t div 2) != q)
-
-  5b. There is no longer a solution for A. A is unsat.
 
 --*/
 
@@ -240,15 +194,24 @@ namespace qe {
     // euf_arith_mbi
 
     struct euf_arith_mbi_plugin::is_atom_proc {
-        ast_manager& m;
-        expr_ref_vector& m_atoms;
-        is_atom_proc(expr_ref_vector& atoms): m(atoms.m()), m_atoms(atoms) {}
+        ast_manager&         m;
+        expr_ref_vector&     m_atoms;
+        obj_hashtable<expr>& m_atom_set;
+
+        is_atom_proc(expr_ref_vector& atoms, obj_hashtable<expr>& atom_set): 
+            m(atoms.m()), m_atoms(atoms), m_atom_set(atom_set) {}
+
         void operator()(app* a) {
-            if (m.is_eq(a)) {
+            if (m_atom_set.contains(a)) {
+                // continue
+            }
+            else if (m.is_eq(a)) {
                 m_atoms.push_back(a);
+                m_atom_set.insert(a);
             }
             else if (m.is_bool(a) && a->get_family_id() != m.get_basic_family_id()) {
                 m_atoms.push_back(a);
+                m_atom_set.insert(a);
             }
         }
         void operator()(expr*) {}
@@ -256,16 +219,23 @@ namespace qe {
 
     struct euf_arith_mbi_plugin::is_arith_var_proc {
         ast_manager&    m;
-        app_ref_vector& m_vars;
+        app_ref_vector& m_pvars;
+        app_ref_vector& m_svars;
         arith_util      arith;
-        obj_hashtable<func_decl> m_exclude;
-        is_arith_var_proc(app_ref_vector& vars, func_decl_ref_vector const& shared):
-            m(vars.m()), m_vars(vars), arith(m) {
-            for (func_decl* f : shared) m_exclude.insert(f);
+        obj_hashtable<func_decl> m_shared;
+        is_arith_var_proc(func_decl_ref_vector const& shared, app_ref_vector& pvars, app_ref_vector& svars):
+            m(pvars.m()), m_pvars(pvars), m_svars(svars), arith(m) {
+            for (func_decl* f : shared) m_shared.insert(f);
         }
         void operator()(app* a) {
-            if (arith.is_int_real(a) && a->get_family_id() != arith.get_family_id() && !m_exclude.contains(a->get_decl())) {
-                m_vars.push_back(a);
+            if (!arith.is_int_real(a) || a->get_family_id() == arith.get_family_id()) {
+                // no-op
+            }
+            else if (m_shared.contains(a->get_decl())) {
+                m_svars.push_back(a);
+            }
+            else {
+                m_pvars.push_back(a);
             }
         }
         void operator()(expr*) {}
@@ -275,38 +245,44 @@ namespace qe {
     euf_arith_mbi_plugin::euf_arith_mbi_plugin(solver* s, solver* sNot):
         mbi_plugin(s->get_manager()),
         m_atoms(m),
+        m_fmls(m),
         m_solver(s),
         m_dual_solver(sNot) {
         params_ref p;
         p.set_bool("core.minimize", true);
         m_solver->updt_params(p);
         m_dual_solver->updt_params(p);
-        expr_ref_vector fmls(m);
-        m_solver->get_assertions(fmls);
+        m_solver->get_assertions(m_fmls);
+        collect_atoms(m_fmls);
+    }
+
+    void euf_arith_mbi_plugin::collect_atoms(expr_ref_vector const& fmls) {
         expr_fast_mark1 marks;
-        is_atom_proc proc(m_atoms);
+        is_atom_proc proc(m_atoms, m_atom_set);
         for (expr* e : fmls) {
             quick_for_each_expr(proc, marks, e);
         }
     }
 
     bool euf_arith_mbi_plugin::get_literals(model_ref& mdl, expr_ref_vector& lits) {
-            model_evaluator mev(*mdl.get());
-            lits.reset();
-            for (expr* e : m_atoms) {
-                if (mev.is_true(e)) {
-                    lits.push_back(e);
-                }
-                else if (mev.is_false(e)) {
-                    lits.push_back(m.mk_not(e));
-                }
+        lits.reset();
+        for (expr* e : m_atoms) {
+            if (mdl->is_true(e)) {
+                lits.push_back(e);
             }
-            TRACE("qe", tout << "atoms from model: " << lits << "\n";);
-        lbool r = m_dual_solver->check_sat(lits);
+            else if (mdl->is_false(e)) {
+                lits.push_back(m.mk_not(e));
+            }
+        }
+        TRACE("qe", tout << "atoms from model: " << lits << "\n";);
+        solver_ref dual = m_dual_solver->translate(m, m_dual_solver->get_params());
+        dual->assert_expr(mk_not(mk_and(m_fmls)));
+        lbool r = dual->check_sat(lits);
+        TRACE("qe", dual->display(tout << "dual result " << r << "\n"););
         if (l_false == r) {
-                // use the dual solver to find a 'small' implicant
-                lits.reset();
-            m_dual_solver->get_unsat_core(lits);
+            // use the dual solver to find a 'small' implicant
+            lits.reset();
+            dual->get_unsat_core(lits);
             return true;
         }
         else {
@@ -314,12 +290,28 @@ namespace qe {
         }
     }
 
-    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(expr_ref_vector const& lits) {
+    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(model_ref& mdl, expr_ref_vector& lits) {
         arith_util a(m);
-        app_ref_vector avars(m);
-        is_arith_var_proc _proc(avars, m_shared);
+        app_ref_vector pvars(m), svars(m); // private and shared arithmetic variables.
+        is_arith_var_proc _proc(m_shared, pvars, svars);
         for_each_expr(_proc, lits);
-        return avars;
+        rational v1, v2;
+        for (expr* p : pvars) {
+            VERIFY(a.is_numeral((*mdl)(p), v1));
+            for (expr* s : svars) {
+                VERIFY(a.is_numeral((*mdl)(s), v2));                
+                if (v1 < v2) {
+                    lits.push_back(a.mk_lt(p, s));
+                }
+                else if (v2 < v1) {
+                    lits.push_back(a.mk_lt(s, p));                    
+                }
+                else {
+                    lits.push_back(m.mk_eq(s, p));
+                }
+            }
+        }
+        return pvars;
     }
 
     mbi_result euf_arith_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
@@ -337,29 +329,85 @@ namespace qe {
             if (!get_literals(mdl, lits)) {
                 return mbi_undef;
             }
-            app_ref_vector avars = get_arith_vars(lits);
+            TRACE("qe", tout << lits << "\n";);
 
+            // 1. Extract projected variables, add inequalities between
+            //    projected variables and non-projected terms according to model.
+            // 2. Extract disequalities implied by congruence closure.
+            // 3. project arithmetic variables from pure literals.
+            // 4. Add projected definitions as equalities to EUF.
+            // 5. project remaining literals with respect to EUF.
+
+            app_ref_vector avars = get_arith_vars(mdl, lits);
             TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
 
-            // 1. project arithmetic variables using mdl that satisfies core.
-            //    ground any remaining arithmetic variables using model.
+            // 2.
+            term_graph tg1(m);
+            func_decl_ref_vector no_shared(m);
+            tg1.set_vars(no_shared, false);
+            tg1.add_lits(lits);
+            arith_util a(m);
+            expr_ref_vector foreign = tg1.shared_occurrences(a.get_family_id());
+            obj_hashtable<expr> _foreign;
+            for (expr* e : foreign) _foreign.insert(e);
+            vector<expr_ref_vector> partition = tg1.get_partition(*mdl);
+            expr_ref_vector diseq = tg1.get_ackerman_disequalities();
+            lits.append(diseq);
+            TRACE("qe", tout << "diseq: " << diseq << "\n";
+                  tout << "foreign: " << foreign << "\n";
+                  for (auto const& v : partition) {
+                      tout << "partition: {";
+                      bool first = true;
+                      for (expr* e : v) {
+                          if (first) first = false; else tout << ", ";
+                          tout << expr_ref(e, m);
+                      }
+                      tout << "}\n";
+                  }
+                  );
+            vector<expr_ref_vector> refined_partition;
+            for (auto & p : partition) {
+                unsigned j = 0; 
+                for (expr* e : p) {
+                    if (_foreign.contains(e) || 
+                        (is_app(e) && m_shared.contains(to_app(e)->get_decl()))) {
+                        p[j++] = e;
+                    }
+                }
+                p.shrink(j);
+                if (!p.empty()) refined_partition.push_back(p);
+            }
+            TRACE("qe",
+                  for (auto const& v : refined_partition) {
+                      tout << "partition: {";
+                      bool first = true;
+                      for (expr* e : v) {
+                          if (first) first = false; else tout << ", ";
+                          tout << expr_ref(e, m);
+                      }
+                      tout << "}\n";
+                  });
+
+            
+            
             arith_project_plugin ap(m);
             ap.set_check_purified(false);
 
+            // 3.
             auto defs = ap.project(*mdl.get(), avars, lits);
-            // 2. Add the projected definitions to the remaining (euf) literals
+
+            // 4.
             for (auto const& def : defs) {
                 lits.push_back(m.mk_eq(def.var, def.term));
             }
-            TRACE("qe", tout << "# arith defs" << defs.size() << " avars: " << avars << " " << lits << "\n";);
+            TRACE("qe", tout << "# arith defs " << defs.size() << " avars: " << avars << " " << lits << "\n";);
 
-            // 3. Project the remaining literals with respect to EUF.
-            term_graph tg(m);
-            tg.set_vars(m_shared, false);
-            tg.add_lits(lits);
+            // 5.
+            term_graph tg2(m);
+            tg2.set_vars(m_shared, false);
+            tg2.add_lits(lits);
             lits.reset();
-            lits.append(tg.project(*mdl));
-            //lits.append(tg.project());
+            lits.append(tg2.project());
             TRACE("qe", tout << "project: " << lits << "\n";);
             return mbi_sat;
         }
@@ -374,7 +422,9 @@ namespace qe {
     }
 
     void euf_arith_mbi_plugin::block(expr_ref_vector const& lits) {
-        m_solver->assert_expr(mk_not(mk_and(lits)));
+        collect_atoms(lits);
+        m_fmls.push_back(mk_not(mk_and(lits)));
+        m_solver->assert_expr(m_fmls.back());
     }
 
 

@@ -55,6 +55,8 @@ Notes:
 
 #include "muz/spacer/spacer_sat_answer.h"
 
+#define WEAKNESS_MAX 65535
+
 namespace spacer {
 
 /// pob -- proof obligation
@@ -66,8 +68,8 @@ pob::pob (pob* parent, pred_transformer& pt,
     m_binding(m_pt.get_ast_manager()),
     m_new_post (m_pt.get_ast_manager ()),
     m_level (level), m_depth (depth),
-    m_open (true), m_use_farkas (true), m_weakness(0),
-    m_blocked_lvl(0) {
+    m_open (true), m_use_farkas (true), m_in_queue(false),
+    m_weakness(0), m_blocked_lvl(0) {
     if (add_to_parent && m_parent) {
         m_parent->add_child(*this);
     }
@@ -79,6 +81,7 @@ void pob::set_post(expr* post) {
 }
 
 void pob::set_post(expr* post, app_ref_vector const &binding) {
+    SASSERT(!is_in_queue());
     normalize(post, m_post,
               m_pt.get_context().simplify_pob(),
               m_pt.get_context().use_euf_gen());
@@ -88,6 +91,7 @@ void pob::set_post(expr* post, app_ref_vector const &binding) {
 }
 
 void pob::inherit(pob const &p) {
+    SASSERT(!is_in_queue());
     SASSERT(m_parent == p.m_parent);
     SASSERT(&m_pt == &p.m_pt);
     SASSERT(m_post == p.m_post);
@@ -105,17 +109,10 @@ void pob::inherit(pob const &p) {
     m_derivation = nullptr;
 }
 
-void pob::clean () {
-    if (m_new_post) {
-        m_post = m_new_post;
-        m_new_post.reset();
-    }
-}
-
 void pob::close () {
     if (!m_open) { return; }
 
-    reset ();
+    m_derivation = nullptr;
     m_open = false;
     for (unsigned i = 0, sz = m_kids.size (); i < sz; ++i)
     { m_kids [i]->close(); }
@@ -129,7 +126,15 @@ void pob::get_skolems(app_ref_vector &v) {
     }
 }
 
-
+    std::ostream &pob::display(std::ostream &out, bool full) const {
+        out << pt().head()->get_name ()
+            << " level: " << level()
+            << " depth: " << depth()
+            << " post_id: " << post()->get_id()
+            << (is_in_queue() ? " in_queue" : "");
+        if (full) out << "\n" << m_post;
+        return out;
+    }
 
 // ----------------
 // pob_queue
@@ -137,16 +142,23 @@ void pob::get_skolems(app_ref_vector &v) {
 pob* pob_queue::top ()
 {
     /// nothing in the queue
-    if (m_obligations.empty()) { return nullptr; }
+    if (m_data.empty()) { return nullptr; }
     /// top queue element is above max level
-    if (m_obligations.top()->level() > m_max_level) { return nullptr; }
+    if (m_data.top()->level() > m_max_level) { return nullptr; }
     /// top queue element is at the max level, but at a higher than base depth
-    if (m_obligations.top ()->level () == m_max_level &&
-        m_obligations.top()->depth() > m_min_depth) { return nullptr; }
+    if (m_data.top ()->level () == m_max_level &&
+        m_data.top()->depth() > m_min_depth) { return nullptr; }
 
     /// there is something good in the queue
-    return m_obligations.top ().get ();
+    return m_data.top ();
 }
+
+void pob_queue::pop() {
+    pob *p = m_data.top();
+    p->set_in_queue(false);
+    m_data.pop();
+}
+
 
 void pob_queue::set_root(pob& root)
 {
@@ -156,19 +168,28 @@ void pob_queue::set_root(pob& root)
     reset();
 }
 
-pob_queue::~pob_queue() {}
-
 void pob_queue::reset()
 {
-    while (!m_obligations.empty()) { m_obligations.pop(); }
-    if (m_root) { m_obligations.push(m_root); }
+    while (!m_data.empty()) {
+        pob *p = m_data.top();
+        m_data.pop();
+        p->set_in_queue(false);
+    }
+    if (m_root) {
+        SASSERT(!m_root->is_in_queue());
+        m_root->set_in_queue(true);
+        m_data.push(m_root.get());
+    }
 }
 
 void pob_queue::push(pob &n) {
-    TRACE("pob_queue",
-          tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
-    m_obligations.push (&n);
-    n.get_context().new_pob_eh(&n);
+    if (!n.is_in_queue()) {
+        TRACE("pob_queue",
+              tout << "pob_queue::push(" << n.post()->get_id() << ")\n";);
+        n.set_in_queue(true);
+        m_data.push (&n);
+        n.get_context().new_pob_eh(&n);
+    }
 }
 
 // ----------------
@@ -266,6 +287,8 @@ pob *derivation::create_next_child(model &mdl)
         m_evars.reset();
         pt().mbp(vars, m_trans, mdl,
                  true, pt().get_context().use_ground_pob());
+        CTRACE("spacer", !vars.empty(),
+               tout << "Failed to eliminate: " << vars << "\n";);
         m_evars.append (vars);
         vars.reset();
     }
@@ -295,6 +318,8 @@ pob *derivation::create_next_child(model &mdl)
         vars.append(m_evars);
         pt().mbp(vars, post, mdl,
                  true, pt().get_context().use_ground_pob());
+        CTRACE("spacer", !vars.empty(),
+               tout << "Failed to eliminate: " << vars << "\n";);
         //qe::reduce_array_selects (*mev.get_model (), post);
     }
     else {
@@ -398,6 +423,8 @@ pob *derivation::create_next_child ()
             this->pt().mbp(vars, m_trans, *mdl,
                            true, this->pt().get_context().use_ground_pob());
             // keep track of implicitly quantified variables
+            CTRACE("spacer", !vars.empty(),
+                   tout << "Failed to eliminate: " << vars << "\n";);
             m_evars.append (vars);
             vars.reset();
         }
@@ -462,8 +489,11 @@ void derivation::premise::set_summary (expr * summary, bool must,
 lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_ref_count(0), m(manager),
     m_body(body, m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(lvl), m_init_lvl(m_lvl),
-    m_pob(nullptr), m_ctp(nullptr), m_external(false), m_bumped(0) {
+    m_zks(m), m_bindings(m),
+    m_pob(nullptr), m_ctp(nullptr),
+    m_lvl(lvl), m_init_lvl(m_lvl),
+    m_bumped(0), m_weakness(WEAKNESS_MAX),
+    m_external(false), m_blocked(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -471,8 +501,11 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
 lemma::lemma(pob_ref const &p) :
     m_ref_count(0), m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0) {
+    m_zks(m), m_bindings(m),
+    m_pob(p), m_ctp(nullptr),
+    m_lvl(p->level()), m_init_lvl(m_lvl),
+    m_bumped(0), m_weakness(p->weakness()),
+    m_external(false), m_blocked(false) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -482,8 +515,11 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_ref_count(0),
     m(p->get_ast_manager()),
     m_body(m), m_cube(m),
-    m_zks(m), m_bindings(m), m_lvl(p->level()), m_init_lvl(m_lvl),
-    m_pob(p), m_ctp(nullptr), m_external(false), m_bumped(0)
+    m_zks(m), m_bindings(m),
+    m_pob(p), m_ctp(nullptr),
+    m_lvl(p->level()), m_init_lvl(m_lvl),
+    m_bumped(0), m_weakness(p->weakness()),
+    m_external(false), m_blocked(false)
 {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
@@ -510,7 +546,8 @@ void lemma::mk_expr_core() {
     SASSERT(!m_cube.empty());
     m_body = ::mk_and(m_cube);
     // normalize works better with a cube
-    normalize(m_body, m_body);
+    normalize(m_body, m_body, false /* no simplify bounds */, false /* term_graph */);
+
     m_body = ::push_not(m_body);
 
     if (!m_zks.empty() && has_zk_const(m_body)) {
@@ -526,7 +563,7 @@ void lemma::mk_expr_core() {
                 sorts.push_back(get_sort(zks.get(i)));
                 names.push_back(zks.get(i)->get_decl()->get_name());
             }
-            m_body = m.mk_quantifier(true, zks.size(),
+            m_body = m.mk_quantifier(forall_k, zks.size(),
                                      sorts.c_ptr(),
                                      names.c_ptr(),
                                      m_body, 15, symbol(m_body->get_id()));
@@ -633,7 +670,7 @@ void lemma::instantiate(expr * const * exprs, expr_ref &result, expr *e) {
     expr *body = to_quantifier(lem)->get_expr();
     unsigned num_decls = to_quantifier(lem)->get_num_decls();
     var_subst vs(m, false);
-    vs(body, num_decls, exprs, result);
+    result = vs(body, num_decls, exprs);
 }
 
 void lemma::set_level (unsigned lvl) {
@@ -820,7 +857,7 @@ const datalog::rule *pred_transformer::find_rule(model &model) {
 
     for (auto &kv : m_pt_rules) {
         app *tag = kv.m_value->tag();
-        if (model.eval(tag->get_decl(), val) && m.is_true(val)) {
+        if (model.is_true_decl(tag->get_decl())) {
             return &kv.m_value->rule();
         }
     }
@@ -911,7 +948,7 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
           << " " << head ()->get_name ()
           << " " << mk_pp (l, m) << "\n";);
 
-    STRACE ("spacer.expand-add",
+    STRACE ("spacer_progress",
             tout << "** add-lemma: " << pp_level (lvl) << " "
             << head ()->get_name () << " "
             << mk_epp (l, m) << "\n";
@@ -1162,7 +1199,16 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
     }
 
     // bail out of if the model is insufficient
-    if (!mdl.is_true(summary)) return expr_ref(m);
+    // (skip quantified lemmas cause we can't validate them in the model)
+    // TBD: for quantified lemmas use current instances
+    flatten_and(summary);
+    for (auto *s : summary) {
+        if (!is_quantifier(s) && !mdl.is_true(s)) {
+            TRACE("spacer", tout << "Summary not true in the model: "
+                  << mk_pp(s, m) << "\n";);
+            return expr_ref(m);
+        }
+    }
 
     // -- pick an implicant
     expr_ref_vector lits(m);
@@ -1254,7 +1300,7 @@ bool pred_transformer::is_qblocked (pob &n) {
     //     solver->get_itp_core(core);
     //     expr_ref c(m);
     //     c = mk_and(core);
-    //     STRACE("spacer.expand-add", tout << "core: " << mk_epp(c,m) << "\n";);
+    //     STRACE("spacer_progress", tout << "core: " << mk_epp(c,m) << "\n";);
     // }
     return res == l_false;
 }
@@ -1347,7 +1393,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     if (is_sat == l_true || is_sat == l_undef) {
         if (core) { core->reset(); }
-        if (model) {
+        if (model && model->get()) {
             r = find_rule(**model, is_concrete, reach_pred_used, num_reuse_reach);
             TRACE ("spacer", tout << "reachable "
                    << "is_concrete " << is_concrete << " rused: ";
@@ -1387,7 +1433,12 @@ bool pred_transformer::is_ctp_blocked(lemma *lem) {
     // -- find rule of the ctp
     const datalog::rule *r;
     r = find_rule(*ctp);
-    if (r == nullptr) {return false;}
+    if (r == nullptr) {
+        // no rules means lemma is blocked forever because
+        // it does not satisfy some derived facts
+        lem->set_blocked(true);
+        return true;
+    }
 
     // -- find predicates along the rule
     find_predecessors(*r, m_predicates);
@@ -1410,6 +1461,8 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
                                     unsigned& solver_level,
                                     expr_ref_vector* core)
 {
+    if (lem->is_blocked()) return false;
+
     m_stats.m_num_is_invariant++;
     if (is_ctp_blocked(lem)) {
         m_stats.m_num_ctp_blocked++;
@@ -1451,7 +1504,7 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
         SASSERT (level <= solver_level);
     }
     else if (r == l_true) {
-        // optionally remove unused symbols from the model
+        // TBD: optionally remove unused symbols from the model
         if (mdl_ref_ptr) {lem->set_ctp(*mdl_ref_ptr);}
     }
     else {lem->reset_ctp();}
@@ -1621,9 +1674,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
         ground_free_vars(trans, var_reprs, aux_vars, ut_size == 0);
         SASSERT(is_all_non_null(var_reprs));
 
-        expr_ref tmp(m);
-        var_subst(m, false)(trans, var_reprs.size (),
-                            (expr*const*)var_reprs.c_ptr(), tmp);
+        expr_ref tmp = var_subst(m, false)(trans, var_reprs.size (), (expr*const*)var_reprs.c_ptr());
         flatten_and (tmp, side);
         trans = mk_and(side);
         side.reset ();
@@ -1632,7 +1683,10 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
     // rewrite and simplify
     th_rewriter rw(m);
     rw(trans);
-    if (ctx.blast_term_ite()) {blast_term_ite(trans, 3); rw(trans);}
+    if (ctx.blast_term_ite_inflation() > 0) {
+        blast_term_ite(trans, ctx.blast_term_ite_inflation());
+        rw(trans);
+    }
     TRACE("spacer_init_rule", tout << mk_pp(trans, m) << "\n";);
 
     // allow quantifiers in init rule
@@ -2122,25 +2176,17 @@ void pred_transformer::frames::simplify_formulas ()
 
 /// pred_transformer::pobs
 
-pob* pred_transformer::pobs::mk_pob(pob *parent,
-                                    unsigned level, unsigned depth,
-                                    expr *post, app_ref_vector const &b) {
-
-    if (!m_pt.ctx.reuse_pobs()) {
-        pob* n = alloc(pob, parent, m_pt, level, depth);
-        n->set_post(post, b);
-        return n;
-    }
-
+pob* pred_transformer::pob_manager::mk_pob(pob *parent,
+                                           unsigned level, unsigned depth,
+                                           expr *post,
+                                           app_ref_vector const &b) {
     // create a new pob and set its post to normalize it
     pob p(parent, m_pt, level, depth, false);
     p.set_post(post, b);
 
     if (m_pobs.contains(p.post())) {
-        auto &buf = m_pobs[p.post()];
-        for (unsigned i = 0, sz = buf.size(); i < sz; ++i) {
-            pob *f = buf.get(i);
-            if (f->parent() == parent) {
+        for (auto *f : m_pobs[p.post()]) {
+            if (f->parent() == parent && !f->is_in_queue()) {
                 f->inherit(p);
                 return f;
             }
@@ -2162,7 +2208,21 @@ pob* pred_transformer::pobs::mk_pob(pob *parent,
     return n;
 }
 
-
+pob* pred_transformer::pob_manager::find_pob(pob* parent, expr *post) {
+    pob p(parent, m_pt, 0, 0, false);
+    p.set_post(post);
+    pob *res = nullptr;
+    if (m_pobs.contains(p.post())) {
+        for (auto *f : m_pobs[p.post()]) {
+            if (f->parent() == parent) {
+                // try to find pob not already in queue
+                if (!f->is_in_queue()) return f;
+                res = f;
+            }
+        }
+    }
+    return res;
+}
 
 
 // ----------------
@@ -2208,8 +2268,7 @@ void context::updt_params() {
     m_use_euf_gen = m_params.spacer_use_euf_gen();
     m_use_ctp = m_params.spacer_ctp();
     m_use_inc_clause = m_params.spacer_use_inc_clause();
-    m_blast_term_ite = m_params.spacer_blast_term_ite();
-    m_reuse_pobs = m_params.spacer_reuse_pobs();
+    m_blast_term_ite_inflation = m_params.spacer_blast_term_ite_inflation();
     m_use_ind_gen = m_params.spacer_use_inductive_generalizer();
     m_use_array_eq_gen = m_params.spacer_use_array_eq_generalizer();
     m_validate_lemmas = m_params.spacer_validate_lemmas();
@@ -3003,7 +3062,7 @@ lbool context::solve_core (unsigned from_lvl)
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, lvl);
         IF_VERBOSE(1,verbose_stream() << "Entering level "<< lvl << "\n";);
 
-        STRACE("spacer.expand-add", tout << "\n* LEVEL " << lvl << "\n";);
+        STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
 
         IF_VERBOSE(1,
                    if (m_params.print_statistics ()) {
@@ -3057,27 +3116,19 @@ bool context::check_reachability ()
         }
 
         SASSERT (m_pob_queue.top ());
-        // -- remove all closed nodes and updated all dirty nodes
+        // -- remove all closed nodes
         // -- this is necessary because there is no easy way to
         // -- remove nodes from the priority queue.
-        while (m_pob_queue.top ()->is_closed () ||
-               m_pob_queue.top()->is_dirty()) {
-            pob_ref n = m_pob_queue.top ();
-            m_pob_queue.pop ();
-            if (n->is_closed()) {
-                IF_VERBOSE (1,
-                            verbose_stream () << "Deleting closed node: "
-                            << n->pt ().head ()->get_name ()
-                            << "(" << n->level () << ", " << n->depth () << ")"
-                            << " " << n->post ()->get_id () << "\n";);
-                if (m_pob_queue.is_root(*n)) { return true; }
-                SASSERT (m_pob_queue.top ());
-            } else if (n->is_dirty()) {
-                n->clean ();
-                // -- the node n might not be at the top after it is cleaned
-                m_pob_queue.push (*n);
-            } else
-            { UNREACHABLE(); }
+        while (m_pob_queue.top ()->is_closed ()) {
+            pob_ref n = m_pob_queue.top();
+            m_pob_queue.pop();
+            IF_VERBOSE (1,
+                        verbose_stream () << "Deleting closed node: "
+                        << n->pt ().head ()->get_name ()
+                        << "(" << n->level () << ", " << n->depth () << ")"
+                        << " " << n->post ()->get_id () << "\n";);
+            if (m_pob_queue.is_root(*n)) {return true;}
+            SASSERT (m_pob_queue.top ());
         }
 
         SASSERT (m_pob_queue.top ());
@@ -3171,6 +3222,7 @@ bool context::is_reachable(pob &n)
     unsigned num_reuse_reach = 0;
 
     unsigned saved = n.level ();
+    // TBD: don't expose private field
     n.m_level = infty_level ();
     lbool res = n.pt().is_reachable(n, nullptr, &mdl,
                                     uses_level, is_concrete, r,
@@ -3261,7 +3313,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
            << " fvsz: " << n.get_free_vars_size() << "\n"
            << mk_pp(n.post(), m) << "\n";);
 
-    STRACE ("spacer.expand-add",
+    STRACE ("spacer_progress",
             tout << "** expand-pob: " << n.pt().head()->get_name()
             << " level: " << n.level()
             << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
@@ -3307,7 +3359,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
 
     if (/* XXX noop */ n.pt().is_qblocked(n)) {
-        STRACE("spacer.expand-add",
+        STRACE("spacer_progress",
                tout << "This pob can be blocked by instantiation\n";);
     }
 
@@ -3415,10 +3467,21 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 
         // Optionally update the node to be the negation of the lemma
         if (v && m_use_lemma_as_pob) {
-            n.new_post (mk_and(lemma->get_cube()));
-            n.set_farkas_generalizer (false);
-            // XXX hack while refactoring is in progress
-            n.clean();
+            expr_ref c(m);
+            c = mk_and(lemma->get_cube());
+            // check that the post condition is different
+            if (c  != n.post()) {
+                pob *f = n.pt().find_pob(n.parent(), c);
+                // skip if a similar pob is already in the queue
+                if (f != &n && (!f || !f->is_in_queue())) {
+                    f = n.pt().mk_pob(n.parent(), n.level(),
+                                      n.depth(), c, n.get_binding());
+                    SASSERT(!f->is_in_queue());
+                    f->inc_level();
+                    //f->set_farkas_generalizer(false);
+                    out.push_back(f);
+                }
+            }
         }
 
         // schedule the node to be placed back in the queue
@@ -3436,7 +3499,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     }
     case l_undef:
         // something went wrong
-        if (n.weakness() < 100 /* MAX_WEAKENSS */) {
+        if (n.weakness() < 10 /* MAX_WEAKENSS */) {
             bool has_new_child = false;
             SASSERT(m_weak_abs);
             m_stats.m_expand_pob_undef++;
@@ -3491,7 +3554,7 @@ bool context::propagate(unsigned min_prop_lvl,
     if (m_simplify_formulas_pre) {
         simplify_formulas();
     }
-    STRACE ("spacer.expand-add", tout << "Propagating\n";);
+    STRACE ("spacer_progress", tout << "Propagating\n";);
 
     IF_VERBOSE (1, verbose_stream () << "Propagating: " << std::flush;);
 
@@ -3934,7 +3997,7 @@ bool context::is_inductive() {
 }
 
 /// pob_lt operator
-inline bool pob_lt::operator() (const pob *pn1, const pob *pn2) const
+inline bool pob_lt_proc::operator() (const pob *pn1, const pob *pn2) const
 {
     SASSERT (pn1);
     SASSERT (pn2);

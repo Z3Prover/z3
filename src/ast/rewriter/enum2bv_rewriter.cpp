@@ -159,6 +159,8 @@ struct enum2bv_rewriter::imp {
             expr * const * new_no_patterns,
             expr_ref & result,
             proof_ref & result_pr) {
+
+            if (q->get_kind() == lambda_k) return false;
             m_sorts.reset();
             expr_ref_vector bounds(m);
             bool found = false;
@@ -182,15 +184,20 @@ struct enum2bv_rewriter::imp {
             }
             expr_ref new_body_ref(old_body, m), tmp(m);
             if (!bounds.empty()) {
-                if (q->is_forall()) {
+                switch (q->get_kind()) {
+                case forall_k:
                     new_body_ref = m.mk_implies(mk_and(bounds), new_body_ref);
-                }
-                else {
+                    break;
+                case exists_k:
                     bounds.push_back(new_body_ref);
                     new_body_ref = mk_and(bounds);
+                    break;
+                case lambda_k:
+                    UNREACHABLE();
+                    break;
                 }
             }
-            result = m.mk_quantifier(q->is_forall(), q->get_num_decls(), m_sorts.c_ptr(), q->get_decl_names(), new_body_ref, 
+            result = m.mk_quantifier(q->get_kind(), q->get_num_decls(), m_sorts.c_ptr(), q->get_decl_names(), new_body_ref, 
                                      q->get_weight(), q->get_qid(), q->get_skid(), 
                                      q->get_num_patterns(), new_patterns,
                                      q->get_num_no_patterns(), new_no_patterns);

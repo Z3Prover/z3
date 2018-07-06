@@ -123,7 +123,7 @@ extern "C" {
         }
         if (rz == 0) {
             // it is the zero polynomial
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         av.shrink(rz);

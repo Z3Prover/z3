@@ -23,7 +23,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 
 bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n))
         return false;
     TRACE("macro_finder", tout << "processing: " << mk_pp(n, m) << "\n";);
     expr * body        = to_quantifier(n)->get_expr();
@@ -46,7 +46,7 @@ bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
    For case 2 & 3, the new quantifiers are stored in new_exprs and new_prs.
 */
 bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n))
         return false;
     expr * body        = to_quantifier(n)->get_expr();
     unsigned num_decls = to_quantifier(n)->get_num_decls();
@@ -117,7 +117,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, e
 }
 
 bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& new_fmls) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n))
         return false;
     expr * body        = to_quantifier(n)->get_expr();
     unsigned num_decls = to_quantifier(n)->get_num_decls();

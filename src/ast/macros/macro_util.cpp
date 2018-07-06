@@ -334,7 +334,7 @@ bool macro_util::is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, ap
    where t is a ground term, (f X) is the head.
 */
 bool macro_util::is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n)) 
         return false;
     TRACE("macro_util", tout << "processing: " << mk_pp(n, m_manager) << "\n";);
     expr * body        = to_quantifier(n)->get_expr();
@@ -485,7 +485,7 @@ void macro_util::normalize_expr(app * head, unsigned num_decls, expr * t, expr_r
                   if (var_mapping[i] != 0)
                       tout << "#" << i << " -> " << mk_ll_pp(var_mapping[i], m_manager);
               });
-        subst(t, var_mapping.size(), var_mapping.c_ptr(), norm_t);
+        norm_t = subst(t, var_mapping.size(), var_mapping.c_ptr());
     }
     else {
         norm_t = t;

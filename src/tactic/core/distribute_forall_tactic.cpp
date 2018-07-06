@@ -31,7 +31,7 @@ class distribute_forall_tactic : public tactic {
                                expr_ref & result,
                                proof_ref & result_pr) {
 
-            if (!old_q->is_forall()) {
+            if (!is_forall(old_q)) {
                 return false;
             }
 
@@ -49,8 +49,7 @@ class distribute_forall_tactic : public tactic {
                     expr * not_arg = m.mk_not(arg);
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, not_arg);
-                    expr_ref new_q(m);
-                    elim_unused_vars(m, tmp_q, params_ref(), new_q);
+                    expr_ref new_q = elim_unused_vars(m, tmp_q, params_ref());
                     new_args.push_back(new_q);
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
@@ -69,8 +68,7 @@ class distribute_forall_tactic : public tactic {
                     expr * arg     = to_app(new_body)->get_arg(i);
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, arg);
-                    expr_ref new_q(m);
-                    elim_unused_vars(m, tmp_q, params_ref(), new_q);
+                    expr_ref new_q = elim_unused_vars(m, tmp_q, params_ref());
                     new_args.push_back(new_q);
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());

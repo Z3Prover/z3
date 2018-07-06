@@ -67,7 +67,7 @@ extern "C" {
         LOG_Z3_stats_get_key(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }
         return to_stats_ref(s).get_key(idx);
@@ -79,7 +79,7 @@ extern "C" {
         LOG_Z3_stats_is_uint(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return Z3_FALSE;
         }
         return to_stats_ref(s).is_uint(idx);
@@ -91,7 +91,7 @@ extern "C" {
         LOG_Z3_stats_is_double(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return Z3_FALSE;
         }
         return !to_stats_ref(s).is_uint(idx);
@@ -103,11 +103,11 @@ extern "C" {
         LOG_Z3_stats_get_uint_value(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return 0;
         }
         if (!to_stats_ref(s).is_uint(idx)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         return to_stats_ref(s).get_uint_value(idx);
@@ -119,11 +119,11 @@ extern "C" {
         LOG_Z3_stats_get_double_value(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return 0.0;
         }
         if (to_stats_ref(s).is_uint(idx)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0.0;
         }
         return to_stats_ref(s).get_double_value(idx);

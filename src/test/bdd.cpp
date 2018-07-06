@@ -30,8 +30,8 @@ namespace sat {
         SASSERT(m.mk_ite(v1,v0,v0) == v0);
         SASSERT(m.mk_ite(v0,!v0,v1) == (!v0 && v1));
         SASSERT(m.mk_ite(v0,v1,!v0) == (!v0 || v1));
-        SASSERT(!(v0 && v1) == (!v0 || !v1));
-        SASSERT(!(v0 || v1) == (!v0 && !v1));
+        SASSERT((!(v0 && v1)) == (!v0 || !v1));
+        SASSERT((!(v0 || v1)) == (!v0 && !v1));
     }
 
     static void test3() {

@@ -561,13 +561,13 @@ namespace tb {
                 }
                 vars.push_back(m.mk_const(symbol(i), sorts[i]));
             }
-            vs(g.get_head(), vars.size(), vars.c_ptr(), fml);
+            fml = vs(g.get_head(), vars.size(), vars.c_ptr());
             m_head = to_app(fml);
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
-                vs(g.get_predicate(i), vars.size(), vars.c_ptr(), fml);
+                fml = vs(g.get_predicate(i), vars.size(), vars.c_ptr());
                 m_preds.push_back(to_app(fml));
             }
-            vs(g.get_constraint(), vars.size(), vars.c_ptr(), fml);
+            fml = vs(g.get_constraint(), vars.size(), vars.c_ptr());
             fmls.push_back(fml);
             m_precond = m.mk_and(fmls.size(), fmls.c_ptr());
             IF_VERBOSE(2,
@@ -1132,12 +1132,12 @@ namespace tb {
                 }
             }
             if (change) {
-                m_S2(result->get_constraint(), m_rename.size(), m_rename.c_ptr(), constraint);
+                constraint = m_S2(result->get_constraint(), m_rename.size(), m_rename.c_ptr());
                 for (unsigned i = 0; i < result->get_num_predicates(); ++i) {
-                    m_S2(result->get_predicate(i), m_rename.size(), m_rename.c_ptr(), tmp);
+                    tmp = m_S2(result->get_predicate(i), m_rename.size(), m_rename.c_ptr());
                     predicates[i] = to_app(tmp);
                 }
-                m_S2(result->get_head(), m_rename.size(), m_rename.c_ptr(), tmp);
+                tmp = m_S2(result->get_head(), m_rename.size(), m_rename.c_ptr());
                 head = to_app(tmp);
                 result->init(head, predicates, constraint);
             }
@@ -1168,7 +1168,7 @@ namespace tb {
                 if (vars[i]) {
                     v = m.mk_var(i, vars[i]);
                     m_S1.apply(2, delta, expr_offset(v, offset), tmp);
-                    m_S2(tmp, m_rename.size(), m_rename.c_ptr(), tmp);
+                    tmp = m_S2(tmp, m_rename.size(), m_rename.c_ptr());
                     insert_subst(offset, tmp);
                 }
                 else {
@@ -1613,8 +1613,8 @@ namespace datalog {
             }
             expr_ref body = clause.get_body();
             var_subst vs(m, false);
-            vs(body, subst.size(), subst.c_ptr(), body);
-            out << mk_pp(body, m) << "\n";
+            body = vs(body, subst.size(), subst.c_ptr());
+            out << body << "\n";
         }
 
         void resolve_rule(replace_proof_converter& pc, tb::clause const& r1, tb::clause const& r2,

@@ -58,6 +58,8 @@ public:
         return m_fid2plugins.get(fid, 0);
     }
 
+    ptr_vector<Plugin> const& plugins() const { return m_plugins; }
+
     typename ptr_vector<Plugin>::const_iterator begin() const { 
         return m_plugins.begin(); 
     }

@@ -48,7 +48,7 @@ class core_solver_pretty_printer {
     std::string m_cost_title;
     std::string m_basis_heading_title;
     std::string m_x_title;
-    std::string m_low_bounds_title;
+    std::string m_lower_bounds_title;
     std::string m_upp_bounds_title;
     std::string m_exact_norm_title;
     std::string m_approx_norm_title;
@@ -75,7 +75,7 @@ public:
 
     void init_column_widths();
 
-    void adjust_width_with_low_bound(unsigned column, unsigned & w);
+    void adjust_width_with_lower_bound(unsigned column, unsigned & w);
     void adjust_width_with_upper_bound(unsigned column, unsigned & w);
 
     void adjust_width_with_bounds(unsigned column, unsigned & w);
@@ -97,7 +97,7 @@ public:
 
     void print_x();
 
-    std::string get_low_bound_string(unsigned j);
+    std::string get_lower_bound_string(unsigned j);
 
     std::string get_upp_bound_string(unsigned j);
 

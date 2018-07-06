@@ -24,6 +24,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
+#include "model/model_v2_pp.h"
 
 namespace smt {
 
@@ -51,11 +52,9 @@ namespace smt {
         SASSERT(!m_model);
         // PARAM-TODO smt_params ---> params_ref
         m_model = alloc(proto_model, m_manager); // , m_context->get_fparams());
-        ptr_vector<theory>::const_iterator it  = m_context->begin_theories();
-        ptr_vector<theory>::const_iterator end = m_context->end_theories();
-        for (; it != end; ++it) {
-            TRACE("model", tout << "init_model for theory: " << (*it)->get_name() << "\n";);
-            (*it)->init_model(*this);
+        for (theory* th : m_context->theories()) {
+            TRACE("model_generator_bug", tout << "init_model for theory: " << th->get_name() << "\n";);
+            th->init_model(*this);
         }
     }
 
@@ -82,10 +81,7 @@ namespace smt {
     */
     void model_generator::mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots, 
                                          ptr_vector<model_value_proc> & procs) {
-        ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
-        ptr_vector<enode>::const_iterator end = m_context->end_enodes();
-        for (; it != end; ++it) {
-            enode * r = *it;
+        for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 roots.push_back(r);
                 sort * s      = m_manager.get_sort(r->get_owner());
@@ -201,10 +197,7 @@ namespace smt {
         SASSERT(proc);
         buffer<model_value_dependency> dependencies;
         proc->get_dependencies(dependencies);
-        buffer<model_value_dependency>::const_iterator it  = dependencies.begin();
-        buffer<model_value_dependency>::const_iterator end = dependencies.end();
-        for (; it != end; ++it) {
-            model_value_dependency const & dep = *it;
+        for (model_value_dependency const& dep : dependencies) {
             visit_child(dep, colors, todo, visited);
             TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " -> ";
                   if (dep.is_fresh_value()) tout << "fresh!" << dep.get_value()->get_idx();
@@ -308,10 +301,7 @@ namespace smt {
         mk_value_procs(root2proc, roots, procs);
         top_sort_sources(roots, root2proc, sources);
         TRACE("sorted_sources",
-              svector<source>::const_iterator it  = sources.begin();
-              svector<source>::const_iterator end = sources.end();
-              for (; it != end; ++it) {
-                  source const & curr = *it;
+              for (source const& curr : sources) {
                   if (curr.is_fresh_value()) {
                       tout << "fresh!" << curr.get_value()->get_idx() << " " << mk_pp(curr.get_value()->get_sort(), m_manager) << "\n";
                   }
@@ -326,11 +316,7 @@ namespace smt {
                       tout << " is_fresh: " << proc->is_fresh() << "\n";
                   }
               });
-        svector<source>::const_iterator it  = sources.begin();
-        svector<source>::const_iterator end = sources.end();
-        for (; it != end; ++it) {
-            source const & curr = *it;
-            
+        for (source const& curr : sources) {
             if (curr.is_fresh_value()) {
                 sort * s = curr.get_value()->get_sort();
                 TRACE("model_fresh_bug", tout << "mk fresh!" << curr.get_value()->get_idx() << " : " << mk_pp(s, m_manager) << "\n";);
@@ -349,10 +335,7 @@ namespace smt {
                 VERIFY(root2proc.find(n, proc));
                 SASSERT(proc);
                 proc->get_dependencies(dependencies);
-                buffer<model_value_dependency>::const_iterator it2  = dependencies.begin();
-                buffer<model_value_dependency>::const_iterator end2 = dependencies.end();
-                for (; it2 != end2; ++it2) {
-                    model_value_dependency const & d = *it2;
+                for (model_value_dependency const& d : dependencies) {
                     if (d.is_fresh_value()) {
                         CTRACE("mg_top_sort", !d.get_value()->get_value(), 
                                tout << "#" << n->get_owner_id() << " -> ";
@@ -381,10 +364,7 @@ namespace smt {
         m_extra_fresh_values.reset();
         
         // send model
-        ptr_vector<enode>::const_iterator it3  = m_context->begin_enodes();
-        ptr_vector<enode>::const_iterator end3 = m_context->end_enodes();
-        for (; it3 != end3; ++it3) {
-            enode * n = *it3;
+        for (enode * n : m_context->enodes()) {
             if (is_uninterp_const(n->get_owner()) && m_context->is_relevant(n)) {
                 func_decl * d = n->get_owner()->get_decl();
                 TRACE("mg_top_sort", tout << d->get_name() << " " << (m_hidden_ufs.contains(d)?"hidden":"visible") << "\n";);
@@ -484,17 +464,12 @@ namespace smt {
     }
 
     void model_generator::finalize_theory_models() {
-        ptr_vector<theory>::const_iterator it  = m_context->begin_theories();
-        ptr_vector<theory>::const_iterator end = m_context->end_theories();
-        for (; it != end; ++it)
-            (*it)->finalize_model(*this);
+        for (theory* th : m_context->theories()) 
+            th->finalize_model(*this);
     } 
 
     void model_generator::register_existing_model_values() {
-        ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
-        ptr_vector<enode>::const_iterator end = m_context->end_enodes();
-        for (; it != end; ++it) {
-            enode * r = *it;
+        for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 expr * n = r->get_owner();
                 if (m_manager.is_model_value(n)) {
@@ -531,6 +506,7 @@ namespace smt {
         mk_func_interps();
         finalize_theory_models();
         register_macros();
+        TRACE("model", model_v2_pp(tout, *m_model, true););
         return m_model;
     }
     

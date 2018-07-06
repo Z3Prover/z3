@@ -145,10 +145,12 @@ extern "C" {
     void solver_from_stream(Z3_context c, Z3_solver s, std::istream& is) {
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
         ctx->set_ignore_check(true);
+        std::stringstream errstrm;
+        ctx->set_regular_stream(errstrm);
 
         if (!parse_smt2_commands(*ctx.get(), is)) {
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
             return;
         }
 
@@ -178,7 +180,7 @@ extern "C" {
         char const* ext = get_extension(file_name);
         std::ifstream is(file_name);
         if (!is) {
-            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
+            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
         }
         else if (ext && std::string("dimacs") == ext) {
             ast_manager& m = to_solver_ref(s)->get_manager();
@@ -291,7 +293,7 @@ extern "C" {
         RESET_ERROR_CODE();
         init_solver(c, s);
         if (n > to_solver_ref(s)->get_scope_level()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return;
         }
         if (n > 0)
@@ -372,7 +374,7 @@ extern "C" {
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
         for (unsigned i = 0; i < num_assumptions; i++) {
             if (!is_expr(to_ast(assumptions[i]))) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, "assumption is not an expression");
                 return Z3_L_UNDEF;
             }
         }
@@ -430,8 +432,11 @@ extern "C" {
         model_ref _m;
         to_solver_ref(s)->get_model(_m);
         if (!_m) {
-            SET_ERROR_CODE(Z3_INVALID_USAGE);
+            SET_ERROR_CODE(Z3_INVALID_USAGE, "there is no current model");
             RETURN_Z3(nullptr);
+        }
+        if (_m) {
+            if (mk_c(c)->params().m_model_compress) _m->compress();
         }
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         m_ref->m_model = _m;
@@ -447,7 +452,7 @@ extern "C" {
         init_solver(c, s);
         proof * p = to_solver_ref(s)->get_proof();
         if (!p) {
-            SET_ERROR_CODE(Z3_INVALID_USAGE);
+            SET_ERROR_CODE(Z3_INVALID_USAGE, "there is no current proof");
             RETURN_Z3(nullptr);
         }
         mk_c(c)->save_ast_trail(p);
@@ -539,7 +544,7 @@ extern "C" {
         for (ast* e : __assumptions) {
             if (!is_expr(e)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
-                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                SET_ERROR_CODE(Z3_INVALID_USAGE, "assumption is not an expression");
                 return Z3_L_UNDEF;
             }
             _assumptions.push_back(to_expr(e));
@@ -548,7 +553,7 @@ extern "C" {
         for (ast* a : __variables) {
             if (!is_expr(a)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
-                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                SET_ERROR_CODE(Z3_INVALID_USAGE, "variable is not an expression");
                 return Z3_L_UNDEF;
             }
             _variables.push_back(to_expr(a));
@@ -590,7 +595,7 @@ extern "C" {
         expr_ref_vector result(m), vars(m);
         for (ast* a : to_ast_vector_ref(vs)) {
             if (!is_expr(a)) {
-                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                SET_ERROR_CODE(Z3_INVALID_USAGE, "cube contains a non-expression");
             }
             else {
                 vars.push_back(to_expr(a));

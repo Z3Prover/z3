@@ -48,7 +48,7 @@ public:
 
        Otherwise, (VAR 0) is stored in the first position, (VAR 1) in the second, and so on.
     */
-    void operator()(expr * n, unsigned num_args, expr * const * args, expr_ref & result);
+    expr_ref operator()(expr * n, unsigned num_args, expr * const * args);
     void reset() { m_reducer.reset(); }
 };
 
@@ -63,10 +63,10 @@ class unused_vars_eliminator {
     bool          m_ignore_patterns_on_ground_qbody;
 public:
     unused_vars_eliminator(ast_manager & m, params_ref const & params);
-    void operator()(quantifier* q, expr_ref& r);
+    expr_ref operator()(quantifier* q);
 };
 
-void elim_unused_vars(ast_manager & m, quantifier * q, params_ref const & params, expr_ref & r);
+expr_ref elim_unused_vars(ast_manager & m, quantifier * q, params_ref const & params);
 
 /**
    \brief Instantiate quantifier q using the given exprs.
@@ -77,7 +77,7 @@ void elim_unused_vars(ast_manager & m, quantifier * q, params_ref const & params
    ...
    (VAR (q->get_num_decls() - 1)) is stored in the first position of the array.
 */
-void instantiate(ast_manager & m, quantifier * q, expr * const * exprs, expr_ref & result);
+expr_ref instantiate(ast_manager & m, quantifier * q, expr * const * exprs);
 
 /**
    \brief Enumerate set of free variables in expression.

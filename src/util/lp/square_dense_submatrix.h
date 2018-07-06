@@ -34,7 +34,7 @@ Revision History:
 #include "util/lp/lp_settings.h"
 #include "util/lp/eta_matrix.h"
 #include "util/lp/binary_heap_upair_queue.h"
-#include "util/lp/sparse_matrix.h"
+#include "util/lp/square_sparse_matrix.h"
 namespace lp {
 template <typename T, typename X>
 class square_dense_submatrix : public tail_matrix<T, X> {
@@ -45,11 +45,11 @@ class square_dense_submatrix : public tail_matrix<T, X> {
         ref(unsigned i, square_dense_submatrix & s) :
             m_i_offset((i - s.m_index_start) * s.m_dim), m_s(s){}
         T & operator[] (unsigned j) {
-            SASSERT(j >= m_s.m_index_start);
+            lp_assert(j >= m_s.m_index_start);
             return m_s.m_v[m_i_offset + m_s.adjust_column(j) - m_s.m_index_start];
         }
         const T & operator[] (unsigned j) const {
-            SASSERT(j >= m_s.m_index_start);
+            lp_assert(j >= m_s.m_index_start);
             return m_s.m_v[m_i_offset + m_s.adjust_column(j) - m_s.m_index_start];
         }
     };
@@ -57,7 +57,7 @@ public:
     unsigned m_index_start;
     unsigned m_dim;
     vector<T> m_v;
-    sparse_matrix<T, X> * m_parent;
+    square_sparse_matrix<T, X> * m_parent;
     permutation_matrix<T, X>  m_row_permutation;
     indexed_vector<T> m_work_vector;
 public:
@@ -66,15 +66,15 @@ public:
 
     square_dense_submatrix() {}
 
-    square_dense_submatrix (sparse_matrix<T, X> *parent_matrix, unsigned index_start);
+    square_dense_submatrix (square_sparse_matrix<T, X> *parent_matrix, unsigned index_start);
 
-    void init(sparse_matrix<T, X> *parent_matrix, unsigned index_start);
+    void init(square_sparse_matrix<T, X> *parent_matrix, unsigned index_start);
 
     bool is_dense() const override { return true; }
     
     ref operator[] (unsigned i) {
-        SASSERT(i >= m_index_start);
-        SASSERT(i < m_parent->dimension());
+        lp_assert(i >= m_index_start);
+        lp_assert(i < m_parent->dimension());
         return ref(i, *this);
     }
 
@@ -163,7 +163,7 @@ public:
                 }
             }
         }
-        SASSERT(wcopy.is_OK());
+        lp_assert(wcopy.is_OK());
         apply_from_right(w.m_data);
         w.m_index.clear();
         if (numeric_traits<T>::precise()) {
@@ -182,11 +182,11 @@ public:
             }
         }
 #else
-        SASSERT(w.is_OK());
-        SASSERT(m_work_vector.is_OK());
+        lp_assert(w.is_OK());
+        lp_assert(m_work_vector.is_OK());
         m_work_vector.resize(w.data_size());
         m_work_vector.clear();
-        SASSERT(m_work_vector.is_OK());
+        lp_assert(m_work_vector.is_OK());
         unsigned end = m_index_start + m_dim;
         for (unsigned k : w.m_index) {
             // find j such that k = adjust_row_inverse(j)
@@ -203,7 +203,7 @@ public:
             }
         }
         m_work_vector.clean_up();
-        SASSERT(m_work_vector.is_OK());
+        lp_assert(m_work_vector.is_OK());
         w = m_work_vector;
 #endif
     }

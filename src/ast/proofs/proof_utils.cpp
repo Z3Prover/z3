@@ -975,9 +975,7 @@ private:
 
     void compose(expr_ref_vector& sub, expr_ref_vector const& s0) {
         for (unsigned i = 0; i < sub.size(); ++i) {
-            expr_ref e(m);
-            var_subst(m, false)(sub[i].get(), s0.size(), s0.c_ptr(), e);
-            sub[i] = e;            
+            sub[i] = var_subst(m, false)(sub[i].get(), s0.size(), s0.c_ptr());
         }
     }
 
@@ -995,7 +993,7 @@ private:
                   tout << sub.size() << "\n";);
             return;
         }
-        var_subst(m, false)(q->get_expr(), sub.size(), sub.c_ptr(), fml);
+        fml = var_subst(m, false)(q->get_expr(), sub.size(), sub.c_ptr());
     }
 
 };

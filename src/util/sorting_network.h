@@ -177,8 +177,8 @@ Notes:
 
         // for testing
         static const bool m_disable_dcard    = false;
-        static const bool m_disable_dsorting = false;
-        static const bool m_disable_dsmerge  = false;
+        static const bool m_disable_dsorting = true; // false;
+        static const bool m_disable_dsmerge  = true; // false;
         static const bool m_force_dcard      = false;
         static const bool m_force_dsorting   = false;
         static const bool m_force_dsmerge    = false;
@@ -611,7 +611,7 @@ Notes:
                 in.push_back(ctx.mk_not(xs[i]));
             }
             TRACE("pb_verbose", 
-                  pp(tout << N << ": ", in);                  
+                  //pp(tout << N << ": ", in);                  
                   tout << " ~ " << k << "\n";);
             return true;
         }
@@ -696,18 +696,21 @@ Notes:
                 psort_nw<psort_expr>::sorting(n, xs, out);
             }
             else if (use_dcard(k, n)) {
+                TRACE("pb_verbose", tout << "use dcard\n";);
                 dsorting(k, n, xs, out);
             }
             else {
+                TRACE("pb_verbose", tout << "use merge\n";);
                 literal_vector out1, out2;
-                unsigned l = n/2; // TBD
-                card(k, l, xs, out1);
-                card(k, n-l, xs + l, out2);
+                unsigned half = n/2; // TBD
+                card(k, half, xs, out1);
+                card(k, n-half, xs + half, out2);
                 smerge(k, out1.size(), out1.c_ptr(), out2.size(), out2.c_ptr(), out);
             }
             TRACE("pb_verbose", tout << "card k: " << k << " n: " << n << "\n";
-                  pp(tout << "in:", n, xs) << "\n";
-                  pp(tout << "out:", out) << "\n";);
+                  //pp(tout << "in:", n, xs) << "\n";
+                  //pp(tout << "out:", out) << "\n";
+                  );
 
         }        
         vc vc_card(unsigned k, unsigned n) {
@@ -733,7 +736,7 @@ Notes:
         void merge(unsigned a, literal const* as, 
                    unsigned b, literal const* bs,                    
                    literal_vector& out) {
-            TRACE("pb_verbose", tout << "merge a: " << a << " b: " << b << "\n";);
+            unsigned nc = m_stats.m_num_compiled_clauses;
             if (a == 1 && b == 1) {
                 literal y1 = mk_max(as[0], bs[0]);
                 literal y2 = mk_min(as[0], bs[0]);
@@ -768,10 +771,12 @@ Notes:
                       odd_b.size(), odd_b.c_ptr(), out2);
                 interleave(out1, out2, out); 
             }
-            TRACE("pb_verbose", tout << "merge a: " << a << " b: " << b << "\n";
-                  pp(tout << "a:", a, as) << "\n";
-                  pp(tout << "b:", b, bs) << "\n";
-                  pp(tout << "out:", out) << "\n";);
+            TRACE("pb_verbose", tout << "merge a: " << a << " b: " << b << " ";
+                  tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
+                  //pp(tout << "a:", a, as) << "\n";
+                  //pp(tout << "b:", b, bs) << "\n";
+                  //pp(tout << "out:", out) << "\n";
+                  );
         }
         vc vc_merge(unsigned a, unsigned b) {
             if (a == 1 && b == 1) {
@@ -805,7 +810,7 @@ Notes:
         void interleave(literal_vector const& as, 
                         literal_vector const& bs,
                         literal_vector& out) {
-            TRACE("pb_verbose", tout << "interleave: " << as.size() << " " << bs.size() << "\n";);
+            unsigned nc = m_stats.m_num_compiled_clauses;
             SASSERT(as.size() >= bs.size());
             SASSERT(as.size() <= bs.size() + 2);
             SASSERT(!as.empty());
@@ -825,10 +830,12 @@ Notes:
                 out.push_back(as[sz+1]);
             }
             SASSERT(out.size() == as.size() + bs.size());
-            TRACE("pb_verbose", tout << "interleave: " << as.size() << " " << bs.size() << "\n";
-                  pp(tout << "a: ", as) << "\n";
-                  pp(tout << "b: ", bs) << "\n";
-                  pp(tout << "out: ", out) << "\n";);
+            TRACE("pb_verbose", tout << "interleave: " << as.size() << " " << bs.size() << " ";
+                  tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
+                  //pp(tout << "a: ", as) << "\n";
+                  //pp(tout << "b: ", bs) << "\n";
+                  //pp(tout << "out: ", out) << "\n";
+                  );
 
         }
         vc vc_interleave(unsigned a, unsigned b) {
@@ -849,13 +856,15 @@ Notes:
                 break;
             default:
                 if (use_dsorting(n)) {
+                    TRACE("pb_verbose", tout << "use dsorting: " << n << "\n";);
                     dsorting(n, n, xs, out);
                 }
                 else {
+                    TRACE("pb_verbose", tout << "use merge: " << n << "\n";);
                     literal_vector out1, out2;
-                    unsigned l = n/2;  // TBD
-                    sorting(l, xs, out1);
-                    sorting(n-l, xs+l, out2);
+                    unsigned half = n/2;  // TBD
+                    sorting(half, xs, out1);
+                    sorting(n-half, xs+half, out2);
                     merge(out1.size(), out1.c_ptr(), 
                           out2.size(), out2.c_ptr(),
                           out);                
@@ -863,8 +872,9 @@ Notes:
                 break;
             }
             TRACE("pb_verbose", tout << "sorting: " << n << "\n";
-                  pp(tout << "in:", n, xs) << "\n"; 
-                  pp(tout << "out:", out) << "\n";);
+                  //pp(tout << "in:", n, xs) << "\n"; 
+                  //pp(tout << "out:", out) << "\n";
+                  );
         }
 
     private:
@@ -898,7 +908,7 @@ Notes:
                     unsigned a, literal const* as,
                     unsigned b, literal const* bs, 
                     literal_vector& out) {
-            TRACE("pb_verbose", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";);
+            unsigned nc = m_stats.m_num_compiled_clauses;
             if (a == 1 && b == 1 && c == 1) {
                 literal y = mk_max(as[0], bs[0]);
                 if (m_t != GE) {
@@ -972,10 +982,11 @@ Notes:
                     out.push_back(y);
                 }
             }
-            TRACE("pb_verbose", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";
-                  pp(tout << "a:", a, as) << "\n";
-                  pp(tout << "b:", b, bs) << "\n";
-                  pp(tout << "out:", out) << "\n";
+            TRACE("pb_verbose", tout << "smerge: c:" << c << " a:" << a << " b:" << b << " ";
+                  tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
+                  //pp(tout << "a:", a, as) << "\n";
+                  //pp(tout << "b:", b, bs) << "\n";
+                  //pp(tout << "out:", out) << "\n";
                   );
             SASSERT(out.size() == std::min(a + b, c));
         }
@@ -1007,7 +1018,7 @@ Notes:
             return 
                 m_force_dsmerge ||
                 (!m_disable_dsmerge && 
-                 a < (1 << 15) && b < (1 << 15) && 
+                 a < (1 << 7) && b < (1 << 7) && 
                  vc_dsmerge(a, b, a + b) < vc_smerge_rec(a, b, c));
         }
 
@@ -1075,9 +1086,9 @@ Notes:
 
         void dsorting(unsigned m, unsigned n, literal const* xs, 
                       literal_vector& out) {
-            TRACE("pb_verbose", tout << "dsorting m: " << m << " n: " << n << "\n";);
             SASSERT(m <= n);
             literal_vector lits;
+            unsigned nc = m_stats.m_num_compiled_clauses;
             for (unsigned i = 0; i < m; ++i) {
                 out.push_back(fresh("dsort"));
             }
@@ -1095,7 +1106,11 @@ Notes:
                     lits.pop_back();
                 }
             }
+            TRACE("pb_verbose", 
+                  tout << "dsorting m: " << m << " n: " << n << " ";
+                  tout << "num clauses: " << m_stats.m_num_compiled_clauses - nc << "\n";);
         }
+
         vc vc_dsorting(unsigned m, unsigned n) {
             SASSERT(m <= n && n < 10);            
             vc v(m, 0);
@@ -1111,7 +1126,8 @@ Notes:
         void add_subset(bool polarity, unsigned k, unsigned offset, literal_vector& lits, 
                         unsigned n, literal const* xs) {
             TRACE("pb_verbose", tout << "k:" << k << " offset: " << offset << " n: " << n << " ";
-                  pp(tout, lits) << "\n";);
+                  //pp(tout, lits) << "\n";
+                  );
             SASSERT(k + offset <= n);
             if (k == 0) {
                 add_clause(lits);
