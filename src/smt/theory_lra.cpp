@@ -1373,8 +1373,10 @@ public:
         expr_ref atom1(m);
         proof_ref atomp(m);
         ctx().get_rewriter()(atom, atom1, atomp);
-        atom = to_app(atom1);
-        TRACE("arith", tout << atom << "\n";
+        if (!m.is_false(atom1) && !m.is_true(atom1)) {
+            atom = to_app(atom1);
+        }
+        TRACE("arith", tout << t << ": " << atom << "\n";
               m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";);
         ctx().internalize(atom, true);
         ctx().mark_as_relevant(atom.get());
