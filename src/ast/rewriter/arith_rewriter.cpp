@@ -927,30 +927,29 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         return BR_DONE;
     }
 
-    // propagate mod inside only if not all arguments are not already mod.
+    // propagate mod inside only if there is something to reduce.
     if (m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_pos() && (is_add(arg1) || is_mul(arg1))) {
         TRACE("mod_bug", tout << "mk_mod:\n" << mk_ismt2_pp(arg1, m()) << "\n" << mk_ismt2_pp(arg2, m()) << "\n";);
-        unsigned num_args = to_app(arg1)->get_num_args();
-        unsigned i;
-        rational arg_v;
-        for (i = 0; i < num_args; i++) {
-            expr * arg = to_app(arg1)->get_arg(i);
-            if (m_util.is_mod(arg))
-                continue;
-            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, v2) == arg_v)
-                continue;
-            if (m().is_ite(arg)) 
-                continue;
-            // found target for rewriting
-            break;
+        expr_ref_buffer args(m());
+        bool change = false;
+        for (expr* arg : *to_app(arg1)) {
+            rational arg_v;
+            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, v2) != arg_v) {
+                change = true;
+                args.push_back(m_util.mk_numeral(mod(arg_v, v2), true));
+            }
+            else if (m_util.is_mod(arg, t1, t2) && t2 == arg2) {
+                change = true;
+                args.push_back(t1);
+            }
+            else {
+                args.push_back(arg);
+            }
         }
-        TRACE("mod_bug", tout << "mk_mod target: " << i << "\n";);
-        if (i == num_args)
+        if (!change) {
             return BR_FAILED; // did not find any target for applying simplification
-        ptr_buffer<expr> new_args;
-        for (unsigned i = 0; i < num_args; i++)
-            new_args.push_back(m_util.mk_mod(to_app(arg1)->get_arg(i), arg2));
-        result = m_util.mk_mod(m().mk_app(to_app(arg1)->get_decl(), new_args.size(), new_args.c_ptr()), arg2);
+        }
+        result = m_util.mk_mod(m().mk_app(to_app(arg1)->get_decl(), args.size(), args.c_ptr()), arg2);
         TRACE("mod_bug", tout << "mk_mod result: " << mk_ismt2_pp(result, m()) << "\n";);
         return BR_REWRITE3;
     }

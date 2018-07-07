@@ -721,11 +721,16 @@ bool goal::is_cnf() const {
     for (unsigned i = 0; i < size(); i++) {
         expr * f = form(i);
         if (m_manager.is_or(f)) {
-            for (expr* l : *to_app(f)) {
-                if (!is_literal(f)) return false;
+            for (expr* lit : *to_app(f)) {
+                if (!is_literal(lit)) {
+                    return false;
+                }
             }
+            return true;
         }
-        if (!is_literal(f)) return false;
+        if (!is_literal(f)) {
+            return false;
+        }
     }
     return true;
 }
@@ -735,7 +740,9 @@ bool goal::is_literal(expr* f) const {
     if (!is_app(f)) return false;
     if (to_app(f)->get_family_id() == m_manager.get_basic_family_id()) {
         for (expr* arg : *to_app(f)) 
-            if (m_manager.is_bool(arg)) return false;
+            if (m_manager.is_bool(arg)) {
+                return false;
+            }
     }
     return true;
 }
