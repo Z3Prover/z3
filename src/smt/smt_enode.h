@@ -38,6 +38,15 @@ namespace smt {
         }
     };
 
+    /**
+       \brief Indicates whether the proof for membership in an equivalence class is already logged.
+    */
+    enum logged_status {
+        NOT_LOGGED, //!< Proof is not logged or logged information is not up-to-date.
+        BEING_LOGGED, //!< We are currently in the process of logging all relevant information. This is used to prevent looping when logging congruence steps.
+        LOGGED //!< Proof is logged and logged information is still up-to-date.
+    };
+
     /** \ brief Use sparse maps in SMT solver.
 
     Define this to use hash maps rather than vectors over ast
@@ -105,6 +114,7 @@ namespace smt {
         enode_vector        m_parents;          //!< Parent enodes of the equivalence class.
         theory_var_list     m_th_var_list;      //!< List of theories that 'care' about this enode.
         trans_justification m_trans;            //!< A justification for the enode being equal to its root.
+        logged_status       m_proof_logged_status;  //!< Indicates that the proof for the enode being equal to its root is in the log.
         signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
         approx_set          m_lbls;
         approx_set          m_plbls;
@@ -113,6 +123,7 @@ namespace smt {
         friend class context;
         friend class euf_manager;
         friend class conflict_resolution;
+        friend class quantifier_manager;
         
 
         theory_var_list * get_th_var_list() { 
@@ -360,6 +371,10 @@ namespace smt {
         unsigned get_num_th_vars() const;
 
         theory_var get_th_var(theory_id th_id) const;
+
+        trans_justification get_trans_justification() {
+            return m_trans;
+        }
 
         unsigned get_generation() const {
             return m_generation;
