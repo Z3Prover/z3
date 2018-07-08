@@ -21,7 +21,6 @@ Revision History:
 
 #ifdef _TRACE
 std::ofstream tout(".z3-trace"); 
-#endif
 
 static bool g_enable_all_trace_tags = false;
 static str_hashtable* g_enabled_trace_tags = nullptr;
@@ -56,13 +55,11 @@ bool is_trace_enabled(const char * tag) {
 }
 
 void close_trace() {
-#ifdef _TRACE
     tout.close();
-#endif
 }
 
 void open_trace() {
-#ifdef _TRACE
     tout.open(".z3-trace");
-#endif
 }
+
+#endif
