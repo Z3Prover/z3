@@ -15,6 +15,7 @@ Author:
 
 #include "util/debug.h"
 #include "util/memory_manager.h"
+#include "util/buffer_view.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -305,6 +306,15 @@ public:
         for(size_type i = 0; i < count; ++i) {
             ::new(m_data + i) value_type(elem);
         }
+    }
+
+    operator buffer_view<value_type>() const noexcept {
+        return buffer_view<value_type>(data(), size());
+    }
+
+    template<typename = T, typename = typename std::enable_if<!std::is_const<value_type>::value>::type>
+    operator buffer_view<value_type const>() const noexcept {
+        return buffer_view<value_type const>(data(), size());
     }
 
     friend void swap(buffvec& lhs, buffvec& rhs) {
@@ -620,6 +630,15 @@ public:
         swap(m_size, other.m_size);
         swap(m_capacity, other.m_capacity);
         return *this;
+    }
+
+    operator buffer_view<value_type>() const noexcept {
+        return buffer_view<value_type>(data(), size());
+    }
+
+    template<typename = T, typename = typename std::enable_if<!std::is_const<value_type>::value>::type>
+    operator buffer_view<value_type const>() const noexcept {
+        return buffer_view<value_type const>(data(), size());
     }
 
     friend void swap(buffvec& lhs, buffvec& rhs) {
