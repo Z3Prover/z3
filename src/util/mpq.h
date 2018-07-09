@@ -714,6 +714,12 @@ public:
         return temp;
     }
 
+    mpz dup(const mpz & source) {
+        mpz temp;
+        set(temp, source);
+        return temp;
+    }
+
     void swap(mpz & a, mpz & b) { mpz_manager<SYNCH>::swap(a, b); }
 
     void swap(mpq & a, mpq & b) {
