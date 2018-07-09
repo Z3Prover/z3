@@ -613,12 +613,12 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
 
     expr* cond2 = nullptr, *t2 = nullptr, *e2 = nullptr;
     if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
-        try_ite_value(to_app(t), val, result);
+        VERIFY(BR_FAILED != try_ite_value(to_app(t), val, result));
         result = m().mk_ite(cond, result, m().mk_eq(e, val));
         return BR_REWRITE2;
     }
     if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
-        try_ite_value(to_app(e), val, result);
+        VERIFY(BR_FAILED != try_ite_value(to_app(e), val, result));
         result = m().mk_ite(cond, m().mk_eq(t, val), result);
         return BR_REWRITE2;
     }
@@ -640,19 +640,21 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
     br_status r = BR_FAILED;
     
-    if (m().is_ite(lhs) && m().is_value(rhs)) {
-        r = try_ite_value(to_app(lhs), to_app(rhs), result);
-        CTRACE("try_ite_value", r != BR_FAILED,
-               tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
+
+    if (m_ite_extra_rules) {
+        if (m().is_ite(lhs) && m().is_value(rhs)) {
+            r = try_ite_value(to_app(lhs), to_app(rhs), result);
+            CTRACE("try_ite_value", r != BR_FAILED,
+                   tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
+        }
+        else if (m().is_ite(rhs) && m().is_value(lhs)) {
+            r = try_ite_value(to_app(rhs), to_app(lhs), result);
+            CTRACE("try_ite_value", r != BR_FAILED,
+                   tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
+        }
+        if (r != BR_FAILED)
+            return r;
     }
-    else if (m().is_ite(rhs) && m().is_value(lhs)) {
-        r = try_ite_value(to_app(rhs), to_app(lhs), result);
-        CTRACE("try_ite_value", r != BR_FAILED,
-               tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
-    }
-    if (r != BR_FAILED)
-        return r;
-    
 
     if (m().is_bool(lhs)) {
         bool unfolded = false;

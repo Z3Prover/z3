@@ -1085,7 +1085,7 @@ namespace opt {
         if (D.is_zero()) {
             throw default_exception("modulo 0 is not defined");
         }
-        TRACE("opt", display(tout << "lcm: " << D << " tableau\n"););
+        TRACE("opt1", display(tout << "lcm: " << D << " x: v" << x << " tableau\n"););
         rational val_x = m_var2value[x];
         rational u = mod(val_x, D);
         SASSERT(u.is_nonneg() && u < D);
@@ -1093,6 +1093,7 @@ namespace opt {
             replace_var(idx, x, u);            
             SASSERT(invariant(idx, m_rows[idx]));
         }
+        TRACE("opt1", display(tout << "tableau after replace x under mod\n"););
         //
         // update inequalities such that u is added to t and
         // D is multiplied to coefficient of x.
@@ -1114,6 +1115,7 @@ namespace opt {
                 visited.insert(row_id);
             }
         }
+        TRACE("opt1", display(tout << "tableau after replace x by y := v" << y << "\n"););
         def result = project(y, compute_def);
         if (compute_def) {
             result = (result * D) + u;     
