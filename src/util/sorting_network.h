@@ -977,6 +977,7 @@ Notes:
                    unsigned b, literal const* bs,                    
                    literal_vector& out) {
             unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             if (a == 1 && b == 1) {
                 literal y1 = mk_max(as[0], bs[0]);
                 literal y2 = mk_min(as[0], bs[0]);
@@ -1054,6 +1055,7 @@ Notes:
                         literal_vector const& bs,
                         literal_vector& out) {
             unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             SASSERT(as.size() >= bs.size());
             SASSERT(as.size() <= bs.size() + 2);
             SASSERT(!as.empty());
@@ -1152,6 +1154,7 @@ Notes:
                     unsigned b, literal const* bs, 
                     literal_vector& out) {
             unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             if (a == 1 && b == 1 && c == 1) {
                 literal y = mk_max(as[0], bs[0]);
                 if (m_t != GE) {
@@ -1270,7 +1273,8 @@ Notes:
             unsigned a, literal const* as, 
             unsigned b, literal const* bs,                    
             literal_vector& out) {
-            unsigned nc = m_stats.m_num_compiled_clauses;            
+            unsigned nc = m_stats.m_num_compiled_clauses;         
+            (void)nc;   
             SASSERT(a <= c);
             SASSERT(b <= c);
             SASSERT(a + b >= c);
@@ -1338,6 +1342,7 @@ Notes:
             SASSERT(m <= n);
             literal_vector lits;
             unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             for (unsigned i = 0; i < m; ++i) {
                 out.push_back(fresh("dsort"));
             }

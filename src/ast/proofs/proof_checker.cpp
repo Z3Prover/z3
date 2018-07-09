@@ -192,7 +192,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
     expr* t1 = nullptr, *t2 = nullptr;
     expr* s1 = nullptr, *s2 = nullptr;
     expr* u1 = nullptr, *u2 = nullptr;
-    expr* fact = nullptr, *body1 = nullptr, *body2 = nullptr;
+    expr* fact = nullptr, *body1 = nullptr;
     expr* l1 = nullptr, *l2 = nullptr, *r1 = nullptr, *r2 = nullptr;
     func_decl* d1 = nullptr, *d2 = nullptr, *d3 = nullptr;
     proof* p0 = nullptr, *p1 = nullptr, *p2 = nullptr;

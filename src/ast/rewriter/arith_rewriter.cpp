@@ -812,6 +812,28 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         result = m().mk_ite(m().mk_eq(arg1, zero), m_util.mk_idiv(zero, zero), m_util.mk_int(1)); 
         return BR_REWRITE3; 
     } 
+    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_pos() && m_util.is_add(arg1)) { 
+        expr_ref_buffer args(m());
+        bool change = false;
+        rational add(0);
+        for (expr* arg : *to_app(arg1)) {
+            rational arg_v;
+            if (m_util.is_numeral(arg, arg_v) && arg_v.is_pos() && mod(arg_v, v2) != arg_v) {
+                change = true;
+                args.push_back(m_util.mk_numeral(mod(arg_v, v2), true));
+                add += div(arg_v, v2);
+            }
+            else {
+                args.push_back(arg);
+            }
+        }
+        if (change) {
+            result = m_util.mk_idiv(m().mk_app(to_app(arg1)->get_decl(), args.size(), args.c_ptr()), arg2);
+            result = m_util.mk_add(m_util.mk_numeral(add, true), result);
+            TRACE("div_bug", tout << "mk_div result: " << result << "\n";);
+            return BR_REWRITE3;
+        }
+    } 
     if (divides(arg1, arg2, result)) { 
         return BR_REWRITE_FULL; 
     }  

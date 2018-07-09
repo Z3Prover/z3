@@ -1362,22 +1362,46 @@ public:
 
     // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
     app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
-        app_ref t = mk_term(term, k.is_int());
+        bool is_int = k.is_int();
+        rational offset = -k;
+        u_map<rational> coeffs;
+        term2coeffs(term, coeffs, rational::one(), offset);
+        offset.neg();
+        if (is_int) {
+            // 3x + 6y >= 5 -> x + 3y >= 5/3, then x + 3y >= 2
+            // 3x + 6y <= 5 -> x + 3y <= 1
+            
+            rational g = gcd_reduce(coeffs);
+            if (!g.is_one()) {
+                if (lower_bound) {
+                    offset = div(offset + g - rational::one(), g);
+                }
+                else {
+                    offset = div(offset, g);
+                }
+            }
+        }
+
         app_ref atom(m);
+        app_ref t = coeffs2app(coeffs, rational::zero(), is_int);
         if (lower_bound) {
-            atom = a.mk_ge(t, a.mk_numeral(k, k.is_int()));
+            atom = a.mk_ge(t, a.mk_numeral(offset, is_int));
         }
         else {
-            atom = a.mk_le(t, a.mk_numeral(k, k.is_int()));
+            atom = a.mk_le(t, a.mk_numeral(offset, is_int));
         }
+
+
+#if 0
         expr_ref atom1(m);
         proof_ref atomp(m);
         ctx().get_rewriter()(atom, atom1, atomp);
         if (!m.is_false(atom1) && !m.is_true(atom1)) {
             atom = to_app(atom1);
         }
+#endif
         TRACE("arith", tout << t << ": " << atom << "\n";
-              m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";);
+              m_solver->print_term(term, tout << "bound atom: "); tout << (lower_bound?" <= ":" >= ") << k << "\n";);
         ctx().internalize(atom, true);
         ctx().mark_as_relevant(atom.get());
         return atom;
@@ -1396,6 +1420,7 @@ public:
         case lp::lia_move::sat:
             return l_true;
         case lp::lia_move::branch: {
+            TRACE("arith", tout << "branch\n";);
             app_ref b = mk_bound(term, k, !upper);
             // branch on term >= k + 1
             // branch on term <= k
@@ -1405,6 +1430,7 @@ public:
             return l_false;
         }
         case lp::lia_move::cut: {
+            TRACE("arith", tout << "cutn";);
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             app_ref b = mk_bound(term, k, !upper);
@@ -2809,26 +2835,44 @@ public:
         return internalize_def(term);
     }
 
-    app_ref mk_term(lp::lar_term const& term, bool is_int) {     
-        expr_ref_vector args(m);
+    void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff, rational& offset) {
         for (const auto & ti : term) {
             theory_var w;
             if (m_solver->is_term(ti.var())) {
-                w = m_term_index2theory_var[m_solver->adjust_term_index(ti.var())];
+                //w = m_term_index2theory_var.get(m_solver->adjust_term_index(ti.var()), null_theory_var);
+                //if (w == null_theory_var) // if extracing expressions directly from nested term
+                lp::lar_term const& term1 = m_solver->get_term(ti.var());
+                rational coeff2 = coeff * ti.coeff();
+                term2coeffs(term1, coeffs, coeff2, offset);
+                continue;
             }
             else {
                 w = m_var_index2theory_var[ti.var()];
             }
+            rational c0(0);
+            coeffs.find(w, c0);
+            coeffs.insert(w, c0 + ti.coeff() * coeff);
+        }
+        offset += coeff * term.m_v;
+    }
+
+    app_ref coeffs2app(u_map<rational> const& coeffs, rational const& offset, bool is_int) {
+        expr_ref_vector args(m);
+         for (auto const& kv : coeffs) {
+            theory_var w = kv.m_key;
             expr* o = get_enode(w)->get_owner();
-            if (ti.coeff().is_one()) {
+            if (kv.m_value.is_zero()) {
+                // continue
+            }
+            else if (kv.m_value.is_one()) {
                 args.push_back(o);
             }
             else {
-                args.push_back(a.mk_mul(a.mk_numeral(ti.coeff(), is_int), o));
+                args.push_back(a.mk_mul(a.mk_numeral(kv.m_value, is_int), o));                
             }
         }
-        if (!term.m_v.is_zero()) {
-            args.push_back(a.mk_numeral(term.m_v, is_int));
+        if (!offset.is_zero()) {
+            args.push_back(a.mk_numeral(offset, is_int));
         }
         switch (args.size()) {
         case 0:
@@ -2838,6 +2882,26 @@ public:
         default:
             return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
         }
+    }
+
+    app_ref mk_term(lp::lar_term const& term, bool is_int) {     
+        u_map<rational> coeffs;
+        rational offset;
+        term2coeffs(term, coeffs, rational::one(), offset);
+        return coeffs2app(coeffs, offset, is_int);
+    }
+
+    rational gcd_reduce(u_map<rational>& coeffs) {
+        rational g(0);
+         for (auto const& kv : coeffs) {
+             g = gcd(g, kv.m_value);
+         }
+         if (!g.is_one() && !g.is_zero()) {
+             for (auto& kv : coeffs) {
+                 kv.m_value /= g;
+             }             
+         }
+         return g;
     }
 
     app_ref mk_obj(theory_var v) {
