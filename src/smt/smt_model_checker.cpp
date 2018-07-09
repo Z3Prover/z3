@@ -33,6 +33,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_model_finder.h"
 #include "model/model_pp.h"
+#include <tuple>
 
 namespace smt {
 
@@ -518,7 +519,7 @@ namespace smt {
     void model_checker::assert_new_instances() {
         TRACE("model_checker_bug_detail", tout << "assert_new_instances, inconsistent: " << m_context->inconsistent() << "\n";);
         ptr_buffer<enode> bindings;
-        ptr_vector<enode> dummy;
+        vector<std::tuple<enode *, enode *>> dummy;
         for (instance const& inst : m_new_instances) {
             quantifier * q  = inst.m_q;
             if (m_context->b_internalized(q)) {

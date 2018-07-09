@@ -104,6 +104,90 @@ namespace smt {
             return m_plugin->is_shared(n);
         }
 
+        /**
+           \brief Ensures that all relevant proof steps to explain why the enode is equal to the root of its
+           equivalence class are in the log and up-to-date.
+        */
+        void log_justification_to_root(std::ostream & log, enode *en) {
+            enode *root = en->get_root();
+            for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
+                if (it->m_proof_logged_status == smt::logged_status::NOT_LOGGED) {
+                    it->m_proof_logged_status = smt::logged_status::BEING_LOGGED;
+                    log_single_justification(log, it);
+                    it->m_proof_logged_status = smt::logged_status::LOGGED;
+                } else if (it->m_proof_logged_status != smt::logged_status::BEING_LOGGED && it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
+
+                    // When the justification of an argument changes m_proof_logged_status is not reset => We need to check if the proofs of all arguments are logged.
+                    it->m_proof_logged_status = smt::logged_status::BEING_LOGGED;
+                    const unsigned num_args = it->get_num_args();
+                    enode *target = it->get_trans_justification().m_target;
+
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        log_justification_to_root(log, it->get_arg(i));
+                        log_justification_to_root(log, target->get_arg(i));
+                    }
+                    it->m_proof_logged_status = smt::logged_status::LOGGED;
+                }
+            }
+            if (root->m_proof_logged_status == smt::logged_status::NOT_LOGGED) {
+                log << "[eq-expl] #" << root->get_owner_id() << " root\n";
+                root->m_proof_logged_status = smt::logged_status::LOGGED;
+            }
+        }
+
+        /**
+          \brief Logs a single equality explanation step and, if necessary, recursively calls log_justification_to_root to log
+          equalities needed by the step (e.g. argument equalities for congruence steps).
+        */
+        void log_single_justification(std::ostream & out, enode *en) {
+            smt::literal lit;
+            unsigned num_args;
+            enode *target = en->get_trans_justification().m_target;
+            theory_id th_id;
+
+            switch (en->get_trans_justification().m_justification.get_kind()) {
+            case smt::eq_justification::kind::EQUATION:
+                lit = en->get_trans_justification().m_justification.get_literal();
+                out << "[eq-expl] #" << en->get_owner_id() << " lit #" << m_context.bool_var2expr(lit.var())->get_id() << " ; #" << target->get_owner_id() << "\n";
+                break;
+            case smt::eq_justification::kind::AXIOM:
+                out << "[eq-expl] #" << en->get_owner_id() << " ax ; #" << target->get_owner_id() << "\n";
+                break;
+            case smt::eq_justification::kind::CONGRUENCE:
+                if (!en->get_trans_justification().m_justification.used_commutativity()) {
+                    num_args = en->get_num_args();
+
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        log_justification_to_root(out, en->get_arg(i));
+                        log_justification_to_root(out, target->get_arg(i));
+                    }
+
+                    out << "[eq-expl] #" << en->get_owner_id() << " cg";
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        out << " (#" << en->get_arg(i)->get_owner_id() << " #" << target->get_arg(i)->get_owner_id() << ")";
+                    }
+                    out << " ; #" << target->get_owner_id() << "\n";
+
+                    break;
+                } else {
+                    out << "[eq-expl] #" << en->get_owner_id() << " nyi ; #" << target->get_owner_id() << "\n";
+                    break;
+                }
+            case smt::eq_justification::kind::JUSTIFICATION:
+                th_id = en->get_trans_justification().m_justification.get_justification()->get_from_theory();
+                if (th_id != null_theory_id) {
+                    symbol const theory = m().get_family_name(th_id);
+                    out << "[eq-expl] #" << en->get_owner_id() << " th " << theory.str() << " ; #" << target->get_owner_id() << "\n";
+                } else {
+                    out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
+                }
+                break;
+            default:
+                out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
+                break;
+            }
+        }
+
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
@@ -111,7 +195,7 @@ namespace smt {
                           unsigned max_generation,
                           unsigned min_top_generation,
                           unsigned max_top_generation,
-                          ptr_vector<enode> & used_enodes) {
+                          vector<std::tuple<enode *, enode *>> & used_enodes) {
             max_generation = std::max(max_generation, get_generation(q));
             if (m_num_instances > m_params.m_qi_max_instances) {
                 return false;
@@ -121,15 +205,39 @@ namespace smt {
             if (f) {
                 if (has_trace_stream()) {
                     std::ostream & out = trace_stream();
-                    out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id();
+
+                    // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
+                    // is used. We need to make sure that all of these equalities appear in the log.
+                    for (unsigned i = 0; i < num_bindings; ++i) {
+                        log_justification_to_root(out, bindings[i]);
+                    }
+
+                    for (auto n : used_enodes) {
+                        enode *orig = std::get<0>(n);
+                        enode *substituted = std::get<1>(n);
+                        if (orig != nullptr) {
+                            log_justification_to_root(out, orig);
+                            log_justification_to_root(out, substituted);
+                        }
+                    }
+
+                    // At this point all relevant equalities for the match are logged.
+                    out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id() << " #" << pat->get_id();
                     for (unsigned i = 0; i < num_bindings; i++) {
                         // I don't want to use mk_pp because it creates expressions for pretty printing.
                         // This nasty side-effect may change the behavior of Z3.
                         out << " #" << bindings[i]->get_owner_id();
                     }
                     out << " ;";
-                    for (enode* n : used_enodes) 
-                        out << " #" << n->get_owner_id();
+                    for (auto n : used_enodes) {
+                        enode *orig = std::get<0>(n);
+                        enode *substituted = std::get<1>(n);
+                        if (orig == nullptr)
+                            out << " #" << substituted->get_owner_id();
+                        else {
+                            out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
+                        }
+                    }
                     out << "\n";
                 }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
@@ -296,12 +404,12 @@ namespace smt {
                                           unsigned max_generation,
                                           unsigned min_top_generation,
                                           unsigned max_top_generation,
-                                          ptr_vector<enode> & used_enodes) {
+                                          vector<std::tuple<enode *, enode *>> & used_enodes) {
         return m_imp->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_generation, used_enodes);
     }
 
     bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, expr* def, unsigned generation) {
-        ptr_vector<enode> tmp;
+        vector<std::tuple<enode *, enode *>> tmp;
         return add_instance(q, nullptr, num_bindings, bindings, def, generation, generation, generation, tmp);
     }
 

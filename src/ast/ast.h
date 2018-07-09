@@ -69,7 +69,7 @@ class ast_manager;
 */
 class ast_exception : public default_exception {
 public:
-    ast_exception(char const * msg):default_exception(msg) {}
+    ast_exception(std::string && msg) : default_exception(std::move(msg)) {}
 };
 
 typedef int     family_id;

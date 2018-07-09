@@ -49,6 +49,7 @@ Revision History:
 #include "util/timer.h"
 #include "util/statistics.h"
 #include "solver/progress_callback.h"
+#include <tuple>
 
 // there is a significant space overhead with allocating 1000+ contexts in
 // the case that each context only references a few expressions.
@@ -970,7 +971,7 @@ namespace smt {
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
         bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
-                          unsigned min_top_generation, unsigned max_top_generation, ptr_vector<enode> & used_enodes);
+                          unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }
 

@@ -389,14 +389,14 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             match_fact(p, fact) &&
             match_fact(p1, fml) &&
             match_and(fml, terms)) {
-            for (expr* t : terms) 
+            for (expr* t : terms)
                 if (t == fact) return true;
         }
         UNREACHABLE();
         return false;
     }
     case PR_NOT_OR_ELIM: {
-        
+
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1, fml) &&
@@ -605,6 +605,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                         bool found = false;
                         for (expr* term2 : terms2) {
                             found = term1 == term2;
+                            if (found) break;
                         }
                         if (!found) {
                             IF_VERBOSE(0, verbose_stream() << "Premise not found:" << mk_pp(term1, m) << "\n";);
@@ -738,9 +739,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             }
             if (is_quantifier(e)) {
                 SASSERT(!is_lambda(e));
-                q = to_quantifier(e);                
+                q = to_quantifier(e);
                 // TBD check that quantifier is properly instantiated
-                return is_forall == ::is_forall(q);                
+                return is_forall == ::is_forall(q);
             }
         }
         UNREACHABLE();
@@ -1004,7 +1005,7 @@ bool proof_checker::match_op(expr const* e, decl_kind k, ptr_vector<expr>& terms
     if (e->get_kind() == AST_APP &&
         to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k) {
-        for (expr* arg : *to_app(e)) 
+        for (expr* arg : *to_app(e))
             terms.push_back(arg);
         return true;
     }

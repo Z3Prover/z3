@@ -562,6 +562,7 @@ namespace smt {
             invert_trans(n1);
             n1->m_trans.m_target        = n2;
             n1->m_trans.m_justification = js;
+            n1->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
             SASSERT(r1->trans_reaches(n1));
             // ---------------
             // r1 -> ..  -> n1 -> n2 -> ... -> r2
@@ -741,12 +742,14 @@ namespace smt {
         eq_justification js               = n->m_trans.m_justification;
         prev->m_trans.m_target            = nullptr;
         prev->m_trans.m_justification     = null_eq_justification;
+        prev->m_proof_logged_status       = smt::logged_status::NOT_LOGGED;
         while (curr != nullptr) {
             SASSERT(prev->trans_reaches(n));
             enode * new_curr              = curr->m_trans.m_target;
             eq_justification new_js       = curr->m_trans.m_justification;
             curr->m_trans.m_target        = prev;
             curr->m_trans.m_justification = js;
+            curr->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
             prev                          = curr;
             js                            = new_js;
             curr                          = new_curr;
@@ -1040,6 +1043,7 @@ namespace smt {
         SASSERT(r1->trans_reaches(n1));
         n1->m_trans.m_target        = nullptr;
         n1->m_trans.m_justification = null_eq_justification;
+        n1->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
         invert_trans(r1);
         // ---------------
         // n1 -> ... -> r1
@@ -1786,7 +1790,7 @@ namespace smt {
     }
 
     bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
-                               unsigned min_top_generation, unsigned max_top_generation, ptr_vector<enode> & used_enodes) {
+                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
         return m_qmanager->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
