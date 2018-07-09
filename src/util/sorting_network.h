@@ -366,8 +366,6 @@ Notes:
             if (cmp == LE || cmp == EQ || cmp == LE_FULL) {
                 last = k + 1;
             }
-            bool full = cmp == LE_FULL || cmp == GE_FULL;
-
             literal_vector carry;
             for (unsigned i = 0; i < last; ++i) {
                 carry.push_back(ctx.mk_false());

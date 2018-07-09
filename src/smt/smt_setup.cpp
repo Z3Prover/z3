@@ -777,7 +777,11 @@ namespace smt {
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
         bool fixnum = st.arith_k_sum_is_small() && m_params.m_arith_fixnum;
         bool int_only = !st.m_has_rational && !st.m_has_real && m_params.m_arith_int_only;
-        switch(m_params.m_arith_mode) {
+        auto mode = m_params.m_arith_mode;
+        if (m_logic == "QF_LIA") {
+            mode = AS_NEW_ARITH;
+        }
+        switch(mode) {
         case AS_NO_ARITH:
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
