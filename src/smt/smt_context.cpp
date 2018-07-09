@@ -3186,6 +3186,7 @@ namespace smt {
         if (m_tmp_clauses.empty()) return l_true;
         for (auto & tmp_clause : m_tmp_clauses) {
             literal_vector& lits = tmp_clause.second;
+            literal unassigned = null_literal;
             for (literal l : lits) {
                 switch (get_assignment(l)) {
                 case l_false:
@@ -3193,11 +3194,15 @@ namespace smt {
                 case l_true:
                     goto next_clause;
                 default:
-                    shuffle(lits.size(), lits.c_ptr(), m_random);
-                    push_scope();
-                    assign(l, b_justification::mk_axiom(), true);
-                    return l_undef;
+                    unassigned = l;
                 }         
+            }
+
+            if (unassigned != null_literal) {
+                shuffle(lits.size(), lits.c_ptr(), m_random);
+                push_scope();
+                assign(unassigned, b_justification::mk_axiom(), true);
+                return l_undef;
             }
 
             if (lits.size() == 1) {
