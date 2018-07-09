@@ -51,7 +51,8 @@ void finalize_trace();
 static inline void enable_trace(const char * tag) {}
 static inline void enable_all_trace(bool flag) {}
 static inline void disable_trace(const char * tag) {}
-static inline bool is_trace_enabled(const char * tag) {}
+// On a default Visual C++ build on Windows, a non-void function either needs to return a value, or we have to add: #pragma warning(default:4716)  
+static inline bool is_trace_enabled(const char * tag) { return false; }
 static inline void close_trace() {}
 static inline void open_trace() {}
 static inline void finalize_trace() {}
