@@ -346,6 +346,7 @@ void mpq_manager<SYNCH>::lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2) {
+#if 1
     gcd(a.m_den, b.m_num, g1);
     gcd(a.m_num, b.m_den, g2);
     div(a.m_num, g2, tmp1);
@@ -354,6 +355,11 @@ void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1,
     div(b.m_den, g2, tmp1);
     div(a.m_den, g1, tmp2);
     mul(tmp1, tmp2, c.m_den);
+#else
+    mul(a.m_num, b.m_num, c.m_num);
+    mul(a.m_den, b.m_den, c.m_den);
+    normalize(c);
+#endif
 }
 
 template<bool SYNCH>
