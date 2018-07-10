@@ -320,7 +320,6 @@ void test_small_lu(lp_settings & settings) {
     
     auto columns_to_replace = l.get_set_of_columns_to_replace_for_add_last_rows(heading);
     l.add_last_rows_to_B(heading, columns_to_replace);
-    std::cout << "here" << std::endl;
     lp_assert(l.is_correct(basis));
 }
 

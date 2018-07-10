@@ -162,8 +162,7 @@ public:
     vector<mpq> transform_to_local_columns(const vector<impq> & x) const {
         vector<mpq> ret;
         for (unsigned j = 0; j < vars().size(); j++) {
-            lp_assert(is_zero(x[m_var_register.local_to_external(j)].y));
-            ret.push_back(x[m_var_register.local_to_external(j)].x);
+             ret.push_back(x[m_var_register.local_to_external(j)].x);
         }
         return ret;
     }
