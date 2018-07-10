@@ -2227,6 +2227,17 @@ void lar_solver::round_to_integer_solution() {
         update_delta_for_terms(del, j, vars_to_terms[j]);
     }
 }
+// return true if all y coords are zeroes
+bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
+    val = zero_of_type<mpq>();
+    for (const auto & c : t) {
+        const auto & x = m_mpq_lar_core_solver.m_r_x[c.var()];
+        if (!is_zero(x.y))
+            return false;
+        val += x.x * c.coeff();
+    }
+    return true;
+}
 
 bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci) const {
     unsigned tj = term_index + m_terms_start_index;
@@ -2236,26 +2247,27 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
         return false; // the term does not have a bound because it does not correspond to a column
     if (!is_int) // todo - allow for the next version of hnf
         return false;
-    impq term_val;
-    bool term_val_ready = false;
+    bool rs_is_calculated = false;
     mpq b;
     bool is_strict;
+    const lar_term& t = *terms()[term_index];
     if (has_upper_bound(j, ci, b, is_strict) && !is_strict) {
         lp_assert(b.is_int());
-        term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
-        term_val_ready = true;
-        if (term_val.x == b) {
-            rs = b;
+        if (!sum_first_coords(t, rs))
+            return false;
+        rs_is_calculated = true;
+        if (rs == b) {
             return true;
         }
     }
     if (has_lower_bound(j, ci, b, is_strict) && !is_strict) {
-        if (!term_val_ready)
-            term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
+        if (!rs_is_calculated){
+            if (!sum_first_coords(t, rs))
+                return false;
+        }
         lp_assert(b.is_int());
         
-        if (term_val.x == b) {
-            rs = b;
+        if (rs == b) {
             return true;
         }
     }

@@ -577,5 +577,6 @@ public:
     bool remove_from_basis(unsigned);
     lar_term get_term_to_maximize(unsigned ext_j) const;
     void set_cut_strategy(unsigned cut_frequency);
+    bool sum_first_coords(const lar_term& t, mpq & val) const;
 };
 }
