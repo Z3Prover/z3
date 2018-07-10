@@ -2233,7 +2233,7 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
     unsigned j;
     bool is_int;
     if (m_var_register.external_is_used(tj, j, is_int) == false)
-        return false; // the term does not have bound because it does not correspond to a column
+        return false; // the term does not have a bound because it does not correspond to a column
     if (!is_int) // todo - allow for the next version of hnf
         return false;
     impq term_val;
