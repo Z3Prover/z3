@@ -936,9 +936,8 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
     }
 
     if (arg1 == arg2 && !m_util.is_numeral(arg2)) {
-        expr_ref zero(m_util.mk_int(0), m()), abs(m());
-        mk_abs_core(arg2, abs);
-        result = m().mk_ite(m().mk_eq(arg2, zero), m_util.mk_mod(zero, zero), abs);
+        expr_ref zero(m_util.mk_int(0), m());
+        result = m().mk_ite(m().mk_eq(arg2, zero), m_util.mk_mod(zero, zero), zero);
         return BR_DONE;
     }
 
