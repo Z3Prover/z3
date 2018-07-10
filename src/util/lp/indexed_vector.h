@@ -216,7 +216,7 @@ public:
     
 #ifdef Z3DEBUG
     bool is_OK() const;
-    void print(std::ostream & out);
 #endif
+    void print(std::ostream & out);
 };
 }

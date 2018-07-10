@@ -39,14 +39,11 @@ Revision History:
 #include "util/lp/square_dense_submatrix.h"
 #include "util/lp/dense_matrix.h"
 namespace lp {
-#ifdef Z3DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
 void print_submatrix(square_sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
 
 template <typename M>
 void print_matrix(M &m, std::ostream & out);
-
-#endif
 
 template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {

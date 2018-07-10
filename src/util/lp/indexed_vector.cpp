@@ -37,10 +37,10 @@ template bool indexed_vector<unsigned>::is_OK() const;
 template bool indexed_vector<double>::is_OK() const;
 template bool indexed_vector<mpq>::is_OK() const;
 template bool indexed_vector<lp::numeric_pair<mpq> >::is_OK() const;
+#endif
 template void lp::indexed_vector< lp::mpq>::print(std::basic_ostream<char,struct std::char_traits<char> > &);
 template void lp::indexed_vector<double>::print(std::basic_ostream<char,struct std::char_traits<char> > &);
 template void lp::indexed_vector<lp::numeric_pair<lp::mpq> >::print(std::ostream&);
-#endif
 }
 // template void lp::print_vector<double, vectro>(vector<double> const&, std::ostream&);
 // template void lp::print_vector<unsigned int>(vector<unsigned int> const&, std::ostream&);

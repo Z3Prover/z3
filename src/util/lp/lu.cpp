@@ -42,11 +42,11 @@ template void init_factorization<static_matrix<double, double>>
 template void init_factorization<static_matrix<mpq, mpq>>
     (lu<static_matrix<mpq,mpq>>*&, static_matrix<mpq, mpq>&, vector<unsigned int>&, lp_settings&);
 template void init_factorization<static_matrix<mpq, impq>>(lu<static_matrix<mpq, impq> >*&, static_matrix<mpq, impq >&, vector<unsigned int>&, lp_settings&);
-#ifdef Z3DEBUG
 template void print_matrix<square_sparse_matrix<double, double>>(square_sparse_matrix<double, double>&, std::ostream & out);
 template void print_matrix<static_matrix<mpq,mpq>>(static_matrix<mpq, mpq>&, std::ostream&);
 template void print_matrix<static_matrix<mpq, impq> >(static_matrix<mpq, impq >&, std::ostream&);
 template void print_matrix<static_matrix<double, double>>(static_matrix<double, double>&, std::ostream & out);
+#ifdef Z3DEBUG
 template bool lu<static_matrix<double, double>>::is_correct(const vector<unsigned>& basis);
 template bool lu<static_matrix<mpq, impq>>::is_correct( vector<unsigned int> const &);
 template dense_matrix<double, double> get_B<static_matrix<double, double>>(lu<static_matrix<double, double>>&, const vector<unsigned>& basis);
