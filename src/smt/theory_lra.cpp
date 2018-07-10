@@ -1733,6 +1733,7 @@ public:
 
     void assign(literal lit) {
         //        SASSERT(validate_assign(lit));
+        dump_assign(lit);
         if (m_core.size() < small_lemma_size() && m_eqs.empty()) {
             m_core2.reset();
             for (auto const& c : m_core) {
@@ -2557,6 +2558,7 @@ public:
             }
         }
         //        SASSERT(validate_conflict());
+        dump_conflict();
         ctx().set_conflict(
             ctx().mk_justification(
                 ext_theory_conflict_justification(
@@ -2714,10 +2716,13 @@ public:
         }
     };
 
-    bool validate_conflict() {
+    void dump_conflict() {
         if (dump_lemmas()) {
             ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
         }
+    }
+
+    bool validate_conflict() {
         if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
@@ -2729,10 +2734,13 @@ public:
         return result;
     }
 
-    bool validate_assign(literal lit) {
+    void dump_assign(literal lit) {
         if (dump_lemmas()) {                
             ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
         }
+    }
+
+    bool validate_assign(literal lit) {
         if (m_arith_params.m_arith_mode != AS_NEW_ARITH) return true;
         scoped_arith_mode _sa(ctx().get_fparams());
         context nctx(m, ctx().get_fparams(), ctx().get_params());
@@ -2758,13 +2766,13 @@ public:
     }
 
     void add_background(context& nctx) {
-        for (unsigned i = 0; i < m_core.size(); ++i) {
+        for (literal c : m_core) {
             expr_ref tmp(m);
-            ctx().literal2expr(m_core[i], tmp);
+            ctx().literal2expr(c, tmp);
             nctx.assert_expr(tmp);
         }
-        for (unsigned i = 0; i < m_eqs.size(); ++i) {
-            nctx.assert_expr(m.mk_eq(m_eqs[i].first->get_owner(), m_eqs[i].second->get_owner()));
+        for (auto const& eq : m_eqs) {
+            nctx.assert_expr(m.mk_eq(eq.first->get_owner(), eq.second->get_owner()));
         }
     }        
 
