@@ -2263,16 +2263,16 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
 }
 
 void lar_solver::set_cut_strategy(unsigned cut_frequency) {
-    if (cut_frequency < 4) { // enable only gomory cut
-        settings().m_int_gomory_cut_period = 2;
-        settings().m_hnf_cut_period = 100000000;
+    if (cut_frequency < 4) {
+        settings().m_int_gomory_cut_period = 2; // do it often
+        settings().set_hnf_cut_period(4); // also create hnf cuts
     } else if (cut_frequency == 4) { // enable all cuts and cube equally
         settings().m_int_gomory_cut_period = 4;
-        settings().m_hnf_cut_period = 4;
+        settings().set_hnf_cut_period(4);
     } else {
-        // disable all heuristics
+        // disable all heuristics except cube
         settings().m_int_gomory_cut_period = 10000000;
-        settings().m_hnf_cut_period = 100000000;
+        settings().set_hnf_cut_period(100000000);
     } 
 }
 

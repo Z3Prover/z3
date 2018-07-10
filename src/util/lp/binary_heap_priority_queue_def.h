@@ -194,7 +194,6 @@ template <typename T> unsigned binary_heap_priority_queue<T>::dequeue() {
     m_heap_inverse[ret] = -1;
     return ret;
 }
-#ifdef Z3DEBUG
 template <typename T> void binary_heap_priority_queue<T>::print(std::ostream & out) {
     vector<int> index;
     vector<T> prs;
@@ -210,5 +209,4 @@ template <typename T> void binary_heap_priority_queue<T>::print(std::ostream & o
     for (int i = 0; i < index.size(); i++)
         enqueue(index[i], prs[i]);
 }
-#endif
 }

@@ -96,6 +96,7 @@ bool indexed_vector<T>::is_OK() const {
 
     return true;
 }
+#endif
 template <typename T>
 void indexed_vector<T>::print(std::ostream & out) {
     out << "m_index " << std::endl;
@@ -105,6 +106,5 @@ void indexed_vector<T>::print(std::ostream & out) {
     out << std::endl;
     print_vector(m_data, out);
 }
-#endif
 
 }

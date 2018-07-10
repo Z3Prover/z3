@@ -18,11 +18,11 @@ Revision History:
 
 --*/
 
-#ifdef Z3DEBUG
 #include <cmath>
 #include <string>
 #include "util/lp/matrix.h"
 namespace lp {
+#ifdef Z3DEBUG
 template <typename T, typename X>
 bool matrix<T, X>::is_equal(const matrix<T, X>& other) {
     if (other.row_count() != row_count() || other.column_count() != column_count())
@@ -67,7 +67,7 @@ void apply_to_vector(matrix<T, X> & m, T * w) {
     delete [] wc;
 }
 
-
+#endif
 
 unsigned get_width_of_column(unsigned j, vector<vector<std::string>> & A) {
     unsigned r = 0;
@@ -132,4 +132,3 @@ void print_matrix(matrix<T, X> const * m, std::ostream & out) {
 }
 
 }
-#endif

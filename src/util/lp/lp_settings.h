@@ -189,13 +189,18 @@ public:
     unsigned         column_number_threshold_for_using_lu_in_lar_solver;
     unsigned         m_int_gomory_cut_period;
     unsigned         m_int_find_cube_period;
+private:
     unsigned         m_hnf_cut_period;
+public:
     bool             m_int_run_gcd_test;
     bool             m_int_pivot_fixed_vars_from_basis;
     bool             m_int_patch_only_integer_values;
     unsigned         limit_on_rows_for_hnf_cutter;
     unsigned         limit_on_columns_for_hnf_cutter;
 
+
+    unsigned hnf_cut_period() const { return m_hnf_cut_period; }
+    void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
     unsigned random_next() { return m_rand(); }
     void set_random_seed(unsigned s) { m_rand.set_seed(s); }
 
