@@ -1155,6 +1155,30 @@ static void parse_example() {
     // expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
 }
 
+void mk_model_example() {
+    context c;
+
+    // construct empty model
+    model m(c);
+
+    // create constants "a", "b" and get their func_decl
+    expr a = c.int_const("a");
+    expr b = c.int_const("b");
+    func_decl a_decl = a.decl();
+    func_decl b_decl = b.decl();
+
+    // create numerals to be used in model
+    expr zero_numeral = c.int_val(0);
+    expr one_numeral = c.int_val(1);
+
+    // add assignment to model
+    m.add_const_interp(a_decl, zero_numeral);
+    m.add_const_interp(b_decl, one_numeral);
+
+    // evaluate a + b < 2 in the model
+    std::cout << m.eval(a + b < 2)<< std::endl;
+}
+
 
 int main() {
 
@@ -1202,6 +1226,7 @@ int main() {
         sudoku_example(); std::cout << "\n";
         consequence_example(); std::cout << "\n";
         parse_example(); std::cout << "\n";
+        mk_model_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {
