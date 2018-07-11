@@ -422,21 +422,15 @@ namespace smt {
         out << "(check-sat)\n";
     }
 
-    static unsigned g_lemma_id = 0;
-
 #define BUFFER_SZ 128
 
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
-        char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
-#else
-        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
-#endif
-        std::ofstream out(buffer);
+    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
+        std::stringstream strm;
+        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::ofstream out(strm.str());
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
         out.close();
-        g_lemma_id++;
+        return m_lemma_id;
     }
 
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
@@ -468,19 +462,15 @@ namespace smt {
         out << "(check-sat)\n";
     }
 
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
+    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, symbol const& logic) const {
-        char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
-#else
-        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
-#endif
-        std::ofstream out(buffer);
+        std::stringstream strm;
+        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::ofstream out(strm.str());
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
-        g_lemma_id++;
+        return m_lemma_id;
     }
 
     /**

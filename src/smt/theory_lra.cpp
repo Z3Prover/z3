@@ -1381,6 +1381,11 @@ public:
                 }
             }
         }
+        if (!coeffs.empty() && coeffs.begin()->m_value.is_neg()) {
+            offset.neg();
+            lower_bound = !lower_bound;
+            for (auto& kv : coeffs) kv.m_value.neg();
+        }
 
         app_ref atom(m);
         app_ref t = coeffs2app(coeffs, rational::zero(), is_int);
@@ -1391,17 +1396,8 @@ public:
             atom = a.mk_le(t, a.mk_numeral(offset, is_int));
         }
 
-
-#if 0
-        expr_ref atom1(m);
-        proof_ref atomp(m);
-        ctx().get_rewriter()(atom, atom1, atomp);
-        if (!m.is_false(atom1) && !m.is_true(atom1)) {
-            atom = to_app(atom1);
-        }
-#endif
         TRACE("arith", tout << t << ": " << atom << "\n";
-              m_solver->print_term(term, tout << "bound atom: "); tout << (lower_bound?" <= ":" >= ") << k << "\n";);
+              m_solver->print_term(term, tout << "bound atom: "); tout << (lower_bound?" >= ":" <= ") << k << "\n";);
         ctx().internalize(atom, true);
         ctx().mark_as_relevant(atom.get());
         return atom;
@@ -1430,7 +1426,7 @@ public:
             return l_false;
         }
         case lp::lia_move::cut: {
-            TRACE("arith", tout << "cutn";);
+            TRACE("arith", tout << "cut\n";);
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             app_ref b = mk_bound(term, k, !upper);
@@ -1529,10 +1525,7 @@ public:
             }
         }
         else {
-            enode_vector::const_iterator it  = r->begin_parents();
-            enode_vector::const_iterator end = r->end_parents();
-            for (; it != end; ++it) {
-                enode * parent = *it;
+            for (enode * parent : r->get_const_parents()) {
                 if (is_underspecified(parent->get_owner())) {
                     return true;
                 }
@@ -1804,12 +1797,11 @@ public:
         lp_api::bound* lo_inf = end, *lo_sup = end;
         lp_api::bound* hi_inf = end, *hi_sup = end;
             
-        for (unsigned i = 0; i < bounds.size(); ++i) {
-            lp_api::bound& other = *bounds[i];
-            if (&other == &b) continue;
-            if (b.get_bv() == other.get_bv()) continue;
-            lp_api::bound_kind kind2 = other.get_bound_kind();
-            rational const& k2 = other.get_value();
+        for (lp_api::bound* other : bounds) {
+            if (other == &b) continue;
+            if (b.get_bv() == other->get_bv()) continue;
+            lp_api::bound_kind kind2 = other->get_bound_kind();
+            rational const& k2 = other->get_value();
             if (k1 == k2 && kind1 == kind2) {
                 // the bounds are equivalent.
                 continue;
@@ -1819,20 +1811,20 @@ public:
             if (kind2 == lp_api::lower_t) {
                 if (k2 < k1) {
                     if (lo_inf == end || k2 > lo_inf->get_value()) {
-                        lo_inf = &other;
+                        lo_inf = other;
                     }
                 }
                 else if (lo_sup == end || k2 < lo_sup->get_value()) {
-                    lo_sup = &other;
+                    lo_sup = other;
                 }
             }
             else if (k2 < k1) {
                 if (hi_inf == end || k2 > hi_inf->get_value()) {
-                    hi_inf = &other;
+                    hi_inf = other;
                 }
             }
             else if (hi_sup == end || k2 < hi_sup->get_value()) {
-                hi_sup = &other;
+                hi_sup = other;
             }
         }        
         if (lo_inf != end) mk_bound_axiom(b, *lo_inf);
@@ -2718,7 +2710,9 @@ public:
 
     void dump_conflict() {
         if (dump_lemmas()) {
-            ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
+            unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
+            (void)id;
+            //SASSERT(id != 55);
         }
     }
 
@@ -2736,7 +2730,9 @@ public:
 
     void dump_assign(literal lit) {
         if (dump_lemmas()) {                
-            ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+            unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
+            (void)id;
+            // SASSERT(id != 71);
         }
     }
 

@@ -51,6 +51,7 @@ namespace smt {
         m_relevancy_propagator(mk_relevancy_propagator(*this)),
         m_random(p.m_random_seed),
         m_flushing(false),
+        m_lemma_id(0),
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
         m_fingerprints(m, m_region),

@@ -88,6 +88,7 @@ namespace smt {
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;
         random_gen                  m_random;
         bool                        m_flushing; // (debug support) true when flushing
+        mutable unsigned            m_lemma_id;
         progress_callback *         m_progress_callback;
         unsigned                    m_next_progress_sample;
 
@@ -1318,12 +1319,12 @@ namespace smt {
 
         void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
-        void display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
+        unsigned display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
         void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs,
                                           literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
-        void display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
+        unsigned display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs,
                                           literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
