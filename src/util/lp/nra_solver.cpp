@@ -104,7 +104,18 @@ namespace nra {
             }
             // TBD: add variable bounds?
 
-            lbool r = m_nlsat->check(); 
+            lbool r = l_undef;
+            try {
+                r = m_nlsat->check(); 
+            }
+            catch (z3_exception&) {
+                if (m_limit.get_cancel_flag()) {
+                    r = l_undef;
+                }
+                else {
+                    throw;
+                }
+            }
             TRACE("arith", display(tout); m_nlsat->display(tout << r << "\n"););
             switch (r) {
             case l_true: 

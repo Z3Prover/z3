@@ -419,6 +419,7 @@ namespace smt {
         visitor.collect(fmls);
         visitor.display_decls(out);
         visitor.display_asserts(out, fmls, true);
+        out << "(check-sat)\n";
     }
 
     static unsigned g_lemma_id = 0;
@@ -464,6 +465,7 @@ namespace smt {
         visitor.collect(fmls);
         visitor.display_decls(out);
         visitor.display_asserts(out, fmls, true);
+        out << "(check-sat)\n";
     }
 
     void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
