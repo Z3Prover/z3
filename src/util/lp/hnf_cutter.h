@@ -29,6 +29,7 @@ class hnf_cutter {
     var_register               m_var_register;
     general_matrix             m_A;
     vector<const lar_term*>    m_terms;
+    vector<bool>               m_terms_upper;
     svector<constraint_index>  m_constraints_for_explanation;
     vector<mpq>                m_right_sides;
     lp_settings &              m_settings;
@@ -54,15 +55,22 @@ public:
         // m_A will be filled from scratch in init_matrix_A
         m_var_register.clear();
         m_terms.clear();
+        m_terms_upper.clear();
         m_constraints_for_explanation.clear();
         m_right_sides.clear();
         m_abs_max = zero_of_type<mpq>();
         m_overflow = false;
     }
-    void add_term(const lar_term* t, const mpq &rs, constraint_index ci) {
+    void add_term(const lar_term* t, const mpq &rs, constraint_index ci, bool upper_bound) {
         m_terms.push_back(t);
-        m_right_sides.push_back(rs);
+        m_terms_upper.push_back(upper_bound);
+        if (upper_bound)
+            m_right_sides.push_back(rs);
+        else
+            m_right_sides.push_back(-rs);
+        
         m_constraints_for_explanation.push_back(ci);
+       
         for (const auto &p : *t) {
             m_var_register.add_var(p.var());
             mpq t = abs(ceil(p.coeff()));
@@ -76,7 +84,8 @@ public:
     }
 
     void initialize_row(unsigned i) {
-        m_A.init_row_from_container(i, * m_terms[i], [this](unsigned j) { return m_var_register.add_var(j);});
+        mpq sign = m_terms_upper[i]? one_of_type<mpq>(): - one_of_type<mpq>();
+        m_A.init_row_from_container(i, * m_terms[i], [this](unsigned j) { return m_var_register.add_var(j);}, sign);
     }
 
     void init_matrix_A() {
