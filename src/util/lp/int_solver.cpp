@@ -537,8 +537,9 @@ void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     mpq rs;
     const lar_term* t = m_lar_solver->terms()[i];
     constraint_index ci;
-    if (!hnf_cutter_is_full() && m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci)) {
-        m_hnf_cutter.add_term(t, rs, ci);
+    bool upper_bound;
+    if (!hnf_cutter_is_full() && m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci, upper_bound)) {
+        m_hnf_cutter.add_term(t, rs, ci, upper_bound);
     }
 }
 
