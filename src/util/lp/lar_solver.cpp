@@ -2239,7 +2239,7 @@ bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
     return true;
 }
 
-bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci) const {
+bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci, bool &upper_bound) const {
     unsigned tj = term_index + m_terms_start_index;
     unsigned j;
     bool is_int;
@@ -2257,6 +2257,7 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
             return false;
         rs_is_calculated = true;
         if (rs == b) {
+            upper_bound = true;
             return true;
         }
     }
@@ -2268,6 +2269,7 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
         lp_assert(b.is_int());
         
         if (rs == b) {
+            upper_bound = false;
             return true;
         }
     }

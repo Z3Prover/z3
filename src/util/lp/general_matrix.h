@@ -105,12 +105,12 @@ public:
     }
     
     template <typename T>
-    void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix) {
+    void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix, const mpq& sign) {
         auto & row = m_data[adjust_row(i)];
         lp_assert(row_is_initialized_correctly(row));
         for (const auto & p : c) {
             unsigned j = adjust_column(column_fix(p.var()));
-            row[j] = p.coeff();
+            row[j] = sign * p.coeff();
         }
     }
     
