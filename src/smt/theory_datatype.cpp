@@ -636,7 +636,6 @@ namespace smt {
         void add_dependency(enode * n) { m_dependencies.push_back(model_value_dependency(n)); }
         ~datatype_value_proc() override {}
         void get_dependencies(buffer<model_value_dependency> & result) override {
-            for (model_value_dependency& d : m_dependencies) { }
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
         app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
