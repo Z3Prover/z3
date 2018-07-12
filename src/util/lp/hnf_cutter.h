@@ -23,26 +23,20 @@ Revision History:
 #include "util/lp/var_register.h"
 #include "util/lp/lia_move.h"
 #include "util/lp/explanation.h"
-#include "util/lp/signed_term.h"
+
 namespace lp  {
 class hnf_cutter {
     var_register               m_var_register;
     general_matrix             m_A;
-    vector<signed_term>        m_terms;
+    vector<const lar_term*>    m_terms;
+    vector<bool>               m_terms_upper;
+    svector<constraint_index>  m_constraints_for_explanation;
+    vector<mpq>                m_right_sides;
     lp_settings &              m_settings;
     mpq                        m_abs_max;
     bool                       m_overflow;
-    svector<unsigned>          m_basis_rows;
 public:
 
-    svector<constraint_index> constraints_for_explanation() const {
-        svector<constraint_index> e;
-        for (auto i : m_basis_rows) {
-            e.push_back(m_terms[i].m_ci);
-        }
-        return e;
-    }
-    
     const mpq & abs_max() const { return m_abs_max; }
     
     hnf_cutter(lp_settings & settings) : m_settings(settings),
@@ -52,19 +46,32 @@ public:
         return m_terms.size();
     }
 
-    const vector<signed_term>& terms() const { return m_terms; }
-
+    const vector<const lar_term*>& terms() const { return m_terms; }
+    const svector<unsigned>& constraints_for_explanation() const {
+        return m_constraints_for_explanation;
+    }
+    const vector<mpq> & right_sides() const { return m_right_sides; }
     void clear() {
         // m_A will be filled from scratch in init_matrix_A
         m_var_register.clear();
         m_terms.clear();
+        m_terms_upper.clear();
+        m_constraints_for_explanation.clear();
+        m_right_sides.clear();
         m_abs_max = zero_of_type<mpq>();
         m_overflow = false;
-        m_basis_rows.clear();
     }
-    void add_term(const signed_term t) {
+    void add_term(const lar_term* t, const mpq &rs, constraint_index ci, bool upper_bound) {
         m_terms.push_back(t);
-        for (const auto &p : *t.m_term) {
+        m_terms_upper.push_back(upper_bound);
+        if (upper_bound)
+            m_right_sides.push_back(rs);
+        else
+            m_right_sides.push_back(-rs);
+        
+        m_constraints_for_explanation.push_back(ci);
+       
+        for (const auto &p : *t) {
             m_var_register.add_var(p.var());
             mpq t = abs(ceil(p.coeff()));
             if (t > m_abs_max)
@@ -77,9 +84,8 @@ public:
     }
 
     void initialize_row(unsigned i) {
-        const auto & t = m_terms[i];
-        mpq sign = t.m_is_plus? one_of_type<mpq>(): - one_of_type<mpq>();
-        m_A.init_row_from_container(i, * t.m_term, [this](unsigned j) { return m_var_register.add_var(j);}, sign);
+        mpq sign = m_terms_upper[i]? one_of_type<mpq>(): - one_of_type<mpq>();
+        m_A.init_row_from_container(i, * m_terms[i], [this](unsigned j) { return m_var_register.add_var(j);}, sign);
     }
 
     void init_matrix_A() {
@@ -100,10 +106,12 @@ public:
         }
     }
 
-    vector<mpq> create_b() const {
+    vector<mpq> create_b(const svector<unsigned> & basis_rows) {
+        if (basis_rows.size() == m_right_sides.size())
+            return m_right_sides;
         vector<mpq> b;
-        for (unsigned i : m_basis_rows) {
-            b.push_back(m_terms[i].m_rs);
+        for (unsigned i : basis_rows) {
+            b.push_back(m_right_sides[i]);
         }
         return b;
     }
@@ -168,6 +176,13 @@ public:
         return ret;
     }
 #endif
+    void shrink_explanation(const svector<unsigned>& basis_rows) {
+        svector<unsigned> new_expl;
+        for (unsigned i : basis_rows) {
+            new_expl.push_back(m_constraints_for_explanation[i]);
+        }
+        m_constraints_for_explanation = new_expl;
+    }
 
     bool overflow() const { return m_overflow; }
     
@@ -179,8 +194,9 @@ public:
                         ) {
         // we suppose that x0 has at least one non integer element 
         init_matrix_A();
+        svector<unsigned> basis_rows;
         mpq big_number = m_abs_max.expt(3);
-        mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, m_basis_rows, big_number);
+        mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows, big_number);
         
         //        std::cout << "max = " << m_abs_max << ", d = " << d << ", d/max = " << ceil (d /m_abs_max) << std::endl;
         //std::cout << "max cube " << m_abs_max * m_abs_max * m_abs_max << std::endl;
@@ -191,15 +207,15 @@ public:
         
         if (m_settings.get_cancel_flag())
             return lia_move::undef;
-
-        if (m_basis_rows.size() < m_A.row_count()) {
-            m_A.shrink_to_rank(m_basis_rows);
+        if (basis_rows.size() < m_A.row_count()) {
+            m_A.shrink_to_rank(basis_rows);
+            shrink_explanation(basis_rows);
         }
         
         hnf<general_matrix> h(m_A, d);
         //  general_matrix A_orig = m_A;
         
-        vector<mpq> b = create_b();
+        vector<mpq> b = create_b(basis_rows);
         lp_assert(m_A * x0 == b);
         // vector<mpq> bcopy = b;
         find_h_minus_1_b(h.W(), b);
