@@ -2239,7 +2239,7 @@ bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
     return true;
 }
 
-bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci, bool &upper_bound) const {
+bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, signed_term& t) const {
     unsigned tj = term_index + m_terms_start_index;
     unsigned j;
     bool is_int;
@@ -2247,29 +2247,37 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
         return false; // the term does not have a bound because it does not correspond to a column
     if (!is_int) // todo - allow for the next version of hnf
         return false;
+    mpq rs;
     bool rs_is_calculated = false;
     mpq b;
     bool is_strict;
-    const lar_term& t = *terms()[term_index];
+    const lar_term& lt = *terms()[term_index];
+    constraint_index ci;
     if (has_upper_bound(j, ci, b, is_strict) && !is_strict) {
         lp_assert(b.is_int());
-        if (!sum_first_coords(t, rs))
+        if (!sum_first_coords(lt, rs))
             return false;
         rs_is_calculated = true;
         if (rs == b) {
-            upper_bound = true;
+            t.m_term = &lt;
+            t.m_is_plus = true;
+            t.m_rs = rs;
+            t.m_ci = ci;
             return true;
         }
     }
     if (has_lower_bound(j, ci, b, is_strict) && !is_strict) {
         if (!rs_is_calculated){
-            if (!sum_first_coords(t, rs))
+            if (!sum_first_coords(lt, rs))
                 return false;
         }
         lp_assert(b.is_int());
         
         if (rs == b) {
-            upper_bound = false;
+            t.m_term = &lt;
+            t.m_is_plus = false;
+            t.m_rs = -rs;
+            t.m_ci = ci;
             return true;
         }
     }

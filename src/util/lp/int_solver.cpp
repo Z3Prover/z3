@@ -8,6 +8,7 @@
 #include "util/lp/lp_utils.h"
 #include <utility>
 #include "util/lp/monomial.h"
+#include "util/lp/signed_term.h"
 namespace lp {
 
 
@@ -534,12 +535,9 @@ lia_move int_solver::gomory_cut() {
 
 
 void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
-    mpq rs;
-    const lar_term* t = m_lar_solver->terms()[i];
-    constraint_index ci;
-    bool upper_bound;
-    if (!hnf_cutter_is_full() && m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci, upper_bound)) {
-        m_hnf_cutter.add_term(t, rs, ci, upper_bound);
+    signed_term t;
+    if (!hnf_cutter_is_full() && m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, t)) {
+        m_hnf_cutter.add_term(t);
     }
 }
 
