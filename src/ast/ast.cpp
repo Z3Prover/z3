@@ -1934,8 +1934,7 @@ sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * c
     vector<parameter> ps;
     bool change = false;
     sort_ref_vector sorts(*this);
-    for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
-        parameter const& p = s->get_parameter(i);
+    for (parameter const& p : s->parameters()) {
         if (p.is_ast()) {
             SASSERT(is_sort(p.get_ast()));
             change = true;
@@ -2330,8 +2329,8 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
         return false;
     }
     func_decl const * decl = to_app(n)->get_decl();
-    for (unsigned i = 0; i < decl->get_num_parameters(); i++)
-        names.push_back(decl->get_parameter(i).get_symbol());
+    for (parameter const& p : decl->parameters()) 
+        names.push_back(p.get_symbol());
     return true;
 }
 
@@ -2928,8 +2927,8 @@ bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<exp
         not_q_or_i = to_app(e)->get_arg(0);
         func_decl* d = to_app(e)->get_decl();
         SASSERT(binding.empty());
-        for (unsigned i = 0; i < d->get_num_parameters(); ++i) {
-            binding.push_back(to_expr(d->get_parameter(i).get_ast()));
+        for (parameter const& p : d->parameters()) {
+            binding.push_back(to_expr(p.get_ast()));
         }
         return true;
     }

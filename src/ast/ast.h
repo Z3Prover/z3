@@ -273,6 +273,14 @@ public:
     parameter const * get_parameters() const { return m_parameters.begin(); }
     bool private_parameters() const { return m_private_parameters; }
 
+    struct iterator {
+        decl_info const& d;
+        iterator(decl_info const& d) : d(d) {}
+        parameter const* begin() const { return d.get_parameters(); }
+        parameter const* end() const { return begin() + d.get_num_parameters(); }
+    };
+    iterator parameters() const { return iterator(*this); }
+
     unsigned hash() const;
     bool operator==(decl_info const & info) const;
 };
@@ -571,6 +579,16 @@ public:
     parameter const & get_parameter(unsigned idx) const { return m_info->get_parameter(idx); }
     parameter const * get_parameters() const { return m_info == nullptr ? nullptr : m_info->get_parameters(); }
     bool private_parameters() const { return m_info != nullptr && m_info->private_parameters(); }
+
+    struct iterator {
+        decl const& d;
+        iterator(decl const& d) : d(d) {}
+        parameter const* begin() const { return d.get_parameters(); }
+        parameter const* end() const { return begin() + d.get_num_parameters(); }
+    };
+    iterator parameters() const { return iterator(*this); }
+
+
 };
 
 // -----------------------------------
@@ -2401,11 +2419,7 @@ public:
     }
 
     void reset() {
-        ptr_buffer<ast>::iterator it  = m_to_unmark.begin();
-        ptr_buffer<ast>::iterator end = m_to_unmark.end();
-        for (; it != end; ++it) {
-            reset_mark(*it);
-        }
+        for (ast* a : m_to_unmark) reset_mark(a); 
         m_to_unmark.reset();
     }
 
