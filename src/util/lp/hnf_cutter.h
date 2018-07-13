@@ -177,43 +177,41 @@ public:
 
     bool overflow() const { return m_overflow; }
     
-    lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper
-                        #ifdef Z3DEBUG
-                        ,
-                        const vector<mpq> & x0
-                        #endif
-                        ) {
+    lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper, const vector<mpq> & x0) {
         // we suppose that x0 has at least one non integer element 
+        (void)x0;
+
         init_matrix_A();
         svector<unsigned> basis_rows;
         mpq big_number = m_abs_max.expt(3);
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows, big_number);
         
-        //        std::cout << "max = " << m_abs_max << ", d = " << d << ", d/max = " << ceil (d /m_abs_max) << std::endl;
-        //std::cout << "max cube " << m_abs_max * m_abs_max * m_abs_max << std::endl;
+        // std::cout << "max = " << m_abs_max << ", d = " << d << ", d/max = " << ceil (d /m_abs_max) << std::endl;
+        // std::cout << "max cube " << m_abs_max * m_abs_max * m_abs_max << std::endl;
 
         if (d >= big_number) {
             return lia_move::undef;
         }
         
-        if (m_settings.get_cancel_flag())
+        if (m_settings.get_cancel_flag()) {
             return lia_move::undef;
+        }
+
         if (basis_rows.size() < m_A.row_count()) {
             m_A.shrink_to_rank(basis_rows);
             shrink_explanation(basis_rows);
         }
         
-        hnf<general_matrix> h(m_A, d);
-        //  general_matrix A_orig = m_A;
-        
+        hnf<general_matrix> h(m_A, d);        
         vector<mpq> b = create_b(basis_rows);
         lp_assert(m_A * x0 == b);
-        // vector<mpq> bcopy = b;
         find_h_minus_1_b(h.W(), b);
-        // lp_assert(bcopy == h.W().take_first_n_columns(b.size()) * b);
         int cut_row = find_cut_row_index(b);
-        if (cut_row == -1)
+
+        if (cut_row == -1) {
             return lia_move::undef;
+        }
+
         // the matrix is not square - we can get
         // all integers in b's projection
         

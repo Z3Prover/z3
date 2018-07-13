@@ -2712,7 +2712,6 @@ public:
         if (dump_lemmas()) {
             unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             (void)id;
-            //SASSERT(id != 55);
         }
     }
 
@@ -2732,7 +2731,6 @@ public:
         if (dump_lemmas()) {                
             unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
             (void)id;
-            // SASSERT(id != 71);
         }
     }
 
