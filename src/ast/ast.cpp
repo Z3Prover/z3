@@ -2329,7 +2329,7 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
         return false;
     }
     func_decl const * decl = to_app(n)->get_decl();
-    for (parameter const& p : decl->parameters()) {
+    for (parameter const& p : decl->parameters()) 
         names.push_back(p.get_symbol());
     return true;
 }
