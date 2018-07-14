@@ -26,12 +26,12 @@ mpq_manager<SYNCH>::mpq_manager() {
 
 template<bool SYNCH>
 mpq_manager<SYNCH>::~mpq_manager() {
-    del(m_n_tmp);
-    del(m_add_tmp1);
-    del(m_add_tmp2);
-    del(m_lt_tmp1);
-    del(m_lt_tmp2);
-    del(m_addmul_tmp);
+    del(m_tmp1);
+    del(m_tmp2);
+    del(m_tmp3);
+    del(m_tmp4);
+    del(m_q_tmp1);
+    del(m_q_tmp2);
 }
 
 
@@ -68,9 +68,9 @@ bool mpq_manager<SYNCH>::rat_lt(mpq const & a, mpq const & b) {
         return r;
     }
     else {
-        mul(na, db, m_lt_tmp1);
-        mul(nb, da, m_lt_tmp2);
-        return lt(m_lt_tmp1, m_lt_tmp2);
+        mul(na, db, m_q_tmp1);
+        mul(nb, da, m_q_tmp2);
+        return lt(m_q_tmp1, m_q_tmp2);
     }
 }
 
@@ -384,8 +384,7 @@ void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c) {
         del(tmp2);
     }
     else {
-        mpz& g1 = m_n_tmp, &g2 = m_addmul_tmp.m_num, &tmp1 = m_add_tmp1, &tmp2 = m_add_tmp2;
-        rat_mul(a, b, c, g1, g2, tmp1, tmp2);
+        rat_mul(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
     STRACE("rat_mpq", tout << to_string(c) << "\n";);
 }
@@ -402,8 +401,7 @@ void mpq_manager<SYNCH>::rat_add(mpq const & a, mpq const & b, mpq & c) {
         del(g);
     }
     else {
-        mpz& g = m_n_tmp, &tmp1 = m_add_tmp1, &tmp2 = m_add_tmp2, &tmp3 = m_addmul_tmp.m_num;
-        lin_arith_op<false>(a, b, c, g, tmp1, tmp2, tmp3);
+        lin_arith_op<false>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
     STRACE("rat_mpq", tout << to_string(c) << "\n";);
 }
@@ -420,13 +418,13 @@ void mpq_manager<SYNCH>::rat_sub(mpq const & a, mpq const & b, mpq & c) {
         del(g);
     }
     else {
-        mpz& g = m_n_tmp, &tmp1 = m_add_tmp1, &tmp2 = m_add_tmp2, &tmp3 = m_addmul_tmp.m_num;
-        lin_arith_op<true>(a, b, c, g, tmp1, tmp2, tmp3);
+        lin_arith_op<true>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
     STRACE("rat_mpq", tout << to_string(c) << "\n";);
 }
 
 
+#ifndef _NO_OMP_
 template class mpq_manager<true>;
+#endif
 template class mpq_manager<false>;
-

@@ -51,9 +51,14 @@ class mpz;
 class mpq;
 template<bool SYNCH> class mpz_manager;
 template<bool SYNCH> class mpq_manager;
+#ifndef _NO_OMP_
 typedef mpz_manager<true>  synch_mpz_manager;
-typedef mpz_manager<false> unsynch_mpz_manager;
 typedef mpq_manager<true>  synch_mpq_manager;
+#else
+typedef mpz_manager<false>  synch_mpz_manager;
+typedef mpq_manager<false>  synch_mpq_manager;
+#endif
+typedef mpz_manager<false> unsynch_mpz_manager;
 typedef mpq_manager<false> unsynch_mpq_manager;
 
 class mpfx_manager {
@@ -312,9 +317,11 @@ public:
     void set(mpfx & n, int64_t num, uint64_t den);
     void set(mpfx & n, mpfx const & v);
     void set(mpfx & n, unsynch_mpz_manager & m, mpz const & v);
-    void set(mpfx & n, synch_mpz_manager & m, mpz const & v); 
     void set(mpfx & n, unsynch_mpq_manager & m, mpq const & v);
+#ifndef _NO_OMP_
+    void set(mpfx & n, synch_mpz_manager & m, mpz const & v);
     void set(mpfx & n, synch_mpq_manager & m, mpq const & v);
+#endif
 
     /** 
         \brief Set n to the smallest representable numeral greater than zero.
@@ -359,22 +366,26 @@ public:
     */
     void to_mpz(mpfx const & n, unsynch_mpz_manager & m, mpz & t);
 
+#ifndef _NO_OMP_
     /**
        \brief Convert n into a mpz numeral.
        
        \pre is_int(n)
     */
     void to_mpz(mpfx const & n, synch_mpz_manager & m, mpz & t);
+#endif
 
     /**
        \brief Convert n into a mpq numeral.
     */
     void to_mpq(mpfx const & n, unsynch_mpq_manager & m, mpq & t);
 
+#ifndef _NO_OMP_
     /**
        \brief Convert n into a mpq numeral.
     */
     void to_mpq(mpfx const & n, synch_mpq_manager & m, mpq & t);
+#endif
 
     /**
        \brief Return the biggest k s.t. 2^k <= a.
