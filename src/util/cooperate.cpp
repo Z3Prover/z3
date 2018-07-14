@@ -16,6 +16,8 @@ Author:
 Notes:
 
 --*/
+
+#ifndef _NO_OMP_
 #include "util/cooperate.h"
 #include "util/trace.h"
 #include "util/debug.h"
@@ -36,7 +38,7 @@ struct cooperation_lock {
     }
 };
 
-cooperation_lock g_lock;
+static cooperation_lock g_lock;
 
 bool cooperation_ctx::g_cooperate = false;
 
@@ -59,29 +61,4 @@ void cooperation_ctx::checkpoint(char const * task) {
     }
 }
 
-cooperation_section::cooperation_section() {
-    SASSERT(!cooperation_ctx::enabled());
-    SASSERT(!omp_in_parallel());
-    cooperation_ctx::g_cooperate = true;
-}
-
-cooperation_section::~cooperation_section() {
-    SASSERT(cooperation_ctx::enabled());
-    cooperation_ctx::g_cooperate = false;
-}
-
-init_task::init_task(char const * task) {
-    SASSERT(cooperation_ctx::enabled());
-    SASSERT(omp_in_parallel());
-    cooperation_ctx::checkpoint(task);
-}
-
-init_task::~init_task() {
-    int  tid      = omp_get_thread_num();
-    if (g_lock.m_owner_thread == tid) {
-        g_lock.m_owner_thread = -1;
-        omp_unset_nest_lock(&(g_lock.m_lock));
-    }
-}
-
-
+#endif

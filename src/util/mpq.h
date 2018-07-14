@@ -814,9 +814,6 @@ public:
     bool is_even(mpz const & a) { return mpz_manager<SYNCH>::is_even(a); }
 public:
     bool is_even(mpq const & a) { return is_int(a) && is_even(a.m_num); }
-
-    friend bool operator==(mpq const & a, mpq const & b) ;
-    friend bool operator>=(mpq const & a, mpq const & b);
 };
 
 typedef mpq_manager<true> synch_mpq_manager;
