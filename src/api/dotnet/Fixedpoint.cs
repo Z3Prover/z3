@@ -146,7 +146,7 @@ namespace Microsoft.Z3
         /// The query is satisfiable if there is an instance of some relation that is non-empty.
         /// The query is unsatisfiable if there are no derivations satisfying any of the relations.
         /// </summary>        
-        public Status Query(FuncDecl[] relations)
+        public Status Query(params FuncDecl[] relations)
         {
             Contract.Requires(relations != null);
             Contract.Requires(Contract.ForAll(0, relations.Length, i => relations[i] != null));
@@ -262,7 +262,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Convert benchmark given as set of axioms, rules and queries to a string.
         /// </summary>                
-        public string ToString(BoolExpr[] queries)
+        public string ToString(params BoolExpr[] queries)
         {
 
             return Native.Z3_fixedpoint_to_string(Context.nCtx, NativeObject,
