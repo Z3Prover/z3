@@ -112,7 +112,7 @@ private:
     
 public :
     unsigned terms_start_index() const { return m_terms_start_index; }
-    const vector<lar_term*> terms() const { return m_terms; }
+    const vector<lar_term*> & terms() const { return m_terms; }
     const vector<lar_base_constraint*>& constraints() const {
         return m_constraints;
     }
