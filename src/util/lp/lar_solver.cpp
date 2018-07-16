@@ -2209,7 +2209,7 @@ void lar_solver::round_to_integer_solution() {
     fill_vars_to_terms(vars_to_terms);
 
     for (unsigned j = 0; j < column_count(); j++) {
-        if (column_is_int(j)) continue;
+        if (!column_is_int(j)) continue;
         if (column_corresponds_to_term(j)) continue;
         TRACE("cube", m_int_solver->display_column(tout, j););
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
