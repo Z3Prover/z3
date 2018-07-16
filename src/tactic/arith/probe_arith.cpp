@@ -135,7 +135,6 @@ struct has_nlmul {
     
     void throw_found(expr* e) {
         TRACE("probe", tout << expr_ref(e, m) << ": " << sort_ref(m.get_sort(e), m) << "\n";);
-        SASSERT(false);
         throw found();
     }
 
