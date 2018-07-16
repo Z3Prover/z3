@@ -28,6 +28,15 @@ Revision History:
 
 namespace smt {
 
+    void fresh_value_proc::get_dependencies(buffer<model_value_dependency>& result) { 
+        result.push_back(model_value_dependency(m_value)); 
+    }
+
+    std::ostream& operator<<(std::ostream& out, model_value_dependency const& src) {
+        if (src.is_fresh_value()) return out << "fresh!" << src.get_value()->get_idx();
+        else return out << "#" << src.get_enode()->get_owner_id();
+    }
+
     model_generator::model_generator(ast_manager & m):
         m_manager(m),
         m_context(nullptr),
@@ -161,20 +170,20 @@ namespace smt {
                                          source2color & colors, 
                                          obj_hashtable<sort> & already_traversed, 
                                          svector<source> & todo) {
+
         if (src.is_fresh_value()) {
-            // there is an implicit dependency between a fresh value stub of sort S and the root enodes of sort S that are not associated with fresh values.
+            // there is an implicit dependency between a fresh value stub of 
+            // sort S and the root enodes of sort S that are not associated with fresh values.
+            //
             sort * s     = src.get_value()->get_sort();
             if (already_traversed.contains(s))
                 return true;
             bool visited = true;
-            unsigned sz  = roots.size();
-            for (unsigned i = 0; i < sz; i++) {
-                enode * r     = roots[i];
+            for (enode * r : roots) {
                 if (m_manager.get_sort(r->get_owner()) != s)
                     continue;
                 SASSERT(r == r->get_root());
-                model_value_proc * proc = nullptr;
-                root2proc.find(r, proc);
+                model_value_proc * proc = root2proc[r];
                 SASSERT(proc);
                 if (proc->is_fresh())
                     continue; // r is associated with a fresh value...
@@ -192,17 +201,12 @@ namespace smt {
         enode * n = src.get_enode();
         SASSERT(n == n->get_root());
         bool visited = true;
-        model_value_proc * proc = nullptr;
-        root2proc.find(n, proc);
-        SASSERT(proc);
+        model_value_proc * proc = root2proc[n];
         buffer<model_value_dependency> dependencies;
         proc->get_dependencies(dependencies);
         for (model_value_dependency const& dep : dependencies) {
             visit_child(dep, colors, todo, visited);
-            TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " -> ";
-                  if (dep.is_fresh_value()) tout << "fresh!" << dep.get_value()->get_idx();
-                  else tout << "#" << dep.get_enode()->get_owner_id();
-                  tout << "\n";);
+            TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " -> " << dep << " already visited: " << visited << "\n";);
         }
         return visited;
     }
@@ -215,9 +219,7 @@ namespace smt {
                                          svector<source> & todo,
                                          svector<source> & sorted_sources) {
         TRACE("mg_top_sort", tout << "process source, is_fresh: " << src.is_fresh_value() << " ";
-              if (src.is_fresh_value()) tout << "fresh!" << src.get_value()->get_idx();
-              else tout << "#" << src.get_enode()->get_owner_id();
-              tout << ", todo.size(): " << todo.size() << "\n";);
+              tout << src << ", todo.size(): " << todo.size() << "\n";);
         int color     = get_color(colors, src);
         SASSERT(color != Grey);
         if (color == Black)
@@ -227,17 +229,16 @@ namespace smt {
         while (!todo.empty()) {
             source curr = todo.back();
             TRACE("mg_top_sort", tout << "current source, is_fresh: " << curr.is_fresh_value() << " ";
-                  if (curr.is_fresh_value()) tout << "fresh!" << curr.get_value()->get_idx();
-                  else tout << "#" << curr.get_enode()->get_owner_id();
-                  tout << ", todo.size(): " << todo.size() << "\n";);
+                  tout << curr << ", todo.size(): " << todo.size() << "\n";);
             switch (get_color(colors, curr)) {
             case White:
                 set_color(colors, curr, Grey);
                 visit_children(curr, roots, root2proc, colors, already_traversed, todo);
                 break;
             case Grey:
-                SASSERT(visit_children(curr, roots, root2proc, colors, already_traversed, todo));
+                // SASSERT(visit_children(curr, roots, root2proc, colors, already_traversed, todo));
                 set_color(colors, curr, Black);
+                TRACE("mg_top_sort", tout << "append " << curr << "\n";);
                 sorted_sources.push_back(curr);
                 break;
             case Black:
@@ -266,18 +267,15 @@ namespace smt {
         // topological sort
 
         // traverse all extra fresh values...
-        unsigned sz = m_extra_fresh_values.size();
-        for (unsigned i = 0; i < sz; i++) {
-            extra_fresh_value * f = m_extra_fresh_values[i];
+        for (extra_fresh_value * f : m_extra_fresh_values) {
             process_source(source(f), roots, root2proc, colors, already_traversed, todo, sorted_sources);
         }
 
         // traverse all enodes that are associated with fresh values...
-        sz = roots.size();
+        unsigned sz = roots.size();
         for (unsigned i = 0; i < sz; i++) {
             enode * r     = roots[i];
-            model_value_proc * proc = nullptr;
-            root2proc.find(r, proc);
+            model_value_proc * proc = root2proc[r];
             SASSERT(proc);
             if (!proc->is_fresh())
                 continue;
@@ -303,43 +301,38 @@ namespace smt {
         TRACE("sorted_sources",
               for (source const& curr : sources) {
                   if (curr.is_fresh_value()) {
-                      tout << "fresh!" << curr.get_value()->get_idx() << " " << mk_pp(curr.get_value()->get_sort(), m_manager) << "\n";
+                      tout << curr << " " << mk_pp(curr.get_value()->get_sort(), m_manager) << "\n";
                   }
                   else {
                       enode * n = curr.get_enode();
                       SASSERT(n->get_root() == n);
                       sort * s = m_manager.get_sort(n->get_owner());
-                      tout << "#" << n->get_owner_id() << " " << mk_pp(s, m_manager);
-                      model_value_proc * proc = 0;
-                      root2proc.find(n, proc);
-                      SASSERT(proc);
-                      tout << " is_fresh: " << proc->is_fresh() << "\n";
+                      tout << curr << " " << mk_pp(s, m_manager);
+                      tout << " is_fresh: " << root2proc[n]->is_fresh() << "\n";
                   }
               });
         for (source const& curr : sources) {
             if (curr.is_fresh_value()) {
                 sort * s = curr.get_value()->get_sort();
-                TRACE("model_fresh_bug", tout << "mk fresh!" << curr.get_value()->get_idx() << " : " << mk_pp(s, m_manager) << "\n";);
+                TRACE("model_fresh_bug", tout << curr << " : " << mk_pp(s, m_manager) << "\n";);
                 expr * val = m_model->get_fresh_value(s);
-                TRACE("model_fresh_bug", tout << "mk fresh!" << curr.get_value()->get_idx() << " := #" << (val == 0 ? UINT_MAX : val->get_id()) << "\n";);
+                TRACE("model_fresh_bug", tout << curr << " := #" << (val == nullptr ? UINT_MAX : val->get_id()) << "\n";);
                 m_asts.push_back(val);
                 curr.get_value()->set_value(val);
             }
             else {
                 enode * n = curr.get_enode();
                 SASSERT(n->get_root() == n);
-                TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << "\n";);
+                TRACE("mg_top_sort", tout << curr << "\n";);
                 dependencies.reset();
                 dependency_values.reset();
-                model_value_proc * proc = nullptr;
-                VERIFY(root2proc.find(n, proc));
+                model_value_proc * proc = root2proc[n];
                 SASSERT(proc);
                 proc->get_dependencies(dependencies);
                 for (model_value_dependency const& d : dependencies) {
                     if (d.is_fresh_value()) {
                         CTRACE("mg_top_sort", !d.get_value()->get_value(), 
-                               tout << "#" << n->get_owner_id() << " -> ";
-                               tout << "fresh!" << d.get_value()->get_idx() << "\n";);
+                               tout << "#" << n->get_owner_id() << " -> " << d << "\n";);
                         SASSERT(d.get_value()->get_value());
                         dependency_values.push_back(d.get_value()->get_value());
                     }

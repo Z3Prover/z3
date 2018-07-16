@@ -41,12 +41,12 @@ inline void swap(mpq & m1, mpq & m2) { m1.swap(m2); }
 
 template<bool SYNCH = true>
 class mpq_manager : public mpz_manager<SYNCH> {
-    mpz m_n_tmp;
-    mpz m_add_tmp1;
-    mpz m_add_tmp2;
-    mpq m_addmul_tmp;
-    mpq m_lt_tmp1;
-    mpq m_lt_tmp2;
+    mpz m_tmp1;
+    mpz m_tmp2;
+    mpz m_tmp3;
+    mpz m_tmp4;
+    mpq m_q_tmp1;
+    mpq m_q_tmp2;
 
     void reset_denominator(mpq & a) {
         del(a.m_den);
@@ -66,11 +66,11 @@ class mpq_manager : public mpz_manager<SYNCH> {
             del(tmp);
         }
         else {
-            gcd(a.m_num, a.m_den, m_n_tmp);
-            if (is_one(m_n_tmp))
+            gcd(a.m_num, a.m_den, m_tmp1);
+            if (is_one(m_tmp1))
                 return;
-            div(a.m_num, m_n_tmp, a.m_num);
-            div(a.m_den, m_n_tmp, a.m_den);
+            div(a.m_num, m_tmp1, a.m_num);
+            div(a.m_den, m_tmp1, a.m_den);
         }
     }
 
@@ -87,9 +87,9 @@ class mpq_manager : public mpz_manager<SYNCH> {
             del(tmp1);
         }
         else {
-            mul(b, a.m_den, m_add_tmp1);
+            mul(b, a.m_den, m_tmp1);
             set(c.m_den, a.m_den);
-            add(a.m_num, m_add_tmp1, c.m_num);
+            add(a.m_num, m_tmp1, c.m_num);
             normalize(c);
         }
         STRACE("rat_mpq", tout << to_string(c) << "\n";);
@@ -320,8 +320,8 @@ public:
                 del(tmp);
             }
             else {
-                mul(b,c,m_addmul_tmp);
-                add(a, m_addmul_tmp, d);
+                mul(b, c, m_q_tmp1);
+                add(a, m_q_tmp1, d);
             }
         }
     }
@@ -342,8 +342,8 @@ public:
                 del(tmp);
             }
             else {
-                mul(b,c,m_addmul_tmp);
-                add(a, m_addmul_tmp, d);
+                mul(b,c, m_q_tmp1);
+                add(a, m_q_tmp1, d);
             }
         }
     }
@@ -365,8 +365,8 @@ public:
                 del(tmp);
             }
             else {
-                mul(b,c,m_addmul_tmp);
-                sub(a, m_addmul_tmp, d);
+                mul(b,c, m_q_tmp1);
+                sub(a, m_q_tmp1, d);
             }
         }
     }
@@ -387,8 +387,8 @@ public:
                 del(tmp);
             }
             else {
-                mul(b,c,m_addmul_tmp);
-                sub(a, m_addmul_tmp, d);
+                mul(b,c, m_q_tmp1);
+                sub(a, m_q_tmp1, d);
             }
         }
     }
@@ -814,12 +814,13 @@ public:
     bool is_even(mpz const & a) { return mpz_manager<SYNCH>::is_even(a); }
 public:
     bool is_even(mpq const & a) { return is_int(a) && is_even(a.m_num); }
-
-    friend bool operator==(mpq const & a, mpq const & b) ;
-    friend bool operator>=(mpq const & a, mpq const & b);
 };
 
+#ifndef _NO_OMP_
 typedef mpq_manager<true> synch_mpq_manager;
+#else
+typedef mpq_manager<false> synch_mpq_manager;
+#endif
 typedef mpq_manager<false> unsynch_mpq_manager;
 
 typedef _scoped_numeral<unsynch_mpq_manager> scoped_mpq;

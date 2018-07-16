@@ -279,7 +279,11 @@ public:
     mpq_manager<SYNCH>& get_mpq_manager() { return m; }
 };
 
+#ifndef _NO_OMP_
 typedef mpq_inf_manager<true>  synch_mpq_inf_manager;
+#else
+typedef mpq_inf_manager<false> synch_mpq_inf_manager;
+#endif
 typedef mpq_inf_manager<false> unsynch_mpq_inf_manager;
 
 #endif

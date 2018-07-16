@@ -1120,7 +1120,7 @@ public:
             (v != null_theory_var) &&
             (v < static_cast<theory_var>(m_theory_var2var_index.size())) && 
             (UINT_MAX != m_theory_var2var_index[v]) &&
-            !m_variable_values.empty();
+            (!m_variable_values.empty() || m_solver->is_term(m_theory_var2var_index[v]));
     }
 
     bool can_get_bound(theory_var v) const {
@@ -1165,13 +1165,21 @@ public:
     }
         
     rational get_value(theory_var v) const {
-        if (!can_get_value(v)) return rational::zero();
+        
+        if (v == null_theory_var || 
+            v >= static_cast<theory_var>(m_theory_var2var_index.size())) {
+            TRACE("arith", tout << "Variable v" << v << " not internalized\n";);
+            return rational::zero();
+        }
+            
         lp::var_index vi = m_theory_var2var_index[v];
         if (m_variable_values.count(vi) > 0)
             return m_variable_values[vi];
         
-        if(!m_solver->is_term(vi))
+        if (!m_solver->is_term(vi)) {
+            TRACE("arith", tout << "not a term v" << v << "\n";);
             return rational::zero();
+        }
         
         m_todo_terms.push_back(std::make_pair(vi, rational::one()));
         rational result(0);
@@ -1203,6 +1211,7 @@ public:
         if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
             reset_variable_values();
             m_solver->get_model(m_variable_values);
+            TRACE("arith", display(tout););
         }
     }
 
@@ -2638,6 +2647,7 @@ public:
         }
         else {
             rational r = get_value(v);
+            TRACE("arith", tout << "v" << v << " := " << r << "\n";);
             if (a.is_int(o) && !r.is_int()) r = floor(r);
             return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
         }
