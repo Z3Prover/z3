@@ -197,6 +197,7 @@ public:
     bool             m_int_patch_only_integer_values;
     unsigned         limit_on_rows_for_hnf_cutter;
     unsigned         limit_on_columns_for_hnf_cutter;
+    bool             m_enable_hnf;
 
 
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
@@ -263,7 +264,8 @@ public:
                     m_int_pivot_fixed_vars_from_basis(false),
                     m_int_patch_only_integer_values(true),
                     limit_on_rows_for_hnf_cutter(75),
-                    limit_on_columns_for_hnf_cutter(150)
+                    limit_on_columns_for_hnf_cutter(150),
+                    m_enable_hnf(true)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }

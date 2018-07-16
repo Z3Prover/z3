@@ -600,6 +600,9 @@ lia_move int_solver::make_hnf_cut() {
 }
 
 lia_move int_solver::hnf_cut() {
+    if (!settings().m_enable_hnf) {
+        return lia_move::undef;
+    }
     if ((m_number_of_calls) % settings().hnf_cut_period() == 0) {
         return make_hnf_cut();
     }

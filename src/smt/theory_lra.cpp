@@ -298,13 +298,15 @@ class theory_lra::imp {
 
     void init_solver() {
         if (m_solver) return;
-        lp_params lp(ctx().get_params());
-        m_solver = alloc(lp::lar_solver); 
+
+        reset_variable_values();
         m_theory_var2var_index.reset();
+        m_solver = alloc(lp::lar_solver); 
+        lp_params lp(ctx().get_params());
         m_solver->settings().set_resource_limit(m_resource_limit);
         m_solver->settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lp.simplex_strategy());
-        reset_variable_values();
         m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
+        m_solver->settings().m_enable_hnf = lp.enable_hnf();
         m_solver->set_track_pivoted_rows(lp.bprop_on_pivoted_rows());
 
         // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
@@ -2712,7 +2714,6 @@ public:
         if (dump_lemmas()) {
             unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             (void)id;
-            //SASSERT(id != 55);
         }
     }
 
@@ -2732,7 +2733,6 @@ public:
         if (dump_lemmas()) {                
             unsigned id = ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
             (void)id;
-            // SASSERT(id != 71);
         }
     }
 

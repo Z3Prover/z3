@@ -492,7 +492,7 @@ namespace smt {
         m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false; 
         m_params.m_arith_propagate_eqs = false; 
-        m_params.m_nnf_cnf             = false;
+        m_params.m_nnf_cnf             = false;        
         setup_lra_arith();
     }
 
