@@ -100,6 +100,7 @@ bool int_solver::is_gomory_cut_target(const row_strip<mpq>& row) {
     // All non base variables must be at their bounds and assigned to rationals (that is, infinitesimals are not allowed).
     unsigned j;
     for (const auto & p : row) {
+        if (p.dead()) continue;
         j = p.var();
         if (is_base(j)) continue;
         if (!at_bound(j))
@@ -311,6 +312,7 @@ lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row
     TRACE("gomory_cut",
           tout << "applying cut at:\n"; m_lar_solver->print_row(row, tout); tout << std::endl;
           for (auto & p : row) {
+              if (p.dead()) continue;
               m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), tout);
           }
           tout << "inf_col = " << inf_col << std::endl;
@@ -324,7 +326,8 @@ lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row
     bool some_int_columns = false;
     mpq f_0  = int_solver::fractional_part(get_value(inf_col));
     mpq one_min_f_0 = 1 - f_0;
-    for (auto & p : row) {
+    for (const auto & p : row) {
+        if (p.dead()) continue;
         x_j = p.var();
         if (x_j == inf_col)
             continue;
@@ -353,6 +356,7 @@ lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row
 int int_solver::find_free_var_in_gomory_row(const row_strip<mpq>& row) {
     unsigned j;
     for (const auto & p : row) {
+        if (p.dead()) continue;
         j = p.var();
         if (!is_base(j) && is_free(j))
             return static_cast<int>(j);
@@ -789,6 +793,7 @@ lia_move int_solver::patch_nbasic_columns() {
 mpq get_denominators_lcm(const row_strip<mpq> & row) {
     mpq r(1);
     for  (auto & c : row) {
+        if (c.dead()) continue;
         r = lcm(r, denominator(c.coeff()));
     }
     return r;
@@ -802,6 +807,7 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
     bool    least_coeff_is_bounded = false;
     unsigned j;
     for (auto &c : A.m_rows[i]) {
+        if (c.dead()) continue;
         j = c.var();
         const mpq& a = c.coeff();
         if (m_lar_solver->column_is_fixed(j)) {
@@ -867,6 +873,7 @@ void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
 }
 void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row) {
     for (const auto & c : row) {
+        if (c.dead()) continue;
         if (!m_lar_solver->column_is_fixed(c.var()))
             continue;
         add_to_explanation_from_fixed_or_boxed_column(c.var());
@@ -892,6 +899,7 @@ bool int_solver::ext_gcd_test(const row_strip<mpq> & row,
     mpq a;
     unsigned j;
     for (const auto & c : row) {
+        if (c.dead()) continue;
         j = c.var();
         const mpq & a = c.coeff();
         if (m_lar_solver->column_is_fixed(j))
@@ -1023,6 +1031,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     lp_assert(settings().use_tableau());
     const auto & A = m_lar_solver->A_r();
     for (const auto &c : A.column(j)) {
+        if (c.dead()) continue;
         row_index = c.var();
         const mpq & a = c.coeff();
         
@@ -1152,13 +1161,15 @@ bool int_solver::at_upper(unsigned j) const {
 
 void int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
     auto & rslv = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
-    for (auto &c: rslv.m_A.m_rows[row_index]) {
+    for (const auto &c: rslv.m_A.m_rows[row_index]) {
+        if (c.dead()) continue;
         if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
         out << c.coeff() << rslv.column_name(c.var()) << " ";
     }
 
-    for (auto& c: rslv.m_A.m_rows[row_index]) {
+    for (const auto& c: rslv.m_A.m_rows[row_index]) {
+        if (c.dead()) continue;
         rslv.print_column_bound_info(c.var(), out);
     }
     rslv.print_column_bound_info(rslv.m_basis[row_index], out);

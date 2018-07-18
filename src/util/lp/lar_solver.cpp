@@ -162,9 +162,8 @@ void lar_solver::analyze_new_bounds_on_row_tableau(
     unsigned row_index,
     bound_propagator & bp ) {
 
-    if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
+    if (A_r().m_rows[row_index].live_size() > settings().max_row_length_for_bound_propagation)
         return;
-
     lp_assert(use_tableau());
     bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
                                        static_cast<unsigned>(-1),
@@ -216,7 +215,8 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
         bound_j = m_var_register.external_to_local(bound_j);
     }
     for (auto const& r : A_r().m_rows[i]) {
-        unsigned j = r.m_j;
+        if (r.dead()) continue;
+        unsigned j = r.var();
         if (j == bound_j) continue;
         mpq const& a = r.get_val();
         int a_sign = is_pos(a)? 1: -1;
@@ -428,8 +428,9 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
         if (i < 0)
             jset.insert(j);
         else {
-            for (auto & rc : A_r().m_rows[i])
-                jset.insert(rc.m_j);
+            for (const auto & rc : A_r().m_rows[i])
+                if (rc.alive())
+                    jset.insert(rc.var());
         }
     }
 
@@ -639,7 +640,8 @@ void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column(unsigned j
     
 void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j) {
     for (auto & rc : m_mpq_lar_core_solver.m_r_A.m_columns[j])
-        m_rows_with_changed_bounds.insert(rc.m_i);
+        if (rc.alive())
+            m_rows_with_changed_bounds.insert(rc.var());
 }
 
 bool lar_solver::use_tableau() const { return m_settings.use_tableau(); }
@@ -667,8 +669,10 @@ void lar_solver::adjust_x_of_column(unsigned j) {
 
 bool lar_solver::row_is_correct(unsigned i) const {
     numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
-    for (const auto & c : A_r().m_rows[i])
-        r += c.m_value * m_mpq_lar_core_solver.m_r_x[c.m_j];
+    for (const auto & c : A_r().m_rows[i]) {
+        if (c.dead()) continue;
+        r += c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
+    }
     return is_zero(r);
 }
     
@@ -691,7 +695,8 @@ bool lar_solver::costs_are_used() const {
 void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta) {
     if (use_tableau()) {
         for (const auto & c : A_r().m_columns[j]) {
-            unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.m_i];
+            if (c.dead()) continue;
+            unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
             if (tableau_with_costs()) {
                 m_basic_columns_with_changed_cost.insert(bj);
             }
@@ -790,10 +795,10 @@ numeric_pair<mpq> lar_solver::get_basic_var_value_from_row_directly(unsigned i) 
         
     unsigned bj = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
     for (const auto & c: A_r().m_rows[i]) {
-        if (c.m_j == bj) continue;
-        const auto & x = m_mpq_lar_core_solver.m_r_x[c.m_j];
+        if (c.var() == bj) continue;
+        const auto & x = m_mpq_lar_core_solver.m_r_x[c.var()];
         if (!is_zero(x)) 
-            r -= c.m_value * x;
+            r -= c.coeff() * x;
     }
     return r;
 }
@@ -866,14 +871,14 @@ void lar_solver::fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A,
     lp_assert(A.row_count() > 0);
     lp_assert(A.column_count() > 0);
     unsigned last_row = A.row_count() - 1;
-    lp_assert(A.m_rows[last_row].size() == 0);
+    lp_assert(A.m_rows[last_row].live_size() == 0);
     for (auto & t : ls->m_coeffs) {
         lp_assert(!is_zero(t.second));
         var_index j = t.first;
-        A.set(last_row, j, - t.second);
+        A.add_new_element(last_row, j, - t.second);
     }
     unsigned basis_j = A.column_count() - 1;
-    A.set(last_row, basis_j, mpq(1));
+    A.add_new_element(last_row, basis_j, mpq(1));
 }
 
 template <typename U, typename V>
@@ -895,7 +900,7 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     matr.m_columns.resize(A_r().column_count());
     for (unsigned i = 0; i < matr.row_count(); i++) {
         for (auto & it : A_r().m_rows[i]) {
-            matr.set(i, it.m_j,  convert_struct<U, mpq>::convert(it.get_val()));
+            matr.add_new_element(i, it.var(),  convert_struct<U, mpq>::convert(it.get_val()));
         }
     }
 }
@@ -1327,16 +1332,17 @@ void lar_solver::make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsign
     lp_assert(A_r().row_count() == i + 1 && A_r().column_count() == j + 1);
     auto & last_column = A_r().m_columns[j];
     int non_zero_column_cell_index = -1;
-    for (unsigned k = last_column.size(); k-- > 0;){
+    for (unsigned k = last_column.cells_size(); k-- > 0;){
         auto & cc = last_column[k];
-        if (cc.m_i == i)
+        if (cc.dead()) continue;
+        if (cc.var() == i)
             return;
         non_zero_column_cell_index = k;
     }
 
     lp_assert(non_zero_column_cell_index != -1);
     lp_assert(static_cast<unsigned>(non_zero_column_cell_index) != i);
-    m_mpq_lar_core_solver.m_r_solver.transpose_rows_tableau(last_column[non_zero_column_cell_index].m_i, i);
+    m_mpq_lar_core_solver.m_r_solver.transpose_rows_tableau(last_column[non_zero_column_cell_index].var(), i);
 }
 
 void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
@@ -1351,24 +1357,29 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
     auto & last_row = A_r().m_rows[i];
     mpq &cost_j = m_mpq_lar_core_solver.m_r_solver.m_costs[j];
     bool cost_is_nz = !is_zero(cost_j);
-    for (unsigned k = last_row.size(); k-- > 0;) {
+    for (unsigned k = last_row.cells_size(); k-- > 0;) {
         auto &rc = last_row[k];
+        if (rc.dead()) {
+            last_row.pop();
+            continue;
+        }
         if (cost_is_nz) {
-            m_mpq_lar_core_solver.m_r_solver.m_d[rc.m_j] += cost_j*rc.get_val();
+            m_mpq_lar_core_solver.m_r_solver.m_d[rc.var()] += cost_j*rc.get_val();
         }
             
-        A_r().remove_element(last_row, rc);
+        A_r().remove_element(rc);
     }
-    lp_assert(last_row.size() == 0);
-    lp_assert(A_r().m_columns[j].size() == 0);
+    lp_assert(last_row.live_size() == 0);
+    lp_assert(A_r().m_columns[j].live_size() == 0);
     A_r().m_rows.pop_back();
     A_r().m_columns.pop_back();
+	lp_assert(A_r().is_correct());
     slv.m_b.pop_back();
 }
 
 void lar_solver::remove_last_column_from_A() {
     // the last column has to be empty
-    lp_assert(A_r().m_columns.back().size() == 0);
+    lp_assert(A_r().m_columns.back().live_size() == 0);
     A_r().m_columns.pop_back();
 }
 
@@ -1840,11 +1851,12 @@ void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const l
     for (auto & t : ls->m_coeffs) {
         lp_assert(!is_zero(t.second));
         var_index j = t.first;
-        A.set(last_row, j, -t.second.get_double());
+        A.add_new_element(last_row, j, -t.second.get_double());
     }
 
     unsigned basis_j = A.column_count() - 1;
-    A.set(last_row, basis_j, -1);
+    A.add_new_element(last_row, basis_j, -1);
+    lp_assert(A.is_correct());
 }
 
 void lar_solver::update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind) {

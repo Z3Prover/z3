@@ -330,11 +330,11 @@ public:
 
         for (unsigned i = m_prev; i < m; i++) {
             for (const row_cell<T> & c : m_A.m_rows[i]) {
-                int h = heading[c.m_j];
+                int h = heading[c.var()];
                 if (h < 0) {
                     continue;
                 }
-                columns_to_replace.insert(c.m_j);
+                columns_to_replace.insert(c.var());
             }
         }
         return columns_to_replace;

@@ -339,7 +339,7 @@ public:
             if (!update_xj_and_get_delta(j, pos_type, delta))
                 continue;
             for (const auto & cc : m_r_solver.m_A.m_columns[j]){
-                unsigned i = cc.m_i;
+                unsigned i = cc.var();
                 unsigned jb = m_r_solver.m_basis[i];
                 m_r_solver.update_x_with_delta_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
             }
@@ -583,8 +583,7 @@ public:
         if (!m_r_solver.m_settings.use_tableau())
             return true;
         for (unsigned j : m_r_solver.m_basis) {
-            lp_assert(m_r_solver.m_A.m_columns[j].size() == 1);
-            lp_assert(m_r_solver.m_A.get_val(m_r_solver.m_A.m_columns[j][0]) == one_of_type<mpq>());
+            lp_assert(m_r_solver.m_A.m_columns[j].live_size() == 1);
         }
         for (unsigned j =0; j < m_r_solver.m_basis_heading.size(); j++) {
             if (m_r_solver.m_basis_heading[j] >= 0) continue;
@@ -633,8 +632,9 @@ public:
     void create_double_matrix(static_matrix<double, double> & A) {
         for (unsigned i = 0; i < m_r_A.row_count(); i++) {
             auto & row = m_r_A.m_rows[i];
-            for (row_cell<mpq> & c : row) {
-                A.set(i, c.m_j, c.get_val().get_double());
+            for (row_cell<mpq> & c : row.m_cells) {
+                if (c.dead()) continue;
+                A.add_new_element(i, c.var(), c.get_val().get_double());
             }
         }
     }

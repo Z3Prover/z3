@@ -212,6 +212,9 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     
 
     tactic * st = using_params(and_then(preamble_st,
+#if 1
+                                        mk_smt_tactic()),
+#else
                                         or_else(mk_ilp_model_finder_tactic(m),
                                                 mk_pb_tactic(m),
                                                 and_then(fail_if_not(mk_is_quasi_pb_probe()), 
@@ -219,6 +222,7 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
                                                          mk_fail_if_undecided_tactic()),
                                                 mk_bounded_tactic(m),
                                                 mk_smt_tactic())),
+#endif
                                main_p);
 
     

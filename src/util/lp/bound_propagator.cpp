@@ -16,6 +16,8 @@ const impq & bound_propagator::get_upper_bound(unsigned j) const {
     return m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j];
 }
 void bound_propagator::try_add_bound(mpq  v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
+    TRACE("try_add_bound",
+          tout << "v = " << v << ", j = " << j << std::endl;);
     j = m_lar_solver.adjust_column_index_to_term_index(j);    
     if (m_lar_solver.is_term(j)) {
         // lp treats terms as not having a free coefficient, restoring it below for the outside consumption

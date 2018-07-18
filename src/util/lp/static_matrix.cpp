@@ -30,6 +30,9 @@ Revision History:
 #include "util/lp/lar_solver.h"
 namespace lp {
 template void static_matrix<double, double>::add_columns_at_the_end(unsigned int);
+template void static_matrix<double, double>::add_new_element(unsigned i, unsigned j, const double & v);
+template void static_matrix<mpq, mpq>::add_new_element(unsigned i, unsigned j, const mpq & v);
+template void static_matrix<mpq, impq>::add_new_element(unsigned i, unsigned j, const mpq & v);
 template void static_matrix<double, double>::clear();
 #ifdef Z3DEBUG
 template bool static_matrix<double, double>::is_correct() const;
@@ -47,7 +50,6 @@ template double static_matrix<double, double>::get_min_abs_in_row(unsigned int) 
 template void static_matrix<double, double>::init_empty_matrix(unsigned int, unsigned int);
 template void static_matrix<double, double>::init_row_columns(unsigned int, unsigned int);
 template static_matrix<double, double>::ref & static_matrix<double, double>::ref::operator=(double const&);
-template void static_matrix<double, double>::set(unsigned int, unsigned int, double const&);
 template static_matrix<double, double>::static_matrix(unsigned int, unsigned int);
 template void static_matrix<mpq, mpq>::add_column_to_vector(mpq const&, unsigned int, mpq*) const;
 template void static_matrix<mpq, mpq>::add_columns_at_the_end(unsigned int);
@@ -63,7 +65,6 @@ template mpq static_matrix<mpq, mpq>::get_min_abs_in_column(unsigned int) const;
 template mpq static_matrix<mpq, mpq>::get_min_abs_in_row(unsigned int) const;
 template void static_matrix<mpq, mpq>::init_row_columns(unsigned int, unsigned int);
 template static_matrix<mpq, mpq>::ref& static_matrix<mpq, mpq>::ref::operator=(mpq const&);
-template void static_matrix<mpq, mpq>::set(unsigned int, unsigned int, mpq const&);
 
 template static_matrix<mpq, mpq>::static_matrix(unsigned int, unsigned int);
 #ifdef Z3DEBUG
@@ -72,13 +73,11 @@ template bool static_matrix<mpq, numeric_pair<mpq> >::is_correct() const;
 template void static_matrix<mpq, numeric_pair<mpq> >::copy_column_to_indexed_vector(unsigned int, indexed_vector<mpq>&) const;
 template mpq static_matrix<mpq, numeric_pair<mpq> >::get_elem(unsigned int, unsigned int) const;
 template void static_matrix<mpq, numeric_pair<mpq> >::init_empty_matrix(unsigned int, unsigned int);
-template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned int, mpq const&);
-
 
 template bool lp::static_matrix<double, double>::pivot_row_to_row_given_cell(unsigned int, column_cell &, unsigned int);
 template bool lp::static_matrix<lp::mpq, lp::mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);
 template bool lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::pivot_row_to_row_given_cell(unsigned int, column_cell&, unsigned int);
-template void lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::remove_element(vector<lp::row_cell<lp::mpq>, true, unsigned int>&, lp::row_cell<lp::mpq>&);
+template void lp::static_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::remove_element(lp::row_cell<lp::mpq>&);
 
 }
 

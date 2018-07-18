@@ -975,7 +975,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::delete_fa
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_norms() {
     lp_assert(numeric_traits<T>::precise() == false);
     for (unsigned j = 0; j < this->m_n(); j++) {
-        this->m_column_norms[j] = T(static_cast<int>(this->m_A.m_columns[j].size() + 1)) 
+        this->m_column_norms[j] = T(static_cast<int>(this->m_A.m_columns[j].live_size() + 1)) 
             
             + T(static_cast<int>(this->m_settings.random_next() % 10000)) / T(100000);
     }

@@ -172,7 +172,7 @@ public:
     
 
     bool monoid_can_decrease(const row_cell<T> & rc) const {
-        unsigned j = rc.m_j;
+        unsigned j = rc.var();
         lp_assert(this->column_is_feasible(j));
         switch (this->m_column_types[j]) {
         case column_type::free_column:
@@ -205,7 +205,7 @@ public:
     }
 
     bool monoid_can_increase(const row_cell<T> & rc) const {
-        unsigned j = rc.m_j;
+        unsigned j = rc.var();
         lp_assert(this->column_is_feasible(j));
         switch (this->m_column_types[j]) {
         case column_type::free_column:
@@ -239,8 +239,9 @@ public:
 
     unsigned get_number_of_basic_vars_that_might_become_inf(unsigned j) const { // consider looking at the signs here: todo
         unsigned r = 0;
-        for (auto & cc : this->m_A.m_columns[j]) {
-            unsigned k = this->m_basis[cc.m_i];
+        for (const auto & cc : this->m_A.m_columns[j]) {
+            if (cc.dead()) continue;
+            unsigned k = this->m_basis[cc.var()];
             if (this->m_column_types[k] != column_type::free_column)
                 r++;
         }
@@ -253,7 +254,8 @@ public:
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
         for (const row_cell<T>& rc : this->m_A.m_rows[i]) {
-            if (rc.m_j == bj)
+            if (rc.dead()) continue;
+            if (rc.var() == bj)
                 continue;
             if (bj_needs_to_grow) {
                 if (!monoid_can_decrease(rc))
@@ -262,9 +264,9 @@ public:
                 if (!monoid_can_increase(rc))
                     continue;
             }
-            if (rc.m_j < static_cast<unsigned>(j) ) {
-                j = rc.m_j;
-                a_ent = rc.m_value;
+            if (rc.var() < static_cast<unsigned>(j) ) {
+                j = rc.var();
+                a_ent = rc.coeff();
             }
         }
         if (j == -1) {
@@ -278,13 +280,18 @@ public:
         if (m_bland_mode_tableau)
             return find_beneficial_column_in_row_tableau_rows_bland_mode(i, a_ent);
         // a short row produces short infeasibility explanation and benefits at least one pivot operation
-        vector<const row_cell<T>*> choices;
-        unsigned num_of_non_free_basics = 1000000;
+        int choice = -1;
+        int nchoices = 0;
         unsigned len = 100000000;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
-        for (const row_cell<T>& rc : this->m_A.m_rows[i]) {
-            unsigned j = rc.m_j;
+        for (unsigned k = 0; k < this->m_A.m_rows[i].m_cells.size(); k++) {
+            const row_cell<T>& rc = this->m_A.m_rows[i].m_cells[k];
+            if (rc.dead()) continue;
+			const row_cell<T>& rc = this->m_A.m_rows[i].m_cells[k];
+			if (rc.dead()) continue;
+>>>>>>> e6c612f... trying the new scheme in static_matrix : in progress
+            unsigned j = rc.var();
             if (j == bj)
                 continue;
             if (bj_needs_to_grow) {
@@ -297,26 +304,24 @@ public:
             unsigned damage = get_number_of_basic_vars_that_might_become_inf(j);
             if (damage < num_of_non_free_basics) {
                 num_of_non_free_basics = damage;
-                len = this->m_A.m_columns[j].size();
-                choices.clear();
-                choices.push_back(&rc);
+                len = this->m_A.m_columns[j].live_size();
+                choice = k;
+                nchoices = 1;
             } else if (damage == num_of_non_free_basics &&
-                       this->m_A.m_columns[j].size() <= len && (this->m_settings.random_next() % 2)) {
-                choices.push_back(&rc);
-                len = this->m_A.m_columns[j].size();
+                       this->m_A.m_columns[j].live_size() <= len && (this->m_settings.random_next() % (++nchoices))) {
+                choice = k;
+                len = this->m_A.m_columns[j].live_size();
             }
         }
         
 
-        if (choices.size() == 0) {
+        if (choice == -1) {
             m_inf_row_index_for_tableau = i;
             return -1;
         }
-        const row_cell<T>* rc = choices.size() == 1? choices[0] :
-            choices[this->m_settings.random_next() % choices.size()];
-
-        a_ent = rc->m_value;
-        return rc->m_j;
+        const row_cell<T>& rc = this->m_A.m_rows[i].m_cells[choice];
+        a_ent = rc.coeff();
+        return rc.var();
     }
     static X positive_infinity() {
         return convert_struct<X, unsigned>::convert(std::numeric_limits<unsigned>::max());
@@ -827,11 +832,11 @@ public:
         this->m_rows_nz.resize(this->m_A.row_count());
         for (unsigned i = 0; i < this->m_A.column_count(); i++) {
             if (this->m_columns_nz[i] == 0)
-                this->m_columns_nz[i] = this->m_A.m_columns[i].size();
+                this->m_columns_nz[i] = this->m_A.m_columns[i].live_size();
         }
         for (unsigned i = 0; i < this->m_A.row_count(); i++) {
          if (this->m_rows_nz[i] == 0)
-            this->m_rows_nz[i] = this->m_A.m_rows[i].size();
+            this->m_rows_nz[i] = this->m_A.m_rows[i].live_size();
         }
     }
     
@@ -861,7 +866,7 @@ public:
     unsigned solve_with_tableau();
 
     bool basis_column_is_set_correctly(unsigned j) const {
-        return this->m_A.m_columns[j].size() == 1;
+        return this->m_A.m_columns[j].live_size() == 1;
             
     }
     
@@ -881,7 +886,8 @@ public:
         lp_assert(this->m_basis_heading[j] >= 0);
         unsigned i = static_cast<unsigned>(this->m_basis_heading[j]);
         for (const row_cell<T> & rc : this->m_A.m_rows[i]) {
-            unsigned k = rc.m_j;
+            if (rc.dead()) continue;
+            unsigned k = rc.var();
             if (k == j)
                 continue;
             this->m_d[k] += delta * rc.get_val();

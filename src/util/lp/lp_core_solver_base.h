@@ -213,8 +213,17 @@ public:
         unsigned m = m_A.row_count();
         for (unsigned i = 0; i < m; i++) {
             unsigned bj = m_basis[i];
-            lp_assert(m_A.m_columns[bj].size() > 0);
-            if (m_A.m_columns[bj].size() > 1 || m_A.get_val(m_A.m_columns[bj][0]) != one_of_type<mpq>()) return true;
+            lp_assert(m_A.m_columns[bj].live_size() > 0);
+            if (m_A.m_columns[bj].live_size() > 1)
+                return true;
+            for (const auto & c : m_A.m_columns[bj]) {
+                if (c.dead())
+                    continue;
+                if (m_A.get_val(c) != one_of_type<mpq>())
+                    return true;
+                else
+                    break;
+            }
         }
         return false;
     }
@@ -237,8 +246,9 @@ public:
                 }
             } else {
                 auto d = m_costs[j];
-                for (auto & cc : this->m_A.m_columns[j]) {
-                    d -= this->m_costs[this->m_basis[cc.m_i]] * this->m_A.get_val(cc);
+                for (const auto & cc : this->m_A.m_columns[j]) {
+                    if (cc.dead()) continue;
+                    d -= this->m_costs[this->m_basis[cc.var()]] * this->m_A.get_val(cc);
                 }
                 if (m_d[j] != d) {
                     return false;

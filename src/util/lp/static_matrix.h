@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
+  Author:
 
-    Lev Nachmanson (levnach)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 
 #pragma once
 #include "util/vector.h"
@@ -29,30 +29,387 @@ Revision History:
 #include <stack>
 namespace lp {
 
-struct column_cell {
-    unsigned m_i; // points to the row
-    unsigned m_offset;  // the offset of the element in the matrix row
-    column_cell(unsigned i, unsigned offset) : m_i(i), m_offset(offset) {
+class column_cell {
+    unsigned  m_i; // points to the row
+    unsigned  m_offset;  // the offset of the element in the matrix row, or the next dead cell in the column_strip
+public:
+    column_cell(unsigned  i, unsigned  offset) : m_i(i), m_offset(offset) { }
+    column_cell(unsigned  i) : m_i(i) { }
+
+    // index of of the cell row
+    unsigned  var() const {
+        lp_assert(alive());
+        return m_i;
+    }
+    unsigned  &var() {
+        return m_i;
+    }
+    unsigned  offset() const {
+        lp_assert(alive());
+        return m_offset;
+    }
+    unsigned  & offset() {
+        lp_assert(alive());
+        return m_offset;
+    }
+
+    unsigned next_dead_index() const {
+        lp_assert(dead());
+        return m_offset;
+    }
+    unsigned & next_dead_index() {
+        return m_offset;
     }
     
+    bool alive() const { return !dead(); }
+    bool dead() const { return m_i == static_cast<unsigned>(-1); }
+    void set_dead() { m_i = -1;}
+
+
+
 };
 
 template <typename T>
-struct row_cell {
-    unsigned m_j; // points to the column
-    unsigned m_offset; // offset in column
-    T        m_value;
+class row_cell {
+    unsigned  m_j; // points to the column
+    unsigned  m_offset; // offset in column, or the next dead cell in the row_strip
+    T              m_value;
+public:
     row_cell(unsigned j, unsigned offset, T const & val) : m_j(j), m_offset(offset), m_value(val) {
     }
-    const T & get_val() const { return m_value;}
-    T & get_val() { return m_value;}
-    void set_val(const T& v) { m_value = v;  }
-    unsigned var() const { return m_j;}
-    const T & coeff() const { return m_value;}
+    row_cell(unsigned j, T const & val) : m_j(j), m_value(val) {
+    }
+    const T & get_val() const {
+        lp_assert(alive());
+        return m_value;
+    }
+    T & get_val() { 
+        lp_assert(alive());
+        return m_value;
+    }
+    void set_val(const T& v) {
+        lp_assert(alive());
+        m_value = v;
+    }
+    // index of the cell column
+    unsigned var() const {
+        lp_assert(alive());
+        return m_j;
+    }
+    unsigned  &var() {         
+        return m_j;
+    }
+    const T & coeff() const {
+        lp_assert(alive());
+        return m_value;
+    }
+    T & coeff() {
+        lp_assert(alive());
+        return m_value;
+    }
+    // offset in the column vector
+    unsigned  offset() const {
+        lp_assert(alive());
+        return m_offset;
+    }
+    unsigned  & offset() {
+        return m_offset;
+    }
+    unsigned next_dead_index() const {
+        lp_assert(dead());
+        return m_offset;
+    }
+    unsigned & next_dead_index() {
+        lp_assert(dead());
+        return m_offset;
+    }
+    bool alive() const { return !dead(); }
+    bool dead() const { return m_j == static_cast<unsigned>(-1); }
+    void set_dead() { m_j = static_cast<unsigned>(-1); }
+
+
 };
 
 template <typename T>
-using row_strip = vector<row_cell<T>>; 
+class row_strip {
+    unsigned m_live_size;
+    int      m_first_dead;
+public:    
+    row_strip() : m_live_size(0), m_first_dead(-1) {}
+    row_cell<T>* begin() { return m_cells.begin();}
+    const row_cell<T>* begin() const { return m_cells.begin();}
+    row_cell<T>* end() { return m_cells.end();}
+    const row_cell<T>* end() const { return m_cells.end();}
+    unsigned live_size() const { return m_live_size; } 
+    vector<row_cell<T>> m_cells;
+    unsigned cells_size() const { return m_cells.size(); }
+    const row_cell<T> & operator[](unsigned i) const { return m_cells[i]; }
+    row_cell<T> & operator[](unsigned i) { return m_cells[i];}
+
+    void skip_dead_cell(unsigned k) {
+        lp_assert(m_cells[k].dead())
+        auto * c = &m_cells[m_first_dead];
+        for (; c->next_dead_index() != k; c = &m_cells[c->next_dead_index()]);
+        lp_assert(c->next_dead_index() == k);
+        c->next_dead_index() = m_cells[k].next_dead_index();
+    }
+
+    void pop_last_dead_cell() {
+        lp_assert(m_cells.back().dead());
+        unsigned last = m_cells.size() - 1;
+        if (m_first_dead == static_cast<int>(last)) 
+            m_first_dead = m_cells.back().next_dead_index();
+        else {
+            skip_dead_cell(last);
+        }
+        m_cells.pop_back();
+    }
+
+    void pop(){
+        bool dead = m_cells.back().dead();
+        if (dead) {
+            pop_last_dead_cell();
+        } else {
+            m_live_size --;
+            m_cells.pop_back();
+        }
+    }
+    
+    bool empty() const { return m_live_size == 0; }
+
+    void delete_at(unsigned j) {
+        lp_assert(m_cells[j].alive());
+        m_live_size--;
+        if (j == m_cells.size() - 1)
+            m_cells.pop_back();
+        else {
+            auto & c = m_cells[j];
+            c.set_dead();
+            c.next_dead_index() = m_first_dead;
+            m_first_dead = j;
+        }
+        lp_assert(is_correct());
+    }
+
+    bool is_correct() const {
+        std::set<unsigned> d0;
+        std::set<unsigned> d1;
+        unsigned alive = 0;
+        for (unsigned i = 0; i < m_cells.size(); i++) {
+            if (m_cells[i].dead())
+                d0.insert(i);
+            else
+                alive ++;
+        }
+
+        if ( alive != m_live_size)
+            return false;
+        
+        for (unsigned i = m_first_dead; i != static_cast<unsigned>(-1) ; i = m_cells[i].next_dead_index())
+            d1.insert(i);
+        return d0 == d1;
+    }
+
+    row_cell<T> & add_cell(unsigned j, const T& val, unsigned & index) {
+#ifdef Z3DEBUG
+        for (const auto & c : m_cells) {
+            if (c.dead()) continue;
+            if (c.var() == j)
+                std::cout << "oops" << std::endl;
+        }
+#endif
+        if (m_first_dead != -1) {
+            auto & ret = m_cells[index = m_first_dead];
+            m_first_dead = ret.next_dead_index();
+            m_live_size++;
+            ret.var() = j;
+            ret.coeff() = val;
+            return ret;
+        }
+        lp_assert(m_live_size == m_cells.size());
+        index = m_live_size++;
+        m_cells.push_back(row_cell<T>(j, val));
+        return m_cells.back();
+    }
+
+    void shrink_to_live() {
+        m_cells.shrink(live_size());
+        m_first_dead = -1;
+    }
+};
+
+class column_strip {
+    vector<column_cell> m_cells;
+    unsigned            m_live_size;
+    int                 m_first_dead;
+public:
+    column_strip() : m_live_size(0), m_first_dead(-1) { }
+    column_cell* begin() { return m_cells.begin();}
+    const column_cell* begin() const { return m_cells.begin();}
+    column_cell* end() { return m_cells.end();}
+    const column_cell* end() const { return m_cells.end();}
+    unsigned live_size() const {
+        return m_live_size;
+    }
+
+    unsigned cells_size() const {
+        return m_cells.size();
+    }
+
+    unsigned cells_size() const {
+        return m_cells.size();
+    }
+    
+    column_cell& back() { return m_cells.back(); }
+    void delete_at(unsigned j) {
+        lp_assert(m_cells[j].alive());
+        m_live_size--;
+        if (j == m_cells.size() - 1)
+            m_cells.pop_back();
+        else {
+            auto & c = m_cells[j];
+            c.set_dead();
+            c.next_dead_index() = m_first_dead;
+            m_first_dead = j;
+        }
+        lp_assert(is_correct());
+    }
+    
+    const column_cell& operator[] (unsigned i) const { return m_cells[i];}
+    column_cell& operator[](unsigned i) { return m_cells[i];}
+    void pop() {
+        bool dead = m_cells.back().dead();
+        if (dead) {
+            pop_last_dead_cell();
+        } else {
+            m_live_size --;
+            m_cells.pop_back();
+        }
+    }
+    void skip_dead_cell(unsigned k) {
+        lp_assert(m_cells[k].dead())
+        auto * c = &m_cells[m_first_dead];
+        for (; c->next_dead_index() != k; c = &m_cells[c->next_dead_index()]);
+        lp_assert(c->next_dead_index() == k);
+        c->next_dead_index() = m_cells[k].next_dead_index();
+    }
+    
+    void pop_last_dead_cell() {
+        lp_assert(m_cells.back().dead());
+        unsigned last = m_cells.size() - 1;
+        if (m_first_dead == static_cast<int>(last)) 
+            m_first_dead = m_cells.back().next_dead_index();
+        else {
+            skip_dead_cell(last);
+        }
+        m_cells.pop_back();
+    }
+
+        std::set<unsigned> d0;
+        std::set<unsigned> d1;
+        unsigned alive = 0;
+        for (unsigned i = 0; i < m_cells.size(); i++) {
+            if (m_cells[i].dead())
+                d0.insert(i);
+            else
+                alive ++;
+        }
+
+        if (alive != m_live_size)
+            return false;
+        for (unsigned i = m_first_dead; i != static_cast<unsigned>(-1) ; i = m_cells[i].next_dead_index())
+            d1.insert(i);
+        return d0 == d1;
+    }
+
+    void swap_with_head_cell(unsigned i) {
+        lp_assert(i > 0);
+        lp_assert(m_cells[i].alive());
+        column_cell head_copy = m_cells[0];
+        if (head_copy.dead()) {
+            if (m_first_dead == 0) {
+                m_first_dead = i;
+            } else {
+                column_cell * c = &m_cells[m_first_dead];
+                for (; c->next_dead_index() != 0; c = &m_cells[c->next_dead_index()]);
+                lp_assert(c->next_dead_index() == 0);
+                c->next_dead_index() = i;
+            }
+        }
+        m_cells[0] = m_cells[i];
+        m_cells[i] = head_copy;
+        lp_assert(is_correct());
+    }
+
+    void swap_with_head_cell(unsigned i) {
+        lp_assert(i > 0);
+        lp_assert(m_cells[i].alive());
+        column_cell head_copy = m_cells[0];
+        if (head_copy.dead()) {
+            if (m_first_dead == 0) {
+                m_first_dead = i;
+            } else {
+                column_cell * c = &m_cells[m_first_dead];
+                for (; c->next_dead_index() != 0; c = &m_cells[c->next_dead_index()]);
+                lp_assert(c->next_dead_index() == 0);
+                c->next_dead_index() = i;
+            }
+        }
+        m_cells[0] = m_cells[i];
+        m_cells[i] = head_copy;
+        lp_assert(is_correct());
+    }
+
+    column_cell & add_cell(unsigned i, unsigned & index) {
+        if (m_first_dead != -1) {
+            auto & ret = m_cells[index = m_first_dead];
+            m_first_dead = ret.next_dead_index();
+            m_live_size++;
+            ret.var() = i;
+            return ret;
+        }
+        lp_assert(m_live_size == m_cells.size());
+        index = m_live_size++;
+        m_cells.push_back(column_cell(i));
+        return m_cells.back();
+    }
+    column_cell & add_cell(unsigned i, unsigned & index) {
+        if (m_first_dead != -1) {
+            auto & ret = m_cells[index = m_first_dead];
+            m_first_dead = ret.next_dead_index();
+            m_live_size++;
+            ret.var() = i;
+            return ret;
+        }
+        lp_assert(m_live_size == m_cells.size());
+        index = m_live_size++;
+        m_cells.push_back(column_cell(i));
+        return m_cells.back();
+    }
+    void shrink_to_live() {
+        m_cells.shrink(live_size());
+        m_first_dead = -1;
+    }
+};
+
+template <typename A, typename B>
+void compress_cells(A& cells, vector<B>& vec_of_cells) {
+    if (2 * cells.live_size() < cells.cells_size())
+        return;
+    unsigned j = 0; // the available target for copy
+    for (unsigned i = 0; i < cells.cells_size(); i++) {
+        auto & c = cells[i];
+        if (c.dead()) continue;
+        if (i == j) {
+            j++;
+            continue;
+        }
+        vec_of_cells[c.var()][c.offset()].offset() = j;
+        cells[j++] = c;
+    }
+    cells.shrink_to_live();
+}
+
 
 // each assignment for this matrix should be issued only once!!!
 template <typename T, typename X>
@@ -66,13 +423,13 @@ class static_matrix
         unsigned m_n;
         dim(unsigned m, unsigned n) :m_m(m), m_n(n) {}
     };
-    std::stack<dim> m_stack;
+    // fields
+    std::stack<dim>          m_stack;
 public:
-    typedef vector<column_cell> column_strip;
-    vector<int> m_vector_of_row_offsets;
-    indexed_vector<T> m_work_vector;
-    vector<row_strip<T>> m_rows;
-    vector<column_strip> m_columns;
+    vector<int>              m_vector_of_row_offsets;
+    indexed_vector<T>        m_work_vector;
+    vector<row_strip<T>>     m_rows;
+    vector<column_strip>     m_columns;
     // starting inner classes
     class ref {
         static_matrix & m_matrix;
@@ -80,9 +437,9 @@ public:
         unsigned m_col;
     public:
         ref(static_matrix & m, unsigned row, unsigned col):m_matrix(m), m_row(row), m_col(col) {}
-        ref & operator=(T const & v) { m_matrix.set( m_row, m_col, v); return *this; }
+        ref & operator=(T const & v) { m_matrix.add_new_element( m_row, m_col, v); return *this; }
 
-        ref operator=(ref & v) { m_matrix.set(m_row, m_col, v.m_matrix.get(v.m_row, v.m_col)); return *this; }
+        ref operator=(ref & v) { m_matrix.add_new_element(m_row, m_col, v.m_matrix.get(v.m_row, v.m_col)); return *this; }
 
         operator T () const { return m_matrix.get_elem(m_row, m_col); }
     };
@@ -98,7 +455,7 @@ public:
 public:
 
     const T & get_val(const column_cell & c) const {
-        return m_rows[c.m_i][c.m_offset].get_val();
+        return m_rows[c.var()][c.offset()].get_val();
     }
 
     column_cell & get_column_cell(const row_cell<T> &rc) {
@@ -107,7 +464,7 @@ public:
     
     void init_row_columns(unsigned m, unsigned n);
 
-        // constructor with no parameters
+    // constructor with no parameters
     static_matrix() {}
 
     // constructor
@@ -142,12 +499,12 @@ public:
 
     void remove_last_column(unsigned j);
 
-    void remove_element(vector<row_cell<T>> & row, row_cell<T> & elem_to_remove);
+    void remove_element(row_cell<T> & elem_to_remove);
     
     void multiply_column(unsigned column, T const & alpha) {
         for (auto & t : m_columns[column]) {
-            auto & r = m_rows[t.m_i][t.m_offset];
-            r.m_value *= alpha;
+            auto & r = m_rows[t.var()].m_cells[t.offset()];
+            r.coeff() *= alpha;
         }
     }
     
@@ -165,8 +522,6 @@ public:
         return column_cell(column, offset);
     }
 
-    void set(unsigned row, unsigned col, T const & val);
-
     ref operator()(unsigned row, unsigned col) { return ref(*this, row, col); }
 
     std::set<std::pair<unsigned, unsigned>>  get_domain();
@@ -175,8 +530,8 @@ public:
 
     T get_max_abs_in_row(unsigned row) const;
     void add_column_to_vector (const T & a, unsigned j, T * v) const {
-        for (const auto & it : m_columns[j]) {
-            v[it.m_i] += a * get_val(it);
+        for (const auto & c : m_columns[j]) {
+            v[c.var()] += a * get_val(c);
         }
     }
 
@@ -189,9 +544,6 @@ public:
     void check_consistency();
 #endif
 
-
-    void cross_out_row(unsigned k);
-
     //
     void fix_row_indices_in_each_column_for_crossed_row(unsigned k);
 
@@ -202,9 +554,9 @@ public:
     T get_elem(unsigned i, unsigned j) const;
 
 
-    unsigned number_of_non_zeroes_in_column(unsigned j) const { return m_columns[j].size(); }
+    unsigned number_of_non_zeroes_in_column(unsigned j) const { return m_columns[j].live_size(); }
 
-    unsigned number_of_non_zeroes_in_row(unsigned i) const { return m_rows[i].size(); }
+    unsigned number_of_non_zeroes_in_row(unsigned i) const { return m_rows[i].live_size(); }
 
     unsigned number_of_non_zeroes() const {
         unsigned ret = 0;
@@ -237,12 +589,12 @@ public:
         m_stack.push(d);
     }
 
-    void pop_row_columns(const vector<row_cell<T>> & row) {
+    void pop_row_columns(const row_strip<T> & row) {
         for (auto & c : row) {
-            unsigned j = c.m_j;
-            auto & col = m_columns[j];
-            lp_assert(col[col.size() - 1].m_i == m_rows.size() -1 ); // todo : start here!!!!
-            col.pop_back();
+            if (c.dead()) {
+                continue;
+            }
+            m_columns[c.var()].delete_at(c.offset());
         }
     }
 
@@ -272,8 +624,9 @@ public:
     }
 
     void multiply_row(unsigned row, T const & alpha) {
-        for (auto & t : m_rows[row]) {
-            t.m_value *= alpha;
+        for (auto & t : m_rows[row].m_cells) {
+            if (t.alive())
+                t.coeff() *= alpha;
         }
     }
 
@@ -286,8 +639,8 @@ public:
     T dot_product_with_column(const vector<T> & y, unsigned j) const {
         lp_assert(j < column_count());
         T ret = numeric_traits<T>::zero();
-        for (auto & it : m_columns[j]) {
-            ret += y[it.m_i] * get_val(it); // get_value_of_column_cell(it);
+        for (auto & c : m_columns[j]) {
+            ret += y[c.var()] * get_val(c);
         }
         return ret;
     }
@@ -301,18 +654,20 @@ public:
         m_rows[i] = m_rows[ii];
         m_rows[ii] = t;
         // now fix the columns
-        for (auto & rc : m_rows[i]) {
-            column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            lp_assert(cc.m_i == ii);
-            cc.m_i = i;
+        for (const auto & rc : m_rows[i]) {
+            if (rc.dead()) continue;
+            column_cell & cc = m_columns[rc.var()][rc.offset()];
+            lp_assert(cc.var() == ii);
+            cc.var() = i;
         }
-        for (auto & rc : m_rows[ii]) {
-            column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            lp_assert(cc.m_i == i);
-            cc.m_i = ii;
+        for (const auto & rc : m_rows[ii]) {
+            if (rc.dead()) continue;
+            column_cell & cc = m_columns[rc.var()][rc.offset()];
+            lp_assert(cc.var() == i);
+            cc.var() = ii;
         }
-    
     }
+
     void fill_last_row_with_pivoting_loop_block(unsigned j, const vector<int> & basis_heading) {
         int row_index = basis_heading[j];
         if (row_index < 0)
@@ -322,17 +677,18 @@ public:
             return;
         
         for (const auto & c : m_rows[row_index]) {
-            if (c.m_j == j) {
+            if (c.dead()) continue;
+            if (c.var() == j) {
                 continue;
             }
-            T & wv = m_work_vector.m_data[c.m_j];
+            T & wv = m_work_vector.m_data[c.var()];
             bool was_zero = is_zero(wv);
-            wv -= alpha * c.m_value;
+            wv -= alpha * c.coeff();
             if (was_zero)
-                m_work_vector.m_index.push_back(c.m_j);
+                m_work_vector.m_index.push_back(c.var());
             else {
                 if (is_zero(wv)) {
-                    m_work_vector.erase_from_index(c.m_j);
+                    m_work_vector.erase_from_index(c.var());
                 }
             }
         }
@@ -350,7 +706,7 @@ public:
         lp_assert(row_count() > 0);
         m_work_vector.resize(column_count());
         T a;
-         // we use the form -it + 1 = 0
+        // we use the form -it + 1 = 0
         m_work_vector.set_value(one_of_type<T>(), bj);
         for (auto p : row) {
             m_work_vector.set_value(-p.coeff(), p.var());
@@ -366,10 +722,10 @@ public:
         unsigned last_row = row_count() - 1;
     
         for (unsigned j : m_work_vector.m_index) {
-            set (last_row, j, m_work_vector.m_data[j]);
+            add_new_element(last_row, j, m_work_vector.m_data[j]);
         }
         lp_assert(column_count() > 0);
-        set(last_row, column_count() - 1, one_of_type<T>());
+        add_new_element(last_row, column_count() - 1, one_of_type<T>());
     }
 
     void copy_column_to_vector (unsigned j, vector<T> & v) const {
@@ -377,7 +733,7 @@ public:
         for (auto & it : m_columns[j]) {
             const T& val = get_val(it);
             if (!is_zero(val))
-                v[it.m_i] = val;
+                v[it.var()] = val;
         }
     }
     
@@ -386,7 +742,8 @@ public:
         L ret = zero_of_type<L>();
         lp_assert(row < m_rows.size());
         for (auto & it : m_rows[row]) {
-            ret += w[it.m_j] * it.get_val();
+            if (it.dead()) continue;
+            ret += w[it.var()] * it.coeff();
         }
         return ret;
     }
@@ -397,9 +754,9 @@ public:
         // constructor
         column_cell_plus(const column_cell & c, const static_matrix& A) :
             m_c(c), m_A(A) {}
-        unsigned var() const { return m_c.m_i; }
-        const T & coeff() const { return m_A.m_rows[var()][m_c.m_offset].get_val(); }
-        
+        unsigned var() const { return m_c.var(); }
+        const T & coeff() const { return m_A.m_rows[var()][m_c.offset()].get_val(); }
+        bool dead() const { return m_c.dead(); }
     };
     
     struct column_container {
@@ -411,7 +768,7 @@ public:
             // fields
             const column_cell *m_c;
             const static_matrix& m_A;
-
+            const column_cell *m_end;
             //typedefs
             
             
@@ -425,13 +782,19 @@ public:
             reference operator*() const {
                 return column_cell_plus(*m_c, m_A);
             }        
-            self_type operator++() {  self_type i = *this; m_c++; return i;  }
-            self_type operator++(int) { m_c++; return *this; }
+            self_type operator++() {  self_type i = *this;
+                m_c++;
+                return i;
+            }
+
+            self_type operator++(int) {
+                m_c++;
+                return *this;
+            }
 
             const_iterator(const column_cell* it, const static_matrix& A) :
                 m_c(it),
-                m_A(A)
-            {}
+                m_A(A){}
             bool operator==(const self_type &other) const {
                 return m_c == other.m_c;
             }
@@ -449,8 +812,32 @@ public:
 
     column_container column(unsigned j) const {
         return column_container(j, *this);
+        
     }
 
+    void swap_with_head_cell(unsigned j, unsigned offset) {
+        column_strip & col = m_columns[j];
+        column_cell & head = col[0];
+        column_cell & cc   = col[offset];
+        if (head.alive()) {
+            m_rows[head.var()][head.offset()].offset() = offset;
+        }
+        lp_assert(cc.alive());
+        m_rows[cc.var()][cc.offset()].offset() = 0;
+        col.swap_with_head_cell(offset);
+    }
+
+    
+    void compress_row_if_needed(unsigned i) {
+        compress_cells(m_rows[i], m_columns);
+        lp_assert(is_correct());
+    }
+
+    void compress_column_if_needed(unsigned j) {
+        compress_cells(m_columns[j], m_rows);
+        lp_assert(is_correct());
+    }
+    
     ref_row operator[](unsigned i) const { return ref_row(*this, i);}
     typedef T coefftype;
     typedef X argtype;
