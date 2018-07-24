@@ -22,6 +22,8 @@ Revision History:
 
 namespace datalog {
 
+    typedef mk_synchronize::item_set_vector item_set_vector;
+
     mk_synchronize::mk_synchronize(context& ctx, unsigned priority):
         rule_transformer::plugin(priority, false),
         m_ctx(ctx),
@@ -29,15 +31,16 @@ namespace datalog {
         rm(ctx.get_rule_manager())
     {}
 
-    bool mk_synchronize::is_recursive_app(rule & r, app * app) const {
-        func_decl* head_decl = r.get_head()->get_decl();
-        func_decl* app_decl = app->get_decl();
-        if (head_decl == app_decl) {
-            return true;
-        }
-        rule_stratifier::comp_vector const & strata = m_stratifier->get_strats();
-        unsigned num_of_stratum = m_stratifier->get_predicate_strat(head_decl);
-        return strata[num_of_stratum]->contains(app_decl);
+    bool mk_synchronize::is_recursive(rule &r, func_decl &decl) const {
+        func_decl *hdecl = r.get_head()->get_decl();
+        // AG: shouldn't decl appear in the body?
+        if (hdecl == &decl)  return true;
+        auto & strata = m_stratifier->get_strats();
+        unsigned num_of_stratum = m_stratifier->get_predicate_strat(hdecl);
+        return strata[num_of_stratum]->contains(&decl);
+    }
+    bool mk_synchronize::is_recursive(rule &r, expr &e) const {
+        return is_app(&e) && is_recursive(r, *to_app(&e)->get_decl());
     }
 
     bool mk_synchronize::has_recursive_premise(app * app) const {
@@ -50,33 +53,29 @@ namespace datalog {
         return strata[num_of_stratum]->size() > 1;
     }
 
-    ptr_vector<rule_stratifier::item_set> mk_synchronize::add_merged_decls(ptr_vector<app> & apps) {
-        unsigned n = apps.size();
-        ptr_vector<rule_stratifier::item_set> merged_decls;
-        merged_decls.resize(n);
-        ptr_vector<func_decl> app_decls;
-        app_decls.resize(n);
-        for (unsigned j = 0; j < n; ++j) {
-            app_decls[j] = apps[j]->get_decl();
-        }
-        rule_stratifier::comp_vector const & strata = m_stratifier->get_strats();
-        for (unsigned j = 0; j < n; ++j) {
-            unsigned num_of_stratum = m_stratifier->get_predicate_strat(app_decls[j]);
-            merged_decls[j] = strata[num_of_stratum];
+    item_set_vector mk_synchronize::add_merged_decls(ptr_vector<app> & apps) {
+        unsigned sz = apps.size();
+        item_set_vector merged_decls;
+        merged_decls.resize(sz);
+        auto & strata = m_stratifier->get_strats();
+        for (unsigned j = 0; j < sz; ++j) {
+            unsigned nos;
+            nos = m_stratifier->get_predicate_strat(apps[j]->get_decl());
+            merged_decls[j] = strata[nos];
         }
         return merged_decls;
     }
 
-    void mk_synchronize::add_new_rel_symbols(unsigned idx, ptr_vector<rule_stratifier::item_set> const & decls,
-            ptr_vector<func_decl> & decls_buf, bool & was_added) {
+    void mk_synchronize::add_new_rel_symbols(unsigned idx,
+                                             item_set_vector const & decls,
+                                             ptr_vector<func_decl> & decls_buf,
+                                             bool & was_added) {
         if (idx >= decls.size()) {
             string_buffer<> buffer;
             ptr_vector<sort> domain;
-            ptr_vector<func_decl>::const_iterator it = decls_buf.begin(), end = decls_buf.end();
-            for (; it != end; ++it) {
-                buffer << (*it)->get_name();
-                buffer << "!!";
-                domain.append((*it)->get_arity(), (*it)->get_domain());
+            for (auto &d : decls_buf) {
+                buffer << d->get_name() << "!!";
+                domain.append(d->get_arity(), d->get_domain());
             }
 
             symbol new_name = symbol(buffer.c_str());
@@ -84,6 +83,7 @@ namespace datalog {
             if (!cache.contains(new_name)) {
                 was_added = true;
                 func_decl* orig = decls_buf[0];
+                // AG : is this ref counted
                 func_decl* product_pred = m_ctx.mk_fresh_head_predicate(new_name,
                     symbol::null, domain.size(), domain.c_ptr(), orig);
                 cache.insert(new_name, product_pred);
@@ -91,15 +91,16 @@ namespace datalog {
             return;
         }
 
-        rule_stratifier::item_set const & pred_decls = *decls[idx];
-        for (rule_stratifier::item_set::iterator it = pred_decls.begin(); it != pred_decls.end(); ++it) {
-            decls_buf[idx] = *it;
+        // AG: why recursive?
+        for (auto &p : *decls[idx]) {
+            decls_buf[idx] = p;
             add_new_rel_symbols(idx + 1, decls, decls_buf, was_added);
         }
     }
 
-    void mk_synchronize::replace_applications(rule & r, rule_set & rules, ptr_vector<app> & apps) {
-        app* replacing = product_application(apps);
+    void mk_synchronize::replace_applications(rule & r, rule_set & rules,
+                                              ptr_vector<app> & apps) {
+        app_ref replacing = product_application(apps);
 
         ptr_vector<app> new_tail;
         svector<bool> new_tail_neg;
@@ -135,7 +136,10 @@ namespace datalog {
         rules.replace_rule(&r, new_rule.get());
     }
 
-    rule_ref mk_synchronize::rename_bound_vars_in_rule(rule * r, unsigned & var_idx) {
+    rule_ref mk_synchronize::rename_bound_vars_in_rule(rule * r,
+                                                       unsigned & var_idx) {
+        // AG: shift all variables in a rule so that lowest var index is var_idx?
+        // AG: update var_idx in the process?
         ptr_vector<sort> sorts;
         r->get_vars(m, sorts);
         expr_ref_vector revsub(m);
@@ -152,17 +156,18 @@ namespace datalog {
         return new_rule;
     }
 
-    vector<rule_ref_vector> mk_synchronize::rename_bound_vars(ptr_vector<rule_stratifier::item_set> const & heads,
-            rule_set & rules) {
+    vector<rule_ref_vector> mk_synchronize::rename_bound_vars(item_set_vector const & heads,
+                                                              rule_set & rules) {
+        // AG: is every item_set in heads corresponds to rules that are merged?
+        // AG: why are bound variables renamed in the first place?
+        // AG: the data structure seems too complex
         vector<rule_ref_vector> result;
         unsigned var_idx = 0;
-        for (unsigned i = 0; i < heads.size(); ++i) {
+        for (auto item : heads) {
             rule_ref_vector dst_vector(rm);
-            for (rule_stratifier::item_set::iterator it = heads[i]->begin(); it != heads[i]->end(); ++it) {
-                func_decl * head = *it;
-                rule_vector const & src_rules = rules.get_predicate_rules(head);
-                for (unsigned j = 0; j < src_rules.size(); ++j) {
-                    rule_ref new_rule = rename_bound_vars_in_rule(src_rules[j], var_idx);
+            for (auto *head : *item) {
+                for (auto *r : rules.get_predicate_rules(head)) {
+                    rule_ref new_rule = rename_bound_vars_in_rule(r, var_idx);
                     dst_vector.push_back(new_rule.get());
                 }
             }
@@ -171,9 +176,11 @@ namespace datalog {
         return result;
     }
 
-    void mk_synchronize::add_rec_tail(vector< ptr_vector<app> > & recursive_calls, ptr_vector<app> & new_tail,
-            svector<bool> & new_tail_neg, unsigned & tail_idx) {
-        int max_size = recursive_calls[0].size();
+    void mk_synchronize::add_rec_tail(vector< ptr_vector<app> > & recursive_calls,
+                                      app_ref_vector & new_tail,
+                                      svector<bool> & new_tail_neg,
+                                      unsigned & tail_idx) {
+        int max_size = 0;
         unsigned n = recursive_calls.size();
         for (unsigned i = 0; i < n; ++i) {
             if (recursive_calls[i].size() > max_size) {
@@ -194,11 +201,12 @@ namespace datalog {
         }
     }
 
-    void mk_synchronize::add_non_rec_tail(rule & r, ptr_vector<app> & new_tail, svector<bool> & new_tail_neg,
-        unsigned & tail_idx) {
+    void mk_synchronize::add_non_rec_tail(rule & r, app_ref_vector & new_tail,
+                                          svector<bool> & new_tail_neg,
+                                          unsigned & tail_idx) {
         for (unsigned i = 0; i < r.get_positive_tail_size(); ++i) {
             app* tail = r.get_tail(i);
-            if (!is_recursive_app(r, tail)) {
+            if (!is_recursive(r, *tail)) {
                 ++tail_idx;
                 new_tail[tail_idx] = tail;
                 new_tail_neg[tail_idx] = false;
@@ -216,15 +224,14 @@ namespace datalog {
         }
     }
 
-    app* mk_synchronize::product_application(ptr_vector<app> const &apps) {
-        ptr_vector<app>::const_iterator it = apps.begin(), end = apps.end();
+    app_ref mk_synchronize::product_application(ptr_vector<app> const &apps) {
         unsigned args_num = 0;
         string_buffer<> buffer;
 
-        for (; it != end; ++it) {
-            buffer << (*it)->get_decl()->get_name();
-            buffer << "!!";
-            args_num += (*it)->get_num_args();
+        // AG: factor out into mk_name
+        for (auto *app : apps) {
+            buffer << app->get_decl()->get_name() << "!!";
+            args_num += app->get_num_args();
         }
 
         symbol name = symbol(buffer.c_str());
@@ -233,15 +240,13 @@ namespace datalog {
 
         ptr_vector<expr> args;
         args.resize(args_num);
-        it = apps.begin();
-        for (unsigned args_idx = 0; it != end; ++it) {
-            app* a = *it;
-            for (unsigned i = 0; i < a->get_num_args(); ++i, ++args_idx) {
-                args[args_idx] = a->get_arg(i);
-            }
+        unsigned idx = 0;
+        for (auto *a : apps) {
+            for (unsigned i = 0, sz = a->get_num_args(); i < sz; ++i, ++idx)
+                args[idx] = a->get_arg(i);
         }
 
-        return m.mk_app(pred, args_num, args.c_ptr());
+        return app_ref(m.mk_app(pred, args_num, args.c_ptr()), m);
     }
 
     rule_ref mk_synchronize::product_rule(rule_ref_vector const & rules) {
@@ -261,7 +266,7 @@ namespace datalog {
         for (unsigned i = 0; i < n; ++i) {
             heads[i] = rules[i]->get_head();
         }
-        app* product_head = product_application(heads);
+        app_ref product_head = product_application(heads);
         unsigned product_tail_length = 0;
         bool has_recursion = false;
         vector< ptr_vector<app> > recursive_calls;
@@ -271,7 +276,7 @@ namespace datalog {
             product_tail_length += rule.get_tail_size();
             for (unsigned j = 0; j < rule.get_positive_tail_size(); ++j) {
                 app* tail = rule.get_tail(j);
-                if (is_recursive_app(rule, tail)) {
+                if (is_recursive(rule, *tail)) {
                     has_recursion = true;
                     recursive_calls[i].push_back(tail);
                 }
@@ -281,7 +286,7 @@ namespace datalog {
             }
         }
 
-        ptr_vector<app> new_tail;
+        app_ref_vector new_tail(m);
         svector<bool> new_tail_neg;
         new_tail.resize(product_tail_length);
         new_tail_neg.resize(product_tail_length);
@@ -302,41 +307,36 @@ namespace datalog {
         return new_rule;
     }
 
-    void mk_synchronize::merge_rules(unsigned idx, rule_ref_vector & buf, vector<rule_ref_vector> const & merged_rules,
-            rule_set & all_rules) {
+    void mk_synchronize::merge_rules(unsigned idx, rule_ref_vector & buf,
+                                     vector<rule_ref_vector> const & merged_rules,
+                                     rule_set & all_rules) {
         if (idx >= merged_rules.size()) {
             rule_ref product = product_rule(buf);
             all_rules.add_rule(product.get());
             return;
         }
 
-        rule_ref_vector const & pred_rules = merged_rules[idx];
-        for (rule_ref_vector::iterator it = pred_rules.begin(); it != pred_rules.end(); ++it) {
-            buf[idx] = *it;
+        for (auto *r : merged_rules[idx]) {
+            buf[idx] = r;
             merge_rules(idx + 1, buf, merged_rules, all_rules);
         }
     }
 
     void mk_synchronize::merge_applications(rule & r, rule_set & rules) {
-        ptr_vector<app> non_recursive_applications;
+        ptr_vector<app> non_recursive_preds;
         obj_hashtable<app> apps;
         for (unsigned i = 0; i < r.get_positive_tail_size(); ++i) {
-            app* application = r.get_tail(i);
-            if (!is_recursive_app(r, application) && has_recursive_premise(application)) {
-                apps.insert(application);
+            app* t = r.get_tail(i);
+            if (!is_recursive(r, *t) && has_recursive_premise(t)) {
+                apps.insert(t);
             }
         }
-        if (apps.size() < 2) {
-            return;
-        }
+        if (apps.size() < 2) return;
+        for (auto *a : apps) non_recursive_preds.push_back(a);
 
-        for (obj_hashtable<app>::iterator it = apps.begin(); it != apps.end(); it++) {
-            non_recursive_applications.push_back(*it);
-        }
+        item_set_vector merged_decls = add_merged_decls(non_recursive_preds);
 
-        ptr_vector<rule_stratifier::item_set> merged_decls = add_merged_decls(non_recursive_applications);
-
-        unsigned n = non_recursive_applications.size();
+        unsigned n = non_recursive_preds.size();
         ptr_vector<func_decl> decls_buf;
         decls_buf.resize(n);
         bool was_added = false;
@@ -348,7 +348,7 @@ namespace datalog {
             merge_rules(0, rules_buf, renamed_rules, rules);
         }
 
-        replace_applications(r, rules, non_recursive_applications);
+        replace_applications(r, rules, non_recursive_preds);
         m_deps->populate(rules);
         m_stratifier = alloc(rule_stratifier, *m_deps);
     }
@@ -357,10 +357,7 @@ namespace datalog {
         rule_set* rules = alloc(rule_set, m_ctx);
         rules->inherit_predicates(source);
 
-        rule_set::iterator it = source.begin(), end = source.end();
-        for (; it != end; ++it) {
-            rules->add_rule(*it);
-        }
+        for (auto *r : source) { rules->add_rule(r); }
 
         m_deps = alloc(rule_dependencies, m_ctx);
         m_deps->populate(*rules);
@@ -372,6 +369,7 @@ namespace datalog {
             merge_applications(*r, *rules);
             ++current_rule;
         }
+
         return rules;
     }
 

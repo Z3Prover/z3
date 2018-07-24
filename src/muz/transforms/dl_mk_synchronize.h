@@ -52,6 +52,9 @@ namespace datalog {
        \brief Implements a synchronous product transformation.
     */
     class mk_synchronize : public rule_transformer::plugin {
+    public:
+        typedef ptr_vector<rule_stratifier::item_set> item_set_vector;
+    private:
         context&        m_ctx;
         ast_manager&    m;
         rule_manager&   rm;
@@ -59,25 +62,30 @@ namespace datalog {
         scoped_ptr<rule_dependencies> m_deps;
         scoped_ptr<rule_stratifier> m_stratifier;
         map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> cache;
+        bool is_recursive(rule &r, func_decl &decl) const;
+        bool is_recursive(rule &r, expr &e) const;
 
-        bool is_recursive_app(rule & r, app * app) const;
         bool has_recursive_premise(app * app) const;
 
-        ptr_vector<rule_stratifier::item_set> add_merged_decls(ptr_vector<app> & apps);
-        void add_new_rel_symbols(unsigned idx, ptr_vector<rule_stratifier::item_set> const & decls,
-            ptr_vector<func_decl> & buf, bool & was_added);
+        item_set_vector add_merged_decls(ptr_vector<app> & apps);
+        void add_new_rel_symbols(unsigned idx, item_set_vector const & decls,
+                                 ptr_vector<func_decl> & buf, bool & was_added);
 
-        void replace_applications(rule & r, rule_set & rules, ptr_vector<app> & apps);
+        void replace_applications(rule & r, rule_set & rules,
+                                  ptr_vector<app> & apps);
 
         rule_ref rename_bound_vars_in_rule(rule * r, unsigned & var_idx);
-        vector<rule_ref_vector> rename_bound_vars(ptr_vector<rule_stratifier::item_set> const & heads, rule_set & rules);
+        vector<rule_ref_vector> rename_bound_vars(item_set_vector const & heads,
+                                                  rule_set & rules);
 
-        void add_rec_tail(vector< ptr_vector<app> > & recursive_calls, ptr_vector<app> & new_tail,
-            svector<bool> & new_tail_neg, unsigned & tail_idx);
-        void add_non_rec_tail(rule & r, ptr_vector<app> & new_tail, svector<bool> & new_tail_neg,
-            unsigned & tail_idx);
+        void add_rec_tail(vector< ptr_vector<app> > & recursive_calls,
+                          app_ref_vector & new_tail,
+                          svector<bool> & new_tail_neg, unsigned & tail_idx);
+        void add_non_rec_tail(rule & r, app_ref_vector & new_tail,
+                              svector<bool> & new_tail_neg,
+                              unsigned & tail_idx);
 
-        app* product_application(ptr_vector<app> const & apps);
+        app_ref product_application(ptr_vector<app> const & apps);
         rule_ref product_rule(rule_ref_vector const & rules);
 
         void merge_rules(unsigned idx, rule_ref_vector & buf,
