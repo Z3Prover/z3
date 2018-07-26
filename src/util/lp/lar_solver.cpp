@@ -2172,44 +2172,10 @@ bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& d
     return true;
 }
 
-void lar_solver::update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>& terms_of_var) {
-    for (unsigned i : terms_of_var) {
-        lar_term & t = *m_terms[i];
-        auto it = t.m_coeffs.find(j);
-        unsigned tj = to_column(i + m_terms_start_index);
-        TRACE("cube",
-              tout << "t.apply = " << t.apply(m_mpq_lar_core_solver.m_r_x) << ", m_mpq_lar_core_solver.m_r_x[tj]= " << m_mpq_lar_core_solver.m_r_x[tj];);
-        TRACE("cube", print_term_as_indices(t, tout);
-              tout << ", it->second = " << it->second;
-              tout << ", tj = " << tj << ", ";
-              m_int_solver->display_column(tout, tj);
-              );
-        
-        m_mpq_lar_core_solver.m_r_x[tj] += it->second * delta;
-        lp_assert(t.apply(m_mpq_lar_core_solver.m_r_x) == m_mpq_lar_core_solver.m_r_x[tj]);
-        TRACE("cube", m_int_solver->display_column(tout, tj); );
-    }
-}
-
-
-void lar_solver::fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms) {
-	for (unsigned j = 0; j < m_terms.size(); j++) {
-		if (!term_is_used_as_row(j + m_terms_start_index))
-			continue;
-		for (const auto & p : *m_terms[j]) {
-			if (p.var() >= vars_to_terms.size())
-				vars_to_terms.resize(p.var() + 1);
-			vars_to_terms[p.var()].push_back(j);
-		}
-	}
-}
 
 void lar_solver::round_to_integer_solution() {
-    vector<vector<unsigned>> vars_to_terms;
-    fill_vars_to_terms(vars_to_terms);
-
     for (unsigned j = 0; j < column_count(); j++) {
-        if (column_is_int(j)) continue;
+        if (!column_is_int(j)) continue;
         if (column_corresponds_to_term(j)) continue;
         TRACE("cube", m_int_solver->display_column(tout, j););
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
@@ -2223,8 +2189,6 @@ void lar_solver::round_to_integer_solution() {
         } else {
             v = flv;
         }
-        TRACE("cube", m_int_solver->display_column(tout, j); tout << "v = " << v << " ,del = " << del;);
-        update_delta_for_terms(del, j, vars_to_terms[j]);
     }
 }
 // return true if all y coords are zeroes
