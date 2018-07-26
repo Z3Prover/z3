@@ -401,11 +401,11 @@ namespace smt {
         label_hasher &             m_lbl_hasher;
         func_decl *                m_root_lbl;
         unsigned                   m_num_args; //!< we need this information to avoid the nary *,+ crash bug
-        unsigned char              m_filter_candidates;
+        bool                       m_filter_candidates;
         unsigned                   m_num_regs;
         unsigned                   m_num_choices;
         instruction *              m_root;
-        enode_vector               m_candidates;
+        obj_hashtable<enode>       m_candidates;
 #ifdef Z3DEBUG
         context *                  m_context;
         ptr_vector<app>            m_patterns;
@@ -531,7 +531,7 @@ namespace smt {
         }
 
         bool filter_candidates() const {
-            return m_filter_candidates != 0;
+            return m_filter_candidates;
         }
 
         const instruction * get_root() const {
@@ -539,7 +539,7 @@ namespace smt {
         }
 
         void add_candidate(enode * n) {
-            m_candidates.push_back(n);
+            m_candidates.insert(n);
         }
 
         bool has_candidates() const {
@@ -550,7 +550,7 @@ namespace smt {
             m_candidates.reset();
         }
 
-        enode_vector const & get_candidates() const {
+        obj_hashtable<enode> const & get_candidates() const {
             return m_candidates;
         }
 
@@ -2001,7 +2001,9 @@ namespace smt {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
             if (t->filter_candidates()) {
+                //t->display(std::cout << "ncf: " << t->get_candidates().size() << "\n");
                 for (enode* app : t->get_candidates()) {
+                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (!app->is_marked() && app->is_cgr()) {
                         if (m_context.resource_limits_exceeded() || !execute_core(t, app))
                             return;
@@ -2014,6 +2016,9 @@ namespace smt {
                 }
             }
             else {
+                //t->display(std::cout << "ncu: " << t->get_candidates().size() << "\n");
+                //for (enode* app : t->get_candidates()) { std::cout << expr_ref(app->get_owner(), m_ast_manager) << "\n"; }
+                //std::cout.flush();
                 for (enode* app : t->get_candidates()) {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (app->is_cgr()) {
@@ -3516,9 +3521,7 @@ namespace smt {
                     std::cout << "Avg. " << static_cast<double>(total_sz)/static_cast<double>(counter) << ", Max. " << max_sz << "\n";
 #endif
 
-                enode_vector::iterator it1  = v->begin();
-                enode_vector::iterator end1 = v->end();
-                for (; it1 != end1; ++it1) {
+                for (enode* n : *v) {
                     // Two different kinds of mark are used:
                     // - enode mark field:  it is used to mark the already processed parents.
                     // - enode mark2 field: it is used to mark the roots already added to be processed in the next level.
@@ -3527,7 +3530,7 @@ namespace smt {
                     // and Z3 may fail to find potential new matches.
                     //
                     // The file regression\acu.sx exposed this problem.
-                    enode * curr_child = (*it1)->get_root();
+                    enode * curr_child = n->get_root();
 
                     if (m_use_filters && curr_child->get_plbls().empty_intersection(filter))
                         continue;
@@ -3591,7 +3594,7 @@ namespace smt {
                                          is_eq(curr_tree->m_ground_arg, curr_parent->get_arg(curr_tree->m_ground_arg_idx))
                                          )) {
                                         if (curr_tree->m_code) {
-                                            TRACE("mam_path_tree", tout << "found candidate\n";);
+                                            TRACE("mam_path_tree", tout << "found candidate " << expr_ref(curr_parent->get_owner(), m_ast_manager) << "\n";);
                                             add_candidate(curr_tree->m_code, curr_parent);
                                         }
                                         if (curr_tree->m_first_child) {

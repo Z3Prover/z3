@@ -1063,7 +1063,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         return;
     }
     if (num_indices > 0)
-        throw cmd_exception("invalid use of indexed indentifier, unknown builtin function ", s);
+        throw cmd_exception("invalid use of indexed identifier, unknown builtin function ", s);
     expr* _t;
     if (macros_find(s, num_args, args, _t)) {
         TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";

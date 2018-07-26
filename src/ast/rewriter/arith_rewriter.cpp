@@ -66,6 +66,7 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
         SASSERT(num_args == 2); st = mk_div_core(args[0], args[1], result); break;
     case OP_IDIV: if (num_args == 1) { result = args[0]; st = BR_DONE; break; }
         SASSERT(num_args == 2); st = mk_idiv_core(args[0], args[1], result); break;
+    case OP_IDIVIDES: SASSERT(num_args == 1); st = mk_idivides(f->get_parameter(0).get_int(), args[0], result); break;
     case OP_MOD: SASSERT(num_args == 2); st = mk_mod_core(args[0], args[1], result); break;
     case OP_REM: SASSERT(num_args == 2); st = mk_rem_core(args[0], args[1], result); break;
     case OP_UMINUS: SASSERT(num_args == 1);  st = mk_uminus(args[0], result); break;
@@ -790,6 +791,11 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
     }
 
     return BR_FAILED;
+}
+
+br_status arith_rewriter::mk_idivides(unsigned k, expr * arg, expr_ref & result) {
+    result = m().mk_eq(m_util.mk_mod(arg, m_util.mk_int(k)), m_util.mk_int(0));
+    return BR_REWRITE2;
 }
 
 br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & result) {

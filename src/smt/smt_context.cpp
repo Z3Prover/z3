@@ -1351,18 +1351,9 @@ namespace smt {
        \remark The method assign_eq adds a new entry on this queue.
     */
     bool context::propagate_eqs() {
-        for (unsigned i = 0; i < m_eq_propagation_queue.size(); i++) {
+        TRACE("add_eq", tout << m_eq_propagation_queue.size() << "\n";);
+        for (unsigned i = 0; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
             new_eq & entry = m_eq_propagation_queue[i];
-#if 0
-            static unsigned counter1 = 0;
-            static unsigned counter2 = 0;
-            if (entry.m_lhs->is_eq() || entry.m_rhs->is_eq())
-                counter1++;
-            else
-                counter2++;
-            if ((counter1 + counter2) % 10000 == 0)
-                std::cout << counter1 << " " << counter2 << "\n";
-#endif
             add_eq(entry.m_lhs, entry.m_rhs, entry.m_justification);
             if (inconsistent())
                 return false;
@@ -1376,7 +1367,7 @@ namespace smt {
     */
     bool context::propagate_atoms() {
         SASSERT(!inconsistent());
-        for (unsigned i = 0; i < m_atom_propagation_queue.size(); i++) {
+        for (unsigned i = 0; i < m_atom_propagation_queue.size() && !get_cancel_flag(); i++) {
             SASSERT(!inconsistent());
             literal  l = m_atom_propagation_queue[i];
             bool_var v = l.var();
@@ -1558,16 +1549,17 @@ namespace smt {
     lbool context::get_assignment(expr * n) const {
         if (m_manager.is_false(n))
             return l_false;
-        if (m_manager.is_not(n))
-            return ~get_assignment_core(to_app(n)->get_arg(0));
+        expr* arg = nullptr;
+        if (m_manager.is_not(n, arg))
+            return ~get_assignment_core(arg);
         return get_assignment_core(n);
     }
 
     lbool context::find_assignment(expr * n) const {
         if (m_manager.is_false(n))
             return l_false;
-        if (m_manager.is_not(n)) {
-            expr * arg = to_app(n)->get_arg(0);
+        expr* arg = nullptr;
+        if (m_manager.is_not(n, arg)) {
             if (b_internalized(arg))
                 return ~get_assignment_core(arg);
             return l_undef;
@@ -1752,6 +1744,10 @@ namespace smt {
                 return false;
             if (!propagate_eqs())
                 return false;
+            if (get_cancel_flag()) {
+                m_qhead = qhead;
+                return true;
+            }
             propagate_th_eqs();
             propagate_th_diseqs();
             if (inconsistent())
@@ -3264,6 +3260,7 @@ namespace smt {
     }
 
     void context::reset_assumptions() {
+        TRACE("unsat_core_bug", tout << "reset " << m_assumptions << "\n";);
         for (literal lit : m_assumptions) 
             get_bdata(lit.var()).m_assumption = false;
         m_assumptions.reset();
@@ -4106,9 +4103,7 @@ namespace smt {
         }
 
         SASSERT(!inconsistent());
-        unsigned sz = m_b_internalized_stack.size();
-        for (unsigned i = 0; i < sz; i++) {
-            expr * curr = m_b_internalized_stack.get(i);
+        for (expr * curr : m_b_internalized_stack) { 
             if (is_relevant(curr) && get_assignment(curr) == l_true) {
                 // if curr is a label literal, then its tags will be copied to result.
                 m_manager.is_label_lit(curr, result);
@@ -4124,9 +4119,7 @@ namespace smt {
     void context::get_relevant_labeled_literals(bool at_lbls, expr_ref_vector & result) {
         SASSERT(!inconsistent());
         buffer<symbol> lbls;
-        unsigned sz = m_b_internalized_stack.size();
-        for (unsigned i = 0; i < sz; i++) {
-            expr * curr = m_b_internalized_stack.get(i);
+        for (expr * curr : m_b_internalized_stack) {
             if (is_relevant(curr) && get_assignment(curr) == l_true) {
                 lbls.reset();
                 if (m_manager.is_label_lit(curr, lbls)) {
