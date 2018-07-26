@@ -19,7 +19,6 @@ Revision History:
 #ifndef MPZ_H_
 #define MPZ_H_
 
-#include<limits.h>
 #include<string>
 #include "util/util.h"
 #include "util/small_object_allocator.h"

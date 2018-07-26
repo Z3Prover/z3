@@ -2648,6 +2648,7 @@ public:
         else {
             rational r = get_value(v);
             TRACE("arith", tout << "v" << v << " := " << r << "\n";);
+            SASSERT(!a.is_int(o) || r.is_int());
             if (a.is_int(o) && !r.is_int()) r = floor(r);
             return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
         }
@@ -2797,6 +2798,7 @@ public:
             lp::var_index vi = m_theory_var2var_index[v];
             st = m_solver->maximize_term(vi, term_max);
         }
+        TRACE("arith", display(tout << st << " v" << v << "\n"););
         switch (st) {
         case lp::lp_status::OPTIMAL: {
             inf_rational val(term_max.x, term_max.y);
@@ -2804,13 +2806,12 @@ public:
             return inf_eps(rational::zero(), val);
         }
         case lp::lp_status::FEASIBLE: {
-            inf_rational val(term_max.x, term_max.y);
+            inf_rational val = get_value(v);
             blocker = mk_gt(v);
             return inf_eps(rational::zero(), val);
         }
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
-            TRACE("arith", tout << "Unbounded v" << v << "\n";);
             has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());

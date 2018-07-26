@@ -405,7 +405,7 @@ namespace smt {
         unsigned                   m_num_regs;
         unsigned                   m_num_choices;
         instruction *              m_root;
-        obj_hashtable<enode>       m_candidates;
+        enode_vector               m_candidates;
 #ifdef Z3DEBUG
         context *                  m_context;
         ptr_vector<app>            m_patterns;
@@ -539,7 +539,7 @@ namespace smt {
         }
 
         void add_candidate(enode * n) {
-            m_candidates.insert(n);
+            m_candidates.push_back(n);
         }
 
         bool has_candidates() const {
@@ -550,7 +550,7 @@ namespace smt {
             m_candidates.reset();
         }
 
-        obj_hashtable<enode> const & get_candidates() const {
+        enode_vector const & get_candidates() const {
             return m_candidates;
         }
 
@@ -1978,10 +1978,10 @@ namespace smt {
 #define INIT_ARGS_SIZE 16
 
     public:
-        interpreter(context & ctx, mam & m, bool use_filters):
+        interpreter(context & ctx, mam & ma, bool use_filters):
             m_context(ctx),
             m_ast_manager(ctx.get_manager()),
-            m_mam(m),
+            m_mam(ma),
             m_use_filters(use_filters) {
             m_args.resize(INIT_ARGS_SIZE);
         }
@@ -2001,7 +2001,6 @@ namespace smt {
             TRACE("trigger_bug", tout << "execute for code tree:\n"; t->display(tout););
             init(t);
             if (t->filter_candidates()) {
-                //t->display(std::cout << "ncf: " << t->get_candidates().size() << "\n");
                 for (enode* app : t->get_candidates()) {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (!app->is_marked() && app->is_cgr()) {
@@ -2016,9 +2015,6 @@ namespace smt {
                 }
             }
             else {
-                //t->display(std::cout << "ncu: " << t->get_candidates().size() << "\n");
-                //for (enode* app : t->get_candidates()) { std::cout << expr_ref(app->get_owner(), m_ast_manager) << "\n"; }
-                //std::cout.flush();
                 for (enode* app : t->get_candidates()) {
                     TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (app->is_cgr()) {
@@ -2842,7 +2838,7 @@ namespace smt {
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
             void undo(mam_impl & m) override {
                 dealloc(m_trees[m_lbl_id]);
-                m_trees[m_lbl_id] = 0;
+                m_trees[m_lbl_id] = nullptr;
             }
         };
 
@@ -2875,8 +2871,8 @@ namespace smt {
             app * p           = to_app(mp->get_arg(first_idx));
             func_decl * lbl   = p->get_decl();
             unsigned lbl_id   = lbl->get_decl_id();
-            m_trees.reserve(lbl_id+1, 0);
-            if (m_trees[lbl_id] == 0) {
+            m_trees.reserve(lbl_id+1, nullptr);
+            if (m_trees[lbl_id] == nullptr) {
                 m_trees[lbl_id] = m_compiler.mk_tree(qa, mp, first_idx, false);
                 SASSERT(m_trees[lbl_id]->expected_num_args() == p->get_num_args());
                 DEBUG_CODE(m_trees[lbl_id]->set_context(m_context););
@@ -2961,7 +2957,7 @@ namespace smt {
             m_ground_arg(ground_arg),
             m_pattern_idx(pat_idx),
             m_child(child) {
-            SASSERT(ground_arg != 0 || ground_arg_idx == 0);
+            SASSERT(ground_arg != nullptr || ground_arg_idx == 0);
         }
     };
 
@@ -3228,7 +3224,7 @@ namespace smt {
 
         path_tree * mk_path_tree(path * p, quantifier * qa, app * mp) {
             SASSERT(m_ast_manager.is_pattern(mp));
-            SASSERT(p != 0);
+            SASSERT(p != nullptr);
             unsigned pat_idx = p->m_pattern_idx;
             path_tree * head = nullptr;
             path_tree * curr = nullptr;

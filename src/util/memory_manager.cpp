@@ -6,7 +6,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include<iostream>
 #include<stdlib.h>
-#include<limits.h>
+#include<climits>
 #include "util/trace.h"
 #include "util/memory_manager.h"
 #include "util/error_codes.h"
