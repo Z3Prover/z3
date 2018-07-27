@@ -50,7 +50,6 @@ public:
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
     lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
-    lia_move check_(lar_term& t, mpq& k, explanation& ex, bool & upper);
     bool move_non_basic_column_to_bounds(unsigned j);
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
