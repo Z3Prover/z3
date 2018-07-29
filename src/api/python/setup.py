@@ -6,6 +6,7 @@ import subprocess
 import multiprocessing
 import re
 from setuptools import setup
+from distutils.util import get_platform
 from distutils.errors import LibError
 from distutils.command.build import build as _build
 from distutils.command.sdist import sdist as _sdist
@@ -148,6 +149,26 @@ class sdist(_sdist):
 # the build directory needs to exist
 #try: os.makedirs(os.path.join(ROOT_DIR, 'build'))
 #except OSError: pass
+
+if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
+    idx = sys.argv.index('bdist_wheel') + 1
+    sys.argv.insert(idx, '--plat-name')
+    name = get_platform()
+    if 'linux' in name:
+        # linux_* platform tags are disallowed because the python ecosystem is fubar
+        # linux builds should be built in the centos 5 vm for maximum compatibility
+        # see https://github.com/pypa/manylinux
+        # see also https://github.com/angr/angr-dev/blob/master/bdist.sh
+        sys.argv.insert(idx + 1, 'manylinux1_' + platform.machine())
+    elif 'mingw' in name:
+        if platform.architecture()[0] == '64bit':
+            sys.argv.insert(idx + 1, 'win_amd64')
+        else:
+            sys.argv.insert(idx + 1, 'win32')
+    else:
+        # https://www.python.org/dev/peps/pep-0425/
+        sys.argv.insert(idx + 1, name.replace('.', '_').replace('-', '_'))
+
 
 setup(
     name='z3-solver',
