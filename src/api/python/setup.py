@@ -46,13 +46,14 @@ def _clean_bins():
     shutil.rmtree(HEADERS_DIR, ignore_errors=True)
 
 def _z3_version():
+    post = os.getenv('Z3_VERSION_SUFFIX', '')
     fn = os.path.join(SRC_DIR, 'scripts', 'mk_project.py')
-    if os.path.exists(fn):        
+    if os.path.exists(fn):
         with open(fn) as f:
             for line in f:
                 n = re.match(".*set_version\((.*), (.*), (.*), (.*)\).*", line)
                 if not n is None:
-                    return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4)
+                    return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
     return "?.?.?.?"
 
 def _configure_z3():
