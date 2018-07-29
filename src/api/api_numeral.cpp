@@ -186,7 +186,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_string(c, a);
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(a, Z3_FALSE);
+        CHECK_IS_EXPR(a, "");
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
         if (ok == Z3_TRUE) {
