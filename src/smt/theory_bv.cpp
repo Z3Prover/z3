@@ -161,6 +161,8 @@ namespace smt {
         theory_var v = n->get_th_var(get_id());
         if (v == null_theory_var) {
             v = mk_var(n);
+        }
+        if (m_bits[v].empty()) {
             mk_bits(v);
         }
         return v;

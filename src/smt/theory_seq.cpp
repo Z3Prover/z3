@@ -5163,7 +5163,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
         expr_ref_vector disj(m);
-        if (m_seq_rewrite.reduce_contains(e1, e2, disj)) {
+        // disabled pending regression on issue 1196
+        if (false && m_seq_rewrite.reduce_contains(e1, e2, disj)) {
             literal_vector lits;
             literal lit = mk_literal(e);
             lits.push_back(~lit);

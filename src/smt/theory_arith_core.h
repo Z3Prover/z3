@@ -2943,29 +2943,9 @@ namespace smt {
         context & ctx = get_context();
         if (dump_lemmas()) {
             TRACE("arith", ante.display(tout) << " --> "; ctx.display_detailed_literal(tout, l); tout << "\n";);
-            unsigned id = ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(),
+            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(),
                                              ante.eqs().size(), ante.eqs().c_ptr(), l);
 
-#if 1
-            if (id == 394) {
-                enable_trace("sign_row_conflict");
-                enable_trace("nl_arith_bug");
-                enable_trace("nl_evaluate");
-                enable_trace("propagate_bounds");
-                enable_trace("propagate_bounds_bug");
-                enable_trace("arith_conflict");
-                enable_trace("non_linear");
-                enable_trace("non_linear_bug");
-            }
-            SASSERT(id != 395);
-            if (id == 396) {
-                disable_trace("nl_arith_bug");
-                disable_trace("propagate_bounds");
-                disable_trace("arith_conflict");
-                disable_trace("non_linear");
-                disable_trace("non_linear_bug");
-            }
-#endif
         }
     }
 
@@ -2973,28 +2953,8 @@ namespace smt {
     void theory_arith<Ext>::dump_lemmas(literal l, derived_bound const& ante) {
         context & ctx = get_context();
         if (dump_lemmas()) {
-            unsigned id = ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(),
+            ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(),
                                              ante.eqs().size(), ante.eqs().c_ptr(), l);
-#if 1
-            if (id == 394) {
-                enable_trace("nl_arith_bug");
-                enable_trace("nl_evaluate");
-                enable_trace("propagate_bounds");
-                enable_trace("arith_conflict");
-                enable_trace("propagate_bounds_bug");
-                enable_trace("non_linear");
-                enable_trace("non_linear_bug");
-            }
-            SASSERT(id != 395);
-            if (id == 396) {
-                enable_trace("sign_row_conflict");
-                disable_trace("nl_arith_bug");
-                disable_trace("propagate_bounds");
-                disable_trace("arith_conflict");
-                disable_trace("non_linear");
-                disable_trace("non_linear_bug");
-            }
-#endif
         }
     }
 
