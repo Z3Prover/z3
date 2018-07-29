@@ -4581,7 +4581,6 @@ bool theory_seq::lower_bound(expr* _e, rational& lo) const {
         if (thi && thi->get_lower(ctx.get_enode(e), _lo)) break;
         theory_lra* thr = get_th_arith<theory_lra>(ctx, afid, e);
         if (thr && thr->get_lower(ctx.get_enode(e), _lo)) break;
-        TRACE("seq", tout << "no lower bound " << mk_pp(_e, m) << "\n";);
         return false;
     }
     while (false);
@@ -4639,7 +4638,6 @@ bool theory_seq::upper_bound(expr* _e, rational& hi) const {
         if (thi && thi->get_upper(ctx.get_enode(e), _hi)) break;
         theory_lra* thr = get_th_arith<theory_lra>(ctx, afid, e);
         if (thr && thr->get_upper(ctx.get_enode(e), _hi)) break;
-        TRACE("seq", tout << "no upper bound " << mk_pp(_e, m) << "\n";);
         return false;
     }
     while (false);
