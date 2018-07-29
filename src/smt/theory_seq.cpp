@@ -367,7 +367,7 @@ bool theory_seq::branch_binary_variable(eq const& e) {
         return false;
     }
     ptr_vector<expr> xs, ys;
-    expr* x, *y;
+    expr_ref x(m), y(m);
     bool is_binary = is_binary_eq(e.ls(), e.rs(), x, xs, ys, y);
     if (!is_binary) {
         is_binary = is_binary_eq(e.rs(), e.ls(), x, xs, ys, y);
@@ -630,7 +630,7 @@ bool theory_seq::branch_ternary_variable_base(
 // Equation is of the form x ++ xs = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     expr_ref_vector xs(m), ys(m);
-    expr* x = nullptr, *y1 = nullptr, *y2 = nullptr;
+    expr_ref x(m), y1(m), y2(m);
     bool is_ternary = is_ternary_eq(e.ls(), e.rs(), x, xs, y1, ys, y2, flag1);
     if (!is_ternary) {
         is_ternary = is_ternary_eq(e.rs(), e.ls(), x, xs, y1, ys, y2, flag1);
@@ -746,7 +746,7 @@ bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector 
 // Equation is of the form xs ++ x = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
     expr_ref_vector xs(m), ys(m);
-    expr* x = nullptr, *y1 = nullptr, *y2 = nullptr;
+    expr_ref x(m), y1(m), y2(m);
     bool is_ternary = is_ternary_eq2(e.ls(), e.rs(), xs, x, y1, ys, y2, flag1);
     if (!is_ternary) {
         is_ternary = is_ternary_eq2(e.rs(), e.ls(), xs, x, y1, ys, y2, flag1);
@@ -823,7 +823,7 @@ bool theory_seq::branch_quat_variable() {
 // Equation is of the form x1 ++ xs ++ x2 = y1 ++ ys ++ y2 where xs, ys are units.
 bool theory_seq::branch_quat_variable(eq const& e) {
     expr_ref_vector xs(m), ys(m);
-    expr* x1_l = nullptr, *x2 = nullptr, *y1_l = nullptr, *y2 = nullptr;
+    expr_ref x1_l(m), x2(m), y1_l(m), y2(m);
     bool is_quat = is_quat_eq(e.ls(), e.rs(), x1_l, xs, x2, y1_l, ys, y2);
     if (!is_quat) {
         return false;
@@ -1080,8 +1080,8 @@ void theory_seq::find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector cons
 }
 
 // TODO: propagate length offsets for last vars
-bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned const& idx,
-        dependency*& deps, expr_ref_vector & res) {
+bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx,
+                                 dependency*& deps, expr_ref_vector & res) {
     context& ctx = get_context();
 
     if (ls.empty() || rs.empty())
@@ -2262,6 +2262,7 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     SASSERT(lhs.size() == rhs.size());
     m_seq_rewrite.add_seqs(ls, rs, lhs, rhs);
     if (lhs.empty()) {
+        TRACE("seq", tout << "solved\n";);
         return true;
     }
     TRACE("seq", 
@@ -2411,6 +2412,7 @@ bool theory_seq::solve_eqs(unsigned i) {
             m_eqs.pop_back();
             change = true;
         }
+        TRACE("seq", display_equations(tout););
     }
     return change || m_new_propagation || ctx.inconsistent();
 }
@@ -2429,6 +2431,7 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
           display_deps(tout, deps);
           );
     if (!ctx.inconsistent() && simplify_eq(ls, rs, deps)) {
+        TRACE("seq", tout << "simplified\n";);
         return true;
     }
     TRACE("seq", tout << ls << " = " << rs << "\n";);
@@ -2464,6 +2467,7 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
         if (!updated) {
             m_eqs.push_back(eq(m_eq_id++, ls, rs, deps));
         }
+        TRACE("seq", tout << "simplified\n";);
         return true;
     }
     return false;
@@ -2483,7 +2487,7 @@ bool theory_seq::propagate_max_length(expr* l, expr* r, dependency* deps) {
     return false;
 }
 
-bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr*& y) {
+bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y) {
     if (ls.size() > 1 && is_var(ls[0]) &&
         rs.size() > 1 && is_var(rs.back())) {
         xs.reset();
@@ -2504,7 +2508,7 @@ bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& 
 }
 
 bool theory_seq::is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-expr*& x1, expr_ref_vector& xs, expr*& x2, expr*& y1, expr_ref_vector& ys, expr*& y2) {
+                            expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2) {
     if (ls.size() > 1 && is_var(ls[0]) && is_var(ls.back()) &&
         rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
         unsigned l_start = 1;
@@ -2547,7 +2551,7 @@ expr*& x1, expr_ref_vector& xs, expr*& x2, expr*& y1, expr_ref_vector& ys, expr*
 }
 
 bool theory_seq::is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-expr*& x, expr_ref_vector& xs, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1) {
+                               expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1) {
     if (ls.size() > 1 && (is_var(ls[0]) || flag1) &&
         rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
         unsigned l_start = ls.size()-1;
@@ -2585,7 +2589,7 @@ expr*& x, expr_ref_vector& xs, expr*& y1, expr_ref_vector& ys, expr*& y2, bool f
 }
 
 bool theory_seq::is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, 
-        expr_ref_vector& xs, expr*& x, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1) {
+        expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1) {
     if (ls.size() > 1 && (is_var(ls.back()) || flag1) &&
         rs.size() > 1 && is_var(rs[0]) && is_var(rs.back())) {
         unsigned l_start = 0;
@@ -2747,7 +2751,7 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
 bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
     context& ctx = get_context();
     ptr_vector<expr> xs, ys;
-    expr* x, *y;
+    expr_ref x(m), y(m);
     bool is_binary = is_binary_eq(ls, rs, x, xs, ys, y);
     if (!is_binary) {
         is_binary = is_binary_eq(rs, ls, x, xs, ys, y);
@@ -2770,49 +2774,36 @@ bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector cons
         UNREACHABLE();
         return false;
     }
-    unsigned sz = xs.size();
-    literal_vector conflict;
-    for (unsigned offset = 0; offset < sz; ++offset) {
-        bool has_conflict = false;
-        for (unsigned j = 0; !has_conflict && j < sz; ++j) {
-            unsigned j1 = (offset + j) % sz;
-            if (xs[j] == ys[j1]) continue;
-            literal eq = mk_eq(xs[j], ys[j1], false);
-            switch (ctx.get_assignment(eq)) {
-            case l_false:
-                conflict.push_back(~eq);
-                has_conflict = true;
-                break;
-            case l_undef: {
-                enode* n1 = ensure_enode(xs[j]);
-                enode* n2 = ensure_enode(ys[j1]);
-                if (n1->get_root() == n2->get_root()) {
-                    break;
-                }
-                ctx.mark_as_relevant(eq);
-                if (sz == 1) {
-                    propagate_lit(dep, 0, nullptr, eq);
-                    return true;
-                }
-                m_new_propagation = true;
-                break;
-            }
-            case l_true:
-                break;
-            }
-        }
-        if (!has_conflict) {
-            TRACE("seq", tout << "offset: " << offset << " equality ";
-                  for (unsigned j = 0; j < sz; ++j) {
-                      tout << mk_pp(xs[j], m) << " = " << mk_pp(ys[(offset+j) % sz], m) << "; ";
-                  }
-                  tout << "\n";);
-            // current equalities can work when solving x ++ xs = ys ++ y
+
+    // Equation is of the form x ++ xs = ys ++ x
+    // where |xs| = |ys| are units of same length
+    // then xs is a wrap-around of ys
+    // x ++ ab = ba ++ x
+    // 
+    if (xs.size() == 1) {
+        enode* n1 = ensure_enode(xs[0]);
+        enode* n2 = ensure_enode(ys[0]);
+        if (n1->get_root() == n2->get_root()) {
             return false;
         }
+        literal eq = mk_eq(xs[0], ys[0], false);
+        switch (ctx.get_assignment(eq)) {
+        case l_false: {
+            literal_vector conflict;
+            conflict.push_back(~eq);
+            TRACE("seq", tout << conflict << "\n";);
+            set_conflict(dep, conflict);
+            break;
+        }
+        case l_true:
+            break;
+        case l_undef: 
+            ctx.mark_as_relevant(eq);
+            propagate_lit(dep, 0, nullptr, eq);
+            m_new_propagation = true;
+            break;
+        }
     }
-    TRACE("seq", tout << conflict << "\n";);
-    set_conflict(dep, conflict);
     return false;
 }
 
@@ -5248,6 +5239,7 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
 }
 
 void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
+    TRACE("seq", tout << expr_ref(n1->get_owner(), m) << " = " << expr_ref(n2->get_owner(), m) << "\n";);
     if (n1 != n2 && m_util.is_seq(n1->get_owner())) {
         theory_var v1 = n1->get_th_var(get_id());
         theory_var v2 = n2->get_th_var(get_id());
