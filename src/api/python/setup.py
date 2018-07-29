@@ -118,6 +118,7 @@ def _copy_sources():
     os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python'))
     os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3'))
     open(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3', '.placeholder'), 'w').close()
+    open(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3test.py'), 'w').close()
 
 class build(_build):
     def run(self):
