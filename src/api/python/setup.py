@@ -98,7 +98,10 @@ def _copy_bins():
     os.mkdir(os.path.join(HEADERS_DIR, 'c++'))
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
-    for fname in ('z3.h', 'z3_v1.h', 'z3_macros.h', 'z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h', os.path.join('c++', 'z3++.h')):
+
+    header_files = [x for x in os.listdir(os.path.join(SRC_DIR, 'src', 'api')) if x.endswith('.h')]
+    header_files += [os.path.join('c++', x) for x in os.listdir(os.path.join(SRC_DIR, 'src', 'api', 'c++')) if x.endswith('.h')]
+    for fname in header_files:
         shutil.copy(os.path.join(SRC_DIR, 'src', 'api', fname), os.path.join(HEADERS_DIR, fname))
 
 def _copy_sources():
