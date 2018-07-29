@@ -19,7 +19,7 @@ Revision History:
 #ifndef SYMBOL_H_
 #define SYMBOL_H_
 #include<ostream>
-#include<limits.h>
+#include<climits>
 
 #include "util/util.h"
 #include "util/tptr.h"

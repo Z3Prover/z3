@@ -491,7 +491,7 @@ namespace smt {
         }
 
         bool tracking_assumptions() const {
-            return m_search_lvl > m_base_lvl;
+            return !m_assumptions.empty() && m_search_lvl > m_base_lvl;
         }
 
         expr * bool_var2expr(bool_var v) const {
@@ -1011,6 +1011,7 @@ namespace smt {
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             SASSERT(lhs != rhs);
+            SASSERT(lhs->get_root() != rhs->get_root());
             m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
         }
 
@@ -1492,7 +1493,7 @@ namespace smt {
            If l == 0, then the logic of this context is used in the new context.
            If p == 0, then this->m_params is used
         */
-        context * mk_fresh(symbol const * l = nullptr,  smt_params * p = nullptr);
+        context * mk_fresh(symbol const * l = nullptr,  smt_params * smtp = nullptr, params_ref const & p = params_ref());
 
         static void copy(context& src, context& dst);
 

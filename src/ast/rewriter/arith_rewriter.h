@@ -143,6 +143,7 @@ public:
 
     br_status mk_div_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_idiv_core(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_idivides(unsigned k, expr * arg, expr_ref & result);
     br_status mk_mod_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_rem_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_power_core(expr* arg1, expr* arg2, expr_ref & result);

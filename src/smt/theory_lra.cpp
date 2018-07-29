@@ -516,7 +516,7 @@ class theory_lra::imp {
         rational r1;
         v = mk_var(t);
         svector<lp::var_index> vars;
-        ptr_vector<expr> todo;
+        ptr_buffer<expr> todo;
         todo.push_back(t);
         while (!todo.empty()) {
             expr* n = todo.back();
@@ -536,7 +536,7 @@ class theory_lra::imp {
                 vars.push_back(get_var_index(mk_var(n)));
             }
         }
-        TRACE("arith", tout << mk_pp(t, m) << " " << _has_var << "\n";);
+        TRACE("arith", tout << "v" << v << "(" << get_var_index(v) << ") := " << mk_pp(t, m) << " " << _has_var << "\n";);
         if (!_has_var) {
             ensure_nra();
             m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
@@ -1190,12 +1190,12 @@ public:
             if (m_solver->is_term(wi)) {
                 const lp::lar_term& term = m_solver->get_term(wi);
                 result += term.m_v * coeff;
-                for (const auto & i : term.m_coeffs) {
-                    if (m_variable_values.count(i.first) > 0) {
-                        result += m_variable_values[i.first] * coeff * i.second;
+                for (const auto & i : term) {
+                    if (m_variable_values.count(i.var()) > 0) {
+                        result += m_variable_values[i.var()] * coeff * i.coeff();
                     }
                     else {
-                        m_todo_terms.push_back(std::make_pair(i.first, coeff * i.second));
+                        m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
                     }
                 }                    
             }
@@ -1481,7 +1481,7 @@ public:
         }
         if (!m_nra) return l_true;
         if (!m_nra->need_check()) return l_true;
-        m_a1 = 0; m_a2 = 0;
+        m_a1 = nullptr; m_a2 = nullptr;
         lbool r = m_nra->check(m_explanation);
         m_a1 = alloc(scoped_anum, m_nra->am());
         m_a2 = alloc(scoped_anum, m_nra->am());
@@ -2153,8 +2153,8 @@ public:
             vi = m_todo_vars.back();
             m_todo_vars.pop_back();
             lp::lar_term const& term = m_solver->get_term(vi);
-            for (auto const& coeff : term.m_coeffs) {
-                lp::var_index wi = coeff.first;
+            for (auto const& coeff : term) {
+                lp::var_index wi = coeff.var();
                 if (m_solver->is_term(wi)) {
                     m_todo_vars.push_back(wi);
                 }
@@ -2605,19 +2605,23 @@ public:
 
             m_todo_terms.push_back(std::make_pair(vi, rational::one()));
 
+            TRACE("arith", tout << "v" << v << " := w" << vi << "\n";
+                  m_solver->print_term(m_solver->get_term(vi), tout); tout << "\n";);
+
             m_nra->am().set(r, 0);
             while (!m_todo_terms.empty()) {
                 rational wcoeff = m_todo_terms.back().second;
-                //                 lp::var_index wi = m_todo_terms.back().first; // todo : got a warning "wi is not used"
+                vi = m_todo_terms.back().first;
                 m_todo_terms.pop_back();
                 lp::lar_term const& term = m_solver->get_term(vi);
+                TRACE("arith", m_solver->print_term(term, tout); tout << "\n";);
                 scoped_anum r1(m_nra->am());
                 rational c1 = term.m_v * wcoeff;
                 m_nra->am().set(r1, c1.to_mpq());
                 m_nra->am().add(r, r1, r);                
-                for (auto const coeff : term.m_coeffs) {
-                    lp::var_index wi = coeff.first;
-                    c1 = coeff.second * wcoeff;
+                for (auto const & arg : term) {
+                    lp::var_index wi = m_solver->local2external(arg.var());
+                    c1 = arg.coeff() * wcoeff;
                     if (m_solver->is_term(wi)) {
                         m_todo_terms.push_back(std::make_pair(wi, c1));
                     }
@@ -2648,6 +2652,7 @@ public:
         else {
             rational r = get_value(v);
             TRACE("arith", tout << "v" << v << " := " << r << "\n";);
+            SASSERT(!a.is_int(o) || r.is_int());
             if (a.is_int(o) && !r.is_int()) r = floor(r);
             return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
         }
@@ -2797,6 +2802,7 @@ public:
             lp::var_index vi = m_theory_var2var_index[v];
             st = m_solver->maximize_term(vi, term_max);
         }
+        TRACE("arith", display(tout << st << " v" << v << "\n"););
         switch (st) {
         case lp::lp_status::OPTIMAL: {
             inf_rational val(term_max.x, term_max.y);
@@ -2804,13 +2810,12 @@ public:
             return inf_eps(rational::zero(), val);
         }
         case lp::lp_status::FEASIBLE: {
-            inf_rational val(term_max.x, term_max.y);
+            inf_rational val = get_value(v);
             blocker = mk_gt(v);
             return inf_eps(rational::zero(), val);
         }
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
-            TRACE("arith", tout << "Unbounded v" << v << "\n";);
             has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());

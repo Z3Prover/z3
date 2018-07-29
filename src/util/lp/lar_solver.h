@@ -247,6 +247,8 @@ public:
     void calculate_implied_bounds_for_row(unsigned i, bound_propagator & bp);
 
     unsigned adjust_column_index_to_term_index(unsigned j) const;
+
+    var_index local2external(var_index idx) const { return m_var_register.local_to_external(idx); }
     
     void propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset);
 

@@ -401,7 +401,7 @@ namespace smt {
         label_hasher &             m_lbl_hasher;
         func_decl *                m_root_lbl;
         unsigned                   m_num_args; //!< we need this information to avoid the nary *,+ crash bug
-        unsigned char              m_filter_candidates;
+        bool                       m_filter_candidates;
         unsigned                   m_num_regs;
         unsigned                   m_num_choices;
         instruction *              m_root;
@@ -531,7 +531,7 @@ namespace smt {
         }
 
         bool filter_candidates() const {
-            return m_filter_candidates != 0;
+            return m_filter_candidates;
         }
 
         const instruction * get_root() const {
@@ -1978,10 +1978,10 @@ namespace smt {
 #define INIT_ARGS_SIZE 16
 
     public:
-        interpreter(context & ctx, mam & m, bool use_filters):
+        interpreter(context & ctx, mam & ma, bool use_filters):
             m_context(ctx),
             m_ast_manager(ctx.get_manager()),
-            m_mam(m),
+            m_mam(ma),
             m_use_filters(use_filters) {
             m_args.resize(INIT_ARGS_SIZE);
         }
@@ -2002,6 +2002,7 @@ namespace smt {
             init(t);
             if (t->filter_candidates()) {
                 for (enode* app : t->get_candidates()) {
+                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (!app->is_marked() && app->is_cgr()) {
                         if (m_context.resource_limits_exceeded() || !execute_core(t, app))
                             return;
@@ -2837,7 +2838,7 @@ namespace smt {
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
             void undo(mam_impl & m) override {
                 dealloc(m_trees[m_lbl_id]);
-                m_trees[m_lbl_id] = 0;
+                m_trees[m_lbl_id] = nullptr;
             }
         };
 
@@ -2870,8 +2871,8 @@ namespace smt {
             app * p           = to_app(mp->get_arg(first_idx));
             func_decl * lbl   = p->get_decl();
             unsigned lbl_id   = lbl->get_decl_id();
-            m_trees.reserve(lbl_id+1, 0);
-            if (m_trees[lbl_id] == 0) {
+            m_trees.reserve(lbl_id+1, nullptr);
+            if (m_trees[lbl_id] == nullptr) {
                 m_trees[lbl_id] = m_compiler.mk_tree(qa, mp, first_idx, false);
                 SASSERT(m_trees[lbl_id]->expected_num_args() == p->get_num_args());
                 DEBUG_CODE(m_trees[lbl_id]->set_context(m_context););
@@ -2956,7 +2957,7 @@ namespace smt {
             m_ground_arg(ground_arg),
             m_pattern_idx(pat_idx),
             m_child(child) {
-            SASSERT(ground_arg != 0 || ground_arg_idx == 0);
+            SASSERT(ground_arg != nullptr || ground_arg_idx == 0);
         }
     };
 
@@ -3223,7 +3224,7 @@ namespace smt {
 
         path_tree * mk_path_tree(path * p, quantifier * qa, app * mp) {
             SASSERT(m_ast_manager.is_pattern(mp));
-            SASSERT(p != 0);
+            SASSERT(p != nullptr);
             unsigned pat_idx = p->m_pattern_idx;
             path_tree * head = nullptr;
             path_tree * curr = nullptr;
@@ -3516,9 +3517,7 @@ namespace smt {
                     std::cout << "Avg. " << static_cast<double>(total_sz)/static_cast<double>(counter) << ", Max. " << max_sz << "\n";
 #endif
 
-                enode_vector::iterator it1  = v->begin();
-                enode_vector::iterator end1 = v->end();
-                for (; it1 != end1; ++it1) {
+                for (enode* n : *v) {
                     // Two different kinds of mark are used:
                     // - enode mark field:  it is used to mark the already processed parents.
                     // - enode mark2 field: it is used to mark the roots already added to be processed in the next level.
@@ -3527,7 +3526,7 @@ namespace smt {
                     // and Z3 may fail to find potential new matches.
                     //
                     // The file regression\acu.sx exposed this problem.
-                    enode * curr_child = (*it1)->get_root();
+                    enode * curr_child = n->get_root();
 
                     if (m_use_filters && curr_child->get_plbls().empty_intersection(filter))
                         continue;
@@ -3591,7 +3590,7 @@ namespace smt {
                                          is_eq(curr_tree->m_ground_arg, curr_parent->get_arg(curr_tree->m_ground_arg_idx))
                                          )) {
                                         if (curr_tree->m_code) {
-                                            TRACE("mam_path_tree", tout << "found candidate\n";);
+                                            TRACE("mam_path_tree", tout << "found candidate " << expr_ref(curr_parent->get_owner(), m_ast_manager) << "\n";);
                                             add_candidate(curr_tree->m_code, curr_parent);
                                         }
                                         if (curr_tree->m_first_child) {

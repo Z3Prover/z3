@@ -422,8 +422,6 @@ namespace smt {
         out << "(check-sat)\n";
     }
 
-#define BUFFER_SZ 128
-
     unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
         std::stringstream strm;
         strm << "lemma_" << (++m_lemma_id) << ".smt2";

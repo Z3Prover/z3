@@ -1012,8 +1012,7 @@ namespace opt {
             }
         }
         // fix types of objectives:
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective & obj = m_objectives[i];
+        for (objective & obj : m_objectives) {
             expr* t = obj.m_term;
             switch(obj.m_type) {
             case O_MINIMIZE:
@@ -1189,13 +1188,12 @@ namespace opt {
     void context::update_bound(bool is_lower) {
         expr_ref val(m);
         if (!m_model.get()) return;
-        for (unsigned i = 0; i < m_objectives.size(); ++i) {
-            objective const& obj = m_objectives[i];
+        for (objective const& obj : m_objectives) {
             rational r;
             switch(obj.m_type) {
             case O_MINIMIZE: {
                 val = (*m_model)(obj.m_term);
-                TRACE("opt", tout << obj.m_term << " " << val << " " << is_numeral(val, r) << "\n";);
+                TRACE("opt", tout << obj.m_term << " " << val << "\n";);
                 if (is_numeral(val, r)) {
                     inf_eps val = inf_eps(obj.m_adjust_value(r));
                     TRACE("opt", tout << "adjusted value: " << val << "\n";);

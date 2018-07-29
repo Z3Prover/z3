@@ -1675,7 +1675,6 @@ def Or(*args):
 class PatternRef(ExprRef):
     """Patterns are hints for quantifier instantiation.
 
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
     """
     def as_ast(self):
         return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
@@ -1685,8 +1684,6 @@ class PatternRef(ExprRef):
 
 def is_pattern(a):
     """Return `True` if `a` is a Z3 pattern (hint for quantifier instantiation.
-
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
 
     >>> f = Function('f', IntSort(), IntSort())
     >>> x = Int('x')
@@ -1704,8 +1701,6 @@ def is_pattern(a):
 
 def MultiPattern(*args):
     """Create a Z3 multi-pattern using the given expressions `*args`
-
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
 
     >>> f = Function('f', IntSort(), IntSort())
     >>> g = Function('g', IntSort(), IntSort())
@@ -1966,8 +1961,6 @@ def ForAll(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
 
     The parameters `weight`, `qif`, `skid`, `patterns` and `no_patterns` are optional annotations.
 
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
-
     >>> f = Function('f', IntSort(), IntSort(), IntSort())
     >>> x = Int('x')
     >>> y = Int('y')
@@ -1985,7 +1978,6 @@ def Exists(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
 
     The parameters `weight`, `qif`, `skid`, `patterns` and `no_patterns` are optional annotations.
 
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
 
     >>> f = Function('f', IntSort(), IntSort(), IntSort())
     >>> x = Int('x')
