@@ -731,35 +731,34 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::derived_bound::push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
 
+        TRACE("arith", tout << m_lits << " " << m_eqs.size() << "\n";);
         if (proofs_enabled) {
-            for (unsigned i = 0; i < m_lits.size(); ++i) {
-                a.push_lit(m_lits[i], coeff, proofs_enabled);
-            }
-            for (unsigned i = 0; i < m_eqs.size(); ++i) {
-                a.push_eq(m_eqs[i], coeff, proofs_enabled);
-            }
+            for (literal l : m_lits)    
+                a.push_lit(l, coeff, proofs_enabled);
+            for (auto const& e : m_eqs) 
+                a.push_eq(e, coeff, proofs_enabled);
         }
         else {
             a.append(m_lits.size(), m_lits.c_ptr());
-            a.append(m_eqs.size(), m_eqs.c_ptr());
+            a.append(m_eqs.size(),  m_eqs.c_ptr());
         }
     }
 
     template<typename Ext>
     void theory_arith<Ext>::derived_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
-      out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << bound::get_value();
-        
         ast_manager& m = th.get_manager();
-        for (unsigned i = 0; i < m_eqs.size(); ++i) {
-            enode* a = m_eqs[i].first;
-            enode* b = m_eqs[i].second;
+        out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << bound::get_value() << "\n";
+        out << "expr: " << mk_pp(th.var2expr(bound::get_var()), m) << "\n";
+        
+        for (auto const& e : m_eqs) {
+            enode* a = e.first;
+            enode* b = e.second;
             out << " ";
             out << "#" << a->get_owner_id() << " " << mk_pp(a->get_owner(), m) << " = "
-                << "#" << b->get_owner_id() << " " << mk_pp(b->get_owner(), m);
+                << "#" << b->get_owner_id() << " " << mk_pp(b->get_owner(), m) << "\n";
         }
-        for (unsigned i = 0; i < m_lits.size(); ++i) {
-            literal l = m_lits[i];
-            out << " " << l << ":"; th.get_context().display_detailed_literal(out, l);            
+        for (literal l : m_lits) {
+            out << l << ":"; th.get_context().display_detailed_literal(out, l) << "\n";           
         }
     }
 
@@ -882,13 +881,10 @@ namespace smt {
         }
         TRACE("derived_bound", 
               tout << "explanation:\n";
-              literal_vector::const_iterator it1  = new_bound->m_lits.begin();
-              literal_vector::const_iterator end1 = new_bound->m_lits.end();
-              for (; it1 != end1; ++it1) tout << *it1 << " ";
+              for (literal l : new_bound->m_lits) tout << l << " ";
               tout << " ";
-              eq_vector::const_iterator it2  = new_bound->m_eqs.begin();
-              eq_vector::const_iterator end2 = new_bound->m_eqs.end();
-              for (; it2 != end2; ++it2) tout << "#" << it2->first->get_owner_id() << "=#" << it2->second->get_owner_id() << " ";
+              for (auto const& e : new_bound->m_eqs) 
+                  tout << "#" << e.first->get_owner_id() << "=#" << e.second->get_owner_id() << " ";
               tout << "\n";);
         DEBUG_CODE(CTRACE("derived_bound", k != val, tout << "k: " << k << ", k_norm: " << k_norm << ", val: " << val << "\n";););
         SASSERT(k == val);

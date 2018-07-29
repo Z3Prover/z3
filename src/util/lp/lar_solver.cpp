@@ -540,11 +540,13 @@ lp_status lar_solver::maximize_term(unsigned ext_j,
         if (m_int_solver->is_base(j)) {
             if (!remove_from_basis(j)) { // consider a special version of remove_from_basis that would not remove inf_int columns
                 m_mpq_lar_core_solver.m_r_x = backup;
+                term_max = prev_value;
                 return lp_status::FEASIBLE; // it should not happen
             }
         }
         m_int_solver->patch_nbasic_column(j, false);
         if (!column_value_is_integer(j)) {
+            term_max = prev_value;
             m_mpq_lar_core_solver.m_r_x = backup;
             return lp_status::FEASIBLE;
         }

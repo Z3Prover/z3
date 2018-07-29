@@ -375,7 +375,7 @@ namespace smt {
 
         void init_model(expr_ref_vector const& es);
         
-        void len_offset(expr* const& e, rational val);
+        void len_offset(expr* e, rational val);
         void prop_arith_to_len_offset();
         int find_fst_non_empty_idx(expr_ref_vector const& x) const;
         expr* find_fst_non_empty_var(expr_ref_vector const& x) const;

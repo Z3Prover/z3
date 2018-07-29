@@ -24,11 +24,12 @@ namespace nra {
         lp::lar_solver&      s;
         reslimit&              m_limit;  
         params_ref             m_params; 
-        u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables
+        u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
         scoped_ptr<nlsat::solver>  m_nlsat;
+        scoped_ptr<scoped_anum>    m_zero;
         vector<mon_eq>         m_monomials;
         unsigned_vector        m_monomials_lim;
-        mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model
+        mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model        
 
         imp(lp::lar_solver& s, reslimit& lim, params_ref const& p): 
             s(s), 
@@ -90,6 +91,7 @@ namespace nra {
         lbool check(lp::explanation_t& ex) {
             SASSERT(need_check());
             m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
+            m_zero = alloc(scoped_anum, am());
             m_lp2nl.reset();
             vector<nlsat::assumption, false> core;
 
@@ -208,12 +210,17 @@ namespace nra {
             if (!m_lp2nl.find(v, r)) {
                 r = m_nlsat->mk_var(is_int(v));
                 m_lp2nl.insert(v, r);
+                TRACE("arith", tout << "v" << v << " := x" << r << "\n";);
             }
             return r;
         }
 
         nlsat::anum const& value(lp::var_index v) const {
-           return m_nlsat->value(m_lp2nl.find(v));
+            polynomial::var pv;
+            if (m_lp2nl.find(v, pv))
+                return m_nlsat->value(pv);
+            else
+                return *m_zero;
         }
 
         nlsat::anum_manager& am() {

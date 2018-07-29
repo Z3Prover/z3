@@ -1881,7 +1881,7 @@ bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
             unsigned sz = s.length();
             expr_ref_vector es(m());
             for (unsigned j = 0; j < sz; ++j) {
-                es.push_back(m_util.str.mk_char(s, j));
+                es.push_back(m_util.str.mk_unit(m_util.str.mk_char(s, j)));
             }
             es.append(m_lhs.size() - i, m_lhs.c_ptr() + i);
             for (unsigned j = 0; j < sz; ++j) {
@@ -1896,9 +1896,8 @@ bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
 
         if (m_util.str.is_string(b, s)) {
             expr* all = m_util.re.mk_full_seq(m_util.re.mk_re(m().get_sort(b)));
-            std::cout << sort_ref(m().get_sort(all), m()) << "\n";
             disj.push_back(m_util.re.mk_in_re(m_util.str.mk_concat(m_lhs.size() - i, m_lhs.c_ptr() + i),
-                                              m_util.re.mk_concat(all, m_util.str.mk_concat(m_util.re.mk_to_re(b), all))));
+                                              m_util.re.mk_concat(all, m_util.re.mk_concat(m_util.re.mk_to_re(b), all))));
             return true;
         }
 

@@ -26,6 +26,7 @@ Revision History:
 #include "ast/fpa_decl_plugin.h"
 
 bool is_numeral_sort(Z3_context c, Z3_sort ty) {
+    if (!ty) return false;
     sort * _ty = to_sort(ty);
     family_id fid  = _ty->get_family_id();
     if (fid != mk_c(c)->get_arith_fid() &&
@@ -145,7 +146,8 @@ extern "C" {
     Z3_bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_is_numeral_ast(c, a);
-        RESET_ERROR_CODE();
+        RESET_ERROR_CODE();        
+        CHECK_IS_EXPR(a, Z3_FALSE);
         expr* e = to_expr(a);
         return
             mk_c(c)->autil().is_numeral(e) ||
@@ -160,11 +162,8 @@ extern "C" {
         Z3_TRY;
         // This function is not part of the public API
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, Z3_FALSE);
         expr* e = to_expr(a);
-        if (!e) {
-            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return Z3_FALSE;
-        }
         if (mk_c(c)->autil().is_numeral(e, r)) {
             return Z3_TRUE;
         }
@@ -187,6 +186,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_string(c, a);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, Z3_FALSE);
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
         if (ok == Z3_TRUE) {
@@ -232,11 +232,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_numeral_decimal_string(c, a, precision);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, "");
         expr* e = to_expr(a);
-        if (!e) {
-            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return "";
-        }
         rational r;
         arith_util & u = mk_c(c)->autil();
         if (u.is_numeral(e, r) && !r.is_int()) {
@@ -267,6 +264,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_small(c, a, num, den);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, Z3_FALSE);
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
         if (ok == Z3_TRUE) {
@@ -292,6 +290,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_int64, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_int(c, v, i);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(v, Z3_FALSE);
         if (!i) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
@@ -310,6 +309,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_uint64, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_uint(c, v, u);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(v, Z3_FALSE);
         if (!u) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
@@ -328,6 +328,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_uint64(c, v, u);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(v, Z3_FALSE);
         if (!u) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
@@ -348,6 +349,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_int64(c, v, i);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(v, Z3_FALSE);
         if (!i) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;
@@ -367,6 +369,7 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_rational_int64(c, v, num, den);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(v, Z3_FALSE);
         if (!num || !den) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return Z3_FALSE;

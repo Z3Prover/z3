@@ -1493,7 +1493,7 @@ namespace smt {
            If l == 0, then the logic of this context is used in the new context.
            If p == 0, then this->m_params is used
         */
-        context * mk_fresh(symbol const * l = nullptr,  smt_params * p = nullptr);
+        context * mk_fresh(symbol const * l = nullptr,  smt_params * smtp = nullptr, params_ref const & p = params_ref());
 
         static void copy(context& src, context& dst);
 

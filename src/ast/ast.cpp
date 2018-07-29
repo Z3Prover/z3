@@ -2406,7 +2406,6 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
             *m_trace_stream << " #" << patterns[i]->get_id();
         }
         *m_trace_stream << " #" << body->get_id() << "\n";
-
     }
 
     return r;
@@ -2420,6 +2419,9 @@ quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sort
     sort* s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
     quantifier * new_node = new (mem) quantifier(num_decls, decl_sorts, decl_names, body, s);
     quantifier * r = register_node(new_node);
+    if (m_trace_stream && r == new_node) {
+        *m_trace_stream << "[mk-lambda] #" << r->get_id() << ": #" << body->get_id() << "\n";
+    }
     return r;
 }
 

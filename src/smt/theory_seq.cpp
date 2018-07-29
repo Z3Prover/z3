@@ -889,38 +889,35 @@ bool theory_seq::branch_quat_variable(eq const& e) {
     return true;
 }
 
-void theory_seq::len_offset(expr* const& e, rational val) {
+void theory_seq::len_offset(expr* e, rational val) {
     context & ctx = get_context();
     expr *l1 = nullptr, *l2 = nullptr, *l21 = nullptr, *l22 = nullptr;
     rational fact;
     if (m_autil.is_add(e, l1, l2) && m_autil.is_mul(l2, l21, l22) &&
-            m_autil.is_numeral(l21, fact) && fact.is_minus_one()) {
+        m_autil.is_numeral(l21, fact) && fact.is_minus_one()) {
         if (ctx.e_internalized(l1) && ctx.e_internalized(l22)) {
             enode* r1 = ctx.get_enode(l1)->get_root(), *n1 = r1;
             enode* r2 = ctx.get_enode(l22)->get_root(), *n2 = r2;
             expr *e1 = nullptr, *e2 = nullptr;
             do {
-                if (!m_util.str.is_length(n1->get_owner(), e1))
-                    n1 = n1->get_next();
-                else
+                if (m_util.str.is_length(n1->get_owner(), e1))
                     break;
+                n1 = n1->get_next();               
             }
             while (n1 != r1);
             do {
-                if (!m_util.str.is_length(n2->get_owner(), e2))
-                    n2 = n2->get_next();
-                else
+                if (m_util.str.is_length(n2->get_owner(), e2)) 
                     break;
+                n2 = n2->get_next();                
             }
             while (n2 != r2);
+            obj_map<enode, int> tmp;
             if (m_util.str.is_length(n1->get_owner(), e1)
-            && m_util.str.is_length(n2->get_owner(), e2)) {
-                obj_map<enode, int> tmp;
-                m_len_offset.find(r1, tmp);
+                && m_util.str.is_length(n2->get_owner(), e2) &&                
+                m_len_offset.find(r1, tmp)) {
                 tmp.insert(r2, val.get_int32());
                 m_len_offset.insert(r1, tmp);
-                TRACE("seq", tout << "a length pair: " << mk_pp(e1, m)
-                << ", " << mk_pp(e2, m) << "\n";);
+                TRACE("seq", tout << "a length pair: " << mk_pp(e1, m) << ", " << mk_pp(e2, m) << "\n";);
                 return;
             }
         }
@@ -1307,32 +1304,34 @@ bool theory_seq::len_based_split(eq const& e) {
             y12 = mk_concat(Z, y12);
         }
     }
-    else
-        lenY11 = m_util.str.mk_length(y11);
+	else {
+		lenY11 = m_util.str.mk_length(y11);
+	}
 
     dependency* dep = e.dep();
     literal_vector lits;
     literal lit1 = mk_eq(lenX11, lenY11, false);
+	if (ctx.get_assignment(lit1) != l_true) {
+		return false;
+	}
     lits.push_back(lit1);
 
-    if (ls.size()>=2 && rs.size()>=2 && (ls.size()>2 || rs.size()>2)) {
+    if (ls.size() >= 2 && rs.size() >= 2 && (ls.size() > 2 || rs.size() > 2)) {
         expr_ref len1(m_autil.mk_int(0),m), len2(m_autil.mk_int(0),m);
         for (unsigned i = 2; i < ls.size(); ++i)
             len1 = mk_add(len1, m_util.str.mk_length(ls[i]));
         for (unsigned i = 2; i < rs.size(); ++i)
             len2 = mk_add(len2, m_util.str.mk_length(rs[i]));
-        bool flag = false;
+		literal lit2;
         if (!m_autil.is_numeral(len1) && !m_autil.is_numeral(len2)) {
-            literal lit2 = mk_eq(len1, len2, false);
-            flag = ctx.get_assignment(lit2) == l_true;
+            lit2 = mk_eq(len1, len2, false);           
         }
         else {
             expr_ref eq_len(m.mk_eq(len1, len2), m);
-            flag = ctx.find_assignment(eq_len) == l_true;
+			lit2 = mk_literal(eq_len);            
         }
         
-        if (flag) {
-            literal lit2 = mk_eq(len1, len2, false);
+        if (ctx.get_assignment(lit2) == l_true) {           
             lits.push_back(lit2);
             TRACE("seq", tout << mk_pp(len1, m) << " = " << mk_pp(len2, m) << "\n";);
             expr_ref lhs(m), rhs(m);
@@ -5277,9 +5276,10 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
 
 void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     enode* n1 = get_enode(v1);
-    enode* n2 = get_enode(v2);
+    enode* n2 = get_enode(v2);    
     expr_ref e1(n1->get_owner(), m);
     expr_ref e2(n2->get_owner(), m);
+    SASSERT(n1->get_root() != n2->get_root());
     m_exclude.update(e1, e2);
     expr_ref eq(m.mk_eq(e1, e2), m);
     TRACE("seq", tout << "new disequality " << get_context().get_scope_level() << ": " << eq << "\n";);

@@ -678,8 +678,18 @@ namespace smt {
                 push_trail(set_merge_tf_trail(n));
             n->m_merge_tf = true;
             lbool val = get_assignment(v); 
-            if (val != l_undef)
-                push_eq(n, val == l_true ? m_true_enode : m_false_enode, eq_justification(literal(v, val == l_false)));
+            switch (val) {
+            case l_undef: 
+                break;
+            case l_true: 
+                if (n->get_root() != m_true_enode->get_root()) 
+                    push_eq(n, m_true_enode, eq_justification(literal(v, false))); 
+                break;
+            case l_false: 
+                if (n->get_root() != m_false_enode->get_root()) 
+                    push_eq(n, m_false_enode, eq_justification(literal(v, true))); 
+                break;
+            }
         }
     }
 

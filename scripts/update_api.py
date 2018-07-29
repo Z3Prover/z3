@@ -1665,6 +1665,7 @@ for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
 
 _all_dirs.extend(_default_dirs)
 
+_failures = []
 for d in _all_dirs:
   try:
     d = os.path.realpath(d)
@@ -1673,14 +1674,16 @@ for d in _all_dirs:
       if os.path.isfile(d):
         _lib = ctypes.CDLL(d)
         break
-  except:
+  except Exception as e:
+    _failures += [e]
     pass
 
 if _lib is None:
   # If all else failed, ask the system to find it.
   try:
     _lib = ctypes.CDLL('libz3.%s' % _ext)
-  except:
+  except Exception as e:
+    _failures += [e]
     pass
 
 if _lib is None:

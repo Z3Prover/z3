@@ -228,7 +228,6 @@ namespace smt {
     }
 
     void context::copy_plugins(context& src, context& dst) {
-
         // copy theory plugins
         for (theory* old_th : src.m_theory_set) {
             theory * new_th = old_th->mk_fresh(&dst);
@@ -236,8 +235,8 @@ namespace smt {
         }
     }
 
-    context * context::mk_fresh(symbol const * l, smt_params * p) {
-        context * new_ctx = alloc(context, m_manager, p == nullptr ? m_fparams : *p);
+    context * context::mk_fresh(symbol const * l, smt_params * p, params_ref const& pa) {
+        context * new_ctx = alloc(context, m_manager, p ? *p : m_fparams, pa);
         new_ctx->set_logic(l == nullptr ? m_setup.get_logic() : *l);
         copy_plugins(*this, *new_ctx);
         return new_ctx;
