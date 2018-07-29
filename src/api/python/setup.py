@@ -162,7 +162,7 @@ if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
         # linux_* platform tags are disallowed because the python ecosystem is fubar
         # linux builds should be built in the centos 5 vm for maximum compatibility
         # see https://github.com/pypa/manylinux
-        # see also https://github.com/angr/angr-dev/blob/master/bdist.sh
+        # see also https://github.com/angr/angr-dev/blob/master/admin/bdist.py
         sys.argv.insert(idx + 1, 'manylinux1_' + platform.machine())
     elif 'mingw' in name:
         if platform.architecture()[0] == '64bit':
