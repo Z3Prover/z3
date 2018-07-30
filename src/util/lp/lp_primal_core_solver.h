@@ -280,7 +280,8 @@ public:
         if (m_bland_mode_tableau)
             return find_beneficial_column_in_row_tableau_rows_bland_mode(i, a_ent);
         // a short row produces short infeasibility explanation and benefits at least one pivot operation
-        vector<const row_cell<T>*> choices;
+        int choice = -1;
+        int nchoices = 0;
         unsigned num_of_non_free_basics = 1000000;
         unsigned len = 100000000;
         unsigned bj = this->m_basis[i];
@@ -302,24 +303,23 @@ public:
             if (damage < num_of_non_free_basics) {
                 num_of_non_free_basics = damage;
                 len = this->m_A.m_columns[j].live_size();
-                choices.clear();
-                choices.push_back(&rc);
+                choice = k;
+                nchoices = 1;
             } else if (damage == num_of_non_free_basics &&
-                       this->m_A.m_columns[j].live_size() <= len && (this->m_settings.random_next() % 2)) {
-                choices.push_back(&rc);
+                       this->m_A.m_columns[j].live_size() <= len && (this->m_settings.random_next() % (++nchoices))) {
+                choice = k;
                 len = this->m_A.m_columns[j].live_size();
             }
         }
         
 
-         if (choices.size() == 0) {
+        if (choice == -1) {
             m_inf_row_index_for_tableau = i;
             return -1;
         }
-        const row_cell<T>* rc = choices.size() == 1? choices[0] :
-            choices[this->m_settings.random_next() % choices.size()];
-        a_ent = rc->coeff();
-        return rc->var();
+        const row_cell<T>& rc = this->m_A.m_rows[i].m_cells[choice];
+        a_ent = rc.coeff();
+        return rc.var();
     }
     static X positive_infinity() {
         return convert_struct<X, unsigned>::convert(std::numeric_limits<unsigned>::max());
