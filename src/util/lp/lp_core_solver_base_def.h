@@ -108,8 +108,6 @@ pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
         if (r.var() != j)
             m_d[r.var()] -= a * r.get_val();
     }
-ls
-
     a = zero_of_type<T>(); // zero the pivot column's m_d finally
 }
 

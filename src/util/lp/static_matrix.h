@@ -64,9 +64,6 @@ public:
     bool alive() const { return !dead(); }
     bool dead() const { return m_i == static_cast<unsigned>(-1); }
     void set_dead() { m_i = -1;}
-
-
-
 };
 
 template <typename T>
@@ -79,6 +76,7 @@ public:
     }
     row_cell(unsigned j, T const & val) : m_j(j), m_value(val) {
     }
+
     const T & get_val() const {
         lp_assert(alive());
         return m_value;
@@ -126,8 +124,6 @@ public:
     bool alive() const { return !dead(); }
     bool dead() const { return m_j == static_cast<unsigned>(-1); }
     void set_dead() { m_j = static_cast<unsigned>(-1); }
-
-
 };
 
 template <typename T>
@@ -255,10 +251,6 @@ public:
     unsigned cells_size() const {
         return m_cells.size();
     }
-
-    unsigned cells_size() const {
-        return m_cells.size();
-    }
     
     column_cell& back() { return m_cells.back(); }
     void delete_at(unsigned j) {
@@ -304,7 +296,7 @@ public:
         }
         m_cells.pop_back();
     }
-
+    bool is_correct() const {
         std::set<unsigned> d0;
         std::set<unsigned> d1;
         unsigned alive = 0;
@@ -341,38 +333,6 @@ public:
         lp_assert(is_correct());
     }
 
-    void swap_with_head_cell(unsigned i) {
-        lp_assert(i > 0);
-        lp_assert(m_cells[i].alive());
-        column_cell head_copy = m_cells[0];
-        if (head_copy.dead()) {
-            if (m_first_dead == 0) {
-                m_first_dead = i;
-            } else {
-                column_cell * c = &m_cells[m_first_dead];
-                for (; c->next_dead_index() != 0; c = &m_cells[c->next_dead_index()]);
-                lp_assert(c->next_dead_index() == 0);
-                c->next_dead_index() = i;
-            }
-        }
-        m_cells[0] = m_cells[i];
-        m_cells[i] = head_copy;
-        lp_assert(is_correct());
-    }
-
-    column_cell & add_cell(unsigned i, unsigned & index) {
-        if (m_first_dead != -1) {
-            auto & ret = m_cells[index = m_first_dead];
-            m_first_dead = ret.next_dead_index();
-            m_live_size++;
-            ret.var() = i;
-            return ret;
-        }
-        lp_assert(m_live_size == m_cells.size());
-        index = m_live_size++;
-        m_cells.push_back(column_cell(i));
-        return m_cells.back();
-    }
     column_cell & add_cell(unsigned i, unsigned & index) {
         if (m_first_dead != -1) {
             auto & ret = m_cells[index = m_first_dead];
