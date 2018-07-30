@@ -790,12 +790,10 @@ public:
     
     void compress_row_if_needed(unsigned i) {
         compress_cells(m_rows[i], m_columns);
-        lp_assert(is_correct());
     }
 
     void compress_column_if_needed(unsigned j) {
         compress_cells(m_columns[j], m_rows);
-        lp_assert(is_correct());
     }
     
     ref_row operator[](unsigned i) const { return ref_row(*this, i);}

@@ -621,7 +621,6 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 pivot_column_tableau(unsigned j, unsigned piv_row_index) {
-    lp_assert(m_A.is_correct());
     m_A.compress_row_if_needed(piv_row_index);
     if (!divide_row_by_pivot(piv_row_index, j))
         return false;

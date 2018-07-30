@@ -209,7 +209,6 @@ public:
 
 
     bool need_to_pivot_to_basis_tableau() const {
-        lp_assert(m_A.is_correct());
         unsigned m = m_A.row_count();
         for (unsigned i = 0; i < m; i++) {
             unsigned bj = m_basis[i];

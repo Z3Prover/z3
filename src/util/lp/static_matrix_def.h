@@ -44,7 +44,6 @@ template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offse
 
 
 template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, column_cell & c, unsigned pivot_col) {
-    lp_assert(is_correct());
     unsigned ii = c.var();
     lp_assert(i < row_count() && ii < column_count() && i != ii);
     T alpha = -get_val(c);
@@ -83,7 +82,6 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
         if (is_zero(c.coeff())) 
             remove_element(c);
     }
-    lp_assert(is_correct());
     return !rowii.empty();
 }
 
@@ -295,6 +293,8 @@ template <typename T, typename X>    T static_matrix<T, X>::get_row_balance(unsi
 }
 
 template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
+    if (m_rows.size() > 100 || m_columns.size() > 100)
+        return true;
     for (unsigned i = 0; i < m_rows.size(); i++) {
         auto &r = m_rows[i];
         std::unordered_set<unsigned> s;
