@@ -648,14 +648,6 @@ public:
         return true;
     }
 
-    int find_pivot_index_in_row(unsigned i, const vector<column_cell> & col) const {
-        for (const auto & c: col) {
-            if (c.m_i == i)
-                return c.m_offset;
-        }
-        return -1;
-    }
-
     void transpose_rows_tableau(unsigned i, unsigned ii);
     
     void pivot_to_reduced_costs_tableau(unsigned i, unsigned j);
