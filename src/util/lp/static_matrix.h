@@ -184,7 +184,7 @@ public:
             c.next_dead_index() = m_first_dead;
             m_first_dead = j;
         }
-        lp_assert(is_correct());
+        CASSERT("check_static_matrix", is_correct());
     }
 
     bool is_correct() const {
@@ -264,7 +264,7 @@ public:
             c.next_dead_index() = m_first_dead;
             m_first_dead = j;
         }
-        lp_assert(is_correct());
+        CASSERT("check_static_matrix", is_correct());
     }
     
     const column_cell& operator[] (unsigned i) const { return m_cells[i];}
@@ -330,7 +330,7 @@ public:
         }
         m_cells[0] = m_cells[i];
         m_cells[i] = head_copy;
-        lp_assert(is_correct());
+        CASSERT("check_static_matrix", is_correct());
     }
 
     column_cell & add_cell(unsigned i, unsigned & index) {
@@ -580,7 +580,7 @@ public:
                 m_columns.pop_back(); // delete the last column
             m_stack.pop();
         }
-        lp_assert(is_correct());
+        CASSERT("check_static_matrix", is_correct());
     }
 
     void multiply_row(unsigned row, T const & alpha) {

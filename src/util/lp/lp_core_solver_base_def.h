@@ -616,7 +616,7 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
         }
     }
     coeff = one_of_type<T>();
-    lp_assert(m_A.is_correct());
+    CASSERT("check_static_matrix", m_A.is_correct());
     return true;
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
@@ -639,7 +639,7 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
     if (pivot_col_cell_index != 0)
         m_A.swap_with_head_cell(j, pivot_col_cell_index);
 
-    lp_assert(m_A.is_correct());
+    CASSERT("check_static_matrix", m_A.is_correct());
     while (column.live_size() > 1) {
         auto & c = column.back();
         if (c.dead()) {
@@ -655,7 +655,7 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
     }
     m_A.compress_column_if_needed(j);
     lp_assert(column.live_size() == 1);
-    lp_assert(m_A.is_correct());
+    CASSERT("check_static_matrix", m_A.is_correct());
 
     if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs)
         pivot_to_reduced_costs_tableau(piv_row_index, j);

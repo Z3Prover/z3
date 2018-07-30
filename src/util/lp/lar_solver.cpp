@@ -1373,7 +1373,7 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
     lp_assert(A_r().m_columns[j].live_size() == 0);
     A_r().m_rows.pop_back();
     A_r().m_columns.pop_back();
-	lp_assert(A_r().is_correct());
+	CASSERT("check_static_matrix", A_r().is_correct());
     slv.m_b.pop_back();
 }
 

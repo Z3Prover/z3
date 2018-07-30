@@ -230,7 +230,7 @@ public:
     bool reduced_costs_are_correct_tableau() const {
         if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             return true;
-        lp_assert(m_A.is_correct());
+        CASSERT("check_static_matrix", m_A.is_correct());
         if (m_using_infeas_costs) {
             if (infeasibility_costs_are_correct() == false) {
                 return false;

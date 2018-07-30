@@ -293,8 +293,6 @@ template <typename T, typename X>    T static_matrix<T, X>::get_row_balance(unsi
 }
 
 template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
-    if (m_rows.size() > 100 || m_columns.size() > 100)
-        return true;
     for (unsigned i = 0; i < m_rows.size(); i++) {
         auto &r = m_rows[i];
         std::unordered_set<unsigned> s;
