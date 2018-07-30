@@ -186,7 +186,7 @@ public:
     void push() override {
         switch_inc_mode();
         m_solver1->push();
-        m_solver2->push();
+        m_solver2->push();        
     }
     
     void pop(unsigned n) override {
