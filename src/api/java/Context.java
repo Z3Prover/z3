@@ -2505,7 +2505,7 @@ public class Context implements AutoCloseable {
      * with the sorts of the bound variables, {@code names} is an array with the
      * 'names' of the bound variables, and {@code body} is the body of the
      * lambda. 
-     * Note that the bound variables are de-Bruijn indices created using {@see #MkBound}
+     * Note that the bound variables are de-Bruijn indices created using {@link #mkBound}
      * Z3 applies the convention that the last element in {@code names} and
      * {@code sorts} refers to the variable with index 0, the second to last element
      * of {@code names} and {@code sorts} refers to the variable
