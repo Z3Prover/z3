@@ -37,6 +37,7 @@ namespace smt {
         m_wpos.push_back(0);
         m_zero_one_bits.push_back(zero_one_bits());
         get_context().attach_th_var(n, this, r);
+        mk_bits(r);
         return r;
     }
 
@@ -162,14 +163,7 @@ namespace smt {
         if (v == null_theory_var) {
             v = mk_var(n);
         }
-        ensure_bits(v);
         return v;
-    }
-
-    void theory_bv::ensure_bits(theory_var v) {
-        if (m_bits[v].empty()) {
-            mk_bits(v);
-        }
     }
 
     enode * theory_bv::get_arg(enode * n, unsigned idx) {
@@ -190,7 +184,6 @@ namespace smt {
 
     void theory_bv::get_bits(theory_var v, expr_ref_vector & r) {
         context & ctx         = get_context();
-        ensure_bits(v);
         literal_vector & bits = m_bits[v];
         for (literal lit : bits) {
             expr_ref l(get_manager());
@@ -228,7 +221,6 @@ namespace smt {
        \brief v1[idx] = ~v2[idx], then v1 /= v2 is a theory axiom.
     */
     void theory_bv::mk_new_diseq_axiom(theory_var v1, theory_var v2, unsigned idx) {
-        ensure_bits(v1); ensure_bits(v2);
         SASSERT(m_bits[v1][idx] == ~m_bits[v2][idx]);
         TRACE("bv_diseq_axiom", tout << "found new diseq axiom\n"; display_var(tout, v1); display_var(tout, v2););
         // found new disequality
@@ -247,7 +239,6 @@ namespace smt {
     }
 
     void theory_bv::register_true_false_bit(theory_var v, unsigned idx) {
-        ensure_bits(v); 
         SASSERT(m_bits[v][idx] == true_literal || m_bits[v][idx] == false_literal);
         bool is_true = (m_bits[v][idx] == true_literal);
         zero_one_bits & bits = m_zero_one_bits[v];
@@ -258,13 +249,11 @@ namespace smt {
        \brief v[idx] = ~v'[idx], then v /= v' is a theory axiom.
     */
     void theory_bv::find_new_diseq_axioms(var_pos_occ * occs, theory_var v, unsigned idx) {
-        ensure_bits(v); 
         literal l = m_bits[v][idx];
         l.neg();
         while (occs) {
             theory_var v2   = occs->m_var;
             unsigned   idx2 = occs->m_idx;
-            ensure_bits(v2);
             if (idx == idx2 && m_bits[v2][idx2] == l && get_bv_size(v2) == get_bv_size(v)) 
                 mk_new_diseq_axiom(v, v2, idx);
             occs = occs->m_next;
@@ -276,7 +265,6 @@ namespace smt {
     */
     void theory_bv::add_bit(theory_var v, literal l) {
         context & ctx         = get_context();
-        ensure_bits(v); 
         literal_vector & bits = m_bits[v];
         unsigned idx          = bits.size();
         bits.push_back(l);
@@ -339,7 +327,6 @@ namespace smt {
     */
     void theory_bv::find_wpos(theory_var v) {
         context & ctx               = get_context();
-        ensure_bits(v); 
         literal_vector const & bits = m_bits[v];
         unsigned sz                 = bits.size();
         unsigned & wpos             = m_wpos[v];
@@ -446,7 +433,6 @@ namespace smt {
               tout << mk_pp(o1, m) << " = " << mk_pp(o2, m) << " " 
               << ctx.get_scope_level() << "\n";);
         literal_vector eqs;
-        ensure_bits(v1); ensure_bits(v2);
         for (unsigned i = 0; i < sz; ++i) {
             literal l1 = m_bits[v1][i];
             literal l2 = m_bits[v2][i];
@@ -856,7 +842,6 @@ namespace smt {
         unsigned start     = n->get_decl()->get_parameter(1).get_int();
         unsigned end       = n->get_decl()->get_parameter(0).get_int();
         SASSERT(start <= end);
-        ensure_bits(arg);
         literal_vector & arg_bits = m_bits[arg];
         m_bits[v].reset();
         for (unsigned i = start; i <= end; ++i)
@@ -1107,8 +1092,7 @@ namespace smt {
 
     void theory_bv::apply_sort_cnstr(enode * n, sort * s) {
         if (!is_attached_to_var(n) && !approximate_term(n->get_owner())) {
-            theory_var v = mk_var(n);
-            mk_bits(v);
+            mk_var(n);
         }
     }
     
@@ -1122,7 +1106,6 @@ namespace smt {
 
     void theory_bv::new_diseq_eh(theory_var v1, theory_var v2) {
         if (is_bv(v1)) {
-            ensure_bits(v1); ensure_bits(v2);
             SASSERT(m_bits[v1].size() == m_bits[v2].size());
             expand_diseq(v1, v2);
         }
@@ -1138,7 +1121,6 @@ namespace smt {
         literal_vector & lits = m_tmp_literals;
         lits.reset();
         lits.push_back(mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true));
-        ensure_bits(v1); ensure_bits(v2);
         literal_vector const & bits1        = m_bits[v1];
         literal_vector::const_iterator it1  = bits1.begin();
         literal_vector::const_iterator end1 = bits1.end();
@@ -1205,7 +1187,6 @@ namespace smt {
             if (m_wpos[v] == idx)
                 find_wpos(v);            
 
-            ensure_bits(v);
             literal_vector & bits = m_bits[v];
             literal bit           = bits[idx];
             lbool   val           = ctx.get_assignment(bit); 
@@ -1220,7 +1201,6 @@ namespace smt {
                 antecedent.neg();
             }
             while (v2 != v) {
-                ensure_bits(v2);
                 literal_vector & bits2   = m_bits[v2];
                 literal bit2             = bits2[idx];
                 SASSERT(bit != ~bit2);
@@ -1251,7 +1231,6 @@ namespace smt {
         m_stats.m_num_bit2core++;
         context & ctx = get_context();
         SASSERT(ctx.get_assignment(antecedent) == l_true);
-        ensure_bits(v2);
         SASSERT(m_bits[v2][idx].var() == consequent.var());
         SASSERT(consequent.var() != antecedent.var());
         TRACE("bv_bit_prop", tout << "assigning: "; ctx.display_literal(tout, consequent);
@@ -1322,7 +1301,6 @@ namespace smt {
             enode * e    = ctx.get_enode(n);
             theory_var v = e->get_th_var(get_id());
             if (v != null_theory_var) {
-                ensure_bits(v);
                 literal_vector & bits        = m_bits[v];
                 for (literal lit : bits) {
                     ctx.mark_as_relevant(lit);
@@ -1404,7 +1382,6 @@ namespace smt {
         }
         m_prop_queue.reset();
         context & ctx                 = get_context();
-        ensure_bits(v1); ensure_bits(v2);
         literal_vector & bits1        = m_bits[v1];
         literal_vector & bits2        = m_bits[v2];
         SASSERT(bits1.size() == bits2.size());
@@ -1491,7 +1468,6 @@ namespace smt {
             theory_var v1 = m_merge_aux[!zo.m_is_true][zo.m_idx];
             if (v1 != null_theory_var) {
                 // conflict was detected ... v1 and v2 have complementary bits
-                ensure_bits(v1); ensure_bits(v2);
                 SASSERT(m_bits[v1][zo.m_idx] == ~(m_bits[v2][zo.m_idx]));
                 SASSERT(m_bits[v1].size() == m_bits[v2].size());
                 mk_new_diseq_axiom(v1, v2, zo.m_idx);
@@ -1684,11 +1660,9 @@ namespace smt {
         }
 
         theory_var v2                 = v;
-        ensure_bits(v2);
         literal_vector const & bits2  = m_bits[v2];
         theory_var v1                 = v2;
         do {
-            ensure_bits(v1);
             literal_vector const & bits1   = m_bits[v1];
             SASSERT(bits1.size() == bits2.size());
             unsigned sz = bits1.size();
@@ -1729,7 +1703,6 @@ namespace smt {
             bits[1].resize(bv_sz, false);
             theory_var curr = v;
             do {
-                ensure_bits(curr);
                 literal_vector const & lits = m_bits[curr];
                 for (unsigned i = 0; i < lits.size(); i++) {
                     literal l = lits[i];
