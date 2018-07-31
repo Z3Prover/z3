@@ -266,17 +266,18 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     unsigned row_min_nz = this->m_n() + 1;
     m_leaving_candidates.clear();
     auto & col = this->m_A.m_columns[entering];
-    unsigned col_size = col.size();
+    unsigned col_size = col.cells_size();
     for (;k < col_size && unlimited; k++) {
         const column_cell & c = col[k];
-        unsigned i = c.m_i;
+        if (c.dead()) continue;
+        unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
         lp_assert(!numeric_traits<T>::is_zero(ed));
         unsigned j = this->m_basis[i];
         limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, t, unlimited);
         if (!unlimited) {
             m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_A.m_rows[i].size();
+            row_min_nz = this->m_A.m_rows[i].live_size();
         }
     }
     if (unlimited) {
@@ -288,14 +289,15 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     X ratio;
     for (;k < col_size; k++) {
         const column_cell & c = col[k];
-        unsigned i = c.m_i;
+        if (c.dead()) continue;
+        unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
          lp_assert(!numeric_traits<T>::is_zero(ed));
         unsigned j = this->m_basis[i];
         unlimited = true;
         limit_theta_on_basis_column(j, -ed * m_sign_of_entering_delta, ratio, unlimited);
         if (unlimited) continue;
-        unsigned i_nz = this->m_A.m_rows[i].size();
+        unsigned i_nz = this->m_A.m_rows[i].live_size();
         if (ratio < t) {
             t = ratio;
             m_leaving_candidates.clear();
@@ -304,7 +306,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         } else if (ratio == t && i_nz < row_min_nz) {
             m_leaving_candidates.clear();
             m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_A.m_rows[i].size();
+            row_min_nz = this->m_A.m_rows[i].live_size();
         } else if (ratio == t && i_nz == row_min_nz) {
             m_leaving_candidates.push_back(j);
         }
@@ -348,6 +350,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::
 update_basis_and_x_tableau(int entering, int leaving, X const & tt) {
     lp_assert(this->use_tableau());
+    lp_assert(entering != leaving);
     update_x_tableau(entering, tt);
     this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
     this->change_basis(entering, leaving);
@@ -358,7 +361,8 @@ update_x_tableau(unsigned entering, const X& delta) {
     this->add_delta_to_x_and_call_tracker(entering, delta);
     if (!this->m_using_infeas_costs) {
         for (const auto & c : this->m_A.m_columns[entering]) {
-            unsigned i = c.m_i;
+            if (c.dead()) continue;
+            unsigned i = c.var();
             this->update_x_with_delta_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
         }
     } else { // m_using_infeas_costs == true
@@ -366,7 +370,7 @@ update_x_tableau(unsigned entering, const X& delta) {
         lp_assert(this->m_costs[entering] == zero_of_type<T>());
         // m_d[entering] can change because of the cost change for basic columns.
         for (const auto & c : this->m_A.m_columns[entering]) {
-            unsigned i = c.m_i;
+            unsigned i = c.var();
             unsigned j = this->m_basis[i];
             this->add_delta_to_x_and_call_tracker(j, -delta * this->m_A.get_val(c));
             update_inf_cost_for_column_tableau(j);
@@ -407,7 +411,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_reduced
         else {
             T& d = this->m_d[j] = this->m_costs[j];
             for (auto & cc : this->m_A.m_columns[j]) {
-                d -= this->m_costs[this->m_basis[cc.m_i]] * this->m_A.get_val(cc);
+                d -= this->m_costs[this->m_basis[cc.var()]] * this->m_A.get_val(cc);
             }
         }
     }

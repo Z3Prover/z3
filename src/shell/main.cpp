@@ -295,7 +295,13 @@ void parse_cmd_line_args(int argc, char ** argv) {
 
 
 int STD_CALL main(int argc, char ** argv) {
-    try{
+#ifdef DUMP_ARGS
+     std::cout << "args are: ";
+     for (int i = 0; i < argc; i++)
+         std::cout << argv[i] <<" ";
+     std::cout << std::endl;
+#endif
+     try{
         unsigned return_value = 0;
         memory::initialize(0);
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");

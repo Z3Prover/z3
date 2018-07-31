@@ -226,8 +226,9 @@ void lar_core_solver::fill_not_improvable_zero_sum_from_inf_row() {
     unsigned bj = m_r_basis[m_r_solver.m_inf_row_index_for_tableau];
     m_infeasible_sum_sign =  m_r_solver.inf_sign_of_column(bj);
     m_infeasible_linear_combination.clear();
-    for (auto & rc : m_r_solver.m_A.m_rows[m_r_solver.m_inf_row_index_for_tableau]) {
-        m_infeasible_linear_combination.push_back(std::make_pair( rc.get_val(), rc.m_j));
+    for (auto & rc : m_r_solver.m_A.m_rows[m_r_solver.m_inf_row_index_for_tableau].m_cells) {
+        if (rc.dead()) continue;
+        m_infeasible_linear_combination.push_back(std::make_pair( rc.get_val(), rc.var()));
     }
 }
 

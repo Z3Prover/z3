@@ -209,12 +209,20 @@ public:
 
 
     bool need_to_pivot_to_basis_tableau() const {
-        lp_assert(m_A.is_correct());
         unsigned m = m_A.row_count();
         for (unsigned i = 0; i < m; i++) {
             unsigned bj = m_basis[i];
-            lp_assert(m_A.m_columns[bj].size() > 0);
-            if (m_A.m_columns[bj].size() > 1 || m_A.get_val(m_A.m_columns[bj][0]) != one_of_type<mpq>()) return true;
+            lp_assert(m_A.m_columns[bj].live_size() > 0);
+            if (m_A.m_columns[bj].live_size() > 1)
+                return true;
+            for (const auto & c : m_A.m_columns[bj]) {
+                if (c.dead())
+                    continue;
+                if (m_A.get_val(c) != one_of_type<mpq>())
+                    return true;
+                else
+                    break;
+            }
         }
         return false;
     }
@@ -222,7 +230,7 @@ public:
     bool reduced_costs_are_correct_tableau() const {
         if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             return true;
-        lp_assert(m_A.is_correct());
+        CASSERT("check_static_matrix", m_A.is_correct());
         if (m_using_infeas_costs) {
             if (infeasibility_costs_are_correct() == false) {
                 return false;
@@ -237,8 +245,9 @@ public:
                 }
             } else {
                 auto d = m_costs[j];
-                for (auto & cc : this->m_A.m_columns[j]) {
-                    d -= this->m_costs[this->m_basis[cc.m_i]] * this->m_A.get_val(cc);
+                for (const auto & cc : this->m_A.m_columns[j]) {
+                    if (cc.dead()) continue;
+                    d -= this->m_costs[this->m_basis[cc.var()]] * this->m_A.get_val(cc);
                 }
                 if (m_d[j] != d) {
                     return false;
@@ -636,14 +645,6 @@ public:
                 return false;
         }
         return true;
-    }
-
-    int find_pivot_index_in_row(unsigned i, const vector<column_cell> & col) const {
-        for (const auto & c: col) {
-            if (c.m_i == i)
-                return c.m_offset;
-        }
-        return -1;
     }
 
     void transpose_rows_tableau(unsigned i, unsigned ii);

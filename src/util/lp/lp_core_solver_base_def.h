@@ -103,10 +103,11 @@ pivot_to_reduced_costs_tableau(unsigned i, unsigned j) {
     T &a = m_d[j];
     if (is_zero(a))
         return;
-    for (const row_cell<T> & r: m_A.m_rows[i])
-        if (r.m_j != j)
-            m_d[r.m_j] -= a * r.get_val();
-
+    for (const row_cell<T> & r: m_A.m_rows[i]){
+        if (r.dead()) continue;
+        if (r.var() != j)
+            m_d[r.var()] -= a * r.get_val();
+    }
     a = zero_of_type<T>(); // zero the pivot column's m_d finally
 }
 
@@ -308,8 +309,9 @@ calculate_pivot_row_when_pivot_row_of_B1_is_ready(unsigned pivot_row) {
         if (numeric_traits<T>::is_zero(pi_1)) {
             continue;
         }
-        for (auto & c : m_A.m_rows[i]) {
-            unsigned j = c.m_j;
+        for (auto & c : m_A.m_rows[i].m_cells) {
+            if (c.dead()) continue;
+            unsigned j = c.var();
             if (m_basis_heading[j] < 0) {
                 m_pivot_row.add_value_at_index_with_drop_tolerance(j, c.get_val() * pi_1);
             }
@@ -331,7 +333,7 @@ update_x(unsigned entering, const X& delta) {
         }
     else 
         for (const auto & c : m_A.m_columns[entering]) {
-            unsigned i = c.m_i;
+            unsigned i = c.var();
             m_x[m_basis[i]] -= delta * m_A.get_val(c);
         }
 }
@@ -449,7 +451,7 @@ rs_minus_Anx(vector<X> & rs) {
     while (row--) {
         auto &rsv = rs[row] = m_b[row];
         for (auto & it : m_A.m_rows[row]) {
-            unsigned j = it.m_j;
+            unsigned j = it.var();
             if (m_basis_heading[j] < 0) {
                 rsv -= m_x[j] * it.get_val();
             }
@@ -589,9 +591,11 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
     lp_assert(numeric_traits<T>::precise());
     int pivot_index = -1;
     auto & row = m_A.m_rows[pivot_row];
-    unsigned size = row.size();
+    unsigned size = row.cells_size();
     for (unsigned j = 0; j < size; j++) {
-        if (row[j].m_j == pivot_col) {
+        auto & c = row[j];
+        if (c.dead()) continue;
+        if (c.var() == pivot_col) {
             pivot_index = static_cast<int>(j);
             break;
         }
@@ -599,26 +603,32 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
     if (pivot_index == -1)
         return false;
     auto & pivot_cell = row[pivot_index];
-    if (is_zero(pivot_cell.m_value)) 
+    T & coeff = pivot_cell.coeff();
+    if (is_zero(coeff)) 
         return false;
     
-    this->m_b[pivot_row] /= pivot_cell.m_value;
+    this->m_b[pivot_row] /= coeff;
     for (unsigned j = 0; j < size; j++) {
-        if (row[j].m_j != pivot_col) {
-            row[j].m_value /= pivot_cell.m_value;
+        auto & c = row[j];
+		if (c.dead()) continue;
+        if (c.var() != pivot_col) {
+            c.coeff() /= coeff;
         }
     }
-    pivot_cell.m_value = one_of_type<T>();
+    coeff = one_of_type<T>();
+    CASSERT("check_static_matrix", m_A.is_correct());
     return true;
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 pivot_column_tableau(unsigned j, unsigned piv_row_index) {
-	if (!divide_row_by_pivot(piv_row_index, j))
+    m_A.compress_row_if_needed(piv_row_index);
+    if (!divide_row_by_pivot(piv_row_index, j))
         return false;
     auto &column = m_A.m_columns[j];
     int pivot_col_cell_index = -1;
-    for (unsigned k = 0; k < column.size(); k++) {
-        if (column[k].m_i == piv_row_index) {
+    for (unsigned k = 0; k < column.cells_size(); k++) {
+        if (column[k].dead()) continue;
+        if (column[k].var() == piv_row_index) {
             pivot_col_cell_index = k;
             break;
         }
@@ -626,25 +636,26 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
     if (pivot_col_cell_index < 0)
         return false;
         
-    if (pivot_col_cell_index != 0) {
-        lp_assert(column.size() > 1);
-        // swap the pivot column cell with the head cell
-        auto c = column[0];
-        column[0]  = column[pivot_col_cell_index];
-        column[pivot_col_cell_index] = c;
+    if (pivot_col_cell_index != 0)
+        m_A.swap_with_head_cell(j, pivot_col_cell_index);
 
-        m_A.m_rows[piv_row_index][column[0].m_offset].m_offset = 0;
-        m_A.m_rows[c.m_i][c.m_offset].m_offset = pivot_col_cell_index;
-    }
-    while (column.size() > 1) {
+    CASSERT("check_static_matrix", m_A.is_correct());
+    while (column.live_size() > 1) {
         auto & c = column.back();
-        lp_assert(c.m_i != piv_row_index);
+        if (c.dead()) {
+            column.pop_last_dead_cell();
+            continue;
+        }
+        lp_assert(c.var() != piv_row_index);
         if(! m_A.pivot_row_to_row_given_cell(piv_row_index, c, j)) {
             return false;
         }
         if (m_pivoted_rows!= nullptr)
-            m_pivoted_rows->insert(c.m_i);
+            m_pivoted_rows->insert(c.var());
     }
+    m_A.compress_column_if_needed(j);
+    lp_assert(column.live_size() == 1);
+    CASSERT("check_static_matrix", m_A.is_correct());
 
     if (m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs)
         pivot_to_reduced_costs_tableau(piv_row_index, j);
@@ -758,10 +769,11 @@ fill_reduced_costs_from_m_y_by_rows() {
     while (i--) {
         const T & y = m_y[i];
         if (is_zero(y)) continue;
-        for (row_cell<T> & it : m_A.m_rows[i]) {
-            j = it.m_j;
+        for (row_cell<T> & c : m_A.m_rows[i].m_cells) {
+            if (c.dead()) continue;
+            j = c.var();
             if (m_basis_heading[j] < 0) {
-                m_d[j] -= y * it.get_val();
+                m_d[j] -= y * c.get_val();
             }
         }
     }
@@ -802,7 +814,7 @@ find_error_in_BxB(vector<X>& rs){
     while (row--) {
         auto &rsv = rs[row];
         for (auto & it : m_A.m_rows[row]) {
-            unsigned j = it.m_j;
+            unsigned j = it.var();
             if (m_basis_heading[j] >= 0) {
                 rsv -= m_x[j] * it.get_val();
             }
@@ -957,7 +969,8 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         if (get_column_type(basic_j) != column_type::fixed) continue;
         T a;
         unsigned j;
-        for (auto &c : m_A.m_rows[i]) {
+        for (auto &c : m_A.m_rows[i].m_cells) {
+            if (c.dead()) continue;
             j = c.var();
             if (j == basic_j)
                 continue;
@@ -972,7 +985,8 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
 template <typename T, typename X> bool lp_core_solver_base<T, X>::remove_from_basis(unsigned basic_j) {
     indexed_vector<T> w(m_basis.size()); // the buffer
     unsigned i = m_basis_heading[basic_j];
-    for (auto &c : m_A.m_rows[i]) {
+    for (auto &c : m_A.m_rows[i].m_cells) {
+        if (c.dead()) continue;
         if (c.var() == basic_j)
             continue;
         if (pivot_column_general(c.var(), basic_j, w))
@@ -1043,8 +1057,8 @@ void lp_core_solver_base<T, X>::calculate_pivot_row(unsigned i) {
     if (m_settings.use_tableau()) {
         unsigned basic_j = m_basis[i];
         for (auto & c : m_A.m_rows[i]) {
-            if (c.m_j != basic_j)
-                m_pivot_row.set_value(c.get_val(), c.m_j);
+            if (c.var() != basic_j)
+                m_pivot_row.set_value(c.get_val(), c.var());
         }
         return;
     }

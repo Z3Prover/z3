@@ -317,7 +317,6 @@ class hnf {
     }
 
     void handle_column_ij_in_row_i(unsigned i, unsigned j) {
-        lp_assert(is_correct_modulo());
         const mpq& aii = m_H[i][i];
         const mpq& aij = m_H[i][j];
         mpq p,q,r;
@@ -342,7 +341,7 @@ class hnf {
         // from the left
         
         multiply_U_reverse_from_left_by(i, j, aii_over_r, aij_over_r, -q, p);
-        lp_assert(is_correct_modulo());
+        CASSERT("hnf_test", is_correct_modulo());
     }
     
 
@@ -402,8 +401,6 @@ class hnf {
     }
     
     void process_row(unsigned i) {
-
-        lp_assert(is_correct_modulo());
         for (unsigned j = i + 1; j < m_n; j++) {
             process_row_column(i, j);
         }
@@ -414,7 +411,7 @@ class hnf {
         if (is_neg(m_H[i][i]))
             switch_sign_for_column(i);
         work_on_columns_less_than_i_in_the_triangle(i);
-        lp_assert(is_correct_modulo());
+        CASSERT("hnf_test", is_correct_modulo());
     }
 
     void calculate() {
@@ -604,7 +601,7 @@ public:
 #ifdef Z3DEBUG
         prepare_U_and_U_reverse();
         calculate();
-        lp_assert(is_correct_final());
+        CASSERT("hnf_test", is_correct_final());
 #endif
         calculate_by_modulo();
 #ifdef Z3DEBUG

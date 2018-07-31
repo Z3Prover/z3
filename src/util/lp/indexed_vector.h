@@ -172,6 +172,7 @@ public:
         }
         unsigned var() const { return m_var;}
         const T & coeff() const { return m_coeff; }
+        bool dead() const { return false; }
     };
     
     struct const_iterator {
