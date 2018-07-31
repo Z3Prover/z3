@@ -122,9 +122,11 @@ void tactic2solver::assert_expr_core(expr * t) {
 void tactic2solver::push_core() {
     m_scopes.push_back(m_assertions.size());
     m_result = nullptr;
+    TRACE("pop", tout << m_scopes.size() << "\n";);
 }
 
 void tactic2solver::pop_core(unsigned n) {
+    TRACE("pop", tout << m_scopes.size() << " " << n << "\n";);
     n = std::min(m_scopes.size(), n);
     unsigned new_lvl = m_scopes.size() - n;
     unsigned old_sz  = m_scopes[new_lvl];
