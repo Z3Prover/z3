@@ -37,7 +37,6 @@ namespace smt {
         m_wpos.push_back(0);
         m_zero_one_bits.push_back(zero_one_bits());
         get_context().attach_th_var(n, this, r);
-        mk_bits(r);
         return r;
     }
 
@@ -162,6 +161,7 @@ namespace smt {
         theory_var v = n->get_th_var(get_id());
         if (v == null_theory_var) {
             v = mk_var(n);
+            mk_bits(v);
         }
         return v;
     }
@@ -1092,7 +1092,7 @@ namespace smt {
 
     void theory_bv::apply_sort_cnstr(enode * n, sort * s) {
         if (!is_attached_to_var(n) && !approximate_term(n->get_owner())) {
-            mk_var(n);
+            mk_bits(mk_var(n));
         }
     }
     
