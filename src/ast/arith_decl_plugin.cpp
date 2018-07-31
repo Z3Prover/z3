@@ -549,7 +549,8 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("*",OP_MUL));
     op_names.push_back(builtin_name("/",OP_DIV));
     op_names.push_back(builtin_name("div",OP_IDIV));
-    op_names.push_back(builtin_name("divides",OP_IDIVIDES));
+    // clashes with user-defined functions
+    // op_names.push_back(builtin_name("divides",OP_IDIVIDES));
     op_names.push_back(builtin_name("rem",OP_REM));
     op_names.push_back(builtin_name("mod",OP_MOD));
     op_names.push_back(builtin_name("to_real",OP_TO_REAL));
