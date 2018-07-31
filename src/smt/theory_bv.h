@@ -141,6 +141,7 @@ namespace smt {
 
         bool is_numeral(theory_var v) const { return m_util.is_numeral(get_enode(v)->get_owner()); }
         app * mk_bit2bool(app * bv, unsigned idx);
+        void ensure_bits(theory_var v);
         void mk_bits(theory_var v);
         friend class mk_atom_trail;
         void mk_bit2bool(app * n);
@@ -266,9 +267,9 @@ namespace smt {
 
 
 #ifdef Z3DEBUG
-        bool check_assignment(theory_var v) const;
-        bool check_invariant() const;
-        bool check_zero_one_bits(theory_var v) const;
+        bool check_assignment(theory_var v);
+        bool check_invariant();
+        bool check_zero_one_bits(theory_var v);
 #endif
     };
 };
