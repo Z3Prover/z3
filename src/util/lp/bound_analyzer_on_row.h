@@ -59,8 +59,6 @@ public :
     unsigned j;
     void analyze() {
         for (const auto & c : m_row) {
-            if (c.dead())
-                continue;
             if ((m_column_of_l == -2) && (m_column_of_u == -2))
                 break;
             analyze_bound_on_var_on_coeff(c.var(), c.coeff());
@@ -170,7 +168,6 @@ public :
         mpq total;
         lp_assert(is_zero(total));
         for (const auto& p : m_row) {
-            if (p.dead()) continue;
             bool str;
             total -= monoid_min(p.coeff(), p.var(), str);
             if (str)
@@ -179,7 +176,6 @@ public :
 
         
         for (const auto &p : m_row) {
-            if (p.dead()) continue;
             bool str;
             bool a_is_pos = is_pos(p.coeff());
             mpq bound = total / p.coeff() + monoid_min_no_mult(a_is_pos, p.var(), str);
@@ -197,7 +193,6 @@ public :
         mpq total;
         lp_assert(is_zero(total));
         for (const auto &p : m_row) {
-            if (p.dead()) continue;
             bool str;
             total -= monoid_max(p.coeff(), p.var(), str);
             if (str)
@@ -205,7 +200,6 @@ public :
         }
 
         for (const auto& p : m_row) {
-            if (p.dead()) continue;
             bool str;
             bool a_is_pos = is_pos(p.coeff());
             mpq bound = total / p.coeff() + monoid_max_no_mult(a_is_pos, p.var(), str);
@@ -228,7 +222,6 @@ public :
         mpq bound = -m_rs.x;
         bool strict = false;
         for (const auto& p : m_row) {
-            if (p.dead()) continue;
             j = p.var();
             if (j == static_cast<unsigned>(m_column_of_u)) {
                 u_coeff = p.coeff();
@@ -258,7 +251,6 @@ public :
         mpq bound = -m_rs.x;
         bool strict = false;
         for (const auto &p : m_row) {
-            if (p.dead()) continue;
             j = p.var();
             if (j == static_cast<unsigned>(m_column_of_l)) {
                 l_coeff = p.coeff();
