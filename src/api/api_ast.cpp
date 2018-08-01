@@ -895,7 +895,7 @@ extern "C" {
         RESET_ERROR_CODE();
         func_decl* _d = to_func_decl(d);
 
-        if (null_family_id == _d->get_family_id()) {
+        if (d == nullptr || null_family_id == _d->get_family_id()) {
             return Z3_OP_UNINTERPRETED;
         }
         if (mk_c(c)->get_basic_fid() == _d->get_family_id()) {

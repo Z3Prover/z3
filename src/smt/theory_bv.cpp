@@ -850,6 +850,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_term(app * term) {
+        try {
         SASSERT(term->get_family_id() == get_family_id());
         TRACE("bv", tout << "internalizing term: " << mk_bounded_pp(term, get_manager()) << "\n";);
         if (approximate_term(term)) {
@@ -906,6 +907,11 @@ namespace smt {
             TRACE("bv_op", tout << "unsupported operator: " << mk_ll_pp(term, get_manager()) << "\n";);
             UNREACHABLE();
             return false;
+        }
+        }
+        catch (z3_exception& ex) {
+            IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+            throw;
         }
     }
 
