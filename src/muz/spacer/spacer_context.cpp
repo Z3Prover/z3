@@ -1344,6 +1344,14 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
 
     expr_ref_vector post (m), reach_assumps (m);
     post.push_back (n.post ());
+    flatten_and(post);
+
+    // if equality propagation is disabled in arithmetic, expand
+    // equality literals into two inequalities to increase the space
+    // for interpolation
+    if (!ctx.use_eq_prop()) {
+        expand_literals(m, post);
+    }
 
     // populate reach_assumps
     if (n.level () > 0 && !m_all_init) {

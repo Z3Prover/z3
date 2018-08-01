@@ -1027,11 +1027,12 @@ public:
 
 
     const fp_params &get_params() const { return m_params; }
-    bool use_native_mbp () {return m_use_native_mbp;}
-    bool use_ground_pob () {return m_ground_pob;}
-    bool use_instantiate () {return m_instantiate;}
+    bool use_eq_prop() {return m_use_eq_prop;}
+    bool use_native_mbp() {return m_use_native_mbp;}
+    bool use_ground_pob() {return m_ground_pob;}
+    bool use_instantiate() {return m_instantiate;}
     bool weak_abs() {return m_weak_abs;}
-    bool use_qlemmas () {return m_use_qlemmas;}
+    bool use_qlemmas() {return m_use_qlemmas;}
     bool use_euf_gen() {return m_use_euf_gen;}
     bool simplify_pob() {return m_simplify_pob;}
     bool use_ctp() {return m_use_ctp;}
