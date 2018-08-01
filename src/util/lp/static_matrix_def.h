@@ -139,7 +139,7 @@ template <typename T, typename X> void static_matrix<T, X>::remove_last_column(u
         auto & row = m_rows[it.var()];
         unsigned offset = row.size() - 1;
         for (auto row_it = row.rbegin(); row_it != row.rend(); row_it ++) {
-            if (row_it-.var() == j) {
+            if (row_it.var() == j) {
                 row.erase(row.begin() + offset);
                 break;
             }
