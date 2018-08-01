@@ -870,10 +870,10 @@ void lar_solver::fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A,
     for (auto & t : ls->m_coeffs) {
         lp_assert(!is_zero(t.second));
         var_index j = t.first;
-        A.add_new_element(last_row, j, - t.second);
+        A.set(last_row, j, - t.second);
     }
     unsigned basis_j = A.column_count() - 1;
-    A.add_new_element(last_row, basis_j, mpq(1));
+    A.set(last_row, basis_j, mpq(1));
 }
 
 template <typename U, typename V>
@@ -895,7 +895,7 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     matr.m_columns.resize(A_r().column_count());
     for (unsigned i = 0; i < matr.row_count(); i++) {
         for (auto & it : A_r().m_rows[i]) {
-            matr.add_new_element(i, it.var(),  convert_struct<U, mpq>::convert(it.get_val()));
+            matr.set(i, it.var(),  convert_struct<U, mpq>::convert(it.get_val()));
         }
     }
 }
@@ -1840,11 +1840,11 @@ void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const l
     for (auto & t : ls->m_coeffs) {
         lp_assert(!is_zero(t.second));
         var_index j = t.first;
-        A.add_new_element(last_row, j, -t.second.get_double());
+        A.set(last_row, j, -t.second.get_double());
     }
 
     unsigned basis_j = A.column_count() - 1;
-    A.add_new_element(last_row, basis_j, -1);
+    A.set(last_row, basis_j, -1);
     lp_assert(A.is_correct());
 }
 
