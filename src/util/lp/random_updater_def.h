@@ -83,8 +83,7 @@ void random_updater::add_column_to_sets(unsigned j) {
         add_value(m_lar_solver.get_core_solver().m_r_x[j]);
     } else {
         unsigned row = m_lar_solver.get_core_solver().m_r_heading[j];
-        for (auto & row_c : m_lar_solver.get_core_solver().m_r_A.m_rows[row].m_cells) {
-            if (row_c.dead()) continue;
+        for (auto & row_c : m_lar_solver.get_core_solver().m_r_A.m_rows[row]) {
             unsigned cj = row_c.var();
             if (m_lar_solver.get_core_solver().m_r_heading[cj] < 0) {
                 m_var_set.insert(cj);

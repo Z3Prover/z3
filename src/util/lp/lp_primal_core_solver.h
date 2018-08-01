@@ -240,7 +240,6 @@ public:
     unsigned get_number_of_basic_vars_that_might_become_inf(unsigned j) const { // consider looking at the signs here: todo
         unsigned r = 0;
         for (const auto & cc : this->m_A.m_columns[j]) {
-            if (cc.dead()) continue;
             unsigned k = this->m_basis[cc.var()];
             if (this->m_column_types[k] != column_type::free_column)
                 r++;
@@ -254,7 +253,6 @@ public:
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
         for (const row_cell<T>& rc : this->m_A.m_rows[i]) {
-            if (rc.dead()) continue;
             if (rc.var() == bj)
                 continue;
             if (bj_needs_to_grow) {
@@ -286,9 +284,8 @@ public:
         unsigned len = 100000000;
         unsigned bj = this->m_basis[i];
         bool bj_needs_to_grow = needs_to_grow(bj);
-        for (unsigned k = 0; k < this->m_A.m_rows[i].m_cells.size(); k++) {
-            const row_cell<T>& rc = this->m_A.m_rows[i].m_cells[k];
-            if (rc.dead()) continue;
+        for (unsigned k = 0; k < this->m_A.m_rows[i].size(); k++) {
+            const row_cell<T>& rc = this->m_A.m_rows[i][k];
             unsigned j = rc.var();
             if (j == bj)
                 continue;
@@ -302,13 +299,13 @@ public:
             unsigned damage = get_number_of_basic_vars_that_might_become_inf(j);
             if (damage < num_of_non_free_basics) {
                 num_of_non_free_basics = damage;
-                len = this->m_A.m_columns[j].live_size();
+                len = this->m_A.m_columns[j].size();
                 choice = k;
                 nchoices = 1;
             } else if (damage == num_of_non_free_basics &&
-                       this->m_A.m_columns[j].live_size() <= len && (this->m_settings.random_next() % (++nchoices))) {
+                       this->m_A.m_columns[j].size() <= len && (this->m_settings.random_next() % (++nchoices))) {
                 choice = k;
-                len = this->m_A.m_columns[j].live_size();
+                len = this->m_A.m_columns[j].size();
             }
         }
         
@@ -317,7 +314,7 @@ public:
             m_inf_row_index_for_tableau = i;
             return -1;
         }
-        const row_cell<T>& rc = this->m_A.m_rows[i].m_cells[choice];
+        const row_cell<T>& rc = this->m_A.m_rows[i][choice];
         a_ent = rc.coeff();
         return rc.var();
     }
@@ -830,11 +827,11 @@ public:
         this->m_rows_nz.resize(this->m_A.row_count());
         for (unsigned i = 0; i < this->m_A.column_count(); i++) {
             if (this->m_columns_nz[i] == 0)
-                this->m_columns_nz[i] = this->m_A.m_columns[i].live_size();
+                this->m_columns_nz[i] = this->m_A.m_columns[i].size();
         }
         for (unsigned i = 0; i < this->m_A.row_count(); i++) {
          if (this->m_rows_nz[i] == 0)
-            this->m_rows_nz[i] = this->m_A.m_rows[i].live_size();
+            this->m_rows_nz[i] = this->m_A.m_rows[i].size();
         }
     }
     
@@ -864,7 +861,7 @@ public:
     unsigned solve_with_tableau();
 
     bool basis_column_is_set_correctly(unsigned j) const {
-        return this->m_A.m_columns[j].live_size() == 1;
+        return this->m_A.m_columns[j].size() == 1;
             
     }
     
@@ -884,7 +881,6 @@ public:
         lp_assert(this->m_basis_heading[j] >= 0);
         unsigned i = static_cast<unsigned>(this->m_basis_heading[j]);
         for (const row_cell<T> & rc : this->m_A.m_rows[i]) {
-            if (rc.dead()) continue;
             unsigned k = rc.var();
             if (k == j)
                 continue;
