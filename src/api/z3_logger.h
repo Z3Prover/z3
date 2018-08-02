@@ -42,6 +42,7 @@ static void __declspec(noinline) Sy(Z3_symbol sym) {
 }
 static void __declspec(noinline) Ap(unsigned sz) { *g_z3_log << "p " << sz << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) Au(unsigned sz) { *g_z3_log << "u " << sz << "\n"; g_z3_log->flush(); }
+static void __declspec(noinline) Ai(unsigned sz) { *g_z3_log << "i " << sz << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) Asy(unsigned sz) { *g_z3_log << "s " << sz << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) C(unsigned id)   { *g_z3_log << "C " << id << "\n"; g_z3_log->flush(); }
 void __declspec(noinline) _Z3_append_log(char const * msg) { *g_z3_log << "M \"" << ll_escaped(msg) << "\"\n"; g_z3_log->flush(); }

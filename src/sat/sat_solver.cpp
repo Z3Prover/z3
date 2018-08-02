@@ -1552,12 +1552,15 @@ namespace sat {
     void solver::reinit_assumptions() {
         if (tracking_assumptions() && at_base_lvl() && !inconsistent()) {
             TRACE("sat", tout << m_assumptions << "\n";);
+            if (!propagate(false)) return;
             push();
-            for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
-                assign(~m_user_scope_literals[i], justification());
+            for (literal lit : m_user_scope_literals) {
+                if (inconsistent()) break;
+                assign(~lit, justification());
             }
-            for (unsigned i = 0; !inconsistent() && i < m_assumptions.size(); ++i) {
-                assign(m_assumptions[i], justification());
+            for (literal lit : m_assumptions) {
+                if (inconsistent()) break;
+                assign(lit, justification());
             }
             TRACE("sat",
                   for (literal a : m_assumptions) {
@@ -2934,7 +2937,7 @@ namespace sat {
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
-                fill_ext_antecedents(m_lemma[i], js);
+                fill_ext_antecedents(~m_lemma[i], js);
                 for (literal l : m_ext_antecedents) {
                     update_lrb_reasoned(l);
                 }
