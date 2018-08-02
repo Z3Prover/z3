@@ -1976,7 +1976,7 @@ namespace sat {
             for (unsigned i = 0; !found && i < c.k(); ++i) {
                 found = c[i] == l;
             }
-            CTRACE("ba",!found, tout << l << ": " << c << "\n";);
+            CTRACE("ba",!found, s().display(tout << l << ":" << c << "\n"););
             SASSERT(found););
         
         // IF_VERBOSE(0, if (_debug_conflict) verbose_stream() << "ante " << l << " " << c << "\n");

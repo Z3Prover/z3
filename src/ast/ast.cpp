@@ -1403,6 +1403,7 @@ void ast_manager::init() {
     inc_ref(m_false);
 }
 
+
 template<typename T>
 static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
     for(unsigned i = 0; i < sz; i++) {

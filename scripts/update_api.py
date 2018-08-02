@@ -311,7 +311,7 @@ def display_args_to_z3(params):
             core_py.write("a%s" % i)
         i = i + 1
 
-NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
+NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
 def mk_py_wrappers():
@@ -955,9 +955,9 @@ def def_API(name, result, params):
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
             elif ty == INT:
-                log_c.write("U(a%s[i]);" % i)
+                log_c.write("I(a%s[i]);" % i)
                 log_c.write(" }\n")
-                log_c.write("  Au(a%s);\n" % sz)
+                log_c.write("  Ai(a%s);\n" % sz)
                 exe_c.write("in.get_int_array(%s)" % i)
             elif ty == BOOL:
                 log_c.write("U(a%s[i]);" % i)
