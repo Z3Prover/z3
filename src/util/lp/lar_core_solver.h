@@ -583,7 +583,7 @@ public:
         if (!m_r_solver.m_settings.use_tableau())
             return true;
         for (unsigned j : m_r_solver.m_basis) {
-            lp_assert(m_r_solver.m_A.m_columns[j].live_size() == 1);
+            lp_assert(m_r_solver.m_A.m_columns[j].size() == 1);
         }
         for (unsigned j =0; j < m_r_solver.m_basis_heading.size(); j++) {
             if (m_r_solver.m_basis_heading[j] >= 0) continue;
@@ -632,8 +632,7 @@ public:
     void create_double_matrix(static_matrix<double, double> & A) {
         for (unsigned i = 0; i < m_r_A.row_count(); i++) {
             auto & row = m_r_A.m_rows[i];
-            for (row_cell<mpq> & c : row.m_cells) {
-                if (c.dead()) continue;
+            for (row_cell<mpq> & c : row) {
                 A.add_new_element(i, c.var(), c.get_val().get_double());
             }
         }

@@ -2541,7 +2541,7 @@ void read_row_cols(unsigned i, static_matrix<double, double>& A, std::ifstream &
         lp_assert(r.size() == 4);
         unsigned j = atoi(r[1].c_str());
         double v = atof(r[3].c_str());
-        A.add_new_element(i, j, v);
+        A.set(i, j, v);
     } while (true);
 }
 

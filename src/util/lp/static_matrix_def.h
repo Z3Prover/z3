@@ -36,10 +36,8 @@ void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
 
 
 template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offset_vector(const row_strip<T> & rvals) {
-	for (unsigned j = 0; j < rvals.cells_size(); j++) {
-		if (rvals[j].dead()) continue;
-		m_vector_of_row_offsets[rvals[j].var()] = j;
-	}
+    for (unsigned j = 0; j < rvals.size(); j++)
+        m_vector_of_row_offsets[rvals[j].var()] = j;
 }
 
 
@@ -48,39 +46,33 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
     lp_assert(i < row_count() && ii < column_count() && i != ii);
     T alpha = -get_val(c);
     lp_assert(!is_zero(alpha));
-    compress_row_if_needed(ii);
     auto & rowii = m_rows[ii];
-    remove_element(rowii[c.offset()]);
+    remove_element(rowii, rowii[c.m_offset]);
     scan_row_ii_to_offset_vector(rowii);
-    unsigned prev_size_ii = rowii.cells_size();
+    unsigned prev_size_ii = rowii.size();
     // run over the pivot row and update row ii
-    for (const auto & iv : m_rows[i].m_cells) {
-        if (iv.dead()) continue;
+    for (const auto & iv : m_rows[i]) {
         unsigned j = iv.var();
         if (j == pivot_col) continue;
-        lp_assert(!is_zero(iv.coeff()));
-        T alv = alpha * iv.coeff();
+        T alv = alpha * iv.m_value;
+        lp_assert(!is_zero(iv.m_value));
         int j_offs = m_vector_of_row_offsets[j];
         if (j_offs == -1) { // it is a new element
             add_new_element(ii, j, alv);
         }
         else {
-            rowii[j_offs].coeff() += alv;
+            rowii[j_offs].m_value += alv;
         }
     }
     // clean the work vector
     for (unsigned k = 0; k < prev_size_ii; k++) {
-        auto & c = rowii[k];
-        if (c.dead()) continue;
-        m_vector_of_row_offsets[c.var()] = -1;
+        m_vector_of_row_offsets[rowii[k].var()] = -1;
     }
+
     // remove zeroes
-    for (unsigned k = rowii.cells_size(); k-- > 0;  ) {
-        auto & c = rowii[k];
-        if (c.dead())
-            continue;
-        if (is_zero(c.coeff())) 
-            remove_element(c);
+    for (unsigned k = rowii.size(); k-- > 0;  ) {
+        if (is_zero(rowii[k].m_value)) 
+            remove_element(rowii, rowii[k]);
     }
     return !rowii.empty();
 }
@@ -115,12 +107,12 @@ template <typename T, typename X>    void static_matrix<T, X>::init_empty_matrix
     init_row_columns(m, n);
 }
 
-template <typename T, typename X> unsigned static_matrix<T, X>::lowest_row_in_column(unsigned col) {
+template <typename T, typename X>    unsigned static_matrix<T, X>::lowest_row_in_column(unsigned col) {
+    lp_assert(col < column_count());
     column_strip & colstrip = m_columns[col];
-    lp_assert(colstrip.live_size() > 0);
+    lp_assert(colstrip.size() > 0);
     unsigned ret = 0;
-    for (const auto & t : colstrip) {
-        if (t.dead()) continue;
+    for (auto & t : colstrip) {
         if (t.var() > ret) {
             ret = t.var();
         }
@@ -147,7 +139,7 @@ template <typename T, typename X> void static_matrix<T, X>::remove_last_column(u
         auto & row = m_rows[it.var()];
         unsigned offset = row.size() - 1;
         for (auto row_it = row.rbegin(); row_it != row.rend(); row_it ++) {
-            if (row_it->var() == j) {
+            if (row_it.var() == j) {
                 row.erase(row.begin() + offset);
                 break;
             }
@@ -156,6 +148,18 @@ template <typename T, typename X> void static_matrix<T, X>::remove_last_column(u
     }
     m_columns.pop_back();
     m_vector_of_row_offsets.pop_back();
+}
+
+
+
+
+template <typename T, typename X>    void static_matrix<T, X>::set(unsigned row, unsigned col, T const & val) {
+    if (numeric_traits<T>::is_zero(val)) return;
+    lp_assert(row < row_count() && col < column_count());
+    auto & r = m_rows[row];
+    unsigned offs_in_cols = static_cast<unsigned>(m_columns[col].size());
+    m_columns[col].push_back(make_column_cell(row, static_cast<unsigned>(r.size())));
+    r.push_back(make_row_cell(col, offs_in_cols, val));
 }
 
 template <typename T, typename X>
@@ -262,9 +266,50 @@ template <typename T, typename X>    void static_matrix<T, X>::check_consistency
 }
 #endif
 
+
+template <typename T, typename X>    void static_matrix<T, X>::cross_out_row(unsigned k) {
+#ifdef Z3DEBUG
+    check_consistency();
+#endif
+    cross_out_row_from_columns(k, m_rows[k]);
+    fix_row_indices_in_each_column_for_crossed_row(k);
+    m_rows.erase(m_rows.begin() + k);
+#ifdef Z3DEBUG
+    regen_domain();
+    check_consistency();
+#endif
+}
+
+
+template <typename T, typename X>    void static_matrix<T, X>::fix_row_indices_in_each_column_for_crossed_row(unsigned k) {
+    for (unsigned j = 0; j < m_columns.size(); j++) {
+        auto & col = m_columns[j];
+        for (int i = 0; i < col.size(); i++) {
+            if (col[i].var() > k) {
+                col[i].var()--;
+            }
+        }
+    }
+}
+
+template <typename T, typename X>    void static_matrix<T, X>::cross_out_row_from_columns(unsigned k, row_strip<T> & row) {
+    for (auto & t : row) {
+        cross_out_row_from_column(t.var(), k);
+    }
+}
+
+template <typename T, typename X>    void static_matrix<T, X>::cross_out_row_from_column(unsigned col, unsigned k) {
+    auto & s = m_columns[col];
+    for (unsigned i = 0; i < s.size(); i++) {
+        if (s[i].var() == k) {
+            s.erase(s.begin() + i);
+            break;
+        }
+    }
+}
+
 template <typename T, typename X>    T static_matrix<T, X>::get_elem(unsigned i, unsigned j) const { // should not be used in efficient code !!!!
     for (auto & t : m_rows[i]) {
-        if (t.dead()) continue;
         if (t.var() == j) {
             return t.get_val();
         }
@@ -297,22 +342,16 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
         auto &r = m_rows[i];
         std::unordered_set<unsigned> s;
         for (auto & rc : r) {
-            if (rc.dead()) continue;
             if (s.find(rc.var()) != s.end()) {
                 return false;
             }
             s.insert(rc.var());
             if (rc.var() >= m_columns.size())
                 return false;
-            const auto& col = m_columns[rc.var()];
-            if (col.cells_size() <= rc.offset())
+            if (rc.m_offset >= m_columns[rc.var()].size())
                 return false;
-            const auto &cc = col[rc.offset()];
-            if (cc.dead())
+            if (rc.get_val() != get_val(m_columns[rc.var()][rc.m_offset]))
                 return false;
-            if (& m_rows[cc.var()][cc.offset()] != & rc) {
-                return false;
-            }
             if (is_zero(rc.get_val())) {
                 return false;
             }
@@ -324,56 +363,51 @@ template <typename T, typename X> bool static_matrix<T, X>::is_correct() const {
         auto & c = m_columns[j];
         std::unordered_set<unsigned> s;
         for (auto & cc : c) {
-            if (cc.dead())
-                continue;
             if (s.find(cc.var()) != s.end()) {
                 return false;
             }
             s.insert(cc.var());
             if (cc.var() >= m_rows.size())
                 return false;
-            auto & rc = m_rows[cc.var()][cc.offset()];
-            if (rc.dead())
+            if (cc.m_offset >= m_rows[cc.var()].size())
                 return false;
-            if (&cc != &m_columns[rc.var()][rc.offset()])
+            if (get_val(cc) != m_rows[cc.var()][cc.m_offset].get_val())
                 return false;
         }
     }
 
-    for (auto & row: m_rows) {
-        if (! row.is_correct())
-            return false;
-    }
-    for (auto & col: m_columns) {
-        if (! col.is_correct())
-            return false;
-    }
+   
     
     return true;
 }
 
 template <typename T, typename X>
-void static_matrix<T, X>::remove_element(row_cell<T> & rc) {
-    lp_assert(rc.alive());
-    unsigned j = rc.var();
-    unsigned j_offset = rc.offset();
-    auto & col = m_columns[j];
-    column_cell & c = col[j_offset];
-    unsigned i = c.var();
-    unsigned i_offset = c.offset();
-    col.delete_at(j_offset);
-    m_rows[i].delete_at(i_offset);
-}
+void static_matrix<T, X>::remove_element(vector<row_cell<T>> & row_vals, row_cell<T> & row_el_iv) {
+    unsigned column_offset = row_el_iv.m_offset;
+    auto & column_vals = m_columns[row_el_iv.var()];
+    column_cell& cs = m_columns[row_el_iv.var()][column_offset];
+    unsigned row_offset = cs.m_offset;
+    if (column_offset != column_vals.size() - 1) {
+        auto & cc = column_vals[column_offset] = column_vals.back(); // copy from the tail
+        m_rows[cc.var()][cc.offset()].offset() = column_offset;
+    }
+    
+    if (row_offset != row_vals.size() - 1) {
+        auto & rc = row_vals[row_offset] = row_vals.back(); // copy from the tail
+        m_columns[rc.var()][rc.offset()].offset() = row_offset;
+    }
 
+    column_vals.pop_back();
+    row_vals.pop_back();
+}
 template <typename T, typename X>
-void static_matrix<T, X>::add_new_element(unsigned i, unsigned j, const T& val) {
-    auto & row = m_rows[i];
-    auto & col = m_columns[j];
-    unsigned offset_in_row, offset_in_col;
-    row_cell<T>& rc = row.add_cell(j, val, offset_in_row);
-    column_cell& cc = col.add_cell(i, offset_in_col);
-    rc.offset() = offset_in_col;
-    cc.offset() = offset_in_row;
+void static_matrix<T, X>::add_new_element(unsigned row, unsigned col, const T& val) {
+    auto & row_vals = m_rows[row];
+    auto & col_vals = m_columns[col];
+    unsigned row_el_offs = static_cast<unsigned>(row_vals.size());
+    unsigned col_el_offs = static_cast<unsigned>(col_vals.size());
+    row_vals.push_back(row_cell<T>(col, col_el_offs, val));
+    col_vals.push_back(column_cell(row, row_el_offs));
 }
 
 }

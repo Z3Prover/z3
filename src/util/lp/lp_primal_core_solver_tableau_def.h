@@ -266,10 +266,9 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     unsigned row_min_nz = this->m_n() + 1;
     m_leaving_candidates.clear();
     auto & col = this->m_A.m_columns[entering];
-    unsigned col_size = col.cells_size();
+    unsigned col_size = col.size();
     for (;k < col_size && unlimited; k++) {
         const column_cell & c = col[k];
-        if (c.dead()) continue;
         unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
         lp_assert(!numeric_traits<T>::is_zero(ed));
@@ -277,7 +276,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         limit_theta_on_basis_column(j, - ed * m_sign_of_entering_delta, t, unlimited);
         if (!unlimited) {
             m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_A.m_rows[i].live_size();
+            row_min_nz = this->m_A.m_rows[i].size();
         }
     }
     if (unlimited) {
@@ -289,7 +288,6 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     X ratio;
     for (;k < col_size; k++) {
         const column_cell & c = col[k];
-        if (c.dead()) continue;
         unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
          lp_assert(!numeric_traits<T>::is_zero(ed));
@@ -297,7 +295,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         unlimited = true;
         limit_theta_on_basis_column(j, -ed * m_sign_of_entering_delta, ratio, unlimited);
         if (unlimited) continue;
-        unsigned i_nz = this->m_A.m_rows[i].live_size();
+        unsigned i_nz = this->m_A.m_rows[i].size();
         if (ratio < t) {
             t = ratio;
             m_leaving_candidates.clear();
@@ -306,7 +304,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         } else if (ratio == t && i_nz < row_min_nz) {
             m_leaving_candidates.clear();
             m_leaving_candidates.push_back(j);
-            row_min_nz = this->m_A.m_rows[i].live_size();
+            row_min_nz = this->m_A.m_rows[i].size();
         } else if (ratio == t && i_nz == row_min_nz) {
             m_leaving_candidates.push_back(j);
         }
@@ -361,7 +359,6 @@ update_x_tableau(unsigned entering, const X& delta) {
     this->add_delta_to_x_and_call_tracker(entering, delta);
     if (!this->m_using_infeas_costs) {
         for (const auto & c : this->m_A.m_columns[entering]) {
-            if (c.dead()) continue;
             unsigned i = c.var();
             this->update_x_with_delta_and_track_feasibility(this->m_basis[i], -  delta * this->m_A.get_val(c));
         }
