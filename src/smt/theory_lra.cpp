@@ -2805,7 +2805,9 @@ public:
         TRACE("arith", display(tout << st << " v" << v << "\n"););
         switch (st) {
         case lp::lp_status::OPTIMAL: {
-            inf_rational val(term_max.x, term_max.y);
+            init_variable_values();
+            inf_rational val = get_value(v);
+            // inf_rational val(term_max.x, term_max.y);
             blocker = mk_gt(v);
             return inf_eps(rational::zero(), val);
         }
@@ -2851,6 +2853,7 @@ public:
     }
 
     theory_var add_objective(app* term) {
+        TRACE("opt", tout << expr_ref(term, m) << "\n";);
         return internalize_def(term);
     }
 
