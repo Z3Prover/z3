@@ -65,12 +65,14 @@ public:
 
 class scoped_suspend_rlimit {
     reslimit & m_limit;
+    bool       m_suspend;
 public:
     scoped_suspend_rlimit(reslimit& r): m_limit(r) {
+        m_suspend = r.m_suspend;
         r.m_suspend = true;
     }
     ~scoped_suspend_rlimit() {
-        m_limit.m_suspend = false;
+        m_limit.m_suspend = m_suspend;
     }
 };
 

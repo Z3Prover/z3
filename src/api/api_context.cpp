@@ -379,11 +379,13 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_dec_ref(c, a);
         RESET_ERROR_CODE();
-        if (to_ast(a)->get_ref_count() == 0) {
+        if (a && to_ast(a)->get_ref_count() == 0) {
             SET_ERROR_CODE(Z3_DEC_REF_ERROR, nullptr);
             return;
         }
-        mk_c(c)->m().dec_ref(to_ast(a));
+        if (a) {
+            mk_c(c)->m().dec_ref(to_ast(a));
+        }
 
         Z3_CATCH;
     }

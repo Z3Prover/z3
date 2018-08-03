@@ -850,6 +850,7 @@ namespace smt {
     }
 
     bool theory_bv::internalize_term(app * term) {
+        scoped_suspend_rlimit _suspend_cancel(get_manager().limit());
         try {
         SASSERT(term->get_family_id() == get_family_id());
         TRACE("bv", tout << "internalizing term: " << mk_bounded_pp(term, get_manager()) << "\n";);
@@ -910,7 +911,7 @@ namespace smt {
         }
         }
         catch (z3_exception& ex) {
-            IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "internalize_term: " << ex.msg() << "\n";);
             throw;
         }
     }
