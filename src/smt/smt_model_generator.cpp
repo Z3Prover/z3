@@ -438,8 +438,7 @@ namespace smt {
         }
     }
 
-    extra_fresh_value * model_generator::mk_extra_fresh_value(sort * s) {
-        SASSERT(s->is_infinite());
+    extra_fresh_value * model_generator::mk_extra_fresh_value(sort * s) {        
         extra_fresh_value * r = alloc(extra_fresh_value, s, m_fresh_idx);
         m_fresh_idx++;
         m_extra_fresh_values.push_back(r);

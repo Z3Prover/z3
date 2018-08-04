@@ -206,9 +206,8 @@ extern "C" {
         ptr_vector<expr> const & universe = to_model_ref(m)->get_universe(to_sort(s));
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        unsigned sz = universe.size();
-        for (unsigned i = 0; i < sz; i++) {
-            v->m_ast_vector.push_back(universe[i]);
+        for (expr * e : universe) {
+            v->m_ast_vector.push_back(e);
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(nullptr);
@@ -230,7 +229,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_as_array(c, a);
         RESET_ERROR_CODE();
-        return is_expr(to_ast(a)) && is_app_of(to_expr(a), mk_c(c)->get_array_fid(), OP_AS_ARRAY);
+        return a && is_expr(to_ast(a)) && is_app_of(to_expr(a), mk_c(c)->get_array_fid(), OP_AS_ARRAY);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
     
@@ -238,7 +237,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_as_array_func_decl(c, a);
         RESET_ERROR_CODE();
-        if (is_expr(to_ast(a)) && is_app_of(to_expr(a), mk_c(c)->get_array_fid(), OP_AS_ARRAY)) {
+        if (a && is_expr(to_ast(a)) && is_app_of(to_expr(a), mk_c(c)->get_array_fid(), OP_AS_ARRAY)) {
             RETURN_Z3(of_func_decl(to_func_decl(to_app(a)->get_decl()->get_parameter(0).get_ast())));
         }
         else {
@@ -252,6 +251,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_add_func_interp(c, m, f, else_val);
         RESET_ERROR_CODE();
+		CHECK_NON_NULL(f, nullptr);
         func_decl* d = to_func_decl(f);
         model* mdl = to_model_ref(m);
         Z3_func_interp_ref * f_ref = alloc(Z3_func_interp_ref, *mk_c(c), mdl); 
@@ -268,7 +268,7 @@ extern "C" {
         LOG_Z3_add_const_interp(c, m, f, a);
         RESET_ERROR_CODE();
         func_decl* d = to_func_decl(f);
-        if (d->get_arity() != 0) {
+        if (!d || d->get_arity() != 0) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
         }
         else {
