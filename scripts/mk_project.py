@@ -89,6 +89,7 @@ def init_project_def():
     set_z3py_dir('api/python')
     add_python(_libz3Component)
     add_python_install(_libz3Component)
+    add_js()
     # Examples
     add_cpp_example('cpp_example', 'c++') 
     add_cpp_example('z3_tptp', 'tptp') 
