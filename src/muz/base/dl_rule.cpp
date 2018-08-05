@@ -57,7 +57,8 @@ namespace datalog {
           m_hnf(m),
           m_qe(m, params_ref(), false),
           m_rwr(m),
-          m_ufproc(m) {}
+          m_ufproc(m),
+          m_fd_proc(m) {}
 
     void rule_manager::inc_ref(rule * r) {
         if (r) {
@@ -926,6 +927,23 @@ namespace datalog {
         bool exist, univ;
         has_quantifiers(r, exist, univ);
         return exist || univ;
+    }
+
+    bool rule_manager::is_finite_domain(rule const& r) const {
+        m_visited.reset();
+        m_fd_proc.reset();
+        for (unsigned i = r.get_uninterpreted_tail_size(); i < r.get_tail_size(); ++i) {
+            for_each_expr_core<fd_finder_proc,expr_sparse_mark, true, false>(m_fd_proc, m_visited, r.get_tail(i));
+        }        
+        for (unsigned i = 0; i < r.get_uninterpreted_tail_size(); ++i) {
+            for (expr* arg : *r.get_tail(i)) {
+                for_each_expr_core<fd_finder_proc,expr_sparse_mark, true, false>(m_fd_proc, m_visited, arg);
+            }
+        }
+        for (expr* arg : *r.get_head()) {
+            for_each_expr_core<fd_finder_proc,expr_sparse_mark, true, false>(m_fd_proc, m_visited, arg);
+        }
+        return m_fd_proc.is_fd();
     }
 
     bool rule::has_negation() const {

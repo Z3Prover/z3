@@ -17,22 +17,22 @@ Revision History:
 
 --*/
 
+#include "ast/datatype_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/scoped_proof.h"
+#include "smt/smt_solver.h"
+#include "tactic/portfolio/fd_solver.h"
 #include "muz/base/dl_context.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/bmc/dl_bmc_engine.h"
 #include "muz/transforms/dl_mk_slice.h"
-#include "smt/smt_kernel.h"
-#include "ast/datatype_decl_plugin.h"
-#include "ast/dl_decl_plugin.h"
-#include "ast/rewriter/bool_rewriter.h"
 #include "model/model_smt2_pp.h"
-#include "ast/ast_smt_pp.h"
-#include "ast/well_sorted.h"
-#include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_transforms.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
-#include "ast/scoped_proof.h"
-
 #include "muz/base/fp_params.hpp"
 
 namespace datalog {
@@ -53,7 +53,7 @@ namespace datalog {
             m_bit_width = 4;
             lbool res = l_false;
             while (res == l_false) {
-                b.m_solver.push();
+                b.m_solver->push();
                 IF_VERBOSE(1, verbose_stream() << "bit_width: " << m_bit_width << "\n";);
                 compile();
                 b.checkpoint();
@@ -61,12 +61,12 @@ namespace datalog {
                 expr* T = m.mk_const(symbol("T"), mk_index_sort());
                 expr_ref fml(m.mk_app(q, T), m);
                 b.assert_expr(fml);
-                res = b.m_solver.check();
+                res = b.m_solver->check_sat(0, nullptr);
 
                 if (res == l_true) {
                     res = get_model();
                 }
-                b.m_solver.pop(1);
+                b.m_solver->pop(1);
                 ++m_bit_width;
             }
             return res;
@@ -141,10 +141,10 @@ namespace datalog {
         }
 
         void setup() {
-            b.m_fparams.m_relevancy_lvl = 2;
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            b.m_fparams.m_mbqi = true;
+            params_ref p;
+            p.set_uint("smt.relevancy", 2ul);
+            p.set_bool("smt.mbqi", true);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -252,7 +252,7 @@ namespace datalog {
             rational num;
             unsigned level, bv_size;
 
-            b.m_solver.get_model(md);
+            b.m_solver->get_model(md);
             func_decl* pred = b.m_query_pred;
             dl_decl_util util(m);
             T = m.mk_const(symbol("T"), mk_index_sort());
@@ -468,10 +468,9 @@ namespace datalog {
         }
 
         void setup() {
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            // b.m_fparams.m_mbqi = true;
-            b.m_fparams.m_relevancy_lvl = 2;
+            params_ref p;
+            p.set_uint("smt.relevancy", 2ul);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -482,7 +481,7 @@ namespace datalog {
             q_at_level = m.mk_implies(q, p);
             b.assert_expr(q_at_level);
             expr* qr = q.get();
-            return b.m_solver.check(1, &qr);
+            return b.m_solver->check_sat(1, &qr);
         }
 
         proof_ref get_proof(model_ref& md, func_decl* pred, app* prop, unsigned level) {
@@ -548,7 +547,7 @@ namespace datalog {
             scoped_proof _sp(m);
             expr_ref level_query = compile_query(b.m_query_pred, level);
             model_ref md;
-            b.m_solver.get_model(md);
+            b.m_solver->get_model(md);
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
             proof_ref pr(m);
             pr = get_proof(md, b.m_query_pred, to_app(level_query), level);
@@ -755,11 +754,10 @@ namespace datalog {
             m_pred2sort.reset();
             m_pinned.reset();
             m_sort2pred.reset();
-            b.m_fparams.m_relevancy_lvl = 0;
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            b.m_fparams.m_mbqi = false;
-            b.m_fparams.m_relevancy_lvl = 2;
+            params_ref p;
+            p.set_uint("smt.relevancy", 2ul);
+            p.set_bool("smt.mbqi", false);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -1096,12 +1094,12 @@ namespace datalog {
             fml = m.mk_app(q, trace.get(), path.get());
             b.assert_expr(fml);
             while (true) {
-                lbool is_sat = b.m_solver.check();
+                lbool is_sat = b.m_solver->check_sat(0, nullptr);
                 model_ref md;
                 if (is_sat == l_false) {
                     return is_sat;
                 }
-                b.m_solver.get_model(md);
+                b.m_solver->get_model(md);
                 mk_answer(md, trace, path);
                 return l_true;
             }
@@ -1111,13 +1109,13 @@ namespace datalog {
             expr_ref trace_val(m), eq(m);
             trace_val = (*md)(trace);
             eq = m.mk_eq(trace, trace_val);
-            b.m_solver.push();
-            b.m_solver.assert_expr(eq);
-            lbool is_sat = b.m_solver.check();
+            b.m_solver->push();
+            b.m_solver->assert_expr(eq);
+            lbool is_sat = b.m_solver->check_sat(0, nullptr);
             if (is_sat != l_false) {
-                b.m_solver.get_model(md);
+                b.m_solver->get_model(md);
             }
-            b.m_solver.pop(1);
+            b.m_solver->pop(1);
             if (is_sat == l_false) {
                 IF_VERBOSE(1, verbose_stream() << "infeasible trace " << mk_pp(trace_val, m) << "\n";);
                 eq = m.mk_not(eq);
@@ -1131,8 +1129,8 @@ namespace datalog {
             trace = (*md)(trace);
             path = (*md)(path);
             IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";
-                       for (unsigned i = 0; i < b.m_solver.size(); ++i) {
-                           verbose_stream() << mk_pp(b.m_solver.get_formula(i), m) << "\n";
+                       for (unsigned i = 0; i < b.m_solver->get_num_assertions(); ++i) {
+                           verbose_stream() << mk_pp(b.m_solver->get_assertion(i), m) << "\n";
                        });
             scoped_proof _sp(m);
             proof_ref pr(m);
@@ -1183,7 +1181,7 @@ namespace datalog {
             model_ref md;
             proof_ref pr(m);
             rule_unifier unifier(b.m_ctx);
-            b.m_solver.get_model(md);
+            b.m_solver->get_model(md);
             func_decl* pred = b.m_query_pred;
             SASSERT(m.is_true(md->get_const_interp(to_app(level_query)->get_decl())));
 
@@ -1283,11 +1281,10 @@ namespace datalog {
 
 
         void setup() {
-            b.m_fparams.m_relevancy_lvl = 0;
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            b.m_fparams.m_mbqi = false;
-            // m_fparams.m_auto_config = false;
+            params_ref p;
+            p.set_uint("smt.relevancy", 0ul);
+            p.set_bool("smt.mbqi", false);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -1295,7 +1292,7 @@ namespace datalog {
         lbool check(unsigned level) {
             expr_ref level_query = mk_level_predicate(b.m_query_pred, level);
             expr* q = level_query.get();
-            return b.m_solver.check(1, &q);
+            return b.m_solver->check_sat(1, &q);
         }
 
         expr_ref mk_level_predicate(func_decl* p, unsigned level) {
@@ -1428,7 +1425,7 @@ namespace datalog {
         engine_base(ctx.get_manager(), "bmc"),
         m_ctx(ctx),
         m(ctx.get_manager()),
-        m_solver(m, m_fparams),
+        m_solver(nullptr),
         m_rules(ctx),
         m_query_pred(m),
         m_answer(m),
@@ -1438,7 +1435,7 @@ namespace datalog {
     bmc::~bmc() {}
 
     lbool bmc::query(expr* query) {
-        m_solver.reset();
+        m_solver = nullptr;
         m_answer = nullptr;
         m_ctx.ensure_opened();
         m_rules.reset();
@@ -1471,6 +1468,7 @@ namespace datalog {
 
         IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
 
+        params_ref p;
         if (m_rules.get_num_rules() == 0) {
             return l_false;
         }
@@ -1478,18 +1476,25 @@ namespace datalog {
             return l_false;
         }
 
-
         if (is_linear()) {
             if (m_ctx.get_engine() == QBMC_ENGINE) {
+                m_solver = mk_smt_solver(m, p, symbol::null);
                 qlinear ql(*this);
                 return ql.check();
             }
             else {
+                if (m_rules.is_finite_domain()) {
+                    m_solver = mk_fd_solver(m, p);
+                }
+                else {
+                    m_solver = mk_smt_solver(m, p, symbol::null);
+                }
                 linear lin(*this);
                 return lin.check();
             }
         }
         else {
+            m_solver = mk_smt_solver(m, p, symbol::null);
             IF_VERBOSE(0, verbose_stream() << "WARNING: non-linear BMC is highly inefficient\n";);
             nonlinear nl(*this);
             return nl.check();
@@ -1498,7 +1503,7 @@ namespace datalog {
 
     void bmc::assert_expr(expr* e) {
         TRACE("bmc", tout << mk_pp(e, m) << "\n";);
-        m_solver.assert_expr(e);
+        m_solver->assert_expr(e);
     }
 
     bool bmc::is_linear() const {
@@ -1525,11 +1530,11 @@ namespace datalog {
     }
 
     void bmc::collect_statistics(statistics& st) const {
-        m_solver.collect_statistics(st);
+        m_solver->collect_statistics(st);
     }
 
     void bmc::reset_statistics() {
-        m_solver.reset_statistics();
+        // m_solver->reset_statistics();
     }
 
     expr_ref bmc::get_answer() {

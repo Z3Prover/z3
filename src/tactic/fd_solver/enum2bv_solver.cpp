@@ -26,9 +26,9 @@ Notes:
 #include "model/model_smt2_pp.h"
 #include "tactic/tactic.h"
 #include "tactic/generic_model_converter.h"
-#include "tactic/portfolio/enum2bv_solver.h"
 #include "solver/solver_na2as.h"
 #include "ast/rewriter/enum2bv_rewriter.h"
+#include "tactic/fd_solver/enum2bv_solver.h"
 
 class enum2bv_solver : public solver_na2as {
     ast_manager&     m;

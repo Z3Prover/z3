@@ -16,8 +16,7 @@ Author:
 Notes:
 
 --*/
-
-#include "tactic/portfolio/bounded_int2bv_solver.h"
+#include "tactic/fd_solver/bounded_int2bv_solver.h"
 #include "solver/solver_na2as.h"
 #include "tactic/tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"

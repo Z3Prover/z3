@@ -17,7 +17,7 @@ Notes:
    
 --*/
 
-#include "tactic/portfolio/fd_solver.h"
+#include "tactic/fd_solver/fd_solver.h"
 #include "tactic/tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "tactic/portfolio/enum2bv_solver.h"
