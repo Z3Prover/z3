@@ -16,6 +16,7 @@ Notes:
    
 --*/
 
+#include "util/statistics.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/pb2bv_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
