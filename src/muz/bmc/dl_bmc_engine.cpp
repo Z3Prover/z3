@@ -25,7 +25,7 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/scoped_proof.h"
 #include "smt/smt_solver.h"
-#include "tactic/portfolio/fd_solver.h"
+#include "tactic/fd_solver/fd_solver.h"
 #include "muz/base/dl_context.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/bmc/dl_bmc_engine.h"
