@@ -5,15 +5,7 @@ z3_add_component(fd_solver
     fd_solver.cpp
     pb2bv_solver.cpp
   COMPONENT_DEPENDENCIES
-    aig_tactic
-    fp
-    fpa_tactics
-    qe
     sat_solver
-    sls_tactic
-    smtlogic_tactics
-    subpaving_tactic
-    ufbv_tactic
   TACTIC_HEADERS
     fd_solver.h
 )
