@@ -16,14 +16,15 @@ Notes:
    
 --*/
 
+#include "util/statistics.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/pb2bv_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "model/model_smt2_pp.h"
-#include "tactic/portfolio/pb2bv_solver.h"
 #include "tactic/tactic.h"
 #include "tactic/generic_model_converter.h"
 #include "solver/solver_na2as.h"
-#include "ast/rewriter/pb2bv_rewriter.h"
-#include "ast/rewriter/th_rewriter.h"
+#include "tactic/fd_solver/pb2bv_solver.h"
 
 class pb2bv_solver : public solver_na2as {
     ast_manager&     m;
