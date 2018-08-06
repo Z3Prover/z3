@@ -741,55 +741,97 @@ def mk_java(java_dir, package_name):
     if mk_util.is_verbose():
         print("Generated '%s'" % java_nativef)
 
-
+# Maps Z3 primitive types to N-API types
 Type2Napi = { VOID : '', VOID_PTR : '', INT : 'number', UINT : 'number', INT64 : 'number', UINT64 : 'number', DOUBLE : 'number',
             FLOAT : 'number', STRING : 'string', STRING_PTR : 'array',
             BOOL : 'number', SYMBOL : 'external', PRINT_MODE : 'number', ERROR_CODE : 'number' }
 
-def type2napi(t):
-    try:
-       return Type2Napi[t]
-    except:
-       return "external"
+def param2napictype(p):
+    if param_kind(p) == OUT:
+        return "%s*" % type2str(param_type(p))
+    else:
+        return type2str(param_type(p))
 
-Type2NapiBuilder = { VOID : '', VOID_PTR : '', INT : 'int32', UINT : 'uint32', INT64 : 'int64', UINT64 : 'uint64', DOUBLE : 'double',
+def param2napi(p):
+    # TODO: Support in and out arrays and buffers
+    try:
+        k = param_kind(p)
+        if k == OUT:
+            raise Exception('Not Supported: See #')
+        elif k in [IN_ARRAY, INOUT_ARRAY, OUT_ARRAY]:
+            return 'array'
+        else:
+            return Type2Napi[param_type(p)]
+    except:
+        # Effectively means this value is tracked by reference as a foreign object
+        return 'external'
+
+# Maps Z3 interface parameters to N-API value adapters
+Type2NapiBuilder = { VOID : '', VOID_PTR : '', INT : 'int32', UINT : 'uint32', INT64 : 'int64', UINT64 : 'int64', DOUBLE : 'double',
             FLOAT : 'float', STRING : 'string', STRING_PTR : 'array',
             BOOL : 'bool', SYMBOL : 'external', PRINT_MODE : 'int32', ERROR_CODE : 'int32' }
 
+def type2napi(t):
+    try:
+        return Type2Napi[t]
+    except KeyError:
+        return 'external'
+
 def type2napibuilder(t):
     try:
-       return Type2NapiBuilder[t]
-    except:
-       return "external"
+        return Type2NapiBuilder[t]
+    except KeyError:
+        return 'external'
 
+def param2napibuilder(p):
+    # TODO: Support in and out arrays and buffers
+    try:
+        k = param_kind(p)
+        if param_kind(p) == OUT:
+            raise Exception('Not Supported: See #')
+        elif k in [IN_ARRAY, INOUT_ARRAY, OUT_ARRAY]:
+            return 'array'
+        else:
+            return Type2NAPIBuilder[param_type(p)]
+    except:
+        # Effectively means this value is tracked by reference as a foreign object
+        return 'external'
 
 def mk_js(js_output_dir):
     with open(os.path.join(js_output_dir, "z3.json"), 'w') as ous:
        ous.write("{\n")
        ous.write("  \"api\": [\n")
+       first_outer = True
        for name, result, params in _dotnet_decls:
+           if first_outer:
+               first_outer = False
+           else:
+               ous.write("    },\n")
            ous.write("    {\n")
            ous.write("       \"name\": \"%s\",\n" % name)
-           ous.write("       \"c_type\": \"%s\",\n" % Type2Str[result])
+           ous.write("       \"c_type\": \"%s\",\n" % type2str(result))
            ous.write("       \"napi_type\": \"%s\",\n" % type2napi(result))                       
            ous.write("       \"arg_list\": [")
-           first = True
+           first_inner = True
            for p in params:
-               if first:
-                  first = False
+               if first_inner:
+                  first_inner = False
                   ous.write("\n         {\n")
                else:
                   ous.write(",\n         {\n")
-               t = param_type(p)
-               k = t
-               ous.write("            \"name\": \"%s\",\n" % "")                        # TBD
-               ous.write("            \"c_type\": \"%s\",\n" % type2str(t))
-               ous.write("            \"napi_type\": \"%s\",\n" % type2napi(t))        
-               ous.write("            \"napi_builder\": \"%s\"\n" % type2napibuilder(t))
+
+               """ The name of the param is only useful when debugging the bindings. Otherwise,
+               it is generated on the fly. """
+               ous.write("            \"name\": \"%s\",\n" % "")
+               ous.write("            \"c_type\": \"%s\",\n" % param2napictype(p))
+               ous.write("            \"napi_type\": \"%s\",\n" % param2napi(p))
+               ous.write("            \"napi_builder\": \"%s\"\n" % param2napibuilder(p))
                ous.write(  "         }")
            ous.write("],\n")
            ous.write("       \"napi_builder\": \"%s\"\n" % type2napibuilder(result))
-           ous.write("    },\n")
+
+       if not first_outer:
+            ous.write("    }\n")
        ous.write("  ]\n")
        ous.write("}\n")
 
