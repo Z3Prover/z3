@@ -64,7 +64,7 @@ expr_ref bind_variables::abstract(expr* term, cache_t& cache, unsigned scope) {
         }
         switch(e->get_kind()) {
         case AST_VAR: {
-            SASSERT(to_var(e)->get_idx() < scope); 
+            // SASSERT(to_var(e)->get_idx() >= scope); 
             // mixing bound variables and free is possible for the caller, 
             // but not proper use.
             // So we assert here even though we don't check for it.

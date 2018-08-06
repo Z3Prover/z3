@@ -199,6 +199,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             }
             else if (strcmp(opt_name, "st") == 0) {
                 g_display_statistics = true; 
+                gparams::set("stats", "true");
             }
             else if (strcmp(opt_name, "ist") == 0) {
                 g_display_istatistics = true; 

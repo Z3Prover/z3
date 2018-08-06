@@ -355,7 +355,7 @@ private:
     }
 
     void print_statistics(cmd_context& ctx) {
-        if (m_dl_ctx->get_params().print_statistics()) {
+        if (ctx.params().m_statistics) {
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
             dlctx.collect_statistics(st);

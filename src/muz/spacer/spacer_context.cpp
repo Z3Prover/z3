@@ -2683,7 +2683,7 @@ lbool context::solve(unsigned from_lvl)
     if (m_last_result == l_true) {
         m_stats.m_cex_depth = get_cex_depth ();
     }
-
+ 
     if (m_params.print_statistics ()) {
         statistics st;
         collect_statistics (st);
@@ -3063,13 +3063,13 @@ lbool context::solve_core (unsigned from_lvl)
         IF_VERBOSE(1,verbose_stream() << "Entering level "<< lvl << "\n";);
 
         STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
-
         IF_VERBOSE(1,
                    if (m_params.print_statistics ()) {
                        statistics st;
                        collect_statistics (st);
                    };
             );
+
     }
     // communicate failure to datalog::context
     if (m_context) { m_context->set_status(datalog::BOUNDED); }
