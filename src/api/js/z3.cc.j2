@@ -1,0 +1,161 @@
+/* Automatically generated file */
+
+/* node and n-api headers used to create the FFI plumbing */
+#include <node.h>
+#include <node_api.h>
+
+/* z3 C API - the payload of the plumbing */
+#include <z3.h>
+
+#define Z3_NAPI_DEBUG {{ debug | default(default_value='0') }}
+
+#define MAX_STRING_LEN 4096
+
+#define dprintf(fmt, ...) do { if (Z3_NAPI_DEBUG) printf(fmt, ##__VA_ARGS__); } while (0)
+
+#define DECLARE_NAPI_METHOD(name, func) { name, 0, func, 0, 0, 0, napi_default, 0 }
+
+namespace {{ namespace }} {
+	{% for m in api %}
+	napi_value {{ m.name }}_Method(napi_env env, napi_callback_info info) {
+		{% set num_args = m.arg_list | count %}
+		dprintf("Entering method: {{ m.name }}\n");
+		napi_status status;
+		size_t argc = {{ num_args }};
+		napi_value args[{{ num_args }}];
+		status = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+		assert(status == napi_ok);
+
+		dprintf("Collected callback info\n");
+		if (argc != {{ num_args }}) {
+			napi_throw_type_error(env, nullptr, "Incorrect number of arguments. Expected: {{ num_args }}");
+			return nullptr;
+		}
+
+		{% for arg in m.arg_list %}
+		{% if arg.napi_type == "array" %}
+		bool is_array{{ loop.index0 }};
+		status = napi_is_array(env, args[{{loop.index0}}], &is_array{{loop.index0}});
+		assert(status == napi_ok);
+
+		if (!is_array{{ loop.index0 }}) {
+			napi_throw_type_error(env, nullptr, "Type error: Expected array in argument {{ loop.index0 }} of {{ m.name }}");
+			return nullptr;
+		}
+		{% else %}
+		napi_valuetype valuetype{{loop.index0}};
+		status = napi_typeof(env, args[{{loop.index0}}], &valuetype{{loop.index0}});
+		assert(status == napi_ok);
+
+		if (valuetype{{loop.index0}} != napi_{{arg.napi_type}}) {
+			napi_throw_type_error(env, nullptr, "Type error: Expected {{arg.napi_type}} in argument {{ loop.index0 }} of {{ m.name }}");
+			return nullptr;
+		}
+		{% endif %}
+
+
+		{% if arg.napi_type == "external" %}
+		{{ arg.c_type }} value{{loop.index0}};
+		status = napi_get_value_external(env, args[{{loop.index0}}], (void **) &value{{loop.index0}});
+		dprintf("Got external value for pointer: 0x%lx\n", (unsigned long) value{{loop.index0}});
+		{% elif arg.napi_type == "array" %}
+
+		uint32_t length{{loop.index0}};
+		status = napi_get_array_length(env, args[{{loop.index0}}], &length{{loop.index0}});
+		assert(status == napi_ok);
+
+		{{ arg.c_type }} *value{{loop.index0}} = ({{arg.c_type}} *) malloc(length{{loop.index0}} * sizeof({{ arg.c_type }}));
+
+		for(uint32_t i=0;i<length{{loop.index0}};i++) {
+			napi_value elt;
+			status = napi_get_element(env,
+					args[{{loop.index0}}],
+					i,
+					&elt);
+			assert(status == napi_ok);
+			status = napi_get_value_external(env, elt, (void **) &value{{loop.index0}}[i]);
+			assert(status == napi_ok);
+		}
+
+		dprintf("Got array value for pointer: 0x%lx\n", (unsigned long) value{{loop.index0}});
+		{% elif arg.napi_type == "string" %}
+		size_t result{{loop.index0}};
+        
+        /* We make two calls. The first fetches the size of the buffer. The second fetches the actual buffer */
+		status = napi_get_value_string_latin1(env, args[{{loop.index0}}], NULL, MAX_STRING_LEN, &result{{loop.index0}});
+
+		char *value{{loop.index0}} = (char *) malloc(result{{loop.index0}});
+		status = napi_get_value_string_latin1(env, args[{{loop.index0}}], value{{loop.index0}}, MAX_STRING_LEN, &result{{loop.index0}});
+
+		dprintf("Got string argument: %s\n", value{{loop.index0}});
+		{% else %}
+		{% if arg.napi_builder == "int64" %}
+		/* NAPI does not have uint64 type */
+		long long value{{loop.index0}};
+		status = napi_get_value_{{ arg.napi_builder }}(env, args[{{loop.index0}}], {{ cast }} &value{{loop.index0}});
+		{% else %}
+		{{ arg.c_type }} value{{loop.index0}};
+		status = napi_get_value_int64(env, args[{{loop.index0}}], (long long *) &value{{loop.index0}});
+		{% endif %}
+		{% endif %}
+		assert(status == napi_ok);
+
+		{% endfor %}
+
+		{% if m.napi_type %}
+		{{ m.c_type }} c_ret;
+		napi_value napi_ret;
+
+		c_ret = {{ m.name }} ({%- for i in range(num_args) -%}value{{ i }}{%- if not loop.last -%},{% endif %}{%- endfor -%});
+
+		{% if m.napi_builder == "external" %}
+		status = napi_create_external(env, c_ret, NULL, NULL, &napi_ret);
+		dprintf("Created external value as pointer: 0x%lx\n", (unsigned long) c_ret);
+		{% elif m.napi_builder == "string" %}
+		status = napi_create_string_latin1(env, c_ret, NAPI_AUTO_LENGTH, &napi_ret);
+		{% elif m.napi_builder == "bool" %}
+		napi_value tmpval{{ loop.index0 }};
+		status = napi_create_int32(env, c_ret, &tmpval{{ loop.index0 }});
+		assert(status == napi_ok);
+		status = napi_coerce_to_bool(env, tmpval{{ loop.index0 }}, &napi_ret);
+
+		{% else %}
+		status = napi_create_{{ m.napi_builder }}(env, c_ret, &napi_ret);
+		{% endif %}
+
+		if (status != napi_ok) return nullptr;
+		return napi_ret;
+		{% else %}
+		{{ m.name }} ({%- for i in range(num_args) -%}value{{ i }}{%- if not loop.last -%},{% endif %}{%- endfor -%});
+
+        
+		{% for arg in m.arg_list %}
+		{% if arg.napi_type == "array" or arg.napi_type == "string"%}
+		free(value{{loop.index0}});
+        {% endif -%}
+		{% endfor %}
+
+		napi_value napi_ret;
+		status = napi_create_int32(env, 0, &napi_ret);
+
+		return napi_ret;
+		{% endif %}
+
+	}
+	{% endfor %}
+
+	napi_value init(napi_env env, napi_value exports) {
+		napi_status status;
+
+		{% for m in api %}
+		napi_property_descriptor {{ m.name}}_Descriptor = DECLARE_NAPI_METHOD("{{ m.name }}", {{ m.name}}_Method);
+
+		status = napi_define_properties(env, exports, 1, &{{ m.name }}_Descriptor);
+		assert(status == napi_ok);
+		{% endfor %}
+
+		return exports;
+	}
+
+	NAPI_MODULE(NODE_GYP_MODULE_NAME, init)
+}
