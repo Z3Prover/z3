@@ -64,6 +64,7 @@ JAVA_COMPONENT='java'
 ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
 PYTHON_COMPONENT='python'
+JS_COMPONENT='js'
 #####################
 IS_WINDOWS=False
 IS_LINUX=False
@@ -1435,7 +1436,7 @@ class DLLComponent(Component):
 
 class JsComponent(Component):
     def __init__(self):
-         Component.__init__(self, "js", None, [])
+         Component.__init__(self, "api/js", None, ['api_dll'])
 
     def main_component(self):
         return False
@@ -3011,6 +3012,10 @@ def mk_bindings(api_files):
         if is_dotnet_enabled():
             check_dotnet()
             mk_z3consts_dotnet(api_files)
+        if is_js_enabled():
+            # check_js()     TBD
+            mk_z3consts_js(api_files)
+
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
@@ -3053,6 +3058,20 @@ def mk_z3consts_java(api_files):
     if VERBOSE:
         for generated_file in generated_files:
             print("Generated '{}'".format(generated_file))
+
+# Extract enumeration types from z3_api.h, and add JS definitions
+def mk_z3consts_js(api_files):
+    js = get_component(JS_COMPONENT)
+    full_path_api_files = []
+    for api_file in api_files:
+        api_file_c = js.find_file(api_file, js.name)
+        api_file   = os.path.join(api_file_c.src_dir, api_file)
+        full_path_api_files.append(api_file)
+    generated_file = mk_genfile_common.mk_z3consts_js_internal(
+        full_path_api_files,
+        js.src_dir)
+    if VERBOSE:
+        print ('Generated "%s"' % generated_file)
 
 # Extract enumeration types from z3_api.h, and add ML definitions
 def mk_z3consts_ml(api_files):
