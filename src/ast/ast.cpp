@@ -1057,7 +1057,7 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
     }
     std::ostringstream buffer;
     buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
-    throw ast_exception(buffer.str().c_str());
+    throw ast_exception(buffer.str());
 }
 
 
@@ -1086,7 +1086,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             if (domain[i] != domain[0]) {
                 std::ostringstream buffer;
                 buffer << "Sort mismatch between first argument and argument " << (i+1);
-                throw ast_exception(buffer.str().c_str());
+                throw ast_exception(buffer.str());
             }
         }
         return m_manager->mk_func_decl(symbol("distinct"), arity, domain, m_bool_sort, info);
@@ -1403,6 +1403,7 @@ void ast_manager::init() {
     inc_ref(m_false);
 }
 
+
 template<typename T>
 static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
     for(unsigned i = 0; i < sz; i++) {
@@ -1701,9 +1702,9 @@ ast * ast_manager::register_node_core(ast * n) {
         SASSERT(m_ast_table.contains(n));
         if (is_func_decl(r) && to_func_decl(r)->get_range() != to_func_decl(n)->get_range()) {
             std::ostringstream buffer;
-            buffer << "Recycling of declaration for the same name '" << to_func_decl(r)->get_name().str().c_str() << "'"
-                   << " and domain, but different range type is not permitted";
-            throw ast_exception(buffer.str().c_str());
+            buffer << "Recycling of declaration for the same name '" << to_func_decl(r)->get_name().str()
+                   << "' and domain, but different range type is not permitted";
+            throw ast_exception(buffer.str());
         }
         deallocate_node(n, ::get_node_size(n));
         return r;
@@ -1715,6 +1716,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
 
     n->m_id   = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
+    
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
@@ -1934,8 +1936,7 @@ sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * c
     vector<parameter> ps;
     bool change = false;
     sort_ref_vector sorts(*this);
-    for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
-        parameter const& p = s->get_parameter(i);
+    for (parameter const& p : s->parameters()) {
         if (p.is_ast()) {
             SASSERT(is_sort(p.get_ast()));
             change = true;
@@ -1992,7 +1993,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
                 buff << "invalid function application for " << decl->get_name() << ", ";
                 buff << "sort mismatch on argument at position " << (i+1) << ", ";
                 buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str().c_str());
+                throw ast_exception(buff.str());
             }
         }
     }
@@ -2008,7 +2009,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
                 buff << "invalid function application for " << decl->get_name() << ", ";
                 buff << "sort mismatch on argument at position " << (i+1) << ", ";
                 buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str().c_str());
+                throw ast_exception(buff.str());
             }
         }
     }
@@ -2170,7 +2171,7 @@ void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
                    << " for function " << mk_pp(f,*this)
                    << " supplied sort is "
                    << mk_pp(actual_sort, *this);
-            throw ast_exception(buffer.str().c_str());
+            throw ast_exception(buffer.str());
         }
     }
 }
@@ -2194,7 +2195,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args
                << ") passed to function " << mk_pp(decl, *this);
-        throw ast_exception(buffer.str().c_str());
+        throw ast_exception(buffer.str());
     }
     app * r = nullptr;
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
@@ -2330,8 +2331,8 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
         return false;
     }
     func_decl const * decl = to_app(n)->get_decl();
-    for (unsigned i = 0; i < decl->get_num_parameters(); i++)
-        names.push_back(decl->get_parameter(i).get_symbol());
+    for (parameter const& p : decl->parameters()) 
+        names.push_back(p.get_symbol());
     return true;
 }
 
@@ -2370,6 +2371,15 @@ bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
     return true;
 }
 
+static void trace_quant(std::ostream& strm, quantifier* q) {
+    strm << (is_lambda(q) ? "[mk-lambda]" : "[mk-quant]")
+         << " #" << q->get_id() << " " << q->get_qid();
+    for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
+        strm << " #" << q->get_pattern(i)->get_id();
+    }
+    strm << " #" << q->get_expr()->get_id() << "\n";
+}
+
 
 quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
                                         expr * body, int weight , symbol const & qid, symbol const & skid,
@@ -2402,12 +2412,7 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
     quantifier * r = register_node(new_node);
 
     if (m_trace_stream && r == new_node) {
-        *m_trace_stream << "[mk-quant] #" << r->get_id() << " " << qid;
-        for (unsigned i = 0; i < num_patterns; ++i) {
-            *m_trace_stream << " #" << patterns[i]->get_id();
-        }
-        *m_trace_stream << " #" << body->get_id() << "\n";
-
+        trace_quant(*m_trace_stream, r);
     }
 
     return r;
@@ -2421,6 +2426,9 @@ quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sort
     sort* s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
     quantifier * new_node = new (mem) quantifier(num_decls, decl_sorts, decl_names, body, s);
     quantifier * r = register_node(new_node);
+    if (m_trace_stream && r == new_node) {
+        trace_quant(*m_trace_stream, r);
+    }
     return r;
 }
 
@@ -2928,8 +2936,8 @@ bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<exp
         not_q_or_i = to_app(e)->get_arg(0);
         func_decl* d = to_app(e)->get_decl();
         SASSERT(binding.empty());
-        for (unsigned i = 0; i < d->get_num_parameters(); ++i) {
-            binding.push_back(to_expr(d->get_parameter(i).get_ast()));
+        for (parameter const& p : d->parameters()) {
+            binding.push_back(to_expr(p.get_ast()));
         }
         return true;
     }

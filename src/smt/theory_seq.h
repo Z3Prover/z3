@@ -375,13 +375,13 @@ namespace smt {
 
         void init_model(expr_ref_vector const& es);
         
-        void len_offset(expr* const& e, rational val);
+        void len_offset(expr* e, rational val);
         void prop_arith_to_len_offset();
         int find_fst_non_empty_idx(expr_ref_vector const& x) const;
         expr* find_fst_non_empty_var(expr_ref_vector const& x) const;
         void find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & diff);
-        bool find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned const& idx, dependency*& deps, expr_ref_vector & res);
+        bool find_better_rep(expr_ref_vector const& ls, expr_ref_vector const& rs, unsigned idx, dependency*& deps, expr_ref_vector & res);
         
         // final check 
         bool simplify_and_solve_eqs();   // solve unitary equalities
@@ -427,10 +427,10 @@ namespace smt {
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
-        bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr*& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr*& y);
-        bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x1, expr_ref_vector& xs, expr*& x2, expr*& y1, expr_ref_vector& ys, expr*& y2);
-        bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr*& x, expr_ref_vector& xs, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1);
-        bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr*& x, expr*& y1, expr_ref_vector& ys, expr*& y2, bool flag1);
+        bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
+        bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
+        bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
+        bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
 

@@ -99,7 +99,7 @@ namespace qe {
             m_mark(false),
             m_mark2(false),
             m_interpreted(false) {
-            if (!is_app()) return;
+            if (!is_app(m_expr)) return;
             for (expr* e : *to_app(m_expr)) {
                 term* t = app2term[e->get_id()];
                 t->get_root().m_parents.push_back(this);
@@ -151,7 +151,7 @@ namespace qe {
 
         unsigned get_id() const { return m_expr->get_id();}
 
-        unsigned get_decl_id() const { return is_app() ? get_app()->get_decl()->get_id() : m_expr->get_id(); }
+        unsigned get_decl_id() const { return is_app(m_expr) ? to_app(m_expr)->get_decl()->get_id() : m_expr->get_id(); }
 
         bool is_marked() const {return m_mark;}
         void set_mark(bool v){m_mark = v;}
@@ -159,12 +159,10 @@ namespace qe {
         void set_mark2(bool v){m_mark2 = v;}      // NSB: where is this used?
 
         bool is_interpreted() const {return m_interpreted;}
-        bool is_theory() const { return !is_app() || get_app()->get_family_id() != null_family_id; }
+        bool is_theory() const { return !is_app(m_expr) || to_app(m_expr)->get_family_id() != null_family_id; }
         void mark_as_interpreted() {m_interpreted=true;}
         expr* get_expr() const {return m_expr;}
-        bool is_app() const {return ::is_app(m_expr);}
-        app *get_app() const {return is_app() ? to_app(m_expr) : nullptr;}
-        unsigned get_num_args() const { return is_app() ? get_app()->get_num_args() : 0; }
+        unsigned get_num_args() const { return is_app(m_expr) ? to_app(m_expr)->get_num_args() : 0; }
 
         term &get_root() const {return *m_root;}
         bool is_root() const {return m_root == this;}
@@ -226,7 +224,7 @@ namespace qe {
     }
 
     bool term_graph::is_variable_proc::operator()(const term &t) const {
-        return (*this)(t.get_app());
+        return (*this)(t.get_expr());
     }
 
     void term_graph::is_variable_proc::set_decls(const func_decl_ref_vector &decls, bool exclude) {
@@ -444,7 +442,7 @@ namespace qe {
             return expr_ref(res, m);
         }
 
-        res = mk_app_core (r.get_app());
+        res = mk_app_core (r.get_expr());
         m_term2app.insert(r.get_id(), res);
         return expr_ref(res, m);
 
@@ -463,7 +461,7 @@ namespace qe {
         SASSERT(t.is_root());
         expr_ref rep(mk_app(t), m);
         for (term *it = &t.get_next(); it != &t; it = &it->get_next()) {
-            expr* mem = mk_app_core(it->get_app());
+            expr* mem = mk_app_core(it->get_expr());
             out.push_back (m.mk_eq (rep, mem));
         }
     }
@@ -472,9 +470,9 @@ namespace qe {
         mk_equalities(t, out);
 
         for (term *it = &t.get_next(); it != &t; it = &it->get_next ()) {
-            expr* a1 = mk_app_core (it->get_app());
+            expr* a1 = mk_app_core (it->get_expr());
             for (term *it2 = &it->get_next(); it2 != &t; it2 = &it2->get_next()) {
-                expr* a2 =  mk_app_core(it2->get_app());
+                expr* a2 =  mk_app_core(it2->get_expr());
                 out.push_back (m.mk_eq (a1, a2));
             }
         }
@@ -1000,6 +998,47 @@ namespace qe {
             reset();
             return res;
         }
+
+        vector<expr_ref_vector> get_partition(model& mdl) {
+            vector<expr_ref_vector> result;
+            expr_ref_vector pinned(m);
+            obj_map<expr, unsigned> pid;
+            model::scoped_model_completion _smc(mdl, true);
+            for (term *t : m_tg.m_terms) {
+                expr* a = t->get_expr();
+                if (!is_app(a)) continue;
+                if (m.is_bool(a)) continue;
+                expr_ref val = mdl(a);
+                unsigned p = 0;
+                // NB. works for simple domains Integers, Rationals, 
+                // but not for algebraic numerals.
+                if (!pid.find(val, p)) {
+                    p = pid.size();
+                    pid.insert(val, p);
+                    pinned.push_back(val);
+                    result.push_back(expr_ref_vector(m));
+                }
+                result[p].push_back(a);
+            }            
+            return result;
+        }
+
+        expr_ref_vector shared_occurrences(family_id fid) {
+            expr_ref_vector result(m);
+            for (term *t : m_tg.m_terms) {
+                expr* e = t->get_expr();
+                if (m.get_sort(e)->get_family_id() != fid) continue;
+                for (term * p : term::parents(t->get_root())) {
+                    expr* pe = p->get_expr();
+                    if (!is_app(pe)) continue;
+                    if (to_app(pe)->get_family_id() == fid) continue;
+                    if (to_app(pe)->get_family_id() == m.get_basic_family_id()) continue;
+                    result.push_back(e);
+                    break;
+                }                
+            }
+            return result;
+        }
     };
 
     void term_graph::set_vars(func_decl_ref_vector const& decls, bool exclude) {
@@ -1033,5 +1072,14 @@ namespace qe {
         return p.get_ackerman_disequalities();
     }
 
+    vector<expr_ref_vector> term_graph::get_partition(model& mdl) {
+        term_graph::projector p(*this);
+        return p.get_partition(mdl);
+    }
+
+    expr_ref_vector term_graph::shared_occurrences(family_id fid) {
+        term_graph::projector p(*this);
+        return p.shared_occurrences(fid);        
+    }
 
 }

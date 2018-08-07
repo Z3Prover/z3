@@ -51,6 +51,7 @@ namespace smt {
         m_relevancy_propagator(mk_relevancy_propagator(*this)),
         m_random(p.m_random_seed),
         m_flushing(false),
+        m_lemma_id(0),
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
         m_fingerprints(m, m_region),
@@ -227,7 +228,6 @@ namespace smt {
     }
 
     void context::copy_plugins(context& src, context& dst) {
-
         // copy theory plugins
         for (theory* old_th : src.m_theory_set) {
             theory * new_th = old_th->mk_fresh(&dst);
@@ -235,8 +235,8 @@ namespace smt {
         }
     }
 
-    context * context::mk_fresh(symbol const * l, smt_params * p) {
-        context * new_ctx = alloc(context, m_manager, p == nullptr ? m_fparams : *p);
+    context * context::mk_fresh(symbol const * l, smt_params * p, params_ref const& pa) {
+        context * new_ctx = alloc(context, m_manager, p ? *p : m_fparams, pa);
         new_ctx->set_logic(l == nullptr ? m_setup.get_logic() : *l);
         copy_plugins(*this, *new_ctx);
         return new_ctx;
@@ -562,6 +562,7 @@ namespace smt {
             invert_trans(n1);
             n1->m_trans.m_target        = n2;
             n1->m_trans.m_justification = js;
+            n1->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
             SASSERT(r1->trans_reaches(n1));
             // ---------------
             // r1 -> ..  -> n1 -> n2 -> ... -> r2
@@ -741,12 +742,14 @@ namespace smt {
         eq_justification js               = n->m_trans.m_justification;
         prev->m_trans.m_target            = nullptr;
         prev->m_trans.m_justification     = null_eq_justification;
+        prev->m_proof_logged_status       = smt::logged_status::NOT_LOGGED;
         while (curr != nullptr) {
             SASSERT(prev->trans_reaches(n));
             enode * new_curr              = curr->m_trans.m_target;
             eq_justification new_js       = curr->m_trans.m_justification;
             curr->m_trans.m_target        = prev;
             curr->m_trans.m_justification = js;
+            curr->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
             prev                          = curr;
             js                            = new_js;
             curr                          = new_curr;
@@ -1040,6 +1043,7 @@ namespace smt {
         SASSERT(r1->trans_reaches(n1));
         n1->m_trans.m_target        = nullptr;
         n1->m_trans.m_justification = null_eq_justification;
+        n1->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
         invert_trans(r1);
         // ---------------
         // n1 -> ... -> r1
@@ -1346,18 +1350,9 @@ namespace smt {
        \remark The method assign_eq adds a new entry on this queue.
     */
     bool context::propagate_eqs() {
-        for (unsigned i = 0; i < m_eq_propagation_queue.size(); i++) {
+        TRACE("add_eq", tout << m_eq_propagation_queue.size() << "\n";);
+        for (unsigned i = 0; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
             new_eq & entry = m_eq_propagation_queue[i];
-#if 0
-            static unsigned counter1 = 0;
-            static unsigned counter2 = 0;
-            if (entry.m_lhs->is_eq() || entry.m_rhs->is_eq())
-                counter1++;
-            else
-                counter2++;
-            if ((counter1 + counter2) % 10000 == 0)
-                std::cout << counter1 << " " << counter2 << "\n";
-#endif
             add_eq(entry.m_lhs, entry.m_rhs, entry.m_justification);
             if (inconsistent())
                 return false;
@@ -1371,7 +1366,7 @@ namespace smt {
     */
     bool context::propagate_atoms() {
         SASSERT(!inconsistent());
-        for (unsigned i = 0; i < m_atom_propagation_queue.size(); i++) {
+        for (unsigned i = 0; i < m_atom_propagation_queue.size() && !get_cancel_flag(); i++) {
             SASSERT(!inconsistent());
             literal  l = m_atom_propagation_queue[i];
             bool_var v = l.var();
@@ -1553,16 +1548,17 @@ namespace smt {
     lbool context::get_assignment(expr * n) const {
         if (m_manager.is_false(n))
             return l_false;
-        if (m_manager.is_not(n))
-            return ~get_assignment_core(to_app(n)->get_arg(0));
+        expr* arg = nullptr;
+        if (m_manager.is_not(n, arg))
+            return ~get_assignment_core(arg);
         return get_assignment_core(n);
     }
 
     lbool context::find_assignment(expr * n) const {
         if (m_manager.is_false(n))
             return l_false;
-        if (m_manager.is_not(n)) {
-            expr * arg = to_app(n)->get_arg(0);
+        expr* arg = nullptr;
+        if (m_manager.is_not(n, arg)) {
             if (b_internalized(arg))
                 return ~get_assignment_core(arg);
             return l_undef;
@@ -1747,6 +1743,10 @@ namespace smt {
                 return false;
             if (!propagate_eqs())
                 return false;
+            if (get_cancel_flag()) {
+                m_qhead = qhead;
+                return true;
+            }
             propagate_th_eqs();
             propagate_th_diseqs();
             if (inconsistent())
@@ -1786,7 +1786,7 @@ namespace smt {
     }
 
     bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
-                               unsigned min_top_generation, unsigned max_top_generation, ptr_vector<enode> & used_enodes) {
+                               unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
         return m_qmanager->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
@@ -2877,6 +2877,7 @@ namespace smt {
 
     void context::push() {
         TRACE("trigger_bug", tout << "context::push()\n";);
+        scoped_suspend_rlimit _suspend_cancel(m_manager.limit());
         pop_to_base_lvl();
         setup_context(false);
         bool was_consistent = !inconsistent();
@@ -3182,6 +3183,7 @@ namespace smt {
         if (m_tmp_clauses.empty()) return l_true;
         for (auto & tmp_clause : m_tmp_clauses) {
             literal_vector& lits = tmp_clause.second;
+            literal unassigned = null_literal;
             for (literal l : lits) {
                 switch (get_assignment(l)) {
                 case l_false:
@@ -3189,11 +3191,15 @@ namespace smt {
                 case l_true:
                     goto next_clause;
                 default:
-                    shuffle(lits.size(), lits.c_ptr(), m_random);
-                    push_scope();
-                    assign(l, b_justification::mk_axiom(), true);
-                    return l_undef;
+                    unassigned = l;
                 }         
+            }
+
+            if (unassigned != null_literal) {
+                shuffle(lits.size(), lits.c_ptr(), m_random);
+                push_scope();
+                assign(unassigned, b_justification::mk_axiom(), true);
+                return l_undef;
             }
 
             if (lits.size() == 1) {
@@ -3254,6 +3260,7 @@ namespace smt {
     }
 
     void context::reset_assumptions() {
+        TRACE("unsat_core_bug", tout << "reset " << m_assumptions << "\n";);
         for (literal lit : m_assumptions) 
             get_bdata(lit.var()).m_assumption = false;
         m_assumptions.reset();
@@ -4096,9 +4103,7 @@ namespace smt {
         }
 
         SASSERT(!inconsistent());
-        unsigned sz = m_b_internalized_stack.size();
-        for (unsigned i = 0; i < sz; i++) {
-            expr * curr = m_b_internalized_stack.get(i);
+        for (expr * curr : m_b_internalized_stack) { 
             if (is_relevant(curr) && get_assignment(curr) == l_true) {
                 // if curr is a label literal, then its tags will be copied to result.
                 m_manager.is_label_lit(curr, result);
@@ -4114,9 +4119,7 @@ namespace smt {
     void context::get_relevant_labeled_literals(bool at_lbls, expr_ref_vector & result) {
         SASSERT(!inconsistent());
         buffer<symbol> lbls;
-        unsigned sz = m_b_internalized_stack.size();
-        for (unsigned i = 0; i < sz; i++) {
-            expr * curr = m_b_internalized_stack.get(i);
+        for (expr * curr : m_b_internalized_stack) {
             if (is_relevant(curr) && get_assignment(curr) == l_true) {
                 lbls.reset();
                 if (m_manager.is_label_lit(curr, lbls)) {

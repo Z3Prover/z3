@@ -1429,23 +1429,27 @@ namespace smt {
             return literal(ctx.mk_bool_var(y));
         }
         
-        literal mk_max(literal a, literal b) {
-            if (a == b) return a;
-            expr_ref t1(m), t2(m), t3(m);
-            ctx.literal2expr(a, t1);
-            ctx.literal2expr(b, t2);
-            t3 = m.mk_or(t1, t2);
-            bool_var v = ctx.b_internalized(t3)?ctx.get_bool_var(t3):ctx.mk_bool_var(t3);
+        literal mk_max(unsigned n, literal const* lits) {
+            expr_ref_vector es(m);
+            expr_ref tmp(m);            
+            for (unsigned i = 0; i < n; ++i) {
+                ctx.literal2expr(lits[i], tmp);
+                es.push_back(tmp);
+            }
+            tmp = m.mk_or(es.size(), es.c_ptr());
+            bool_var v = ctx.b_internalized(tmp)?ctx.get_bool_var(tmp):ctx.mk_bool_var(tmp);
             return literal(v);
         }
-
-        literal mk_min(literal a, literal b) {
-            if (a == b) return a;
-            expr_ref t1(m), t2(m), t3(m);
-            ctx.literal2expr(a, t1);
-            ctx.literal2expr(b, t2);
-            t3 = m.mk_and(t1, t2);
-            bool_var v = ctx.b_internalized(t3)?ctx.get_bool_var(t3):ctx.mk_bool_var(t3);
+        
+        literal mk_min(unsigned n, literal const* lits) {
+            expr_ref_vector es(m);
+            expr_ref tmp(m);            
+            for (unsigned i = 0; i < n; ++i) {
+                ctx.literal2expr(lits[i], tmp);
+                es.push_back(tmp);
+            }
+            tmp = m.mk_and(es.size(), es.c_ptr());
+            bool_var v = ctx.b_internalized(tmp)?ctx.get_bool_var(tmp):ctx.mk_bool_var(tmp);
             return literal(v);
         }
 

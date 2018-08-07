@@ -314,6 +314,23 @@ public class Optimize extends Z3Object {
         Native.optimizeFromString(getContext().nCtx(), getNativeObject(), s);
     }
 
+    /**
+     * The set of asserted formulas.
+     */
+    public BoolExpr[] getAssertions() 
+    {
+        ASTVector assertions = new ASTVector(getContext(), Native.optimizeGetAssertions(getContext().nCtx(), getNativeObject()));
+        return assertions.ToBoolExprArray();
+    }
+
+    /**
+     * The set of asserted formulas.
+     */
+    public Expr[] getObjectives() 
+    {
+        ASTVector objectives = new ASTVector(getContext(), Native.optimizeGetObjectives(getContext().nCtx(), getNativeObject()));
+        return objectives.ToExprArray();
+    }
 
     /**
      *  Optimize statistics.

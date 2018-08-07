@@ -112,7 +112,7 @@ private:
     
 public :
     unsigned terms_start_index() const { return m_terms_start_index; }
-    const vector<lar_term*> terms() const { return m_terms; }
+    const vector<lar_term*> & terms() const { return m_terms; }
     const vector<lar_base_constraint*>& constraints() const {
         return m_constraints;
     }
@@ -155,8 +155,6 @@ public:
 
     bool var_is_int(var_index v) const;
 
-    bool ext_var_is_int(var_index ext_var) const;
-    
     void add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int);
 
     void add_new_var_to_core_fields_for_doubles(bool register_in_basis);
@@ -249,6 +247,8 @@ public:
     void calculate_implied_bounds_for_row(unsigned i, bound_propagator & bp);
 
     unsigned adjust_column_index_to_term_index(unsigned j) const;
+
+    var_index local2external(var_index idx) const { return m_var_register.local_to_external(idx); }
     
     void propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset);
 
@@ -575,9 +575,10 @@ public:
     unsigned column_count() const { return A_r().column_count(); }
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
     const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
-    bool get_equality_and_right_side_for_term_on_current_x(unsigned i, mpq &rs, constraint_index& ci) const;
+    bool get_equality_and_right_side_for_term_on_current_x(unsigned i, mpq &rs, constraint_index& ci, bool &upper_bound) const;
     bool remove_from_basis(unsigned);
     lar_term get_term_to_maximize(unsigned ext_j) const;
     void set_cut_strategy(unsigned cut_frequency);
+    bool sum_first_coords(const lar_term& t, mpq & val) const;
 };
 }

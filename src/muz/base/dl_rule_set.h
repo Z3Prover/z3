@@ -253,6 +253,7 @@ namespace datalog {
         const func_decl_set & get_output_predicates() const { return m_output_preds; }
         func_decl* get_output_predicate() const { SASSERT(m_output_preds.size() == 1); return *m_output_preds.begin(); }
 
+        bool is_finite_domain() const;
 
         void display(std::ostream & out) const;
 

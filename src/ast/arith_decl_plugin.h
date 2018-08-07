@@ -46,6 +46,7 @@ enum arith_op_kind {
     OP_MUL,
     OP_DIV,
     OP_IDIV,
+    OP_IDIVIDES,
     OP_REM,
     OP_MOD,
     OP_TO_REAL,

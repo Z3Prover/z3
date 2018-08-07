@@ -483,6 +483,7 @@ public:
         s2g(m_solver, m_map, m_params, g, m_sat_mc);
         m_internalized_fmls.reset();
         g.get_formulas(m_internalized_fmls);
+        TRACE("sat", m_solver.display(tout); tout << m_internalized_fmls << "\n";);
         m_internalized_converted = true;
     }
 
@@ -529,7 +530,7 @@ private:
             throw default_exception("generation of proof objects is not supported in this mode");
         }
         SASSERT(!g->proofs_enabled());
-        TRACE("sat", g->display(tout););
+        TRACE("sat", m_solver.display(tout); g->display(tout););
         try {
             (*m_preprocess)(g, m_subgoals);
         }
@@ -712,23 +713,35 @@ private:
         m_asms.reset();
         unsigned j = 0;
         sat::literal lit;
+        sat::literal_set seen;
         for (unsigned i = 0; i < sz; ++i) {
             if (dep2asm.find(asms[i], lit)) {
                 SASSERT(lit.var() <= m_solver.num_vars());
-                m_asms.push_back(lit);
-                if (i != j && !m_weights.empty()) {
-                    m_weights[j] = m_weights[i];
+                if (!seen.contains(lit)) {
+                    m_asms.push_back(lit);
+                    seen.insert(lit);
+                    if (i != j && !m_weights.empty()) {
+                        m_weights[j] = m_weights[i];
+                    }
+                    ++j;
                 }
-                ++j;
             }
         }
         for (unsigned i = 0; i < get_num_assumptions(); ++i) {
             if (dep2asm.find(get_assumption(i), lit)) {
                 SASSERT(lit.var() <= m_solver.num_vars());
-                m_asms.push_back(lit);
+                if (!seen.contains(lit)) {
+                    m_asms.push_back(lit);
+                    seen.insert(lit);
+                }
             }
         }
-
+        CTRACE("sat", dep2asm.size() != m_asms.size(), 
+               tout << dep2asm.size() << " vs " << m_asms.size() << "\n";
+               tout << m_asms << "\n";
+               for (auto const& kv : dep2asm) {
+                   tout << mk_pp(kv.m_key, m) << " " << kv.m_value << "\n";
+               });
         SASSERT(dep2asm.size() == m_asms.size());
     }
 
@@ -751,6 +764,7 @@ private:
                   tout << mk_pp(kv.m_key, m) << " |-> " << mk_pp(kv.m_value, m) << "\n";
               }
               tout << "core: "; for (auto c : core) tout << c << " ";  tout << "\n";
+              m_solver.display(tout);
               );
 
         m_core.reset();

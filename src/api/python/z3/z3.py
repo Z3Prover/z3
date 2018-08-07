@@ -1675,7 +1675,6 @@ def Or(*args):
 class PatternRef(ExprRef):
     """Patterns are hints for quantifier instantiation.
 
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
     """
     def as_ast(self):
         return Z3_pattern_to_ast(self.ctx_ref(), self.ast)
@@ -1685,8 +1684,6 @@ class PatternRef(ExprRef):
 
 def is_pattern(a):
     """Return `True` if `a` is a Z3 pattern (hint for quantifier instantiation.
-
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
 
     >>> f = Function('f', IntSort(), IntSort())
     >>> x = Int('x')
@@ -1704,8 +1701,6 @@ def is_pattern(a):
 
 def MultiPattern(*args):
     """Create a Z3 multi-pattern using the given expressions `*args`
-
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
 
     >>> f = Function('f', IntSort(), IntSort())
     >>> g = Function('g', IntSort(), IntSort())
@@ -1966,8 +1961,6 @@ def ForAll(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
 
     The parameters `weight`, `qif`, `skid`, `patterns` and `no_patterns` are optional annotations.
 
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
-
     >>> f = Function('f', IntSort(), IntSort(), IntSort())
     >>> x = Int('x')
     >>> y = Int('y')
@@ -1985,7 +1978,6 @@ def Exists(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
 
     The parameters `weight`, `qif`, `skid`, `patterns` and `no_patterns` are optional annotations.
 
-    See http://rise4fun.com/Z3Py/tutorial/advanced for more details.
 
     >>> f = Function('f', IntSort(), IntSort(), IntSort())
     >>> x = Int('x')
@@ -7241,11 +7233,13 @@ class Optimize(Z3PPObject):
     def assert_exprs(self, *args):
         """Assert constraints as background axioms for the optimize solver."""
         args = _get_args(args)
+        s    = BoolSort(self.ctx)
         for arg in args:
             if isinstance(arg, Goal) or isinstance(arg, AstVector):
                 for f in arg:
                     Z3_optimize_assert(self.ctx.ref(), self.optimize, f.as_ast())
             else:
+                arg = s.cast(arg)
                 Z3_optimize_assert(self.ctx.ref(), self.optimize, arg.as_ast())
 
     def add(self, *args):
@@ -8395,11 +8389,6 @@ def _dict2darray(decls, ctx):
         i = i + 1
     return sz, _names, _decls
 
-def _handle_parse_error(ex, ctx):
-    msg = Z3_get_parser_error(ctx.ref())
-    if msg != "":
-        raise Z3Exception(msg)
-    raise ex
 
 def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     """Parse a string in SMT 2.0 format using the given sorts and decls.
@@ -8419,10 +8408,7 @@ def parse_smt2_string(s, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-    try: 
-        return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
-    except Z3Exception as e:
-        _handle_parse_error(e, ctx)
+    return AstVector(Z3_parse_smtlib2_string(ctx.ref(), s, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
 
 def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     """Parse a file in SMT 2.0 format using the given sorts and decls.
@@ -8432,10 +8418,7 @@ def parse_smt2_file(f, sorts={}, decls={}, ctx=None):
     ctx = _get_ctx(ctx)
     ssz, snames, ssorts = _dict2sarray(sorts, ctx)
     dsz, dnames, ddecls = _dict2darray(decls, ctx)
-    try:
-        return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
-    except Z3Exception as e:
-        _handle_parse_error(e, ctx)
+    return AstVector(Z3_parse_smtlib2_file(ctx.ref(), f, ssz, snames, ssorts, dsz, dnames, ddecls), ctx)
 
 
 #########################################

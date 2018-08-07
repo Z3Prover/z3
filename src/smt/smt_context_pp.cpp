@@ -419,23 +419,16 @@ namespace smt {
         visitor.collect(fmls);
         visitor.display_decls(out);
         visitor.display_asserts(out, fmls, true);
+        out << "(check-sat)\n";
     }
 
-    static unsigned g_lemma_id = 0;
-
-#define BUFFER_SZ 128
-
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
-        char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
-#else
-        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
-#endif
-        std::ofstream out(buffer);
+    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
+        std::stringstream strm;
+        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::ofstream out(strm.str());
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
         out.close();
-        g_lemma_id++;
+        return m_lemma_id;
     }
 
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
@@ -464,21 +457,18 @@ namespace smt {
         visitor.collect(fmls);
         visitor.display_decls(out);
         visitor.display_asserts(out, fmls, true);
+        out << "(check-sat)\n";
     }
 
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
+    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, symbol const& logic) const {
-        char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
-#else
-        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
-#endif
-        std::ofstream out(buffer);
+        std::stringstream strm;
+        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::ofstream out(strm.str());
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
-        g_lemma_id++;
+        return m_lemma_id;
     }
 
     /**
@@ -577,7 +567,7 @@ namespace smt {
         case b_justification::BIN_CLAUSE: {
             literal l2 = j.get_literal();
             out << "bin-clause ";
-            display_literal_verbose(out, l2);
+            display_literal(out, l2);
             break;
         }
         case b_justification::CLAUSE: {
@@ -590,7 +580,7 @@ namespace smt {
             out << "justification " << j.get_justification()->get_from_theory() << ": ";
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            display_literals_verbose(out, lits);
+            display_literals(out, lits);
             break;
         }
         default:

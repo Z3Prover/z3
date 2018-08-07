@@ -561,15 +561,24 @@ interval & interval::operator/=(interval const & other) {
         TRACE("interval", other.display_with_dependencies(tout););
         if (other.m_lower.is_pos() || (other.m_lower.is_zero() && other.m_lower_open)) {
             // other.lower > 0
+            //     x in ([0, 0] / [other.lo, other.up]), for other.lo > 0
+            // <=>
+            //     x >= 0: because y*x >= 0 & y > 0
+            //     x <= 0: because y*x <= 0 & y > 0
             m_lower_dep  = join(m_lower_dep, other.m_lower_dep);
             m_upper_dep  = join(m_upper_dep, other.m_lower_dep);
         }
         else {
             // assertion must hold since !other.contains_zero()
-            SASSERT(other.m_upper.is_neg() || (other.m_upper.is_zero() && other.m_upper_open));
+            SASSERT(other.m_upper.is_neg() || (other.m_upper.is_zero() && other.m_upper_open));            
             // other.upper < 0
-            m_lower_dep  = join(m_lower_dep, other.m_upper_dep);
-            m_upper_dep  = join(m_upper_dep, other.m_upper_dep);
+            //     x in ([0, 0] / [other.lo, other.up]), for up < 0
+            // <=>
+            //     x >= 0: because y*x <= 0 & y < 0
+            //     x <= 0: because y*x >= 0 & y < 0
+            v_dependency* lower_dep = m_lower_dep;
+            m_lower_dep  = join(m_upper_dep, other.m_upper_dep);
+            m_upper_dep  = join(lower_dep, other.m_upper_dep);
         }
         return *this;
     }

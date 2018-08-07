@@ -346,10 +346,50 @@ namespace qe {
             func_decl_ref_vector no_shared(m);
             tg1.set_vars(no_shared, false);
             tg1.add_lits(lits);
+            arith_util a(m);
+            expr_ref_vector foreign = tg1.shared_occurrences(a.get_family_id());
+            obj_hashtable<expr> _foreign;
+            for (expr* e : foreign) _foreign.insert(e);
+            vector<expr_ref_vector> partition = tg1.get_partition(*mdl);
             expr_ref_vector diseq = tg1.get_ackerman_disequalities();
             lits.append(diseq);
-            TRACE("qe", tout << "diseq: " << diseq << "\n";);
+            TRACE("qe", tout << "diseq: " << diseq << "\n";
+                  tout << "foreign: " << foreign << "\n";
+                  for (auto const& v : partition) {
+                      tout << "partition: {";
+                      bool first = true;
+                      for (expr* e : v) {
+                          if (first) first = false; else tout << ", ";
+                          tout << expr_ref(e, m);
+                      }
+                      tout << "}\n";
+                  }
+                  );
+            vector<expr_ref_vector> refined_partition;
+            for (auto & p : partition) {
+                unsigned j = 0; 
+                for (expr* e : p) {
+                    if (_foreign.contains(e) || 
+                        (is_app(e) && m_shared.contains(to_app(e)->get_decl()))) {
+                        p[j++] = e;
+                    }
+                }
+                p.shrink(j);
+                if (!p.empty()) refined_partition.push_back(p);
+            }
+            TRACE("qe",
+                  for (auto const& v : refined_partition) {
+                      tout << "partition: {";
+                      bool first = true;
+                      for (expr* e : v) {
+                          if (first) first = false; else tout << ", ";
+                          tout << expr_ref(e, m);
+                      }
+                      tout << "}\n";
+                  });
 
+            
+            
             arith_project_plugin ap(m);
             ap.set_check_purified(false);
 

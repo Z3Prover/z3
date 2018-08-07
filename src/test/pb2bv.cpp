@@ -16,7 +16,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_util.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/portfolio/fd_solver.h"
+#include "tactic/fd_solver/fd_solver.h"
 #include "solver/solver.h"
 
 static void test1() {

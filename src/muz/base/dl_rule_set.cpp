@@ -501,6 +501,14 @@ namespace datalog {
         }
     }
 
+    bool rule_set::is_finite_domain() const {
+        for (rule * r : *this) {
+            if (!get_rule_manager().is_finite_domain(*r)) 
+                return false;
+        }
+        return true;
+    }
+
 
     void rule_set::display_deps( std::ostream & out ) const
     {

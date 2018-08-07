@@ -492,7 +492,7 @@ namespace smt {
         m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false; 
         m_params.m_arith_propagate_eqs = false; 
-        m_params.m_nnf_cnf             = false;
+        m_params.m_nnf_cnf             = false;        
         setup_lra_arith();
     }
 
@@ -627,9 +627,6 @@ namespace smt {
             m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
             m_params.m_random_initial_activity = IA_ZERO;
         }
-        // if (st.m_num_arith_ineqs == st.m_num_diff_ineqs && st.m_num_arith_eqs == st.m_num_diff_eqs && st.arith_k_sum_is_small()) 
-        //    m_context.register_plugin(new smt::theory_si_arith(m_manager, m_params));
-        // else 
         setup_i_arith();
         setup_arrays();
     }
@@ -654,7 +651,7 @@ namespace smt {
         // 
         m_params.m_ng_lift_ite             = LI_FULL;
         TRACE("setup", tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
-        setup_i_arith();
+        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
         setup_arrays();
     }
 
@@ -777,7 +774,11 @@ namespace smt {
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
         bool fixnum = st.arith_k_sum_is_small() && m_params.m_arith_fixnum;
         bool int_only = !st.m_has_rational && !st.m_has_real && m_params.m_arith_int_only;
-        switch(m_params.m_arith_mode) {
+        auto mode = m_params.m_arith_mode;
+        if (m_logic == "QF_LIA") {
+            mode = AS_NEW_ARITH;
+        }
+        switch(mode) {
         case AS_NO_ARITH:
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
@@ -828,7 +829,10 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         case AS_NEW_ARITH:
-            setup_lra_arith();
+            if (st.m_num_non_linear != 0) 
+                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            else 
+                setup_lra_arith();
             break;
         default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
@@ -990,7 +994,7 @@ namespace smt {
         }
 
         if (st.num_theories() == 2 && st.has_uf() && is_arith(st)) {
-            if (!st.m_has_real)
+            if (!st.m_has_real && st.m_num_non_linear == 0)
                 setup_QF_UFLIA(st);
             else if (!st.m_has_int && st.m_num_non_linear == 0) 
                 setup_QF_UFLRA();

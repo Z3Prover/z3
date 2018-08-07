@@ -164,7 +164,6 @@ void lar_solver::analyze_new_bounds_on_row_tableau(
 
     if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
         return;
-
     lp_assert(use_tableau());
     bound_analyzer_on_row<row_strip<mpq>>::analyze_row(A_r().m_rows[row_index],
                                        static_cast<unsigned>(-1),
@@ -216,7 +215,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp
         bound_j = m_var_register.external_to_local(bound_j);
     }
     for (auto const& r : A_r().m_rows[i]) {
-        unsigned j = r.m_j;
+        unsigned j = r.var();
         if (j == bound_j) continue;
         mpq const& a = r.get_val();
         int a_sign = is_pos(a)? 1: -1;
@@ -428,8 +427,8 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
         if (i < 0)
             jset.insert(j);
         else {
-            for (auto & rc : A_r().m_rows[i])
-                jset.insert(rc.m_j);
+            for (const auto & rc : A_r().m_rows[i])
+                    jset.insert(rc.var());
         }
     }
 
@@ -538,12 +537,18 @@ lp_status lar_solver::maximize_term(unsigned ext_j,
         if (column_value_is_integer(j))
             continue;
         if (m_int_solver->is_base(j)) {
-            if (!remove_from_basis(j)) // consider a special version of remove_from_basis that would not remove inf_int columns
+            if (!remove_from_basis(j)) { // consider a special version of remove_from_basis that would not remove inf_int columns
+                m_mpq_lar_core_solver.m_r_x = backup;
+                term_max = prev_value;
                 return lp_status::FEASIBLE; // it should not happen
+            }
         }
         m_int_solver->patch_nbasic_column(j, false);
-        if (!column_value_is_integer(j))
+        if (!column_value_is_integer(j)) {
+            term_max = prev_value;
+            m_mpq_lar_core_solver.m_r_x = backup;
             return lp_status::FEASIBLE;
+        }
         change = true;
     }
     if (change) {
@@ -633,7 +638,7 @@ void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column(unsigned j
     
 void lar_solver::detect_rows_of_bound_change_column_for_nbasic_column_tableau(unsigned j) {
     for (auto & rc : m_mpq_lar_core_solver.m_r_A.m_columns[j])
-        m_rows_with_changed_bounds.insert(rc.m_i);
+        m_rows_with_changed_bounds.insert(rc.var());
 }
 
 bool lar_solver::use_tableau() const { return m_settings.use_tableau(); }
@@ -661,8 +666,9 @@ void lar_solver::adjust_x_of_column(unsigned j) {
 
 bool lar_solver::row_is_correct(unsigned i) const {
     numeric_pair<mpq> r = zero_of_type<numeric_pair<mpq>>();
-    for (const auto & c : A_r().m_rows[i])
-        r += c.m_value * m_mpq_lar_core_solver.m_r_x[c.m_j];
+    for (const auto & c : A_r().m_rows[i]) {
+        r += c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
+    }
     return is_zero(r);
 }
     
@@ -685,7 +691,7 @@ bool lar_solver::costs_are_used() const {
 void lar_solver::change_basic_columns_dependend_on_a_given_nb_column(unsigned j, const numeric_pair<mpq> & delta) {
     if (use_tableau()) {
         for (const auto & c : A_r().m_columns[j]) {
-            unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.m_i];
+            unsigned bj = m_mpq_lar_core_solver.m_r_basis[c.var()];
             if (tableau_with_costs()) {
                 m_basic_columns_with_changed_cost.insert(bj);
             }
@@ -784,10 +790,10 @@ numeric_pair<mpq> lar_solver::get_basic_var_value_from_row_directly(unsigned i) 
         
     unsigned bj = m_mpq_lar_core_solver.m_r_solver.m_basis[i];
     for (const auto & c: A_r().m_rows[i]) {
-        if (c.m_j == bj) continue;
-        const auto & x = m_mpq_lar_core_solver.m_r_x[c.m_j];
+        if (c.var() == bj) continue;
+        const auto & x = m_mpq_lar_core_solver.m_r_x[c.var()];
         if (!is_zero(x)) 
-            r -= c.m_value * x;
+            r -= c.coeff() * x;
     }
     return r;
 }
@@ -889,7 +895,7 @@ void lar_solver::copy_from_mpq_matrix(static_matrix<U, V> & matr) {
     matr.m_columns.resize(A_r().column_count());
     for (unsigned i = 0; i < matr.row_count(); i++) {
         for (auto & it : A_r().m_rows[i]) {
-            matr.set(i, it.m_j,  convert_struct<U, mpq>::convert(it.get_val()));
+            matr.set(i, it.var(),  convert_struct<U, mpq>::convert(it.get_val()));
         }
     }
 }
@@ -1323,14 +1329,14 @@ void lar_solver::make_sure_that_the_bottom_right_elem_not_zero_in_tableau(unsign
     int non_zero_column_cell_index = -1;
     for (unsigned k = last_column.size(); k-- > 0;){
         auto & cc = last_column[k];
-        if (cc.m_i == i)
+        if (cc.var() == i)
             return;
         non_zero_column_cell_index = k;
     }
 
     lp_assert(non_zero_column_cell_index != -1);
     lp_assert(static_cast<unsigned>(non_zero_column_cell_index) != i);
-    m_mpq_lar_core_solver.m_r_solver.transpose_rows_tableau(last_column[non_zero_column_cell_index].m_i, i);
+    m_mpq_lar_core_solver.m_r_solver.transpose_rows_tableau(last_column[non_zero_column_cell_index].var(), i);
 }
 
 void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
@@ -1348,15 +1354,15 @@ void lar_solver::remove_last_row_and_column_from_tableau(unsigned j) {
     for (unsigned k = last_row.size(); k-- > 0;) {
         auto &rc = last_row[k];
         if (cost_is_nz) {
-            m_mpq_lar_core_solver.m_r_solver.m_d[rc.m_j] += cost_j*rc.get_val();
+            m_mpq_lar_core_solver.m_r_solver.m_d[rc.var()] += cost_j*rc.get_val();
         }
-            
         A_r().remove_element(last_row, rc);
     }
     lp_assert(last_row.size() == 0);
     lp_assert(A_r().m_columns[j].size() == 0);
     A_r().m_rows.pop_back();
     A_r().m_columns.pop_back();
+	CASSERT("check_static_matrix", A_r().is_correct());
     slv.m_b.pop_back();
 }
 
@@ -1505,11 +1511,6 @@ bool lar_solver::column_is_int(unsigned j) const {
 
 bool lar_solver::column_is_fixed(unsigned j) const {
     return m_mpq_lar_core_solver.column_is_fixed(j);
-}
-
-    
-bool lar_solver::ext_var_is_int(var_index ext_var) const {
-    return m_var_register.external_is_int(ext_var);
 }
 
 // below is the initialization functionality of lar_solver
@@ -1844,6 +1845,7 @@ void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const l
 
     unsigned basis_j = A.column_count() - 1;
     A.set(last_row, basis_j, -1);
+    lp_assert(A.is_correct());
 }
 
 void lar_solver::update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind) {
@@ -2177,44 +2179,10 @@ bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& d
     return true;
 }
 
-void lar_solver::update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>& terms_of_var) {
-    for (unsigned i : terms_of_var) {
-        lar_term & t = *m_terms[i];
-        auto it = t.m_coeffs.find(j);
-        unsigned tj = to_column(i + m_terms_start_index);
-        TRACE("cube",
-              tout << "t.apply = " << t.apply(m_mpq_lar_core_solver.m_r_x) << ", m_mpq_lar_core_solver.m_r_x[tj]= " << m_mpq_lar_core_solver.m_r_x[tj];);
-        TRACE("cube", print_term_as_indices(t, tout);
-              tout << ", it->second = " << it->second;
-              tout << ", tj = " << tj << ", ";
-              m_int_solver->display_column(tout, tj);
-              );
-        
-        m_mpq_lar_core_solver.m_r_x[tj] += it->second * delta;
-        lp_assert(t.apply(m_mpq_lar_core_solver.m_r_x) == m_mpq_lar_core_solver.m_r_x[tj]);
-        TRACE("cube", m_int_solver->display_column(tout, tj); );
-    }
-}
-
-
-void lar_solver::fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms) {
-	for (unsigned j = 0; j < m_terms.size(); j++) {
-		if (!term_is_used_as_row(j + m_terms_start_index))
-			continue;
-		for (const auto & p : *m_terms[j]) {
-			if (p.var() >= vars_to_terms.size())
-				vars_to_terms.resize(p.var() + 1);
-			vars_to_terms[p.var()].push_back(j);
-		}
-	}
-}
 
 void lar_solver::round_to_integer_solution() {
-    vector<vector<unsigned>> vars_to_terms;
-    fill_vars_to_terms(vars_to_terms);
-
     for (unsigned j = 0; j < column_count(); j++) {
-        if (column_is_int(j)) continue;
+        if (!column_is_int(j)) continue;
         if (column_corresponds_to_term(j)) continue;
         TRACE("cube", m_int_solver->display_column(tout, j););
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
@@ -2228,39 +2196,51 @@ void lar_solver::round_to_integer_solution() {
         } else {
             v = flv;
         }
-        TRACE("cube", m_int_solver->display_column(tout, j); tout << "v = " << v << " ,del = " << del;);
-        update_delta_for_terms(del, j, vars_to_terms[j]);
     }
 }
+// return true if all y coords are zeroes
+bool lar_solver::sum_first_coords(const lar_term& t, mpq & val) const {
+    val = zero_of_type<mpq>();
+    for (const auto & c : t) {
+        const auto & x = m_mpq_lar_core_solver.m_r_x[c.var()];
+        if (!is_zero(x.y))
+            return false;
+        val += x.x * c.coeff();
+    }
+    return true;
+}
 
-bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci) const {
+bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term_index, mpq & rs, constraint_index& ci, bool &upper_bound) const {
     unsigned tj = term_index + m_terms_start_index;
     unsigned j;
     bool is_int;
     if (m_var_register.external_is_used(tj, j, is_int) == false)
-        return false; // the term does not have bound because it does not correspond to a column
+        return false; // the term does not have a bound because it does not correspond to a column
     if (!is_int) // todo - allow for the next version of hnf
         return false;
-    impq term_val;
-    bool term_val_ready = false;
+    bool rs_is_calculated = false;
     mpq b;
     bool is_strict;
+    const lar_term& t = *terms()[term_index];
     if (has_upper_bound(j, ci, b, is_strict) && !is_strict) {
         lp_assert(b.is_int());
-        term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
-        term_val_ready = true;
-        if (term_val.x == b) {
-            rs = b;
+        if (!sum_first_coords(t, rs))
+            return false;
+        rs_is_calculated = true;
+        if (rs == b) {
+            upper_bound = true;
             return true;
         }
     }
     if (has_lower_bound(j, ci, b, is_strict) && !is_strict) {
-        if (!term_val_ready)
-            term_val = terms()[term_index]->apply(m_mpq_lar_core_solver.m_r_x);
+        if (!rs_is_calculated){
+            if (!sum_first_coords(t, rs))
+                return false;
+        }
         lp_assert(b.is_int());
         
-        if (term_val.x == b) {
-            rs = b;
+        if (rs == b) {
+            upper_bound = false;
             return true;
         }
     }
@@ -2268,16 +2248,16 @@ bool lar_solver::get_equality_and_right_side_for_term_on_current_x(unsigned term
 }
 
 void lar_solver::set_cut_strategy(unsigned cut_frequency) {
-    if (cut_frequency < 4) { // enable only gomory cut
-        settings().m_int_gomory_cut_period = 2;
-        settings().m_hnf_cut_period = 100000000;
+    if (cut_frequency < 4) {
+        settings().m_int_gomory_cut_period = 2; // do it often
+        settings().set_hnf_cut_period(4); // also create hnf cuts
     } else if (cut_frequency == 4) { // enable all cuts and cube equally
         settings().m_int_gomory_cut_period = 4;
-        settings().m_hnf_cut_period = 4;
+        settings().set_hnf_cut_period(4);
     } else {
-        // disable all heuristics
+        // disable all heuristics except cube
         settings().m_int_gomory_cut_period = 10000000;
-        settings().m_hnf_cut_period = 100000000;
+        settings().set_hnf_cut_period(100000000);
     } 
 }
 

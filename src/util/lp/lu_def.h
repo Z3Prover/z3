@@ -25,7 +25,6 @@ Revision History:
 #include "util/debug.h"
 #include "util/lp/lu.h"
 namespace lp {
-#ifdef Z3DEBUG
 template <typename T, typename X, typename M> // print the nr x nc submatrix at the top left corner
 void print_submatrix(square_sparse_matrix<T, X> & m, unsigned mr, unsigned nc, std::ostream & out) {
     vector<vector<std::string>> A;
@@ -61,9 +60,6 @@ void print_matrix(M &m, std::ostream & out) {
 
     print_matrix_with_widths(A, widths, out);
 }
-
-#endif
-
 
 template <typename T, typename X>
 one_elem_on_diag<T, X>::one_elem_on_diag(const one_elem_on_diag & o) {
@@ -390,7 +386,7 @@ void lu< M>::find_error_of_yB_indexed(const indexed_vector<T>& y, const vector<i
         auto & row = m_A.m_rows[k];
         const T & y_k = y.m_data[k];
         for (auto & c : row) {
-            unsigned j = c.m_j;
+            unsigned j = c.var();
             int hj = heading[j];
             if (hj < 0) continue;
             if (m_ii.m_data[hj] == 0)

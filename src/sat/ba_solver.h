@@ -255,8 +255,8 @@ namespace sat {
             pliteral mk_true();
             pliteral mk_not(pliteral l);
             pliteral fresh(char const*);
-            pliteral mk_max(pliteral l1, pliteral l2);
-            pliteral mk_min(pliteral l1, pliteral l2);
+            pliteral mk_min(unsigned, pliteral const* lits);
+            pliteral mk_max(unsigned, pliteral const* lits);
             void    mk_clause(unsigned n, literal const* lits);
             std::ostream& pp(std::ostream& out, pliteral l) const;
         };

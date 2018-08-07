@@ -66,6 +66,7 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
         SASSERT(num_args == 2); st = mk_div_core(args[0], args[1], result); break;
     case OP_IDIV: if (num_args == 1) { result = args[0]; st = BR_DONE; break; }
         SASSERT(num_args == 2); st = mk_idiv_core(args[0], args[1], result); break;
+    case OP_IDIVIDES: SASSERT(num_args == 1); st = mk_idivides(f->get_parameter(0).get_int(), args[0], result); break;
     case OP_MOD: SASSERT(num_args == 2); st = mk_mod_core(args[0], args[1], result); break;
     case OP_REM: SASSERT(num_args == 2); st = mk_rem_core(args[0], args[1], result); break;
     case OP_UMINUS: SASSERT(num_args == 1);  st = mk_uminus(args[0], result); break;
@@ -792,6 +793,11 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
     return BR_FAILED;
 }
 
+br_status arith_rewriter::mk_idivides(unsigned k, expr * arg, expr_ref & result) {
+    result = m().mk_eq(m_util.mk_mod(arg, m_util.mk_int(k)), m_util.mk_int(0));
+    return BR_REWRITE2;
+}
+
 br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(m().get_sort(arg1));
     numeral v1, v2;
@@ -811,6 +817,28 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         expr_ref zero(m_util.mk_int(0), m()); 
         result = m().mk_ite(m().mk_eq(arg1, zero), m_util.mk_idiv(zero, zero), m_util.mk_int(1)); 
         return BR_REWRITE3; 
+    } 
+    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_pos() && m_util.is_add(arg1)) { 
+        expr_ref_buffer args(m());
+        bool change = false;
+        rational add(0);
+        for (expr* arg : *to_app(arg1)) {
+            rational arg_v;
+            if (m_util.is_numeral(arg, arg_v) && arg_v.is_pos() && mod(arg_v, v2) != arg_v) {
+                change = true;
+                args.push_back(m_util.mk_numeral(mod(arg_v, v2), true));
+                add += div(arg_v, v2);
+            }
+            else {
+                args.push_back(arg);
+            }
+        }
+        if (change) {
+            result = m_util.mk_idiv(m().mk_app(to_app(arg1)->get_decl(), args.size(), args.c_ptr()), arg2);
+            result = m_util.mk_add(m_util.mk_numeral(add, true), result);
+            TRACE("div_bug", tout << "mk_div result: " << result << "\n";);
+            return BR_REWRITE3;
+        }
     } 
     if (divides(arg1, arg2, result)) { 
         return BR_REWRITE_FULL; 
@@ -914,9 +942,8 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
     }
 
     if (arg1 == arg2 && !m_util.is_numeral(arg2)) {
-        expr_ref zero(m_util.mk_int(0), m()), abs(m());
-        mk_abs_core(arg2, abs);
-        result = m().mk_ite(m().mk_eq(arg2, zero), m_util.mk_mod(zero, zero), abs);
+        expr_ref zero(m_util.mk_int(0), m());
+        result = m().mk_ite(m().mk_eq(arg2, zero), m_util.mk_mod(zero, zero), zero);
         return BR_DONE;
     }
 
@@ -927,30 +954,29 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         return BR_DONE;
     }
 
-    // propagate mod inside only if not all arguments are not already mod.
+    // propagate mod inside only if there is something to reduce.
     if (m_util.is_numeral(arg2, v2, is_int) && is_int && v2.is_pos() && (is_add(arg1) || is_mul(arg1))) {
         TRACE("mod_bug", tout << "mk_mod:\n" << mk_ismt2_pp(arg1, m()) << "\n" << mk_ismt2_pp(arg2, m()) << "\n";);
-        unsigned num_args = to_app(arg1)->get_num_args();
-        unsigned i;
-        rational arg_v;
-        for (i = 0; i < num_args; i++) {
-            expr * arg = to_app(arg1)->get_arg(i);
-            if (m_util.is_mod(arg))
-                continue;
-            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, v2) == arg_v)
-                continue;
-            if (m().is_ite(arg)) 
-                continue;
-            // found target for rewriting
-            break;
+        expr_ref_buffer args(m());
+        bool change = false;
+        for (expr* arg : *to_app(arg1)) {
+            rational arg_v;
+            if (m_util.is_numeral(arg, arg_v) && mod(arg_v, v2) != arg_v) {
+                change = true;
+                args.push_back(m_util.mk_numeral(mod(arg_v, v2), true));
+            }
+            else if (m_util.is_mod(arg, t1, t2) && t2 == arg2) {
+                change = true;
+                args.push_back(t1);
+            }
+            else {
+                args.push_back(arg);
+            }
         }
-        TRACE("mod_bug", tout << "mk_mod target: " << i << "\n";);
-        if (i == num_args)
+        if (!change) {
             return BR_FAILED; // did not find any target for applying simplification
-        ptr_buffer<expr> new_args;
-        for (unsigned i = 0; i < num_args; i++)
-            new_args.push_back(m_util.mk_mod(to_app(arg1)->get_arg(i), arg2));
-        result = m_util.mk_mod(m().mk_app(to_app(arg1)->get_decl(), new_args.size(), new_args.c_ptr()), arg2);
+        }
+        result = m_util.mk_mod(m().mk_app(to_app(arg1)->get_decl(), args.size(), args.c_ptr()), arg2);
         TRACE("mod_bug", tout << "mk_mod result: " << mk_ismt2_pp(result, m()) << "\n";);
         return BR_REWRITE3;
     }

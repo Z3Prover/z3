@@ -71,7 +71,7 @@ extern "C" {
         RESET_ERROR_CODE();
         obj_map<ast, ast*>::obj_map_entry * entry = to_ast_map_ref(m).find_core(to_ast(k));
         if (entry == nullptr) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         else {

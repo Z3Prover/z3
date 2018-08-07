@@ -26,6 +26,23 @@ tactic * mk_qffplra_tactic(ast_manager & m, params_ref const & p) {
     return st;
 }
 
+struct is_fpa_function {
+    struct found {};
+    ast_manager & m;
+    fpa_util      fu;
+    
+    is_fpa_function(ast_manager & _m) : m(_m), fu(m) {}
+
+    void operator()(var *) { }
+
+    void operator()(quantifier *) { }
+
+    void operator()(app * n) {
+        if (n->get_family_id() == fu.get_family_id()) 
+            throw found();
+    }
+};
+
 struct is_non_qffplra_predicate {
     struct found {};
     ast_manager & m;
@@ -61,7 +78,9 @@ struct is_non_qffplra_predicate {
 class is_qffplra_probe : public probe {
 public:
     result operator()(goal const & g) override {
-        return !test<is_non_qffplra_predicate>(g);
+        return 
+            test<is_fpa_function>(g) && 
+            !test<is_non_qffplra_predicate>(g);
     }
 
     ~is_qffplra_probe() override {}

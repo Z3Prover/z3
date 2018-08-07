@@ -26,12 +26,12 @@ mpq_manager<SYNCH>::mpq_manager() {
 
 template<bool SYNCH>
 mpq_manager<SYNCH>::~mpq_manager() {
-    del(m_n_tmp);
-    del(m_add_tmp1);
-    del(m_add_tmp2);
-    del(m_lt_tmp1);
-    del(m_lt_tmp2);
-    del(m_addmul_tmp);
+    del(m_tmp1);
+    del(m_tmp2);
+    del(m_tmp3);
+    del(m_tmp4);
+    del(m_q_tmp1);
+    del(m_q_tmp2);
 }
 
 
@@ -68,9 +68,9 @@ bool mpq_manager<SYNCH>::rat_lt(mpq const & a, mpq const & b) {
         return r;
     }
     else {
-        mul(na, db, m_lt_tmp1);
-        mul(nb, da, m_lt_tmp2);
-        return lt(m_lt_tmp1, m_lt_tmp2);
+        mul(na, db, m_q_tmp1);
+        mul(nb, da, m_q_tmp2);
+        return lt(m_q_tmp1, m_q_tmp2);
     }
 }
 
@@ -230,6 +230,10 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
                 exp_sign = true;
                 ++str;
             }
+            else if (str[0] == '+') {
+                exp_sign = false;
+                ++str;
+            }
             while (str[0]) {
                 if ('0' <= str[0] && str[0] <= '9') {
                     SASSERT(str[0] - '0' <= 9);
@@ -346,6 +350,7 @@ void mpq_manager<SYNCH>::lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g
 
 template<bool SYNCH>
 void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2) {
+#if 1
     gcd(a.m_den, b.m_num, g1);
     gcd(a.m_num, b.m_den, g2);
     div(a.m_num, g2, tmp1);
@@ -354,6 +359,11 @@ void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1,
     div(b.m_den, g2, tmp1);
     div(a.m_den, g1, tmp2);
     mul(tmp1, tmp2, c.m_den);
+#else
+    mul(a.m_num, b.m_num, c.m_num);
+    mul(a.m_den, b.m_den, c.m_den);
+    normalize(c);
+#endif
 }
 
 template<bool SYNCH>
@@ -378,8 +388,7 @@ void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c) {
         del(tmp2);
     }
     else {
-        mpz& g1 = m_n_tmp, &g2 = m_addmul_tmp.m_num, &tmp1 = m_add_tmp1, &tmp2 = m_add_tmp2;
-        rat_mul(a, b, c, g1, g2, tmp1, tmp2);
+        rat_mul(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
     STRACE("rat_mpq", tout << to_string(c) << "\n";);
 }
@@ -396,8 +405,7 @@ void mpq_manager<SYNCH>::rat_add(mpq const & a, mpq const & b, mpq & c) {
         del(g);
     }
     else {
-        mpz& g = m_n_tmp, &tmp1 = m_add_tmp1, &tmp2 = m_add_tmp2, &tmp3 = m_addmul_tmp.m_num;
-        lin_arith_op<false>(a, b, c, g, tmp1, tmp2, tmp3);
+        lin_arith_op<false>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
     STRACE("rat_mpq", tout << to_string(c) << "\n";);
 }
@@ -414,13 +422,13 @@ void mpq_manager<SYNCH>::rat_sub(mpq const & a, mpq const & b, mpq & c) {
         del(g);
     }
     else {
-        mpz& g = m_n_tmp, &tmp1 = m_add_tmp1, &tmp2 = m_add_tmp2, &tmp3 = m_addmul_tmp.m_num;
-        lin_arith_op<true>(a, b, c, g, tmp1, tmp2, tmp3);
+        lin_arith_op<true>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
     }
     STRACE("rat_mpq", tout << to_string(c) << "\n";);
 }
 
 
+#ifndef _NO_OMP_
 template class mpq_manager<true>;
+#endif
 template class mpq_manager<false>;
-

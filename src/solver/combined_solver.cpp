@@ -186,10 +186,12 @@ public:
     void push() override {
         switch_inc_mode();
         m_solver1->push();
-        m_solver2->push();
+        m_solver2->push();        
+        TRACE("pop", tout << "push\n";);
     }
     
     void pop(unsigned n) override {
+        TRACE("pop", tout << n << "\n";);
         switch_inc_mode();
         m_solver1->pop(n);
         m_solver2->pop(n);

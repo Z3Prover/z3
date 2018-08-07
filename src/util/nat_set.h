@@ -19,7 +19,7 @@ Revision History:
 #ifndef NAT_SET_H_
 #define NAT_SET_H_
 
-#include<limits.h>
+#include <climits>
 #include "util/vector.h"
 
 class nat_set {

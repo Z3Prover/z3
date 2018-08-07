@@ -363,12 +363,12 @@ bool seq_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
 
 bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     if (s == sP) return true;
-    unsigned i;
-    if (is_sort_param(sP, i)) {
-        if (binding.size() <= i) binding.resize(i+1);
-        if (binding[i] && (binding[i] != s)) return false;
-        TRACE("seq_verbose", tout << "setting binding @ " << i << " to " << mk_pp(s, *m_manager) << "\n";);
-        binding[i] = s;
+    unsigned idx;
+    if (is_sort_param(sP, idx)) {
+        if (binding.size() <= idx) binding.resize(idx+1);
+        if (binding[idx] && (binding[idx] != s)) return false;
+        TRACE("seq_verbose", tout << "setting binding @ " << idx << " to " << mk_pp(s, *m_manager) << "\n";);
+        binding[idx] = s;
         return true;
     }
 
@@ -376,8 +376,8 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     if (s->get_family_id() == sP->get_family_id() &&
         s->get_decl_kind() == sP->get_decl_kind() &&
         s->get_num_parameters() == sP->get_num_parameters()) {
-        for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
-            parameter const& p = s->get_parameter(i);
+		for (unsigned i = 0, sz = s->get_num_parameters(); i < sz; ++i) {
+			parameter const& p = s->get_parameter(i);
             if (p.is_ast() && is_sort(p.get_ast())) {
                 parameter const& p2 = sP->get_parameter(i);
                 if (!match(binding, to_sort(p.get_ast()), to_sort(p2.get_ast()))) return false;

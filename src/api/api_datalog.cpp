@@ -157,7 +157,7 @@ extern "C" {
         RESET_ERROR_CODE();  
         sort * r = to_sort(s);
         if (Z3_get_sort_kind(c, s) != Z3_RELATION_SORT) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "sort should be a relation");
             return 0;
         }
         return r->get_num_parameters();
@@ -170,18 +170,18 @@ extern "C" {
         RESET_ERROR_CODE();  
         sort * r = to_sort(s);
         if (Z3_get_sort_kind(c, s) != Z3_RELATION_SORT) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "sort should be a relation");
             RETURN_Z3(nullptr);
         }
         if (col >= r->get_num_parameters()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         parameter const& p = r->get_parameter(col);
         if (!p.is_ast() || !is_sort(p.get_ast())) {
             UNREACHABLE();
             warning_msg("Sort parameter expected at %d", col);
-            SET_ERROR_CODE(Z3_INTERNAL_FATAL);
+            SET_ERROR_CODE(Z3_INTERNAL_FATAL, "sort parameter expected");
             RETURN_Z3(nullptr);
         }
         Z3_sort res = of_sort(to_sort(p.get_ast()));
@@ -364,7 +364,7 @@ extern "C" {
         install_dl_collect_cmds(coll, ctx);
         ctx.set_ignore_check(true);
         if (!parse_smt2_commands(ctx, s)) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
             return nullptr;
         }
 
@@ -408,7 +408,7 @@ extern "C" {
         LOG_Z3_fixedpoint_from_file(c, d, s);
         std::ifstream is(s);
         if (!is) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
         RETURN_Z3(Z3_fixedpoint_from_stream(c, d, is));

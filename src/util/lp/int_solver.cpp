@@ -324,7 +324,7 @@ lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row
     bool some_int_columns = false;
     mpq f_0  = int_solver::fractional_part(get_value(inf_col));
     mpq one_min_f_0 = 1 - f_0;
-    for (auto & p : row) {
+    for (const auto & p : row) {
         x_j = p.var();
         if (x_j == inf_col)
             continue;
@@ -537,8 +537,9 @@ void int_solver::try_add_term_to_A_for_hnf(unsigned i) {
     mpq rs;
     const lar_term* t = m_lar_solver->terms()[i];
     constraint_index ci;
-    if (!hnf_cutter_is_full() && m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci)) {
-        m_hnf_cutter.add_term(t, rs, ci);
+    bool upper_bound;
+    if (!hnf_cutter_is_full() && m_lar_solver->get_equality_and_right_side_for_term_on_current_x(i, rs, ci, upper_bound)) {
+        m_hnf_cutter.add_term(t, rs, ci, upper_bound);
     }
 }
 
@@ -577,17 +578,27 @@ lia_move int_solver::make_hnf_cut() {
         return lia_move::undef;
     }
     settings().st().m_hnf_cutter_calls++;
-    TRACE("hnf_cut", tout << "settings().st().m_hnf_cutter_calls = " << settings().st().m_hnf_cutter_calls;);
+    TRACE("hnf_cut", tout << "settings().st().m_hnf_cutter_calls = " << settings().st().m_hnf_cutter_calls << "\n";
+          for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
+              m_lar_solver->print_constraint(i, tout);
+          }              
+          m_lar_solver->print_constraints(tout);
+          );
 #ifdef Z3DEBUG
     vector<mpq> x0 = m_hnf_cutter.transform_to_local_columns(m_lar_solver->m_mpq_lar_core_solver.m_r_x);
+#else
+    vector<mpq> x0;
 #endif
-    lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper
-#ifdef Z3DEBUG
-                                          , x0
-#endif
-                                          );
-    CTRACE("hnf_cut", r == lia_move::cut, tout<< "cut:"; m_lar_solver->print_term(*m_t, tout); tout << " <= " << *m_k << std::endl;);
-    if (r == lia_move::cut) {        
+    lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper, x0);
+
+    if (r == lia_move::cut) {      
+        TRACE("hnf_cut",
+              m_lar_solver->print_term(*m_t, tout << "cut:"); 
+              tout << " <= " << *m_k << std::endl;
+              for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
+                  m_lar_solver->print_constraint(i, tout);
+              }              
+              );
         lp_assert(current_solution_is_inf_on_cut());
         settings().st().m_hnf_cuts++;
         m_ex->clear();        
@@ -599,7 +610,10 @@ lia_move int_solver::make_hnf_cut() {
 }
 
 lia_move int_solver::hnf_cut() {
-    if ((m_number_of_calls) % settings().m_hnf_cut_period == 0) {
+    if (!settings().m_enable_hnf) {
+        return lia_move::undef;
+    }
+    if ((m_number_of_calls) % settings().hnf_cut_period() == 0) {
         return make_hnf_cut();
     }
     return lia_move::undef;
@@ -1138,13 +1152,13 @@ bool int_solver::at_upper(unsigned j) const {
 
 void int_solver::display_row_info(std::ostream & out, unsigned row_index) const  {
     auto & rslv = m_lar_solver->m_mpq_lar_core_solver.m_r_solver;
-    for (auto &c: rslv.m_A.m_rows[row_index]) {
+    for (const auto &c: rslv.m_A.m_rows[row_index]) {
         if (numeric_traits<mpq>::is_pos(c.coeff()))
             out << "+";
         out << c.coeff() << rslv.column_name(c.var()) << " ";
     }
 
-    for (auto& c: rslv.m_A.m_rows[row_index]) {
+    for (const auto& c: rslv.m_A.m_rows[row_index]) {
         rslv.print_column_bound_info(c.var(), out);
     }
     rslv.print_column_bound_info(rslv.m_basis[row_index], out);

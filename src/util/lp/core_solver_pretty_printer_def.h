@@ -100,7 +100,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::init_m_
         for (unsigned column = 0; column < ncols(); column++) {
             vector<T> t(nrows(), zero_of_type<T>());
             for (const auto & c : m_core_solver.m_A.m_columns[column]){
-                t[c.m_i] = m_core_solver.m_A.get_val(c);
+                t[c.var()] = m_core_solver.m_A.get_val(c);
             }
                 
             string name = m_core_solver.column_name(column);

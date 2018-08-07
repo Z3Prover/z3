@@ -19,7 +19,7 @@ Revision History:
 
 --*/
 
-#include<limits.h>
+#include<climits>
 #include "util/fixed_bit_vector.h"
 #include "util/trace.h"
 #include "util/hash.h"

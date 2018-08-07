@@ -89,14 +89,6 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
     params_ref solver_p;
     solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.
 
-    params_ref no_flat_p;
-    no_flat_p.set_bool("flat", false);
-
-    params_ref ctx_simp_p;
-    ctx_simp_p.set_uint("max_depth", 32);
-    ctx_simp_p.set_uint("max_steps", 50000000);
-
-
     params_ref big_aig_p;
     big_aig_p.set_bool("aig_per_assertion", false);
 

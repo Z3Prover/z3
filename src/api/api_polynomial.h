@@ -23,13 +23,13 @@ Notes:
 
 namespace api {
     
-    class pmanager {
+    class pmanager final {
         unsynch_mpz_manager m_nm;
         polynomial::manager m_pm;
         // TODO: add support for caching expressions -> polynomial and back
     public:
-        pmanager(reslimit& limx);
-        virtual ~pmanager();
+        pmanager(reslimit& lim) : m_pm(lim, m_nm) {}
+        ~pmanager() {}
         polynomial::manager & pm() { return m_pm; }
     };
 

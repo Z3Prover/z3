@@ -311,7 +311,7 @@ def display_args_to_z3(params):
             core_py.write("a%s" % i)
         i = i + 1
 
-NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
+NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
 def mk_py_wrappers():
@@ -741,6 +741,59 @@ def mk_java(java_dir, package_name):
     if mk_util.is_verbose():
         print("Generated '%s'" % java_nativef)
 
+
+Type2Napi = { VOID : '', VOID_PTR : '', INT : 'number', UINT : 'number', INT64 : 'number', UINT64 : 'number', DOUBLE : 'number',
+            FLOAT : 'number', STRING : 'string', STRING_PTR : 'array',
+            BOOL : 'number', SYMBOL : 'external', PRINT_MODE : 'number', ERROR_CODE : 'number' }
+
+def type2napi(t):
+    try:
+       return Type2Napi[t]
+    except:
+       return "external"
+
+Type2NapiBuilder = { VOID : '', VOID_PTR : '', INT : 'int32', UINT : 'uint32', INT64 : 'int64', UINT64 : 'uint64', DOUBLE : 'double',
+            FLOAT : 'float', STRING : 'string', STRING_PTR : 'array',
+            BOOL : 'bool', SYMBOL : 'external', PRINT_MODE : 'int32', ERROR_CODE : 'int32' }
+
+def type2napibuilder(t):
+    try:
+       return Type2NapiBuilder[t]
+    except:
+       return "external"
+
+
+def mk_js(js_output_dir):
+    with open(os.path.join(js_output_dir, "z3.json"), 'w') as ous:
+       ous.write("{\n")
+       ous.write("  \"api\": [\n")
+       for name, result, params in _dotnet_decls:
+           ous.write("    {\n")
+           ous.write("       \"name\": \"%s\",\n" % name)
+           ous.write("       \"c_type\": \"%s\",\n" % Type2Str[result])
+           ous.write("       \"napi_type\": \"%s\",\n" % type2napi(result))                       
+           ous.write("       \"arg_list\": [")
+           first = True
+           for p in params:
+               if first:
+                  first = False
+                  ous.write("\n         {\n")
+               else:
+                  ous.write(",\n         {\n")
+               t = param_type(p)
+               k = t
+               ous.write("            \"name\": \"%s\",\n" % "")                        # TBD
+               ous.write("            \"c_type\": \"%s\",\n" % type2str(t))
+               ous.write("            \"napi_type\": \"%s\",\n" % type2napi(t))        
+               ous.write("            \"napi_builder\": \"%s\"\n" % type2napibuilder(t))
+               ous.write(  "         }")
+           ous.write("],\n")
+           ous.write("       \"napi_builder\": \"%s\"\n" % type2napibuilder(result))
+           ous.write("    },\n")
+       ous.write("  ]\n")
+       ous.write("}\n")
+
+
 def mk_log_header(file, name, params):
     file.write("void log_%s(" % name)
     i = 0
@@ -955,9 +1008,9 @@ def def_API(name, result, params):
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
             elif ty == INT:
-                log_c.write("U(a%s[i]);" % i)
+                log_c.write("I(a%s[i]);" % i)
                 log_c.write(" }\n")
-                log_c.write("  Au(a%s);\n" % sz)
+                log_c.write("  Ai(a%s);\n" % sz)
                 exe_c.write("in.get_int_array(%s)" % i)
             elif ty == BOOL:
                 log_c.write("U(a%s[i]);" % i)
@@ -1665,6 +1718,7 @@ for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
 
 _all_dirs.extend(_default_dirs)
 
+_failures = []
 for d in _all_dirs:
   try:
     d = os.path.realpath(d)
@@ -1673,14 +1727,16 @@ for d in _all_dirs:
       if os.path.isfile(d):
         _lib = ctypes.CDLL(d)
         break
-  except:
+  except Exception as e:
+    _failures += [e]
     pass
 
 if _lib is None:
   # If all else failed, ask the system to find it.
   try:
     _lib = ctypes.CDLL('libz3.%s' % _ext)
-  except:
+  except Exception as e:
+    _failures += [e]
     pass
 
 if _lib is None:
@@ -1739,6 +1795,7 @@ def generate_files(api_files,
                    dotnet_output_dir=None,
                    java_output_dir=None,
                    java_package_name=None,
+                   js_output_dir=None,
                    ml_output_dir=None,
                    ml_src_dir=None):
   """
@@ -1819,6 +1876,9 @@ def generate_files(api_files,
     assert not ml_src_dir is None
     mk_ml(ml_src_dir, ml_output_dir)
 
+  if js_output_dir:
+    mk_js(js_output_dir)
+
 def main(args):
   logging.basicConfig(level=logging.INFO)
   parser = argparse.ArgumentParser(description=__doc__)
@@ -1852,6 +1912,10 @@ def main(args):
                       dest="ml_output_dir",
                       default=None,
                       help="Directory to emit OCaml files. If not specified no files are emitted.")
+  parser.add_argument("--js_output_dir",
+                      dest="js_output_dir",
+                      default=None,
+                      help="Directory to emit js bindings. If not specified no files are emitted.")
   pargs = parser.parse_args(args)
 
   if pargs.java_output_dir:
@@ -1875,6 +1939,7 @@ def main(args):
                  dotnet_output_dir=pargs.dotnet_output_dir,
                  java_output_dir=pargs.java_output_dir,
                  java_package_name=pargs.java_package_name,
+                 js_output_dir=pargs.js_output_dir,
                  ml_output_dir=pargs.ml_output_dir,
                  ml_src_dir=pargs.ml_src_dir)
   return 0

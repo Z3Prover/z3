@@ -138,9 +138,9 @@ namespace smt {
 
     void theory_bv::process_args(app * n) {
         context & ctx     = get_context();
-        unsigned num_args = n->get_num_args();
-        for (unsigned i = 0; i < num_args; i++)
-            ctx.internalize(n->get_arg(i), false);
+        for (expr* arg : *n) {
+            ctx.internalize(arg, false);
+        }
     }
 
     enode * theory_bv::mk_enode(app * n) {
@@ -185,11 +185,9 @@ namespace smt {
     void theory_bv::get_bits(theory_var v, expr_ref_vector & r) {
         context & ctx         = get_context();
         literal_vector & bits = m_bits[v];
-        literal_vector::const_iterator it  = bits.begin();
-        literal_vector::const_iterator end = bits.end();
-        for (; it != end; ++it) {
+        for (literal lit : bits) {
             expr_ref l(get_manager());
-            ctx.literal2expr(*it, l);
+            ctx.literal2expr(lit, l);
             r.push_back(l);
         }
     }
@@ -358,18 +356,16 @@ namespace smt {
 
         void mark_bits(conflict_resolution & cr, literal_vector const & bits) {
             context & ctx = cr.get_context();
-            literal_vector::const_iterator it  = bits.begin();
-            literal_vector::const_iterator end = bits.end();
-            for (; it != end; ++it) {
-                if (it->var() != true_bool_var) {
-                    if (ctx.get_assignment(*it) == l_true)
-                        cr.mark_literal(*it);
+            for (literal lit : bits) {
+                if (lit.var() != true_bool_var) {
+                    if (ctx.get_assignment(lit) == l_true)
+                        cr.mark_literal(lit);
                     else
-                        cr.mark_literal(~(*it));
+                        cr.mark_literal(~lit);
                 }
             }
         }
-
+        
         void get_proof(conflict_resolution & cr, literal l, ptr_buffer<proof> & prs, bool & visited) {
             if (l.var() == true_bool_var)
                 return;
@@ -489,7 +485,7 @@ namespace smt {
         }
     }
 
-    bool theory_bv::get_fixed_value(theory_var v, numeral & result) const {
+    bool theory_bv::get_fixed_value(theory_var v, numeral & result)  const {
         context & ctx                      = get_context();
         result.reset();
         literal_vector const & bits        = m_bits[v];
@@ -830,10 +826,9 @@ namespace smt {
         while (i > 0) {
             i--;
             theory_var arg = get_arg_var(e, i);
-            literal_vector::const_iterator it  = m_bits[arg].begin();
-            literal_vector::const_iterator end = m_bits[arg].end();
-            for (; it != end; ++it)
-                add_bit(v, *it);
+            for (literal lit : m_bits[arg]) {
+                add_bit(v, lit);
+            }
         }
         find_wpos(v);
     }
@@ -855,6 +850,8 @@ namespace smt {
     }
 
     bool theory_bv::internalize_term(app * term) {
+        scoped_suspend_rlimit _suspend_cancel(get_manager().limit());
+        try {
         SASSERT(term->get_family_id() == get_family_id());
         TRACE("bv", tout << "internalizing term: " << mk_bounded_pp(term, get_manager()) << "\n";);
         if (approximate_term(term)) {
@@ -911,6 +908,11 @@ namespace smt {
             TRACE("bv_op", tout << "unsupported operator: " << mk_ll_pp(term, get_manager()) << "\n";);
             UNREACHABLE();
             return false;
+        }
+        }
+        catch (z3_exception& ex) {
+            IF_VERBOSE(1, verbose_stream() << "internalize_term: " << ex.msg() << "\n";);
+            throw;
         }
     }
 
@@ -1097,8 +1099,7 @@ namespace smt {
 
     void theory_bv::apply_sort_cnstr(enode * n, sort * s) {
         if (!is_attached_to_var(n) && !approximate_term(n->get_owner())) {
-            theory_var v = mk_var(n);
-            mk_bits(v);
+            mk_bits(mk_var(n));
         }
     }
     
@@ -1308,10 +1309,9 @@ namespace smt {
             theory_var v = e->get_th_var(get_id());
             if (v != null_theory_var) {
                 literal_vector & bits        = m_bits[v];
-                literal_vector::iterator it  = bits.begin();
-                literal_vector::iterator end = bits.end();
-                for (; it != end; ++it)
-                    ctx.mark_as_relevant(*it);
+                for (literal lit : bits) {
+                    ctx.mark_as_relevant(lit);
+                }
             }
         }
     }
@@ -1463,35 +1463,27 @@ namespace smt {
         SASSERT(bv_size == get_bv_size(r2));
         m_merge_aux[0].reserve(bv_size+1, null_theory_var);
         m_merge_aux[1].reserve(bv_size+1, null_theory_var);
-#define RESET_MERGET_AUX() {                                                    \
-            zero_one_bits::iterator it  = bits1.begin();                        \
-            zero_one_bits::iterator end = bits1.end();                          \
-            for (; it != end; ++it)                                             \
-                m_merge_aux[it->m_is_true][it->m_idx] = null_theory_var;        \
-        }
+
+#define RESET_MERGET_AUX()  for (auto & zo : bits1) m_merge_aux[zo.m_is_true][zo.m_idx] = null_theory_var; 
+
         DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) { SASSERT(m_merge_aux[0][i] == null_theory_var || m_merge_aux[1][i] == null_theory_var); });
         // save info about bits1
-        zero_one_bits::iterator it  = bits1.begin();
-        zero_one_bits::iterator end = bits1.end();
-        for (; it != end; ++it)
-            m_merge_aux[it->m_is_true][it->m_idx] = it->m_owner;
+        for (auto & zo : bits1) m_merge_aux[zo.m_is_true][zo.m_idx] = zo.m_owner;
         // check if bits2 is consistent with bits1, and copy new bits to bits1
-        it  = bits2.begin();
-        end = bits2.end();
-        for (; it != end; ++it) {
-            theory_var v2 = it->m_owner;
-            theory_var v1 = m_merge_aux[!it->m_is_true][it->m_idx];
+        for (auto & zo : bits2) {
+            theory_var v2 = zo.m_owner;
+            theory_var v1 = m_merge_aux[!zo.m_is_true][zo.m_idx];
             if (v1 != null_theory_var) {
                 // conflict was detected ... v1 and v2 have complementary bits
-                SASSERT(m_bits[v1][it->m_idx] == ~(m_bits[v2][it->m_idx]));
+                SASSERT(m_bits[v1][zo.m_idx] == ~(m_bits[v2][zo.m_idx]));
                 SASSERT(m_bits[v1].size() == m_bits[v2].size());
-                mk_new_diseq_axiom(v1, v2, it->m_idx);
+                mk_new_diseq_axiom(v1, v2, zo.m_idx);
                 RESET_MERGET_AUX();
                 return false;
             }
-            if (m_merge_aux[it->m_is_true][it->m_idx] == null_theory_var) {
+            if (m_merge_aux[zo.m_is_true][zo.m_idx] == null_theory_var) {
                 // copy missing variable to bits1
-                bits1.push_back(*it);
+                bits1.push_back(zo);
             }
         }
         // reset m_merge_aux vector
@@ -1614,11 +1606,9 @@ namespace smt {
         out << std::right << ", bits:";
         context & ctx = get_context();
         literal_vector const & bits = m_bits[v];
-        literal_vector::const_iterator it  = bits.begin();
-        literal_vector::const_iterator end = bits.end();
-        for (; it != end; ++it) {
+        for (literal lit : bits) {
             out << " ";
-            ctx.display_literal(out, *it);
+            ctx.display_literal(out, lit);
         }
         numeral val;
         if (get_fixed_value(v, val))
@@ -1668,7 +1658,7 @@ namespace smt {
     }
 
 #ifdef Z3DEBUG
-    bool theory_bv::check_assignment(theory_var v) const {
+    bool theory_bv::check_assignment(theory_var v) {
         context & ctx                 = get_context();
         if (!is_root(v))
             return true;
@@ -1709,7 +1699,7 @@ namespace smt {
        
        \remark The method does nothing if v is not the root of the equivalence class.
     */
-    bool theory_bv::check_zero_one_bits(theory_var v) const {
+    bool theory_bv::check_zero_one_bits(theory_var v) {
         if (get_context().inconsistent())
             return true; // property is only valid if the context is not in a conflict.
         if (is_root(v) && is_bv(v)) {
@@ -1740,19 +1730,17 @@ namespace smt {
             SASSERT(_bits.size() == num_bits);
             svector<bool> already_found;
             already_found.resize(bv_sz, false);
-            zero_one_bits::const_iterator it  = _bits.begin();
-            zero_one_bits::const_iterator end = _bits.end();
-            for (; it != end; ++it) {
-                SASSERT(find(it->m_owner) == v);
-                SASSERT(bits[it->m_is_true][it->m_idx]);
-                SASSERT(!already_found[it->m_idx]);
-                already_found[it->m_idx] = true;
+            for (auto & zo : _bits) {
+                SASSERT(find(zo.m_owner) == v);
+                SASSERT(bits[zo.m_is_true][zo.m_idx]);
+                SASSERT(!already_found[zo.m_idx]);
+                already_found[zo.m_idx] = true;
             }
         }
         return true;
     }
 
-    bool theory_bv::check_invariant() const {
+    bool theory_bv::check_invariant() {
         unsigned num = get_num_vars();
         for (unsigned v = 0; v < num; v++) {
             check_assignment(v);

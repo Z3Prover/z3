@@ -1754,7 +1754,6 @@ void parser_example5() {
     err:
         printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, e));
         if (ctx != NULL) {
-            printf("Error message: '%s'.\n",Z3_get_parser_error(ctx));
 	    del_solver(ctx, s);
             Z3_del_context(ctx);
         }

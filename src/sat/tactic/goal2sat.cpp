@@ -1167,7 +1167,7 @@ struct sat2goal::imp {
     }
 
     void operator()(sat::solver & s, atom2bool_var const & map, goal & r, ref<mc> & mc) {
-        if (s.inconsistent()) {
+        if (s.at_base_lvl() && s.inconsistent()) {
             r.assert_expr(m.mk_false());
             return;
         }

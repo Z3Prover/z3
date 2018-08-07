@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-#ifdef Z3DEBUG
 #pragma once
 #include "util/lp/numeric_pair.h"
 #include "util/vector.h"
@@ -70,4 +69,3 @@ void print_matrix(const vector<vector<T>> & A, std::ostream & out, unsigned blan
 
 
 }
-#endif

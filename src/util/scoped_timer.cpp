@@ -50,7 +50,7 @@ Revision History:
 #undef max
 #endif
 #include "util/util.h"
-#include<limits.h>
+#include<climits>
 #include "util/z3_omp.h"
 
 struct scoped_timer::imp {

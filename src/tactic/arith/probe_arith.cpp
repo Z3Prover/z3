@@ -127,6 +127,42 @@ public:
     }
 };
 
+struct has_nlmul {
+    struct found {};
+    ast_manager& m;
+    arith_util   a;
+    has_nlmul(ast_manager& m):m(m), a(m) {}
+    
+    void throw_found(expr* e) {
+        TRACE("probe", tout << expr_ref(e, m) << ": " << sort_ref(m.get_sort(e), m) << "\n";);
+        throw found();
+    }
+
+    void operator()(var *) { }
+
+    void operator()(quantifier *) { }
+
+    void operator()(app * n) {
+        family_id fid = n->get_family_id();
+        if (fid == a.get_family_id()) {
+            switch (n->get_decl_kind()) {
+            case OP_MUL:
+                if (n->get_num_args() != 2 || !a.is_numeral(n->get_arg(0)))
+                    throw_found(n);
+                break;
+            case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
+                if (!a.is_numeral(n->get_arg(1)))
+                    throw_found(n);
+				break;
+            case OP_POWER:
+                throw_found(n);
+            default:
+                break;
+            }
+        }
+    }
+};
+
 probe * mk_arith_avg_degree_probe() {
     return alloc(arith_degree_probe, true);
 }
@@ -441,13 +477,13 @@ struct is_non_nira_functor {
                 if (m_linear) {
                     if (n->get_num_args() != 2)
                         throw_found(n);
-                    if (!u.is_numeral(n->get_arg(0)))
+                    if (!u.is_numeral(n->get_arg(0)) && !u.is_numeral(n->get_arg(1))) 
                         throw_found(n);
                 }
                 return;
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
                 if (m_linear && !u.is_numeral(n->get_arg(1)))
-                    throw_found(n);
+                    throw_found(n); 
                 return;
             case OP_IS_INT:
                 if (m_real)
@@ -478,27 +514,27 @@ struct is_non_nira_functor {
 
 static bool is_qfnia(goal const & g) {
     is_non_nira_functor p(g.m(), true, false, false, false);
-    return !test(g, p);
+    return !test(g, p) && test<has_nlmul>(g);
 }
 
 static bool is_qfnra(goal const & g) {
     is_non_nira_functor p(g.m(), false, true, false, false);
-    return !test(g, p);
+    return !test(g, p) && test<has_nlmul>(g);
 }
 
 static bool is_nia(goal const & g) {
     is_non_nira_functor p(g.m(), true, false, true, false);
-    return !test(g, p);
+    return !test(g, p) && test<has_nlmul>(g);
 }
 
 static bool is_nra(goal const & g) {
     is_non_nira_functor p(g.m(), false, true, true, false);
-    return !test(g, p);
+    return !test(g, p) && test<has_nlmul>(g);
 }
 
 static bool is_nira(goal const & g) {
     is_non_nira_functor p(g.m(), true, true, true, false);
-    return !test(g, p);
+    return !test(g, p) && test<has_nlmul>(g);
 }
 
 static bool is_lra(goal const & g) {
@@ -560,12 +596,16 @@ struct is_non_qfufnra_functor {
                 }
                 return;
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
-                if (!u.is_numeral(n->get_arg(1)))
+                if (!u.is_numeral(n->get_arg(1))) {
+                    TRACE("arith", tout << "non-linear " << expr_ref(n, m) << "\n";);
                     throw_found();
+                }
                 return;
             case OP_POWER: 
-                if (!u.is_numeral(n->get_arg(1)))
+                if (!u.is_numeral(n->get_arg(1))) {
+                    TRACE("arith", tout << "non-linear " << expr_ref(n, m) << "\n";);
                     throw_found();
+                }
                 m_has_nonlinear = true;
                 return;
             case OP_IS_INT:
@@ -574,6 +614,7 @@ struct is_non_qfufnra_functor {
                 throw_found();
                 return;
             default:
+                TRACE("arith", tout << "non-linear " << expr_ref(n, m) << "\n";);
                 throw_found();
             }
         } 

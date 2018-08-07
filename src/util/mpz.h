@@ -19,7 +19,6 @@ Revision History:
 #ifndef MPZ_H_
 #define MPZ_H_
 
-#include<limits.h>
 #include<string>
 #include "util/util.h"
 #include "util/small_object_allocator.h"
@@ -692,7 +691,11 @@ public:
     bool decompose(mpz const & n, svector<digit_t> & digits);
 };
 
+#ifndef _NO_OMP_
 typedef mpz_manager<true> synch_mpz_manager;
+#else
+typedef mpz_manager<false> synch_mpz_manager;
+#endif
 typedef mpz_manager<false> unsynch_mpz_manager;
 
 typedef _scoped_numeral<unsynch_mpz_manager> scoped_mpz;

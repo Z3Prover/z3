@@ -71,7 +71,6 @@ public:
     ref_row operator[](unsigned i) { return ref_row(*this, m_data[adjust_row(i)]); }
     ref_row_const operator[](unsigned i) const { return ref_row_const(*this, m_data[adjust_row(i)]); }
 
-#ifdef Z3DEBUG
     void print(std::ostream & out, unsigned blanks = 0) const {
         unsigned m = row_count();
         unsigned n = column_count();
@@ -96,8 +95,6 @@ public:
         print_matrix<mpq>(m.m_data, out, blanks);
     }
 
-#endif
-
     void clear() { m_data.clear(); }
 
     bool row_is_initialized_correctly(const vector<mpq>& row) {
@@ -108,12 +105,12 @@ public:
     }
     
     template <typename T>
-    void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix) {
+    void init_row_from_container(int i, const T & c, std::function<unsigned (unsigned)> column_fix, const mpq& sign) {
         auto & row = m_data[adjust_row(i)];
         lp_assert(row_is_initialized_correctly(row));
         for (const auto & p : c) {
             unsigned j = adjust_column(column_fix(p.var()));
-            row[j] = p.coeff();
+            row[j] = sign * p.coeff();
         }
     }
     

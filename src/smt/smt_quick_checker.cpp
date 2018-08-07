@@ -19,6 +19,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_quick_checker.h"
 #include "ast/ast_pp.h"
+#include <tuple>
 
 namespace smt {
 
@@ -197,7 +198,7 @@ namespace smt {
     }
 
     bool quick_checker::process_candidates(quantifier * q, bool unsat) {
-        ptr_vector<enode> empty_used_enodes;
+        vector<std::tuple<enode *, enode *>> empty_used_enodes;
         buffer<unsigned> szs;
         buffer<unsigned> it;
         for (unsigned i = 0; i < m_num_bindings; i++) {

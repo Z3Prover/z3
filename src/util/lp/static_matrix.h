@@ -29,14 +29,6 @@ Revision History:
 #include <stack>
 namespace lp {
 
-struct column_cell {
-    unsigned m_i; // points to the row
-    unsigned m_offset;  // the offset of the element in the matrix row
-    column_cell(unsigned i, unsigned offset) : m_i(i), m_offset(offset) {
-    }
-    
-};
-
 template <typename T>
 struct row_cell {
     unsigned m_j; // points to the column
@@ -44,12 +36,21 @@ struct row_cell {
     T        m_value;
     row_cell(unsigned j, unsigned offset, T const & val) : m_j(j), m_offset(offset), m_value(val) {
     }
+    row_cell(unsigned j, unsigned offset) : m_j(j), m_offset(offset) {
+    }
     const T & get_val() const { return m_value;}
     T & get_val() { return m_value;}
-    void set_val(const T& v) { m_value = v;  }
-    unsigned var() const { return m_j;}
     const T & coeff() const { return m_value;}
+    T & coeff() { return m_value;}
+    unsigned var() const { return m_j;}
+    unsigned & var() { return m_j;}
+    unsigned offset() const { return m_offset;}
+    unsigned & offset() { return m_offset;}
+            
 };
+
+struct empty_struct {};
+typedef row_cell<empty_struct> column_cell;
 
 template <typename T>
 using row_strip = vector<row_cell<T>>; 
@@ -98,7 +99,7 @@ public:
 public:
 
     const T & get_val(const column_cell & c) const {
-        return m_rows[c.m_i][c.m_offset].get_val();
+        return m_rows[c.var()][c.m_offset].get_val();
     }
 
     column_cell & get_column_cell(const row_cell<T> &rc) {
@@ -146,8 +147,8 @@ public:
     
     void multiply_column(unsigned column, T const & alpha) {
         for (auto & t : m_columns[column]) {
-            auto & r = m_rows[t.m_i][t.m_offset];
-            r.m_value *= alpha;
+            auto & r = m_rows[t.var()][t.offset()];
+            r.coeff() *= alpha;
         }
     }
     
@@ -176,7 +177,7 @@ public:
     T get_max_abs_in_row(unsigned row) const;
     void add_column_to_vector (const T & a, unsigned j, T * v) const {
         for (const auto & it : m_columns[j]) {
-            v[it.m_i] += a * get_val(it);
+            v[it.var()] += a * get_val(it);
         }
     }
 
@@ -241,7 +242,7 @@ public:
         for (auto & c : row) {
             unsigned j = c.m_j;
             auto & col = m_columns[j];
-            lp_assert(col[col.size() - 1].m_i == m_rows.size() -1 ); // todo : start here!!!!
+            lp_assert(col[col.size() - 1].var() == m_rows.size() -1 ); // todo : start here!!!!
             col.pop_back();
         }
     }
@@ -287,7 +288,7 @@ public:
         lp_assert(j < column_count());
         T ret = numeric_traits<T>::zero();
         for (auto & it : m_columns[j]) {
-            ret += y[it.m_i] * get_val(it); // get_value_of_column_cell(it);
+            ret += y[it.var()] * get_val(it); // get_value_of_column_cell(it);
         }
         return ret;
     }
@@ -303,13 +304,13 @@ public:
         // now fix the columns
         for (auto & rc : m_rows[i]) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            lp_assert(cc.m_i == ii);
-            cc.m_i = i;
+            lp_assert(cc.var() == ii);
+            cc.var() = i;
         }
         for (auto & rc : m_rows[ii]) {
             column_cell & cc = m_columns[rc.m_j][rc.m_offset];
-            lp_assert(cc.m_i == i);
-            cc.m_i = ii;
+            lp_assert(cc.var() == i);
+            cc.var() = ii;
         }
     
     }
@@ -377,7 +378,7 @@ public:
         for (auto & it : m_columns[j]) {
             const T& val = get_val(it);
             if (!is_zero(val))
-                v[it.m_i] = val;
+                v[it.var()] = val;
         }
     }
     
@@ -397,7 +398,7 @@ public:
         // constructor
         column_cell_plus(const column_cell & c, const static_matrix& A) :
             m_c(c), m_A(A) {}
-        unsigned var() const { return m_c.m_i; }
+        unsigned var() const { return m_c.var(); }
         const T & coeff() const { return m_A.m_rows[var()][m_c.m_offset].get_val(); }
         
     };

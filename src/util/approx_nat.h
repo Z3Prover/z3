@@ -21,7 +21,7 @@ Notes:
 #define APPROX_NAT_H_
 
 #include<iostream>
-#include<limits.h>
+#include<climits>
 
 class approx_nat {
     unsigned m_value;

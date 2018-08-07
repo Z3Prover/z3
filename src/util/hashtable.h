@@ -19,9 +19,9 @@ Revision History:
 #ifndef HASHTABLE_H_
 #define HASHTABLE_H_
 #include "util/debug.h"
-#include<ostream>
+#include <ostream>
 #include "util/util.h"
-#include<limits.h>
+#include <climits>
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/vector.h"

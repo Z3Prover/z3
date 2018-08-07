@@ -172,6 +172,7 @@ public:
         }
         unsigned var() const { return m_var;}
         const T & coeff() const { return m_coeff; }
+        bool dead() const { return false; }
     };
     
     struct const_iterator {
@@ -216,7 +217,7 @@ public:
     
 #ifdef Z3DEBUG
     bool is_OK() const;
-    void print(std::ostream & out);
 #endif
+    void print(std::ostream & out);
 };
 }

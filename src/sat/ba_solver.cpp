@@ -1976,6 +1976,7 @@ namespace sat {
             for (unsigned i = 0; !found && i < c.k(); ++i) {
                 found = c[i] == l;
             }
+            CTRACE("ba",!found, s().display(tout << l << ":" << c << "\n"););
             SASSERT(found););
         
         // IF_VERBOSE(0, if (_debug_conflict) verbose_stream() << "ante " << l << " " << c << "\n");
@@ -2591,22 +2592,54 @@ namespace sat {
         return literal(v, false);
     }
 
-    literal ba_solver::ba_sort::mk_max(literal l1, literal l2) {
-        VERIFY(l1 != null_literal);
-        VERIFY(l2 != null_literal);
-        if (l1 == m_true) return l1;
-        if (l2 == m_true) return l2;
-        if (l1 == ~m_true) return l2;
-        if (l2 == ~m_true) return l1;
-        literal max = fresh("max");
-        s.s().mk_clause(~l1, max);
-        s.s().mk_clause(~l2, max);
-        s.s().mk_clause(~max, l1, l2);
-        return max;
+
+    literal ba_solver::ba_sort::mk_max(unsigned n, literal const* lits) {
+        m_lits.reset();        
+        for (unsigned i = 0; i < n; ++i) {
+            if (lits[i] == m_true) return m_true;
+            if (lits[i] == ~m_true) continue;
+            m_lits.push_back(lits[i]);
+        }
+        switch (m_lits.size()) {
+        case 0: 
+            return ~m_true;
+        case 1: 
+            return m_lits[0];
+        default: {
+            literal max = fresh("max");
+            for (unsigned i = 0; i < n; ++i) {
+                s.s().mk_clause(~m_lits[i], max);
+            }
+            m_lits.push_back(~max);
+            s.s().mk_clause(m_lits.size(), m_lits.c_ptr());
+            return max;
+        }
+        }
     }
 
-    literal ba_solver::ba_sort::mk_min(literal l1, literal l2) {
-        return ~mk_max(~l1, ~l2);
+    literal ba_solver::ba_sort::mk_min(unsigned n, literal const* lits) {
+        m_lits.reset();        
+        for (unsigned i = 0; i < n; ++i) {
+            if (lits[i] == ~m_true) return ~m_true;
+            if (lits[i] == m_true) continue;
+            m_lits.push_back(lits[i]);
+        }
+        switch (m_lits.size()) {
+        case 0: 
+            return m_true;
+        case 1: 
+            return m_lits[0];
+        default: {
+            literal min = fresh("min");
+            for (unsigned i = 0; i < n; ++i) {
+                s.s().mk_clause(~min, m_lits[i]);
+                m_lits[i] = ~m_lits[i];
+            }
+            m_lits.push_back(min);
+            s.s().mk_clause(m_lits.size(), m_lits.c_ptr());
+            return min;
+        }
+        }
     }
 
     void ba_solver::ba_sort::mk_clause(unsigned n, literal const* lits) {

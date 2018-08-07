@@ -23,7 +23,7 @@ Revision History:
 #include "util/machine.h"
 
 class sat_allocator {
-    static const unsigned CHUNK_SIZE     = (1 << 16);
+    static const unsigned CHUNK_SIZE     = (1 << 16) - sizeof(char*);
     static const unsigned SMALL_OBJ_SIZE = 512;
     static const unsigned MASK = ((1 << PTR_ALIGNMENT) - 1);
     static const unsigned NUM_FREE = 1 + (SMALL_OBJ_SIZE >> PTR_ALIGNMENT);

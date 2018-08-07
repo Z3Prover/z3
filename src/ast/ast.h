@@ -69,7 +69,7 @@ class ast_manager;
 */
 class ast_exception : public default_exception {
 public:
-    ast_exception(char const * msg):default_exception(msg) {}
+    ast_exception(std::string && msg) : default_exception(std::move(msg)) {}
 };
 
 typedef int     family_id;
@@ -122,6 +122,7 @@ public:
     explicit parameter(ast * p): m_kind(PARAM_AST), m_ast(p) {}
     explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL), m_symbol(s.c_ptr()) {}
     explicit parameter(rational const & r): m_kind(PARAM_RATIONAL), m_rational(alloc(rational, r)) {}
+    explicit parameter(rational && r) : m_kind(PARAM_RATIONAL), m_rational(alloc(rational, std::move(r))) {}
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
     explicit parameter(const char *s):m_kind(PARAM_SYMBOL), m_symbol(symbol(s).c_ptr()) {}
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
@@ -272,6 +273,14 @@ public:
     parameter const & get_parameter(unsigned idx) const { return m_parameters[idx]; }
     parameter const * get_parameters() const { return m_parameters.begin(); }
     bool private_parameters() const { return m_private_parameters; }
+
+    struct iterator {
+        decl_info const& d;
+        iterator(decl_info const& d) : d(d) {}
+        parameter const* begin() const { return d.get_parameters(); }
+        parameter const* end() const { return begin() + d.get_num_parameters(); }
+    };
+    iterator parameters() const { return iterator(*this); }
 
     unsigned hash() const;
     bool operator==(decl_info const & info) const;
@@ -571,6 +580,16 @@ public:
     parameter const & get_parameter(unsigned idx) const { return m_info->get_parameter(idx); }
     parameter const * get_parameters() const { return m_info == nullptr ? nullptr : m_info->get_parameters(); }
     bool private_parameters() const { return m_info != nullptr && m_info->private_parameters(); }
+
+    struct iterator {
+        decl const& d;
+        iterator(decl const& d) : d(d) {}
+        parameter const* begin() const { return d.get_parameters(); }
+        parameter const* end() const { return begin() + d.get_num_parameters(); }
+    };
+    iterator parameters() const { return iterator(*this); }
+
+
 };
 
 // -----------------------------------
@@ -2401,11 +2420,7 @@ public:
     }
 
     void reset() {
-        ptr_buffer<ast>::iterator it  = m_to_unmark.begin();
-        ptr_buffer<ast>::iterator end = m_to_unmark.end();
-        for (; it != end; ++it) {
-            reset_mark(*it);
-        }
+        for (ast* a : m_to_unmark) reset_mark(a); 
         m_to_unmark.reset();
     }
 

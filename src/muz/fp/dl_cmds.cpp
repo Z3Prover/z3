@@ -245,7 +245,8 @@ public:
         datalog::context& dlctx = m_dl_ctx->dlctx();
         set_background(ctx);
         dlctx.updt_params(m_params);
-        unsigned timeout   = m_dl_ctx->get_params().timeout();
+        unsigned timeout   = ctx.params().m_timeout;
+        unsigned rlimit    = ctx.params().rlimit();
         cancel_eh<reslimit> eh(ctx.m().limit());
         bool query_exn = false;
         lbool status = l_undef;
@@ -253,12 +254,14 @@ public:
             IF_VERBOSE(10, verbose_stream() << "(query)\n";);
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(ctx.m().limit(), rlimit);
             cmd_context::scoped_watch sw(ctx);
             try {
                 status = dlctx.rel_query(1, &m_target);
             }
             catch (z3_error & ex) {
                 ctx.regular_stream() << "(error \"query failed: " << ex.msg() << "\")" << std::endl;
+                print_statistics(ctx);
                 throw ex;
             }
             catch (z3_exception& ex) {
@@ -352,7 +355,7 @@ private:
     }
 
     void print_statistics(cmd_context& ctx) {
-        if (m_dl_ctx->get_params().print_statistics()) {
+        if (ctx.params().m_statistics) {
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
             dlctx.collect_statistics(st);

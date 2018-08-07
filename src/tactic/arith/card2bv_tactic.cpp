@@ -80,10 +80,10 @@ public:
         }
         expr_ref_vector fmls(m);
         rw2.flush_side_constraints(fmls);
-        for (unsigned i = 0; !g->inconsistent() && i < fmls.size(); ++i) {
-            g->assert_expr(fmls[i].get());
+        for (expr* e : fmls) {
+            g->assert_expr(e);
         }
-        
+
         func_decl_ref_vector const& fns = rw2.fresh_constants();
         if (!fns.empty()) {
             generic_model_converter* filter = alloc(generic_model_converter, m, "card2bv");

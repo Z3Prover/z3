@@ -78,8 +78,6 @@ public:
         lp_assert(m_heap_size > 0);
         return m_heap[1];
     }
-#ifdef Z3DEBUG
     void print(std::ostream & out);
-#endif
 };
 }
