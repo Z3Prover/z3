@@ -68,11 +68,10 @@ extern "C" {
                 ('/' == *m) || ('-' == *m) ||
                 (' ' == *m) || ('\n' == *m) ||
                 ('.' == *m) || ('e' == *m) ||
-                ('E' == *m) ||
+                ('E' == *m) || ('+' == *m) ||
                 (is_float && 
                     (('p' == *m) ||
-                     ('P' == *m) ||
-                     ('+' == *m))))) {
+                     ('P' == *m))))) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
                 RETURN_Z3(nullptr);
             }

@@ -230,6 +230,10 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
                 exp_sign = true;
                 ++str;
             }
+            else if (str[0] == '+') {
+                exp_sign = false;
+                ++str;
+            }
             while (str[0]) {
                 if ('0' <= str[0] && str[0] <= '9') {
                     SASSERT(str[0] - '0' <= 9);
