@@ -1388,7 +1388,7 @@ namespace smt {
             // (but don't introduce it if it isn't already in the instance)
             expr_ref haystack(ex->get_arg(0), m), needle(ex->get_arg(1), m), startIdx(ex->get_arg(2), m);
             expr_ref zeroAst(mk_int(0), m);
-            // (H contains N) <==> (H indexof N, i) >= 0
+            // (H contains N) <==> (H indexof N, 0) >= 0
             expr_ref premise(u.str.mk_contains(haystack, needle), m);
             ctx.internalize(premise, false);
             expr_ref conclusion(m_autil.mk_ge(ex, zeroAst), m);
@@ -1482,14 +1482,23 @@ namespace smt {
         {
             // heuristic: integrate with str.contains information
             // (but don't introduce it if it isn't already in the instance)
-            // (H contains N) <==> (H indexof N, i) >= 0
+            // (0 <= i < len(H)) ==> (H contains N) <==> (H indexof N, i) >= 0
+            expr_ref precondition1(m_autil.mk_gt(i, minus_one), m);
+            //expr_ref precondition2(m_autil.mk_lt(i, mk_strlen(H)), m);
+            expr_ref precondition2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
+            expr_ref _precondition(m.mk_and(precondition1, precondition2), m);
+            expr_ref precondition(_precondition);
+            th_rewriter rw(m);
+            rw(precondition);
+
             expr_ref premise(u.str.mk_contains(H, N), m);
             ctx.internalize(premise, false);
             expr_ref conclusion(m_autil.mk_ge(e, zero), m);
             expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
-            SASSERT(containsAxiom);
+            expr_ref finalAxiom(rewrite_implication(precondition, containsAxiom), m);
+            SASSERT(finalAxiom);
             // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
-            m_delayed_assertions_todo.push_back(containsAxiom);
+            m_delayed_assertions_todo.push_back(finalAxiom);
         }
     }
 
