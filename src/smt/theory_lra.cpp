@@ -42,6 +42,10 @@
 #include "tactic/generic_model_converter.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
+#include "ast/ast_pp.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "util/lp/niil_solver.h"
 
 namespace lp_api {
 enum bound_kind { lower_t, upper_t };
@@ -251,12 +255,14 @@ class theory_lra::imp {
     svector<std::pair<theory_var, theory_var> >       m_assume_eq_candidates; 
     unsigned                                          m_assume_eq_head;
 
-    unsigned               m_num_conflicts;
+    unsigned                 m_num_conflicts;
 
     // non-linear arithmetic
-    scoped_ptr<nra::solver> m_nra;
-    bool                    m_use_nra_model;
-    scoped_ptr<scoped_anum> m_a1, m_a2;
+    scoped_ptr<nra::solver>  m_nra;
+    bool                     m_use_niil;
+    scoped_ptr<niil::solver> m_niil;
+    bool                     m_use_nra_model;
+    scoped_ptr<scoped_anum>  m_a1, m_a2;
 
     // integer arithmetic
     scoped_ptr<lp::int_solver> m_lia;
@@ -294,7 +300,6 @@ class theory_lra::imp {
     resource_limit         m_resource_limit;
     lp_bounds              m_new_bounds;
 
-
     context& ctx() const { return th.get_context(); }
     theory_id get_id() const { return th.get_id(); }
     bool is_int(theory_var v) const {  return is_int(get_enode(v));  }
@@ -303,6 +308,7 @@ class theory_lra::imp {
     enode* get_enode(expr* e) const { return ctx().get_enode(e); }
     expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }        
 
+    
     void init_solver() {
         if (m_solver) return;
 
@@ -322,6 +328,7 @@ class theory_lra::imp {
 
         m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
+        m_use_niil = lp.niil();
         m_lia = alloc(lp::int_solver, m_solver.get());
         get_one(true);
         get_zero(true);
@@ -560,8 +567,13 @@ class theory_lra::imp {
         }
         TRACE("arith", tout << "v" << v << "(" << get_var_index(v) << ") := " << mk_pp(t, m) << " " << _has_var << "\n";);
         if (!_has_var) {
-            ensure_nra();
-            m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
+            if (m_use_niil) {
+                ensure_niil();
+                m_niil->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
+            } else {
+                ensure_nra();
+                m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
+            }
         }
     }
 
