@@ -32,6 +32,12 @@ struct solver::imp {
 void solver::add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs) {
     std::cout << "called add_monomial\n";
 }
+
+void solver::pop(unsigned) {
+}
+
+void solver::push(){ }
+
 solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p) {
     m_imp = alloc(imp, s, lim, p);
 }
