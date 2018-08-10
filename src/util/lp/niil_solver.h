@@ -33,5 +33,8 @@ public:
     void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs);
     solver(lp::lar_solver& s, reslimit& lim, params_ref const& p);
 
+    imp* get_imp();
+    void push();
+    void pop(unsigned scopes);
 };
 }
