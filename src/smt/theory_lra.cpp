@@ -271,6 +271,31 @@ class theory_lra::imp {
         bool m_use_niil;
         switcher(theory_lra::imp& i): m_th_imp(i), m_nra(nullptr), m_niil(nullptr) {
         }
+
+        lbool check(lp::explanation_t& ex) {
+            if (m_use_niil) {
+                if (m_niil != nullptr)
+                    return (*m_niil)->check(ex);
+            }
+            else {
+                if (m_nra != nullptr)
+                    return (*m_nra)->check(ex);
+            }
+            return l_undef;
+        }
+        
+        bool need_check() {
+            if (m_use_niil) {
+                if (m_niil != nullptr)
+                    return (*m_niil)->need_check();
+            }
+            else {
+                if (m_nra != nullptr)
+                    return (*m_nra)->need_check();
+            }
+            return false;
+        }
+        
         void push() {
             if (m_use_niil) {
                 if (m_niil != nullptr)
@@ -1591,6 +1616,7 @@ public:
 
     bool is_eq(theory_var v1, theory_var v2) {
         if (m_use_nra_model) {
+            lp_assert(!m_use_niil);
             return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
         }
         else {
@@ -2028,9 +2054,9 @@ public:
             return l_undef;
         }
         if (!m_nra) return l_true;
-        if (!m_nra->need_check()) return l_true;
+        if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_nra->check(m_explanation);
+        lbool r = m_switcher.check(m_explanation);
         m_a1 = alloc(scoped_anum, m_nra->am());
         m_a2 = alloc(scoped_anum, m_nra->am());
         switch (r) {
