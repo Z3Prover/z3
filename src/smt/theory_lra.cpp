@@ -279,6 +279,18 @@ class theory_lra::imp {
             }
         }
 
+        void pop(unsigned scopes) {
+            if (m_use_niil) {
+                if (m_niil != nullptr)
+                    (*m_niil)->pop(scopes);
+            }
+            else {
+                if (m_nra != nullptr)
+                    (*m_nra)->pop(scopes);
+            }
+        }
+
+        
         void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs) {
             if (m_use_niil) {
                 m_th_imp.ensure_niil();
@@ -395,10 +407,21 @@ class theory_lra::imp {
         return add_const(1, is_int ? m_one_var : m_rone_var, is_int);
     }
 
-    lp::var_index get_zero(bool is_int) {
-        return add_const(0, is_int ? m_zero_var : m_rzero_var, is_int);
+    lp::var_index get_zero() {
+        add_const(0, m_zero_var);
+        return m_zero_var;
     }
-
+    void ensure_niil() {
+        if (!m_niil) {
+            std::cout << "ensure_niil\n";
+            m_niil = alloc(niil::solver, *m_solver.get(), m.limit(), ctx().get_params());
+            m_switcher.m_niil = &m_niil;
+            for (auto const& _s : m_scopes) {
+                (void)_s;
+                m_niil->push();
+            }
+        }
+    }
 
     void found_not_handled(expr* n) {
         m_not_handled = n;
@@ -595,13 +618,7 @@ class theory_lra::imp {
         }
         TRACE("arith", tout << "v" << v << "(" << get_var_index(v) << ") := " << mk_pp(t, m) << " " << _has_var << "\n";);
         if (!_has_var) {
-            if (m_use_niil) {
-                ensure_niil();
-                m_niil->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
-            } else {
-                ensure_nra();
-                m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
-            }
+            m_switcher.add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
         }
     }
 
@@ -1058,7 +1075,7 @@ public:
         // VERIFY(l_false != make_feasible());
         m_new_bounds.reset();
         m_to_check.reset();
-        if (m_nra) m_nra->pop(num_scopes);
+        m_switcher.pop(num_scopes);
         TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
     }
 
