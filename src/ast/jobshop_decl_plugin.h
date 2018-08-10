@@ -12,17 +12,17 @@ Abstract:
     The job-shop domain comprises of constants job(j), resource(r)
 
     It finds values to variables:
-    - start(j), end(j), job2resource(j), job-on-resource(j, r)
+    - start(j), end(j), job2resource(j)
 
     It assumes a background of:
     - resources : Job -> Resource -> Int * LoadPct - time to run job j on resource r assuming LoadPct
     - runtime   : Job -> Int                       - time to run job j if not associated with any resource
     - capacity  : Resource -> Int -> LoadPct       - capacity of resource r at time t, given as sequence of time intervals
-    
+    // assume each job has at least one resource associated with it.    
+    // introduce a dummy resource if needed.
+
     // Theory:
-    job-on-resource(j)        => resource(j) in dom j.resources; 
     end(j) - start(j) = time-to-execute(j)
-    time-to-execute(j) := runtime(j)                       if !job-on-resource(j)
     time-to-execute(j) := time-to-execute(j, resource(j))  otherwise
 
     time-to-execute(j, r) := (T - start(j)) 
@@ -36,7 +36,7 @@ Abstract:
     capacity(r, t) >= sum_{j | job-on-resource(j, r, t) } min(capacity r t, loadpct(j, r))
 
     // Macros:
-    job-on-resource(j, r)              := (job-on-resource(j) & r = resource(j));
+    job-on-resource(j, r)              := r = resource(j);
     job-on-resource(j, r, t)           := (job-on-resource(j, r) & start(j) <= t <= end(j));
     start_min(j, t)                    := start(j) >= t;
     end_max(j, t)                      := end(j) <= t;
@@ -49,11 +49,10 @@ Abstract:
     job_link(j1, j2, startend, hard)   := end(j2) =  start(j1);
     job_link(j1, j2, startend, soft)   := end(j1) <= start(j2);
     job_delay(j1, j2, t)               := end(j1) + t <= end(j2);
-    job_on_same_resource(j1, j2)       := job-on-resource(j1) & job-on-resource(j2) & resource(j1) = resource(j2);
-    job_not_on_same_resource(j1, j2)   := !(job-on-resource(j1) & job-on-resource(j2) & resource(j1) = resource(j2));
+    job_on_same_resource(j1, j2)       := resource(j1) = resource(j2);
+    job_not_on_same_resource(j1, j2)   := resource(j1) != resource(j2);
     job_time_intersect(j1, j2)         := start(j1) <= end(j2) <= end(j1) || start(j2) <= end(j1) <= end(j2);
-    run_time_bound(j)                  := !(job-on-resource(j));
-
+    
     job-on-resource(j, r, t) => job-property(j) = null or job_property(j) in working_time_property(r, t);
         
 Author:
@@ -77,8 +76,7 @@ enum js_op_kind {
     OP_JS_RESOURCE,          // value of type resource
     OP_JS_START,             // start time of a job
     OP_JS_END,               // end time of a job
-    OP_JS_JOB2RESOURCE,      // resource associated with job
-    OP_JS_JOB_ON_RESOURCE    // is a job associated with a resource
+    OP_JS_JOB2RESOURCE       // resource associated with job
 };
 
 class jobshop_decl_plugin : public decl_plugin {
@@ -125,5 +123,4 @@ public:
 
     app* mk_start(unsigned j);
     app* mk_end(unsigned j);
-    app* mk_on_resource(unsigned j);
 };

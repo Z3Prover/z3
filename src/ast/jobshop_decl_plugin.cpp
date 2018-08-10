@@ -70,10 +70,6 @@ func_decl * jobshop_decl_plugin::mk_func_decl(
         check_arity(arity);
         check_index1(num_parameters, parameters);
         return m_manager->mk_func_decl(symbol("job2resource"), 0, (sort* const*)nullptr, m_int_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
-    case OP_JS_JOB_ON_RESOURCE:
-        check_arity(arity);
-        check_index1(num_parameters, parameters);
-        return m_manager->mk_func_decl(symbol("job-on-resource"), 0, (sort* const*)nullptr, m_manager->mk_bool_sort(), func_decl_info(m_family_id, k, num_parameters, parameters));
     default: 
         UNREACHABLE(); return nullptr;        
     }    
@@ -106,7 +102,6 @@ void jobshop_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol 
         op_names.push_back(builtin_name("job-start", OP_JS_START));
         op_names.push_back(builtin_name("job-end", OP_JS_END));
         op_names.push_back(builtin_name("job2resource", OP_JS_JOB2RESOURCE));
-        op_names.push_back(builtin_name("job-on-resource", OP_JS_JOB_ON_RESOURCE));
     }
 }
 
@@ -167,11 +162,6 @@ app* jobshop_util::mk_start(unsigned j) {
 }
 
 app* jobshop_util::mk_end(unsigned j) { 
-    parameter p(j);
-    return m.mk_const(m.mk_func_decl(m_fid, OP_JS_END, 1, &p, 0, (sort*const*)nullptr, nullptr));
-}
-
-app* jobshop_util::mk_on_resource(unsigned j) { 
     parameter p(j);
     return m.mk_const(m.mk_func_decl(m_fid, OP_JS_END, 1, &p, 0, (sort*const*)nullptr, nullptr));
 }
