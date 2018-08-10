@@ -36,5 +36,7 @@ public:
     imp* get_imp();
     void push();
     void pop(unsigned scopes);
+    bool need_check();
+    lbool check(lp::explanation_t& ex);
 };
 }
