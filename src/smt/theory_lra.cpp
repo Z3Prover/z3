@@ -261,6 +261,37 @@ class theory_lra::imp {
     bool                     m_use_nra_model;
     scoped_ptr<scoped_anum>  m_a1, m_a2;
 
+    struct switcher {
+        theory_lra::imp& m_th_imp;
+        scoped_ptr<nra::solver>*  m_nra;
+        scoped_ptr<niil::solver>* m_niil;
+        bool m_use_niil;
+        switcher(theory_lra::imp& i): m_th_imp(i), m_nra(nullptr), m_niil(nullptr) {
+        }
+        void push() {
+            if (m_use_niil) {
+                if (m_niil != nullptr)
+                    (*m_niil)->push();
+            }
+            else {
+                if (m_nra != nullptr)
+                    (*m_nra)->push();
+            }
+        }
+
+        void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs) {
+            if (m_use_niil) {
+                m_th_imp.ensure_niil();
+                (*m_niil)->add_monomial(v, sz, vs);
+            }
+            else {
+                m_th_imp.ensure_nra();
+                (*m_nra)->add_monomial(v, sz, vs);
+            }
+        }
+ 
+    };
+
     // integer arithmetic
     scoped_ptr<lp::int_solver> m_lia;
 
@@ -325,7 +356,7 @@ class theory_lra::imp {
 
         m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_use_niil = lp.niil();
+        m_switcher.m_use_niil = m_use_niil = lp.niil();
         m_lia = alloc(lp::int_solver, m_solver.get());
         get_one(true);
         get_zero(true);
@@ -995,7 +1026,7 @@ public:
         s.m_underspecified_lim = m_underspecified.size();
         s.m_var_trail_lim = m_var_trail.size();
         m_solver->push();
-        if (m_nra) m_nra->push();
+        m_switcher.push();
     }
 
     void pop_scope_eh(unsigned num_scopes) {
