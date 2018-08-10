@@ -8,49 +8,58 @@
 # `.git` file used by a git worktree.
 # `SUCCESS_VAR` is the name of the variable to set. It will be set to TRUE
 # if the dependency was successfully added and FALSE otherwise.
-function(add_git_dir_dependency GIT_DOT_FILE SUCCESS_VAR)
+function(add_git_dir_dependency SOURCE_DIR SUCCESS_VAR)
   if (NOT "${ARGC}" EQUAL 2)
     message(FATAL_ERROR "Invalid number (${ARGC}) of arguments")
   endif()
 
-  if (NOT IS_ABSOLUTE "${GIT_DOT_FILE}")
-    message(FATAL_ERROR "GIT_DOT_FILE (\"${GIT_DOT_FILE}\") is not an absolute path")
+  if (NOT EXISTS "${SOURCE_DIR}")
+    message(FATAL_ERROR "SOURCE_DIR (\"${SOURCE_DIR}\") does not exist")
   endif()
 
-  if (NOT EXISTS "${GIT_DOT_FILE}")
-    message(FATAL_ERROR "GIT_DOT_FILE (\"${GIT_DOT_FILE}\") does not exist")
+  find_package(Git)
+  if (NOT GIT_FOUND)
+    set(${SUCCESS_VAR_VAR} FALSE PARENT_SCOPE)
+    return()
   endif()
 
-  if (NOT IS_DIRECTORY "${GIT_DOT_FILE}")
-    # Might be a git worktree. In this case we need parse out the worktree
-    # git directory
-    file(READ "${GIT_DOT_FILE}" GIT_DOT_FILE_DATA LIMIT 512)
-    string(STRIP "${GIT_DOT_FILE_DATA}" GIT_DOT_FILE_DATA_STRIPPED)
-    if ("${GIT_DOT_FILE_DATA_STRIPPED}" MATCHES "^gitdir:[ ]*(.+)$")
-      # Git worktree
-      message(STATUS "Found git worktree")
-      set(GIT_WORKTREE_DIR "${CMAKE_MATCH_1}")
-      set(GIT_HEAD_FILE "${GIT_WORKTREE_DIR}/HEAD")
-      # Figure out where real git directory lives
-      set(GIT_COMMON_DIR_FILE "${GIT_WORKTREE_DIR}/commondir")
-      if (NOT EXISTS "${GIT_COMMON_DIR_FILE}")
-        message(FATAL_ERROR "Found git worktree dir but could not find \"${GIT_COMMON_DIR_FILE}\"")
-      endif()
-      file(READ "${GIT_COMMON_DIR_FILE}" GIT_COMMON_DIR_FILE_DATA LIMIT 512)
-      string(STRIP "${GIT_COMMON_DIR_FILE_DATA}" GIT_COMMON_DIR_FILE_DATA_STRIPPED)
-      get_filename_component(GIT_DIR "${GIT_WORKTREE_DIR}/${GIT_COMMON_DIR_FILE_DATA_STRIPPED}" ABSOLUTE)
-      if (NOT IS_DIRECTORY "${GIT_DIR}")
-        message(FATAL_ERROR "Failed to compute path to git directory from git worktree")
-      endif()
-    else()
-      message(FATAL_ERROR "GIT_DOT_FILE (\"${GIT_DOT_FILE}\") is not a directory or a pointer to git worktree directory")
-    endif()
-  else()
-    # Just a normal `.git` directory
-    message(STATUS "Found simple git working directory")
-    set(GIT_HEAD_FILE "${GIT_DOT_FILE}/HEAD")
-    set(GIT_DIR "${GIT_DOT_FILE}")
+  message("from ${SOURCE_DIR}")
+  execute_process(
+    COMMAND
+      "${GIT_EXECUTABLE}"
+      "rev-parse"
+      "--git-common-dir"
+    WORKING_DIRECTORY
+      "${SOURCE_DIR}"
+    RESULT_VARIABLE
+      GIT_EXIT_CODE
+    OUTPUT_VARIABLE
+      GIT_HEAD_FILE_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (NOT "${GIT_EXIT_CODE}" EQUAL 0)
+    message(FATAL_ERROR "Could not determine git common dir")
   endif()
+
+  set(GIT_HEAD_FILE "${GIT_HEAD_FILE_DIR}/HEAD")
+
+  execute_process(
+    COMMAND
+      "${GIT_EXECUTABLE}"
+      "rev-parse"
+      "--git-dir"
+    WORKING_DIRECTORY
+      "${SOURCE_DIR}"
+    RESULT_VARIABLE
+      GIT_EXIT_CODE
+    OUTPUT_VARIABLE
+      GIT_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if (NOT "${GIT_EXIT_CODE}" EQUAL 0)
+    message(FATAL_ERROR "Could not determine git dir")
+  endif()
+
   message(STATUS "Found git directory \"${GIT_DIR}\"")
 
   if (NOT EXISTS "${GIT_HEAD_FILE}")

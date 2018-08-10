@@ -99,7 +99,7 @@ set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
 if (EXISTS "${GIT_DIR}")
   # Try to make CMake configure depend on the current git HEAD so that
   # a re-configure is triggered when the HEAD changes.
-  add_git_dir_dependency("${GIT_DIR}" ADD_GIT_DEP_SUCCESS)
+  add_git_dir_dependency("${CMAKE_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
   if (ADD_GIT_DEP_SUCCESS)
     if (INCLUDE_GIT_HASH)
       get_git_head_hash("${GIT_DIR}" Z3GITHASH)
@@ -261,7 +261,7 @@ else()
   message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
 
-list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS 
+list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
   "${CMAKE_BINARY_DIR}/src"
   "${CMAKE_SOURCE_DIR}/src"
 )
