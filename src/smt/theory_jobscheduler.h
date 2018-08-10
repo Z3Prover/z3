@@ -39,6 +39,10 @@ namespace smt {
         struct job_info {
             vector<job_resource> m_resources; // resources allowed to run job.
             u_map<unsigned>      m_resource2index; // resource to index into vector 
+            enode*               m_start;
+            enode*               m_end;
+            enode*               m_resource;
+            job_info(): m_start(nullptr), m_end(nullptr), m_resource(nullptr) {}
         };
 
         struct res_available {
@@ -61,6 +65,7 @@ namespace smt {
         
         ast_manager&     m;
         jobshop_util     u;
+        unsigned_vector  m_var2index;
         vector<job_info> m_jobs;
         vector<res_info> m_resources;
         
@@ -68,15 +73,15 @@ namespace smt {
 
         theory_var mk_var(enode * n) override;        
 
-        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_atom(app * atom, bool gate_ctx) override { return false; }
 
         bool internalize_term(app * term) override;
 
-        void assign_eh(bool_var v, bool is_true) override;
+        void assign_eh(bool_var v, bool is_true) override {}
 
-        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override {}
 
-        void new_diseq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override {}
 
         void push_scope_eh() override;
 

@@ -123,4 +123,5 @@ public:
 
     app* mk_start(unsigned j);
     app* mk_end(unsigned j);
+    app* mk_job2resource(unsigned j);
 };

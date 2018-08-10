@@ -142,7 +142,10 @@ app* jobshop_util::mk_job(unsigned j) {
 }
 
 unsigned jobshop_util::job2id(expr* j) {
-    SASSERT(is_app_of(j, m_fid, OP_JS_JOB));
+    SASSERT(is_app_of(j, m_fid, OP_JS_JOB) || 
+            is_app_of(j, m_fid, OP_JS_START) || 
+            is_app_of(j, m_fid, OP_JS_END) ||
+            is_app_of(j, m_fid, OP_JS_JOB2RESOURCE));
     return to_app(j)->get_decl()->get_parameter(0).get_int();
 }
 
@@ -164,5 +167,10 @@ app* jobshop_util::mk_start(unsigned j) {
 app* jobshop_util::mk_end(unsigned j) { 
     parameter p(j);
     return m.mk_const(m.mk_func_decl(m_fid, OP_JS_END, 1, &p, 0, (sort*const*)nullptr, nullptr));
+}
+
+app* jobshop_util::mk_job2resource(unsigned j) { 
+    parameter p(j);
+    return m.mk_const(m.mk_func_decl(m_fid, OP_JS_JOB2RESOURCE, 1, &p, 0, (sort*const*)nullptr, nullptr));
 }
 

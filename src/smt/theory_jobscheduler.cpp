@@ -26,32 +26,55 @@ namespace smt {
         return v;
     }
 
-    bool theory_jobscheduler::internalize_atom(app * atom, bool gate_ctx) {
-        return false;
-    }
-
     bool theory_jobscheduler::internalize_term(app * term) {
-        return false;
+        context & ctx = get_context();        
+        if (ctx.e_internalized(term))
+            return true;
+        enode* e = ctx.mk_enode(term, false, false, true);
+        switch (static_cast<js_op_kind>(term->get_decl()->get_decl_kind())) {            
+        case OP_JS_JOB: {
+            unsigned j = u.job2id(term);
+            app_ref start(u.mk_start(j), m);
+            app_ref end(u.mk_end(j), m);
+            app_ref res(u.mk_resource(j), m);
+            if (!ctx.e_internalized(start)) ctx.internalize(start, false);
+            if (!ctx.e_internalized(end))   ctx.internalize(end, false);
+            if (!ctx.e_internalized(res))   ctx.internalize(res, false);
+            theory_var v = mk_var(e);
+            SASSERT(m_var2index.size() == v);
+            m_var2index.push_back(j);
+            m_jobs.reserve(j + 1);
+            m_jobs[j].m_start    = ctx.get_enode(start);
+            m_jobs[j].m_end      = ctx.get_enode(end);
+            m_jobs[j].m_resource = ctx.get_enode(res);
+            ctx.attach_th_var(e, this, v);
+            break;
+        }
+        case OP_JS_RESOURCE: {
+            theory_var v = mk_var(e);
+            SASSERT(m_var2index.size() == v);
+            unsigned r = u.resource2id(term);
+            m_var2index.push_back(r);        
+            ctx.attach_th_var(e, this, v);    
+            break;
+        }
+        case OP_JS_START:
+        case OP_JS_END:
+        case OP_JS_JOB2RESOURCE: {
+            unsigned j = u.job2id(term);
+            app_ref job(u.mk_job(j), m);
+            if (!ctx.e_internalized(job)) ctx.internalize(job, false);
+            break;
+        }
+        }
+        return true;
     }
 
-    void theory_jobscheduler::assign_eh(bool_var v, bool is_true) {
-
-    }
-
-    void theory_jobscheduler::new_eq_eh(theory_var v1, theory_var v2) {
-
-    }
-
-    void theory_jobscheduler::new_diseq_eh(theory_var v1, theory_var v2) {
-
-    }
 
     void theory_jobscheduler::push_scope_eh() {
-
     }
 
     void theory_jobscheduler::pop_scope_eh(unsigned num_scopes) {
-
     }
 
     final_check_status theory_jobscheduler::final_check_eh() {
@@ -124,6 +147,7 @@ namespace smt {
 
 
     void theory_jobscheduler::add_job_resource(unsigned j, unsigned r, unsigned cap, unsigned loadpct, uint64_t end) {
+        // assert: done at base level
         m_jobs.reserve(j + 1);
         m_resources.reserve(r + 1);
         job_info& ji = m_jobs[j];
@@ -137,6 +161,7 @@ namespace smt {
     }
 
     void theory_jobscheduler::add_resource_available(unsigned r, unsigned max_loadpct, uint64_t start, uint64_t end) {
+        // assert: done at base level
         SASSERT(start < end);
         m_resources.reserve(r + 1);
         m_resources[r].m_available.push_back(res_available(max_loadpct, start, end));
