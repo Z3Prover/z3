@@ -29,8 +29,8 @@ namespace nra {
         scoped_ptr<scoped_anum>    m_zero;
         vector<mon_eq>         m_monomials;
         unsigned_vector        m_monomials_lim;
-        mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model        
-
+        mutable vector<rational> m_variable_values; // current model        
+        mutable std::unordered_map<lp::var_index, rational> m_term_values;
         imp(lp::lar_solver& s, reslimit& lim, params_ref const& p): 
             s(s), 
             m_limit(lim),
