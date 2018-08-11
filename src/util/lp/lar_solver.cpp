@@ -1241,17 +1241,18 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
     } 
 }
 
-void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
+void lar_solver::get_model(vector<mpq> & variable_values) const {
     lp_assert(m_status == lp_status::OPTIMAL);
     mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
     unsigned i;
+    unsigned n = m_mpq_lar_core_solver.m_r_x.size();
+    variable_values.resize(n);
     do {
         // different pairs have to produce different singleton values
         std::unordered_set<impq> set_of_different_pairs; 
         std::unordered_set<mpq> set_of_different_singles;
         delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(delta);
-        TRACE("get_model", tout << "delta=" << delta << "size = " << m_mpq_lar_core_solver.m_r_x.size() << std::endl;);
-        for (i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
+        for (i = 0; i < n; i++ ) {
             const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[i];
             set_of_different_pairs.insert(rp);
             mpq x = rp.x + delta * rp.y;
