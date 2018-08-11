@@ -24,9 +24,9 @@ struct solver::imp {
 
     vector<mon_eq>         m_monomials;
     unsigned_vector        m_monomials_lim;
+    lp::lar_solver&        m_solver;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
-    // :
-        // s(s), 
+        : m_solver(s)
         // m_limit(lim),
         // m_params(p)
     {
