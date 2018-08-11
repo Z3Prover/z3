@@ -451,7 +451,15 @@ struct goal2sat::imp {
         unsigned sz = m_result_stack.size();
         if (root) {
             m_result_stack.reset();
-            m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
+            unsigned k1 = k.get_unsigned();
+            if (sign) {
+                k1 = 1 - k1;
+                for (wliteral& wl : wlits) {
+                    wl.second.neg();
+                    k1 += wl.first;
+                }
+            }
+            m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
         }
         else {
             sat::bool_var v = m_solver.mk_var(true);
@@ -476,7 +484,15 @@ struct goal2sat::imp {
         unsigned sz = m_result_stack.size();
         if (root) {
             m_result_stack.reset();
-            m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
+            unsigned k1 = k.get_unsigned();
+            if (sign) {
+                k1 = 1 - k1;
+                for (wliteral& wl : wlits) {
+                    wl.second.neg();
+                    k1 += wl.first;
+                }
+            }
+            m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
         }
         else {
             sat::bool_var v = m_solver.mk_var(true);

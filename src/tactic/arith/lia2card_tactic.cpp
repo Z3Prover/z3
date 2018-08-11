@@ -167,7 +167,8 @@ public:
         m_mc.reset();
         expr_ref_vector axioms(m);
         expr_safe_replace rep(m);
-        
+
+        TRACE("pb", g->display(tout););        
         tactic_report report("lia2card", *g);
         
         bound_manager bounds(m);
