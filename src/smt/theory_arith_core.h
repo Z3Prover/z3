@@ -504,9 +504,9 @@ namespace smt {
                   tout << "lower: " << lower << "\n";
                   tout << "upper: " << upper << "\n";);
 
-            mk_axiom(eqz, eq, !is_numeral);
-            mk_axiom(eqz, lower, !is_numeral);
-            mk_axiom(eqz, upper, !is_numeral);
+            mk_axiom(eqz, eq,    true);
+            mk_axiom(eqz, lower, false);
+            mk_axiom(eqz, upper, false);
             rational k;
             context& ctx = get_context();
             (void)ctx;
