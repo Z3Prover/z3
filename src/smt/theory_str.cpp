@@ -1388,7 +1388,7 @@ namespace smt {
             // (but don't introduce it if it isn't already in the instance)
             expr_ref haystack(ex->get_arg(0), m), needle(ex->get_arg(1), m), startIdx(ex->get_arg(2), m);
             expr_ref zeroAst(mk_int(0), m);
-            // (H contains N) <==> (H indexof N, i) >= 0
+            // (H contains N) <==> (H indexof N, 0) >= 0
             expr_ref premise(u.str.mk_contains(haystack, needle), m);
             ctx.internalize(premise, false);
             expr_ref conclusion(m_autil.mk_ge(ex, zeroAst), m);
@@ -1482,14 +1482,23 @@ namespace smt {
         {
             // heuristic: integrate with str.contains information
             // (but don't introduce it if it isn't already in the instance)
-            // (H contains N) <==> (H indexof N, i) >= 0
+            // (0 <= i < len(H)) ==> (H contains N) <==> (H indexof N, i) >= 0
+            expr_ref precondition1(m_autil.mk_gt(i, minus_one), m);
+            //expr_ref precondition2(m_autil.mk_lt(i, mk_strlen(H)), m);
+            expr_ref precondition2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
+            expr_ref _precondition(m.mk_and(precondition1, precondition2), m);
+            expr_ref precondition(_precondition);
+            th_rewriter rw(m);
+            rw(precondition);
+
             expr_ref premise(u.str.mk_contains(H, N), m);
             ctx.internalize(premise, false);
             expr_ref conclusion(m_autil.mk_ge(e, zero), m);
             expr_ref containsAxiom(ctx.mk_eq_atom(premise, conclusion), m);
-            SASSERT(containsAxiom);
+            expr_ref finalAxiom(rewrite_implication(precondition, containsAxiom), m);
+            SASSERT(finalAxiom);
             // we can't assert this during init_search as it breaks an invariant if the instance becomes inconsistent
-            m_delayed_assertions_todo.push_back(containsAxiom);
+            m_delayed_assertions_todo.push_back(finalAxiom);
         }
     }
 
@@ -1829,6 +1838,14 @@ namespace smt {
             u.str.is_string(range1, range1val);
             u.str.is_string(range2, range2val);
             return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
+        } else if (u.re.is_loop(a_regex)) {
+        	expr * body;
+        	unsigned lo, hi;
+        	u.re.is_loop(a_regex, body, lo, hi);
+        	rational rLo(lo);
+        	rational rHi(hi);
+        	zstring bodyStr = get_std_regex_str(body);
+        	return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring(",") + zstring(rHi.to_string().c_str()) + zstring("})");
         } else if (u.re.is_full_seq(a_regex)) {
             return zstring("(.*)");
         } else if (u.re.is_full_char(a_regex)) {
@@ -6644,6 +6661,7 @@ namespace smt {
         ENSURE(u.is_re(re));
         expr * sub1;
         expr * sub2;
+        unsigned lo, hi;
         if (u.re.is_to_re(re, sub1)) {
             if (!u.str.is_string(sub1))
                 throw default_exception("regular expressions must be built from string literals");
@@ -6663,6 +6681,9 @@ namespace smt {
         } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
             unsigned cx = estimate_regex_complexity(sub1);
             return _qmul(2, cx);
+        } else if (u.re.is_loop(re, sub1, lo, hi)) {
+        	unsigned cx = estimate_regex_complexity(sub1);
+        	return _qadd(lo, cx);
         } else if (u.re.is_range(re, sub1, sub2)) {
             SASSERT(u.str.is_string(sub1));
             SASSERT(u.str.is_string(sub2));
@@ -6684,6 +6705,7 @@ namespace smt {
         ENSURE(u.is_re(re));
         expr * sub1;
         expr * sub2;
+        unsigned lo, hi;
         if (u.re.is_to_re(re, sub1)) {
             SASSERT(u.str.is_string(sub1));
             zstring str;
@@ -6702,7 +6724,7 @@ namespace smt {
             unsigned cx1 = estimate_regex_complexity_under_complement(sub1);
             unsigned cx2 = estimate_regex_complexity_under_complement(sub2);
             return _qmul(cx1, cx2);
-        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1)) {
+        } else if (u.re.is_star(re, sub1) || u.re.is_plus(re, sub1) || u.re.is_loop(re, sub1, lo, hi)) {
             unsigned cx = estimate_regex_complexity_under_complement(sub1);
             return _qmul(2, cx);
         } else if (u.re.is_range(re, sub1, sub2)) {
@@ -6736,6 +6758,7 @@ namespace smt {
     bool theory_str::check_regex_length_linearity_helper(expr * re, bool already_star) {
         expr * sub1;
         expr * sub2;
+        unsigned lo, hi;
         if (u.re.is_to_re(re)) {
             return true;
         } else if (u.re.is_concat(re, sub1, sub2)) {
@@ -6757,6 +6780,8 @@ namespace smt {
         } else if (u.re.is_complement(re)) {
             // TODO can we do better?
             return false;
+        } else if (u.re.is_loop(re, sub1, lo, hi)) {
+        	return check_regex_length_linearity_helper(sub1, already_star);
         } else {
             TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
             UNREACHABLE(); return false;
@@ -6767,6 +6792,7 @@ namespace smt {
     void theory_str::check_subterm_lengths(expr * re, integer_set & lens) {
         expr * sub1;
         expr * sub2;
+        unsigned lo, hi;
         if (u.re.is_to_re(re, sub1)) {
             SASSERT(u.str.is_string(sub1));
             zstring str;
@@ -6821,6 +6847,14 @@ namespace smt {
             lens.reset();
         } else if (u.re.is_complement(re)) {
             lens.reset();
+        } else if (u.re.is_loop(re, sub1, lo, hi)) {
+        	integer_set lens_1;
+        	check_subterm_lengths(sub1, lens_1);
+        	for (unsigned i = lo; i <= hi; ++i) {
+        		for (auto j : lens_1) {
+        			lens.insert(i * j);
+        		}
+        	}
         } else {
             TRACE("str", tout << "WARNING: unknown regex term " << mk_pp(re, get_manager()) << std::endl;);
             lens.reset();
@@ -6842,6 +6876,7 @@ namespace smt {
         ast_manager & m = get_manager();
         expr * sub1;
         expr * sub2;
+        unsigned lo, hi;
         if (u.re.is_to_re(re, sub1)) {
             if (!u.str.is_string(sub1))
                 throw default_exception("regular expressions must be built from string literals");
@@ -6911,6 +6946,22 @@ namespace smt {
                 expr_ref retval(ctx.mk_eq_atom(lenVar, m_autil.mk_add_simplify(sum_terms)), m);
                 return retval;
             }
+        } else if (u.re.is_loop(re, sub1, lo, hi)) {
+        	expr * v1 = mk_int_var("rlen");
+        	freeVariables.push_back(v1);
+        	expr_ref r1 = infer_all_regex_lengths(v1, sub1, freeVariables);
+        	expr_ref_vector v1_choices(m);
+        	for (unsigned i = lo; i <= hi; ++i) {
+        		rational rI(i);
+        		expr_ref v1_i(ctx.mk_eq_atom(lenVar, m_autil.mk_mul(m_autil.mk_numeral(rI, true), v1)), m);
+        		v1_choices.push_back(v1_i);
+        	}
+        	expr_ref_vector finalResult(m);
+        	finalResult.push_back(r1);
+        	finalResult.push_back(mk_or(v1_choices));
+        	expr_ref retval(mk_and(finalResult), m);
+        	SASSERT(retval);
+        	return retval;
         } else if (u.re.is_range(re, sub1, sub2)) {
             SASSERT(u.str.is_string(sub1));
             SASSERT(u.str.is_string(sub2));
