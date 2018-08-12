@@ -506,7 +506,7 @@ namespace smt {
 
             mk_axiom(eqz, eq,    true);
             mk_axiom(eqz, lower, false);
-            mk_axiom(eqz, upper, false);
+            mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
             context& ctx = get_context();
             (void)ctx;
