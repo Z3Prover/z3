@@ -1241,7 +1241,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
     } 
 }
 
-void lar_solver::get_model(vector<mpq> & variable_values) const {
+void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
     lp_assert(m_status == lp_status::OPTIMAL);
     mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
     unsigned i;
