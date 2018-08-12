@@ -78,6 +78,18 @@ namespace smt {
     }
 
     final_check_status theory_jobscheduler::final_check_eh() {
+
+        // ensure that each job starts within an avaialable interval.
+        // ! (end_previous_interval < start(j) < start_of_next_interval)
+
+        bool blocked = false;
+        for (unsigned r = 0; r < m_resources.size(); ++r) {
+            if (constrain_resource_energy(r)) {
+                blocked = true;
+            }
+        }
+
+        if (blocked) return FC_CONTINUE;
         return FC_DONE;
     }
 
@@ -85,13 +97,199 @@ namespace smt {
         return false;
     }
 
-    void theory_jobscheduler::propagate() {
+    literal theory_jobscheduler::mk_literal(expr * e) {
+        expr_ref _e(e, m);
+        context& ctx = get_context();
+        if (!ctx.e_internalized(e)) {
+            ctx.internalize(e, false);
+        }
+        ctx.mark_as_relevant(ctx.get_enode(e));
+        return ctx.get_literal(e);
+    }
+
+    literal theory_jobscheduler::mk_ge_lit(expr* e, time_t t) {
+        return mk_literal(mk_ge(e, t));
+    }
+
+    expr* theory_jobscheduler::mk_ge(expr* e, time_t t) {
+        return a.mk_ge(e, a.mk_int(rational(t, rational::ui64())));
+    }
+
+    expr* theory_jobscheduler::mk_ge(enode* e, time_t t) {
+        return mk_ge(e->get_owner(), t);
+    }
+
+    literal theory_jobscheduler::mk_le_lit(expr* e, time_t t) {
+        return mk_literal(mk_le(e, t));
+    }
+
+    expr* theory_jobscheduler::mk_le(expr* e, time_t t) {
+        return a.mk_le(e, a.mk_int(rational(t, rational::ui64())));
+    }
+
+    literal theory_jobscheduler::mk_le(enode* l, enode* r) {
+        context& ctx = get_context();
+        expr_ref le(a.mk_le(l->get_owner(), r->get_owner()), m);
+        ctx.get_rewriter()(le);
+        return mk_literal(le);
+    }
+
+    expr* theory_jobscheduler::mk_le(enode* e, time_t t) {
+        return mk_le(e->get_owner(), t);
+    }
+
+    /**
+     * iterator of job overlaps.
+     */
+    theory_jobscheduler::job_overlap::job_overlap(vector<job_time>& starts, vector<job_time>& ends):
+        m_starts(starts), m_ends(ends), s_idx(0), e_idx(0) {
+        job_time::compare cmp;
+        std::sort(starts.begin(), starts.end(), cmp);
+        std::sort(ends.begin(),   ends.end(),   cmp);        
+    }
+
+    bool theory_jobscheduler::job_overlap::next(time_t& start) {
+        if (s_idx == m_starts.size()) {
+            return false;
+        }
+        while (s_idx < m_starts.size() && m_starts[s_idx].m_time <= start) {
+            m_jobs.insert(m_starts[s_idx].m_job);
+            ++s_idx;
+        }
+        // remove jobs that end before start.
+        while (e_idx < m_ends.size() && m_ends[s_idx].m_time < start) {
+            m_jobs.remove(m_ends[e_idx].m_job);
+            ++e_idx;
+        }        
+        // TBD: check logic
+        if (s_idx < m_starts.size()) {
+            start = m_starts[s_idx].m_time;
+        }
+        return true;
+    }
+
+
+    /**
+     *  r = resource(j) & start(j) >= slb => end(j) >= ect(j, r, slb)
+     */
+    void theory_jobscheduler::propagate_end_time(unsigned j, unsigned r) {
+        time_t slb = est(j);
+        time_t clb = ect(j, r, slb);
+        context& ctx = get_context();
+
+        if (clb > end(j)) {
+            job_info const& ji = m_jobs[j];
+            literal start_ge_lo = mk_literal(mk_ge(ji.m_start, slb));
+            if (ctx.get_assignment(start_ge_lo) != l_true) {
+                return;
+            }
+            enode_pair eq(ji.m_resource, ctx.get_enode(u.mk_resource(r)));
+            if (eq.first->get_root() != eq.second->get_root()) {
+                return;
+            }
+
+            literal end_ge_lo = mk_literal(mk_ge(ji.m_end, clb));
+            // Initialization ensures that satisfiable states have completion time below end.
+            VERIFY(clb <= get_job_resource(j, r).m_end);
+            region& r = ctx.get_region();
+            ctx.assign(end_ge_lo, 
+                       ctx.mk_justification(
+                           ext_theory_propagation_justification(get_id(), r, 1, &start_ge_lo, 1, &eq, end_ge_lo, 0, nullptr)));
+        }
+    }
+
+    /**
+     *  For time interval [t0, t1] the end-time can be computed as a function 
+     *  of start time based on reource load availability.
+     * 
+     *  r = resource(j) & t1 >= start(j) >= t0 => end(j) = start(j) + ect(j, r, t0) - t0
+     */
+    void theory_jobscheduler::propagate_end_time_interval(unsigned j, unsigned r) {
+        // TBD
+        // establish maximal intervals around start, such that end time is a linear function of start.
+    }
+
+    void theory_jobscheduler::propagate_resource_energy(unsigned r) {
         
+    }
+
+    /**
+     *  Ensure that job overlaps don't exceed available energy
+     */ 
+    bool theory_jobscheduler::constrain_resource_energy(unsigned r) {
+        bool blocked = false;
+        vector<job_time> starts, ends;
+        res_info const& ri = m_resources[r];
+        for (unsigned j : ri.m_jobs) {
+            if (resource(j) == r) {
+                starts.push_back(job_time(j, start(j)));
+                ends.push_back(job_time(j, end(j)));
+            }
+        }
+        job_overlap overlap(starts, ends);
+        time_t start = 0;
+        while (overlap.next(start)) {
+            unsigned cap = 0;
+            auto const& jobs = overlap.jobs();
+            for (auto j : jobs) {
+                cap += get_job_resource(j, r).m_loadpct;
+                if (cap > 100) {
+                    block_job_overlap(r, jobs, j);
+                    blocked = true;
+                    goto try_next_overlap;
+                }
+            }    
+        try_next_overlap:
+            ;
+        }
+        return blocked;
+    }
+
+    void theory_jobscheduler::block_job_overlap(unsigned r, uint_set const& jobs, unsigned last_job) {
+        //
+        // block the following case:
+        // each job is assigned to r.
+        // max { start(j) | j0..last_job } <= min { end(j) | j0..last_job }
+        // joint capacity of jobs exceeds availability of resource.
+        // 
+        time_t max_start = 0;
+        unsigned max_j = last_job;
+        for (auto j : jobs) {
+            if (max_start < start(j)) {
+                max_start = start(j);
+                max_j = j;
+            }
+            if (j == last_job) break;
+        }
+        literal_vector lits;
+        for (auto j : jobs) {
+            // create literals for:  
+            // resource(j) == r
+            // m_jobs[j].m_start <= m_jobs[max_j].m_start;
+            // m_jobs[max_j].m_start <= m_jobs[j].m_end;
+            lits.push_back(~mk_eq(u.mk_job2resource(j), u.mk_resource(r), false));
+            lits.push_back(~mk_le(m_jobs[j].m_start, m_jobs[max_j].m_start));
+            lits.push_back(~mk_le(m_jobs[max_j].m_start, m_jobs[max_j].m_end));
+            if (j == last_job) break;
+        }
+        context& ctx = get_context();
+        ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
+    }
+
+    void theory_jobscheduler::propagate() {
+        for (unsigned j = 0; j < m_jobs.size(); ++j) {
+            job_info const& ji = m_jobs[j];
+            unsigned r = resource(j);
+            propagate_end_time(j, r);
+            propagate_end_time_interval(j, r);
+        }
+        for (unsigned r = 0; r < m_resources.size(); ++r) {
+            // TBD: check energy constraints on resources.
+        }
     }
         
     theory_jobscheduler::theory_jobscheduler(ast_manager& m): 
         theory(m.get_family_id("jobshop")), m(m), u(m), a(m) {
-
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_resource const& jr) const {
@@ -147,30 +345,37 @@ namespace smt {
     }
 
     time_t theory_jobscheduler::est(unsigned j) {
+        NOT_IMPLEMENTED_YET();
         return 0;
     }
 
     time_t theory_jobscheduler::lst(unsigned j) {
+        NOT_IMPLEMENTED_YET();
         return 0;
     }
 
     time_t theory_jobscheduler::ect(unsigned j) {
+        NOT_IMPLEMENTED_YET();
         return 0;
     }
 
     time_t theory_jobscheduler::lct(unsigned j) {
+        NOT_IMPLEMENTED_YET();
         return 0;
     }
 
     time_t theory_jobscheduler::start(unsigned j) {
+        NOT_IMPLEMENTED_YET();
         return 0;
     }
 
     time_t theory_jobscheduler::end(unsigned j) {
+        NOT_IMPLEMENTED_YET();
         return 0;
     }
 
     unsigned theory_jobscheduler::resource(unsigned j) {
+        NOT_IMPLEMENTED_YET();
         return 0;
     }
 
@@ -191,7 +396,7 @@ namespace smt {
 
     void theory_jobscheduler::add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end) {
         SASSERT(get_context().at_base_level());
-        SASSERT(start < end);
+        SASSERT(start <= end);
         m_resources.reserve(r + 1);
         m_resources[r].m_available.push_back(res_available(max_loadpct, start, end));
     }
@@ -215,16 +420,27 @@ namespace smt {
                 throw default_exception("every job should be associated with at least one resource");
             }
             // resource(j) = r => end(j) <= end(j, r)
+            // resource(j) = r => start(j) <= lst(j, r, end(j, r))
             for (job_resource const& jr : ji.m_resources) {
-                app_ref res(u.mk_resource(jr.m_resource_id), m);
+                unsigned r = jr.m_resource_id;
+                app_ref res(u.mk_resource(r), m);
                 expr_ref eq(m.mk_eq(job, res), m);
-                expr_ref imp(m.mk_implies(eq, a.mk_le(ji.m_start->get_owner(), a.mk_int(rational(jr.m_end, rational::ui64())))), m);
-                ctx.assert_expr(imp);                
+                expr_ref imp(m.mk_implies(eq, mk_le(ji.m_end, jr.m_end)), m);
+                ctx.assert_expr(imp);
+                imp = m.mk_implies(eq, mk_le(ji.m_start, lst(j, r)));
+                ctx.assert_expr(imp);
                 disj.push_back(eq);
             }
             // resource(j) = r1 || ... || resource(j) = r_n
             expr_ref fml = mk_or(disj);
             ctx.assert_expr(fml);
+
+            // start(j) >= 0
+            fml = mk_ge(ji.m_start, 0);
+            ctx.assert_expr(fml);
+
+            // end(j) <= time_t::max
+            // is implied by resource(j) = r => end(j) <= end(j, r)
         }        
         for (unsigned r = 0; r < m_resources.size(); ++r) {
             vector<res_available>& available = m_resources[r].m_available;
@@ -254,58 +470,23 @@ namespace smt {
             unsigned r = resource(j);
             start_times[r].push_back(job_time(j, start(j))); 
             end_times[r].push_back(job_time(j, end(j))); 
-            time_t cap = capacity_used(j, r, start(j), end(j));
-            job_resource const& jr = get_job_resource(j, r);
-            if (jr.m_capacity > cap) {
+            if (ect(j, r, start(j)) > end(j)) {
                 throw default_exception("job not assigned full capacity");
             }
         }
         for (unsigned r = 0; r < m_resources.size(); ++r) {
-            unsigned load_pct = 0;
-            unsigned idx;
-            time_t next = 0, start = 0;
-
             // order jobs running on r by start, end-time intervals
             // then consume ordered list to find jobs in scope.
-            vector<job_time>& starts = start_times[r];
-            vector<job_time>& ends = end_times[r];
-            job_time::compare cmp;
-            std::sort(starts.begin(), starts.end(), cmp);
-            std::sort(ends.begin(),   ends.end(),   cmp);
-            unsigned s_idx = 0, e_idx = 0;
-
-            uint_set jobs; // set of jobs currently in scope.
-            while (resource_available(r, start, load_pct, next, idx)) {
-                if (load_pct == 0) {
-                    start = next + 1;
-                    continue;
-                }
-                // add jobs that begin at or before start.
-                while (s_idx < starts.size() && starts[s_idx].m_time <= start) {
-                    jobs.insert(starts[s_idx].m_job);
-                    ++s_idx;
-                }
-                // remove jobs that end before start.
-                while (e_idx < ends.size() && ends[s_idx].m_time < start) {
-                    jobs.remove(ends[e_idx].m_job);
-                    ++e_idx;
-                }
-
+            time_t start = 0;
+            job_overlap overlap(start_times[r], end_times[r]);
+            while (overlap.next(start)) {
                 // check that sum of job loads does not exceed 100%
                 unsigned cap = 0;
-                for (auto j : jobs) {
+                for (auto j : overlap.jobs()) {
                     cap += get_job_resource(j, r).m_loadpct;
                 }
                 if (cap > 100) {
                     throw default_exception("capacity on resource exceeded");
-                }
-                if (s_idx < starts.size()) {
-                    // start time of the next unprocessed job.
-                    start = starts[s_idx].m_time;
-                }
-                else {
-                    // done checking.
-                    break;
                 }
             }
         }
@@ -316,14 +497,12 @@ namespace smt {
         return ji.m_resources[ji.m_resource2index[r]];
     }
 
-    bool theory_jobscheduler::resource_available(unsigned r, time_t t, unsigned& load_pct, time_t& end, unsigned& idx) {
+    bool theory_jobscheduler::resource_available(unsigned r, time_t t, unsigned& idx) {
         vector<res_available>& available = m_resources[r].m_available;
         unsigned lo = 0, hi = available.size(), mid = hi / 2;
         while (lo < hi) {
             res_available const& ra = available[mid];
             if (ra.m_start <= t && t <= ra.m_end) {
-                end = ra.m_end;
-                load_pct = ra.m_loadpct;
                 idx = mid;
                 return true;
             }
@@ -342,35 +521,108 @@ namespace smt {
         return false;
     }
 
+
     /**
-     * compute the capacity used by job j on resource r between start and end.
-     * The resource r partitions time intervals into segments where a fraction of
-     * the full capacity of the resource is available. The resource can use up to the
-     * available fraction.
-     */
-    time_t theory_jobscheduler::capacity_used(unsigned j, unsigned r, time_t start, time_t end) {
-        time_t cap = 0;
-        unsigned j_load_pct = get_job_resource(j, r).m_loadpct;
+     * compute earliest completion time for job j on resource r starting at time start.
+     */    
+    time_t theory_jobscheduler::ect(unsigned j, unsigned r, time_t start) {
+        job_resource const& jr = get_job_resource(j, r);
         vector<res_available>& available = m_resources[r].m_available;
-        unsigned load_pct = 0;
-        time_t next = 0;
+
+        unsigned j_load_pct = jr.m_loadpct;
+        time_t cap = jr.m_capacity;
         unsigned idx = 0;
-        if (!resource_available(r, start, load_pct, next, idx)) {
-            return cap;
+        if (!resource_available(r, start, idx)) {
+            return std::numeric_limits<time_t>::max();
         }
-        while (start < end) {
-            next = std::min(end, next);
-            SASSERT(start < next);
-            cap += (std::min(j_load_pct, load_pct) / j_load_pct) * (next - start - 1);
-            ++idx;
-            if (idx == available.size()) {
-                break;
+        SASSERT(cap > 0);
+        
+        for (; idx < available.size(); ++idx) {
+            start             = std::max(start, available[idx].m_start);
+            time_t end        = available[idx].m_end;
+            unsigned load_pct = available[idx].m_loadpct;
+            time_t delta = solve_for_capacity(load_pct, j_load_pct, start, end);
+            if (delta > cap) {
+                //
+                // solve for end: 
+                //     cap = load * (end - start + 1)
+                // <=>
+                //     cap / load = (end - start + 1)
+                // <=>
+                //     end = cap / load + start - 1
+                //
+                end = solve_for_end(load_pct, j_load_pct, start, cap);
+                cap = 0;
             }
-            start = available[idx].m_start;
-            next  = available[idx].m_end;
-            load_pct = available[idx].m_loadpct;
+            else {
+                cap -= delta;
+            }
+            if (cap == 0) {
+                return end;
+            }
         }        
-        return cap;
+        return std::numeric_limits<time_t>::max();        
+    }
+
+    time_t theory_jobscheduler::solve_for_end(unsigned load_pct, unsigned job_load_pct, time_t start, time_t cap) {
+        SASSERT(load_pct > 0);
+        SASSERT(job_load_pct > 0);
+        //      cap = (load / job_load_pct) * (start - end + 1)
+        // <=> 
+        //      start - end + 1 = (cap * job_load_pct) / load 
+        // <=>
+        //      end = start + 1 - (cap * job_load_pct) / load
+        // <=>
+        //      end = (load * (start + 1) - cap * job_load_pct) / load
+        unsigned load = std::min(load_pct, job_load_pct);
+        return (load * (start + 1) - cap * job_load_pct) / load;
+    }
+
+    time_t theory_jobscheduler::solve_for_start(unsigned load_pct, unsigned job_load_pct, time_t end, time_t cap) {
+        SASSERT(load_pct > 0);
+        SASSERT(job_load_pct > 0);
+        //      cap = (load / job_load_pct) * (start - end + 1)
+        // <=> 
+        //      start - end + 1 = (cap * job_load_pct) / load 
+        // <=>
+        //      start = (cap * job_load_pct) / load + end - 1
+        // <=>
+        //      start = (load * (end - 1) + cap * job_load_pct) / load
+        unsigned load = std::min(load_pct, job_load_pct);
+        return (load * (end - 1) + cap * job_load_pct) / load;
+    }
+
+    time_t theory_jobscheduler::solve_for_capacity(unsigned load_pct, unsigned job_load_pct, time_t start, time_t end) {
+        SASSERT(job_load_pct > 0);
+        unsigned load = std::min(load_pct, job_load_pct);
+        return (load * (end - start + 1)) / job_load_pct;
+    }
+
+    /**
+     * Compute last start time for job on resource r.
+     */
+    time_t theory_jobscheduler::lst(unsigned j, unsigned r) {
+        job_resource const& jr = get_job_resource(j, r);
+        vector<res_available>& available = m_resources[r].m_available;
+        unsigned j_load_pct = jr.m_loadpct;
+        time_t cap = jr.m_capacity;
+        for (unsigned idx = available.size(); idx-- > 0; ) {
+            time_t start    = available[idx].m_start;
+            time_t end      = available[idx].m_end;
+            unsigned load_pct = available[idx].m_loadpct;
+            time_t delta = solve_for_capacity(load_pct, j_load_pct, start, end);
+            if (delta > cap) {
+                start = solve_for_start(load_pct, j_load_pct, start, cap);
+                cap = 0;
+            }
+            else {
+                cap -= delta;
+            }
+            if (cap == 0) {
+                return start;
+            }
+        }
+        throw default_exception("there is insufficient capacity on the resource to run the job");
     }
     
 };

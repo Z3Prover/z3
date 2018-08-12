@@ -20,9 +20,10 @@ Revision History:
 --*/
 #pragma once;
 
-#include "smt/smt_theory.h"
+#include "util/uint_set.h"
 #include "ast/jobshop_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "smt/smt_theory.h"
 
 namespace smt {
 
@@ -74,13 +75,12 @@ namespace smt {
                     return ra1.m_start < ra2.m_start;
                 }
             };
-
         };
 
         struct res_info {
             unsigned_vector       m_jobs;      // jobs allocated to run on resource
             vector<res_available> m_available; // time intervals where resource is available
-            time_t              m_end;       // can't run after
+            time_t                m_end;       // can't run after
             res_info(): m_end(std::numeric_limits<time_t>::max()) {}
         };
         
@@ -131,10 +131,15 @@ namespace smt {
 
         bool get_value(enode * n, expr_ref & r) override;
 
-        theory * mk_fresh(context * new_ctx) override; // { return alloc(theory_jobscheduler, new_ctx->get_manager()); }
+        theory * mk_fresh(context * new_ctx) override; 
 
     public:
-        // assignments:
+        // set up job/resource global constraints
+        void add_job_resource(unsigned j, unsigned r, unsigned cap, unsigned loadpct, time_t end);
+        void add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end);
+        void add_done();
+
+        // assignments
         time_t est(unsigned j);      // earliest start time of job j
         time_t lst(unsigned j);      // last start time
         time_t ect(unsigned j);      // earliest completion time
@@ -142,18 +147,51 @@ namespace smt {
         time_t start(unsigned j);    // start time of job j
         time_t end(unsigned j);      // end time of job j
         unsigned resource(unsigned j); // resource of job j
+
+        // derived bounds
+        time_t ect(unsigned j, unsigned r, time_t start);
+        time_t lst(unsigned j, unsigned r);
         
-        // set up model
-        void add_job_resource(unsigned j, unsigned r, unsigned cap, unsigned loadpct, time_t end);
-        void add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end);
-        void add_done();
+        time_t solve_for_start(unsigned load_pct, unsigned job_load_pct, time_t end, time_t cap);
+        time_t solve_for_end(unsigned load_pct, unsigned job_load_pct, time_t start, time_t cap);
+        time_t solve_for_capacity(unsigned load_pct, unsigned job_load_pct, time_t start, time_t end);
 
         // validate assignment
         void validate_assignment();
-        bool resource_available(unsigned r, time_t t, unsigned& load_pct, time_t& end, unsigned& idx); // load available on resource r at time t.
+        bool resource_available(unsigned r, time_t t, unsigned& idx); // load available on resource r at time t.
         time_t capacity_used(unsigned j, unsigned r, time_t start, time_t end);        // capacity used between start and end
 
         job_resource const& get_job_resource(unsigned j, unsigned r) const;
+
+        // propagation
+        void propagate_end_time(unsigned j, unsigned r);
+        void propagate_end_time_interval(unsigned j, unsigned r);
+        void propagate_resource_energy(unsigned r);
+
+        // final check constraints
+        bool constrain_resource_energy(unsigned r);
+
+        void block_job_overlap(unsigned r, uint_set const& jobs, unsigned last_job);
+
+        class job_overlap {
+            vector<job_time> & m_starts, &m_ends;
+            unsigned s_idx, e_idx; // index into starts/ends
+            uint_set m_jobs;
+        public:
+            job_overlap(vector<job_time>& starts, vector<job_time>& ends);
+            bool next(time_t& start);
+            uint_set const& jobs() const { return m_jobs; }
+        };
+
+        // term builders
+        literal mk_ge_lit(expr* e, time_t t);
+        expr* mk_ge(expr* e, time_t t);
+        expr* mk_ge(enode* e, time_t t);
+        literal mk_le_lit(expr* e, time_t t);
+        expr* mk_le(expr* e, time_t t);
+        expr* mk_le(enode* e, time_t t);
+        literal mk_le(enode* l, enode* r);
+        literal mk_literal(expr* e);
 
         std::ostream& display(std::ostream & out, res_info const& r) const;
         std::ostream& display(std::ostream & out, res_available const& r) const;
