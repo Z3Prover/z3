@@ -1480,7 +1480,7 @@ public:
         }
             
         lp::var_index vi = m_theory_var2var_index[v];
-        if (vi < m_variable_values.size())
+        if (m_variable_values.count(vi) > 0)
             return m_variable_values[vi];
         
         if (!m_solver->is_term(vi)) {
@@ -1497,7 +1497,7 @@ public:
             if (m_solver->is_term(wi)) {
                 const lp::lar_term& term = m_solver->get_term(wi);
                 for (const auto & i : term) {
-                    if (i.var() < m_variable_values.size()) {
+                    if (m_variable_values.count(i.var()) > 0) {
                         result += m_variable_values[i.var()] * coeff * i.coeff();
                     }
                     else {
@@ -1509,7 +1509,7 @@ public:
                 result += m_variable_values[wi] * coeff;
             }
         }
-        m_term_values[vi] = result;
+        m_variable_values[vi] = result;
         return result;
     }
 

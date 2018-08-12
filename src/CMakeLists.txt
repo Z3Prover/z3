@@ -96,7 +96,7 @@ add_subdirectory(tactic/portfolio)
 add_subdirectory(opt)
 add_subdirectory(api)
 add_subdirectory(api/dll)
-
+add_definitions(-DDUMP_ARGS)
 ################################################################################
 # libz3
 ################################################################################
