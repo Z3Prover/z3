@@ -28,16 +28,20 @@ Revision History:
 namespace smt {
 
     typedef uint64_t time_t;
-
+    
     class theory_jobscheduler : public theory {
+    public:
+        typedef map<symbol, double, symbol_hash_proc, symbol_eq_proc> properties;
+    protected:
 
         struct job_resource {
             unsigned m_resource_id;   // id of resource
             unsigned m_capacity;      // amount of resource to use
             unsigned m_loadpct;       // assuming loadpct
             time_t   m_end;           // must run before
-            job_resource(unsigned r, unsigned cap, unsigned loadpct, time_t end):
-                m_resource_id(r), m_capacity(cap), m_loadpct(loadpct), m_end(end) {}
+            properties m_properties;
+            job_resource(unsigned r, unsigned cap, unsigned loadpct, time_t end, properties const& ps):
+                m_resource_id(r), m_capacity(cap), m_loadpct(loadpct), m_end(end), m_properties(ps) {}
         };
 
         struct job_time {
@@ -53,22 +57,25 @@ namespace smt {
         };
 
         struct job_info {
+            bool                 m_is_preemptable; // can job be pre-empted
             vector<job_resource> m_resources; // resources allowed to run job.
             u_map<unsigned>      m_resource2index; // resource to index into vector 
             enode*               m_start;
             enode*               m_end;
             enode*               m_resource;
-            job_info(): m_start(nullptr), m_end(nullptr), m_resource(nullptr) {}
+            job_info(): m_is_preemptable(true), m_start(nullptr), m_end(nullptr), m_resource(nullptr) {}
         };
 
         struct res_available {
-            unsigned m_loadpct;
-            time_t m_start;
-            time_t m_end;
-            res_available(unsigned load_pct, time_t start, time_t end):
+            unsigned   m_loadpct;
+            time_t     m_start;
+            time_t     m_end;
+            properties m_properties;
+            res_available(unsigned load_pct, time_t start, time_t end, properties const& ps):
                 m_loadpct(load_pct),
                 m_start(start),
-                m_end(end)
+                m_end(end),
+                m_properties(ps)
             {}
             struct compare {
                 bool operator()(res_available const& ra1, res_available const& ra2) const {
@@ -135,8 +142,9 @@ namespace smt {
 
     public:
         // set up job/resource global constraints
-        void add_job_resource(unsigned j, unsigned r, unsigned cap, unsigned loadpct, time_t end);
-        void add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end);
+        void set_preemptable(unsigned j, bool is_preemptable);
+        void add_job_resource(unsigned j, unsigned r, unsigned cap, unsigned loadpct, time_t end, properties const& ps);
+        void add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end, properties const& ps);
         void add_done();
 
         // assignments
@@ -150,7 +158,7 @@ namespace smt {
 
         // derived bounds
         time_t ect(unsigned j, unsigned r, time_t start);
-        time_t lst(unsigned j, unsigned r);
+        bool lst(unsigned j, unsigned r, time_t& t);
         
         time_t solve_for_start(unsigned load_pct, unsigned job_load_pct, time_t end, time_t cap);
         time_t solve_for_end(unsigned load_pct, unsigned job_load_pct, time_t start, time_t cap);
@@ -165,10 +173,10 @@ namespace smt {
 
         // propagation
         void propagate_end_time(unsigned j, unsigned r);
-        void propagate_end_time_interval(unsigned j, unsigned r);
         void propagate_resource_energy(unsigned r);
 
         // final check constraints
+        bool constrain_end_time_interval(unsigned j, unsigned r);
         bool constrain_resource_energy(unsigned r);
 
         void block_job_overlap(unsigned r, uint_set const& jobs, unsigned last_job);

@@ -1243,6 +1243,11 @@ namespace smt {
     public:
         bool can_propagate() const;
 
+        // Retrieve arithmetic values. 
+        bool get_arith_lo(expr* e, rational& lo, bool& strict);
+        bool get_arith_up(expr* e, rational& up, bool& strict);
+        bool get_arith_value(expr* e, rational& value);
+
         // -----------------------------------
         //
         // Model checking... (must be improved)
