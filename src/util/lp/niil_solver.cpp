@@ -19,7 +19,11 @@ Revision History:
 --*/
 #include "util/lp/niil_solver.h"
 #include "util/map.h"
+#include "util/lp/mon_eq.h"
 namespace niil {
+
+typedef nra::mon_eq mon_eq;
+
 struct solver::imp {
 
     vector<mon_eq>         m_monomials;

@@ -9,27 +9,21 @@
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
-
+#include "util/lp/mon_eq.h"
 
 namespace nra {
 
-    struct mon_eq {
-        mon_eq(lp::var_index v, unsigned sz, lp::var_index const* vs):
-            m_v(v), m_vs(sz, vs) {}
-        lp::var_index          m_v;
-        svector<lp::var_index> m_vs;
-    };
 
     struct solver::imp {
         lp::lar_solver&      s;
         reslimit&              m_limit;  
         params_ref             m_params; 
         u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
-        scoped_ptr<nlsat::solver>  m_nlsat;
-        scoped_ptr<scoped_anum>    m_zero;
-        vector<mon_eq>         m_monomials;
-        unsigned_vector        m_monomials_lim;
-        mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model        
+        scoped_ptr<nlsat::solver> m_nlsat;
+        scoped_ptr<scoped_anum>   m_zero;
+        vector<mon_eq>            m_monomials;
+        unsigned_vector           m_monomials_lim;
+        mutable variable_map_type m_variable_values; // current model        
 
         imp(lp::lar_solver& s, reslimit& lim, params_ref const& p): 
             s(s), 
@@ -38,7 +32,7 @@ namespace nra {
         }
 
         bool need_check() {
-            return !m_monomials.empty() && !check_assignments();
+            return !m_monomials.empty() && !check_assignments(m_monomials, s, m_variable_values);
         }
 
         void add(lp::var_index v, unsigned sz, lp::var_index const* vs) {
@@ -60,7 +54,7 @@ namespace nra {
           multiply values for vs and check if they are equal to value for v.
           epsilon has been computed.
         */
-        bool check_assignment(mon_eq const& m) const {
+        /*        bool check_assignment(mon_eq const& m) const {
             rational r1 = m_variable_values[m.m_v];
             rational r2(1);
             for (auto w : m.m_vs) {
@@ -76,7 +70,7 @@ namespace nra {
             }
             return true;
         }
-
+        */
         /**
            \brief one-shot nlsat check.
            A one shot checker is the least functionality that can 
