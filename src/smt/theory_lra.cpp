@@ -271,8 +271,10 @@ class theory_lra::imp {
 
         lbool check(lp::explanation_t& ex) {
             if (m_use_niil) {
-                if (m_niil != nullptr)
+                if (m_niil != nullptr) {
+                    std::cout << "check niil\n";
                     return (*m_niil)->check(ex);
+                }
             }
             else {
                 if (m_nra != nullptr)
@@ -2015,16 +2017,7 @@ public:
         return lia_check;
     }
 
-    lbool check_nra() {
-        m_use_nra_model = false;
-        if (m.canceled()) {
-            TRACE("arith", tout << "canceled\n";);
-            return l_undef;
-        }
-        if (!m_nra) return l_true;
-        if (!m_switcher.need_check()) return l_true;
-        m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_switcher.check(m_explanation);
+    lbool check_aftermath_nra(lbool r) {
         m_a1 = alloc(scoped_anum, m_nra->am());
         m_a2 = alloc(scoped_anum, m_nra->am());
         switch (r) {
@@ -2043,6 +2036,23 @@ public:
             break;
         }
         return r;
+    }
+
+    lbool check_aftermath_niil(lbool r) {
+        return r;
+    }
+    
+    lbool check_nra() {
+        m_use_nra_model = false;
+        if (m.canceled()) {
+            TRACE("arith", tout << "canceled\n";);
+            return l_undef;
+        }
+        if (!m_nra && !m_niil) return l_true;
+        if (!m_switcher.need_check()) return l_true;
+        m_a1 = nullptr; m_a2 = nullptr;
+        lbool r = m_switcher.check(m_explanation);
+        return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r);
     }
 
     /**
