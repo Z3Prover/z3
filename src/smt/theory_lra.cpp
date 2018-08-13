@@ -272,20 +272,6 @@ class theory_lra::imp {
         switcher(theory_lra::imp& i): m_th_imp(i), m_nra(nullptr), m_niil(nullptr) {
         }
 
-        lbool check(lp::explanation_t& ex) {
-            if (m_use_niil) {
-                if (m_niil != nullptr) {
-                    std::cout << "check niil\n";
-                    return (*m_niil)->check(ex);
-                }
-            }
-            else {
-                if (m_nra != nullptr)
-                    return (*m_nra)->check(ex);
-            }
-            return l_undef;
-        }
-        
         bool need_check() {
             if (m_use_niil) {
                 if (m_niil != nullptr)
@@ -2070,10 +2056,12 @@ public:
         return r;
     }
 
+    niil::lemma m_lemma;
+ 
     lbool check_aftermath_niil(lbool r) {
         return r;
     }
-    
+	
     lbool check_nra() {
         m_use_nra_model = false;
         if (m.canceled()) {
@@ -2083,7 +2071,8 @@ public:
         if (!m_nra && !m_niil) return l_true;
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
-        lbool r = m_switcher.check(m_explanation);
+        
+        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_lemma);
         return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r);
     }
 

@@ -27,9 +27,7 @@ Revision History:
 
 namespace lp {
 
-enum lconstraint_kind {
-    LE = -2, LT = -1 , GE = 2, GT = 1, EQ = 0
-};
+enum lconstraint_kind { LE = -2, LT = -1 , GE = 2, GT = 1, EQ = 0, NE = 3 };
 
 
 inline bool kind_is_strict(lconstraint_kind kind) { return kind == LT || kind == GT;}
