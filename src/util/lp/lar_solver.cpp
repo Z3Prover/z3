@@ -2344,8 +2344,6 @@ void lar_solver::set_cut_strategy(unsigned cut_frequency) {
         settings().set_hnf_cut_period(100000000);
     } 
 }
-
-
 } // namespace lp
 
 
