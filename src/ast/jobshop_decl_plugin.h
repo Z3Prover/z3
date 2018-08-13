@@ -68,7 +68,8 @@ Revision History:
 
 enum js_sort_kind {
     JOB_SORT,
-    RESOURCE_SORT
+    RESOURCE_SORT,
+    ALIST_SORT
 };
 
 enum js_op_kind {
@@ -76,7 +77,10 @@ enum js_op_kind {
     OP_JS_RESOURCE,          // value of type resource
     OP_JS_START,             // start time of a job
     OP_JS_END,               // end time of a job
-    OP_JS_JOB2RESOURCE       // resource associated with job
+    OP_JS_JOB2RESOURCE,      // resource associated with job
+    OP_JS_MODEL,             // jobscheduler model
+    OP_AL_KV,                // key-value pair
+    OP_AL_LIST               // tagged list
 };
 
 class jobshop_decl_plugin : public decl_plugin {
@@ -96,9 +100,11 @@ public:
     expr * get_some_value(sort * s) override;
     sort * mk_job_sort() const { return m_job_sort; }
     sort * mk_resource_sort() const { return m_resource_sort; }
+    sort * mk_alist_sort() const { return m_alist_sort; }
 private:
     sort* m_job_sort;
     sort* m_resource_sort;
+    sort* m_alist_sort;
     sort* m_int_sort;
 
     void check_arity(unsigned arity);
@@ -116,12 +122,59 @@ public:
     sort* mk_resource_sort();
 
     app* mk_job(unsigned j);
+    bool is_job(expr* e, unsigned& j);
     unsigned job2id(expr* j);
 
     app* mk_resource(unsigned r);
+    bool is_resource(expr* e, unsigned& r);
     unsigned resource2id(expr* r);
 
     app* mk_start(unsigned j);
     app* mk_end(unsigned j);
     app* mk_job2resource(unsigned j);
+
+    // alist features
+    app* mk_kv(symbol const& key, rational const& r) { 
+        parameter ps[2] = { parameter(key), parameter(r) };
+        return m.mk_const(m.mk_func_decl(m_fid, OP_AL_KV, 2, ps, 0, (sort*const*)nullptr, nullptr)); 
+    }
+    app* mk_kv(symbol const& key, symbol const& val) {
+        parameter ps[2] = { parameter(key), parameter(val) };
+        return m.mk_const(m.mk_func_decl(m_fid, OP_AL_KV, 2, ps, 0, (sort*const*)nullptr, nullptr)); 
+    }
+    app* mk_alist(symbol const& key, unsigned n, expr* const* args) {
+        parameter p(key);
+        return m.mk_app(m.mk_func_decl(m_fid, OP_AL_LIST, 1, &p, n, args, nullptr), n, args);
+
+    }
+    bool is_kv(expr* e, symbol& key, rational& r) {
+        return 
+            (is_app_of(e, m_fid, OP_AL_KV) && 
+             to_app(e)->get_decl()->get_num_parameters() == 2 &&
+             to_app(e)->get_decl()->get_parameter(1).is_rational() && 
+             (r = to_app(e)->get_decl()->get_parameter(1).get_rational(), key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true)) ||
+            (is_app_of(e, m_fid, OP_AL_KV) && 
+             to_app(e)->get_decl()->get_num_parameters() == 2 &&
+             to_app(e)->get_decl()->get_parameter(1).is_int() && 
+             (r = rational(to_app(e)->get_decl()->get_parameter(1).get_int()), key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true));
+
+
+    }
+    bool is_kv(expr* e, symbol& key, symbol& s) {
+        return is_app_of(e, m_fid, OP_AL_KV) && 
+            to_app(e)->get_decl()->get_num_parameters() == 2 &&
+            to_app(e)->get_decl()->get_parameter(1).is_symbol() && 
+            (s = to_app(e)->get_decl()->get_parameter(1).get_symbol(), key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true);
+    }
+
+    bool is_model(expr* e) const { return is_app_of(e, m_fid, OP_JS_MODEL); }
+    bool is_alist(expr* e) const { return is_app_of(e, m_fid, OP_AL_LIST); }
+    bool is_alist(expr* e, symbol& key) const { 
+        return is_alist(e) && 
+            to_app(e)->get_decl()->get_num_parameters() == 1 && 
+            to_app(e)->get_decl()->get_parameter(0).is_symbol() && 
+            (key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true); 
+    }
+
+    // app* mk_model(unsigned n, expr* const* alist);
 };

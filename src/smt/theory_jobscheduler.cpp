@@ -65,7 +65,7 @@ namespace smt {
             unsigned j = u.job2id(term);
             app_ref start(u.mk_start(j), m);
             app_ref end(u.mk_end(j), m);
-            app_ref res(u.mk_resource(j), m);
+            app_ref res(u.mk_job2resource(j), m);
             if (!ctx.e_internalized(start)) ctx.internalize(start, false);
             if (!ctx.e_internalized(end))   ctx.internalize(end, false);
             if (!ctx.e_internalized(res))   ctx.internalize(res, false);
@@ -75,7 +75,7 @@ namespace smt {
             m_jobs.reserve(j + 1);
             m_jobs[j].m_start    = ctx.get_enode(start);
             m_jobs[j].m_end      = ctx.get_enode(end);
-            m_jobs[j].m_resource = ctx.get_enode(res);
+            m_jobs[j].m_job2resource = ctx.get_enode(res);
             ctx.attach_th_var(e, this, v);
             break;
         }
@@ -99,6 +99,89 @@ namespace smt {
         return true;
     }
 
+    bool theory_jobscheduler::internalize_atom(app * atom, bool gate_ctx) {
+        SASSERT(u.is_model(atom));
+        for (expr* arg : *atom) {
+            internalize_cmd(arg);
+        }
+        add_done();
+        return true;
+    }
+
+    // TBD: stronger parameter validation
+    void theory_jobscheduler::internalize_cmd(expr* cmd) {
+        symbol key, val;
+        rational r;
+        if (u.is_kv(cmd, key, r)) {
+            if (key == ":set-preemptable" && r.is_unsigned()) {
+                set_preemptable(r.get_unsigned(), true);
+                return;
+            }
+            warning_msg("command not recognized");
+        }
+        else if (u.is_alist(cmd, key) && key == ":add-job-resource") {
+            properties ps;
+            unsigned j = 0, res = 0, cap = 0, loadpct = 100;
+            time_t end = std::numeric_limits<time_t>::max();
+            for (expr* arg : *to_app(cmd)) {
+                if (u.is_kv(arg, key, r)) {
+                    if (key == ":job") {
+                        j = r.get_unsigned();
+                    }
+                    else if (key == ":resource") {
+                        res = r.get_unsigned();
+                    }
+                    else if (key == ":capacity") {
+                        cap = r.get_unsigned();
+                    }
+                    else if (key == ":loadpct") {
+                        loadpct = r.get_unsigned();
+                    }
+                    else if (key == ":end") {
+                        end = r.get_uint64();
+                    }
+                }
+                else if (u.is_alist(arg, key) && key == ":properties") {
+                    // TBD
+                }
+            }
+            if (cap > 0) {
+                add_job_resource(j, res, cap, loadpct, end, ps);
+            }
+            else {
+                warning_msg("no job capacity provided");
+            }
+        }
+        else if (u.is_alist(cmd, key) && key == ":add-resource-available") {
+            properties ps;
+            unsigned res = 0, loadpct = 100;
+            time_t start = 0, end = 0;
+            for (expr* arg : *to_app(cmd)) {
+                if (u.is_kv(arg, key, r)) {
+                    if (key == ":resource") {
+                        res = r.get_unsigned();
+                    }
+                    else if (key == ":start") {
+                        start = r.get_unsigned();
+                    }
+                    else if (key == ":end") {
+                        end = r.get_unsigned();
+                    }
+                    else if (key == ":loadpct") {
+                        loadpct = r.get_unsigned();
+                    }
+                }
+                else if (u.is_alist(arg, key) && key == ":properties") {
+                    // TBD
+                }
+                add_resource_available(res, loadpct, start, end, ps);
+            }
+            
+        }
+        else {
+            warning_msg("command not recognized");
+        }
+    }
 
     void theory_jobscheduler::push_scope_eh() {
     }
@@ -214,7 +297,7 @@ namespace smt {
             if (ctx.get_assignment(start_ge_lo) != l_true) {
                 return;
             }
-            enode_pair eq(ji.m_resource, ctx.get_enode(u.mk_resource(r)));
+            enode_pair eq(ji.m_job2resource, resource2enode(r));
             if (eq.first->get_root() != eq.second->get_root()) {
                 return;
             }
@@ -368,7 +451,7 @@ namespace smt {
     }
         
     theory_jobscheduler::theory_jobscheduler(ast_manager& m): 
-        theory(m.get_family_id("jobshop")), m(m), u(m), a(m) {
+        theory(m.get_family_id("csp")), m(m), u(m), a(m) {
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_resource const& jr) const {
@@ -423,49 +506,74 @@ namespace smt {
         return alloc(theory_jobscheduler, new_ctx->get_manager()); 
     }
 
-    time_t theory_jobscheduler::est(unsigned j) {
+    time_t theory_jobscheduler::get_lo(expr* e) {
         arith_value av(get_context());
         rational val;
         bool is_strict;
-        if (av.get_lo(u.mk_start(j), val, is_strict) && !is_strict && val.is_uint64()) {
+        if (av.get_lo(e, val, is_strict) && !is_strict && val.is_uint64()) {
             return val.get_uint64();
         }
         return 0;
     }
 
-    time_t theory_jobscheduler::lst(unsigned j) {
+    time_t theory_jobscheduler::get_up(expr* e) {
         arith_value av(get_context());
         rational val;
         bool is_strict;
-        if (av.get_up(u.mk_start(j), val, is_strict) && !is_strict && val.is_uint64()) {
+        if (av.get_up(e, val, is_strict) && !is_strict && val.is_uint64()) {
             return val.get_uint64();
         }
         return std::numeric_limits<time_t>::max();
     }
 
-    time_t theory_jobscheduler::ect(unsigned j) {
-        NOT_IMPLEMENTED_YET();
+    time_t theory_jobscheduler::get_value(expr* e) {
+        arith_value av(get_context());
+        rational val;
+        if (av.get_value(e, val) && val.is_uint64()) {
+            return val.get_uint64();
+        }
         return 0;
+    }    
+
+    time_t theory_jobscheduler::est(unsigned j) {
+        return get_lo(m_jobs[j].m_start->get_owner());
+    }
+
+    time_t theory_jobscheduler::lst(unsigned j) {
+        return get_up(m_jobs[j].m_start->get_owner());
+    }
+
+    time_t theory_jobscheduler::ect(unsigned j) {
+        return get_lo(m_jobs[j].m_end->get_owner());
     }
 
     time_t theory_jobscheduler::lct(unsigned j) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        return get_up(m_jobs[j].m_end->get_owner());
     }
 
     time_t theory_jobscheduler::start(unsigned j) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        return get_value(m_jobs[j].m_start->get_owner());
     }
 
     time_t theory_jobscheduler::end(unsigned j) {
-        NOT_IMPLEMENTED_YET();
-        return 0;
+        return get_value(m_jobs[j].m_end->get_owner());
     }
 
     unsigned theory_jobscheduler::resource(unsigned j) {
-        NOT_IMPLEMENTED_YET();
+        unsigned r;
+        enode* next = m_jobs[j].m_job2resource, *n = next;
+        do {
+            if (u.is_resource(next->get_owner(), r)) {
+                return r;
+            }
+            next = next->get_next();
+        }
+        while (next != n);
         return 0;
+    }
+
+    enode* theory_jobscheduler::resource2enode(unsigned r) {
+        return get_context().get_enode(u.mk_resource(r));
     }
 
     void theory_jobscheduler::set_preemptable(unsigned j, bool is_preemptable) {
@@ -494,7 +602,8 @@ namespace smt {
         SASSERT(1 <= max_loadpct && max_loadpct <= 100);
         SASSERT(start <= end);
         m_resources.reserve(r + 1);
-        m_resources[r].m_available.push_back(res_available(max_loadpct, start, end, ps));
+        res_info& ri = m_resources[r];
+        ri.m_available.push_back(res_available(max_loadpct, start, end, ps));
     }
 
     /*

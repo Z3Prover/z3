@@ -1523,8 +1523,20 @@ namespace smt2 {
             unsigned num_indices = 0;
             while (!curr_is_rparen()) {
                 if (curr_is_int()) {
-                    unsigned u = curr_unsigned();
-                    m_param_stack.push_back(parameter(u));
+                    if (!curr_numeral().is_unsigned()) {
+                        m_param_stack.push_back(parameter(curr_numeral()));                       
+                    }
+                    else {
+                        m_param_stack.push_back(parameter(curr_unsigned()));
+                    }
+                    next();
+                }
+                else if (curr_is_float()) {
+                    m_param_stack.push_back(parameter(curr_numeral()));
+                    next();
+                }
+                else if (curr_is_keyword()) {
+                    m_param_stack.push_back(parameter(curr_id()));
                     next();
                 }
                 else if (curr_is_identifier() || curr_is_lparen()) {

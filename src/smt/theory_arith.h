@@ -1071,6 +1071,8 @@ namespace smt {
 
         bool get_lower(enode* n, expr_ref& r);
         bool get_upper(enode* n, expr_ref& r);
+        bool get_lower(enode* n, rational& r, bool &is_strict);
+        bool get_upper(enode* n, rational& r, bool &is_strict);
         bool to_expr(inf_numeral const& val, bool is_int, expr_ref& r);
 
 

@@ -62,8 +62,8 @@ namespace smt {
             u_map<unsigned>      m_resource2index; // resource to index into vector 
             enode*               m_start;
             enode*               m_end;
-            enode*               m_resource;
-            job_info(): m_is_preemptable(true), m_start(nullptr), m_end(nullptr), m_resource(nullptr) {}
+            enode*               m_job2resource;
+            job_info(): m_is_preemptable(false), m_start(nullptr), m_end(nullptr), m_job2resource(nullptr) {}
         };
 
         struct res_available {
@@ -88,7 +88,8 @@ namespace smt {
             unsigned_vector       m_jobs;      // jobs allocated to run on resource
             vector<res_available> m_available; // time intervals where resource is available
             time_t                m_end;       // can't run after
-            res_info(): m_end(std::numeric_limits<time_t>::max()) {}
+            enode*                m_resource;
+            res_info(): m_end(std::numeric_limits<time_t>::max()), m_resource(nullptr) {}
         };
         
         ast_manager&     m;
@@ -102,7 +103,7 @@ namespace smt {
 
         theory_var mk_var(enode * n) override;        
 
-        bool internalize_atom(app * atom, bool gate_ctx) override { return false; }
+        bool internalize_atom(app * atom, bool gate_ctx) override;
 
         bool internalize_term(app * term) override;
 
@@ -154,7 +155,11 @@ namespace smt {
         time_t lct(unsigned j);      // last completion time
         time_t start(unsigned j);    // start time of job j
         time_t end(unsigned j);      // end time of job j
+        time_t get_lo(expr* e);
+        time_t get_up(expr* e);
+        time_t get_value(expr* e);
         unsigned resource(unsigned j); // resource of job j
+        enode* resource2enode(unsigned r);
 
         // derived bounds
         time_t ect(unsigned j, unsigned r, time_t start);
@@ -200,6 +205,8 @@ namespace smt {
         expr* mk_le(enode* e, time_t t);
         literal mk_le(enode* l, enode* r);
         literal mk_literal(expr* e);
+
+        void internalize_cmd(expr* cmd);
 
         std::ostream& display(std::ostream & out, res_info const& r) const;
         std::ostream& display(std::ostream & out, res_available const& r) const;

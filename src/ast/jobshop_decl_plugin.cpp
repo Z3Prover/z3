@@ -23,14 +23,17 @@ Revision History:
 void jobshop_decl_plugin::set_manager(ast_manager* m, family_id fid) {
     decl_plugin::set_manager(m, fid);
     m_int_sort = m_manager->mk_sort(m_manager->mk_family_id("arith"), INT_SORT);
+    m_alist_sort = m_manager->mk_sort(symbol("AList"), sort_info(m_family_id, ALIST_SORT));
     m_job_sort = m_manager->mk_sort(symbol("Job"), sort_info(m_family_id, JOB_SORT));
     m_resource_sort = m_manager->mk_sort(symbol("Resource"), sort_info(m_family_id, RESOURCE_SORT));
     m_manager->inc_ref(m_int_sort);
     m_manager->inc_ref(m_resource_sort);
     m_manager->inc_ref(m_job_sort);
+    m_manager->inc_ref(m_alist_sort);
 }
 
 void jobshop_decl_plugin::finalize() {
+    m_manager->dec_ref(m_alist_sort);
     m_manager->dec_ref(m_job_sort);
     m_manager->dec_ref(m_resource_sort);
     m_manager->dec_ref(m_int_sort);
@@ -43,12 +46,13 @@ sort * jobshop_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parame
     switch (static_cast<js_sort_kind>(k)) {
     case JOB_SORT: return m_job_sort;
     case RESOURCE_SORT: return m_resource_sort;
+    case ALIST_SORT: return m_alist_sort;
     default: UNREACHABLE(); return nullptr;
     }    
 }
 
 func_decl * jobshop_decl_plugin::mk_func_decl(
-    decl_kind k, unsigned num_parameters, parameter const * parameters, unsigned arity, sort * const *, sort *) {
+    decl_kind k, unsigned num_parameters, parameter const * parameters, unsigned arity, sort * const * domain, sort *) {
     switch (static_cast<js_op_kind>(k)) {
     case OP_JS_JOB:       
         check_arity(arity);
@@ -70,6 +74,18 @@ func_decl * jobshop_decl_plugin::mk_func_decl(
         check_arity(arity);
         check_index1(num_parameters, parameters);
         return m_manager->mk_func_decl(symbol("job2resource"), 0, (sort* const*)nullptr, m_int_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+    case OP_JS_MODEL:
+        // has no parameters
+        // all arguments are of sort alist
+        return m_manager->mk_func_decl(symbol("js-model"), arity, domain, m_manager->mk_bool_sort(), func_decl_info(m_family_id, k, num_parameters, parameters));
+    case OP_AL_KV:
+        // has two parameters, first is symbol
+        // has no arguments
+        return m_manager->mk_func_decl(symbol("kv"), arity, domain, m_alist_sort, func_decl_info(m_family_id, k, num_parameters, parameters));                
+    case OP_AL_LIST:
+        // has no parameters
+        // all arguments are of sort alist        
+        return m_manager->mk_func_decl(symbol("alist"), arity, domain, m_alist_sort, func_decl_info(m_family_id, k, num_parameters, parameters));        
     default: 
         UNREACHABLE(); return nullptr;        
     }    
@@ -96,17 +112,20 @@ bool jobshop_decl_plugin::is_value(app * e) const {
 }
 
 void jobshop_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-    if (logic == symbol("JOBSHOP")) {
+    if (logic == symbol("CSP")) {
         op_names.push_back(builtin_name("job", OP_JS_JOB));
         op_names.push_back(builtin_name("resource", OP_JS_RESOURCE));
         op_names.push_back(builtin_name("job-start", OP_JS_START));
         op_names.push_back(builtin_name("job-end", OP_JS_END));
         op_names.push_back(builtin_name("job2resource", OP_JS_JOB2RESOURCE));
+        op_names.push_back(builtin_name("js-model", OP_JS_MODEL));
+        op_names.push_back(builtin_name("kv", OP_AL_KV));
+        op_names.push_back(builtin_name("alist", OP_AL_LIST));
     }
 }
 
 void jobshop_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
-    if (logic == symbol("JOBSHOP")) {
+    if (logic == symbol("CSP")) {
         sort_names.push_back(builtin_name("Job", JOB_SORT));
         sort_names.push_back(builtin_name("Resource", RESOURCE_SORT));
     }
@@ -124,7 +143,7 @@ expr * jobshop_decl_plugin::get_some_value(sort * s) {
 
 
 jobshop_util::jobshop_util(ast_manager& m): m(m) {
-    m_fid = m.mk_family_id("jobshop");
+    m_fid = m.mk_family_id("csp");
     m_plugin = static_cast<jobshop_decl_plugin*>(m.get_plugin(m_fid));
 }
 
@@ -172,5 +191,13 @@ app* jobshop_util::mk_end(unsigned j) {
 app* jobshop_util::mk_job2resource(unsigned j) { 
     parameter p(j);
     return m.mk_const(m.mk_func_decl(m_fid, OP_JS_JOB2RESOURCE, 1, &p, 0, (sort*const*)nullptr, nullptr));
+}
+
+bool jobshop_util::is_resource(expr* e, unsigned& r) {
+    return is_app_of(e, m_fid, OP_JS_RESOURCE) && (r = resource2id(e), true);
+}
+
+bool jobshop_util::is_job(expr* e, unsigned& j) {
+    return is_app_of(e, m_fid, OP_JS_JOB) && (j = job2id(e), true);
 }
 
