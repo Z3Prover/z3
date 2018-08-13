@@ -139,6 +139,11 @@ public :
     const impq& get_column_value(unsigned j) const {
         return m_mpq_lar_core_solver.m_r_x[j];
     }
+
+    const mpq& get_column_value_rational(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_x[j].x;
+    }
+
     bool is_term(var_index j) const;
     bool column_is_fixed(unsigned j) const;
 public:
