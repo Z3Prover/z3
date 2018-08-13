@@ -48,6 +48,12 @@ struct solver::imp {
         m_monomials.shrink(m_monomials_lim[m_monomials_lim.size() - n]);
         m_monomials_lim.shrink(m_monomials_lim.size() - n);       
     }
+
+    lbool check(lp::explanation_t& ex) {
+        lp_assert(m_solver.get_status() == lp::lp_status::OPTIMAL);
+        return l_undef;
+    }
+    
 };
 void solver::add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs) {
     std::cout << "called add_monomial\n";
@@ -56,8 +62,7 @@ void solver::add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs)
 bool solver::need_check() { return true; }
 
 lbool solver::check(lp::explanation_t& ex) {
-    lp_assert(false);
-    return l_undef;
+    return m_imp->check(ex);
 }
 
 
