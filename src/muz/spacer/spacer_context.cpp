@@ -493,7 +493,8 @@ lemma::lemma (ast_manager &manager, expr * body, unsigned lvl) :
     m_pob(nullptr), m_ctp(nullptr),
     m_lvl(lvl), m_init_lvl(m_lvl),
     m_bumped(0), m_weakness(WEAKNESS_MAX),
-    m_external(false), m_blocked(false) {
+    m_external(false), m_blocked(false),
+    m_background(false) {
     SASSERT(m_body);
     normalize(m_body, m_body);
 }
@@ -505,7 +506,8 @@ lemma::lemma(pob_ref const &p) :
     m_pob(p), m_ctp(nullptr),
     m_lvl(p->level()), m_init_lvl(m_lvl),
     m_bumped(0), m_weakness(p->weakness()),
-    m_external(false), m_blocked(false) {
+    m_external(false), m_blocked(false),
+    m_background(false) {
     SASSERT(m_pob);
     m_pob->get_skolems(m_zks);
     add_binding(m_pob->get_binding());
@@ -519,8 +521,8 @@ lemma::lemma(pob_ref const &p, expr_ref_vector &cube, unsigned lvl) :
     m_pob(p), m_ctp(nullptr),
     m_lvl(p->level()), m_init_lvl(m_lvl),
     m_bumped(0), m_weakness(p->weakness()),
-    m_external(false), m_blocked(false)
-{
+    m_external(false), m_blocked(false),
+    m_background(false) {
     if (m_pob) {
         m_pob->get_skolems(m_zks);
         add_binding(m_pob->get_binding());
@@ -921,10 +923,10 @@ void pred_transformer::simplify_formulas()
 {m_frames.simplify_formulas ();}
 
 
-expr_ref pred_transformer::get_formulas(unsigned level) const
+expr_ref pred_transformer::get_formulas(unsigned level, bool bg) const
 {
     expr_ref_vector res(m);
-    m_frames.get_frame_geq_lemmas (level, res);
+    m_frames.get_frame_geq_lemmas (level, res, bg);
     return mk_and(res);
 }
 
@@ -935,6 +937,7 @@ bool pred_transformer::propagate_to_next_level (unsigned src_level)
 /// \brief adds a lemma to the solver and to child solvers
 void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
 {
+    SASSERT(!lemma->is_background());
     unsigned lvl = lemma->level();
     expr* l = lemma->get_expr();
     SASSERT(!lemma->is_ground() || is_clause(m, l));
@@ -975,8 +978,9 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
                                       next_level(lvl), ground_only); }
 }
 
-bool pred_transformer::add_lemma (expr *e, unsigned lvl) {
+bool pred_transformer::add_lemma (expr *e, unsigned lvl, bool bg) {
     lemma_ref lem = alloc(lemma, m, e, lvl);
+    lem->set_background(bg);
     return m_frames.add_lemma(lem.get());
 }
 
@@ -1217,15 +1221,18 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
 }
 
 
-void pred_transformer::add_cover(unsigned level, expr* property)
+void pred_transformer::add_cover(unsigned level, expr* property, bool bg)
 {
+    SASSERT(!bg || is_infty_level(level));
     // replace bound variables by local constants.
     expr_ref result(property, m), v(m), c(m);
     expr_substitution sub(m);
+    proof_ref pr(m);
+    pr = m.mk_asserted(m.mk_true());
     for (unsigned i = 0; i < sig_size(); ++i) {
         c = m.mk_const(pm.o2n(sig(i), 0));
         v = m.mk_var(i, sig(i)->get_range());
-        sub.insert(v, c);
+        sub.insert(v, c, pr);
     }
     scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
     rep->set_substitution(&sub);
@@ -1236,13 +1243,38 @@ void pred_transformer::add_cover(unsigned level, expr* property)
     expr_ref_vector lemmas(m);
     flatten_and(result, lemmas);
     for (unsigned i = 0, sz = lemmas.size(); i < sz; ++i) {
-        add_lemma(lemmas.get(i), level);
+        add_lemma(lemmas.get(i), level, bg);
     }
 }
 
 void pred_transformer::propagate_to_infinity (unsigned level)
 {m_frames.propagate_to_infinity (level);}
 
+// compute a conjunction of all background facts
+void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
+    expr_ref inv(m), tmp1(m), tmp2(m);
+    ptr_vector<func_decl> preds;
+    for (auto kv : m_pt_rules) {
+        expr* tag = kv.m_value->tag();
+        datalog::rule const &r = kv.m_value->rule();
+        find_predecessors (r, preds);
+
+        for (unsigned i = 0, preds_sz = preds.size(); i < preds_sz; i++) {
+            func_decl* pre = preds[i];
+            pred_transformer &pt = ctx.get_pred_transformer(pre);
+            const lemma_ref_vector &invs = pt.get_bg_invs();
+            CTRACE("spacer", !invs.empty(),
+                   tout << "add-bg-invariant: " << mk_pp (pre, m) << "\n";);
+            for (auto inv : invs) {
+                // tag -> inv1 ...  tag -> invn
+                tmp1 = m.mk_implies(tag, inv->get_expr());
+                pm.formula_n2o(tmp1, tmp2, i);
+                out.push_back(tmp2);
+                TRACE("spacer", tout << tmp2 << "\n";);
+            }
+        }
+    }
+}
 
 
 /// \brief Returns true if the obligation is already blocked by current lemmas
@@ -1480,7 +1512,7 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
     expr_ref lemma_expr(m);
     lemma_expr = lem->get_expr();
 
-    expr_ref_vector conj(m), aux(m);
+    expr_ref_vector cand(m), aux(m), conj(m);
     expr_ref gnd_lemma(m);
 
 
@@ -1490,8 +1522,8 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
         lemma_expr = gnd_lemma.get();
     }
 
-    conj.push_back(mk_not(m, lemma_expr));
-    flatten_and (conj);
+    cand.push_back(mk_not(m, lemma_expr));
+    flatten_and (cand);
 
     prop_solver::scoped_level _sl(*m_solver, level);
     prop_solver::scoped_subset_core _sc (*m_solver, true);
@@ -1502,9 +1534,12 @@ bool pred_transformer::is_invariant(unsigned level, lemma* lem,
     if (ctx.use_ctp()) {mdl_ref_ptr = &mdl;}
     m_solver->set_core(core);
     m_solver->set_model(mdl_ref_ptr);
-    expr * bg = m_extend_lit.get ();
-    lbool r = m_solver->check_assumptions (conj, aux, m_transition_clause,
-                                          1, &bg, 1);
+
+    conj.push_back(m_extend_lit);
+    if (ctx.use_bg_invs()) get_pred_bg_invs(conj);
+
+    lbool r = m_solver->check_assumptions (cand, aux, m_transition_clause,
+                                           conj.size(), conj.c_ptr(), 1);
     if (r == l_false) {
         solver_level = m_solver->uses_level ();
         lem->reset_ctp();
@@ -1535,6 +1570,7 @@ bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& state,
     m_solver->set_core(&core);
     m_solver->set_model (nullptr);
     expr_ref_vector aux (m);
+    if (ctx.use_bg_invs()) get_pred_bg_invs(conj);
     conj.push_back (m_extend_lit);
     lbool res = m_solver->check_assumptions (state, aux,
                                             m_transition_clause,
@@ -1949,13 +1985,26 @@ void pred_transformer::update_solver_with_rfs(prop_solver *solver,
 }
 
 /// pred_transformer::frames
-
-
 bool pred_transformer::frames::add_lemma(lemma *new_lemma)
 {
     TRACE("spacer", tout << "add-lemma: " << pp_level(new_lemma->level()) << " "
           << m_pt.head()->get_name() << " "
           << mk_pp(new_lemma->get_expr(), m_pt.get_ast_manager()) << "\n";);
+
+    if (new_lemma->is_background()) {
+        SASSERT (is_infty_level(new_lemma->level()));
+
+        for (auto &l : m_bg_invs) {
+            if (l->get_expr() == new_lemma->get_expr()) return false;
+        }
+        TRACE("spacer", tout << "add-external-lemma: "
+              << pp_level(new_lemma->level()) << " "
+              << m_pt.head()->get_name() << " "
+              << mk_pp(new_lemma->get_expr(), m_pt.get_ast_manager()) << "\n";);
+
+        m_bg_invs.push_back(new_lemma);
+        return true;
+    }
 
     unsigned i = 0;
     for (auto *old_lemma : m_lemmas) {
@@ -2303,6 +2352,7 @@ void context::updt_params() {
     m_use_restarts = m_params.spacer_restarts();
     m_restart_initial_threshold = m_params.spacer_restart_initial_threshold();
     m_pdr_bfs = m_params.spacer_gpdr_bfs();
+    m_use_bg_invs = m_params.spacer_use_bg_invs();
 
     if (m_use_gpdr) {
         // set options to be compatible with GPDR
@@ -2431,36 +2481,36 @@ expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p)
     if (m_rels.find(p, pt)) {
         return pt->get_cover_delta(p_orig, level);
     } else {
-        IF_VERBOSE(10, verbose_stream() << "did not find predicate " << p->get_name() << "\n";);
+        IF_VERBOSE(10, verbose_stream() << "did not find predicate "
+                   << p->get_name() << "\n";);
         return expr_ref(m.mk_true(), m);
     }
 }
 
-void context::add_cover(int level, func_decl* p, expr* property)
+void context::add_cover(int level, func_decl* p, expr* property, bool bg)
 {
     pred_transformer* pt = nullptr;
     if (!m_rels.find(p, pt)) {
         pt = alloc(pred_transformer, *this, get_manager(), p);
         m_rels.insert(p, pt);
-        IF_VERBOSE(10, verbose_stream() << "did not find predicate " << p->get_name() << "\n";);
+        IF_VERBOSE(10, verbose_stream() << "did not find predicate "
+                   << p->get_name() << "\n";);
     }
     unsigned lvl = (level == -1)?infty_level():((unsigned)level);
-    pt->add_cover(lvl, property);
+    pt->add_cover(lvl, property, bg);
 }
 
 void context::add_invariant (func_decl *p, expr *property)
-{add_cover (infty_level(), p, property);}
+{add_cover (infty_level(), p, property, true);}
 
-expr_ref context::get_reachable(func_decl *p)
-{
+expr_ref context::get_reachable(func_decl *p) {
     pred_transformer* pt = nullptr;
     if (!m_rels.find(p, pt))
     { return expr_ref(m.mk_false(), m); }
     return pt->get_reachable();
 }
 
-bool context::validate()
-{
+bool context::validate() {
     if (!m_validate_result) { return true; }
 
     std::stringstream msg;
@@ -2491,7 +2541,7 @@ bool context::validate()
         model_ref model;
         vector<relation_info> rs;
         model_converter_ref mc;
-        get_level_property(m_inductive_lvl, refs, rs);
+        get_level_property(m_inductive_lvl, refs, rs, use_bg_invs());
         inductive_property ex(m, mc, rs);
         ex.to_model(model);
         var_subst vs(m, false);
@@ -2632,13 +2682,13 @@ void context::init_lemma_generalizers()
 }
 
 void context::get_level_property(unsigned lvl, expr_ref_vector& res,
-                                 vector<relation_info>& rs) const {
+                                 vector<relation_info>& rs, bool with_bg) const {
     for (auto const& kv : m_rels) {
         pred_transformer* r = kv.m_value;
         if (r->head() == m_query_pred) {
             continue;
         }
-        expr_ref conj = r->get_formulas(lvl);
+        expr_ref conj = r->get_formulas(lvl, with_bg);
         m_pm.formula_n2o(0, false, conj);
         res.push_back(conj);
         ptr_vector<func_decl> sig(r->head()->get_arity(), r->sig());
@@ -2670,7 +2720,7 @@ lbool context::solve(unsigned from_lvl)
             IF_VERBOSE(1, {
                     expr_ref_vector refs(m);
                     vector<relation_info> rs;
-                    get_level_property(m_inductive_lvl, refs, rs);
+                    get_level_property(m_inductive_lvl, refs, rs, use_bg_invs());
                     model_converter_ref mc;
                     inductive_property ex(m, mc, rs);
                     verbose_stream() << ex.to_string();
@@ -2852,7 +2902,7 @@ model_ref context::get_model()
     model_ref model;
     expr_ref_vector refs(m);
     vector<relation_info> rs;
-    get_level_property(m_inductive_lvl, refs, rs);
+    get_level_property(m_inductive_lvl, refs, rs, use_bg_invs());
     inductive_property ex(m, const_cast<model_converter_ref&>(m_mc), rs);
     ex.to_model (model);
     return model;
@@ -2885,7 +2935,7 @@ expr_ref context::mk_unsat_answer() const
 {
     expr_ref_vector refs(m);
     vector<relation_info> rs;
-    get_level_property(m_inductive_lvl, refs, rs);
+    get_level_property(m_inductive_lvl, refs, rs, use_bg_invs());
     inductive_property ex(m, const_cast<model_converter_ref&>(m_mc), rs);
     return ex.to_expr();
 }

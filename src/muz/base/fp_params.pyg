@@ -177,5 +177,6 @@ def_module_params('fp',
                           ('spacer.dump_threshold', DOUBLE, 5.0, 'Threshold in seconds on dumping benchmarks'),
                           ('spacer.gpdr', BOOL, False, 'Use GPDR solving strategy for non-linear CHC'),
                           ('spacer.gpdr.bfs', BOOL, True, 'Use BFS exploration strategy for expanding model search'),
+                          ('spacer.use_bg_invs', BOOL, False, 'Enable external background invariants'),
 
                           ))

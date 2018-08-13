@@ -128,8 +128,9 @@ class lemma {
     unsigned m_init_lvl;       // level at which lemma was created
     unsigned m_bumped:16;
     unsigned m_weakness:16;
-    unsigned m_external:1;
-    unsigned m_blocked:1;
+    unsigned m_external:1;    // external lemma from another solver
+    unsigned m_blocked:1;     // blocked by CTP
+    unsigned m_background:1;  // background assumed fact
 
     void mk_expr_core();
     void mk_cube_core();
@@ -162,6 +163,9 @@ public:
 
     void set_external(bool ext){m_external = ext;}
     bool external() { return m_external;}
+
+    void set_background(bool v) {m_background = v;}
+    bool is_background() {return m_background;}
 
     bool is_blocked() {return m_blocked;}
     void set_blocked(bool v) {m_blocked=v;}
@@ -222,6 +226,7 @@ class pred_transformer {
         pred_transformer &m_pt;            // parent pred_transformer
         lemma_ref_vector m_pinned_lemmas;  // all created lemmas
         lemma_ref_vector m_lemmas;         // active lemmas
+        lemma_ref_vector m_bg_invs;        // background (assumed) invariants
         unsigned m_size;                   // num of frames
 
         bool m_sorted;                     // true if m_lemmas is sorted by m_lt
@@ -230,7 +235,8 @@ class pred_transformer {
         void sort ();
 
     public:
-        frames (pred_transformer &pt) : m_pt (pt), m_size(0), m_sorted (true) {}
+        frames (pred_transformer &pt) : m_pt (pt),
+                                        m_size(0), m_sorted (true) {}
         ~frames() {}
         void simplify_formulas ();
 
@@ -245,17 +251,25 @@ class pred_transformer {
                 }
             }
         }
-        void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out) const {
+        void get_frame_geq_lemmas (unsigned level, expr_ref_vector &out,
+                                   bool with_bg = false) const {
             for (auto &lemma : m_lemmas) {
                 if (lemma->level() >= level) {
                     out.push_back(lemma->get_expr());
                 }
             }
+            if (with_bg) {
+                for (auto &lemma : m_bg_invs)
+                    out.push_back(lemma->get_expr());
+            }
         }
 
-        unsigned size () const {return m_size;}
-        unsigned lemma_size () const {return m_lemmas.size ();}
-        void add_frame () {m_size++;}
+        const lemma_ref_vector& get_bg_invs() const {return m_bg_invs;}
+        unsigned size() const {return m_size;}
+        unsigned lemma_size() const {return m_lemmas.size ();}
+        unsigned bg_invs_size() const {return m_bg_invs.size();}
+
+        void add_frame() {m_size++;}
         void inherit_frames (frames &other) {
             for (auto &other_lemma : other.m_lemmas) {
                 lemma_ref new_lemma = alloc(lemma, m_pt.get_ast_manager(),
@@ -265,6 +279,7 @@ class pred_transformer {
                 add_lemma(new_lemma.get());
             }
             m_sorted = false;
+            m_bg_invs.append(other.m_bg_invs);
         }
 
         bool add_lemma (lemma *new_lemma);
@@ -418,6 +433,11 @@ class pred_transformer {
 
     app_ref mk_fresh_rf_tag ();
 
+    // get tagged formulae of all of the background invariants for all of the
+    // predecessors of the current transformer
+    void get_pred_bg_invs(expr_ref_vector &out);
+    const lemma_ref_vector &get_bg_invs() const {return m_frames.get_bg_invs();}
+
 public:
     pred_transformer(context& ctx, manager& pm, func_decl* head);
     ~pred_transformer() {}
@@ -448,7 +468,7 @@ public:
     }
     unsigned get_num_levels() const {return m_frames.size ();}
     expr_ref get_cover_delta(func_decl* p_orig, int level);
-    void     add_cover(unsigned level, expr* property);
+    void     add_cover(unsigned level, expr* property, bool bg = false);
     expr_ref get_reachable();
 
     std::ostream& display(std::ostream& strm) const;
@@ -484,7 +504,7 @@ public:
     bool propagate_to_next_level(unsigned level);
     void propagate_to_infinity(unsigned level);
     /// \brief  Add a lemma to the current context and all users
-    bool add_lemma(expr * lemma, unsigned lvl);
+    bool add_lemma(expr * e, unsigned lvl, bool bg);
     bool add_lemma(lemma* lem) {return m_frames.add_lemma(lem);}
     expr* get_reach_case_var (unsigned idx) const;
     bool has_rfs () const { return !m_reach_facts.empty () ;}
@@ -527,7 +547,7 @@ public:
     bool check_inductive(unsigned level, expr_ref_vector& state,
                          unsigned& assumes_level, unsigned weakness = UINT_MAX);
 
-    expr_ref get_formulas(unsigned level) const;
+    expr_ref get_formulas(unsigned level, bool bg = false) const;
 
     void simplify_formulas();
 
@@ -958,6 +978,7 @@ class context {
     bool                 m_simplify_formulas_pre;
     bool                 m_simplify_formulas_post;
     bool                 m_pdr_bfs;
+    bool                 m_use_bg_invs;
     unsigned             m_push_pob_max_depth;
     unsigned             m_max_level;
     unsigned             m_restart_initial_threshold;
@@ -992,7 +1013,8 @@ class context {
 
     // Generate inductive property
     void get_level_property(unsigned lvl, expr_ref_vector& res,
-                            vector<relation_info> & rs) const;
+                            vector<relation_info> & rs,
+                            bool with_bg = false) const;
 
 
     // Initialization
@@ -1027,19 +1049,20 @@ public:
 
 
     const fp_params &get_params() const { return m_params; }
-    bool use_eq_prop() {return m_use_eq_prop;}
-    bool use_native_mbp() {return m_use_native_mbp;}
-    bool use_ground_pob() {return m_ground_pob;}
-    bool use_instantiate() {return m_instantiate;}
-    bool weak_abs() {return m_weak_abs;}
-    bool use_qlemmas() {return m_use_qlemmas;}
-    bool use_euf_gen() {return m_use_euf_gen;}
-    bool simplify_pob() {return m_simplify_pob;}
-    bool use_ctp() {return m_use_ctp;}
-    bool use_inc_clause() {return m_use_inc_clause;}
-    unsigned blast_term_ite_inflation() {return m_blast_term_ite_inflation;}
-    bool elim_aux() {return m_elim_aux;}
-    bool reach_dnf() {return m_reach_dnf;}
+    bool use_eq_prop() const {return m_use_eq_prop;}
+    bool use_native_mbp() const {return m_use_native_mbp;}
+    bool use_ground_pob() const {return m_ground_pob;}
+    bool use_instantiate() const {return m_instantiate;}
+    bool weak_abs() const {return m_weak_abs;}
+    bool use_qlemmas() const {return m_use_qlemmas;}
+    bool use_euf_gen() const {return m_use_euf_gen;}
+    bool simplify_pob() const {return m_simplify_pob;}
+    bool use_ctp() const {return m_use_ctp;}
+    bool use_inc_clause() const {return m_use_inc_clause;}
+    unsigned blast_term_ite_inflation() const {return m_blast_term_ite_inflation;}
+    bool elim_aux() const {return m_elim_aux;}
+    bool reach_dnf() const {return m_reach_dnf;}
+    bool use_bg_invs() const {return m_use_bg_invs;}
 
     ast_manager&      get_ast_manager() const {return m;}
     manager&          get_manager() {return m_pm;}
@@ -1082,7 +1105,7 @@ public:
     unsigned get_num_levels(func_decl* p);
 
     expr_ref get_cover_delta(int level, func_decl* p_orig, func_decl* p);
-    void add_cover(int level, func_decl* pred, expr* property);
+    void add_cover(int level, func_decl* pred, expr* property, bool bg = false);
     expr_ref get_reachable (func_decl* p);
     void add_invariant (func_decl *pred, expr* property);
     model_ref get_model();
