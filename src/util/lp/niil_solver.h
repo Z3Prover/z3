@@ -25,6 +25,13 @@ Revision History:
 #include "nlsat/nlsat_solver.h"
 #include "util/lp/lar_solver.h"
 namespace niil {
+struct ineq {
+    lp::lconstraint_kind m_cmp;
+    lp::lar_term         m_term;
+};
+
+typedef vector<ineq> lemma;
+
 // nonlinear integer incremental linear solver
 class solver {
 public:
@@ -37,6 +44,6 @@ public:
     void push();
     void pop(unsigned scopes);
     bool need_check();
-    lbool check(lp::explanation_t& ex);
+    lbool check(lemma&);
 };
 }
