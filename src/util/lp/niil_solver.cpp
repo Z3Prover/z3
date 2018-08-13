@@ -59,7 +59,7 @@ struct solver::imp {
         return r == model_val;
     }
     
-    lbool check(lp::explanation_t& ex) {
+    lbool check(lemma& ) {
         lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
         svector<unsigned> to_refine;
         for (unsigned i = 0; i < m_monomials.size(); i++) {
@@ -80,8 +80,8 @@ void solver::add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs)
 
 bool solver::need_check() { return true; }
 
-lbool solver::check(lp::explanation_t& ex) {
-    return m_imp->check(ex);
+lbool solver::check(lemma& l) {
+    return m_imp->check(l);
 }
 
 
