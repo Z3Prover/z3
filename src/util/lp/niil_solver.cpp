@@ -28,9 +28,9 @@ struct solver::imp {
 
     vector<mon_eq>         m_monomials;
     unsigned_vector        m_monomials_lim;
-    lp::lar_solver&        m_solver;
+    lp::lar_solver&        m_lar_solver;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
-        : m_solver(s)
+        : m_lar_solver(s)
         // m_limit(lim),
         // m_params(p)
     {
@@ -49,8 +49,27 @@ struct solver::imp {
         m_monomials_lim.shrink(m_monomials_lim.size() - n);       
     }
 
+    bool check_monomial(const mon_eq& m) {
+        SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
+        const rational & model_val = m_lar_solver.get_column_value_rational(m.var());
+        rational r(1);
+        for (auto j : m.m_vs) {
+            r *= m_lar_solver.get_column_value_rational(j);
+        }
+        return r == model_val;
+    }
+    
     lbool check(lp::explanation_t& ex) {
-        lp_assert(m_solver.get_status() == lp::lp_status::OPTIMAL);
+        lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
+        svector<unsigned> to_refine;
+        for (unsigned i = 0; i < m_monomials.size(); i++) {
+            if (!check_monomial(m_monomials[i]))
+                to_refine.push_back(i);
+        }
+        std::cout << "to_refine size = " << to_refine.size() << std::endl;
+        if (to_refine.size() == 0)
+            return l_true;
+        
         return l_undef;
     }
     
