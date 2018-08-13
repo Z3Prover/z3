@@ -439,7 +439,6 @@ public:
         const vector<std::pair<mpq, unsigned>> & inf_row,
         int inf_sign) const;
 
-
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
