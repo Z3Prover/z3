@@ -79,6 +79,9 @@ enum js_op_kind {
     OP_JS_END,               // end time of a job
     OP_JS_JOB2RESOURCE,      // resource associated with job
     OP_JS_MODEL,             // jobscheduler model
+    OP_JS_JOB_RESOURCE,
+    OP_JS_JOB_PREEMPTABLE,
+    OP_JS_RESOURCE_AVAILABLE, 
     OP_AL_KV,                // key-value pair
     OP_AL_LIST               // tagged list
 };
@@ -132,6 +135,10 @@ public:
     app* mk_start(unsigned j);
     app* mk_end(unsigned j);
     app* mk_job2resource(unsigned j);
+
+    bool is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, uint64_t& start, uint64_t& end);
+    bool is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end); 
+    bool is_set_preemptable(expr* e, expr *& job);
 
     // alist features
     app* mk_kv(symbol const& key, rational const& r) { 

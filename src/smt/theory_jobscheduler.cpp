@@ -48,6 +48,7 @@ Features:
 #include "smt/theory_jobscheduler.h"
 #include "smt/smt_context.h"
 #include "smt/smt_arith_value.h"
+#include "smt/smt_model_generator.h"
 
 namespace smt {
 
@@ -60,53 +61,28 @@ namespace smt {
         context & ctx = get_context();        
         if (ctx.e_internalized(term))
             return true;
+        for (expr* arg : *term) {
+            if (!ctx.e_internalized(arg)) 
+                ctx.internalize(arg, false);
+        }        
         enode* e = ctx.mk_enode(term, false, false, true);
-        switch (static_cast<js_op_kind>(term->get_decl()->get_decl_kind())) {            
-        case OP_JS_JOB: {
-            unsigned j = u.job2id(term);
-            app_ref start(u.mk_start(j), m);
-            app_ref end(u.mk_end(j), m);
-            app_ref res(u.mk_job2resource(j), m);
-            if (!ctx.e_internalized(start)) ctx.internalize(start, false);
-            if (!ctx.e_internalized(end))   ctx.internalize(end, false);
-            if (!ctx.e_internalized(res))   ctx.internalize(res, false);
-            theory_var v = mk_var(e);
-            SASSERT(m_var2index.size() == v);
-            m_var2index.push_back(j);
-            m_jobs.reserve(j + 1);
-            m_jobs[j].m_start    = ctx.get_enode(start);
-            m_jobs[j].m_end      = ctx.get_enode(end);
-            m_jobs[j].m_job2resource = ctx.get_enode(res);
-            ctx.attach_th_var(e, this, v);
-            break;
-        }
-        case OP_JS_RESOURCE: {
-            theory_var v = mk_var(e);
-            SASSERT(m_var2index.size() == v);
-            unsigned r = u.resource2id(term);
-            m_var2index.push_back(r);        
-            ctx.attach_th_var(e, this, v);    
-            break;
-        }
-        case OP_JS_START:
-        case OP_JS_END:
-        case OP_JS_JOB2RESOURCE: {
-            unsigned j = u.job2id(term);
-            app_ref job(u.mk_job(j), m);
-            if (!ctx.e_internalized(job)) ctx.internalize(job, false);
-            break;
-        }
-        }
+        theory_var v = mk_var(e);
+        ctx.attach_th_var(e, this, v);
+        ctx.mark_as_relevant(e);
         return true;
     }
 
     bool theory_jobscheduler::internalize_atom(app * atom, bool gate_ctx) {
         TRACE("csp", tout << mk_pp(atom, m) << "\n";);
+        context & ctx = get_context();        
         SASSERT(u.is_model(atom));
         for (expr* arg : *atom) {
+            if (!ctx.e_internalized(arg)) ctx.internalize(arg, false);
             internalize_cmd(arg);
         }
         add_done();
+        bool_var bv = ctx.mk_bool_var(atom);
+        ctx.set_var_theory(bv, get_id());
         return true;
     }
 
@@ -114,95 +90,18 @@ namespace smt {
     void theory_jobscheduler::internalize_cmd(expr* cmd) {
         symbol key, val;
         rational r;
-        if (u.is_kv(cmd, key, r) && key == ":set-preemptable" && r.is_unsigned()) {
-            set_preemptable(r.get_unsigned(), true);
+        expr* job, *resource;
+        unsigned j = 0, res = 0, cap = 0, loadpct = 100;
+        time_t start = 0, end = std::numeric_limits<time_t>::max(), capacity = 0;
+        properties ps;
+        if (u.is_set_preemptable(cmd, job) && u.is_job(job, j)) {
+            set_preemptable(j, true);            
         }
-        else if (u.is_alist(cmd, key) && key == ":add-job-resource") {
-            properties ps;
-            unsigned j = 0, res = 0, cap = 0, loadpct = 100;
-            time_t end = std::numeric_limits<time_t>::max();
-            bool has_j = false, has_res = false, has_cap = false, has_load = false, has_end = false;
-            for (expr* arg : *to_app(cmd)) {
-                if (u.is_kv(arg, key, r)) {
-                    if (key == ":job"  && r.is_unsigned()) {
-                        j = r.get_unsigned();
-                        has_j = true;
-                    }
-                    else if (key == ":resource" && r.is_unsigned()) {
-                        res = r.get_unsigned();
-                        has_res = true;
-                    }
-                    else if (key == ":capacity" && r.is_unsigned()) {
-                        cap = r.get_unsigned();
-                        has_cap = true;
-                    }
-                    else if (key == ":loadpct" && r.is_unsigned()) {
-                        loadpct = r.get_unsigned();
-                        has_load = true;
-                    }
-                    else if (key == ":end" && r.is_uint64()) {
-                        end = r.get_uint64();
-                        has_end = true;
-                    }
-                    else {
-                        unrecognized_argument(arg);
-                    }
-                }
-                else if (u.is_alist(arg, key) && key == ":properties") {
-                    // TBD
-                }
-                else {
-                    unrecognized_argument(arg);
-                }
-            }
-            if (!has_j) invalid_argument(":job argument expected ", cmd);
-            if (!has_res) invalid_argument(":resource argument expected ", cmd);
-            if (!has_cap) invalid_argument(":capacity argument expected ", cmd);
-            if (!has_load) invalid_argument(":loadpct argument expected ", cmd);
-            if (!has_end) invalid_argument(":end argument expected ", cmd);
-            if (cap == 0) invalid_argument(":capacity should be positive ", cmd);
-            add_job_resource(j, res, cap, loadpct, end, ps);
+        else if (u.is_add_resource_available(cmd, resource, loadpct, start, end) && u.is_resource(resource, res)) {
+            add_resource_available(res, loadpct, start, end, ps);
         }
-        else if (u.is_alist(cmd, key) && key == ":add-resource-available") {
-            properties ps;
-            unsigned res = 0, loadpct = 100;
-            time_t start = 0, end = 0;
-            bool has_start = false, has_res = false, has_load = false, has_end = false;
-
-            for (expr* arg : *to_app(cmd)) {
-                if (u.is_kv(arg, key, r)) {
-                    if (key == ":resource" && r.is_unsigned()) {
-                        res = r.get_unsigned();
-                        has_res = true;
-                    }
-                    else if (key == ":start" && r.is_uint64()) {
-                        start = r.get_uint64();
-                        has_start = true;
-                    }
-                    else if (key == ":end" && r.is_uint64()) {
-                        end = r.get_uint64();
-                        has_end = true;
-                    }
-                    else if (key == ":loadpct" && r.is_unsigned()) {
-                        loadpct = r.get_unsigned();
-                        has_load = true;
-                    }
-                    else {
-                        unrecognized_argument(arg);
-                    }
-                }
-                else if (u.is_alist(arg, key) && key == ":properties") {
-                    // TBD
-                }
-                else {
-                    unrecognized_argument(arg);
-                }
-            }
-            if (!has_res) invalid_argument(":resource argument expected ", cmd);
-            if (!has_load) invalid_argument(":loadpct argument expected ", cmd);
-            if (!has_end) invalid_argument(":end argument expected ", cmd);
-            if (!has_start) invalid_argument(":start argument expected ", cmd);
-            add_resource_available(res, loadpct, start, end, ps);            
+        else if (u.is_add_job_resource(cmd, job, resource, loadpct, capacity, end) && u.is_job(job, j) && u.is_resource(resource, res)) {
+            add_job_resource(j, res, loadpct, capacity, end, ps);
         }
         else {
             invalid_argument("command not recognized ", cmd);
@@ -222,7 +121,7 @@ namespace smt {
     }
 
     final_check_status theory_jobscheduler::final_check_eh() {
-
+        TRACE("csp", tout << "\n";);
         bool blocked = false;
         for (unsigned r = 0; r < m_resources.size(); ++r) {
             if (constrain_resource_energy(r)) {
@@ -253,23 +152,23 @@ namespace smt {
         return ctx.get_literal(e);
     }
 
-    literal theory_jobscheduler::mk_ge_lit(expr* e, time_t t) {
-        return mk_literal(mk_ge(e, t));
+    literal theory_jobscheduler::mk_ge(expr* e, time_t t) {
+        return mk_literal(mk_ge_expr(e, t));
     }
 
-    expr* theory_jobscheduler::mk_ge(expr* e, time_t t) {
+    expr* theory_jobscheduler::mk_ge_expr(expr* e, time_t t) {
         return a.mk_ge(e, a.mk_int(rational(t, rational::ui64())));
     }
 
-    expr* theory_jobscheduler::mk_ge(enode* e, time_t t) {
+    literal theory_jobscheduler::mk_ge(enode* e, time_t t) {
         return mk_ge(e->get_owner(), t);
     }
 
-    literal theory_jobscheduler::mk_le_lit(expr* e, time_t t) {
-        return mk_literal(mk_le(e, t));
+    literal theory_jobscheduler::mk_le(expr* e, time_t t) {
+        return mk_literal(mk_le_expr(e, t));
     }
 
-    expr* theory_jobscheduler::mk_le(expr* e, time_t t) {
+    expr* theory_jobscheduler::mk_le_expr(expr* e, time_t t) {
         return a.mk_le(e, a.mk_int(rational(t, rational::ui64())));
     }
 
@@ -280,9 +179,16 @@ namespace smt {
         return mk_literal(le);
     }
 
-    expr* theory_jobscheduler::mk_le(enode* e, time_t t) {
+    literal theory_jobscheduler::mk_le(enode* e, time_t t) {
         return mk_le(e->get_owner(), t);
     }
+
+    literal theory_jobscheduler::mk_eq_lit(expr * l, expr * r) {
+        literal lit = mk_eq(l, r, false);
+        get_context().mark_as_relevant(lit);
+        return lit;
+    }
+
 
     /**
      * iterator of job overlaps.
@@ -307,7 +213,7 @@ namespace smt {
                 ++s_idx;
             }
             // remove jobs that end before m_start.
-            while (e_idx < m_ends.size() && m_ends[s_idx].m_time < m_start) {
+            while (e_idx < m_ends.size() && m_ends[e_idx].m_time < m_start) {
                 m_jobs.remove(m_ends[e_idx].m_job);
                 ++e_idx;
             }   
@@ -330,7 +236,7 @@ namespace smt {
 
         if (clb > end(j)) {
             job_info const& ji = m_jobs[j];
-            literal start_ge_lo = mk_literal(mk_ge(ji.m_start, slb));
+            literal start_ge_lo = mk_ge(ji.m_start, slb);
             if (ctx.get_assignment(start_ge_lo) != l_true) {
                 return;
             }
@@ -339,7 +245,7 @@ namespace smt {
                 return;
             }
 
-            literal end_ge_lo = mk_literal(mk_ge(ji.m_end, clb));
+            literal end_ge_lo = mk_ge(ji.m_end, clb);
             // Initialization ensures that satisfiable states have completion time below end.
             VERIFY(clb <= get_job_resource(j, r).m_end);
             region& r = ctx.get_region();
@@ -358,10 +264,12 @@ namespace smt {
     bool theory_jobscheduler::constrain_end_time_interval(unsigned j, unsigned r) {
         unsigned idx1 = 0, idx2 = 0;
         time_t s = start(j);
+        TRACE("csp", tout << "job: " << j << " resource: " << r << " start: " << s <<  "\n";);
         if (!resource_available(r, s, idx1)) return false;
         vector<res_available>& available = m_resources[r].m_available;
         time_t e = ect(j, r, s);
-        if (!resource_available(r, e, idx2)) return false;
+        TRACE("csp", tout << "job: " << j << " resource: " << r << " ect: " << e <<  "\n";);
+        if (!resource_available(r, e, idx2)) return false; // infeasible..
         time_t start1 = available[idx1].m_start;
         time_t end1   = available[idx1].m_end;
         unsigned cap1 = available[idx1].m_loadpct;
@@ -396,14 +304,15 @@ namespace smt {
         if (end(j) == start(j) + delta) {
             return false;
         }
+        TRACE("csp", tout << "job: " << j << " resource " << r << " t0: " << t0 << " t1: " << t1 << " delta: " << delta << "\n";);
         literal_vector lits;
-        expr* start_e = m_jobs[j].m_start->get_owner();
-        expr* end_e = m_jobs[j].m_end->get_owner();
-        lits.push_back(~mk_eq(m_jobs[j].m_job2resource->get_owner(), u.mk_resource(r), false));
-        lits.push_back(~mk_ge_lit(start_e, t0));
-        lits.push_back(~mk_le_lit(start_e, t1));        
-        expr_ref rhs(a.mk_add(start_e, a.mk_int(rational(delta, rational::ui64()))), m);
-        lits.push_back(mk_eq(end_e, rhs, false));
+        enode* start_e = m_jobs[j].m_start;
+        enode* end_e = m_jobs[j].m_end;
+        lits.push_back(~mk_eq_lit(m_jobs[j].m_job2resource, m_resources[r].m_resource));
+        lits.push_back(~mk_ge(start_e, t0));
+        lits.push_back(~mk_le(start_e, t1));        
+        expr_ref rhs(a.mk_add(start_e->get_owner(), a.mk_int(rational(delta, rational::ui64()))), m);
+        lits.push_back(mk_eq_lit(end_e->get_owner(), rhs));
         context& ctx = get_context();
         ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
         return true;
@@ -466,7 +375,7 @@ namespace smt {
             // resource(j) == r
             // m_jobs[j].m_start <= m_jobs[max_j].m_start;
             // m_jobs[max_j].m_start <= m_jobs[j].m_end;
-            lits.push_back(~mk_eq(u.mk_job2resource(j), u.mk_resource(r), false));
+            lits.push_back(~mk_eq_lit(m_jobs[j].m_job2resource, m_resources[r].m_resource));
             if (j != max_j) {
                 lits.push_back(~mk_le(m_jobs[j].m_start, m_jobs[max_j].m_start));
                 lits.push_back(~mk_le(m_jobs[max_j].m_start, m_jobs[j].m_end));
@@ -478,6 +387,7 @@ namespace smt {
     }
 
     void theory_jobscheduler::propagate() {
+        return;
         for (unsigned j = 0; j < m_jobs.size(); ++j) {
             job_info const& ji = m_jobs[j];
             unsigned r = resource(j);
@@ -493,24 +403,23 @@ namespace smt {
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_resource const& jr) const {
-        return out << "   r:" << jr.m_resource_id << " cap:" << jr.m_capacity << " load:" << jr.m_loadpct << " end:" << jr.m_end << "\n";
+        return out << "r:" << jr.m_resource_id << " cap:" << jr.m_capacity << " load:" << jr.m_loadpct << " end:" << jr.m_end << "\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_info const& j) const {
         for (job_resource const& jr : j.m_resources) {
-            display(out, jr);
+            display(out << "  ", jr);
         }
         return out;
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_available const& r) const {
-        out << "[" << r.m_start << ":" << r.m_end << "] @ " << r.m_loadpct << "%%\n";
-        return out;
+        return out << "[" << r.m_start << ":" << r.m_end << "] @ " << r.m_loadpct << "%\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_info const& r) const {
         for (res_available const& ra : r.m_available) {
-            display(out, ra);
+            display(out << "   ", ra);
         }
         return out;
     }
@@ -529,15 +438,23 @@ namespace smt {
 
     }
 
+    bool theory_jobscheduler::include_func_interp(func_decl* f) {
+        return 
+            f->get_decl_kind() == OP_JS_START ||
+            f->get_decl_kind() == OP_JS_END ||
+            f->get_decl_kind() == OP_JS_JOB2RESOURCE;
+    }
+
     void theory_jobscheduler::init_model(model_generator & m) {
 
     }
     
     model_value_proc * theory_jobscheduler::mk_value(enode * n, model_generator & mg) {
-        return nullptr;
+        return alloc(expr_wrapper_proc, n->get_root()->get_owner());
     }
 
     bool theory_jobscheduler::get_value(enode * n, expr_ref & r) {
+        std::cout << mk_pp(n->get_owner(), m) << "\n";
         return false;
     }
 
@@ -620,7 +537,7 @@ namespace smt {
         m_jobs[j].m_is_preemptable = is_preemptable;        
     }
 
-    void theory_jobscheduler::add_job_resource(unsigned j, unsigned r, unsigned cap, unsigned loadpct, time_t end, properties const& ps) {
+    void theory_jobscheduler::add_job_resource(unsigned j, unsigned r, unsigned loadpct, uint64_t cap, time_t end, properties const& ps) {
         SASSERT(get_context().at_base_level());
         SASSERT(1 <= loadpct && loadpct <= 100);
         SASSERT(0 < cap);
@@ -629,6 +546,21 @@ namespace smt {
         job_info& ji = m_jobs[j];
         if (ji.m_resource2index.contains(r)) {
             throw default_exception("resource already bound to job");
+        }
+        if (!ji.m_start) {
+            context& ctx = get_context();
+            app_ref job(u.mk_job(j), m);
+            app_ref start(u.mk_start(j), m);
+            app_ref end(u.mk_end(j), m);
+            app_ref res(u.mk_job2resource(j), m);
+            if (!ctx.e_internalized(job)) ctx.internalize(job, false);
+            if (!ctx.e_internalized(start)) ctx.internalize(start, false);
+            if (!ctx.e_internalized(end))   ctx.internalize(end, false);
+            if (!ctx.e_internalized(res))   ctx.internalize(res, false);
+            ji.m_job      = ctx.get_enode(job);
+            ji.m_start    = ctx.get_enode(start);
+            ji.m_end      = ctx.get_enode(end);
+            ji.m_job2resource = ctx.get_enode(res);
         }
         ji.m_resource2index.insert(r, ji.m_resources.size());
         ji.m_resources.push_back(job_resource(r, cap, loadpct, end, ps));
@@ -642,6 +574,12 @@ namespace smt {
         SASSERT(start <= end);
         m_resources.reserve(r + 1);
         res_info& ri = m_resources[r];
+        if (!ri.m_resource) {
+            context& ctx = get_context();
+            app_ref res(u.mk_resource(r), m);
+            if (!ctx.e_internalized(res)) ctx.internalize(res, false);            
+            ri.m_resource = ctx.get_enode(res);
+        }
         ri.m_available.push_back(res_available(max_loadpct, start, end, ps));
     }
 
@@ -655,6 +593,7 @@ namespace smt {
      * Ensure that the availability slots for each resource is sorted by time.
      */
     void theory_jobscheduler::add_done() {
+        TRACE("csp", tout << "add-done begin\n";);
         context & ctx = get_context();
         
         // sort availability intervals
@@ -666,18 +605,19 @@ namespace smt {
         }
 
         expr_ref fml(m);
+        literal lit, l1, l2, l3;
 
         for (unsigned j = 0; j < m_jobs.size(); ++j) {
             job_info const& ji = m_jobs[j];
-            expr_ref_vector disj(m);
+            literal_vector disj;
             app_ref job(u.mk_job(j), m);
             if (ji.m_resources.empty()) {
                 throw default_exception("every job should be associated with at least one resource");
             }
 
-            // start(j) <= end(j)
-            fml = a.mk_le(ji.m_start->get_owner(), ji.m_end->get_owner());
-            ctx.assert_expr(fml);
+            // start(j) <= end(j)            
+            lit = mk_le(ji.m_start, ji.m_end);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
 
             time_t start_lb = std::numeric_limits<time_t>::max();
             time_t end_ub = 0;
@@ -685,48 +625,36 @@ namespace smt {
                 // resource(j) = r => end(j) <= end(j, r)
                 // resource(j) = r => start(j) <= lst(j, r, end(j, r))
                 unsigned r = jr.m_resource_id;
-                app_ref res(u.mk_resource(r), m);
-                expr_ref eq(m.mk_eq(job, res), m);
-                expr_ref imp(m.mk_implies(eq, mk_le(ji.m_end, jr.m_end)), m);
-                ctx.assert_expr(imp);
-                time_t t;
-                if (!lst(j, r, t)) {
-                    imp = m.mk_implies(eq, mk_le(ji.m_start, t));
-                }
-                else {
-                    imp = m.mk_not(eq);
-                }
-                ctx.assert_expr(imp);
-                disj.push_back(eq);
                 res_info const& ri = m_resources[r];
+                enode* j2r = m_jobs[j].m_job2resource;
+                literal eq = mk_eq_lit(j2r, ri.m_resource);
+                assert_last_end_time(j, r, jr, eq);
+                assert_last_start_time(j, r, eq);
+                disj.push_back(eq);
                 start_lb = std::min(start_lb, ri.m_available[0].m_start);
                 end_ub = std::max(end_ub, ri.m_available.back().m_end);
 
             }
             // resource(j) = r1 || ... || resource(j) = r_n
-            expr_ref fml = mk_or(disj);
-            ctx.assert_expr(fml);
+            ctx.mk_th_axiom(get_id(), disj.size(), disj.c_ptr());
 
             // start(j) >= start_lb
-            fml = mk_ge(ji.m_start, start_lb);
-            ctx.assert_expr(fml);
+            lit = mk_ge(ji.m_start, start_lb);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
 
             // end(j) <= end_ub
-            fml = mk_le(ji.m_end, end_ub);
-            ctx.assert_expr(fml);
+            lit = mk_le(ji.m_end, end_ub);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
         }        
         for (unsigned r = 0; r < m_resources.size(); ++r) {
             res_info& ri = m_resources[r];
             vector<res_available>& available = ri.m_available;
             if (available.empty()) continue;
-            app_ref res(u.mk_resource(r), m);
+            enode* res = m_resources[r].m_resource;
             for (unsigned j : ri.m_jobs) {
                 // resource(j) == r => start(j) >= available[0].m_start;
-                app_ref job(u.mk_job(j), m);
-                expr_ref eq(m.mk_eq(job, res), m);
-                expr_ref ge(mk_ge(m_jobs[j].m_start, available[0].m_start), m);
-                expr_ref fml(m.mk_implies(eq, ge), m);
-                ctx.assert_expr(fml);                
+                enode* j2r = m_jobs[j].m_job2resource;
+                assert_first_start_time(j, r, mk_eq_lit(j2r, res));
             }
             for (unsigned i = 0; i + 1 < available.size(); ++i) {
                 if (available[i].m_end > available[i + 1].m_start) {
@@ -735,25 +663,60 @@ namespace smt {
                 for (unsigned j : ri.m_jobs) {
                     // jobs start within an interval.
                     // resource(j) == r => start(j) <= available[i].m_end || start(j) >= available[i + 1].m_start;
-                    app_ref job(u.mk_job(j), m);
-                    expr_ref eq(m.mk_eq(job, res), m);
-                    expr_ref ge(mk_ge(m_jobs[j].m_start, available[i + 1].m_start), m);
-                    expr_ref le(mk_le(m_jobs[j].m_start, available[i].m_end), m);
-                    fml = m.mk_implies(eq, m.mk_or(le, ge));
-                    ctx.assert_expr(fml);                
+                    enode* j2r = m_jobs[j].m_job2resource;
+                    literal eq = mk_eq_lit(j2r, res);
+                    assert_job_not_in_gap(j, r, i, eq);
 
                     // if job is not pre-emptable, start and end have to align within contiguous interval.
                     // resource(j) == r => end(j) <= available[i].m_end || start(j) >= available[i + 1].m_start
                     if (!m_jobs[j].m_is_preemptable && available[i].m_end + 1 < available[i+1].m_start) {
-                        le = mk_le(m_jobs[j].m_end, available[i].m_end);
-                        ge = mk_ge(m_jobs[j].m_start, available[i+1].m_start);
-                        fml = m.mk_implies(eq, m.mk_or(le, ge));
-                        ctx.assert_expr(fml);
+                        assert_job_non_preemptable(j, r, i, eq);
                     }
                 }
             }
         }
+        TRACE("csp", tout << "add-done end\n";);
     }
+
+    void theory_jobscheduler::assert_last_end_time(unsigned j, unsigned r, job_resource const& jr, literal eq) {
+        job_info const& ji = m_jobs[j];
+        literal l2 = mk_le(ji.m_end, jr.m_end);
+        get_context().mk_th_axiom(get_id(), ~eq, l2);
+    }
+
+    void theory_jobscheduler::assert_last_start_time(unsigned j, unsigned r, literal eq) {
+        context& ctx = get_context();
+        time_t t;
+        if (lst(j, r, t)) {
+            ctx.mk_th_axiom(get_id(), ~eq, mk_le(m_jobs[j].m_start, t));
+        }
+        else {
+            eq.neg();
+            ctx.mk_th_axiom(get_id(), 1, &eq);
+        }
+    }
+
+    void theory_jobscheduler::assert_first_start_time(unsigned j, unsigned r, literal eq) {
+        vector<res_available>& available = m_resources[r].m_available;
+        literal l2 = mk_ge(m_jobs[j].m_start, available[0].m_start);
+        get_context().mk_th_axiom(get_id(), ~eq, l2);
+    }
+
+    void theory_jobscheduler::assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, literal eq) {
+        vector<res_available>& available = m_resources[r].m_available;        
+        literal l2 = mk_ge(m_jobs[j].m_start, available[idx + 1].m_start);
+        literal l3 = mk_le(m_jobs[j].m_start, available[idx].m_end);
+        get_context().mk_th_axiom(get_id(), ~eq, l2, l3);        
+    }
+
+    void theory_jobscheduler::assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, literal eq) {
+        vector<res_available>& available = m_resources[r].m_available;        
+        literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
+        literal l3 = mk_ge(m_jobs[j].m_start, available[idx + 1].m_start);
+        get_context().mk_th_axiom(get_id(), ~eq, l2, l3);
+    }
+
+    
 
     /**
      * check that each job is run on some resource according to 
@@ -836,6 +799,7 @@ namespace smt {
         time_t cap = jr.m_capacity;
         unsigned idx = 0;
         if (!resource_available(r, start, idx)) {
+            TRACE("csp", tout << "resource is not available for " << j << " " << r << "\n";);
             return std::numeric_limits<time_t>::max();
         }
         SASSERT(cap > 0);
@@ -845,6 +809,7 @@ namespace smt {
             time_t end        = available[idx].m_end;
             unsigned load_pct = available[idx].m_loadpct;
             time_t delta = solve_for_capacity(load_pct, j_load_pct, start, end);
+            TRACE("csp", tout << "delta: " << delta << " capacity: " << cap << " load " << load_pct << " jload: " << j_load_pct << " start: " << start << " end " << end << "\n";);
             if (delta > cap) {
                 //
                 // solve for end: 
@@ -870,29 +835,29 @@ namespace smt {
     time_t theory_jobscheduler::solve_for_end(unsigned load_pct, unsigned job_load_pct, time_t start, time_t cap) {
         SASSERT(load_pct > 0);
         SASSERT(job_load_pct > 0);
-        //      cap = (load / job_load_pct) * (start - end + 1)
+        //      cap = (load / job_load_pct) * (end - start + 1)
         // <=> 
-        //      start - end + 1 = (cap * job_load_pct) / load 
+        //      end - start + 1 = (cap * job_load_pct) / load 
         // <=>
-        //      end = start + 1 - (cap * job_load_pct) / load
+        //      end = start - 1 + (cap * job_load_pct) / load
         // <=>
-        //      end = (load * (start + 1) - cap * job_load_pct) / load
+        //      end = (load * (start - 1) + cap * job_load_pct) / load
         unsigned load = std::min(load_pct, job_load_pct);
-        return (load * (start + 1) - cap * job_load_pct) / load;
+        return (load * (start - 1) + cap * job_load_pct) / load;
     }
 
     time_t theory_jobscheduler::solve_for_start(unsigned load_pct, unsigned job_load_pct, time_t end, time_t cap) {
         SASSERT(load_pct > 0);
         SASSERT(job_load_pct > 0);
-        //      cap = (load / job_load_pct) * (start - end + 1)
+        //      cap = (load / job_load_pct) * (end - start + 1)
         // <=> 
-        //      start - end + 1 = (cap * job_load_pct) / load 
+        //      end - start + 1 = (cap * job_load_pct) / load 
         // <=>
-        //      start = (cap * job_load_pct) / load + end - 1
+        //      start = end + 1 - (cap * job_load_pct) / load
         // <=>
-        //      start = (load * (end - 1) + cap * job_load_pct) / load
+        //      start = (load * (end + 1) - cap * job_load_pct) / load
         unsigned load = std::min(load_pct, job_load_pct);
-        return (load * (end - 1) + cap * job_load_pct) / load;
+        return (load * (end + 1) - cap * job_load_pct) / load;
     }
 
     time_t theory_jobscheduler::solve_for_capacity(unsigned load_pct, unsigned job_load_pct, time_t start, time_t end) {
@@ -905,23 +870,25 @@ namespace smt {
      * Compute last start time for job on resource r.
      */
     bool theory_jobscheduler::lst(unsigned j, unsigned r, time_t& start) {
+        start = 0;
         job_resource const& jr = get_job_resource(j, r);
         vector<res_available>& available = m_resources[r].m_available;
         unsigned j_load_pct = jr.m_loadpct;
         time_t cap = jr.m_capacity;
         for (unsigned idx = available.size(); idx-- > 0; ) {
-            time_t start    = available[idx].m_start;
+            start    = available[idx].m_start;
             time_t end      = available[idx].m_end;
             unsigned load_pct = available[idx].m_loadpct;
             time_t delta = solve_for_capacity(load_pct, j_load_pct, start, end);
             if (delta > cap) {
-                start = solve_for_start(load_pct, j_load_pct, start, cap);
+                start = solve_for_start(load_pct, j_load_pct, end, cap);
                 cap = 0;
             }
             else {
                 cap -= delta;
             }
             if (cap == 0) {
+                std::cout << "start " << start << "\n";
                 return true;
             }
         }

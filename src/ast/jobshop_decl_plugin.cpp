@@ -73,7 +73,9 @@ func_decl * jobshop_decl_plugin::mk_func_decl(
     case OP_JS_JOB2RESOURCE:
         check_arity(arity);
         check_index1(num_parameters, parameters);
-        return m_manager->mk_func_decl(symbol("job2resource"), 0, (sort* const*)nullptr, m_int_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+        return m_manager->mk_func_decl(symbol("job2resource"), 0, (sort* const*)nullptr, m_resource_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+
+
     case OP_JS_MODEL:
         // has no parameters
         // all arguments are of sort alist
@@ -86,6 +88,24 @@ func_decl * jobshop_decl_plugin::mk_func_decl(
         // has no parameters
         // all arguments are of sort alist        
         return m_manager->mk_func_decl(symbol("alist"), arity, domain, m_alist_sort, func_decl_info(m_family_id, k, num_parameters, parameters));        
+    case OP_JS_JOB_RESOURCE:        
+        if (arity != 5) m_manager->raise_exception("add-job-resource expects 5 arguments");
+        if (domain[0] != m_job_sort) m_manager->raise_exception("first argument of add-job-resource expects should be a job");
+        if (domain[1] != m_resource_sort) m_manager->raise_exception("second argument of add-job-resource expects should be a resource");
+        if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-job-resource expects should be an integer");
+        if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-job-resource expects should be an integer");
+        if (domain[4] != m_int_sort) m_manager->raise_exception("5th argument of add-job-resource expects should be an integer");
+        return m_manager->mk_func_decl(symbol("add-job-resource"), arity, domain, m_alist_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+    case OP_JS_RESOURCE_AVAILABLE:
+        if (arity != 4) m_manager->raise_exception("add-resource-available expects 4 arguments");        
+        if (domain[0] != m_resource_sort) m_manager->raise_exception("first argument of add-resource-available expects should be a resource");
+        if (domain[1] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
+        if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-resource-available expects should be an integer");
+        if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-resource-available expects should be an integer");
+        return m_manager->mk_func_decl(symbol("add-resource-available"), arity, domain, m_alist_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+    case OP_JS_JOB_PREEMPTABLE:
+        if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("set-preemptable expects one argument, which is a job");
+        return m_manager->mk_func_decl(symbol("set-preemptable"), arity, domain, m_alist_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
     default: 
         UNREACHABLE(); return nullptr;        
     }    
@@ -121,6 +141,10 @@ void jobshop_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol 
         op_names.push_back(builtin_name("js-model", OP_JS_MODEL));
         op_names.push_back(builtin_name("kv", OP_AL_KV));
         op_names.push_back(builtin_name("alist", OP_AL_LIST));
+        op_names.push_back(builtin_name("add-job-resource", OP_JS_JOB_RESOURCE));
+        op_names.push_back(builtin_name("add-resource-available", OP_JS_RESOURCE_AVAILABLE));
+        op_names.push_back(builtin_name("set-preemptable", OP_JS_JOB_PREEMPTABLE));
+
     }
 }
 
@@ -201,3 +225,37 @@ bool jobshop_util::is_job(expr* e, unsigned& j) {
     return is_app_of(e, m_fid, OP_JS_JOB) && (j = job2id(e), true);
 }
 
+bool jobshop_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, uint64_t& start, uint64_t& end) {
+    if (!is_app_of(e, m_fid, OP_JS_RESOURCE_AVAILABLE)) return false;
+    res = to_app(e)->get_arg(0);
+    arith_util a(m);
+    rational r;
+    if (!a.is_numeral(to_app(e)->get_arg(1), r) || !r.is_unsigned()) return false;
+    loadpct = r.get_unsigned();
+    if (!a.is_numeral(to_app(e)->get_arg(2), r) || !r.is_uint64()) return false;
+    start = r.get_uint64();
+    if (!a.is_numeral(to_app(e)->get_arg(3), r) || !r.is_uint64()) return false;
+    end = r.get_uint64();
+    return true;
+}
+
+bool jobshop_util::is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end) {
+    if (!is_app_of(e, m_fid, OP_JS_JOB_RESOURCE)) return false;
+    job = to_app(e)->get_arg(0);
+    res = to_app(e)->get_arg(1);
+    arith_util a(m);
+    rational r;
+    if (!a.is_numeral(to_app(e)->get_arg(2), r) || !r.is_unsigned()) return false;
+    loadpct = r.get_unsigned();
+    if (!a.is_numeral(to_app(e)->get_arg(3), r) || !r.is_uint64()) return false;
+    capacity = r.get_uint64();
+    if (!a.is_numeral(to_app(e)->get_arg(4), r) || !r.is_uint64()) return false;
+    end = r.get_uint64();
+    return true;
+}
+
+bool jobshop_util::is_set_preemptable(expr* e, expr *& job) {
+    if (!is_app_of(e, m_fid, OP_JS_JOB_PREEMPTABLE)) return false;
+    job = to_app(e)->get_arg(0);
+    return true;
+}

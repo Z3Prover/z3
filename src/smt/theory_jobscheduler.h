@@ -36,11 +36,11 @@ namespace smt {
 
         struct job_resource {
             unsigned m_resource_id;   // id of resource
-            unsigned m_capacity;      // amount of resource to use
+            time_t   m_capacity;      // amount of resource to use
             unsigned m_loadpct;       // assuming loadpct
             time_t   m_end;           // must run before
             properties m_properties;
-            job_resource(unsigned r, unsigned cap, unsigned loadpct, time_t end, properties const& ps):
+            job_resource(unsigned r, time_t cap, unsigned loadpct, time_t end, properties const& ps):
                 m_resource_id(r), m_capacity(cap), m_loadpct(loadpct), m_end(end), m_properties(ps) {}
         };
 
@@ -60,10 +60,11 @@ namespace smt {
             bool                 m_is_preemptable; // can job be pre-empted
             vector<job_resource> m_resources; // resources allowed to run job.
             u_map<unsigned>      m_resource2index; // resource to index into vector 
+            enode*               m_job;
             enode*               m_start;
             enode*               m_end;
             enode*               m_job2resource;
-            job_info(): m_is_preemptable(false), m_start(nullptr), m_end(nullptr), m_job2resource(nullptr) {}
+            job_info(): m_is_preemptable(false), m_job(nullptr), m_start(nullptr), m_end(nullptr), m_job2resource(nullptr) {}
         };
 
         struct res_available {
@@ -95,7 +96,6 @@ namespace smt {
         ast_manager&     m;
         jobshop_util     u;
         arith_util       a;
-        unsigned_vector  m_var2index;
         vector<job_info> m_jobs;
         vector<res_info> m_resources;
         
@@ -133,6 +133,8 @@ namespace smt {
         
         void collect_statistics(::statistics & st) const override;
 
+        bool include_func_interp(func_decl* f) override;
+
         void init_model(model_generator & m) override;
 
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
@@ -144,7 +146,7 @@ namespace smt {
     public:
         // set up job/resource global constraints
         void set_preemptable(unsigned j, bool is_preemptable);
-        void add_job_resource(unsigned j, unsigned r, unsigned cap, unsigned loadpct, time_t end, properties const& ps);
+        void add_job_resource(unsigned j, unsigned r, unsigned loadpct, time_t cap, time_t end, properties const& ps);
         void add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end, properties const& ps);
         void add_done();
 
@@ -184,6 +186,12 @@ namespace smt {
         bool constrain_end_time_interval(unsigned j, unsigned r);
         bool constrain_resource_energy(unsigned r);
 
+        void assert_last_end_time(unsigned j, unsigned r, job_resource const& jr, literal eq);
+        void assert_last_start_time(unsigned j, unsigned r, literal eq);
+        void assert_first_start_time(unsigned j, unsigned r, literal eq);
+        void assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, literal eq);
+        void assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, literal eq);
+
         void block_job_overlap(unsigned r, uint_set const& jobs, unsigned last_job);
 
         class job_overlap {
@@ -198,14 +206,16 @@ namespace smt {
         };
 
         // term builders
-        literal mk_ge_lit(expr* e, time_t t);
-        expr* mk_ge(expr* e, time_t t);
-        expr* mk_ge(enode* e, time_t t);
-        literal mk_le_lit(expr* e, time_t t);
-        expr* mk_le(expr* e, time_t t);
-        expr* mk_le(enode* e, time_t t);
+        literal mk_ge(expr* e, time_t t);
+        expr* mk_ge_expr(expr* e, time_t t);
+        literal mk_ge(enode* e, time_t t);
+        literal mk_le(expr* e, time_t t);
+        expr* mk_le_expr(expr* e, time_t t);
+        literal mk_le(enode* e, time_t t);
         literal mk_le(enode* l, enode* r);
         literal mk_literal(expr* e);
+        literal mk_eq_lit(enode * l, enode * r) { return mk_eq_lit(l->get_owner(), r->get_owner()); }
+        literal mk_eq_lit(expr * l, expr * r);
 
         void internalize_cmd(expr* cmd);
         void unrecognized_argument(expr* arg) { invalid_argument("unrecognized argument ", arg); }
