@@ -395,6 +395,7 @@ class theory_lra::imp {
     void ensure_nra() {
         if (!m_nra) {
             m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
+            m_switcher.m_nra = &m_nra;
             for (auto const& _s : m_scopes) {
                 (void)_s;
                 m_nra->push();
