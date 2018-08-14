@@ -25,10 +25,10 @@ namespace niil {
 typedef nra::mon_eq mon_eq;
 
 struct solver::imp {
-
-    vector<mon_eq>         m_monomials;
-    unsigned_vector        m_monomials_lim;
-    lp::lar_solver&        m_lar_solver;
+    vector<mon_eq>                                         m_monomials;
+    unsigned_vector                                        m_monomials_lim;
+    lp::lar_solver&                                        m_lar_solver;
+    std::unordered_map<lp::var_index, svector<unsigned>>   m_var_to_monomials;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
         : m_lar_solver(s)
         // m_limit(lim),
@@ -58,8 +58,62 @@ struct solver::imp {
         }
         return r == model_val;
     }
+
+    bool generate_basic_lemma_for_mon_sign(const mon_eq& m, lemma& l) {
+        return false;
+    }
+
+    bool generate_basic_lemma_for_mon_zero(const mon_eq& m, lemma& l) {
+        return false;
+    }
+
+    bool generate_basic_lemma_for_mon_neutral(const mon_eq& m, lemma& l) {
+        return false;
+    }
+
+    bool generate_basic_lemma_for_mon_proportionality(const mon_eq& m, lemma& l) {
+        return false;
+    }
+
+    bool generate_basic_lemma_for_mon(const mon_eq& m, lemma & l) {
+        return generate_basic_lemma_for_mon_sign(m, l)
+            || generate_basic_lemma_for_mon_zero(m, l)
+            || generate_basic_lemma_for_mon_neutral(m, l)
+            || generate_basic_lemma_for_mon_proportionality(m, l);
+    }
+
+    bool generate_basic_lemma(lemma & l, svector<unsigned> & to_refine) {
+        for (unsigned i : to_refine)
+            if (generate_basic_lemma_for_mon(m_monomials[i], l))
+                return true;
+        return false;
+    }
+
+    void map_monominals_vars(unsigned i) {
+        const mon_eq& m = m_monomials[i];
+        for (lp::var_index j : m.m_vs) {
+            auto it = m_var_to_monomials.find(j);
+            if (it == m_var_to_monomials.end()) {
+                auto vect = svector<unsigned>();
+                vect.push_back(i);
+                m_var_to_monomials[j] = vect;
+            }
+            else {
+                it->second.push_back(i);
+            }
+        }
+    }
     
-    lbool check(lemma& ) {
+    void map_var_to_monomials() {
+        for (unsigned i = 0; i < m_monomials.size(); i++)
+            map_monominals_vars(i);
+    }
+    
+    void init_search() {
+        map_var_to_monomials();
+    }
+    
+    lbool check(lemma& l) {
         lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
         svector<unsigned> to_refine;
         for (unsigned i = 0; i < m_monomials.size(); i++) {
@@ -68,6 +122,11 @@ struct solver::imp {
         }
         std::cout << "to_refine size = " << to_refine.size() << std::endl;
         if (to_refine.size() == 0)
+            return l_true;
+
+        init_search();
+        
+        if (generate_basic_lemma(l, to_refine))
             return l_true;
         
         return l_undef;
