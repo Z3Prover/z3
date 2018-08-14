@@ -39,6 +39,7 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
     case GE: return std::string(">=");
     case GT: return std::string(">");
     case EQ: return std::string("=");
+    case NE: return std::string("!=");
     }
     lp_unreachable();
     return std::string(); // it is unreachable

@@ -39,6 +39,7 @@ inline std::ostream& operator<<(std::ostream& out, lconstraint_kind k) {
     case GE: return out << ">=";
     case GT: return out << ">";
     case EQ: return out << "=";
+    case NE: return out << "!=";
     }
     return out << "??";
 }
