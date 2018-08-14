@@ -140,40 +140,6 @@ public:
     bool is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end); 
     bool is_set_preemptable(expr* e, expr *& job);
 
-    // alist features
-    app* mk_kv(symbol const& key, rational const& r) { 
-        parameter ps[2] = { parameter(key), parameter(r) };
-        return m.mk_const(m.mk_func_decl(m_fid, OP_AL_KV, 2, ps, 0, (sort*const*)nullptr, nullptr)); 
-    }
-    app* mk_kv(symbol const& key, symbol const& val) {
-        parameter ps[2] = { parameter(key), parameter(val) };
-        return m.mk_const(m.mk_func_decl(m_fid, OP_AL_KV, 2, ps, 0, (sort*const*)nullptr, nullptr)); 
-    }
-    app* mk_alist(symbol const& key, unsigned n, expr* const* args) {
-        parameter p(key);
-        return m.mk_app(m.mk_func_decl(m_fid, OP_AL_LIST, 1, &p, n, args, nullptr), n, args);
-
-    }
-    bool is_kv(expr* e, symbol& key, rational& r) {
-        return 
-            (is_app_of(e, m_fid, OP_AL_KV) && 
-             to_app(e)->get_decl()->get_num_parameters() == 2 &&
-             to_app(e)->get_decl()->get_parameter(1).is_rational() && 
-             (r = to_app(e)->get_decl()->get_parameter(1).get_rational(), key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true)) ||
-            (is_app_of(e, m_fid, OP_AL_KV) && 
-             to_app(e)->get_decl()->get_num_parameters() == 2 &&
-             to_app(e)->get_decl()->get_parameter(1).is_int() && 
-             (r = rational(to_app(e)->get_decl()->get_parameter(1).get_int()), key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true));
-
-
-    }
-    bool is_kv(expr* e, symbol& key, symbol& s) {
-        return is_app_of(e, m_fid, OP_AL_KV) && 
-            to_app(e)->get_decl()->get_num_parameters() == 2 &&
-            to_app(e)->get_decl()->get_parameter(1).is_symbol() && 
-            (s = to_app(e)->get_decl()->get_parameter(1).get_symbol(), key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true);
-    }
-
     bool is_model(expr* e) const { return is_app_of(e, m_fid, OP_JS_MODEL); }
     bool is_alist(expr* e) const { return is_app_of(e, m_fid, OP_AL_LIST); }
     bool is_alist(expr* e, symbol& key) const { 
@@ -183,5 +149,4 @@ public:
             (key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true); 
     }
 
-    // app* mk_model(unsigned n, expr* const* alist);
 };

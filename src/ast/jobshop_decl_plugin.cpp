@@ -57,23 +57,23 @@ func_decl * jobshop_decl_plugin::mk_func_decl(
     case OP_JS_JOB:       
         check_arity(arity);
         check_index1(num_parameters, parameters);
-        return m_manager->mk_func_decl(symbol("job"), 0, (sort* const*)nullptr, m_job_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+        return m_manager->mk_func_decl(symbol("job"), arity, domain, m_job_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_JS_RESOURCE:
         check_arity(arity);
         check_index1(num_parameters, parameters);
-        return m_manager->mk_func_decl(symbol("resource"), 0, (sort* const*)nullptr, m_resource_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+        return m_manager->mk_func_decl(symbol("resource"), arity, domain, m_resource_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_JS_START:
-        check_arity(arity);
-        check_index1(num_parameters, parameters);
-        return m_manager->mk_func_decl(symbol("job-start"), 0, (sort* const*)nullptr, m_int_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+        if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("start expects a job argument");
+        if (num_parameters > 0) m_manager->raise_exception("no parameters");
+        return m_manager->mk_func_decl(symbol("job-start"), arity, domain, m_int_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_JS_END:
-        check_arity(arity);
-        check_index1(num_parameters, parameters);
-        return m_manager->mk_func_decl(symbol("job-end"), 0, (sort* const*)nullptr, m_int_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+        if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("resource expects a job argument");
+        if (num_parameters > 0) m_manager->raise_exception("no parameters");
+        return m_manager->mk_func_decl(symbol("job-end"), arity, domain, m_int_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_JS_JOB2RESOURCE:
-        check_arity(arity);
-        check_index1(num_parameters, parameters);
-        return m_manager->mk_func_decl(symbol("job2resource"), 0, (sort* const*)nullptr, m_resource_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+        if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("job2resource expects a job argument");
+        if (num_parameters > 0) m_manager->raise_exception("no parameters");
+        return m_manager->mk_func_decl(symbol("job2resource"), arity, domain, m_resource_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
 
 
     case OP_JS_MODEL:
@@ -185,11 +185,13 @@ app* jobshop_util::mk_job(unsigned j) {
 }
 
 unsigned jobshop_util::job2id(expr* j) {
-    SASSERT(is_app_of(j, m_fid, OP_JS_JOB) || 
-            is_app_of(j, m_fid, OP_JS_START) || 
+    if (is_app_of(j, m_fid, OP_JS_JOB)) {
+        return to_app(j)->get_decl()->get_parameter(0).get_int();
+    }
+    SASSERT(is_app_of(j, m_fid, OP_JS_START) || 
             is_app_of(j, m_fid, OP_JS_END) ||
             is_app_of(j, m_fid, OP_JS_JOB2RESOURCE));
-    return to_app(j)->get_decl()->get_parameter(0).get_int();
+    return job2id(to_app(j)->get_arg(0));
 }
 
 app* jobshop_util::mk_resource(unsigned r) {
@@ -203,18 +205,21 @@ unsigned jobshop_util::resource2id(expr* r) {
 }
 
 app* jobshop_util::mk_start(unsigned j) { 
-    parameter p(j);
-    return m.mk_const(m.mk_func_decl(m_fid, OP_JS_START, 1, &p, 0, (sort*const*)nullptr, nullptr));
+    app_ref job(mk_job(j), m);
+    sort* js = m.get_sort(job);
+    return m.mk_app(m.mk_func_decl(m_fid, OP_JS_START, 0, nullptr, 1, &js, nullptr), job);
 }
-
-app* jobshop_util::mk_end(unsigned j) { 
-    parameter p(j);
-    return m.mk_const(m.mk_func_decl(m_fid, OP_JS_END, 1, &p, 0, (sort*const*)nullptr, nullptr));
+        
+app* jobshop_util::mk_end(unsigned j) {    
+    app_ref job(mk_job(j), m);
+    sort* js = m.get_sort(job);
+    return m.mk_app(m.mk_func_decl(m_fid, OP_JS_END, 0, nullptr, 1, &js, nullptr), job);
 }
 
 app* jobshop_util::mk_job2resource(unsigned j) { 
-    parameter p(j);
-    return m.mk_const(m.mk_func_decl(m_fid, OP_JS_JOB2RESOURCE, 1, &p, 0, (sort*const*)nullptr, nullptr));
+    app_ref job(mk_job(j), m);
+    sort* js = m.get_sort(job);
+    return m.mk_app(m.mk_func_decl(m_fid, OP_JS_JOB2RESOURCE, 0, nullptr, 1, &js, nullptr), job);
 }
 
 bool jobshop_util::is_resource(expr* e, unsigned& r) {

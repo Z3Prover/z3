@@ -161,7 +161,6 @@ namespace smt {
         time_t get_up(expr* e);
         time_t get_value(expr* e);
         unsigned resource(unsigned j); // resource of job j
-        enode* resource2enode(unsigned r);
 
         // derived bounds
         time_t ect(unsigned j, unsigned r, time_t start);

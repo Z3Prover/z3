@@ -240,7 +240,7 @@ namespace smt {
             if (ctx.get_assignment(start_ge_lo) != l_true) {
                 return;
             }
-            enode_pair eq(ji.m_job2resource, resource2enode(r));
+            enode_pair eq(ji.m_job2resource, m_resources[r].m_resource);
             if (eq.first->get_root() != eq.second->get_root()) {
                 return;
             }
@@ -528,10 +528,6 @@ namespace smt {
         return 0;
     }
 
-    enode* theory_jobscheduler::resource2enode(unsigned r) {
-        return get_context().get_enode(u.mk_resource(r));
-    }
-
     void theory_jobscheduler::set_preemptable(unsigned j, bool is_preemptable) {
         m_jobs.reserve(j + 1);
         m_jobs[j].m_is_preemptable = is_preemptable;        
@@ -610,7 +606,6 @@ namespace smt {
         for (unsigned j = 0; j < m_jobs.size(); ++j) {
             job_info const& ji = m_jobs[j];
             literal_vector disj;
-            app_ref job(u.mk_job(j), m);
             if (ji.m_resources.empty()) {
                 throw default_exception("every job should be associated with at least one resource");
             }
