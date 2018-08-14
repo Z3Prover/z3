@@ -64,7 +64,8 @@ namespace smt {
             enode*               m_start;
             enode*               m_end;
             enode*               m_job2resource;
-            job_info(): m_is_preemptable(false), m_job(nullptr), m_start(nullptr), m_end(nullptr), m_job2resource(nullptr) {}
+            bool                 m_is_bound;
+            job_info(): m_is_preemptable(false), m_job(nullptr), m_start(nullptr), m_end(nullptr), m_job2resource(nullptr), m_is_bound(false)  {}
         };
 
         struct res_available {
@@ -98,6 +99,13 @@ namespace smt {
         arith_util       a;
         vector<job_info> m_jobs;
         vector<res_info> m_resources;
+        unsigned_vector  m_bound_jobs;
+        unsigned         m_bound_qhead;
+        struct scope {
+            unsigned m_bound_jobs_lim;
+            unsigned m_bound_qhead;
+        };
+        svector<scope> m_scopes;
         
     protected:
 
@@ -109,9 +117,9 @@ namespace smt {
 
         void assign_eh(bool_var v, bool is_true) override {}
 
-        void new_eq_eh(theory_var v1, theory_var v2) override {}
+        void new_eq_eh(theory_var v1, theory_var v2) override;
 
-        void new_diseq_eh(theory_var v1, theory_var v2) override {}
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
 
         void push_scope_eh() override;
 
@@ -180,10 +188,12 @@ namespace smt {
         // propagation
         void propagate_end_time(unsigned j, unsigned r);
         void propagate_resource_energy(unsigned r);
+        void propagate_job2resource(unsigned j, unsigned r);
 
         // final check constraints
         bool constrain_end_time_interval(unsigned j, unsigned r);
         bool constrain_resource_energy(unsigned r);
+        bool split_job2resource(unsigned j);
 
         void assert_last_end_time(unsigned j, unsigned r, job_resource const& jr, literal eq);
         void assert_last_start_time(unsigned j, unsigned r, literal eq);

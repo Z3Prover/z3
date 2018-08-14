@@ -241,6 +241,10 @@ bool csp_util::is_job(expr* e, unsigned& j) {
     return is_app_of(e, m_fid, OP_JS_JOB) && (j = job2id(e), true);
 }
 
+bool csp_util::is_job2resource(expr* e, unsigned& j) {
+    return is_app_of(e, m_fid, OP_JS_JOB2RESOURCE) && (j = job2id(e), true);
+}
+
 bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, uint64_t& start, uint64_t& end) {
     if (!is_app_of(e, m_fid, OP_JS_RESOURCE_AVAILABLE)) return false;
     res = to_app(e)->get_arg(0);

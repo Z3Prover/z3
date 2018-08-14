@@ -114,15 +114,57 @@ namespace smt {
         throw default_exception(strm.str());
     }
 
+    void theory_jobscheduler::new_eq_eh(theory_var v1, theory_var v2) {
+        enode* e1 = get_enode(v1);
+        enode* e2 = get_enode(v2);
+        enode* root = e1->get_root();
+        unsigned r;
+        if (u.is_resource(root->get_owner(), r)) {
+            enode* next = e1;
+            do {
+                unsigned j;
+                if (u.is_job2resource(next->get_owner(), j) && !m_jobs[j].m_is_bound) {
+                    m_bound_jobs.push_back(j);
+                    m_jobs[j].m_is_bound = true;
+                }
+                next = next->get_next();
+            }
+            while (e1 != next);
+        }
+    }
+
+
+    void theory_jobscheduler::new_diseq_eh(theory_var v1, theory_var v2) {
+
+    }
+
     void theory_jobscheduler::push_scope_eh() {
+        scope s;
+        s.m_bound_jobs_lim = m_bound_jobs.size();
+        s.m_bound_qhead = m_bound_qhead;
+        m_scopes.push_back(s);
     }
 
     void theory_jobscheduler::pop_scope_eh(unsigned num_scopes) {
+        unsigned new_lvl = m_scopes.size() - num_scopes;
+        scope const& s = m_scopes[new_lvl];
+        for (unsigned i = s.m_bound_jobs_lim; i < m_bound_jobs.size(); ++i) {
+            unsigned j = m_bound_jobs[i];
+            m_jobs[j].m_is_bound = false;
+        }
+        m_bound_jobs.shrink(s.m_bound_jobs_lim);
+        m_bound_qhead = s.m_bound_qhead;
+        m_scopes.shrink(new_lvl);
     }
 
     final_check_status theory_jobscheduler::final_check_eh() {
         TRACE("csp", tout << "\n";);
         bool blocked = false;
+        for (unsigned j = 0; j < m_jobs.size(); ++j) {
+            if (split_job2resource(j)) {
+                return FC_CONTINUE;
+            }
+        }
         for (unsigned r = 0; r < m_resources.size(); ++r) {
             if (constrain_resource_energy(r)) {
                 blocked = true;
@@ -139,7 +181,7 @@ namespace smt {
     }
 
     bool theory_jobscheduler::can_propagate() {
-        return false;
+        return m_bound_qhead < m_bound_jobs.size();
     }
 
     literal theory_jobscheduler::mk_literal(expr * e) {
@@ -387,19 +429,40 @@ namespace smt {
     }
 
     void theory_jobscheduler::propagate() {
-        return;
-        for (unsigned j = 0; j < m_jobs.size(); ++j) {
+        while (m_bound_qhead < m_bound_jobs.size()) {
+            unsigned j = m_bound_jobs[m_bound_qhead++];
+            unsigned r = 0;
             job_info const& ji = m_jobs[j];
-            unsigned r = resource(j);
-            propagate_end_time(j, r);
+            VERIFY(u.is_resource(ji.m_job2resource->get_root()->get_owner(), r));
+            TRACE("csp", tout << "job: " << j << " resource: " << r << "\n";);
+            propagate_job2resource(j, r);
         }
-        for (unsigned r = 0; r < m_resources.size(); ++r) {
-            // TBD: check energy constraints on resources.
+    }
+
+    void theory_jobscheduler::propagate_job2resource(unsigned j, unsigned r) {
+        job_info const& ji = m_jobs[j];
+        res_info const& ri = m_resources[r];
+        job_resource const& jr = get_job_resource(j, r);
+        literal eq = mk_eq_lit(ji.m_job2resource, ri.m_resource);
+        assert_last_end_time(j, r, jr, eq);
+        assert_last_start_time(j, r, eq);
+        assert_first_start_time(j, r, eq);
+        vector<res_available> const& available = ri.m_available;
+        for (unsigned i = 0; i + 1 < available.size(); ++i) {
+            SASSERT(available[i].m_end < available[i + 1].m_start);
+            assert_job_not_in_gap(j, r, i, eq);            
+            if (!ji.m_is_preemptable && available[i].m_end + 1 < available[i+1].m_start) {
+                assert_job_non_preemptable(j, r, i, eq);
+            }
         }
     }
         
     theory_jobscheduler::theory_jobscheduler(ast_manager& m): 
-        theory(m.get_family_id("csp")), m(m), u(m), a(m) {
+        theory(m.get_family_id("csp")), 
+        m(m), 
+        u(m), 
+        a(m), 
+        m_bound_qhead(0) {
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_resource const& jr) const {
@@ -593,8 +656,7 @@ namespace smt {
         context & ctx = get_context();
         
         // sort availability intervals
-        for (unsigned r = 0; r < m_resources.size(); ++r) {
-            res_info& ri = m_resources[r];
+        for (res_info& ri : m_resources) {
             vector<res_available>& available = ri.m_available;
             res_available::compare cmp;
             std::sort(available.begin(), available.end(), cmp);
@@ -603,9 +665,7 @@ namespace smt {
         expr_ref fml(m);
         literal lit, l1, l2, l3;
 
-        for (unsigned j = 0; j < m_jobs.size(); ++j) {
-            job_info const& ji = m_jobs[j];
-            literal_vector disj;
+        for (job_info const& ji : m_jobs) {
             if (ji.m_resources.empty()) {
                 throw default_exception("every job should be associated with at least one resource");
             }
@@ -617,21 +677,15 @@ namespace smt {
             time_t start_lb = std::numeric_limits<time_t>::max();
             time_t end_ub = 0;
             for (job_resource const& jr : ji.m_resources) {
-                // resource(j) = r => end(j) <= end(j, r)
-                // resource(j) = r => start(j) <= lst(j, r, end(j, r))
                 unsigned r = jr.m_resource_id;
                 res_info const& ri = m_resources[r];
-                enode* j2r = m_jobs[j].m_job2resource;
-                literal eq = mk_eq_lit(j2r, ri.m_resource);
-                assert_last_end_time(j, r, jr, eq);
-                assert_last_start_time(j, r, eq);
-                disj.push_back(eq);
+                // literal eq = mk_eq_lit(ji.m_job2resource, ri.m_resource);
+                // disj.push_back(eq);
                 start_lb = std::min(start_lb, ri.m_available[0].m_start);
-                end_ub = std::max(end_ub, ri.m_available.back().m_end);
-
+                end_ub   = std::max(end_ub, ri.m_available.back().m_end);
             }
             // resource(j) = r1 || ... || resource(j) = r_n
-            ctx.mk_th_axiom(get_id(), disj.size(), disj.c_ptr());
+            // ctx.mk_th_axiom(get_id(), disj.size(), disj.c_ptr());
 
             // start(j) >= start_lb
             lit = mk_ge(ji.m_start, start_lb);
@@ -641,44 +695,18 @@ namespace smt {
             lit = mk_le(ji.m_end, end_ub);
             ctx.mk_th_axiom(get_id(), 1, &lit);
         }        
-        for (unsigned r = 0; r < m_resources.size(); ++r) {
-            res_info& ri = m_resources[r];
-            vector<res_available>& available = ri.m_available;
-            if (available.empty()) continue;
-            enode* res = m_resources[r].m_resource;
-            for (unsigned j : ri.m_jobs) {
-                // resource(j) == r => start(j) >= available[0].m_start;
-                enode* j2r = m_jobs[j].m_job2resource;
-                assert_first_start_time(j, r, mk_eq_lit(j2r, res));
-            }
-            for (unsigned i = 0; i + 1 < available.size(); ++i) {
-                if (available[i].m_end > available[i + 1].m_start) {
-                    throw default_exception("availability intervals should be disjoint");
-                }
-                for (unsigned j : ri.m_jobs) {
-                    // jobs start within an interval.
-                    // resource(j) == r => start(j) <= available[i].m_end || start(j) >= available[i + 1].m_start;
-                    enode* j2r = m_jobs[j].m_job2resource;
-                    literal eq = mk_eq_lit(j2r, res);
-                    assert_job_not_in_gap(j, r, i, eq);
-
-                    // if job is not pre-emptable, start and end have to align within contiguous interval.
-                    // resource(j) == r => end(j) <= available[i].m_end || start(j) >= available[i + 1].m_start
-                    if (!m_jobs[j].m_is_preemptable && available[i].m_end + 1 < available[i+1].m_start) {
-                        assert_job_non_preemptable(j, r, i, eq);
-                    }
-                }
-            }
-        }
+        
         TRACE("csp", tout << "add-done end\n";);
     }
 
+    // resource(j) = r => end(j) <= end(j, r)
     void theory_jobscheduler::assert_last_end_time(unsigned j, unsigned r, job_resource const& jr, literal eq) {
         job_info const& ji = m_jobs[j];
         literal l2 = mk_le(ji.m_end, jr.m_end);
         get_context().mk_th_axiom(get_id(), ~eq, l2);
     }
 
+    // resource(j) = r => start(j) <= lst(j, r, end(j, r))
     void theory_jobscheduler::assert_last_start_time(unsigned j, unsigned r, literal eq) {
         context& ctx = get_context();
         time_t t;
@@ -691,12 +719,14 @@ namespace smt {
         }
     }
 
+    // resource(j) = r => start(j) >= avaialble[0].m_start
     void theory_jobscheduler::assert_first_start_time(unsigned j, unsigned r, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;
         literal l2 = mk_ge(m_jobs[j].m_start, available[0].m_start);
         get_context().mk_th_axiom(get_id(), ~eq, l2);
     }
 
+    // resource(j) = r => start[idx] <= end(j)  || start(j) <= start[idx+1];
     void theory_jobscheduler::assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;        
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx + 1].m_start);
@@ -704,14 +734,45 @@ namespace smt {
         get_context().mk_th_axiom(get_id(), ~eq, l2, l3);        
     }
 
+    // resource(j) = r => end(j) <= end[idx] || start(j) >= start[idx+1];
     void theory_jobscheduler::assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;        
         literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
         literal l3 = mk_ge(m_jobs[j].m_start, available[idx + 1].m_start);
         get_context().mk_th_axiom(get_id(), ~eq, l2, l3);
-    }
+    }    
 
-    
+    bool theory_jobscheduler::split_job2resource(unsigned j) {
+        job_info const& ji = m_jobs[j];
+        context& ctx = get_context();
+        if (ji.m_is_bound) return false;
+        auto const& jrs = ji.m_resources;
+        for (job_resource const& jr : jrs) {
+            unsigned r = jr.m_resource_id;
+            res_info const& ri = m_resources[r];
+            enode* e1 = ji.m_job2resource;
+            enode* e2 = ri.m_resource;
+            if (ctx.is_diseq(e1, e2))
+                continue;
+            literal eq = mk_eq_lit(e1, e2);
+            if (ctx.get_assignment(eq) != l_false) {
+                ctx.mark_as_relevant(eq);
+                if (assume_eq(e1, e2)) {
+                    return true;
+                }
+            }
+        }
+        literal_vector lits;
+        for (job_resource const& jr : jrs) {
+            unsigned r = jr.m_resource_id;
+            res_info const& ri = m_resources[r];
+            enode* e1 = ji.m_job2resource;
+            enode* e2 = ri.m_resource;
+            lits.push_back(mk_eq_lit(e1, e2));
+        }
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        return true;
+    }
 
     /**
      * check that each job is run on some resource according to 
@@ -883,7 +944,6 @@ namespace smt {
                 cap -= delta;
             }
             if (cap == 0) {
-                std::cout << "start " << start << "\n";
                 return true;
             }
         }

@@ -124,6 +124,7 @@ public:
 
     app* mk_job(unsigned j);
     bool is_job(expr* e, unsigned& j);
+    bool is_job2resource(expr* e, unsigned& j);
     unsigned job2id(expr* j);
 
     app* mk_resource(unsigned r);
