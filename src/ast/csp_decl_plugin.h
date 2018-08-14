@@ -3,7 +3,7 @@ Copyright (c) 2018 Microsoft Corporation
 
 Module Name:
 
-    jobshop_decl_plugin.h
+    csp_decl_plugin.h
 
 Abstract:
 
@@ -81,18 +81,16 @@ enum js_op_kind {
     OP_JS_MODEL,             // jobscheduler model
     OP_JS_JOB_RESOURCE,
     OP_JS_JOB_PREEMPTABLE,
-    OP_JS_RESOURCE_AVAILABLE, 
-    OP_AL_KV,                // key-value pair
-    OP_AL_LIST               // tagged list
+    OP_JS_RESOURCE_AVAILABLE
 };
 
-class jobshop_decl_plugin : public decl_plugin {
+class csp_decl_plugin : public decl_plugin {
 public:
-    jobshop_decl_plugin() {}
-    ~jobshop_decl_plugin() override {}
+    csp_decl_plugin() {}
+    ~csp_decl_plugin() override {}
     void finalize() override;
     void set_manager(ast_manager* m, family_id fid) override;
-    decl_plugin * mk_fresh() override { return alloc(jobshop_decl_plugin); }
+    decl_plugin * mk_fresh() override { return alloc(csp_decl_plugin); }
     sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
     func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range) override;	
@@ -115,12 +113,12 @@ private:
     void check_index2(unsigned n, parameter const* ps);
 };
 
-class jobshop_util {
+class csp_util {
     ast_manager&         m;
     family_id            m_fid;
-    jobshop_decl_plugin* m_plugin;
+    csp_decl_plugin* m_plugin;
 public:
-    jobshop_util(ast_manager& m);
+    csp_util(ast_manager& m);
     sort* mk_job_sort();
     sort* mk_resource_sort();
 
@@ -141,12 +139,5 @@ public:
     bool is_set_preemptable(expr* e, expr *& job);
 
     bool is_model(expr* e) const { return is_app_of(e, m_fid, OP_JS_MODEL); }
-    bool is_alist(expr* e) const { return is_app_of(e, m_fid, OP_AL_LIST); }
-    bool is_alist(expr* e, symbol& key) const { 
-        return is_alist(e) && 
-            to_app(e)->get_decl()->get_num_parameters() == 1 && 
-            to_app(e)->get_decl()->get_parameter(0).is_symbol() && 
-            (key = to_app(e)->get_decl()->get_parameter(0).get_symbol(), true); 
-    }
 
 };

@@ -21,7 +21,7 @@ Revision History:
 #pragma once;
 
 #include "util/uint_set.h"
-#include "ast/jobshop_decl_plugin.h"
+#include "ast/csp_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "smt/smt_theory.h"
 
@@ -94,7 +94,7 @@ namespace smt {
         };
         
         ast_manager&     m;
-        jobshop_util     u;
+        csp_util         u;
         arith_util       a;
         vector<job_info> m_jobs;
         vector<res_info> m_resources;

@@ -14,6 +14,7 @@ z3_add_component(ast
     ast_translation.cpp
     ast_util.cpp
     bv_decl_plugin.cpp
+    csp_decl_plugin.cpp
     datatype_decl_plugin.cpp
     decl_collector.cpp
     dl_decl_plugin.cpp
@@ -30,7 +31,6 @@ z3_add_component(ast
     fpa_decl_plugin.cpp
     func_decl_dependencies.cpp
     has_free_vars.cpp
-    jobshop_decl_plugin.cpp
     macro_substitution.cpp
     num_occurs.cpp
     occurs.cpp
