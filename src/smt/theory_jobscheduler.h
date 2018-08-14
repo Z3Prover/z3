@@ -187,12 +187,13 @@ namespace smt {
         void block_job_overlap(unsigned r, uint_set const& jobs, unsigned last_job);
 
         class job_overlap {
+            time_t m_start;
             vector<job_time> & m_starts, &m_ends;
             unsigned s_idx, e_idx; // index into starts/ends
             uint_set m_jobs;
         public:
             job_overlap(vector<job_time>& starts, vector<job_time>& ends);
-            bool next(time_t& start);
+            bool next();
             uint_set const& jobs() const { return m_jobs; }
         };
 
@@ -207,6 +208,8 @@ namespace smt {
         literal mk_literal(expr* e);
 
         void internalize_cmd(expr* cmd);
+        void unrecognized_argument(expr* arg) { invalid_argument("unrecognized argument ", arg); }
+        void invalid_argument(char const* msg, expr* arg);
 
         std::ostream& display(std::ostream & out, res_info const& r) const;
         std::ostream& display(std::ostream & out, res_available const& r) const;

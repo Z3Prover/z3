@@ -44,6 +44,7 @@ Features:
 
 --*/
 
+#include "ast/ast_pp.h"
 #include "smt/theory_jobscheduler.h"
 #include "smt/smt_context.h"
 #include "smt/smt_arith_value.h"
@@ -100,6 +101,7 @@ namespace smt {
     }
 
     bool theory_jobscheduler::internalize_atom(app * atom, bool gate_ctx) {
+        TRACE("csp", tout << mk_pp(atom, m) << "\n";);
         SASSERT(u.is_model(atom));
         for (expr* arg : *atom) {
             internalize_cmd(arg);
@@ -112,75 +114,106 @@ namespace smt {
     void theory_jobscheduler::internalize_cmd(expr* cmd) {
         symbol key, val;
         rational r;
-        if (u.is_kv(cmd, key, r)) {
-            if (key == ":set-preemptable" && r.is_unsigned()) {
-                set_preemptable(r.get_unsigned(), true);
-                return;
-            }
-            warning_msg("command not recognized");
+        if (u.is_kv(cmd, key, r) && key == ":set-preemptable" && r.is_unsigned()) {
+            set_preemptable(r.get_unsigned(), true);
         }
         else if (u.is_alist(cmd, key) && key == ":add-job-resource") {
             properties ps;
             unsigned j = 0, res = 0, cap = 0, loadpct = 100;
             time_t end = std::numeric_limits<time_t>::max();
+            bool has_j = false, has_res = false, has_cap = false, has_load = false, has_end = false;
             for (expr* arg : *to_app(cmd)) {
                 if (u.is_kv(arg, key, r)) {
-                    if (key == ":job") {
+                    if (key == ":job"  && r.is_unsigned()) {
                         j = r.get_unsigned();
+                        has_j = true;
                     }
-                    else if (key == ":resource") {
+                    else if (key == ":resource" && r.is_unsigned()) {
                         res = r.get_unsigned();
+                        has_res = true;
                     }
-                    else if (key == ":capacity") {
+                    else if (key == ":capacity" && r.is_unsigned()) {
                         cap = r.get_unsigned();
+                        has_cap = true;
                     }
-                    else if (key == ":loadpct") {
+                    else if (key == ":loadpct" && r.is_unsigned()) {
                         loadpct = r.get_unsigned();
+                        has_load = true;
                     }
-                    else if (key == ":end") {
+                    else if (key == ":end" && r.is_uint64()) {
                         end = r.get_uint64();
+                        has_end = true;
+                    }
+                    else {
+                        unrecognized_argument(arg);
                     }
                 }
                 else if (u.is_alist(arg, key) && key == ":properties") {
                     // TBD
                 }
+                else {
+                    unrecognized_argument(arg);
+                }
             }
-            if (cap > 0) {
-                add_job_resource(j, res, cap, loadpct, end, ps);
-            }
-            else {
-                warning_msg("no job capacity provided");
-            }
+            if (!has_j) invalid_argument(":job argument expected ", cmd);
+            if (!has_res) invalid_argument(":resource argument expected ", cmd);
+            if (!has_cap) invalid_argument(":capacity argument expected ", cmd);
+            if (!has_load) invalid_argument(":loadpct argument expected ", cmd);
+            if (!has_end) invalid_argument(":end argument expected ", cmd);
+            if (cap == 0) invalid_argument(":capacity should be positive ", cmd);
+            add_job_resource(j, res, cap, loadpct, end, ps);
         }
         else if (u.is_alist(cmd, key) && key == ":add-resource-available") {
             properties ps;
             unsigned res = 0, loadpct = 100;
             time_t start = 0, end = 0;
+            bool has_start = false, has_res = false, has_load = false, has_end = false;
+
             for (expr* arg : *to_app(cmd)) {
                 if (u.is_kv(arg, key, r)) {
-                    if (key == ":resource") {
+                    if (key == ":resource" && r.is_unsigned()) {
                         res = r.get_unsigned();
+                        has_res = true;
                     }
-                    else if (key == ":start") {
-                        start = r.get_unsigned();
+                    else if (key == ":start" && r.is_uint64()) {
+                        start = r.get_uint64();
+                        has_start = true;
                     }
-                    else if (key == ":end") {
-                        end = r.get_unsigned();
+                    else if (key == ":end" && r.is_uint64()) {
+                        end = r.get_uint64();
+                        has_end = true;
                     }
-                    else if (key == ":loadpct") {
+                    else if (key == ":loadpct" && r.is_unsigned()) {
                         loadpct = r.get_unsigned();
+                        has_load = true;
+                    }
+                    else {
+                        unrecognized_argument(arg);
                     }
                 }
                 else if (u.is_alist(arg, key) && key == ":properties") {
                     // TBD
                 }
+                else {
+                    unrecognized_argument(arg);
+                }
+                if (!has_res) invalid_argument(":resource argument expected ", cmd);
+                if (!has_load) invalid_argument(":loadpct argument expected ", cmd);
+                if (!has_end) invalid_argument(":end argument expected ", cmd);
+                if (!has_start) invalid_argument(":start argument expected ", cmd);
                 add_resource_available(res, loadpct, start, end, ps);
             }
             
         }
         else {
-            warning_msg("command not recognized");
+            invalid_argument("command not recognized ", cmd);
         }
+    }
+
+    void theory_jobscheduler::invalid_argument(char const* msg, expr* arg) {
+        std::ostringstream strm;
+        strm << msg << mk_pp(arg, m);
+        throw default_exception(strm.str());
     }
 
     void theory_jobscheduler::push_scope_eh() {
@@ -256,29 +289,34 @@ namespace smt {
      * iterator of job overlaps.
      */
     theory_jobscheduler::job_overlap::job_overlap(vector<job_time>& starts, vector<job_time>& ends):
-        m_starts(starts), m_ends(ends), s_idx(0), e_idx(0) {
+        m_start(0), m_starts(starts), m_ends(ends), s_idx(0), e_idx(0) {
         job_time::compare cmp;
         std::sort(starts.begin(), starts.end(), cmp);
         std::sort(ends.begin(),   ends.end(),   cmp);        
     }
 
-    bool theory_jobscheduler::job_overlap::next(time_t& start) {
+    bool theory_jobscheduler::job_overlap::next() {
         if (s_idx == m_starts.size()) {
             return false;
         }
-        while (s_idx < m_starts.size() && m_starts[s_idx].m_time <= start) {
-            m_jobs.insert(m_starts[s_idx].m_job);
-            ++s_idx;
+        do {
+            m_start = std::max(m_start, m_starts[s_idx].m_time);
+                
+            // add jobs that start before or at m_start
+            while (s_idx < m_starts.size() && m_starts[s_idx].m_time <= m_start) {
+                m_jobs.insert(m_starts[s_idx].m_job);
+                ++s_idx;
+            }
+            // remove jobs that end before m_start.
+            while (e_idx < m_ends.size() && m_ends[s_idx].m_time < m_start) {
+                m_jobs.remove(m_ends[e_idx].m_job);
+                ++e_idx;
+            }   
         }
-        // remove jobs that end before start.
-        while (e_idx < m_ends.size() && m_ends[s_idx].m_time < start) {
-            m_jobs.remove(m_ends[e_idx].m_job);
-            ++e_idx;
-        }        
-        // TBD: check logic
-        if (s_idx < m_starts.size()) {
-            start = m_starts[s_idx].m_time;
-        }
+        // as long as set of jobs increments, add to m_start
+        while (s_idx < m_starts.size() && e_idx < m_ends.size() && 
+               m_starts[s_idx].m_time <= m_ends[e_idx].m_time);
+            
         return true;
     }
 
@@ -360,11 +398,13 @@ namespace smt {
             return false;
         }
         literal_vector lits;
-        lits.push_back(~mk_eq(u.mk_job2resource(j), u.mk_resource(r), false));
-        lits.push_back(~mk_ge_lit(u.mk_start(j), t0));
-        lits.push_back(~mk_le_lit(u.mk_start(j), t1));        
-        expr_ref rhs(a.mk_add(u.mk_start(j), a.mk_int(rational(delta, rational::ui64()))), m);
-        lits.push_back(mk_eq(u.mk_end(j), rhs, false));
+        expr* start_e = m_jobs[j].m_start->get_owner();
+        expr* end_e = m_jobs[j].m_end->get_owner();
+        lits.push_back(~mk_eq(m_jobs[j].m_job2resource->get_owner(), u.mk_resource(r), false));
+        lits.push_back(~mk_ge_lit(start_e, t0));
+        lits.push_back(~mk_le_lit(start_e, t1));        
+        expr_ref rhs(a.mk_add(start_e, a.mk_int(rational(delta, rational::ui64()))), m);
+        lits.push_back(mk_eq(end_e, rhs, false));
         context& ctx = get_context();
         ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
         return true;
@@ -388,8 +428,7 @@ namespace smt {
             }
         }
         job_overlap overlap(starts, ends);
-        time_t start = 0;
-        while (overlap.next(start)) {
+        while (overlap.next()) {
             unsigned cap = 0;
             auto const& jobs = overlap.jobs();
             for (auto j : jobs) {
@@ -478,6 +517,7 @@ namespace smt {
     }
 
     void theory_jobscheduler::display(std::ostream & out) const {
+        out << "jobscheduler:\n";
         for (unsigned j = 0; j < m_jobs.size(); ++j) {
             display(out << "job " << j << ":\n", m_jobs[j]);
         }
@@ -685,7 +725,7 @@ namespace smt {
                 // resource(j) == r => start(j) >= available[0].m_start;
                 app_ref job(u.mk_job(j), m);
                 expr_ref eq(m.mk_eq(job, res), m);
-                expr_ref ge(mk_ge(u.mk_start(j), available[0].m_start), m);
+                expr_ref ge(mk_ge(m_jobs[j].m_start, available[0].m_start), m);
                 expr_ref fml(m.mk_implies(eq, ge), m);
                 ctx.assert_expr(fml);                
             }
@@ -698,16 +738,16 @@ namespace smt {
                     // resource(j) == r => start(j) <= available[i].m_end || start(j) >= available[i + 1].m_start;
                     app_ref job(u.mk_job(j), m);
                     expr_ref eq(m.mk_eq(job, res), m);
-                    expr_ref ge(mk_ge(u.mk_start(j), available[i + 1].m_start), m);
-                    expr_ref le(mk_le(u.mk_start(j), available[i].m_end), m);
+                    expr_ref ge(mk_ge(m_jobs[j].m_start, available[i + 1].m_start), m);
+                    expr_ref le(mk_le(m_jobs[j].m_start, available[i].m_end), m);
                     fml = m.mk_implies(eq, m.mk_or(le, ge));
                     ctx.assert_expr(fml);                
 
                     // if job is not pre-emptable, start and end have to align within contiguous interval.
                     // resource(j) == r => end(j) <= available[i].m_end || start(j) >= available[i + 1].m_start
                     if (!m_jobs[j].m_is_preemptable && available[i].m_end + 1 < available[i+1].m_start) {
-                        le = mk_le(u.mk_end(j), available[i].m_end);
-                        ge = mk_ge(u.mk_start(j), available[i+1].m_start);
+                        le = mk_le(m_jobs[j].m_end, available[i].m_end);
+                        ge = mk_ge(m_jobs[j].m_start, available[i+1].m_start);
                         fml = m.mk_implies(eq, m.mk_or(le, ge));
                         ctx.assert_expr(fml);
                     }
@@ -742,9 +782,8 @@ namespace smt {
         for (unsigned r = 0; r < m_resources.size(); ++r) {
             // order jobs running on r by start, end-time intervals
             // then consume ordered list to find jobs in scope.
-            time_t start = 0;
             job_overlap overlap(start_times[r], end_times[r]);
-            while (overlap.next(start)) {
+            while (overlap.next()) {
                 // check that sum of job loads does not exceed 100%
                 unsigned cap = 0;
                 for (auto j : overlap.jobs()) {
