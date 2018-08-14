@@ -197,13 +197,12 @@ namespace smt {
                 else {
                     unrecognized_argument(arg);
                 }
-                if (!has_res) invalid_argument(":resource argument expected ", cmd);
-                if (!has_load) invalid_argument(":loadpct argument expected ", cmd);
-                if (!has_end) invalid_argument(":end argument expected ", cmd);
-                if (!has_start) invalid_argument(":start argument expected ", cmd);
-                add_resource_available(res, loadpct, start, end, ps);
             }
-            
+            if (!has_res) invalid_argument(":resource argument expected ", cmd);
+            if (!has_load) invalid_argument(":loadpct argument expected ", cmd);
+            if (!has_end) invalid_argument(":end argument expected ", cmd);
+            if (!has_start) invalid_argument(":start argument expected ", cmd);
+            add_resource_available(res, loadpct, start, end, ps);            
         }
         else {
             invalid_argument("command not recognized ", cmd);
