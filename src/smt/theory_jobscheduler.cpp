@@ -19,13 +19,9 @@ TODO:
 - arithmetic interface
 
 - propagation queue:
-  - register theory variables for catching when jobs are bound to resources
   - register bounds on start times to propagate energy constraints
   - more general registration mechanism for arithmetic theory.
-- csp_cmds
-  - use predicates for add_ feature set? Closed world.
-    set up environment in one swoop.
-  - interact with opt
+- interact with opt
 - jobs without resources
   - complain or add dummy resource? At which level.
 
@@ -271,6 +267,9 @@ namespace smt {
 
     /**
      *  r = resource(j) & start(j) >= slb => end(j) >= ect(j, r, slb)
+     *
+     * note: not used so far
+     * note: subsumed by constrain_end_time_interval used in final-check
      */
     void theory_jobscheduler::propagate_end_time(unsigned j, unsigned r) {
         time_t slb = est(j);
@@ -361,9 +360,6 @@ namespace smt {
         return true;
     }
 
-    void theory_jobscheduler::propagate_resource_energy(unsigned r) {
-        
-    }
 
     /**
      *  Ensure that job overlaps don't exceed available energy
@@ -613,7 +609,7 @@ namespace smt {
             app_ref start(u.mk_start(j), m);
             app_ref end(u.mk_end(j), m);
             app_ref res(u.mk_job2resource(j), m);
-            if (!ctx.e_internalized(job)) ctx.internalize(job, false);
+            if (!ctx.e_internalized(job))   ctx.internalize(job, false);
             if (!ctx.e_internalized(start)) ctx.internalize(start, false);
             if (!ctx.e_internalized(end))   ctx.internalize(end, false);
             if (!ctx.e_internalized(res))   ctx.internalize(res, false);
@@ -648,12 +644,18 @@ namespace smt {
 
     /*
      * Initialze the state based on the set of jobs and resources added.
-     * For each job j, with possible resources r1, ..., r_n assert
-     *   resource(j) = r_1 || resource(j) = r_2 || ... || resource(j) = r_n
-     * For each job and resource r with deadline end(j,r) assert
-     *   resource(j) = r => end(j) <= end(j,r)
-     *
      * Ensure that the availability slots for each resource is sorted by time.
+     *
+     * For each resource j:
+     *   est(j) <= start(j) <= end(j) <= lct(j)
+     * 
+     * possible strengthenings:
+     * - start(j) <= lst(j)
+     * - start(j) + min_completion_time(j) <= end(j)
+     * - start(j) + max_completion_time(j) >= end(j)
+     * 
+     * makespan constraints?
+     *
      */
     void theory_jobscheduler::add_done() {
         TRACE("csp", tout << "add-done begin\n";);
@@ -666,8 +668,7 @@ namespace smt {
             std::sort(available.begin(), available.end(), cmp);
         }
 
-        expr_ref fml(m);
-        literal lit, l1, l2, l3;
+        literal lit;
 
         for (job_info const& ji : m_jobs) {
             if (ji.m_resources.empty()) {
@@ -683,13 +684,9 @@ namespace smt {
             for (job_resource const& jr : ji.m_resources) {
                 unsigned r = jr.m_resource_id;
                 res_info const& ri = m_resources[r];
-                // literal eq = mk_eq_lit(ji.m_job2resource, ri.m_resource);
-                // disj.push_back(eq);
                 start_lb = std::min(start_lb, ri.m_available[0].m_start);
                 end_ub   = std::max(end_ub, ri.m_available.back().m_end);
             }
-            // resource(j) = r1 || ... || resource(j) = r_n
-            // ctx.mk_th_axiom(get_id(), disj.size(), disj.c_ptr());
 
             // start(j) >= start_lb
             lit = mk_ge(ji.m_start, start_lb);
@@ -723,14 +720,14 @@ namespace smt {
         }
     }
 
-    // resource(j) = r => start(j) >= avaialble[0].m_start
+    // resource(j) = r => start(j) >= available[0].m_start
     void theory_jobscheduler::assert_first_start_time(unsigned j, unsigned r, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;
         literal l2 = mk_ge(m_jobs[j].m_start, available[0].m_start);
         get_context().mk_th_axiom(get_id(), ~eq, l2);
     }
 
-    // resource(j) = r => start[idx] <= end(j)  || start(j) <= start[idx+1];
+    // resource(j) = r => start(j) <= end[idx]  || start[idx+1] <= start(j);
     void theory_jobscheduler::assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;        
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx + 1].m_start);
@@ -738,7 +735,7 @@ namespace smt {
         get_context().mk_th_axiom(get_id(), ~eq, l2, l3);        
     }
 
-    // resource(j) = r => end(j) <= end[idx] || start(j) >= start[idx+1];
+    // resource(j) = r => end(j) <= end[idx] || start[idx+1] <= start(j);
     void theory_jobscheduler::assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;        
         literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
@@ -746,6 +743,9 @@ namespace smt {
         get_context().mk_th_axiom(get_id(), ~eq, l2, l3);
     }    
 
+    /**
+     * bind a job to one of the resources it can run on.
+     */
     bool theory_jobscheduler::split_job2resource(unsigned j) {
         job_info const& ji = m_jobs[j];
         context& ctx = get_context();
@@ -823,6 +823,9 @@ namespace smt {
         return ji.m_resources[ji.m_resource2index[r]];
     }
 
+    /**
+     * find idx, if any, such that t is within the time interval of available[idx]
+     */    
     bool theory_jobscheduler::resource_available(unsigned r, time_t t, unsigned& idx) {
         vector<res_available>& available = m_resources[r].m_available;
         unsigned lo = 0, hi = available.size(), mid = hi / 2;
@@ -848,7 +851,6 @@ namespace smt {
         return false;
     }
 
-
     /**
      * compute earliest completion time for job j on resource r starting at time start.
      */    
@@ -870,16 +872,9 @@ namespace smt {
             time_t end        = available[idx].m_end;
             unsigned load_pct = available[idx].m_loadpct;
             time_t delta = solve_for_capacity(load_pct, j_load_pct, start, end);
-            TRACE("csp", tout << "delta: " << delta << " capacity: " << cap << " load " << load_pct << " jload: " << j_load_pct << " start: " << start << " end " << end << "\n";);
+            TRACE("csp", tout << "delta: " << delta << " capacity: " << cap << " load " 
+                  << load_pct << " jload: " << j_load_pct << " start: " << start << " end " << end << "\n";);
             if (delta > cap) {
-                //
-                // solve for end: 
-                //     cap = load * (end - start + 1)
-                // <=>
-                //     cap / load = (end - start + 1)
-                // <=>
-                //     end = cap / load + start - 1
-                //
                 end = solve_for_end(load_pct, j_load_pct, start, cap);
                 cap = 0;
             }
@@ -893,6 +888,9 @@ namespace smt {
         return std::numeric_limits<time_t>::max();        
     }
 
+    /**
+     * find end, such that cap = (load / job_load_pct) * (end - start + 1)
+     */
     time_t theory_jobscheduler::solve_for_end(unsigned load_pct, unsigned job_load_pct, time_t start, time_t cap) {
         SASSERT(load_pct > 0);
         SASSERT(job_load_pct > 0);
@@ -907,6 +905,9 @@ namespace smt {
         return (load * (start - 1) + cap * job_load_pct) / load;
     }
 
+    /**
+     * find start, such that cap = (load / job_load_pct) * (end - start + 1)
+     */
     time_t theory_jobscheduler::solve_for_start(unsigned load_pct, unsigned job_load_pct, time_t end, time_t cap) {
         SASSERT(load_pct > 0);
         SASSERT(job_load_pct > 0);
@@ -921,6 +922,9 @@ namespace smt {
         return (load * (end + 1) - cap * job_load_pct) / load;
     }
 
+    /**
+     * find cap, such that cap = (load / job_load_pct) * (end - start + 1)
+     */
     time_t theory_jobscheduler::solve_for_capacity(unsigned load_pct, unsigned job_load_pct, time_t start, time_t end) {
         SASSERT(job_load_pct > 0);
         unsigned load = std::min(load_pct, job_load_pct);

@@ -188,7 +188,6 @@ namespace smt {
 
         // propagation
         void propagate_end_time(unsigned j, unsigned r);
-        void propagate_resource_energy(unsigned r);
         void propagate_job2resource(unsigned j, unsigned r);
 
         // final check constraints
