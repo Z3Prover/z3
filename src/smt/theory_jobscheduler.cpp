@@ -839,7 +839,7 @@ namespace smt {
             }
             else if (ra.m_end < t) {
                 lo = mid + 1;
-                mid += (hi - mid + 1) / 2;
+                mid += (hi - mid) / 2;
             }
             else {
                 break;
