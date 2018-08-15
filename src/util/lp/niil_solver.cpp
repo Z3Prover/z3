@@ -27,11 +27,24 @@ typedef nra::mon_eq mon_eq;
 typedef lp::var_index lpvar;
 struct solver::imp {
     struct vars_equivalence {
-        typedef std::pair<lpvar, lpvar> lppair;
-        std::unordered_map<lppair,
-                           int,
-                           std::hash<lppair>
-                           > m_map;
+        struct signed_var {
+            lpvar m_var;
+            int   m_sign;
+            signed_var(lpvar j, int sign) : m_var(j), m_sign(sign) {}
+        };
+        struct equiv {
+            lpvar             m_i;
+            signed_var        m_signed_var;
+            equiv(lpvar i, lpvar j, int sign) :m_i(i), m_signed_var(j, sign) {
+                SASSERT(i > j);
+            }
+        };
+
+        // the resulting mapping
+        std::unordered_map<lpvar, signed_var> m_map;
+        // all equivalences extracted from constraints
+        vector<equiv>                         m_equivs;
+        unsigned size() const { return m_map.size(); }
         void add_equivalence_maybe(const lp::lar_term *t) {
             if (t->size() != 2)
                 return;
@@ -53,20 +66,55 @@ struct solver::imp {
                     j = p.var();
             }
             SASSERT(i != j && i != static_cast<lpvar>(-1));
-            if (i < j) { // swap if i > j ordered
+            if (i < j) { // swap 
                 lpvar tmp = i;
                 i = j;
                 j = tmp;
             }
-            if (seen_minus && seen_plus)
-                m_map[lppair(i, j)] = -1; // we have x_i == - x_j
-            else
-                m_map[lppair(i, j)] = 1; // we have an equality
-            
+            int sign = (seen_minus && seen_plus)? 1 : -1;
+            m_equivs.push_back(equiv(i, j, sign));
         }
+        void collect_equivs(const lp::lar_solver& s) {
+            for (unsigned i = 0; i < s.terms().size(); i++) {
+                unsigned ti = i + s.terms_start_index();
+                if (!s.term_is_used_as_row(ti))
+                    continue;
+                lpvar j = s.external2local(ti);
+                if (!s.column_has_upper_bound(j) ||
+                    !s.column_has_lower_bound(j))
+                    continue;
+                if (s.get_upper_bound(j) != lp::zero_of_type<lp::impq>() ||
+                    s.get_lower_bound(j) != lp::zero_of_type<lp::impq>())
+                    continue;
+                add_equivalence_maybe(s.terms()[i]);
+            }
+        }
+
+        void create_map() {
+            bool progress = true;
+            while (progress) {
+                progress = false;
+                for (const auto & e : m_equivs) {
+                    unsigned i = e.m_i;
+                    auto it = m_map.find(i);
+                    if (it == m_map.end()) {
+                        m_map.insert(std::pair<lpvar, signed_var>(i, e.m_signed_var));
+                        progress = true;
+                    } else {
+                        if (it->second.m_var > e.m_signed_var.m_var) {
+                            it->second = signed_var(
+                                e.m_signed_var.m_var,
+                                e.m_signed_var.m_sign * it->second.m_sign);
+                            progress = true;
+                        }
+                    }
+                }
+            }
+        }
+        
         vars_equivalence(const lp::lar_solver& s) {
-            for (const lp::lar_term *t : s.terms())
-                add_equivalence_maybe(t);
+            collect_equivs(s);
+            create_map();
         }
         lpvar get_equivalent_var(lpvar j, bool & sign) {
             SASSERT(false);
@@ -113,10 +161,10 @@ struct solver::imp {
 
     bool generate_basic_lemma_for_mon_sign_var_other_mon( unsigned j_var,
                                                           const svector<unsigned> & mon_vars,
-                                                          const mon_eq& om, bool sign, lemma& l) {
-        if (mon_vars.size() != om.size())
+                                                          const mon_eq& other_m, bool sign, lemma& l) {
+        if (mon_vars.size() != other_m.size())
             return false;
-        SASSERT(false);
+        
         return false;
     }
     
@@ -141,6 +189,8 @@ struct solver::imp {
         if (m_vars_equivalence.empty()) {
             std::cout << "empty m_vars_equivalence\n";
             return false;
+        } else {
+            std::cout << "m_vars_equivalence size = " << m_vars_equivalence.size() << std::endl;
         }
         const mon_eq& m_of_i = m_monomials[i_mon];
         int sign = 1;
