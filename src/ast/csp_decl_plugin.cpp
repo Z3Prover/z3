@@ -68,6 +68,11 @@ func_decl * csp_decl_plugin::mk_func_decl(
         name = symbol("resource");
         rng = m_resource_sort;
         break;
+    case OP_JS_RESOURCE_MAKESPAN:
+        if (arity != 1 || domain[0] != m_resource_sort) m_manager->raise_exception("makespan expects a resource argument");
+        name = symbol("makespan");
+        rng = m_int_sort;
+        break;
     case OP_JS_START:
         if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("start expects a job argument");
         if (num_parameters > 0) m_manager->raise_exception("no parameters");
@@ -148,6 +153,7 @@ void csp_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     if (logic == symbol("CSP")) {
         op_names.push_back(builtin_name("job", OP_JS_JOB));
         op_names.push_back(builtin_name("resource", OP_JS_RESOURCE));
+        op_names.push_back(builtin_name("makespan", OP_JS_RESOURCE_MAKESPAN));
         op_names.push_back(builtin_name("job-start", OP_JS_START));
         op_names.push_back(builtin_name("job-end", OP_JS_END));
         op_names.push_back(builtin_name("job2resource", OP_JS_JOB2RESOURCE));
@@ -233,8 +239,18 @@ app* csp_util::mk_job2resource(unsigned j) {
     return m.mk_app(m.mk_func_decl(m_fid, OP_JS_JOB2RESOURCE, 0, nullptr, 1, &js, nullptr), job);
 }
 
+app* csp_util::mk_makespan(unsigned r) {
+    app_ref resource(mk_resource(r), m);
+    sort* rs = m.get_sort(resource);
+    return m.mk_app(m.mk_func_decl(m_fid, OP_JS_RESOURCE_MAKESPAN, 0, nullptr, 1, &rs, nullptr), resource);
+}
+
 bool csp_util::is_resource(expr* e, unsigned& r) {
     return is_app_of(e, m_fid, OP_JS_RESOURCE) && (r = resource2id(e), true);
+}
+
+bool csp_util::is_makespan(expr * e, unsigned& r) {
+    return is_app_of(e, m_fid, OP_JS_RESOURCE_MAKESPAN) && is_resource(to_app(e)->get_arg(0), r);
 }
 
 bool csp_util::is_job(expr* e, unsigned& j) {

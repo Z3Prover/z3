@@ -91,7 +91,8 @@ namespace smt {
             vector<res_available> m_available; // time intervals where resource is available
             time_t                m_end;       // can't run after
             enode*                m_resource;
-            res_info(): m_end(std::numeric_limits<time_t>::max()), m_resource(nullptr) {}
+            enode*                m_makespan;
+            res_info(): m_end(std::numeric_limits<time_t>::max()), m_resource(nullptr), m_makespan(nullptr) {}
         };
         
         ast_manager&     m;

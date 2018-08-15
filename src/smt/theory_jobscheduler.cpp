@@ -37,6 +37,7 @@ Features:
    - try optimization based on arithmetic solver.
    - earliest start, latest start
 - constraint level
+   - add constraints gradually
 - resource groups
   - resource groups like a resource
   - resources bound to resource groups within time intervals
@@ -638,6 +639,9 @@ namespace smt {
             app_ref res(u.mk_resource(r), m);
             if (!ctx.e_internalized(res)) ctx.internalize(res, false);            
             ri.m_resource = ctx.get_enode(res);
+            app_ref ms(u.mk_makespan(r), m);
+            if (!ctx.e_internalized(ms)) ctx.internalize(ms, false);            
+            ri.m_makespan = ctx.get_enode(ms);
         }
         ri.m_available.push_back(res_available(max_loadpct, start, end, ps));
     }
@@ -823,18 +827,19 @@ namespace smt {
         vector<res_available>& available = m_resources[r].m_available;
         unsigned lo = 0, hi = available.size(), mid = hi / 2;
         while (lo < hi) {
+            SASSERT(lo <= mid && mid < hi);
             res_available const& ra = available[mid];
             if (ra.m_start <= t && t <= ra.m_end) {
                 idx = mid;
                 return true;
             }
             else if (ra.m_start > t && mid > 0) {
-                hi = mid - 1;
+                hi = mid;
                 mid = lo + (mid - lo) / 2;
             }
             else if (ra.m_end < t) {
                 lo = mid + 1;
-                mid += (hi - mid) / 2;
+                mid += (hi - mid + 1) / 2;
             }
             else {
                 break;

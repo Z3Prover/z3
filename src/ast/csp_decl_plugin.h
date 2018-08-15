@@ -75,13 +75,14 @@ enum js_sort_kind {
 enum js_op_kind {
     OP_JS_JOB,               // value of type job
     OP_JS_RESOURCE,          // value of type resource
+    OP_JS_RESOURCE_MAKESPAN, // makespan of resource: the minimal resource time required for assigned jobs.
     OP_JS_START,             // start time of a job
     OP_JS_END,               // end time of a job
     OP_JS_JOB2RESOURCE,      // resource associated with job
     OP_JS_MODEL,             // jobscheduler model
-    OP_JS_JOB_RESOURCE,
-    OP_JS_JOB_PREEMPTABLE,
-    OP_JS_RESOURCE_AVAILABLE
+    OP_JS_JOB_RESOURCE,      // model declaration for job assignment to resource
+    OP_JS_JOB_PREEMPTABLE,   // model declaration for whether job is pre-emptable
+    OP_JS_RESOURCE_AVAILABLE // model declaration for availability intervals of resource
 };
 
 class csp_decl_plugin : public decl_plugin {
@@ -116,29 +117,30 @@ private:
 class csp_util {
     ast_manager&         m;
     family_id            m_fid;
-    csp_decl_plugin* m_plugin;
+    csp_decl_plugin*     m_plugin;
 public:
     csp_util(ast_manager& m);
     sort* mk_job_sort();
     sort* mk_resource_sort();
 
     app* mk_job(unsigned j);
-    bool is_job(expr* e, unsigned& j);
-    bool is_job2resource(expr* e, unsigned& j);
-    unsigned job2id(expr* j);
-
     app* mk_resource(unsigned r);
-    bool is_resource(expr* e, unsigned& r);
-    unsigned resource2id(expr* r);
-
     app* mk_start(unsigned j);
     app* mk_end(unsigned j);
     app* mk_job2resource(unsigned j);
+    app* mk_makespan(unsigned r);
 
+    bool is_job(expr* e, unsigned& j);
+    bool is_job2resource(expr* e, unsigned& j);
+    bool is_resource(expr* e, unsigned& r);
+    bool is_makespan(expr* e, unsigned& r);
     bool is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, uint64_t& start, uint64_t& end);
     bool is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end); 
     bool is_set_preemptable(expr* e, expr *& job);
-
     bool is_model(expr* e) const { return is_app_of(e, m_fid, OP_JS_MODEL); }
+
+private:
+    unsigned job2id(expr* j);
+    unsigned resource2id(expr* r);
 
 };
