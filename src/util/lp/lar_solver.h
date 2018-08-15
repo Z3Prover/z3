@@ -260,6 +260,30 @@ public:
     unsigned adjust_column_index_to_term_index(unsigned j) const;
 
     var_index local2external(var_index idx) const { return m_var_register.local_to_external(idx); }
+
+    var_index external2local(unsigned j) const {
+        var_index local_j;
+        lp_assert(m_var_register.external_is_used(j, local_j));
+        m_var_register.external_is_used(j, local_j);
+        return local_j;
+    }
+
+    bool column_has_upper_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_solver.column_has_upper_bound(j);
+    }
+
+    bool column_has_lower_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_solver.column_has_lower_bound(j);
+    }
+
+    const impq& get_upper_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_solver.m_upper_bounds[j];
+    }
+
+    const impq& get_lower_bound(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j];
+    }
+    
     
     void propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset);
 
