@@ -12,6 +12,7 @@ namespace nra {
         lp::var_index          m_v;
         svector<lp::var_index> m_vs;
         unsigned var() const { return m_v; }
+        unsigned size() const { return m_vs.size(); }
     };
 
 typedef std::unordered_map<lp::var_index, rational> variable_map_type;
