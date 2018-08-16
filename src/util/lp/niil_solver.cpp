@@ -46,7 +46,7 @@ struct solver::imp {
         vector<equiv>                         m_equivs;
         unsigned size() const { return m_map.size(); }
         void add_equivalence_maybe(const lp::lar_term *t) {
-            if (t->size() != 2)
+            if (t->size() != 2 || ! t->m_v.is_zero())
                 return;
             bool seen_minus = false;
             bool seen_plus = false;
@@ -74,6 +74,7 @@ struct solver::imp {
             int sign = (seen_minus && seen_plus)? 1 : -1;
             m_equivs.push_back(equiv(i, j, sign));
         }
+
         void collect_equivs(const lp::lar_solver& s) {
             for (unsigned i = 0; i < s.terms().size(); i++) {
                 unsigned ti = i + s.terms_start_index();
@@ -112,7 +113,7 @@ struct solver::imp {
             }
         }
         
-        vars_equivalence(const lp::lar_solver& s) {
+        void init(const lp::lar_solver& s) {
             collect_equivs(s);
             create_map();
         }
@@ -123,6 +124,19 @@ struct solver::imp {
         bool empty() const {
             return m_map.empty();
         }
+
+        // the sign is flipped if needed
+        lpvar map_to_min(lpvar j, int sign) const {
+            auto it = m_map.find(j);
+            if (it == m_map.end())
+                return j;
+
+            if (it->second.m_sign == -1) {
+                sign = -sign;
+            }
+            return it->second.m_var;
+        }
+        
     };
     vars_equivalence                                       m_vars_equivalence;
     vector<mon_eq>                                         m_monomials;
@@ -130,7 +144,7 @@ struct solver::imp {
     lp::lar_solver&                                        m_lar_solver;
     std::unordered_map<lpvar, svector<unsigned>>   m_var_to_monomials;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
-        : m_vars_equivalence(s), m_lar_solver(s)
+        : m_lar_solver(s)
         // m_limit(lim),
         // m_params(p)
     {
@@ -143,6 +157,7 @@ struct solver::imp {
     void push() {
         m_monomials_lim.push_back(m_monomials.size());
     }
+    
     void pop(unsigned n) {
         if (n == 0) return;
         m_monomials.shrink(m_monomials_lim[m_monomials_lim.size() - n]);
@@ -159,9 +174,10 @@ struct solver::imp {
         return r == model_val;
     }
 
-    bool generate_basic_lemma_for_mon_sign_var_other_mon( unsigned j_var,
-                                                          const svector<unsigned> & mon_vars,
-                                                          const mon_eq& other_m, bool sign, lemma& l) {
+    bool generate_basic_lemma_for_mon_sign_var_other_mon(
+        unsigned j_var,
+        const svector<unsigned> & mon_vars,
+        const mon_eq& other_m, bool sign, lemma& l) {
         if (mon_vars.size() != other_m.size())
             return false;
         
@@ -182,7 +198,9 @@ struct solver::imp {
 
     // replaces each variable by a smaller one and flips the sing if the var comes with a minus
     void reduce_monomial_to_minimal(svector<lpvar> & vars, int & sign) {
-        
+        for (unsigned i = 0; i < vars.size(); i++) {
+            vars[i] = m_vars_equivalence.map_to_min(vars[i], sign);
+        }
     }
     
     bool generate_basic_lemma_for_mon_sign(unsigned i_mon, lemma& l) {
@@ -248,9 +266,14 @@ struct solver::imp {
         for (unsigned i = 0; i < m_monomials.size(); i++)
             map_monominals_vars(i);
     }
+
+    void init_vars_equivalence() {
+        m_vars_equivalence.init(m_lar_solver);
+    }
     
     void init_search() {
         map_var_to_monomials();
+        init_vars_equivalence();
     }
     
     lbool check(lemma& l) {
