@@ -174,23 +174,61 @@ struct solver::imp {
         return r == model_val;
     }
 
+    std::unordered_set<lpvar> vec_to_set(const svector<lpvar> & a) const {
+        std::unordered_set<lpvar> ret;
+        for (auto j : a)
+            ret.insert(j);
+        return ret;
+    }
+    
+    bool var_vectors_are_equal(const svector<lpvar> & a, const svector<lpvar> & b) const {
+        return vec_to_set(a) == vec_to_set(b);
+    }
+    
     bool generate_basic_lemma_for_mon_sign_var_other_mon(
+        unsigned i_mon,
         unsigned j_var,
         const svector<unsigned> & mon_vars,
-        const mon_eq& other_m, bool sign, lemma& l) {
+        const mon_eq& other_m, int sign, lemma& l) {
         if (mon_vars.size() != other_m.size())
             return false;
-        
+
+        auto other_vars_copy = other_m.m_vs;
+        int other_sign = 1;
+        reduce_monomial_to_minimal(other_vars_copy, other_sign);
+        if (var_vectors_are_equal(mon_vars, other_vars_copy)
+            && values_are_different(m_monomials[i_mon].var(),
+                                    sign * other_sign, other_m.var())) {
+            fill_lemma();
+            return true;
+        }
+            
         return false;
+    }
+
+    bool values_are_different(lpvar j, int sign, lpvar k) const {
+        SASSERT(sign == 1 || sign == -1);
+        if (sign == 1)
+            return m_lar_solver.get_column_value(j) != m_lar_solver.get_column_value(k);        
+        return m_lar_solver.get_column_value(j) != - m_lar_solver.get_column_value(k);
+    }
+    
+    void fill_lemma() {
+        SASSERT(false); // not implemented
     }
     
     bool generate_basic_lemma_for_mon_sign_var(unsigned i_mon,
-                                               unsigned j_var, const svector<lpvar>& mon_vars, lemma& l, bool sign) {
+                                               unsigned j_var, const svector<lpvar>& mon_vars, lemma& l, int sign) {
         auto it = m_var_to_monomials.find(j_var);
         for (auto other_i_mon : it->second) {
             if (other_i_mon == i_mon) continue;
-            if (generate_basic_lemma_for_mon_sign_var_other_mon(j_var, mon_vars,
-                                                                m_monomials[other_i_mon], sign, l))
+            if (generate_basic_lemma_for_mon_sign_var_other_mon(
+                    i_mon,
+                    j_var,
+                    mon_vars,
+                    m_monomials[other_i_mon],
+                    sign,
+                    l))
                 return true;
         }
         return false;
