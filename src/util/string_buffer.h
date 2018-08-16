@@ -43,6 +43,7 @@ class string_buffer {
         m_capacity = new_capacity;
         m_buffer   = new_buffer;
     }
+
     static const unsigned c_buffer_size = 24;
 
 public:  
@@ -82,28 +83,20 @@ public:
 
     void append(int n) {
         char buffer[c_buffer_size]; 
-#ifdef _WINDOWS
-        sprintf_s(buffer, c_buffer_size, "%d", n);
-#else
-        sprintf(buffer, "%d", n);
-#endif 
+        SPRINTF_D(buffer, n);
         append(buffer);
     }
 
     void append(unsigned n) {
         char buffer[c_buffer_size]; 
-#ifdef _WINDOWS
-        sprintf_s(buffer, c_buffer_size, "%d", n);
-#else
-        sprintf(buffer, "%d", n);
-#endif
+        SPRINTF_U(buffer, n);
         append(buffer);
     }
 
     void append(long n) {
         char buffer[c_buffer_size]; 
 #ifdef _WINDOWS
-        sprintf_s(buffer, c_buffer_size, "%ld", n);
+        sprintf_s(buffer, Z3_ARRAYSIZE(buffer), "%ld", n);
 #else
         sprintf(buffer, "%ld", n);
 #endif

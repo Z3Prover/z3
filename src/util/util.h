@@ -48,13 +48,13 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 
 #ifdef _WINDOWS
 #define SSCANF sscanf_s
-#define SPRINTF sprintf_s
+// #define SPRINTF sprintf_s
 #define SPRINTF_D(_buffer_, _i_) sprintf_s(_buffer_, Z3_ARRAYSIZE(_buffer_), "%d", _i_)
 #define SPRINTF_U(_buffer_, _u_) sprintf_s(_buffer_, Z3_ARRAYSIZE(_buffer_), "%u", _u_)
 #define _Exit exit
 #else
 #define SSCANF sscanf
-#define SPRINTF sprintf
+// #define SPRINTF sprintf
 #define SPRINTF_D(_buffer_, _i_) sprintf(_buffer_, "%d", _i_)
 #define SPRINTF_U(_buffer_, _u_) sprintf(_buffer_, "%u", _u_)
 #endif
