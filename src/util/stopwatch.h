@@ -23,8 +23,6 @@ Revision History:
 #if defined(_WINDOWS) || defined(_CYGWIN)
 
 // Does this redefinition work?
-#define ARRAYSIZE_TEMP ARRAYSIZE
-#undef ARRAYSIZE
 
 #include <windows.h>
 
@@ -68,8 +66,6 @@ public:
     }
 };
 
-#undef ARRAYSIZE
-#define ARRAYSIZE ARRAYSIZE_TEMP
 #undef max
 #undef min
 

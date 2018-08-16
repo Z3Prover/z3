@@ -21,6 +21,7 @@ Revision History:
 #include <string>
 #include <windows.h>
 #include <strsafe.h>
+#include "util/util.h"
 #include "test/for_each_file.h"
 
 bool for_each_file(for_each_file_proc& proc, const char* base, const char* suffix)
@@ -36,7 +37,7 @@ bool for_each_file(for_each_file_proc& proc, const char* base, const char* suffi
 
     while (h != INVALID_HANDLE_VALUE) {
 
-        StringCchPrintfA(buffer, ARRAYSIZE(buffer), "%s\\%s", base, data.cFileName);       
+        StringCchPrintfA(buffer, Z3_ARRAYSIZE(buffer), "%s\\%s", base, data.cFileName);       
 
         if (!proc(buffer)) {
             return false;

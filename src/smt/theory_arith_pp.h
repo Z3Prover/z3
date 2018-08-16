@@ -544,7 +544,7 @@ namespace smt {
         char buffer[128];
         static int id = 0;
 #ifdef _WINDOWS
-        sprintf_s(buffer, ARRAYSIZE(buffer), "arith_%d.smt", id);
+        sprintf_s(buffer, Z3_ARRAYSIZE(buffer), "arith_%d.smt", id);
 #else
         sprintf(buffer, "arith_%d.smt", id);
 #endif
