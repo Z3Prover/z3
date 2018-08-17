@@ -32,8 +32,6 @@ typedef unsigned var_index;
 typedef unsigned constraint_index;
 typedef unsigned row_index;
 
-typedef vector<std::pair<mpq, constraint_index>> explanation_t;
-
 enum class column_type  {
     free_column = 0,
     lower_bound = 1,

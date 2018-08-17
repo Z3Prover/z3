@@ -600,8 +600,8 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
 void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
     constraint_index lc, uc;
     m_lar_solver->get_bound_constraint_witnesses_for_column(j, lc, uc);
-    m_ex.m_explanation.push_back(std::make_pair(mpq(1), lc));
-    m_ex.m_explanation.push_back(std::make_pair(mpq(1), uc));
+    m_ex->push_justification(lc);
+    m_ex->push_justification(uc);
 }
 void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row) {
     for (const auto & c : row) {

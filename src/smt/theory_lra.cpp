@@ -2002,7 +2002,7 @@ public:
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            for (auto const& ev : m_lia->get_explanation().m_explanation) {
+            for (auto const& ev : ex) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
                 }
@@ -2018,7 +2018,7 @@ public:
         case lp::lia_move::conflict:
             TRACE("arith", tout << "conflict\n";);
             // ex contains unsat core
-            m_explanation = m_lia->get_explanation().m_explanation;
+            m_explanation = ex;
             set_conflict1();
             lia_check = l_false;
             break;
@@ -2072,7 +2072,7 @@ public:
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
         
-        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_lemma);
+        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_explanation, m_lemma);
         return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r);
     }
 
@@ -2220,7 +2220,7 @@ public:
 
         void consume(rational const& v, lp::constraint_index j) override {
             m_imp.set_evidence(j);
-            m_imp.m_explanation.push_back(std::make_pair(v, j));
+            m_imp.m_explanation.push_justification(j, v);
         }
     };
 
@@ -3074,7 +3074,8 @@ public:
         }
     }
  
-    vector<std::pair<rational, lp::constraint_index>> m_explanation;
+    lp::explanation m_explanation;
+    
     literal_vector      m_core;
     svector<enode_pair> m_eqs;
     vector<parameter>   m_params;
@@ -3581,7 +3582,7 @@ public:
         }
     }
 
-    void display_evidence(std::ostream& out, vector<std::pair<rational, lp::constraint_index>> const& evidence) {
+    void display_evidence(std::ostream& out, lp::explanation const& evidence) {
         for (auto const& ev : evidence) {
             expr_ref e(m);
             SASSERT(!ev.first.is_zero()); 
