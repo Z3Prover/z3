@@ -302,12 +302,12 @@ lp_status lar_solver::solve() {
     return m_status;
 }
 
-void lar_solver::fill_explanation_from_infeasible_column(vector<std::pair<mpq, constraint_index>> & evidence) const{
+void lar_solver::fill_explanation_from_infeasible_column(explanation & evidence) const{
 
     // this is the case when the lower bound is in conflict with the upper one
     const ul_pair & ul =  m_columns_to_ul_pairs[m_infeasible_column_index];
-    evidence.push_back(std::make_pair(numeric_traits<mpq>::one(), ul.upper_bound_witness()));
-    evidence.push_back(std::make_pair(-numeric_traits<mpq>::one(), ul.lower_bound_witness()));
+    evidence.push_justification(ul.upper_bound_witness(),  numeric_traits<mpq>::one());
+    evidence.push_justification(ul.lower_bound_witness(), -numeric_traits<mpq>::one());
 }
 
     
@@ -1100,7 +1100,7 @@ bool lar_solver::the_right_sides_do_not_sum_to_zero(const vector<std::pair<mpq, 
     return !numeric_traits<mpq>::is_zero(ret);
 }
 
-bool lar_solver::explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const {
+bool lar_solver::explanation_is_correct(explanation& explanation) const {
     return true;
 #if 0
     // disabled: kind is uninitialized
@@ -1130,16 +1130,16 @@ bool lar_solver::explanation_is_correct(const vector<std::pair<mpq, unsigned>>& 
 
 bool lar_solver::inf_explanation_is_correct() const {
 #ifdef Z3DEBUG
-    vector<std::pair<mpq, unsigned>> explanation;
-    get_infeasibility_explanation(explanation);
-    return explanation_is_correct(explanation);
+    explanation exp;
+    get_infeasibility_explanation(exp);
+    return explanation_is_correct(exp);
 #endif
     return true;
 }
 
-mpq lar_solver::sum_of_right_sides_of_explanation(const vector<std::pair<mpq, unsigned>> & explanation) const {
+mpq lar_solver::sum_of_right_sides_of_explanation(explanation& exp) const {
     mpq ret = numeric_traits<mpq>::zero();
-    for (auto & it : explanation) {
+    for (auto & it : exp) {
         mpq coeff = it.first;
         constraint_index con_ind = it.second;
         lp_assert(con_ind < m_constraints.size());
@@ -1205,10 +1205,10 @@ bool lar_solver::has_value(var_index var, mpq& value) const {
 }
 
 
-void lar_solver::get_infeasibility_explanation(vector<std::pair<mpq, constraint_index>> & explanation) const {
-    explanation.clear();
+void lar_solver::get_infeasibility_explanation(explanation& exp) const {
+    exp.clear();
     if (m_infeasible_column_index != -1) {
-        fill_explanation_from_infeasible_column(explanation);
+        fill_explanation_from_infeasible_column(exp);
         return;
     }
     if (m_mpq_lar_core_solver.get_infeasible_sum_sign() == 0) {
@@ -1217,14 +1217,14 @@ void lar_solver::get_infeasibility_explanation(vector<std::pair<mpq, constraint_
     // the infeasibility sign
     int inf_sign;
     auto inf_row = m_mpq_lar_core_solver.get_infeasibility_info(inf_sign);
-    get_infeasibility_explanation_for_inf_sign(explanation, inf_row, inf_sign);
-    lp_assert(explanation_is_correct(explanation));
+    get_infeasibility_explanation_for_inf_sign(exp, inf_row, inf_sign);
+    lp_assert(explanation_is_correct(exp));
 }
 
 
 
 void lar_solver::get_infeasibility_explanation_for_inf_sign(
-    vector<std::pair<mpq, constraint_index>> & explanation,
+    explanation & exp,
     const vector<std::pair<mpq, unsigned>> & inf_row,
     int inf_sign) const {
 
@@ -1237,7 +1237,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 
         constraint_index bound_constr_i = adj_sign < 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
         lp_assert(bound_constr_i < m_constraints.size());
-        explanation.push_back(std::make_pair(coeff, bound_constr_i));
+        exp.push_justification(bound_constr_i, coeff);
     } 
 }
 

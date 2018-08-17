@@ -82,7 +82,7 @@ namespace nra {
            TBD: use partial model from lra_solver to prime the state of nlsat_solver.
            TBD: explore more incremental ways of applying nlsat (using assumptions)
         */
-        lbool check(lp::explanation_t& ex) {
+        lbool check(lp::explanation& ex) {
             SASSERT(need_check());
             m_nlsat = alloc(nlsat::solver, m_limit, m_params, false);
             m_zero = alloc(scoped_anum, am());
@@ -121,7 +121,7 @@ namespace nra {
                 m_nlsat->get_core(core);
                 for (auto c : core) {
                     unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
-                    ex.push_back(std::pair<rational, unsigned>(rational(1), idx));
+                    ex.push_justification(idx, rational(1));
                     TRACE("arith", tout << "ex: " << idx << "\n";);
                 }
                 break;
@@ -247,7 +247,7 @@ namespace nra {
         m_imp->add(v, sz, vs);
     }
 
-    lbool solver::check(lp::explanation_t& ex) {
+    lbool solver::check(lp::explanation& ex) {
         return m_imp->check(ex);
     }
 
