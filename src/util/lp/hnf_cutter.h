@@ -195,9 +195,6 @@ public:
         mpq big_number = m_abs_max.expt(3);
         mpq d = hnf_calc::determinant_of_rectangular_matrix(m_A, basis_rows, big_number);
         
-        // std::cout << "max = " << m_abs_max << ", d = " << d << ", d/max = " << ceil (d /m_abs_max) << std::endl;
-        // std::cout << "max cube " << m_abs_max * m_abs_max * m_abs_max << std::endl;
-
         if (d >= big_number) {
             return lia_move::undef;
         }

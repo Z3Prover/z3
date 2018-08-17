@@ -427,7 +427,6 @@ class theory_lra::imp {
     }
     void ensure_niil() {
         if (!m_niil) {
-            std::cout << "ensure_niil\n";
             m_niil = alloc(niil::solver, *m_solver.get(), m.limit(), ctx().get_params());
             m_switcher.m_niil = &m_niil;
             for (auto const& _s : m_scopes) {
