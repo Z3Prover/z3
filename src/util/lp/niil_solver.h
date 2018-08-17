@@ -44,6 +44,6 @@ public:
     void push();
     void pop(unsigned scopes);
     bool need_check();
-    lbool check(lemma&);
+    lbool check(lp::explanation&, lemma&);
 };
 }
