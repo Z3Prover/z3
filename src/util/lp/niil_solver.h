@@ -28,6 +28,8 @@ namespace niil {
 struct ineq {
     lp::lconstraint_kind m_cmp;
     lp::lar_term         m_term;
+    ineq(lp::lconstraint_kind cmp,
+         const lp::lar_term& term) : m_cmp(cmp), m_term(term) {} 
 };
 
 typedef vector<ineq> lemma;

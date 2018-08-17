@@ -32,5 +32,6 @@ public:
         m_explanation.push_back(std::make_pair(one_of_type<mpq>(), j));
     }
     void reset() { m_explanation.reset(); }
+    template <typename A> void add(const A& a) { for (constraint_index j : a) push_justification(j); }
 };
 }

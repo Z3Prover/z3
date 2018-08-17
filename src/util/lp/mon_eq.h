@@ -13,6 +13,8 @@ namespace nra {
         svector<lp::var_index> m_vs;
         unsigned var() const { return m_v; }
         unsigned size() const { return m_vs.size(); }
+        svector<lp::var_index>::const_iterator begin() const { return m_vs.begin(); }
+        svector<lp::var_index>::const_iterator end() const { return m_vs.end(); }
     };
 
 typedef std::unordered_map<lp::var_index, rational> variable_map_type;
