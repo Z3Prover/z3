@@ -298,7 +298,7 @@ public:
     
     lp_status solve();
 
-    void fill_explanation_from_infeasible_column(explanation_t & evidence) const;
+    void fill_explanation_from_infeasible_column(explanation & evidence) const;
 
     
     unsigned get_total_iterations() const;
@@ -449,11 +449,11 @@ public:
 
     bool the_right_sides_do_not_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence);
 
-    bool explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const;
+    bool explanation_is_correct(explanation&) const;
 
     bool inf_explanation_is_correct() const;
 
-    mpq sum_of_right_sides_of_explanation(const vector<std::pair<mpq, unsigned>> & explanation) const;
+    mpq sum_of_right_sides_of_explanation(explanation &) const;
 
     bool has_lower_bound(var_index var, constraint_index& ci, mpq& value, bool& is_strict) const;
     
@@ -461,10 +461,10 @@ public:
 
     bool has_value(var_index var, mpq& value) const;
 
-    void get_infeasibility_explanation(vector<std::pair<mpq, constraint_index>> & explanation) const;
+    void get_infeasibility_explanation(explanation &) const;
 
     void get_infeasibility_explanation_for_inf_sign(
-        vector<std::pair<mpq, constraint_index>> & explanation,
+        explanation & exp,
         const vector<std::pair<mpq, unsigned>> & inf_row,
         int inf_sign) const;
 

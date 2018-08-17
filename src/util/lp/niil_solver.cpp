@@ -208,9 +208,7 @@ struct solver::imp {
 
     bool values_are_different(lpvar j, int sign, lpvar k) const {
         SASSERT(sign == 1 || sign == -1);
-        if (sign == 1)
-            return m_lar_solver.get_column_value(j) != m_lar_solver.get_column_value(k);        
-        return m_lar_solver.get_column_value(j) != - m_lar_solver.get_column_value(k);
+        return ! ( sign * m_lar_solver.get_column_value(j) == m_lar_solver.get_column_value(k));
     }
     
     void fill_lemma() {
@@ -342,7 +340,7 @@ void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
 
 bool solver::need_check() { return true; }
 
-lbool solver::check(lemma& l) {
+lbool solver::check(lp::explanation & ex, lemma& l) {
     return m_imp->check(l);
 }
 
