@@ -1472,7 +1472,6 @@ public:
             return m_variable_values[vi];
         
         if (!m_solver->is_term(vi)) {
-            TRACE("arith", tout << "not a term v" << v << "\n";);
             return rational::zero();
         }
         
@@ -1664,6 +1663,22 @@ public:
         }
         TRACE("arith", tout << "default giveup\n";);
         return FC_GIVEUP;
+    }
+
+    // create a eq atom representing "term = 0"
+    app_ref mk_eq(lp::lar_term const& term) {
+        rational offset(0);
+        u_map<rational> coeffs;
+        term2coeffs(term, coeffs, rational::one(), offset);
+        offset.neg();
+        bool isint = offset.is_int();
+        for (auto const& kv : coeffs) isint &= is_int(kv.m_key) && kv.m_value.is_int();
+        app_ref atom(m);
+        app_ref t = coeffs2app(coeffs, rational::zero(), isint);
+        atom = m.mk_eq(t, a.mk_numeral(offset, isint));
+        ctx().internalize(atom, true);
+        ctx().mark_as_relevant(atom.get());
+        return atom;
     }
 
     // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
@@ -2047,6 +2062,47 @@ public:
     niil::lemma m_lemma;
  
     lbool check_aftermath_niil(lbool r) {
+        TRACE("arith", tout << "niil: " << r << "\n";);
+        switch (r) {
+        case l_false: {            
+            literal_vector core;
+            for (auto const& ineq : m_lemma) {
+                bool is_lower = true, pos = true, is_eq = false;
+                
+                switch (ineq.m_cmp) {
+                case lp::LE: is_lower = false; pos = true;  break;
+                case lp::LT: is_lower = true;  pos = false; break;
+                case lp::GE: is_lower = true;  pos = true;  break;
+                case lp::GT: is_lower = true;  pos = false; break;
+                case lp::EQ: is_eq = true; pos = true; break;
+                case lp::NE: is_eq = true; pos = false; break;
+                default: UNREACHABLE();
+                }
+                app_ref atom(m);
+                if (is_eq) {
+                    atom = mk_eq(ineq.m_term);
+                }
+                else {
+                    // create term >= 0 (or term <= 0)
+                    atom = mk_bound(ineq.m_term, rational::zero(), is_lower);
+                }
+                literal lit(ctx().get_bool_var(atom), pos);
+                core.push_back(~lit);
+            }
+            std::cout << "the following conjunction should be unsat:\n";
+            ctx().display_literals_verbose(std::cout << "core ", core) << "\n";
+            display_evidence(std::cout, m_explanation); std::cout << "\n";
+            set_conflict(core);
+            break;
+        }
+        case l_true:
+            if (assume_eqs()) {
+                return l_false;
+            }
+            break;
+        case l_undef:
+            break;
+        }
         return r;
     }
 	
@@ -3104,9 +3160,17 @@ public:
     }
 
     void set_conflict1() {
+        literal_vector core;
+        set_conflict(core);
+    }
+
+    void set_conflict(literal_vector const& core) {
         m_eqs.reset();
         m_core.reset();
         m_params.reset();
+        for (literal lit : core) {
+            m_core.push_back(lit);
+        }
         // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         /*
           static unsigned cn = 0;
@@ -3123,7 +3187,7 @@ public:
                 set_evidence(ev.second);
             }
         }
-        //        SASSERT(validate_conflict());
+        // SASSERT(validate_conflict());
         dump_conflict();
         ctx().set_conflict(
             ctx().mk_justification(
