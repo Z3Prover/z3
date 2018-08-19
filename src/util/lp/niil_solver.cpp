@@ -22,19 +22,21 @@ Revision History:
 #include "util/lp/mon_eq.h"
 #include "util/lp/lp_utils.h"
 namespace niil {
-typedef std::unordered_set<lp::constraint_index> expl_set;
-typedef nra::mon_eq mon_eq;
-typedef lp::var_index lpvar;
+typedef lp::constraint_index     lpci;
+typedef std::unordered_set<lpci> expl_set;
+typedef nra::mon_eq              mon_eq;
+typedef lp::var_index            lpvar;
+
 struct solver::imp {
     struct vars_equivalence {
         struct equiv {
             lpvar                m_i;
             lpvar                m_j;
             int                  m_sign;
-            lp::constraint_index m_c0;
-            lp::constraint_index m_c1;
+            lpci m_c0;
+            lpci m_c1;
             
-            equiv(lpvar i, lpvar j, int sign, lp::constraint_index c0, lp::constraint_index c1) :
+            equiv(lpvar i, lpvar j, int sign, lpci c0, lpci c1) :
                 m_i(i),
                 m_j(j),
                 m_sign(sign),
@@ -72,7 +74,7 @@ struct solver::imp {
         
 
         unsigned size() const { return m_map.size(); }
-        void add_equivalence_maybe(const lp::lar_term *t, lp::constraint_index c0, lp::constraint_index c1) {
+        void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
             if (t->size() != 2 || ! t->m_v.is_zero())
                 return;
             bool seen_minus = false;
@@ -179,19 +181,19 @@ struct solver::imp {
     
     struct var_lists {
         svector<unsigned>                 m_monomials; // of the var
-        svector<const lpcon*> m_constraints; // of the var
+        svector<lpci> m_constraints; // of the var
         const svector<unsigned>& mons() const { return m_monomials;}
         svector<unsigned>& mons() { return m_monomials;}
-        const svector<const lpcon*>& constraints() const { return m_constraints;}
+        const svector<lpci>& constraints() const { return m_constraints;}
         void add_monomial(unsigned i) { mons().push_back(i); }
-        void add_constraint(const lpcon* i) { m_constraints.push_back(i); };
+        void add_constraint(lpci i) { m_constraints.push_back(i); };
     };
     
     vars_equivalence                                       m_vars_equivalence;
     vector<mon_eq>                                         m_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
-    std::unordered_map<lpvar, var_lists>                    m_var_listss;
+    std::unordered_map<lpvar, var_lists>                    m_var_lists;
     lp::explanation *                                      m_expl;
     lemma *                                                m_lemma;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
@@ -303,7 +305,7 @@ struct solver::imp {
     
     bool generate_basic_lemma_for_mon_sign_var(unsigned i_mon,
                                                unsigned j_var, const svector<lpvar>& mon_vars, int sign) {
-        auto it = m_var_listss.find(j_var);
+        auto it = m_var_lists.find(j_var);
         for (auto other_i_mon : it->second.mons()) {
             if (other_i_mon == i_mon) continue;
             if (generate_basic_lemma_for_mon_sign_var_other_mon(
@@ -340,6 +342,7 @@ struct solver::imp {
     }
 
     bool generate_basic_lemma_for_mon_zero(unsigned i_mon) {
+        svector<lpci> zero_expl;
         return false;
     }
 
@@ -368,11 +371,11 @@ struct solver::imp {
     void map_monominals_vars(unsigned i) {
         const mon_eq& m = m_monomials[i];
         for (lpvar j : m.m_vs) {
-            auto it = m_var_listss.find(j);
-            if (it == m_var_listss.end()) {
+            auto it = m_var_lists.find(j);
+            if (it == m_var_lists.end()) {
                 var_lists v;
                 v.add_monomial(i);
-                m_var_listss[j] = v;
+                m_var_lists[j] = v;
             }
             else {
                 it->second.add_monomial(i);
@@ -380,27 +383,27 @@ struct solver::imp {
         }
     }
 
-    void bind_var_and_constraint(lpvar j, const lpcon* c) {
-        auto it = m_var_listss.find(j);
-        if (it == m_var_listss.end()) {
+    void bind_var_and_constraint(lpvar j, lpci ci) {
+        auto it = m_var_lists.find(j);
+        if (it == m_var_lists.end()) {
             var_lists v;
-            v.add_constraint(c);
-            m_var_listss.insert(std::pair<lpvar, var_lists>(j, v));
+            v.add_constraint(ci);
+            m_var_lists.insert(std::pair<lpvar, var_lists>(j, v));
         } else {
-            it->second.add_constraint(c);
+            it->second.add_constraint(ci);
         }
     }
     
-    void process_constraint_vars(const lpcon* c) {
-        for (const auto p : c->get_left_side_coefficients())
-            bind_var_and_constraint(p.second, c);
+    void process_constraint_vars(lpci ci) {
+        for (const auto p : m_lar_solver.constraints()[ci]->get_left_side_coefficients())
+            bind_var_and_constraint(p.second, ci);
     }
     
     void map_vars_to_monomials_and_constraints() {
         for (unsigned i = 0; i < m_monomials.size(); i++)
             map_monominals_vars(i);
-        for (const auto c : m_lar_solver.constraints()) {
-            process_constraint_vars(c);
+        for (lpci ci = 0; ci < m_lar_solver.constraints().size(); ci++) {
+            process_constraint_vars(ci);
         }
     }
 
@@ -426,6 +429,8 @@ struct solver::imp {
         if (to_refine.size() == 0)
             return l_true;
 
+        TRACE("niil_solver", tout << "to_refine.size() = " << to_refine.size() << std::endl;);
+        
         init_search();
         
         if (generate_basic_lemma(to_refine))
