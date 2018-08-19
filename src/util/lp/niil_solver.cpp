@@ -177,7 +177,7 @@ struct solver::imp {
 
     typedef lp::lar_base_constraint lpcon;
     
-    struct var_info {
+    struct var_lists {
         svector<unsigned>                 m_monomials; // of the var
         svector<const lpcon*> m_constraints; // of the var
         const svector<unsigned>& mons() const { return m_monomials;}
@@ -191,7 +191,7 @@ struct solver::imp {
     vector<mon_eq>                                         m_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
-    std::unordered_map<lpvar, var_info>                    m_var_infos;
+    std::unordered_map<lpvar, var_lists>                    m_var_listss;
     lp::explanation *                                      m_expl;
     lemma *                                                m_lemma;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
@@ -303,7 +303,7 @@ struct solver::imp {
     
     bool generate_basic_lemma_for_mon_sign_var(unsigned i_mon,
                                                unsigned j_var, const svector<lpvar>& mon_vars, int sign) {
-        auto it = m_var_infos.find(j_var);
+        auto it = m_var_listss.find(j_var);
         for (auto other_i_mon : it->second.mons()) {
             if (other_i_mon == i_mon) continue;
             if (generate_basic_lemma_for_mon_sign_var_other_mon(
@@ -368,11 +368,11 @@ struct solver::imp {
     void map_monominals_vars(unsigned i) {
         const mon_eq& m = m_monomials[i];
         for (lpvar j : m.m_vs) {
-            auto it = m_var_infos.find(j);
-            if (it == m_var_infos.end()) {
-                var_info v;
+            auto it = m_var_listss.find(j);
+            if (it == m_var_listss.end()) {
+                var_lists v;
                 v.add_monomial(i);
-                m_var_infos[j] = v;
+                m_var_listss[j] = v;
             }
             else {
                 it->second.add_monomial(i);
@@ -381,11 +381,11 @@ struct solver::imp {
     }
 
     void bind_var_and_constraint(lpvar j, const lpcon* c) {
-        auto it = m_var_infos.find(j);
-        if (it == m_var_infos.end()) {
-            var_info v;
+        auto it = m_var_listss.find(j);
+        if (it == m_var_listss.end()) {
+            var_lists v;
             v.add_constraint(c);
-            m_var_infos.insert(std::pair<lpvar, var_info>(j, v));
+            m_var_listss.insert(std::pair<lpvar, var_lists>(j, v));
         } else {
             it->second.add_constraint(c);
         }
