@@ -61,16 +61,45 @@ namespace datalog {
 
         scoped_ptr<rule_dependencies> m_deps;
         scoped_ptr<rule_stratifier> m_stratifier;
-        map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> m_cache;
-        bool is_recursive(rule &r, func_decl &decl) const;
-        bool is_recursive(rule &r, expr &e) const;
 
+        // symbol table that maps new predicate names to corresponding
+        // func_decl
+        map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> m_cache;
+
+        /// returns true if decl is recursive in the given rule
+        /// requires that decl appears in the tail of r
+        bool is_recursive(rule &r, func_decl &decl) const;
+        bool is_recursive(rule &r, expr &e) const {
+            SASSERT(is_app(&e));
+            return is_app(&e) && is_recursive(r, *to_app(&e)->get_decl());
+        }
+
+        /// returns true if the top-level predicate of app is recursive
         bool has_recursive_premise(app * app) const;
 
         item_set_vector add_merged_decls(ptr_vector<app> & apps);
+
+        /**
+            Compute Cartesian product of decls and create a new
+            predicate for each element. For example, if decls is
+
+            ( (a, b), (c, d) ) )
+
+            create new predicates: a!!c, a!!d, b!!c, and b!!d
+        */
         void add_new_rel_symbols(unsigned idx, item_set_vector const & decls,
                                  ptr_vector<func_decl> & buf, bool & was_added);
 
+        /**
+           Convert vector of predicate apps into a single app. For example,
+           (Foo a) (Bar b) becomes (Foo!!Bar a b)
+         */
+        app_ref product_application(ptr_vector<app> const & apps);
+
+        /**
+            Replace a given rule by a rule in which conjunction of
+            predicates is replaced by a single product predicate
+         */
         void replace_applications(rule & r, rule_set & rules,
                                   ptr_vector<app> & apps);
 
@@ -85,7 +114,6 @@ namespace datalog {
                               svector<bool> & new_tail_neg,
                               unsigned & tail_idx);
 
-        app_ref product_application(ptr_vector<app> const & apps);
         rule_ref product_rule(rule_ref_vector const & rules);
 
         void merge_rules(unsigned idx, rule_ref_vector & buf,

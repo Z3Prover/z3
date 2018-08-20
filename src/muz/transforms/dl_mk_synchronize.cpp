@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include "muz/transforms/dl_mk_synchronize.h"
+#include <algorithm>
 
 namespace datalog {
 
@@ -38,9 +39,6 @@ namespace datalog {
         auto & strata = m_stratifier->get_strats();
         unsigned num_of_stratum = m_stratifier->get_predicate_strat(hdecl);
         return strata[num_of_stratum]->contains(&decl);
-    }
-    bool mk_synchronize::is_recursive(rule &r, expr &e) const {
-        return is_app(&e) && is_recursive(r, *to_app(&e)->get_decl());
     }
 
     bool mk_synchronize::has_recursive_premise(app * app) const {
@@ -83,7 +81,6 @@ namespace datalog {
             if (!m_cache.contains(new_name)) {
                 was_added = true;
                 func_decl* orig = decls_buf[0];
-                // AG : is this ref counted
                 func_decl* product_pred = m_ctx.mk_fresh_head_predicate(new_name,
                     symbol::null, domain.size(), domain.c_ptr(), orig);
                 m_cache.insert(new_name, product_pred);
@@ -91,7 +88,8 @@ namespace datalog {
             return;
         }
 
-        // AG: why recursive?
+        // -- compute Cartesian product of decls, and create a new
+        // -- predicate for each element of the product
         for (auto &p : *decls[idx]) {
             decls_buf[idx] = p;
             add_new_rel_symbols(idx + 1, decls, decls_buf, was_added);
@@ -180,20 +178,20 @@ namespace datalog {
                                       app_ref_vector & new_tail,
                                       svector<bool> & new_tail_neg,
                                       unsigned & tail_idx) {
-        int max_size = 0;
+        unsigned max_sz = 0;
+        for (auto &rc : recursive_calls)
+            max_sz= std::max(rc.size(), max_sz);
+
         unsigned n = recursive_calls.size();
-        for (unsigned i = 0; i < n; ++i) {
-            if (recursive_calls[i].size() > max_size) {
-                max_size = recursive_calls[i].size();
-            }
-        }
-        for (unsigned j = 0; j < max_size; ++j) {
-            ptr_vector<app> merged_recursive_calls;
+        ptr_vector<app> merged_recursive_calls;
+
+        for (unsigned j = 0; j < max_sz; ++j) {
+            merged_recursive_calls.reset();
             merged_recursive_calls.resize(n);
             for (unsigned i = 0; i < n; ++i) {
-                unsigned cur_size = recursive_calls[i].size();
-                j < cur_size ? merged_recursive_calls[i] = recursive_calls[i][j]:
-                    merged_recursive_calls[i] = recursive_calls[i][cur_size - 1];
+                unsigned sz = recursive_calls[i].size();
+                merged_recursive_calls[i] =
+                    j < sz ? recursive_calls[i][j] : recursive_calls[i][sz - 1];
             }
             ++tail_idx;
             new_tail[tail_idx] = product_application(merged_recursive_calls);
@@ -204,7 +202,7 @@ namespace datalog {
     void mk_synchronize::add_non_rec_tail(rule & r, app_ref_vector & new_tail,
                                           svector<bool> & new_tail_neg,
                                           unsigned & tail_idx) {
-        for (unsigned i = 0; i < r.get_positive_tail_size(); ++i) {
+        for (unsigned i = 0, sz = r.get_positive_tail_size(); i < sz; ++i) {
             app* tail = r.get_tail(i);
             if (!is_recursive(r, *tail)) {
                 ++tail_idx;
@@ -212,12 +210,14 @@ namespace datalog {
                 new_tail_neg[tail_idx] = false;
             }
         }
-        for (unsigned i = r.get_positive_tail_size(); i < r.get_uninterpreted_tail_size(); ++i) {
+        for (unsigned i = r.get_positive_tail_size(),
+                 sz = r.get_uninterpreted_tail_size() ; i < sz; ++i) {
             ++tail_idx;
             new_tail[tail_idx] = r.get_tail(i);
             new_tail_neg[tail_idx] = true;
         }
-        for (unsigned i = r.get_uninterpreted_tail_size(); i < r.get_tail_size(); ++i) {
+        for (unsigned i = r.get_uninterpreted_tail_size(),
+                 sz = r.get_tail_size(); i < sz; ++i) {
             ++tail_idx;
             new_tail[tail_idx] = r.get_tail(i);
             new_tail_neg[tail_idx] = r.is_neg_tail(i);
@@ -254,7 +254,7 @@ namespace datalog {
 
         string_buffer<> buffer;
         bool first_rule = true;
-        for (rule_ref_vector::iterator it = rules.begin(); it != rules.end(); ++it, first_rule = false) {
+        for (auto it = rules.begin(); it != rules.end(); ++it, first_rule = false) {
             if (!first_rule) {
                 buffer << "+";
             }
