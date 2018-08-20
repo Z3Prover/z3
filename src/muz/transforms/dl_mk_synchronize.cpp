@@ -80,13 +80,13 @@ namespace datalog {
 
             symbol new_name = symbol(buffer.c_str());
 
-            if (!cache.contains(new_name)) {
+            if (!m_cache.contains(new_name)) {
                 was_added = true;
                 func_decl* orig = decls_buf[0];
                 // AG : is this ref counted
                 func_decl* product_pred = m_ctx.mk_fresh_head_predicate(new_name,
                     symbol::null, domain.size(), domain.c_ptr(), orig);
-                cache.insert(new_name, product_pred);
+                m_cache.insert(new_name, product_pred);
             }
             return;
         }
@@ -235,8 +235,8 @@ namespace datalog {
         }
 
         symbol name = symbol(buffer.c_str());
-        SASSERT(cache.contains(name));
-        func_decl * pred = cache[name];
+        SASSERT(m_cache.contains(name));
+        func_decl * pred = m_cache[name];
 
         ptr_vector<expr> args;
         args.resize(args_num);

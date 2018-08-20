@@ -61,7 +61,7 @@ namespace datalog {
 
         scoped_ptr<rule_dependencies> m_deps;
         scoped_ptr<rule_stratifier> m_stratifier;
-        map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> cache;
+        map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> m_cache;
         bool is_recursive(rule &r, func_decl &decl) const;
         bool is_recursive(rule &r, expr &e) const;
 
