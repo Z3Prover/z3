@@ -31,7 +31,7 @@ namespace smt {
     
     class theory_jobscheduler : public theory {
     public:
-        typedef map<symbol, double, symbol_hash_proc, symbol_eq_proc> properties;
+        typedef svector<symbol> properties;
     protected:
 
         struct job_resource {
@@ -175,6 +175,10 @@ namespace smt {
         time_t ect(unsigned j, unsigned r, time_t start);
         bool lst(unsigned j, unsigned r, time_t& t);
         
+        bool resource_available(job_resource const& jr, res_available const& ra) const;
+        bool first_available(job_resource const& jr, res_info const& ri, unsigned& idx) const;
+        bool last_available(job_resource const& jr, res_info const& ri, unsigned& idx) const;
+
         time_t solve_for_start(unsigned load_pct, unsigned job_load_pct, time_t end, time_t cap);
         time_t solve_for_end(unsigned load_pct, unsigned job_load_pct, time_t start, time_t cap);
         time_t solve_for_capacity(unsigned load_pct, unsigned job_load_pct, time_t start, time_t end);
@@ -198,8 +202,8 @@ namespace smt {
         void assert_last_end_time(unsigned j, unsigned r, job_resource const& jr, literal eq);
         void assert_last_start_time(unsigned j, unsigned r, literal eq);
         void assert_first_start_time(unsigned j, unsigned r, literal eq);
-        void assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, literal eq);
-        void assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, literal eq);
+        void assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq);
+        void assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq);
 
         void block_job_overlap(unsigned r, uint_set const& jobs, unsigned last_job);
 

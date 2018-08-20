@@ -83,6 +83,12 @@ namespace smt {
         return true;
     }
 
+    struct symbol_cmp {
+        bool operator()(symbol const& s1, symbol const& s2) const {
+            return lt(s1, s2);
+        }
+    };
+
     // TBD: stronger parameter validation
     void theory_jobscheduler::internalize_cmd(expr* cmd) {
         symbol key, val;
@@ -94,10 +100,12 @@ namespace smt {
         if (u.is_set_preemptable(cmd, job) && u.is_job(job, j)) {
             set_preemptable(j, true);            
         }
-        else if (u.is_add_resource_available(cmd, resource, loadpct, start, end) && u.is_resource(resource, res)) {
+        else if (u.is_add_resource_available(cmd, resource, loadpct, start, end, ps) && u.is_resource(resource, res)) {
+            std::sort(ps.begin(), ps.end(), symbol_cmp());
             add_resource_available(res, loadpct, start, end, ps);
         }
-        else if (u.is_add_job_resource(cmd, job, resource, loadpct, capacity, end) && u.is_job(job, j) && u.is_resource(resource, res)) {
+        else if (u.is_add_job_resource(cmd, job, resource, loadpct, capacity, end, ps) && u.is_job(job, j) && u.is_resource(resource, res)) {
+            std::sort(ps.begin(), ps.end(), symbol_cmp());
             add_job_resource(j, res, loadpct, capacity, end, ps);
         }
         else {
@@ -306,12 +314,15 @@ namespace smt {
     bool theory_jobscheduler::constrain_end_time_interval(unsigned j, unsigned r) {
         unsigned idx1 = 0, idx2 = 0;
         time_t s = start(j);
+        job_resource const& jr = get_job_resource(j, r);
         TRACE("csp", tout << "job: " << j << " resource: " << r << " start: " << s <<  "\n";);
-        if (!resource_available(r, s, idx1)) return false;
         vector<res_available>& available = m_resources[r].m_available;
+        if (!resource_available(r, s, idx1)) return false;
+        if (!resource_available(jr, available[idx1])) return false;
         time_t e = ect(j, r, s);
         TRACE("csp", tout << "job: " << j << " resource: " << r << " ect: " << e <<  "\n";);
         if (!resource_available(r, e, idx2)) return false; // infeasible..
+        if (!resource_available(jr, available[idx2])) return false;
         time_t start1 = available[idx1].m_start;
         time_t end1   = available[idx1].m_end;
         unsigned cap1 = available[idx1].m_loadpct;
@@ -445,12 +456,19 @@ namespace smt {
         assert_last_start_time(j, r, eq);
         assert_first_start_time(j, r, eq);
         vector<res_available> const& available = ri.m_available;
-        for (unsigned i = 0; i + 1 < available.size(); ++i) {
-            SASSERT(available[i].m_end < available[i + 1].m_start);
-            assert_job_not_in_gap(j, r, i, eq);            
+        // TBD: needs to take properties into account
+        
+        unsigned i = 0;
+        if (!first_available(jr, ri, i)) return;
+        while (true) {
+            unsigned next = i + 1;
+            if (!first_available(jr, ri, next)) return;
+            SASSERT(available[i].m_end < available[next].m_start);
+            assert_job_not_in_gap(j, r, i, next, eq);            
             if (!ji.m_is_preemptable && available[i].m_end + 1 < available[i+1].m_start) {
-                assert_job_non_preemptable(j, r, i, eq);
+                assert_job_non_preemptable(j, r, i, next, eq);
             }
+            i = next;
         }
     }
         
@@ -463,7 +481,8 @@ namespace smt {
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_resource const& jr) const {
-        return out << "r:" << jr.m_resource_id << " cap:" << jr.m_capacity << " load:" << jr.m_loadpct << " end:" << jr.m_end << "\n";
+        return out << "r:" << jr.m_resource_id << " cap:" << jr.m_capacity << " load:" << jr.m_loadpct << " end:" << jr.m_end;
+        for (auto const& s : jr.m_properties) out << " " << s; out << "\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_info const& j) const {
@@ -474,7 +493,8 @@ namespace smt {
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_available const& r) const {
-        return out << "[" << r.m_start << ":" << r.m_end << "] @ " << r.m_loadpct << "%\n";
+        return out << "[" << r.m_start << ":" << r.m_end << "] @ " << r.m_loadpct << "%";
+        for (auto const& s : r.m_properties) out << " " << s; out << "\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_info const& r) const {
@@ -624,6 +644,7 @@ namespace smt {
         m_resources[r].m_jobs.push_back(j);
     }
 
+
     void theory_jobscheduler::add_resource_available(unsigned r, unsigned max_loadpct, time_t start, time_t end, properties const& ps) {
         SASSERT(get_context().at_base_level());
         SASSERT(1 <= max_loadpct && max_loadpct <= 100);
@@ -684,8 +705,15 @@ namespace smt {
             for (job_resource const& jr : ji.m_resources) {
                 unsigned r = jr.m_resource_id;
                 res_info const& ri = m_resources[r];
-                start_lb = std::min(start_lb, ri.m_available[0].m_start);
-                end_ub   = std::max(end_ub, ri.m_available.back().m_end);
+                if (ri.m_available.empty()) continue;
+                unsigned idx = 0;
+                if (first_available(jr, ri, idx)) {
+                    start_lb = std::min(start_lb, ri.m_available[idx].m_start);
+                }
+                idx = ri.m_available.size();
+                if (last_available(jr, ri, idx)) {
+                    end_ub = std::max(end_ub, ri.m_available[idx].m_end);                    
+                }
             }
 
             // start(j) >= start_lb
@@ -722,24 +750,31 @@ namespace smt {
 
     // resource(j) = r => start(j) >= available[0].m_start
     void theory_jobscheduler::assert_first_start_time(unsigned j, unsigned r, literal eq) {
+        job_resource const& jr = get_job_resource(j, r);
+        unsigned idx = 0;
+        if (!first_available(jr, m_resources[r], idx)) return;
         vector<res_available>& available = m_resources[r].m_available;
-        literal l2 = mk_ge(m_jobs[j].m_start, available[0].m_start);
+        literal l2 = mk_ge(m_jobs[j].m_start, available[idx].m_start);
         get_context().mk_th_axiom(get_id(), ~eq, l2);
     }
 
     // resource(j) = r => start(j) <= end[idx]  || start[idx+1] <= start(j);
-    void theory_jobscheduler::assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, literal eq) {
+    void theory_jobscheduler::assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq) {
+        job_resource const& jr = get_job_resource(j, r);
         vector<res_available>& available = m_resources[r].m_available;        
-        literal l2 = mk_ge(m_jobs[j].m_start, available[idx + 1].m_start);
+        SASSERT(resource_available(jr, available[idx]));
+        literal l2 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
         literal l3 = mk_le(m_jobs[j].m_start, available[idx].m_end);
         get_context().mk_th_axiom(get_id(), ~eq, l2, l3);        
     }
 
     // resource(j) = r => end(j) <= end[idx] || start[idx+1] <= start(j);
-    void theory_jobscheduler::assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, literal eq) {
+    void theory_jobscheduler::assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;        
+        job_resource const& jr = get_job_resource(j, r);
+        SASSERT(resource_available(jr, available[idx]));
         literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
-        literal l3 = mk_ge(m_jobs[j].m_start, available[idx + 1].m_start);
+        literal l3 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
         get_context().mk_th_axiom(get_id(), ~eq, l2, l3);
     }    
 
@@ -868,6 +903,7 @@ namespace smt {
         SASSERT(cap > 0);
         
         for (; idx < available.size(); ++idx) {
+            if (!resource_available(jr, available[idx])) continue;
             start             = std::max(start, available[idx].m_start);
             time_t end        = available[idx].m_end;
             unsigned load_pct = available[idx].m_loadpct;
@@ -941,6 +977,7 @@ namespace smt {
         unsigned j_load_pct = jr.m_loadpct;
         time_t cap = jr.m_capacity;
         for (unsigned idx = available.size(); idx-- > 0; ) {
+            if (!resource_available(jr, available[idx])) continue;
             start    = available[idx].m_start;
             time_t end      = available[idx].m_end;
             unsigned load_pct = available[idx].m_loadpct;
@@ -958,6 +995,53 @@ namespace smt {
         }
         return false;
     }
+
+    /**
+     * \brief check that job properties is a subset of resource properties.
+     * It assumes that both vectors are sorted.
+     */
+
+    bool theory_jobscheduler::resource_available(job_resource const& jr, res_available const& ra) const {
+        auto const& jps = jr.m_properties;
+        auto const& rps = ra.m_properties;
+        if (jps.size() > rps.size()) return false;
+        unsigned j = 0, i = 0;
+        for (; i < jps.size() && j < rps.size(); ) {
+            if (jps[i] == rps[j]) {
+                ++i; ++j;
+            }
+            else if (lt(rps[j], jps[i])) {
+                ++j;
+            }
+            else {
+                break;
+            }            
+        }
+        return i == jps.size();
+    }
+
+    /**
+     * \brief minimal current resource available for job resource, includes idx.
+     */
+    bool theory_jobscheduler::first_available(job_resource const& jr, res_info const& ri, unsigned& idx) const {
+        for (; idx < ri.m_available.size(); ++idx) {
+            if (resource_available(jr, ri.m_available[idx])) 
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * \brief maximal previous resource available for job resource, excludes idx.
+     */
+    bool theory_jobscheduler::last_available(job_resource const& jr, res_info const& ri, unsigned& idx) const {
+        while (idx-- > 0) {
+            if (resource_available(jr, ri.m_available[idx])) 
+                return true;
+        }
+        return false;
+    }
+
     
 };
 
