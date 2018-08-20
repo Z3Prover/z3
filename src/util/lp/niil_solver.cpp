@@ -193,7 +193,7 @@ struct solver::imp {
     vector<mon_eq>                                         m_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
-    std::unordered_map<lpvar, var_lists>                    m_var_lists;
+    std::unordered_map<lpvar, var_lists>                   m_var_lists;
     lp::explanation *                                      m_expl;
     lemma *                                                m_lemma;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
@@ -341,9 +341,118 @@ struct solver::imp {
         return false;
     }
 
+    // Return 0 if the monomial has to to have a zero value,
+    // -1 if the monomial has to be negative
+    // 1 if positive.
+    // Otherwise return 2.
+    int get_mon_sign_zero_var(unsigned j) {
+        auto it = m_var_lists.find(j);
+        if (it == m_var_lists.end())
+            return 2;
+        lpci lci = -1;
+        lpci uci = -1;
+        rational lb, ub;
+        
+        for (lpci ci : it->second.m_constraints) {
+            const auto * c = m_lar_solver.constraints()[ci];
+            if (c->size() != 1)
+                continue;
+            const auto coeffs = c->get_left_side_coefficients();
+            SASSERT(coeffs[0].second == j);
+            auto kind = c->m_kind;
+                    
+            const rational& a = coeffs[0].first;
+            if (a.is_neg())
+                kind = lp::flip_kind(kind);
+            
+            rational rs = c->m_right_side / a ;
+            SASSERT(rs.is_int());
+            switch(kind) {
+            lecase:
+            case lp::LE:
+                if (uci == static_cast<unsigned>(-1)) {
+                    uci = ci;
+                    ub = rs;
+                } else {
+                    if (ub > rs) {
+                        ub = rs;
+                        uci = ci;
+                    }
+                }
+                break;
+
+            case lp::LT:
+                rs -= 1;
+                goto lecase;
+
+            gecase:
+            case lp::GE:
+                if (lci == static_cast<unsigned>(-1)) {
+                    lci = ci;
+                    lb = rs;
+                } else {
+                    if (lb < rs) {
+                        lb = rs;
+                        lci = ci;
+                    }
+                }
+                break;
+
+            case lp::GT:
+                rs += 1;
+                goto gecase;
+            case lp::EQ:
+                uci = lci = ci;
+                ub = lb = rs;
+                break;
+            default:
+                continue; 
+            }
+                
+        }
+        return 2;
+    }
+    
+
+    // Return 0 if the monomial has to to have a zero value,
+    // -1 if the monomial has to be negative
+    // 1 if positive.
+    // Otherwise return 2.
+    int get_mon_sign_zero(unsigned i_mon) {
+        int sign = 1;
+        const mon_eq m = m_monomials[i_mon];
+        for (lpvar j : m.m_vs) {
+            int s = get_mon_sign_zero_var(j);
+            if (s == 2)
+                break;
+            if (s == 0)
+                return 0;
+            sign *= s;
+        }
+        return 2;
+    }
+    
     bool generate_basic_lemma_for_mon_zero(unsigned i_mon) {
-        svector<lpci> zero_expl;
-        return false;
+        int sign = get_mon_sign_zero(i_mon);
+        lp::lconstraint_kind kind;
+        switch(sign) {
+        case 0: 
+            kind = lp::lconstraint_kind::EQ;
+            break;
+        case 1:
+            kind = lp::lconstraint_kind::GT;
+            break;
+        case -1:
+            kind = lp::lconstraint_kind::LT;
+            break;
+        default:
+            return false;
+        }
+        lp::lar_term t;
+        t.add_monomial(rational(1), m_monomials[i_mon].var());
+        ineq in(kind, t);
+        m_lemma->push_back(in);
+        return true;
     }
 
     bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
