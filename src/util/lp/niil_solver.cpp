@@ -1,22 +1,22 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
-    Nikolaj Bjorner (nbjorner)
-    Lev Nachmanson (levnach)
+  Author:
+  Nikolaj Bjorner (nbjorner)
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 #include "util/lp/niil_solver.h"
 #include "util/map.h"
 #include "util/lp/mon_eq.h"
@@ -198,8 +198,8 @@ struct solver::imp {
     lemma *                                                m_lemma;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
         : m_lar_solver(s)
-        // m_limit(lim),
-        // m_params(p)
+          // m_limit(lim),
+          // m_params(p)
     {
     }
 
@@ -252,7 +252,7 @@ struct solver::imp {
         if (var_vectors_are_equal(mon_vars, other_vars_copy)
             && values_are_different(m_monomials[i_mon].var(),
                                     sign * other_sign, other_m.var())) {
-            fill_explanation_and_lemma(m_monomials[i_mon],
+            fill_explanation_and_lemma_sign(m_monomials[i_mon],
                                        other_m,
                                        sign* other_sign);
             return true;
@@ -277,7 +277,7 @@ struct solver::imp {
         }
     }
     // the monomials should be equal by modulo sign, but they are not equal in the model
-    void fill_explanation_and_lemma(const mon_eq& a, const mon_eq & b, int sign) {
+    void fill_explanation_and_lemma_sign(const mon_eq& a, const mon_eq & b, int sign) {
         expl_set expl;
         SASSERT(sign == 1 || sign == -1);
         add_expl_from_monomial(a, expl);
@@ -285,18 +285,18 @@ struct solver::imp {
         m_expl->clear();
         m_expl->add(expl);
         TRACE("niil_solver",
-        for (auto &p : *m_expl)
-            m_lar_solver.print_constraint(p.second, tout); tout << "\n";
+              for (auto &p : *m_expl)
+                  m_lar_solver.print_constraint(p.second, tout); tout << "\n";
               );
         lp::lar_term t;
         t.add_monomial(rational(1), a.var());
         t.add_monomial(rational(- sign), b.var());
         TRACE("niil_solver", 
-        m_lar_solver.print_term(t, tout);
-        tout << "\n";
-        print_monomial(a, tout);
-        tout << "\n";
-        print_monomial(b, tout);
+              m_lar_solver.print_term(t, tout);
+              tout << "\n";
+              print_monomial(a, tout);
+              tout << "\n";
+              print_monomial(b, tout);
               );
 
         ineq in(lp::lconstraint_kind::NE, t);
@@ -341,117 +341,189 @@ struct solver::imp {
         return false;
     }
 
+    bool is_set(unsigned j) const {
+        return static_cast<unsigned>(-1) != j;
+    }
+    bool get_mon_sign_zero_var_loop_body(lpvar j, lpci ci, lpci & lci, lpci & uci,
+                                         rational& lb, rational &ub) const {
+        const auto * c = m_lar_solver.constraints()[ci];
+        if (c->size() != 1)
+            return false;
+        const auto coeffs = c->get_left_side_coefficients();
+        SASSERT(coeffs[0].second == j);
+        auto kind = c->m_kind;
+        const rational& a = coeffs[0].first;
+        if (a.is_neg())
+            kind = lp::flip_kind(kind);
+            
+        rational rs = c->m_right_side / a ;
+        SASSERT(rs.is_int());
+        switch(kind) {
+        le_case:
+        case lp::LE:
+            if (!is_set(uci)) {
+                uci = ci;
+                ub = rs;
+            } else {
+                if (ub > rs) {
+                    ub = rs;
+                    uci = ci;
+                }
+            }
+            break;
+
+        case lp::LT:
+            rs -= 1;
+            goto le_case;
+
+        ge_case:
+        case lp::GE:
+            if (!is_set(lci)) {
+                lci = ci;
+                lb = rs;
+            } else {
+                if (lb < rs) {
+                    lb = rs;
+                    lci = ci;
+                }
+            }
+            break;
+
+        case lp::GT:
+            rs += 1;
+            goto ge_case;
+        case lp::EQ:
+            uci = lci = ci;
+            ub = lb = rs;
+            break;
+        default:
+            return false; 
+        }
+        return true;
+    }
+    
     // Return 0 if the monomial has to to have a zero value,
     // -1 if the monomial has to be negative
     // 1 if positive.
-    // Otherwise return 2.
-    int get_mon_sign_zero_var(unsigned j) {
+    // If strict is true on the entrance then it can be set to false,
+    // otherwise it remains false
+    // Returns true if the sign is not defined.
+    int get_mon_sign_zero_var(unsigned j, bool & strict) {
         auto it = m_var_lists.find(j);
         if (it == m_var_lists.end())
             return 2;
         lpci lci = -1;
         lpci uci = -1;
         rational lb, ub;
-        
         for (lpci ci : it->second.m_constraints) {
-            const auto * c = m_lar_solver.constraints()[ci];
-            if (c->size() != 1)
+            if (get_mon_sign_zero_var_loop_body(j, ci, lci, uci, lb, ub) == false)
                 continue;
-            const auto coeffs = c->get_left_side_coefficients();
-            SASSERT(coeffs[0].second == j);
-            auto kind = c->m_kind;
-                    
-            const rational& a = coeffs[0].first;
-            if (a.is_neg())
-                kind = lp::flip_kind(kind);
             
-            rational rs = c->m_right_side / a ;
-            SASSERT(rs.is_int());
-            switch(kind) {
-            lecase:
-            case lp::LE:
-                if (uci == static_cast<unsigned>(-1)) {
-                    uci = ci;
-                    ub = rs;
-                } else {
-                    if (ub > rs) {
-                        ub = rs;
-                        uci = ci;
-                    }
+            if (is_set(uci) && is_set(lci) && ub == lb) {
+                if (ub.is_zero()){
+                    m_expl->clear();
+                    m_expl->push_justification(uci);
+                    m_expl->push_justification(lci);
+                    return 0;
                 }
-                break;
-
-            case lp::LT:
-                rs -= 1;
-                goto lecase;
-
-            gecase:
-            case lp::GE:
-                if (lci == static_cast<unsigned>(-1)) {
-                    lci = ci;
-                    lb = rs;
-                } else {
-                    if (lb < rs) {
-                        lb = rs;
-                        lci = ci;
-                    }
-                }
-                break;
-
-            case lp::GT:
-                rs += 1;
-                goto gecase;
-            case lp::EQ:
-                uci = lci = ci;
-                ub = lb = rs;
-                break;
-            default:
-                continue; 
+                m_expl->push_justification(uci);
+                m_expl->push_justification(lci);
+                return ub.is_pos() ? 1 : -1;
             }
-                
+            
+            if (is_set(uci)) {
+                if (ub.is_neg()) {
+                    m_expl->push_justification(uci);
+                    return -1;
+                }
+                if (ub.is_zero()) {
+                    strict = false;
+                    m_expl->push_justification(uci);
+                    return -1;
+                }
+            }
+            
+            if (is_set(lci)) {
+                if (lb.is_pos()) {
+                    m_expl->push_justification(lci);
+                    return 1;
+                }
+                if (lb.is_zero()) {
+                    strict = false;
+                    m_expl->push_justification(lci);
+                    return 1;
+                }
+            }
         }
-        return 2;
+        return 2; // the sign of the variable is not defined
     }
     
 
     // Return 0 if the monomial has to to have a zero value,
-    // -1 if the monomial has to be negative
-    // 1 if positive.
-    // Otherwise return 2.
-    int get_mon_sign_zero(unsigned i_mon) {
+    // -1 if the monomial has to be negative or zero 
+    // 1 if positive or zero
+    // otherwise return 2 (2 is not a sign!)
+    // if strict is true then 0 is excluded
+    int get_mon_sign_zero(unsigned i_mon, bool & strict) {
         int sign = 1;
+        strict = true;
         const mon_eq m = m_monomials[i_mon];
         for (lpvar j : m.m_vs) {
-            int s = get_mon_sign_zero_var(j);
+            int s = get_mon_sign_zero_var(j, strict);
             if (s == 2)
-                break;
+                return 2;;
             if (s == 0)
                 return 0;
             sign *= s;
         }
-        return 2;
+        return sign;
     }
     
     bool generate_basic_lemma_for_mon_zero(unsigned i_mon) {
-        int sign = get_mon_sign_zero(i_mon);
+        const rational & mon_val = m_lar_solver.get_column_value(m_monomials[i_mon].var()).x;
+        bool strict;
+        int sign = get_mon_sign_zero(i_mon, strict);
         lp::lconstraint_kind kind;
+        rational rs(0);
         switch(sign) {
-        case 0: 
+        case 0:
+            SASSERT(!mon_val.is_zero());
             kind = lp::lconstraint_kind::EQ;
             break;
         case 1:
-            kind = lp::lconstraint_kind::GT;
+            if (strict)
+                rs = rational(1);
+            if (mon_val >= rs)
+                return false;
+            kind = lp::lconstraint_kind::GE;
             break;
         case -1:
-            kind = lp::lconstraint_kind::LT;
+            if (strict)
+                rs = rational(-1);
+            if (mon_val <= rs)
+                return false;
+            kind = lp::lconstraint_kind::LE;
             break;
         default:
             return false;
         }
         lp::lar_term t;
         t.add_monomial(rational(1), m_monomials[i_mon].var());
+        t.m_v = -rs;
         ineq in(kind, t);
         m_lemma->push_back(in);
+        TRACE("niil_solver",
+              for (auto &p : *m_expl)
+                  m_lar_solver.print_constraint(p.second, tout); tout << "\n";
+              m_lar_solver.print_term(t, tout);
+              tout << " " << lp::lconstraint_kind_string(kind) << " 0\n";
+              print_monomial(m_monomials[i_mon], tout); tout << "\n";
+              lpvar mon_var = m_monomials[i_mon].var();
+              
+              tout << m_lar_solver.get_column_name(mon_var) << " = " << m_lar_solver.get_column_value(mon_var);
+              );
+        
+
         return true;
     }
 
