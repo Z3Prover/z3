@@ -29,6 +29,14 @@ void print_vector(const C & t, std::ostream & out) {
     out << std::endl;
 }
 
+template <typename C>
+void print_vector(const C * t, unsigned size, std::ostream & out) {
+    for (unsigned i = 0; i < size; i++ )
+        out << t[i] << " ";
+    out << std::endl;
+}
+
+
 template <typename A, typename B>
 bool try_get_value(const std::unordered_map<A,B> & map, const A& key, B & val) {
     const auto it = map.find(key);
