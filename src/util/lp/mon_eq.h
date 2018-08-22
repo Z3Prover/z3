@@ -9,6 +9,8 @@ namespace nra {
     struct mon_eq {
         mon_eq(lp::var_index v, unsigned sz, lp::var_index const* vs):
             m_v(v), m_vs(sz, vs) {}
+        mon_eq(lp::var_index v, const svector<lp::var_index> &vs):
+            m_v(v), m_vs(vs) {}
         lp::var_index          m_v;
         svector<lp::var_index> m_vs;
         unsigned var() const { return m_v; }

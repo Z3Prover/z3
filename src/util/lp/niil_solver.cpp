@@ -33,9 +33,8 @@ struct solver::imp {
             lpvar                m_i;
             lpvar                m_j;
             int                  m_sign;
-            lpci m_c0;
-            lpci m_c1;
-            
+            lpci                 m_c0;
+            lpci                 m_c1;
             equiv(lpvar i, lpvar j, int sign, lpci c0, lpci c1) :
                 m_i(i),
                 m_j(j),
@@ -196,17 +195,29 @@ struct solver::imp {
     std::unordered_map<lpvar, var_lists>                   m_var_lists;
     lp::explanation *                                      m_expl;
     lemma *                                                m_lemma;
-    imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
-        : m_lar_solver(s)
+    bool                                                   m_monomials_are_presorted;
+    imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, bool monomials_are_presorted)
+        : m_lar_solver(s), m_monomials_are_presorted(monomials_are_presorted)
           // m_limit(lim),
           // m_params(p)
     {
     }
 
     void add(lpvar v, unsigned sz, lpvar const* vs) {
-        m_monomials.push_back(mon_eq(v, sz, vs));
+        if (m_monomials_are_presorted) {
+            m_monomials.push_back(mon_eq(v, sz, vs));
+        }
+        else {
+            svector<lpvar> sorted_vs;
+            for (unsigned i = 0; i < sz; i++)
+                sorted_vs.push_back(vs[i]);
+            std::sort(sorted_vs.begin(), sorted_vs.end());
+            std::cout << "sorted_vs = ";
+            print_vector(sorted_vs, std::cout);
+            m_monomials.push_back(mon_eq(v, sorted_vs));
+        }
     }
-
+    
     void push() {
         m_monomials_lim.push_back(m_monomials.size());
     }
@@ -640,8 +651,8 @@ void solver::pop(unsigned n) {
 }
 
 
-solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p) {
-    m_imp = alloc(imp, s, lim, p);
+solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p, bool monomials_are_sorted) {
+    m_imp = alloc(imp, s, lim, p, monomials_are_sorted);
 }
 
 
