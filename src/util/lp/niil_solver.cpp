@@ -27,6 +27,25 @@ typedef std::unordered_set<lpci> expl_set;
 typedef nra::mon_eq              mon_eq;
 typedef lp::var_index            lpvar;
 
+struct hash_svector {
+    size_t operator()(const svector<unsigned> & v) const {
+        size_t seed = 0;
+        for (unsigned t : v)
+            hash_combine(seed, t);
+        return seed;
+    }
+
+};
+
+bool operator==(const svector<unsigned> & a, const svector<unsigned> & b) {
+    if (a.size() != b.size())
+        return false;
+    for (unsigned i = 0; i < a.size(); i++)
+        if (a[i] != b[i])
+            return false;
+    return true;
+}
+
 struct solver::imp {
     struct vars_equivalence {
         struct equiv {
@@ -187,35 +206,32 @@ struct solver::imp {
         void add_monomial(unsigned i) { mons().push_back(i); }
         void add_constraint(lpci i) { m_constraints.push_back(i); };
     };
+
+    struct mono_index_with_sign {
+        unsigned m_i; // the monomial index
+        int      m_sign; // the monomial sign: -1 or 1
+        mono_index_with_sign(unsigned i, int sign) : m_i(i), m_sign(sign) {}
+    };
     
     vars_equivalence                                       m_vars_equivalence;
     vector<mon_eq>                                         m_monomials;
+    // maps the vector of the minimized monomial vars to the list of monomial indices having the same vector
+    std::unordered_map<svector<lpvar>, vector<mono_index_with_sign>, hash_svector>
+                                                           m_minimal_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
     std::unordered_map<lpvar, var_lists>                   m_var_lists;
     lp::explanation *                                      m_expl;
     lemma *                                                m_lemma;
-    bool                                                   m_monomials_are_presorted;
-    imp(lp::lar_solver& s, reslimit& lim, params_ref const& p, bool monomials_are_presorted)
-        : m_lar_solver(s), m_monomials_are_presorted(monomials_are_presorted)
+    imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
+        : m_lar_solver(s)
           // m_limit(lim),
           // m_params(p)
     {
     }
 
     void add(lpvar v, unsigned sz, lpvar const* vs) {
-        if (m_monomials_are_presorted) {
-            m_monomials.push_back(mon_eq(v, sz, vs));
-        }
-        else {
-            svector<lpvar> sorted_vs;
-            for (unsigned i = 0; i < sz; i++)
-                sorted_vs.push_back(vs[i]);
-            std::sort(sorted_vs.begin(), sorted_vs.end());
-            std::cout << "sorted_vs = ";
-            print_vector(sorted_vs, std::cout);
-            m_monomials.push_back(mon_eq(v, sorted_vs));
-        }
+        m_monomials.push_back(mon_eq(v, sz, vs));
     }
     
     void push() {
@@ -237,17 +253,8 @@ struct solver::imp {
         }
         return r == model_val;
     }
-
-    std::unordered_set<lpvar> vec_to_set(const svector<lpvar> & a) const {
-        std::unordered_set<lpvar> ret;
-        for (auto j : a)
-            ret.insert(j);
-        return ret;
-    }
     
-    bool var_vectors_are_equal(const svector<lpvar> & a, const svector<lpvar> & b) const {
-        return vec_to_set(a) == vec_to_set(b);
-    }
+
     
     bool generate_basic_lemma_for_mon_sign_var_other_mon(
         unsigned i_mon,
@@ -260,12 +267,11 @@ struct solver::imp {
         auto other_vars_copy = other_m.m_vs;
         int other_sign = 1;
         reduce_monomial_to_minimal(other_vars_copy, other_sign);
-        if (var_vectors_are_equal(mon_vars, other_vars_copy)
-            && values_are_different(m_monomials[i_mon].var(),
-                                    sign * other_sign, other_m.var())) {
+        if (mon_vars == other_vars_copy &&
+            values_are_different(m_monomials[i_mon].var(), sign * other_sign, other_m.var())) {
             fill_explanation_and_lemma_sign(m_monomials[i_mon],
                                        other_m,
-                                       sign* other_sign);
+                                       sign * other_sign);
             return true;
         }
             
@@ -331,10 +337,14 @@ struct solver::imp {
     }
 
     // replaces each variable by a smaller one and flips the sing if the var comes with a minus
-    void reduce_monomial_to_minimal(svector<lpvar> & vars, int & sign) {
+    svector<lpvar> reduce_monomial_to_minimal(const svector<lpvar> & vars, int & sign) {
+        svector<lpvar> ret;
+        sign = 1;
         for (unsigned i = 0; i < vars.size(); i++) {
-            vars[i] = m_vars_equivalence.map_to_min(vars[i], sign);
+            ret.push_back(m_vars_equivalence.map_to_min(vars[i], sign));
         }
+        std::sort(ret.begin(), ret.end());
+        return ret;
     }
     
     bool generate_basic_lemma_for_mon_sign(unsigned i_mon) {
@@ -602,10 +612,51 @@ struct solver::imp {
     void init_vars_equivalence() {
         m_vars_equivalence.init(m_lar_solver);
     }
+
+    void add_pair_to_min_monomials(const svector<lpvar>& key, unsigned i, int sign) {
+        mono_index_with_sign ms(i, sign);
+        auto it = m_minimal_monomials.find(i);
+        if (it == m_minimal_monomials.end()) {
+            vector<mono_index_with_sign> v;
+            v.push_back(ms);
+            m_minimal_monomials.emplace(key, v);
+        } else {
+            it->second.push_back(ms);
+        }
+    }
+    
+    void add_monomial_to_min_map(unsigned i) {
+        const mon_eq& m = m_monomials[i];
+        int sign;
+        svector<lpvar> key = reduce_monomial_to_minimal(m.m_vs, sign);
+        add_pair_to_min_monomials(key, i, sign);
+    }
+    
+    void create_min_map() {
+        for (unsigned i = 0; i < m_monomials.size(); i++)
+            add_monomial_to_min_map(i);
+        /*
+            svector<lpvar> sorted_vs;
+            for (unsigned i = 0; i < sz; i++)
+                sorted_vs.push_back(vs[i]);
+            std::sort(sorted_vs.begin(), sorted_vs.end());
+            std::cout << "sorted_vs = ";
+            print_vector(sorted_vs, std::cout);
+            m_monomials.push_back(mon_eq(v, sorted_vs));
+        }
+        auto it = m_hashed_monomials.find(m_monomials.back().m_vs);
+        if (it == m_hashed_monomials.end()) {
+            svector<unsigned> t; t.push_back(m_monomials.size() - 1); // the index of the last monomial
+            m_hashed_monomials.insert(std::pair(m_monomials.back().m_vs, t));
+        } else {
+            it->second.push_back(m_monomials.size() - 1); // we have at least two monomials that are identical in their vars
+            }*/
+    }
     
     void init_search() {
         map_vars_to_monomials_and_constraints();
         init_vars_equivalence();
+        create_min_map();
     }
     
     lbool check(lp::explanation & exp, lemma& l) {
@@ -651,8 +702,8 @@ void solver::pop(unsigned n) {
 }
 
 
-solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p, bool monomials_are_sorted) {
-    m_imp = alloc(imp, s, lim, p, monomials_are_sorted);
+solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p) {
+    m_imp = alloc(imp, s, lim, p);
 }
 
 
