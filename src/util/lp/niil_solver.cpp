@@ -199,12 +199,9 @@ struct solver::imp {
     
     struct var_lists {
         svector<unsigned>                 m_monomials; // of the var
-        svector<lpci> m_constraints; // of the var
         const svector<unsigned>& mons() const { return m_monomials;}
         svector<unsigned>& mons() { return m_monomials;}
-        const svector<lpci>& constraints() const { return m_constraints;}
         void add_monomial(unsigned i) { mons().push_back(i); }
-        void add_constraint(lpci i) { m_constraints.push_back(i); };
     };
 
     struct mono_index_with_sign {
@@ -272,6 +269,7 @@ struct solver::imp {
             fill_explanation_and_lemma_sign(m_monomials[i_mon],
                                        other_m,
                                        sign * other_sign);
+            TRACE("niil_solver", tout << "lemma generated\n";);
             return true;
         }
             
@@ -365,70 +363,14 @@ struct solver::imp {
     bool is_set(unsigned j) const {
         return static_cast<unsigned>(-1) != j;
     }
-    bool get_mon_sign_zero_var_loop_body(lpvar j, lpci ci, lpci & lci, lpci & uci,
-                                         rational& lb, rational &ub) const {
-        const auto * c = m_lar_solver.constraints()[ci];
-        if (c->size() != 1)
-            return false;
-        const auto coeffs = c->get_left_side_coefficients();
-        SASSERT(coeffs[0].second == j);
-        auto kind = c->m_kind;
-        const rational& a = coeffs[0].first;
-        if (a.is_neg())
-            kind = lp::flip_kind(kind);
-            
-        rational rs = c->m_right_side / a ;
-        SASSERT(rs.is_int());
-        switch(kind) {
-        le_case:
-        case lp::LE:
-            if (!is_set(uci)) {
-                uci = ci;
-                ub = rs;
-            } else {
-                if (ub > rs) {
-                    ub = rs;
-                    uci = ci;
-                }
-            }
-            break;
 
-        case lp::LT:
-            rs -= 1;
-            goto le_case;
-
-        ge_case:
-        case lp::GE:
-            if (!is_set(lci)) {
-                lci = ci;
-                lb = rs;
-            } else {
-                if (lb < rs) {
-                    lb = rs;
-                    lci = ci;
-                }
-            }
-            break;
-
-        case lp::GT:
-            rs += 1;
-            goto ge_case;
-        case lp::EQ:
-            uci = lci = ci;
-            ub = lb = rs;
-            break;
-        default:
-            return false; 
-        }
-        return true;
-    }
     
-    // Return 0 if the monomial has to to have a zero value,
+    // Return 0 if the var has to to have a zero value,
     // -1 if the monomial has to be negative
     // 1 if positive.
     // If strict is true on the entrance then it can be set to false,
     // otherwise it remains false
-    // Returns true if the sign is not defined.
+    // Returns 2 if the sign is not defined.
     int get_mon_sign_zero_var(unsigned j, bool & strict) {
         auto it = m_var_lists.find(j);
         if (it == m_var_lists.end())
@@ -436,46 +378,47 @@ struct solver::imp {
         lpci lci = -1;
         lpci uci = -1;
         rational lb, ub;
-        for (lpci ci : it->second.m_constraints) {
-            if (get_mon_sign_zero_var_loop_body(j, ci, lci, uci, lb, ub) == false)
-                continue;
+        bool lower_is_strict;
+        bool upper_is_strict;
+        m_lar_solver.has_lower_bound(j, lci, lb, lower_is_strict);
+        m_lar_solver.has_upper_bound(j, uci, ub, upper_is_strict);
             
-            if (is_set(uci) && is_set(lci) && ub == lb) {
-                if (ub.is_zero()){
-                    m_expl->clear();
-                    m_expl->push_justification(uci);
-                    m_expl->push_justification(lci);
-                    return 0;
-                }
+        if (is_set(uci) && is_set(lci) && ub == lb) {
+            if (ub.is_zero()){
+                m_expl->clear();
                 m_expl->push_justification(uci);
                 m_expl->push_justification(lci);
-                return ub.is_pos() ? 1 : -1;
+                return 0;
             }
-            
-            if (is_set(uci)) {
-                if (ub.is_neg()) {
-                    m_expl->push_justification(uci);
-                    return -1;
-                }
-                if (ub.is_zero()) {
-                    strict = false;
-                    m_expl->push_justification(uci);
-                    return -1;
-                }
+            m_expl->push_justification(uci);
+            m_expl->push_justification(lci);
+            return ub.is_pos() ? 1 : -1;
+        }
+        
+        if (is_set(uci)) {
+            if (ub.is_neg()) {
+                m_expl->push_justification(uci);
+                return -1;
             }
-            
-            if (is_set(lci)) {
-                if (lb.is_pos()) {
-                    m_expl->push_justification(lci);
-                    return 1;
-                }
-                if (lb.is_zero()) {
-                    strict = false;
-                    m_expl->push_justification(lci);
-                    return 1;
-                }
+            if (ub.is_zero()) {
+                strict = false;
+                m_expl->push_justification(uci);
+                return -1;
             }
         }
+        
+        if (is_set(lci)) {
+            if (lb.is_pos()) {
+                m_expl->push_justification(lci);
+                return 1;
+            }
+            if (lb.is_zero()) {
+                strict = false;
+                m_expl->push_justification(lci);
+                return 1;
+            }
+        }
+        
         return 2; // the sign of the variable is not defined
     }
     
@@ -548,12 +491,112 @@ struct solver::imp {
         return true;
     }
 
-    bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
+        struct mono_index_with_ci {
+            unsigned m_i; // the index of the variable inside of m_vs
+            unsigned m_lci; // constraint index of the lower bound
+            unsigned m_uci; // constraint index of the upper bound
+            int      m_sign;
+            mono_index_with_ci() { }
+            mono_index_with_ci(unsigned i,
+                               unsigned ci_lb,
+                               unsigned ci_ub) : m_i(i), m_lci(ci_lb), m_uci(ci_ub) {}
+        };
+    
+    bool get_one_of_var(unsigned i, lpvar j, mono_index_with_ci & mi) {
+        lpci lci = -1;
+        lpci uci = -1;
+        rational lb, ub;
+        bool lower_is_strict, upper_is_strict;
+        m_lar_solver.has_lower_bound(j, lci, lb, lower_is_strict);
+        m_lar_solver.has_upper_bound(j, uci, ub, upper_is_strict);
+
+        if (is_set(uci) && is_set(lci) && ub == rational(1) && ub == lb) {
+            mi.m_lci = lci;
+            mi.m_uci = uci;
+            mi.m_sign = 1;
+            return true;
+        }
+        if (is_set(uci) && is_set(lci) && ub == -rational(1) && ub == lb) {
+            mi.m_lci = lci;
+            mi.m_uci = uci;
+            mi.m_sign = -1;
+            return true;
+        }
+
         return false;
     }
 
-    bool generate_basic_lemma_for_mon_proportionality(unsigned i_mon) {
+    vector<mono_index_with_ci> get_ones_of_monomimal(const mon_eq& m) {
+        vector<mono_index_with_ci> ret;
+        for (unsigned i = 0; i < m.m_vs.size(); i++) {
+            mono_index_with_ci mi;
+            get_one_of_var(i, m.m_vs[i], mi);
+            if (!is_set(mi.m_lci) || !is_set(mi.m_uci))
+                continue;
+            ret.push_back(mi);
+        }
+        return ret;
+    }
+
+    
+    void get_large_and_small_indices_of_monomimal(const mon_eq& m,
+                                                  vector<mono_index_with_ci> & large,
+                                                  vector<mono_index_with_ci> & small) {
+        
+        for (unsigned i = 0; i < m.m_vs.size(); i++) {
+            unsigned j = m.m_vs[i];
+            lp::constraint_index lci(static_cast<unsigned>(-1)), uci(static_cast<unsigned>(-1));
+            rational             lb, ub;
+            bool                 is_strict;
+            if (m_lar_solver.has_lower_bound(j, lci, lb, is_strict)) {
+                SASSERT(!is_strict);
+                if (lb >= rational(1)) {
+                    large.push_back(mono_index_with_ci(i, lci, static_cast<unsigned>(-1)));
+                }
+            }
+            if (m_lar_solver.has_upper_bound(j, uci, ub, is_strict)) {
+                SASSERT(!is_strict);
+                if (ub <= -rational(1)) {
+                    large.push_back(mono_index_with_ci(i, static_cast<unsigned>(-1), uci));
+                }
+            }
+            
+            if (is_set(lci) && is_set(uci) && -rational(1) <= lb && ub <= rational(1))
+                small.push_back(mono_index_with_ci(i, lci, uci));
+        }
+    }
+
+    
+    bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
+        std::cout << "generate_basic_lemma_for_mon_neutral\n";
+        const mon_eq & m = m_monomials[i_mon];
+        vector<mono_index_with_ci> ones_of_mon = get_ones_of_monomimal(m);
+        
+        // if abs(m.m_vs[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.m_vs[j] = 1, or -1 otherwise.
+        if (ones_of_mon.empty()) {
+            return false;
+        }
+        std::cout << "ones_of_mon.size() = " << ones_of_mon.size() << std::endl;
+        if (m_minimal_monomials.empty() && m.size() > 2)
+            create_min_map();
+        
         return false;
+    }
+
+    
+    bool generate_basic_lemma_for_mon_proportionality(unsigned i_mon) {
+        std::cout << "generate_basic_lemma_for_mon_proportionality\n";
+        const mon_eq & m = m_monomials[i_mon];
+        vector<mono_index_with_ci> large;
+        vector<mono_index_with_ci> small;
+        get_large_and_small_indices_of_monomimal(m, large, small);
+        
+        // if abs(m.m_vs[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.m_vs[j] = 1, or -1 otherwise.
+        if (m_minimal_monomials.empty())
+            create_min_map();
+        
+        return false;
+
     }
 
     bool generate_basic_lemma_for_mon(unsigned i_mon) {
@@ -565,8 +608,10 @@ struct solver::imp {
 
     bool generate_basic_lemma(svector<unsigned> & to_refine) {
         for (unsigned i : to_refine)
-            if (generate_basic_lemma_for_mon(i))
+            if (generate_basic_lemma_for_mon(i)) {
+                TRACE("niil_solver", tout << "a lemma generated for monomial " << i << std::endl;);
                 return true;
+            }
         return false;
     }
 
@@ -585,28 +630,9 @@ struct solver::imp {
         }
     }
 
-    void bind_var_and_constraint(lpvar j, lpci ci) {
-        auto it = m_var_lists.find(j);
-        if (it == m_var_lists.end()) {
-            var_lists v;
-            v.add_constraint(ci);
-            m_var_lists.insert(std::pair<lpvar, var_lists>(j, v));
-        } else {
-            it->second.add_constraint(ci);
-        }
-    }
-    
-    void process_constraint_vars(lpci ci) {
-        for (const auto p : m_lar_solver.constraints()[ci]->get_left_side_coefficients())
-            bind_var_and_constraint(p.second, ci);
-    }
-    
     void map_vars_to_monomials_and_constraints() {
         for (unsigned i = 0; i < m_monomials.size(); i++)
             map_monominals_vars(i);
-        for (lpci ci = 0; ci < m_lar_solver.constraints().size(); ci++) {
-            process_constraint_vars(ci);
-        }
     }
 
     void init_vars_equivalence() {
@@ -656,10 +682,10 @@ struct solver::imp {
     void init_search() {
         map_vars_to_monomials_and_constraints();
         init_vars_equivalence();
-        create_min_map();
     }
     
     lbool check(lp::explanation & exp, lemma& l) {
+        std::cout << "check of niil\n";
         m_expl =   &exp;
         m_lemma =  &l;
         lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
