@@ -596,7 +596,7 @@ struct solver::imp {
         if (m_minimal_monomials.empty() && m.size() > 2)
             create_min_map();
         
-        return process_ones_of_mon(m, ones_of_mon);
+        return process_ones_of_mon(m, ones_of_mon, vars);
     }
     
     bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
@@ -610,22 +610,26 @@ struct solver::imp {
         return generate_basic_neutral_for_reduced_monomial(m, v, reduced_vars);
     }
 
+    // vars here are minimal vars for m.vs
     bool process_ones_of_mon(const mon_eq& m,
-                             const vector<var_index_with_constraints>& ones_of_monomial) {
+                             const vector<var_index_with_constraints>& ones_of_monomial, const svector<lpvar> &min_vars) {
         svector<unsigned> mask(ones_of_monomial.size(), (unsigned) 0);
+        auto vars = min_vars;
         int sign;
-        svector<lpvar> min_mon = reduce_monomial_to_minimal(m.m_vs, sign);
-        // We will by crossing out the ones representing the mask from min_mon
+        // We crossing out the ones representing the mask from vars
         do {
             for (unsigned k = 0; k < mask.size(); k++) {
                 if (mask[k] == 0) {
                     mask[k] = 1;
                     sign *= ones_of_monomial[k].m_sign;
-                    min_mon.erase(ones_of_monomial[k].m_i);
-                    SASSERT(false);
+                    vars.erase(ones_of_monomial[k].m_i);
+                    std::sort(vars.begin(), vars.end());
+                    SASSERT(false); // start here!!!!!!!!!!!!!!!!111111
                 } else {
                     SASSERT(mask[k] == 1);
                     sign *= ones_of_monomial[k].m_sign;
+                    mask[k] = 0;
+                    vars.push_back(min_vars[ones_of_monomial[k].m_i]); // vars becomes unsorted
                 }
             }
         } while(true);
