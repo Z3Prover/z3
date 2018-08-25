@@ -208,6 +208,7 @@ struct solver::imp {
         unsigned m_i; // the monomial index
         int      m_sign; // the monomial sign: -1 or 1
         mono_index_with_sign(unsigned i, int sign) : m_i(i), m_sign(sign) {}
+        mono_index_with_sign() {}
     };
     
     vars_equivalence                                       m_vars_equivalence;
@@ -493,63 +494,39 @@ struct solver::imp {
 
         return true;
     }
-
-        struct var_index_with_constraints {
-            unsigned m_i; // the index of the variable inside of m_vs
-            svector<unsigned> m_cis; // constraint indices of the lower bound
-
-            int      m_sign;
-            var_index_with_constraints() { }
-            var_index_with_constraints(unsigned i,
-                                       unsigned ci0,
-                                       unsigned ci1) : m_i(i)
-            {
-                m_cis.push_back(ci0);
-                m_cis.push_back(ci1);
-            }
-
-            var_index_with_constraints(unsigned i,
-                                       unsigned ci) : m_i(i)
-            {
-                m_cis.push_back(ci);
-            }
-            void push_ci(unsigned ci) {
-                m_cis.push_back(ci);
-            }
-            unsigned size() const { return m_cis.size(); }
-        };
     
-    bool get_one_of_var(unsigned i, lpvar j, var_index_with_constraints & mi) {
-        SASSERT(mi.size() == 0);
-        lpci lci = -1;
-        lpci uci = -1;
+    bool get_one_of_var(unsigned i, lpvar j, mono_index_with_sign & mi) {
+        lpci lci;
+        lpci uci;
         rational lb, ub;
         bool lower_is_strict, upper_is_strict;
-        m_lar_solver.has_lower_bound(j, lci, lb, lower_is_strict);
-        m_lar_solver.has_upper_bound(j, uci, ub, upper_is_strict);
+        if (!m_lar_solver.has_lower_bound(j, lci, lb, lower_is_strict))
+            return false;
+        if (!m_lar_solver.has_upper_bound(j, uci, ub, upper_is_strict))
+            return false;
         
-        if (is_set(uci) && is_set(lci) && ub == rational(1) && ub == lb) {
-            mi.push_ci(lci);
-            mi.push_ci(uci);
-            mi.m_sign = 1;
+        if (ub == lb) {
+            if (ub == rational(1)) {
+                mi.m_i = i;
+                mi.m_sign = 1;
+            }
+            else if (ub == -rational(1)) {
+                mi.m_i = i;
+                mi.m_sign = -1;
+            }
+            else 
+                return false;
             return true;
         }
-        if (is_set(uci) && is_set(lci) && ub == -rational(1) && ub == lb) {
-            mi.push_ci(lci);
-            mi.push_ci(uci);
-            mi.m_sign = -1;
-            return true;
-        }
-
         return false;
     }
 
-    vector<var_index_with_constraints> get_ones_of_monomimal(const svector<lpvar> & vars) {
-        vector<var_index_with_constraints> ret;
+    vector<mono_index_with_sign> get_ones_of_monomimal(const svector<lpvar> & vars) {
+        TRACE("niil_solver", tout << "get_ones_of_monomimal";);
+        vector<mono_index_with_sign> ret;
         for (unsigned i = 0; i < vars.size(); i++) {
-            var_index_with_constraints mi;
-            get_one_of_var(i, vars[i], mi);
-            if (mi.size() != 2)
+            mono_index_with_sign mi;
+            if (!get_one_of_var(i, vars[i], mi))
                 continue;
             ret.push_back(mi);
         }
@@ -558,35 +535,35 @@ struct solver::imp {
 
     
     void get_large_and_small_indices_of_monomimal(const mon_eq& m,
-                                                  vector<var_index_with_constraints> & large,
-                                                  vector<var_index_with_constraints> & small) {
+                                                  vector<unsigned> & large,
+                                                  vector<unsigned> & small) {
         
         for (unsigned i = 0; i < m.m_vs.size(); i++) {
             unsigned j = m.m_vs[i];
-            lp::constraint_index lci(static_cast<unsigned>(-1)), uci(static_cast<unsigned>(-1));
+            lp::constraint_index lci = -1, uci = -1;
             rational             lb, ub;
             bool                 is_strict;
             if (m_lar_solver.has_lower_bound(j, lci, lb, is_strict)) {
                 SASSERT(!is_strict);
                 if (lb >= rational(1)) {
-                    large.push_back(var_index_with_constraints(i, lci, static_cast<unsigned>(-1)));
+                    large.push_back(i);
                 }
             }
             if (m_lar_solver.has_upper_bound(j, uci, ub, is_strict)) {
                 SASSERT(!is_strict);
                 if (ub <= -rational(1)) {
-                    large.push_back(var_index_with_constraints(i, static_cast<unsigned>(-1), uci));
+                    large.push_back(i);
                 }
             }
             
             if (is_set(lci) && is_set(uci) && -rational(1) <= lb && ub <= rational(1))
-                small.push_back(var_index_with_constraints(i, lci, uci));
+                small.push_back(i);
         }
     }
 
     // v is the value of monomial, vars is the array of reduced to minimum variables of the monomial
     bool generate_basic_neutral_for_reduced_monomial(const mon_eq & m, const rational & v, const svector<lpvar> & vars) {
-        vector<var_index_with_constraints> ones_of_mon = get_ones_of_monomimal(vars);
+        vector<mono_index_with_sign> ones_of_mon = get_ones_of_monomimal(vars);
         
         // if abs(m.m_vs[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.m_vs[j] = 1, or -1 otherwise.
         if (ones_of_mon.empty()) {
@@ -596,7 +573,7 @@ struct solver::imp {
         if (m_minimal_monomials.empty() && m.size() > 2)
             create_min_map();
         
-        return process_ones_of_mon(m, ones_of_mon, vars);
+        return process_ones_of_mon(m, ones_of_mon, vars, v);
     }
     
     bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
@@ -610,21 +587,86 @@ struct solver::imp {
         return generate_basic_neutral_for_reduced_monomial(m, v, reduced_vars);
     }
 
+    // returns the variable m_i, of a monomial if found and sets the sign,
+    // if the 
+    bool find_monomial_of_vars(const svector<lpvar>& vars, unsigned &j, int & sign) const {
+        if (vars.size() == 1) {
+            j = vars[0];
+            sign = 1;
+            return true;
+        }
+        SASSERT(false); // not implemented
+        return false;
+    }
+    
+    bool find_lpvar_and_sign_for_the_rest_of_monomial(
+        const mon_eq& m,
+        svector<lpvar> & vars,
+        const rational& v,
+        int sign,
+        lpvar& j) {
+        int other_sign;
+        if (find_monomial_of_vars(vars, j, other_sign))
+            return false;
+
+        sign *= other_sign;
+        rational other_val = m_lar_solver.get_column_value_rational(j);
+        return sign * other_val != v;                
+    }
+
+    void add_explanation_of_one(const mono_index_with_sign & mi) {
+        SASSERT(false);
+    }
+
+    void generate_equality_for_neutral_case(const mon_eq & m,
+                                            const svector<unsigned> & mask,
+                                            const vector<mono_index_with_sign>& ones_of_monomial, int sign, lpvar j) {
+        expl_set expl;
+        SASSERT(sign == 1 || sign == -1);
+        add_explanation_of_reducing_to_mininal_monomial(m, expl);
+        m_expl->clear();
+        m_expl->add(expl);
+        for (unsigned k : mask) {
+            add_explanation_of_one(ones_of_monomial[k]);
+        }
+        TRACE("niil_solver",
+              for (auto &p : *m_expl)
+                  m_lar_solver.print_constraint(p.second, tout); tout << "\n";
+              );
+        lp::lar_term t;
+        t.add_monomial(rational(1), m.var());
+        t.add_monomial(rational(- sign), j);
+        TRACE("niil_solver", 
+              m_lar_solver.print_term(t, tout);
+              tout << "\n";
+              );
+
+        ineq in(lp::lconstraint_kind::EQ, t);
+        m_lemma->push_back(in);
+    }
+    
     // vars here are minimal vars for m.vs
     bool process_ones_of_mon(const mon_eq& m,
-                             const vector<var_index_with_constraints>& ones_of_monomial, const svector<lpvar> &min_vars) {
+                             const vector<mono_index_with_sign>& ones_of_monomial, const svector<lpvar> &min_vars,
+                             const rational& v) {
         svector<unsigned> mask(ones_of_monomial.size(), (unsigned) 0);
         auto vars = min_vars;
-        int sign;
+        int sign = 1;
         // We crossing out the ones representing the mask from vars
         do {
             for (unsigned k = 0; k < mask.size(); k++) {
                 if (mask[k] == 0) {
                     mask[k] = 1;
                     sign *= ones_of_monomial[k].m_sign;
-                    vars.erase(ones_of_monomial[k].m_i);
+                    TRACE("niil_solver", tout << "index m_i = " << ones_of_monomial[k].m_i;);
+                    vars.erase(vars.begin() + ones_of_monomial[k].m_i);
                     std::sort(vars.begin(), vars.end());
-                    SASSERT(false); // start here!!!!!!!!!!!!!!!!111111
+                    // now the value of vars has to be v*sign
+                    lpvar j;
+                    if (!find_lpvar_and_sign_for_the_rest_of_monomial(m, vars, v, sign, j))
+                        return false;
+                    generate_equality_for_neutral_case(m, mask, ones_of_monomial, j, sign);
+                    return true;
                 } else {
                     SASSERT(mask[k] == 1);
                     sign *= ones_of_monomial[k].m_sign;
@@ -633,15 +675,15 @@ struct solver::imp {
                 }
             }
         } while(true);
-        return false;
+        return false; // we exhausted the mask and did not find the compliment monomial
     }
     
     
     bool generate_basic_lemma_for_mon_proportionality(unsigned i_mon) {
         std::cout << "generate_basic_lemma_for_mon_proportionality\n";
         const mon_eq & m = m_monomials[i_mon];
-        vector<var_index_with_constraints> large;
-        vector<var_index_with_constraints> small;
+        vector<unsigned> large;
+        vector<unsigned> small;
         get_large_and_small_indices_of_monomimal(m, large, small);
         
         // if abs(m.m_vs[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.m_vs[j] = 1, or -1 otherwise.
