@@ -2069,10 +2069,7 @@ public:
                 literal lit(ctx().get_bool_var(atom), pos);
                 core.push_back(~lit);
             }
-            std::cout << "the following conjunction should be unsat:\n";
-            ctx().display_literals_verbose(std::cout << "core ", core) << "\n";
-            display_evidence(std::cout, m_explanation); std::cout << "\n";
-            set_conflict(core);
+            set_conflict_or_lemma(core, false);
             break;
         }
         case l_true:
@@ -3159,10 +3156,10 @@ public:
 
     void set_conflict1() {
         literal_vector core;
-        set_conflict(core);
+        set_conflict_or_lemma(core, true);
     }
 
-    void set_conflict(literal_vector const& core) {
+    void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
         m_eqs.reset();
         m_core.reset();
         m_params.reset();
@@ -3170,12 +3167,6 @@ public:
             m_core.push_back(lit);
         }
         // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
-        /*
-          static unsigned cn = 0;
-          static unsigned num_l = 0;
-          num_l+=m_explanation.size();
-          std::cout << num_l / (++cn) << "\n";
-        */
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
         TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
@@ -3187,12 +3178,23 @@ public:
         }
         // SASSERT(validate_conflict());
         dump_conflict();
-        ctx().set_conflict(
-            ctx().mk_justification(
-                ext_theory_conflict_justification(
-                    get_id(), ctx().get_region(), 
-                    m_core.size(), m_core.c_ptr(), 
-                    m_eqs.size(), m_eqs.c_ptr(), m_params.size(), m_params.c_ptr())));
+        if (is_conflict) {
+            ctx().set_conflict(
+                ctx().mk_justification(
+                    ext_theory_conflict_justification(
+                        get_id(), ctx().get_region(), 
+                        m_core.size(), m_core.c_ptr(), 
+                        m_eqs.size(), m_eqs.c_ptr(), m_params.size(), m_params.c_ptr())));
+        }
+        else {
+            for (auto const& eq : m_eqs) {
+                m_core.push_back(th.mk_eq(eq.first->get_owner(), eq.second->get_owner(), false));
+            }
+            for (auto & c : m_core) {
+                c.neg();
+            }
+            ctx().mk_th_axiom(get_id(), m_core.size(), m_core.c_ptr());
+        }
     }
 
     justification * why_is_diseq(theory_var v1, theory_var v2) {
