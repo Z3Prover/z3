@@ -91,7 +91,7 @@ struct solver::imp {
         }
         
 
-        unsigned size() const { return m_map.size(); }
+        size_t size() const { return m_map.size(); }
         void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
             if (t->size() != 2 || ! t->m_v.is_zero())
                 return;
@@ -536,7 +536,7 @@ struct solver::imp {
     
     void get_large_and_small_indices_of_monomimal(const mon_eq& m,
                                                   vector<unsigned> & large,
-                                                  vector<unsigned> & small) {
+                                                  vector<unsigned> & _small) {
         
         for (unsigned i = 0; i < m.m_vs.size(); i++) {
             unsigned j = m.m_vs[i];
@@ -557,7 +557,7 @@ struct solver::imp {
             }
             
             if (is_set(lci) && is_set(uci) && -rational(1) <= lb && ub <= rational(1))
-                small.push_back(i);
+                _small.push_back(i);
         }
     }
 
@@ -683,8 +683,8 @@ struct solver::imp {
         std::cout << "generate_basic_lemma_for_mon_proportionality\n";
         const mon_eq & m = m_monomials[i_mon];
         vector<unsigned> large;
-        vector<unsigned> small;
-        get_large_and_small_indices_of_monomimal(m, large, small);
+        vector<unsigned> _small;
+        get_large_and_small_indices_of_monomimal(m, large, _small);
         
         // if abs(m.m_vs[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.m_vs[j] = 1, or -1 otherwise.
         if (m_minimal_monomials.empty())
