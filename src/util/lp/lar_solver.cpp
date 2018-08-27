@@ -1323,13 +1323,11 @@ std::ostream& lar_solver::print_term(lar_term const& term, std::ostream & out) c
         mpq val = p.coeff();
         if (first) {
             first = false;
+        } else if (is_pos(val)) {
+            out << " + ";
         } else {
-            if (is_pos(val)) {
-                out << " + ";
-            } else {
-                out << " - ";
-                val = -val;
-            }
+            out << " - ";
+            val = -val;
         }
         if (val == -numeric_traits<mpq>::one())
             out << " - ";
@@ -1358,8 +1356,7 @@ mpq lar_solver::get_left_side_val(const lar_base_constraint &  cns, const std::u
 
 std::ostream& lar_solver::print_constraint(const lar_base_constraint * c, std::ostream & out) const {
     print_left_side_of_constraint(c, out);
-    out << " " << lconstraint_kind_string(c->m_kind) << " " << c->m_right_side << std::endl;
-    return out;
+    return out << " " << lconstraint_kind_string(c->m_kind) << " " << c->m_right_side << std::endl;
 }
 
 void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list) {
