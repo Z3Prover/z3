@@ -31,21 +31,9 @@ struct hash_svector {
     size_t operator()(const svector<unsigned> & v) const {
         return svector_hash<unsigned_hash>()(v);
     }
-
 };
 
-// TBD: already defined on vector template class
-bool operator==(const svector<unsigned> & a, const svector<unsigned> & b) {
-    if (a.size() != b.size())
-        return false;
-    for (unsigned i = 0; i < a.size(); i++)
-        if (a[i] != b[i])
-            return false;
-    return true;
-}
-
-struct solver::imp {
-
+struct vars_equivalence {
     struct equiv {
         lpvar                m_i;
         lpvar                m_j;
@@ -78,121 +66,120 @@ struct solver::imp {
             m_sign *= e.m_sign;
             m_explanation.insert(e.m_c0); m_explanation.insert(e.m_c1);
         }
-    };    
+    };
+    std::unordered_map<lpvar, eq_var> m_map;         // the resulting mapping
+    vector<equiv>                     m_equivs;         // all equivalences extracted from constraints
+    void clear() {
+        m_equivs.clear();
+        m_map.clear();
+    }
 
-    struct vars_equivalence {
+    unsigned size() const { return m_map.size(); }
 
-        std::unordered_map<lpvar, eq_var> m_map;         // the resulting mapping
-        vector<equiv>                     m_equivs;         // all equivalences extracted from constraints
-
-        void clear() {
-            m_equivs.clear();
-            m_map.clear();
-        }
-        
-        size_t size() const { 
-            return m_map.size(); 
-        }
-
-        void add_equivalence_maybe(lp::lar_term const& t, lpci c0, lpci c1) {
-            if (t.size() != 2 || !t.m_v.is_zero()) 
+    void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
+        if (t->size() != 2 || ! t->m_v.is_zero())
+            return;
+        bool seen_minus = false;
+        bool seen_plus = false;
+        lpvar i = -1, j;
+        for(const auto & p : *t) {
+            const auto & c = p.coeff();
+            if (c == 1) {
+                seen_plus = true;
+            } else if (c == - 1) {
+                seen_minus = true;
+            } else {
                 return;
-            bool seen_minus = false;
-            bool seen_plus = false;
-            lpvar i = -1, j;
-            for (const auto & p : t) {
-                const auto & c = p.coeff();
-                if (c == 1) {
-                    seen_plus = true;
-                } else if (c == - 1) {
-                    seen_minus = true;
+            }
+            if (i == static_cast<lpvar>(-1))
+                i = p.var();
+            else
+                j = p.var();
+        }
+        SASSERT(i != j && i != static_cast<lpvar>(-1));
+        if (i < j) { // swap 
+            lpvar tmp = i;
+            i = j;
+            j = tmp;
+        }
+        int sign = (seen_minus && seen_plus)? 1 : -1;
+        m_equivs.push_back(equiv(i, j, sign, c0, c1));
+    }
+
+    void collect_equivs(const lp::lar_solver& s) {
+        for (unsigned i = 0; i < s.terms().size(); i++) {
+            unsigned ti = i + s.terms_start_index();
+            if (!s.term_is_used_as_row(ti))
+                continue;
+            lpvar j = s.external2local(ti);
+            if (!s.column_has_upper_bound(j) ||
+                !s.column_has_lower_bound(j))
+                continue;
+            if (s.get_upper_bound(j) != lp::zero_of_type<lp::impq>() ||
+                s.get_lower_bound(j) != lp::zero_of_type<lp::impq>())
+                continue;
+            add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
+        }
+    }
+
+    void create_map() {
+        bool progress;
+        do {
+            progress = false;
+            for (const auto & e : m_equivs) {
+                unsigned i = e.m_i;
+                auto it = m_map.find(i);
+                if (it == m_map.end()) {
+                    m_map.emplace(i, eq_var(e));
+                    progress = true;
                 } else {
-                    return;
-                }
-                if (i == static_cast<lpvar>(-1))
-                    i = p.var();
-                else
-                    j = p.var();
-            }
-            SASSERT(i != j && i != static_cast<lpvar>(-1));
-            if (i < j) { 
-                std::swap(i, j);
-            }
-            int sign = (seen_minus && seen_plus)? 1 : -1;
-            m_equivs.push_back(equiv(i, j, sign, c0, c1));
-        }
-
-        void collect_equivs(const lp::lar_solver& s) {
-            for (unsigned i = 0; i < s.terms().size(); i++) {
-                unsigned ti = i + s.terms_start_index();
-                if (!s.term_is_used_as_row(ti))
-                    continue;
-                lpvar j = s.external2local(ti);
-                
-                if (s.column_has_upper_bound(j) && 
-                    s.column_has_lower_bound(j) &&
-                    s.get_upper_bound(j) == lp::zero_of_type<lp::impq>() &&
-                    s.get_lower_bound(j) == lp::zero_of_type<lp::impq>()) {
-                    add_equivalence_maybe(s.term(i), s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
-                }
-            }
-        }
-
-        void create_map() {
-            bool progress;
-            do {
-                progress = false;
-                for (const auto & e : m_equivs) {
-                    unsigned i = e.m_i;
-                    auto it = m_map.find(i);
-                    if (it == m_map.end()) {
-                        m_map.emplace(i, eq_var(e));
-                        progress = true;
-                    } else if (it->second.m_var > e.m_j) {
+                    if (it->second.m_var > e.m_j) {
                         it->second.improve(e);
                         progress = true;
                     }
                 }
-            } 
-            while (progress);
-        }
-        
-        void init(const lp::lar_solver& s) {
-            clear();
-            collect_equivs(s);
-            create_map();
-        }
-
-        bool empty() const {
-            return m_map.empty();
-        }
-
-        // the sign is flipped if needed
-        lpvar map_to_min(lpvar j, int& sign) const {
-            auto it = m_map.find(j);
-            if (it == m_map.end())
-                return j;
-
-            if (it->second.m_sign == -1) {
-                sign = -sign;
             }
-            return it->second.m_var;
-        }
-
-        template <typename T>
-        void add_explanation_of_reducing_to_mininal_monomial(const T & m, expl_set & exp) const {
-            for (auto j : m)
-                add_equiv_exp(j, exp);
-        }
+        } while(progress);
+    }
         
-        void add_equiv_exp(lpvar j, expl_set & exp) const {
-            auto it = m_map.find(j);
-            if (it == m_map.end())
-                return;
-            for (auto k : it->second.m_explanation)
-                exp.insert(k);
+    void init(const lp::lar_solver& s) {
+        clear();
+        collect_equivs(s);
+        create_map();
+    }
+
+    bool empty() const {
+        return m_map.empty();
+    }
+
+    // the sign is flipped if needed
+    lpvar map_to_min(lpvar j, int& sign) const {
+        auto it = m_map.find(j);
+        if (it == m_map.end())
+            return j;
+
+        if (it->second.m_sign == -1) {
+            sign = -sign;
         }
-    }; // end of vars_equivalence
+        return it->second.m_var;
+    }
+
+    template <typename T>
+    void add_explanation_of_reducing_to_mininal_monomial(const T & m, expl_set & exp) const {
+        for (auto j : m)
+            add_equiv_exp(j, exp);
+    }
+        
+    void add_equiv_exp(lpvar j, expl_set & exp) const {
+        auto it = m_map.find(j);
+        if (it == m_map.end())
+            return;
+        for (auto k : it->second.m_explanation)
+            exp.insert(k);
+    }
+}; // end of vars_equivalence
+
+struct solver::imp {
 
     typedef lp::lar_base_constraint lpcon;
     
@@ -252,7 +239,7 @@ struct solver::imp {
     }
     
     /**
-     * \brief <TBD say what this function does>
+     * \brief <here we have two monomials, i_mon and other_m, examined for "sign" equivalence>
      */
     bool generate_basic_lemma_for_mon_sign_var_other_mon(
         unsigned i_mon,
@@ -288,8 +275,9 @@ struct solver::imp {
 
     std::ostream& print_monomial(const mon_eq& m, std::ostream& out) {
         out << m_lar_solver.get_column_name(m.var()) << " = ";
-        for (unsigned j : m) {
-            out << m_lar_solver.get_column_name(j) << "*";
+        for (unsigned k = 0; k < m.size(); k++) {
+            out << m_lar_solver.get_column_name(m.m_vs[k]);
+            if (k + 1 < m.m_vs.size()) out << "*";
         }
         return out;
     }
@@ -309,14 +297,20 @@ struct solver::imp {
         add_explanation_of_reducing_to_mininal_monomial(b, expl);
         m_expl->clear();
         m_expl->add(expl);
-        TRACE("niil_solver", print_explanation(tout););
+        TRACE("niil_solver",
+              tout << "used constraints: ";
+              for (auto &p : *m_expl)
+                  m_lar_solver.print_constraint(p.second, tout); tout << "\n";
+              );
         lp::lar_term t;
         t.add_monomial(rational(1), a.var());
         t.add_monomial(rational(- sign), b.var());
         TRACE("niil_solver", 
-              m_lar_solver.print_term(t, tout) << "\n";
-              print_monomial(a, tout) << "\n";
-              print_monomial(b, tout) << "\n";
+              m_lar_solver.print_term(t, tout);
+              tout << "\ncreated lemma: ";
+              print_monomial(a, tout);
+              tout << "\n";
+              print_monomial(b, tout);
               );
 
         ineq in(lp::lconstraint_kind::NE, t);
@@ -324,7 +318,7 @@ struct solver::imp {
     }
     
     /**
-     * \brief <TBD say what this function does>
+     * \brief <go over monomials containing j_var>
      */
     bool generate_basic_lemma_for_mon_sign_var(unsigned i_mon,
                                                unsigned j_var, const svector<lpvar>& mon_vars, int sign) {
@@ -352,7 +346,10 @@ struct solver::imp {
         std::sort(ret.begin(), ret.end());
         return ret;
     }
-    
+
+    /**
+     * \brief <generate lemma by using the fact that (-(ab) = (-a)b)>
+     */
     bool generate_basic_lemma_for_mon_sign(unsigned i_mon) {
         if (m_vars_equivalence.empty()) {
             return false;
@@ -491,10 +488,11 @@ struct solver::imp {
               tout << "derived constraint ";
               m_lar_solver.print_term(t, tout);
               tout << " " << lp::lconstraint_kind_string(kind) << " 0\n";              
+tout << "the monomial is : ";
               print_monomial(m_monomials[i_mon], tout) << "\n";
               lpvar mon_var = m_monomials[i_mon].var();
               
-              tout << m_lar_solver.get_column_name(mon_var) << " = " << m_lar_solver.get_column_value(mon_var);
+              tout << "the monomial value in the model is: " << m_lar_solver.get_column_name(mon_var) << " = " << m_lar_solver.get_column_value_rational(mon_var);
               );
         
 
@@ -502,26 +500,26 @@ struct solver::imp {
     }
     
     /**
-     * \brief <TBD say what this function does>
+     * \brief <return true if j is fixed to 1 or -1, and put the value into "sign">
      */
-    bool get_one_of_var(unsigned i, lpvar j, mono_index_with_sign & mi) {
+    bool get_one_of_var(lpvar j, int & sign) {
         lpci lci;
         lpci uci;
         rational lb, ub;
-        bool lower_is_strict, upper_is_strict;
-        if (!m_lar_solver.has_lower_bound(j, lci, lb, lower_is_strict))
+        bool is_strict;
+        if (!m_lar_solver.has_lower_bound(j, lci, lb, is_strict))
             return false;
-        if (!m_lar_solver.has_upper_bound(j, uci, ub, upper_is_strict))
+        SASSERT(!is_strict);
+        if (!m_lar_solver.has_upper_bound(j, uci, ub, is_strict))
             return false;
-        
+        SASSERT(!is_strict);
+
         if (ub == lb) {
             if (ub == rational(1)) {
-                mi.m_i = i;
-                mi.m_sign = 1;
+                sign = 1;
             }
             else if (ub == -rational(1)) {
-                mi.m_i = i;
-                mi.m_sign = -1;
+                sign = -1;
             }
             else 
                 return false;
@@ -535,7 +533,8 @@ struct solver::imp {
         vector<mono_index_with_sign> ret;
         for (unsigned i = 0; i < vars.size(); i++) {
             mono_index_with_sign mi;
-            if (get_one_of_var(i, vars[i], mi)) {
+            if (get_one_of_var(vars[i], mi.m_sign)) {
+                mi.m_i = i;
                 ret.push_back(mi);
             }
         }
@@ -544,20 +543,22 @@ struct solver::imp {
 
     
     void get_large_and_small_indices_of_monomimal(const mon_eq& m,
-                                                  vector<unsigned> & large,
-                                                  vector<unsigned> & _small) {
+                                                  svector<unsigned> & large,
+                                                  svector<unsigned> & _small) {
 
         for (unsigned i = 0; i < m.m_vs.size(); ++i) {
             unsigned j = m.m_vs[i];
             lp::constraint_index lci = -1, uci = -1;
             rational             lb, ub;
             bool                 is_strict;
-            if (m_lar_solver.has_lower_bound(j, lci, lb, is_strict) && !is_strict) {
+            if (m_lar_solver.has_lower_bound(j, lci, lb, is_strict)) {
+                SASSERT(!is_strict);
                 if (lb >= rational(1)) {
                     large.push_back(i);
                 }
             }
-            if (m_lar_solver.has_upper_bound(j, uci, ub, is_strict) && !is_strict) {
+            if (m_lar_solver.has_upper_bound(j, uci, ub, is_strict)) {
+                SASSERT(!is_strict);
                 if (ub <= -rational(1)) {
                     large.push_back(i);
                 }
@@ -570,7 +571,7 @@ struct solver::imp {
     }
 
     /**
-     * \brief <TBD say what this function does>
+     * \brief <generate lemma by using the fact that 1*x = x or x*1 = x>
      * v is the value of monomial, vars is the array of reduced to minimum variables of the monomial
      */
     bool generate_basic_neutral_for_reduced_monomial(const mon_eq & m, const rational & v, const svector<lpvar> & vars) {
@@ -580,17 +581,15 @@ struct solver::imp {
         if (ones_of_mon.empty()) {
             return false;
         }
-        std::cout << "ones_of_mon.size() = " << ones_of_mon.size() << std::endl;
         if (m_minimal_monomials.empty() && m.size() > 2)
             create_min_map();
         
         return process_ones_of_mon(m, ones_of_mon, vars, v);
     }
     /**
-     * \brief <TBD say what this function does>
+     * \brief <generate lemma by using the fact that 1*x = x or x*1 = x>
      */    
     bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
-        std::cout << "generate_basic_lemma_for_mon_neutral\n";
         const mon_eq & m = m_monomials[i_mon];
         int sign;
         svector<lpvar> reduced_vars = reduce_monomial_to_minimal(m.m_vs, sign);
@@ -602,26 +601,41 @@ struct solver::imp {
 
     // returns the variable m_i, of a monomial if found and sets the sign,
     // if the 
-    bool find_monomial_of_vars(const svector<lpvar>& vars, unsigned &j, int & sign) const {
+    bool find_monomial_of_vars(const svector<lpvar>& vars, unsigned &j, int & sign) {
         if (vars.size() == 1) {
             j = vars[0];
             sign = 1;
             return true;
         }
-        SASSERT(false); // not implemented
-        return false;
+        auto it = m_minimal_monomials.find(vars);
+        if (it == m_minimal_monomials.end()) {
+            return false;
+        }
+
+        const mono_index_with_sign & mi = *(it->second.begin());
+        sign = mi.m_sign;
+        j = mi.m_i;
+        return true;
+    }
+
+    bool find_compimenting_monomial(const svector<lpvar> & vars, lpvar & j) {
+        int other_sign;
+        if (!find_monomial_of_vars(vars, j, other_sign)) {
+            return false;
+        }
+        return true;
     }
     
-    bool find_lpvar_and_sign_for_the_rest_of_monomial(
+    bool find_lpvar_and_sign_with_wrong_val(
         const mon_eq& m,
         svector<lpvar> & vars,
         const rational& v,
         int sign,
         lpvar& j) {
         int other_sign;
-        if (find_monomial_of_vars(vars, j, other_sign))
+        if (!find_monomial_of_vars(vars, j, other_sign)) {
             return false;
-
+        }
         sign *= other_sign;
         rational other_val = m_lar_solver.get_column_value_rational(j);
         return sign * other_val != v;                
@@ -642,12 +656,16 @@ struct solver::imp {
         for (unsigned k : mask) {
             add_explanation_of_one(ones_of_monomial[k]);
         }
-        TRACE("niil_solver", print_explanation(tout););
+        TRACE("niil_solver",
+              for (auto &p : *m_expl)
+                  m_lar_solver.print_constraint(p.second, tout); tout << "\n";
+              );
         lp::lar_term t;
         t.add_monomial(rational(1), m.var());
         t.add_monomial(rational(- sign), j);
         TRACE("niil_solver", 
-              m_lar_solver.print_term(t, tout) << "\n";
+              m_lar_solver.print_term(t, tout);
+              tout << "\n";
               );
 
         ineq in(lp::lconstraint_kind::EQ, t);
@@ -672,7 +690,7 @@ struct solver::imp {
                     std::sort(vars.begin(), vars.end());
                     // now the value of vars has to be v*sign
                     lpvar j;
-                    if (!find_lpvar_and_sign_for_the_rest_of_monomial(m, vars, v, sign, j))
+                    if (!find_lpvar_and_sign_with_wrong_val(m, vars, v, sign, j))
                         return false;
                     generate_equality_for_neutral_case(m, mask, ones_of_monomial, j, sign);
                     return true;
@@ -683,23 +701,98 @@ struct solver::imp {
                     vars.push_back(min_vars[ones_of_monomial[k].m_i]); // vars becomes unsorted
                 }
             }
-        } 
-        while(true);
+        } while(true);
+        return false; // we exhausted the mask and did not find a compliment monomial
+    }
+
+    void add_explanation_of_large_value(lpvar j, expl_set & expl) {
+        lpci ci;
+        rational b;
+        bool strict;
+        if (m_lar_solver.has_lower_bound(j, ci, b, strict) && rational(1) <= b) {
+            expl.insert(ci);
+        } else if (m_lar_solver.has_upper_bound(j, ci, b, strict)) {
+            SASSERT(b <= rational(-1));
+            expl.insert(ci);
+        } else {
+            SASSERT(false);
+        }
+    }
+    bool large_lemma_for_proportion_case(const mon_eq& m, const svector<unsigned> & mask,
+                                         const svector<unsigned> & large, unsigned j) {
+        const rational j_val = lp::abs(m_lar_solver.get_column_value_rational(j));
+        const rational m_val = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
+        // since the masked factor is greater than or equal to one
+        // j_val has to be less than or equal to m_val
+        if (j_val <= m_val)
+            return false;
+        expl_set expl;
+        add_explanation_of_reducing_to_mininal_monomial(m, expl);
+        for (unsigned k = 0; k < mask.size(); k++) {
+            if (mask[k] == 1)
+                add_explanation_of_large_value(m.m_vs[large[k]], expl);
+        }
+        m_expl->clear();
+        m_expl->add(expl);
+        
+        return false;
+    }
+    bool large_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& large) {
+        svector<unsigned> mask(large.size(), (unsigned) 0);
+        const auto & m = m_monomials[i_mon];
+        int sign;
+        auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
+        
+        auto v = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
+        // We crossing out the "large" variables representing the mask from vars
+        do {
+            for (unsigned k = 0; k < mask.size(); k++) {
+                if (mask[k] == 0) {
+                    mask[k] = 1;
+                    TRACE("niil_solver", tout << "large[" << k << "] = " << large[k];);
+                    vars.erase(vars.begin() + large[k]);
+                    std::sort(vars.begin(), vars.end());
+                    // now the value of vars has to be v*sign
+                    lpvar j;
+                    if (!find_compimenting_monomial(vars, j))
+                        return false;
+                    if (large_lemma_for_proportion_case(m, mask, large, j))
+                        return true;
+                } else {
+                    SASSERT(mask[k] == 1);
+                    mask[k] = 0;
+                    vars.push_back(vars[large[k]]); // vars becomes unsorted
+                }
+            }
+        } while(true);
         return false; // we exhausted the mask and did not find the compliment monomial
     }
-    
-    
+
+    bool small_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& _small) {
+        svector<unsigned> mask(_small.size(), (unsigned) 0);
+
+        return false;
+    }
+
     bool generate_basic_lemma_for_mon_proportionality(unsigned i_mon) {
-        std::cout << "generate_basic_lemma_for_mon_proportionality\n";
+        TRACE("niil_solver", tout << "generate_basic_lemma_for_mon_proportionality";);
         const mon_eq & m = m_monomials[i_mon];
-        vector<unsigned> large;
-        vector<unsigned> _small;
+        svector<unsigned> large;
+        svector<unsigned> _small;
         get_large_and_small_indices_of_monomimal(m, large, _small);
+        TRACE("niil_solver", tout << "large size = " << large.size() << ", _small size = " << _small.size(););
+        if (large.empty() && _small.empty())
+            return false;
         
-        // if abs(m.m_vs[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.m_vs[j] = 1, or -1 otherwise.
         if (m_minimal_monomials.empty())
             create_min_map();
-        
+
+        if (!large.empty() && large_basic_lemma_for_mon_proportionality(i_mon, large))
+            return true;
+
+        if (!_small.empty() && small_basic_lemma_for_mon_proportionality(i_mon, _small))
+            return true;
+
         return false;
 
     }
@@ -746,7 +839,7 @@ struct solver::imp {
 
     void add_pair_to_min_monomials(const svector<lpvar>& key, unsigned i, int sign) {
         mono_index_with_sign ms(i, sign);
-        auto it = m_minimal_monomials.find(i);
+        auto it = m_minimal_monomials.find(key);
         if (it == m_minimal_monomials.end()) {
             vector<mono_index_with_sign> v;
             v.push_back(ms);
@@ -766,22 +859,6 @@ struct solver::imp {
     void create_min_map() {
         for (unsigned i = 0; i < m_monomials.size(); i++)
             add_monomial_to_min_map(i);
-        /*
-            svector<lpvar> sorted_vs;
-            for (unsigned i = 0; i < sz; i++)
-                sorted_vs.push_back(vs[i]);
-            std::sort(sorted_vs.begin(), sorted_vs.end());
-            std::cout << "sorted_vs = ";
-            print_vector(sorted_vs, std::cout);
-            m_monomials.push_back(mon_eq(v, sorted_vs));
-        }
-        auto it = m_hashed_monomials.find(m_monomials.back().m_vs);
-        if (it == m_hashed_monomials.end()) {
-            svector<unsigned> t; t.push_back(m_monomials.size() - 1); // the index of the last monomial
-            m_hashed_monomials.insert(std::pair(m_monomials.back().m_vs, t));
-        } else {
-            it->second.push_back(m_monomials.size() - 1); // we have at least two monomials that are identical in their vars
-            }*/
     }
     
     void init_search() {
@@ -790,7 +867,7 @@ struct solver::imp {
     }
     
     lbool check(lp::explanation & exp, lemma& l) {
-        std::cout << "check of niil\n";
+        TRACE("niil_solver", tout << "check of niil";);
         m_expl =   &exp;
         m_lemma =  &l;
         lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
