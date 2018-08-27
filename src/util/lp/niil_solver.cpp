@@ -282,7 +282,7 @@ struct solver::imp {
         return out;
     }
 
-    std::ostream& print_explanation(std::ostream& out) {
+    std::ostream& print_explanation(std::ostream& out) const {
         for (auto &p : *m_expl) {
             m_lar_solver.print_constraint(p.second, out) << "\n";
         }
@@ -305,14 +305,7 @@ struct solver::imp {
         lp::lar_term t;
         t.add_monomial(rational(1), a.var());
         t.add_monomial(rational(- sign), b.var());
-        TRACE("niil_solver", 
-              m_lar_solver.print_term(t, tout);
-              tout << "\ncreated lemma: ";
-              print_monomial(a, tout);
-              tout << "\n";
-              print_monomial(b, tout);
-              );
-
+        TRACE("niil_solver", print_explanation_and_lemma(tout););
         ineq in(lp::lconstraint_kind::NE, t);
         m_lemma->push_back(in);
     }
@@ -482,23 +475,28 @@ struct solver::imp {
         t.m_v = -rs;
         ineq in(kind, t);
         m_lemma->push_back(in);
-        TRACE("niil_solver",
-              tout << "used constraints:\n";
-              print_explanation(tout);
-              tout << "derived constraint ";
-              m_lar_solver.print_term(t, tout);
-              tout << " " << lp::lconstraint_kind_string(kind) << " 0\n";              
-tout << "the monomial is : ";
-              print_monomial(m_monomials[i_mon], tout) << "\n";
-              lpvar mon_var = m_monomials[i_mon].var();
-              
-              tout << "the monomial value in the model is: " << m_lar_solver.get_column_name(mon_var) << " = " << m_lar_solver.get_column_value_rational(mon_var);
-              );
-        
-
+        TRACE("niil_solver", print_explanation_and_lemma(tout););
         return true;
     }
+
     
+    std::ostream & print_ineq(ineq & in, std::ostream & out) const {
+        m_lar_solver.print_term(in.m_term, out);
+        out << " " << lp::lconstraint_kind_string(in.m_cmp) << " 0";
+        return out;
+    }
+
+    std::ostream & print_lemma(lemma& l, std::ostream & out) const {
+        for (auto & in: l) {
+            out << "("; print_ineq(in, out) << ")";
+        }
+        return out;
+    }
+
+    std::ostream & print_explanation_and_lemma(std::ostream & out) const {
+        out << "explanation:\n"; print_explanation(out) << "\nlemma\n:" ; print_lemma(*m_lemma, out) << "\n";
+        return out;
+     }
     /**
      * \brief <return true if j is fixed to 1 or -1, and put the value into "sign">
      */
@@ -656,20 +654,12 @@ tout << "the monomial is : ";
         for (unsigned k : mask) {
             add_explanation_of_one(ones_of_monomial[k]);
         }
-        TRACE("niil_solver",
-              for (auto &p : *m_expl)
-                  m_lar_solver.print_constraint(p.second, tout); tout << "\n";
-              );
         lp::lar_term t;
         t.add_monomial(rational(1), m.var());
         t.add_monomial(rational(- sign), j);
-        TRACE("niil_solver", 
-              m_lar_solver.print_term(t, tout);
-              tout << "\n";
-              );
-
         ineq in(lp::lconstraint_kind::EQ, t);
         m_lemma->push_back(in);
+        TRACE("niil_solver", print_explanation_and_lemma(tout););
     }
     
     // vars here are minimal vars for m.vs
@@ -720,11 +710,13 @@ tout << "the monomial is : ";
     }
     bool large_lemma_for_proportion_case(const mon_eq& m, const svector<unsigned> & mask,
                                          const svector<unsigned> & large, unsigned j) {
-        const rational j_val = lp::abs(m_lar_solver.get_column_value_rational(j));
+        TRACE("niil_solver", );
+        const rational j_val = m_lar_solver.get_column_value_rational(j);
         const rational m_val = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
         // since the masked factor is greater than or equal to one
         // j_val has to be less than or equal to m_val
-        if (j_val <= m_val)
+        int sign = j_val < - m_val? -1: (j_val > m_val)? 1: 0;
+        if (sign == 0) // abs(j_val) <= m_val which is not a conflict
             return false;
         expl_set expl;
         add_explanation_of_reducing_to_mininal_monomial(m, expl);
@@ -734,17 +726,33 @@ tout << "the monomial is : ";
         }
         m_expl->clear();
         m_expl->add(expl);
-        
-        return false;
+
+        if (sign == -1) {
+            lp::lar_term t;  // j >= -m_val or j + m.m_v >= 0
+            t.add_monomial(rational(1), j);
+            t.add_monomial(rational(1), m.m_v);
+            t.m_v = rational(0);
+            ineq in(lp::lconstraint_kind::GE, t);
+            m_lemma->push_back(in);
+            return true;
+        }
+        SASSERT(sign == 1);
+        lp::lar_term t;  // j <= m_val or j - m.m_v <= 0
+        t.add_monomial(rational(1), j);
+        t.add_monomial(rational(-1), m.m_v);
+        t.m_v = rational(0);
+        ineq in(lp::lconstraint_kind::LE, t);
+        m_lemma->push_back(in);
+        return true;
     }
     bool large_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& large) {
-        svector<unsigned> mask(large.size(), (unsigned) 0);
+        svector<unsigned> mask(large.size(), (unsigned) 0); // init mask by zeroes
         const auto & m = m_monomials[i_mon];
         int sign;
         auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
         
         auto v = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
-        // We crossing out the "large" variables representing the mask from vars
+        // We cross out from vars the "large" variables represented by the mask
         do {
             for (unsigned k = 0; k < mask.size(); k++) {
                 if (mask[k] == 0) {
@@ -754,10 +762,11 @@ tout << "the monomial is : ";
                     std::sort(vars.begin(), vars.end());
                     // now the value of vars has to be v*sign
                     lpvar j;
-                    if (!find_compimenting_monomial(vars, j))
-                        return false;
-                    if (large_lemma_for_proportion_case(m, mask, large, j))
+                    if (find_compimenting_monomial(vars, j) &&
+                        large_lemma_for_proportion_case(m, mask, large, j)) {
+                        TRACE("niil_solver", print_explanation_and_lemma(tout););
                         return true;
+                    }
                 } else {
                     SASSERT(mask[k] == 1);
                     mask[k] = 0;
@@ -765,6 +774,7 @@ tout << "the monomial is : ";
                 }
             }
         } while(true);
+        TRACE("niil_solver", tout << "return false";);
         return false; // we exhausted the mask and did not find the compliment monomial
     }
 
@@ -807,7 +817,9 @@ tout << "the monomial is : ";
     bool generate_basic_lemma(svector<unsigned> & to_refine) {
         for (unsigned i : to_refine)
             if (generate_basic_lemma_for_mon(i)) {
-                TRACE("niil_solver", tout << "a lemma generated for monomial " << i << std::endl;);
+                TRACE("niil_solver", tout << "a lemma generated for monomial " << i << std::endl;
+                      tout << "lemma.size() = " << m_lemma->size() << "\n";
+                      print_explanation_and_lemma(tout); );
                 return true;
             }
         return false;
@@ -864,6 +876,8 @@ tout << "the monomial is : ";
     void init_search() {
         map_vars_to_monomials_and_constraints();
         init_vars_equivalence();
+        m_expl->clear();
+        m_lemma->clear();
     }
     
     lbool check(lp::explanation & exp, lemma& l) {
