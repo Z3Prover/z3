@@ -273,7 +273,7 @@ struct solver::imp {
         m_vars_equivalence.add_explanation_of_reducing_to_mininal_monomial(m, eset);
     }
 
-    std::ostream& print_monomial(const mon_eq& m, std::ostream& out) {
+    std::ostream& print_monomial(const mon_eq& m, std::ostream& out) const {
         out << m_lar_solver.get_column_name(m.var()) << " = ";
         for (unsigned k = 0; k < m.size(); k++) {
             out << m_lar_solver.get_column_name(m.m_vs[k]);
@@ -284,7 +284,7 @@ struct solver::imp {
 
     std::ostream& print_explanation(std::ostream& out) const {
         for (auto &p : *m_expl) {
-            m_lar_solver.print_constraint(p.second, out) << "\n";
+            m_lar_solver.print_constraint(p.second, out);
         }
         return out;
     }
@@ -486,15 +486,43 @@ struct solver::imp {
         return out;
     }
 
+    std::ostream & print_var(lpvar j, std::ostream & out) const {
+        bool monomial = false;
+        for (const mon_eq & m : m_monomials) {
+            if (j == m.m_v) {
+                monomial = true;
+                print_monomial(m, out);
+                out << " = " << m_lar_solver.get_column_value(j) << "\n";;
+                break;
+            }
+        }
+        if (!monomial)
+            out << m_lar_solver.get_column_name(j) << " = " << m_lar_solver.get_column_value(j) << "\n";
+        return out;
+    }    
+
+    std::ostream& print_ineq_vars(const ineq & in, std::ostream & out) const {
+        for (const auto & p : in.m_term) {
+            print_var(p.var(), out);
+        }
+        return out;
+    }
+    
     std::ostream & print_lemma(lemma& l, std::ostream & out) const {
         for (auto & in: l) {
             out << "("; print_ineq(in, out) << ")";
+        }
+        out << std::endl;
+        for (auto & in: l) {
+             print_ineq_vars(in, out);
         }
         return out;
     }
 
     std::ostream & print_explanation_and_lemma(std::ostream & out) const {
-        out << "explanation:\n"; print_explanation(out) << "\nlemma\n:" ; print_lemma(*m_lemma, out) << "\n";
+        out << "explanation:\n";
+        print_explanation(out) << "lemma = ";
+        print_lemma(*m_lemma, out) << "\n";
         return out;
      }
     /**
@@ -815,13 +843,11 @@ struct solver::imp {
     }
 
     bool generate_basic_lemma(svector<unsigned> & to_refine) {
-        for (unsigned i : to_refine)
+        for (unsigned i : to_refine) {
             if (generate_basic_lemma_for_mon(i)) {
-                TRACE("niil_solver", tout << "a lemma generated for monomial " << i << std::endl;
-                      tout << "lemma.size() = " << m_lemma->size() << "\n";
-                      print_explanation_and_lemma(tout); );
                 return true;
             }
+        }
         return false;
     }
 
