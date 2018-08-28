@@ -2062,7 +2062,6 @@ public:
     niil::lemma m_lemma;
  
     lbool check_aftermath_niil(lbool r) {
-        TRACE("arith", tout << "niil: " << r << "\n";);
         switch (r) {
         case l_false: {            
             literal_vector core;
@@ -2070,14 +2069,15 @@ public:
                 bool is_lower = true, pos = true, is_eq = false;
                 
                 switch (ineq.m_cmp) {
-                case lp::LE: is_lower = false; pos = true;  break;
-                case lp::LT: is_lower = true;  pos = false; break;
-                case lp::GE: is_lower = true;  pos = true;  break;
-                case lp::GT: is_lower = true;  pos = false; break;
+                case lp::LE: is_lower = false; pos = false;  break;
+                case lp::LT: is_lower = true;  pos = true; break;
+                case lp::GE: is_lower = true;  pos = false;  break;
+                case lp::GT: is_lower = false; pos = true; break;
                 case lp::EQ: is_eq = true; pos = true; break;
                 case lp::NE: is_eq = true; pos = false; break;
                 default: UNREACHABLE();
                 }
+                TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
                 app_ref atom(m);
                 if (is_eq) {
                     atom = mk_eq(ineq.m_term);
@@ -3192,9 +3192,11 @@ public:
             for (auto const& eq : m_eqs) {
                 m_core.push_back(th.mk_eq(eq.first->get_owner(), eq.second->get_owner(), false));
             }
-            for (auto & c : m_core) {
+            for (literal & c : m_core) {
                 c.neg();
+                ctx().mark_as_relevant(c);
             }
+            TRACE("arith", ctx().display_literals_verbose(tout, m_core););
             ctx().mk_th_axiom(get_id(), m_core.size(), m_core.c_ptr());
         }
     }
