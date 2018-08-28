@@ -7,6 +7,13 @@
 namespace nra {
 bool check_assignment(mon_eq const& m, variable_map_type & vars) {
     rational r1 = vars[m.m_v];
+    if (r1.is_zero()) {
+        for (auto w : m.m_vs) {
+            if (vars[w].is_zero())
+                return true;
+        }
+        return false;
+    }
     rational r2(1);
     for (auto w : m.m_vs) {
         r2 *= vars[w];
