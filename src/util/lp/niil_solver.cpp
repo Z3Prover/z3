@@ -106,6 +106,7 @@ struct vars_equivalence {
         m_equivs.push_back(equiv(i, j, sign, c0, c1));
     }
 
+    // we look for octagon constraints here : x - y = 0, x + y = 0, - x - y = 0 , etc.
     void collect_equivs(const lp::lar_solver& s) {
         for (unsigned i = 0; i < s.terms().size(); i++) {
             unsigned ti = i + s.terms_start_index();
@@ -117,7 +118,7 @@ struct vars_equivalence {
                 continue;
             if (s.get_upper_bound(j) != lp::zero_of_type<lp::impq>() ||
                 s.get_lower_bound(j) != lp::zero_of_type<lp::impq>())
-                continue;
+                continue; 
             add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
         }
     }
@@ -443,7 +444,8 @@ struct solver::imp {
     
     bool generate_basic_lemma_for_mon_zero(unsigned i_mon) {
         m_expl->clear();
-        const rational & mon_val = m_lar_solver.get_column_value(m_monomials[i_mon].var()).x;
+        const auto mon = m_monomials[i_mon];
+        const rational & mon_val = m_lar_solver.get_column_value_rational(mon.var());
         bool strict;
         int sign = get_mon_sign_zero(i_mon, strict);
         lp::lconstraint_kind kind;
@@ -468,6 +470,11 @@ struct solver::imp {
             kind = lp::lconstraint_kind::LE;
             break;
         default:
+            if (mon_val.is_zero() && var_is_fixed_to_zero(mon.var())) {
+                create_lemma_one_of_the_factors_is_zero(mon);
+                TRACE("niil_solver", print_explanation_and_lemma(tout););
+                return true;
+            }
             return false;
         }
         lp::lar_term t;
@@ -479,6 +486,39 @@ struct solver::imp {
         return true;
     }
 
+    void create_lemma_one_of_the_factors_is_zero(const mon_eq& m) {
+        lpci lci, uci;
+        rational b;
+        bool is_strict;
+        m_lar_solver.has_lower_bound(m.var(), lci, b, is_strict);
+        SASSERT(b.is_zero() && !is_strict);
+        m_lar_solver.has_upper_bound(m.var(), uci, b, is_strict);
+        SASSERT(b.is_zero() && !is_strict);
+        m_expl->clear();
+        m_expl->push_justification(lci);
+        m_expl->push_justification(uci);
+        m_lemma->clear();
+        for (auto j : m) {
+            m_lemma->push_back(ineq_j_is_equal_to_zero(j));
+        }
+    }
+
+    ineq ineq_j_is_equal_to_zero(lpvar j) const {
+        lp::lar_term t;
+        t.add_monomial(rational(1), j);
+        ineq i(lp::lconstraint_kind::EQ, t);
+        return i;
+    }
+    
+    bool var_is_fixed_to_zero(lpvar j) const {
+        if (!m_lar_solver.column_has_upper_bound(j) ||
+            !m_lar_solver.column_has_lower_bound(j))
+            return false;
+        if (m_lar_solver.get_upper_bound(j) != lp::zero_of_type<lp::impq>() ||
+            m_lar_solver.get_lower_bound(j) != lp::zero_of_type<lp::impq>())
+            return false;
+        return true;
+    }
     
     std::ostream & print_ineq(ineq & in, std::ostream & out) const {
         m_lar_solver.print_term(in.m_term, out);
