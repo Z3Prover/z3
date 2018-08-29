@@ -537,32 +537,33 @@ struct solver::imp {
             }
         }
         if (!monomial)
-            out << m_lar_solver.get_column_name(j) << " = " << m_lar_solver.get_column_value(j) << "\n";
+            out << m_lar_solver.get_column_name(j) << " = " << m_lar_solver.get_column_value(j);
         return out;
     }    
 
-    std::ostream& print_ineq_vars(const ineq & in, std::ostream & out) const {
-        for (const auto & p : in.m_term) {
-            print_var(p.var(), out);
-        }
-        return out;
-    }
     
     std::ostream & print_lemma(lemma& l, std::ostream & out) const {
-        for (auto & in: l) {
-            out << "("; print_ineq(in, out) << ")";
+        for (unsigned i = 0; i < l.size(); i++) {
+            print_ineq(l[i], out);
+            if (i + 1 < l.size()) out << " or ";
         }
         out << std::endl;
+        std::unordered_set<lpvar> vars;
         for (auto & in: l) {
-             print_ineq_vars(in, out);
+            for (const auto & p: in.m_term)
+                vars.insert(p.var());
+        }
+        for (lpvar j : vars) {
+            print_var(j, out);
         }
         return out;
     }
 
     std::ostream & print_explanation_and_lemma(std::ostream & out) const {
         out << "explanation:\n";
-        print_explanation(out) << "lemma = ";
-        print_lemma(*m_lemma, out) << "\n";
+        print_explanation(out) << "lemma: ";
+        print_lemma(*m_lemma, out);
+        out << "\n";
         return out;
      }
     /**
@@ -777,14 +778,26 @@ struct solver::imp {
         }
     }
 
+    void add_explanation_of_small_value(lpvar j, expl_set & expl) {
+        lpci ci;
+        rational b;
+        bool strict;
+        m_lar_solver.has_lower_bound(j, ci, b, strict);
+        SASSERT(b >= -rational(1));
+        expl.insert(ci);
+        m_lar_solver.has_upper_bound(j, ci, b, strict);
+        SASSERT(b <= rational(1));
+        expl.insert(ci);
+    }
+
     void large_lemma_for_proportion_case_on_known_signs(const mon_eq& m,
                                                         unsigned j,
-                                                        int m_sign,
+                                                        int mon_sign,
                                                         int j_sign) {
         // Imagine that the signs are all positive and flip them afterwards.
         // For this case we would have x[j] < 0 || x[m.var()] < 0 || x[m.var] >= x[j]
         // But for the general case we have
-        // j_sign * x[j] < 0 || m_sign * x[m.var()] < 0 || m_sign * x[m.var()] >= j_sign * x[j]
+        // j_sign * x[j] < 0 || mon_sign * x[m.var()] < 0 || mon_sign * x[m.var()] >= j_sign * x[j]
         // the first literal
         lp::lar_term t; 
         t.add_monomial(rational(j_sign), j);
@@ -792,12 +805,12 @@ struct solver::imp {
 
         t.clear();
         // the second literal
-        t.add_monomial(rational(m_sign), m.var());
+        t.add_monomial(rational(mon_sign), m.var());
         m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
 
         t.clear();
         // the third literal
-        t.add_monomial(rational(m_sign), m.var());
+        t.add_monomial(rational(mon_sign), m.var());
         t.add_monomial(- rational(j_sign), j);
         m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
     }
@@ -821,10 +834,59 @@ struct solver::imp {
         }
         m_expl->clear();
         m_expl->add(expl);
-        int m_sign = m_val < rational(0) ? -1 : 1;
-        large_lemma_for_proportion_case_on_known_signs(m, j, m_sign, j_sign);
+        int mon_sign = m_val < rational(0) ? -1 : 1;
+        large_lemma_for_proportion_case_on_known_signs(m, j, mon_sign, j_sign);
         return true;
     }
+
+    bool small_lemma_for_proportion_case(const mon_eq& m, const svector<unsigned> & mask,
+                                         const svector<unsigned> & _small, unsigned j) {
+        TRACE("niil_solver", );
+        const rational j_val = m_lar_solver.get_column_value_rational(j);
+        const rational m_val = m_lar_solver.get_column_value_rational(m.m_v);
+        const rational m_abs_val = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
+        // since the abs of the masked factor is less than or equal to one
+        // j_val has to be greater than or equal to m_abs_val
+        if (j_val <= - m_abs_val || j_val > m_abs_val)
+            return false;
+
+        expl_set expl;
+        add_explanation_of_reducing_to_mininal_monomial(m, expl);
+        for (unsigned k = 0; k < mask.size(); k++) {
+            if (mask[k] == 1)
+                add_explanation_of_small_value(m.m_vs[_small[k]], expl);
+        }
+        m_expl->clear();
+        m_expl->add(expl);
+        int mon_sign = m_val < rational(0) ? -1 : 1;
+        int j_sign = j_val >= rational(0)? 1: -1;
+        small_lemma_for_proportion_case_on_known_signs(m, j, mon_sign, j_sign);
+        return true;
+    }
+
+    // It is the case where |x[j]| >= |x[m.var()]| should hold in the model, but it does not.
+    void small_lemma_for_proportion_case_on_known_signs(const mon_eq& m, unsigned j, int mon_sign, int j_sign) {
+        // Imagine that the signs are all positive.
+        // For this case we would have x[j] < 0 || x[m.var()] < 0 || x[j] >= x[m.var()]
+        // But for the general case we have
+        // j_sign * x[j] < 0 || mon_sign * x[m.var()] < 0 || j_sign * x[j] >= mon_sign * x[m.var]
+        // the first literal
+
+        lp::lar_term t;
+        // the first literal
+        t.add_monomial(rational(j_sign), j);
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+        //the second literal
+        t.clear();
+        t.add_monomial(rational(mon_sign), m.var());
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+        // the third literal
+        t.clear();
+        t.add_monomial(rational(j_sign), j);
+        t.add_monomial(- rational(mon_sign), m.var());
+        m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
+    }
+    
     bool large_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& large) {
         svector<unsigned> mask(large.size(), (unsigned) 0); // init mask by zeroes
         const auto & m = m_monomials[i_mon];
@@ -853,18 +915,42 @@ struct solver::imp {
                 vars.push_back(vars_copy[large[k]]); // vars might become unsorted
             }
         }
-
-        TRACE("niil_solver", tout << "return false";);
         return false; // we exhausted the mask and did not find the compliment monomial
     }
 
     bool small_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& _small) {
-        svector<unsigned> mask(_small.size(), (unsigned) 0);
+        svector<unsigned> mask(_small.size(), (unsigned) 0); // init mask by zeroes
+        const auto & m = m_monomials[i_mon];
+        int sign;
+        auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
+        auto vars_copy = vars;
+        auto v = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
+        // We cross out from vars the "large" variables represented by the mask
+        for (unsigned k = 0; k < mask.size(); k++) {
+            if (mask[k] == 0) {
+                mask[k] = 1;
+                TRACE("niil_solver", tout << "_small[" << k << "] = " << _small[k];);
+                SASSERT(std::find(vars.begin(), vars.end(), vars_copy[_small[k]]) != vars.end());
+                vars.erase(vars_copy[_small[k]]);
+                std::sort(vars.begin(), vars.end());
+                // now the value of vars has to be v*sign
+                lpvar j;
+                if (find_compimenting_monomial(vars, j) &&
+                    small_lemma_for_proportion_case(m, mask, _small, j)) {
+                    TRACE("niil_solver", print_explanation_and_lemma(tout););
+                    return true;
+                }
+            } else {
+                SASSERT(mask[k] == 1);
+                mask[k] = 0;
+                vars.push_back(vars_copy[_small[k]]); // vars might become unsorted
+            }
+        }
 
-        return false;
+        return false; // we exhausted the mask and did not find the compliment monomial
     }
 
-    // we derive a lemma from |x| >= 1 => |xy| >= |y|
+    // we derive a lemma from |x| >= 1 => |xy| >= |y| or |x| <= 1 => |xy| <= |y|
     bool basic_lemma_for_mon_proportionality_from_factors_to_product(unsigned i_mon) {
         const mon_eq & m = m_monomials[i_mon];
         svector<unsigned> large;
@@ -895,7 +981,7 @@ struct solver::imp {
     }
     // we derive a lemma from |xy| > |y| => |x| >= 1 || |y| = 0
     bool large_basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
-        SASSERT(false);
+        //        SASSERT(false);
         return false;
     }
 
