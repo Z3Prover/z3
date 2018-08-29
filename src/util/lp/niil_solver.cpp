@@ -532,12 +532,13 @@ struct solver::imp {
             if (j == m.m_v) {
                 monomial = true;
                 print_monomial(m, out);
-                out << " = " << m_lar_solver.get_column_value(j) << "\n";;
+                out << " = " << m_lar_solver.get_column_value(j);;
                 break;
             }
         }
         if (!monomial)
             out << m_lar_solver.get_column_name(j) << " = " << m_lar_solver.get_column_value(j);
+        out <<";";
         return out;
     }    
 
