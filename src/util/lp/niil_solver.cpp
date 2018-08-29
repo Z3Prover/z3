@@ -865,7 +865,7 @@ struct solver::imp {
     }
 
     // we derive a lemma from |x| >= 1 => |xy| >= |y|
-    bool large_basic_lemma_for_mon_proportionality_from_factors_to_product(unsigned i_mon) {
+    bool basic_lemma_for_mon_proportionality_from_factors_to_product(unsigned i_mon) {
         const mon_eq & m = m_monomials[i_mon];
         svector<unsigned> large;
         svector<unsigned> _small;
@@ -888,7 +888,7 @@ struct solver::imp {
 
     bool generate_basic_lemma_for_mon_proportionality(unsigned i_mon) {
         TRACE("niil_solver", tout << "generate_basic_lemma_for_mon_proportionality";);
-        if (large_basic_lemma_for_mon_proportionality_from_factors_to_product(i_mon))
+        if (basic_lemma_for_mon_proportionality_from_factors_to_product(i_mon))
             return true;
 
         return large_basic_lemma_for_mon_proportionality_from_product_to_factors(i_mon);
