@@ -776,15 +776,42 @@ struct solver::imp {
             SASSERT(false);
         }
     }
+
+    void large_lemma_for_proportion_case_on_known_signs(const mon_eq& m,
+                                                        unsigned j,
+                                                        int m_sign,
+                                                        int j_sign) {
+        // Imagine that the signs are all positive and flip them afterwards.
+        // For this case we would have x[j] < 0 || x[m.var()] < 0 || x[m.var] >= x[j]
+        // But for the general case we have
+        // j_sign * x[j] < 0 || m_sign * x[m.var()] < 0 || m_sign * x[m.var()] >= j_sign * x[j]
+        // the first literal
+        lp::lar_term t; 
+        t.add_monomial(rational(j_sign), j);
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+
+        t.clear();
+        // the second literal
+        t.add_monomial(rational(m_sign), m.var());
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+
+        t.clear();
+        // the third literal
+        t.add_monomial(rational(m_sign), m.var());
+        t.add_monomial(- rational(j_sign), j);
+        m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
+    }
+    
     bool large_lemma_for_proportion_case(const mon_eq& m, const svector<unsigned> & mask,
                                          const svector<unsigned> & large, unsigned j) {
         TRACE("niil_solver", );
         const rational j_val = m_lar_solver.get_column_value_rational(j);
-        const rational m_val = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
-        // since the masked factor is greater than or equal to one
-        // j_val has to be less than or equal to m_val
-        int sign = j_val < - m_val? -1: (j_val > m_val)? 1: 0;
-        if (sign == 0) // abs(j_val) <= m_val which is not a conflict
+        const rational m_val = m_lar_solver.get_column_value_rational(m.m_v);
+        const rational m_abs_val = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
+        // since the abs of masked factor is greater than or equal to one
+        // j_val has to be less than or equal to m_abs_val
+        int j_sign = j_val < - m_abs_val? -1: (j_val > m_abs_val)? 1: 0;
+        if (j_sign == 0) // abs(j_val) <= abs(m_val) which is not a conflict
             return false;
         expl_set expl;
         add_explanation_of_reducing_to_mininal_monomial(m, expl);
@@ -794,23 +821,8 @@ struct solver::imp {
         }
         m_expl->clear();
         m_expl->add(expl);
-
-        if (sign == -1) {
-            lp::lar_term t;  // j >= -m_val or j + m.m_v >= 0
-            t.add_monomial(rational(1), j);
-            t.add_monomial(rational(1), m.m_v);
-            t.m_v = rational(0);
-            ineq in(lp::lconstraint_kind::GE, t);
-            m_lemma->push_back(in);
-            return true;
-        }
-        SASSERT(sign == 1);
-        lp::lar_term t;  // j <= m_val or j - m.m_v <= 0
-        t.add_monomial(rational(1), j);
-        t.add_monomial(rational(-1), m.m_v);
-        t.m_v = rational(0);
-        ineq in(lp::lconstraint_kind::LE, t);
-        m_lemma->push_back(in);
+        int m_sign = m_val < rational(0) ? -1 : 1;
+        large_lemma_for_proportion_case_on_known_signs(m, j, m_sign, j_sign);
         return true;
     }
     bool large_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& large) {
@@ -838,7 +850,7 @@ struct solver::imp {
             } else {
                 SASSERT(mask[k] == 1);
                 mask[k] = 0;
-                vars.push_back(vars_copy[large[k]]); // vars becomes unsorted
+                vars.push_back(vars_copy[large[k]]); // vars might become unsorted
             }
         }
 
