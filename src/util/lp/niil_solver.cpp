@@ -818,30 +818,30 @@ struct solver::imp {
         const auto & m = m_monomials[i_mon];
         int sign;
         auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
-        
+        auto vars_copy = vars;
         auto v = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
         // We cross out from vars the "large" variables represented by the mask
-        do {
-            for (unsigned k = 0; k < mask.size(); k++) {
-                if (mask[k] == 0) {
-                    mask[k] = 1;
-                    TRACE("niil_solver", tout << "large[" << k << "] = " << large[k];);
-                    vars.erase(vars.begin() + large[k]);
-                    std::sort(vars.begin(), vars.end());
-                    // now the value of vars has to be v*sign
-                    lpvar j;
-                    if (find_compimenting_monomial(vars, j) &&
-                        large_lemma_for_proportion_case(m, mask, large, j)) {
-                        TRACE("niil_solver", print_explanation_and_lemma(tout););
-                        return true;
-                    }
-                } else {
-                    SASSERT(mask[k] == 1);
-                    mask[k] = 0;
-                    vars.push_back(vars[large[k]]); // vars becomes unsorted
+        for (unsigned k = 0; k < mask.size(); k++) {
+            if (mask[k] == 0) {
+                mask[k] = 1;
+                TRACE("niil_solver", tout << "large[" << k << "] = " << large[k];);
+                SASSERT(std::find(vars.begin(), vars.end(), vars_copy[large[k]]) != vars.end());
+                vars.erase(vars_copy[large[k]]);
+                std::sort(vars.begin(), vars.end());
+                // now the value of vars has to be v*sign
+                lpvar j;
+                if (find_compimenting_monomial(vars, j) &&
+                    large_lemma_for_proportion_case(m, mask, large, j)) {
+                    TRACE("niil_solver", print_explanation_and_lemma(tout););
+                    return true;
                 }
+            } else {
+                SASSERT(mask[k] == 1);
+                mask[k] = 0;
+                vars.push_back(vars_copy[large[k]]); // vars becomes unsorted
             }
-        } while(true);
+        }
+
         TRACE("niil_solver", tout << "return false";);
         return false; // we exhausted the mask and did not find the compliment monomial
     }
