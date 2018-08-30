@@ -574,7 +574,7 @@ lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
     }
     if (j_or_term < m_mpq_lar_core_solver.m_r_x.size()) {
         lar_term r;
-        r.add_monomial(one_of_type<mpq>(), j_or_term);
+        r.add_coeff_var(one_of_type<mpq>(), j_or_term);
         return r;
     } 
     return lar_term(); // return an empty term
