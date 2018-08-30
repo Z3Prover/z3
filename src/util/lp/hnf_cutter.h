@@ -164,7 +164,7 @@ public:
     void fill_term(const vector<mpq> & row, lar_term& t) {
         for (unsigned j = 0; j < row.size(); j++) {
             if (!is_zero(row[j]))
-                t.add_monomial(row[j], m_var_register.local_to_external(j));
+                t.add_coeff_var(row[j], m_var_register.local_to_external(j));
         }
     }
 #ifdef Z3DEBUG

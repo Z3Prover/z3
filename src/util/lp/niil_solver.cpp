@@ -106,7 +106,7 @@ struct vars_equivalence {
         m_equivs.push_back(equiv(i, j, sign, c0, c1));
     }
 
-    // we look for octagon constraints here : x - y = 0, x + y = 0, - x - y = 0 , etc.
+    // we look for octagon constraints here, with a left part  +-x +- y 
     void collect_equivs(const lp::lar_solver& s) {
         for (unsigned i = 0; i < s.terms().size(); i++) {
             unsigned ti = i + s.terms_start_index();
@@ -184,13 +184,6 @@ struct solver::imp {
 
     typedef lp::lar_base_constraint lpcon;
     
-    struct var_lists {
-        svector<unsigned>                 m_monomials; // of the var
-        const svector<unsigned>& mons() const { return m_monomials;}
-        svector<unsigned>& mons() { return m_monomials;}
-        void add_monomial(unsigned i) { mons().push_back(i); }
-    };
-
     struct mono_index_with_sign {
         unsigned m_i; // the monomial index
         int      m_sign; // the monomial sign: -1 or 1
@@ -205,7 +198,7 @@ struct solver::imp {
                                                            m_minimal_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
-    std::unordered_map<lpvar, var_lists>                   m_var_lists;
+    std::unordered_map<lpvar, svector<unsigned>>    m_var_lists;
     lp::explanation *                                      m_expl;
     lemma *                                                m_lemma;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
@@ -304,8 +297,8 @@ struct solver::imp {
                   m_lar_solver.print_constraint(p.second, tout); tout << "\n";
               );
         lp::lar_term t;
-        t.add_monomial(rational(1), a.var());
-        t.add_monomial(rational(- sign), b.var());
+        t.add_coeff_var(rational(1), a.var());
+        t.add_coeff_var(rational(- sign), b.var());
         TRACE("niil_solver", print_explanation_and_lemma(tout););
         ineq in(lp::lconstraint_kind::NE, t);
         m_lemma->push_back(in);
@@ -317,7 +310,7 @@ struct solver::imp {
     bool generate_basic_lemma_for_mon_sign_var(unsigned i_mon,
                                                unsigned j_var, const svector<lpvar>& mon_vars, int sign) {
         auto it = m_var_lists.find(j_var);
-        for (auto other_i_mon : it->second.mons()) {
+        for (auto other_i_mon : it->second) {
             if (other_i_mon == i_mon) continue;
             if (generate_basic_lemma_for_mon_sign_var_other_mon(
                     i_mon,
@@ -478,7 +471,7 @@ struct solver::imp {
             return false;
         }
         lp::lar_term t;
-        t.add_monomial(rational(1), m_monomials[i_mon].var());
+        t.add_coeff_var(rational(1), m_monomials[i_mon].var());
         t.m_v = -rs;
         ineq in(kind, t);
         m_lemma->push_back(in);
@@ -505,7 +498,7 @@ struct solver::imp {
 
     ineq ineq_j_is_equal_to_zero(lpvar j) const {
         lp::lar_term t;
-        t.add_monomial(rational(1), j);
+        t.add_coeff_var(rational(1), j);
         ineq i(lp::lconstraint_kind::EQ, t);
         return i;
     }
@@ -725,8 +718,8 @@ struct solver::imp {
             add_explanation_of_one(ones_of_monomial[k]);
         }
         lp::lar_term t;
-        t.add_monomial(rational(1), m.var());
-        t.add_monomial(rational(- sign), j);
+        t.add_coeff_var(rational(1), m.var());
+        t.add_coeff_var(rational(- sign), j);
         ineq in(lp::lconstraint_kind::EQ, t);
         m_lemma->push_back(in);
         TRACE("niil_solver", print_explanation_and_lemma(tout););
@@ -801,18 +794,18 @@ struct solver::imp {
         // j_sign * x[j] < 0 || mon_sign * x[m.var()] < 0 || mon_sign * x[m.var()] >= j_sign * x[j]
         // the first literal
         lp::lar_term t; 
-        t.add_monomial(rational(j_sign), j);
+        t.add_coeff_var(rational(j_sign), j);
         m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
 
         t.clear();
         // the second literal
-        t.add_monomial(rational(mon_sign), m.var());
+        t.add_coeff_var(rational(mon_sign), m.var());
         m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
 
         t.clear();
         // the third literal
-        t.add_monomial(rational(mon_sign), m.var());
-        t.add_monomial(- rational(j_sign), j);
+        t.add_coeff_var(rational(mon_sign), m.var());
+        t.add_coeff_var(- rational(j_sign), j);
         m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
     }
     
@@ -871,20 +864,19 @@ struct solver::imp {
         // For this case we would have x[j] < 0 || x[m.var()] < 0 || x[j] >= x[m.var()]
         // But for the general case we have
         // j_sign * x[j] < 0 || mon_sign * x[m.var()] < 0 || j_sign * x[j] >= mon_sign * x[m.var]
-        // the first literal
-
+  
         lp::lar_term t;
         // the first literal
-        t.add_monomial(rational(j_sign), j);
+        t.add_coeff_var(rational(j_sign), j);
         m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
         //the second literal
         t.clear();
-        t.add_monomial(rational(mon_sign), m.var());
+        t.add_coeff_var(rational(mon_sign), m.var());
         m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
         // the third literal
         t.clear();
-        t.add_monomial(rational(j_sign), j);
-        t.add_monomial(- rational(mon_sign), m.var());
+        t.add_coeff_var(rational(j_sign), j);
+        t.add_coeff_var(- rational(mon_sign), m.var());
         m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
     }
     
@@ -978,11 +970,25 @@ struct solver::imp {
         if (basic_lemma_for_mon_proportionality_from_factors_to_product(i_mon))
             return true;
 
-        return large_basic_lemma_for_mon_proportionality_from_product_to_factors(i_mon);
+        return basic_lemma_for_mon_proportionality_from_product_to_factors(i_mon);
+    }
+
+    struct factors_of_monomial {
+        vector<std::pair<lpvar, lpvar>> m_factors;
+        factors_of_monomial(unsigned i_mon) {}
+        
+        vector<std::pair<lpvar, lpvar>>::const_iterator begin() { return m_factors.begin(); }
+        vector<std::pair<lpvar, lpvar>>::const_iterator end() { return m_factors.end(); }
+        
+    };
+    bool lemma_for_proportional_factors(unsigned i_mon, lpvar a, lpvar b) {
+        return false;
     }
     // we derive a lemma from |xy| > |y| => |x| >= 1 || |y| = 0
-    bool large_basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
-        //        SASSERT(false);
+    bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
+        for (std::pair<lpvar, lpvar> factors : factors_of_monomial(i_mon))
+            if (lemma_for_proportional_factors(i_mon, factors.first, factors.second))
+                return true;
         return false;
     }
 
@@ -1007,12 +1013,12 @@ struct solver::imp {
         for (lpvar j : m.m_vs) {
             auto it = m_var_lists.find(j);
             if (it == m_var_lists.end()) {
-                var_lists v;
-                v.add_monomial(i);
+                svector<unsigned> v;
+                v.push_back(i);
                 m_var_lists[j] = v;
             }
             else {
-                it->second.add_monomial(i);
+                it->second.push_back(i);
             }
         }
     }
