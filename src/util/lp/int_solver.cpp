@@ -999,7 +999,7 @@ lia_move int_solver::create_branch_on_column(int j) {
     TRACE("check_main_int", tout << "branching" << std::endl;);
     lp_assert(m_t.is_empty());
     lp_assert(j != -1);
-    m_t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
+    m_t->add_coeff_var(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
     if (is_free(j)) {
         m_upper = true;
         m_k = mpq(0);

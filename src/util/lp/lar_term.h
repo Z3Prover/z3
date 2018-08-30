@@ -54,7 +54,7 @@ public:
     
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
         for (const auto & p : coeffs) {
-            add_monomial(p.first, p.second);
+            add_coeff_var(p.first, p.second);
         }
     }
     bool operator==(const lar_term & a) const {  return false; } // take care not to create identical terms
@@ -76,7 +76,7 @@ public:
         if (it == nullptr) return;
         const mpq & b = it->get_data().m_value;
         for (unsigned it_j :li.m_index) {
-            add_monomial(- b * li.m_data[it_j], it_j);
+            add_coeff_var(- b * li.m_data[it_j], it_j);
         }
         m_coeffs.erase(j);
     }
