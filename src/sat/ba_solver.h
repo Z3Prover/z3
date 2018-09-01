@@ -208,8 +208,14 @@ namespace sat {
             svector<uint64_t> m_coeffs;
             uint64_t          m_k;
             ineq(): m_k(0) {}
+            unsigned size() const { return m_lits.size(); }
+            literal lit(unsigned i) const { return m_lits[i]; }
+            uint64_t coeff(unsigned i) const { return m_coeffs[i]; }
             void reset(uint64_t k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
             void push(literal l, uint64_t c) { m_lits.push_back(l); m_coeffs.push_back(c); }
+            uint64_t coeff(literal lit) const;
+            void divide(uint64_t c);
+            void weaken(unsigned i);
         };
 
         solver*                m_solver;
@@ -396,10 +402,22 @@ namespace sat {
         lbool eval(model const& m, pb const& p) const;
         double get_reward(pb const& p, literal_occs_fun& occs) const;
 
+        // RoundingPb conflict resolution
+        lbool resolve_conflict_rs();
+        void round_to_one(ineq& ineq, literal lit);
+        void round_to_one(literal lit);
+        void divide(uint64_t c);
+        void resolve_on(literal lit);
+        void resolve_with(ineq const& ineq);
+        void reset_marks(unsigned idx);
+
+        void bail_resolve_conflict(unsigned idx);        
+
         // access solver
         inline lbool value(bool_var v) const { return value(literal(v, false)); }
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
         inline lbool value(model const& m, literal l) const { return l.sign() ? ~m[l.var()] : m[l.var()]; }
+        inline bool is_false(literal lit) const { return l_false == value(lit); }
 
         inline unsigned lvl(literal lit) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(lit); }
         inline unsigned lvl(bool_var v) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(v); }
@@ -426,9 +444,10 @@ namespace sat {
 
         mutable bool m_overflow;
         void reset_active_var_set();
-        void normalize_active_coeffs();
         void inc_coeff(literal l, unsigned offset);
         int64_t get_coeff(bool_var v) const;
+        uint64_t get_coeff(literal lit) const;
+        void get_coeff(bool_var v, literal& l, unsigned& c);
         unsigned get_abs_coeff(bool_var v) const;       
         int   get_int_coeff(bool_var v) const;
         unsigned get_bound() const;
@@ -436,6 +455,7 @@ namespace sat {
 
         literal get_asserting_literal(literal conseq);
         void process_antecedent(literal l, unsigned offset);
+        void process_antecedent(literal l) { process_antecedent(l, 1); }
         void process_card(card& c, unsigned offset);
         void cut();
         bool create_asserting_lemma();
@@ -466,10 +486,13 @@ namespace sat {
         void active2pb(ineq& p);
         constraint* active2constraint();
         constraint* active2card();
+        void active2wlits();
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
+        void constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
+        unsigned get_coeff(ineq const& pb, literal lit);
 
-        void display(std::ostream& out, ineq& p, bool values = false) const;
+        void display(std::ostream& out, ineq const& p, bool values = false) const;
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xr const& c, bool values) const;

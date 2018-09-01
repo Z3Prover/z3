@@ -701,7 +701,8 @@ namespace smt {
             ctx.mk_th_axiom(get_id(), 1, &lit);
 
             time_t start_lb = std::numeric_limits<time_t>::max();
-            time_t end_ub = 0;
+            time_t runtime_lb = std::numeric_limits<time_t>::max();
+            time_t end_ub = 0, runtime_ub = 0;
             for (job_resource const& jr : ji.m_resources) {
                 unsigned r = jr.m_resource_id;
                 res_info const& ri = m_resources[r];
@@ -714,6 +715,9 @@ namespace smt {
                 if (last_available(jr, ri, idx)) {
                     end_ub = std::max(end_ub, ri.m_available[idx].m_end);                    
                 }
+                runtime_lb = std::min(runtime_lb, jr.m_capacity);
+                // TBD: more accurate estimates for runtime_lb based on gaps
+                // TBD: correct estimate of runtime_ub taking gaps into account.
             }
 
             // start(j) >= start_lb
@@ -723,6 +727,9 @@ namespace smt {
             // end(j) <= end_ub
             lit = mk_le(ji.m_end, end_ub);
             ctx.mk_th_axiom(get_id(), 1, &lit);
+
+            // start(j) + runtime_lb <= end(j)
+            // end(j) <= start(j) + runtime_ub 
         }        
         
         TRACE("csp", tout << "add-done end\n";);
