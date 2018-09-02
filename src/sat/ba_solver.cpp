@@ -1551,10 +1551,10 @@ namespace sat {
         if (k == 1 && lit == null_literal) {
             literal_vector _lits(lits);
             s().mk_clause(_lits.size(), _lits.c_ptr(), learned);
-            return 0;
+            return nullptr;
         }
         if (!learned && clausify(lit, lits.size(), lits.c_ptr(), k)) {
-            return 0;
+            return nullptr;
         }
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
         card* c = new (mem) card(next_id(), lit, lits, k);
@@ -1615,7 +1615,7 @@ namespace sat {
         bool units = true;
         for (wliteral wl : wlits) units &= wl.first == 1;
         if (k == 0 && lit == null_literal) {
-            return 0;
+            return nullptr;
         }
         if (units || k == 1) {
             literal_vector lits;
@@ -3405,7 +3405,7 @@ namespace sat {
             return;
         }
         for (wliteral l : p1) {
-            SASSERT(m_weights[l.second.index()] == 0);
+            SASSERT(m_weights.size() <= l.second.index() || m_weights[l.second.index()] == 0);
             m_weights.setx(l.second.index(), l.first, 0);
             mark_visited(l.second);  
         }
@@ -3837,8 +3837,8 @@ namespace sat {
         reset_active_var_set();
         m_wlits.reset();
         uint64_t sum = 0;
-        if (m_bound == 1) return 0;
-        if (m_overflow) return 0;
+        if (m_bound == 1) return nullptr;
+        if (m_overflow) return nullptr;
         
         for (bool_var v : m_active_vars) {
             int coeff = get_int_coeff(v);
@@ -3850,7 +3850,7 @@ namespace sat {
         }
 
         if (m_overflow || sum >= UINT_MAX/2) {
-            return 0;
+            return nullptr;
         }
         else {
             return add_pb_ge(null_literal, m_wlits, m_bound, true);
@@ -3905,7 +3905,7 @@ namespace sat {
             ++k;
         }
         if (k == 1) {
-            return 0;
+            return nullptr;
         }
         while (!m_wlits.empty()) {
             wliteral wl = m_wlits.back();
@@ -3928,7 +3928,7 @@ namespace sat {
                 ++num_max_level;
             }
         }
-        if (m_overflow) return 0;
+        if (m_overflow) return nullptr;
 
         if (slack >= k) {
 #if 0
@@ -3937,7 +3937,7 @@ namespace sat {
             std::cout << "not asserting\n";
             display(std::cout, m_A, true);
 #endif
-            return 0;
+            return nullptr;
         }
 
         // produce asserting cardinality constraint
