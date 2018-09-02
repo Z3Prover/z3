@@ -28,7 +28,7 @@ typedef nra::mon_eq              mon_eq;
 typedef lp::var_index            lpvar;
 
 struct hash_svector {
-    size_t operator()(const svector<unsigned> & v) const {
+    size_t operator()(const unsigned_vector & v) const {
         return svector_hash<unsigned_hash>()(v);
     }
 };
@@ -198,7 +198,7 @@ struct solver::imp {
                                                            m_minimal_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
-    std::unordered_map<lpvar, svector<unsigned>>    m_var_lists;
+    std::unordered_map<lpvar, unsigned_vector>    m_var_lists;
     lp::explanation *                                      m_expl;
     lemma *                                                m_lemma;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
@@ -238,7 +238,7 @@ struct solver::imp {
     bool generate_basic_lemma_for_mon_sign_var_other_mon(
         unsigned i_mon,
         unsigned j_var,
-        const svector<unsigned> & mon_vars,
+        const unsigned_vector & mon_vars,
         const mon_eq& other_m, int sign) {
         if (mon_vars.size() != other_m.size())
             return false;
@@ -604,8 +604,8 @@ struct solver::imp {
 
     
     void get_large_and_small_indices_of_monomimal(const mon_eq& m,
-                                                  svector<unsigned> & large,
-                                                  svector<unsigned> & _small) {
+                                                  unsigned_vector & large,
+                                                  unsigned_vector & _small) {
 
         for (unsigned i = 0; i < m.m_vs.size(); ++i) {
             unsigned j = m.m_vs[i];
@@ -707,7 +707,7 @@ struct solver::imp {
     }
 
     void generate_equality_for_neutral_case(const mon_eq & m,
-                                            const svector<unsigned> & mask,
+                                            const unsigned_vector & mask,
                                             const vector<mono_index_with_sign>& ones_of_monomial, int sign, lpvar j) {
         expl_set expl;
         SASSERT(sign == 1 || sign == -1);
@@ -729,7 +729,7 @@ struct solver::imp {
     bool process_ones_of_mon(const mon_eq& m,
                              const vector<mono_index_with_sign>& ones_of_monomial, const svector<lpvar> &min_vars,
                              const rational& v) {
-        svector<unsigned> mask(ones_of_monomial.size(), (unsigned) 0);
+        unsigned_vector mask(ones_of_monomial.size(), (unsigned) 0);
         auto vars = min_vars;
         int sign = 1;
         // We cross out the ones representing the mask from vars
@@ -809,8 +809,8 @@ struct solver::imp {
         m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
     }
     
-    bool large_lemma_for_proportion_case(const mon_eq& m, const svector<unsigned> & mask,
-                                         const svector<unsigned> & large, unsigned j) {
+    bool large_lemma_for_proportion_case(const mon_eq& m, const unsigned_vector & mask,
+                                         const unsigned_vector & large, unsigned j) {
         TRACE("niil_solver", );
         const rational j_val = m_lar_solver.get_column_value_rational(j);
         const rational m_val = m_lar_solver.get_column_value_rational(m.m_v);
@@ -833,8 +833,8 @@ struct solver::imp {
         return true;
     }
 
-    bool small_lemma_for_proportion_case(const mon_eq& m, const svector<unsigned> & mask,
-                                         const svector<unsigned> & _small, unsigned j) {
+    bool small_lemma_for_proportion_case(const mon_eq& m, const unsigned_vector & mask,
+                                         const unsigned_vector & _small, unsigned j) {
         TRACE("niil_solver", );
         const rational j_val = m_lar_solver.get_column_value_rational(j);
         const rational m_val = m_lar_solver.get_column_value_rational(m.m_v);
@@ -880,8 +880,8 @@ struct solver::imp {
         m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
     }
     
-    bool large_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& large) {
-        svector<unsigned> mask(large.size(), (unsigned) 0); // init mask by zeroes
+    bool large_basic_lemma_for_mon_proportionality(unsigned i_mon, const unsigned_vector& large) {
+        unsigned_vector mask(large.size(), (unsigned) 0); // init mask by zeroes
         const auto & m = m_monomials[i_mon];
         int sign;
         auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
@@ -911,8 +911,8 @@ struct solver::imp {
         return false; // we exhausted the mask and did not find the compliment monomial
     }
 
-    bool small_basic_lemma_for_mon_proportionality(unsigned i_mon, const svector<unsigned>& _small) {
-        svector<unsigned> mask(_small.size(), (unsigned) 0); // init mask by zeroes
+    bool small_basic_lemma_for_mon_proportionality(unsigned i_mon, const unsigned_vector& _small) {
+        unsigned_vector mask(_small.size(), (unsigned) 0); // init mask by zeroes
         const auto & m = m_monomials[i_mon];
         int sign;
         auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
@@ -946,8 +946,8 @@ struct solver::imp {
     // we derive a lemma from |x| >= 1 => |xy| >= |y| or |x| <= 1 => |xy| <= |y|
     bool basic_lemma_for_mon_proportionality_from_factors_to_product(unsigned i_mon) {
         const mon_eq & m = m_monomials[i_mon];
-        svector<unsigned> large;
-        svector<unsigned> _small;
+        unsigned_vector large;
+        unsigned_vector _small;
         get_large_and_small_indices_of_monomimal(m, large, _small);
         TRACE("niil_solver", tout << "large size = " << large.size() << ", _small size = " << _small.size(););
         if (large.empty() && _small.empty())
@@ -973,20 +973,120 @@ struct solver::imp {
         return basic_lemma_for_mon_proportionality_from_product_to_factors(i_mon);
     }
 
+    struct signed_two_factorization {
+        unsigned m_i; // monomial index
+        unsigned m_k; // monomial index
+        int      m_sign;  // 
+    };
+    
     struct factors_of_monomial {
-        vector<std::pair<lpvar, lpvar>> m_factors;
-        factors_of_monomial(unsigned i_mon) {}
+        unsigned         m_i_mon;
+        const imp&       m_imp;
+        const mon_eq&    m_mon;
+        unsigned_vector  m_minimized_vars;
+        int              m_sign;
+        factors_of_monomial(unsigned i_mon, const imp& s) : m_i_mon(i_mon), m_imp(s),
+                                                            m_mon(m_imp.m_monomials[i_mon]) {
+            m_minimized_vars = reduce_monomial_to_minimal(i_mon, m_sign);
+        }
+
         
-        vector<std::pair<lpvar, lpvar>>::const_iterator begin() { return m_factors.begin(); }
-        vector<std::pair<lpvar, lpvar>>::const_iterator end() { return m_factors.end(); }
         
+        struct const_iterator {
+            // fields
+            unsigned_vector        m_mask;
+            factors_of_monomial&   m_fm;
+            //typedefs
+            
+            
+            typedef const_iterator self_type;
+            typedef signed_two_factorization value_type;
+            typedef const signed_two_factorization reference;
+            //        typedef const column_cell* pointer;
+            typedef int difference_type;
+            typedef std::forward_iterator_tag iterator_category;
+
+            bool get_factors(unsigned& k, unsigned& j) {
+                unsigned_vector a;
+                unsigned_vector b;
+                for (unsigned j = 0; j < m_mask.size(); j++) {
+                    if (m_mask[j] == 1) {
+                        a.push_back(m_fm.m_minimized_vars[j]);
+                    } else {
+                        b.push_back(m_fm.m_minimized_vars[j]);
+                    }
+                }
+                SASSERT(!a.empty() && !b.empty());
+                std::sort(a.begin(), a.end());
+                std::sort(b.begin(), b.end());
+                int a_sign, b_sign;
+                if (a.size() == 1) {
+                    k = a[0];
+                    a_sign = 1;
+                } else if (!m_imp.find_monomial_of_vars(a, k, a_sign)) {
+                    return false;
+                } else {
+                    return false;
+                }
+                if (b.size() == 1) {
+                    j = b[0];
+                    b_sign = 1;
+                } else  if (!m_imp.find_monomial_of_vars(b, j, b_sign)) {
+                        return false;
+                } else {
+                    return false;
+                }
+
+                
+            }
+            
+            reference operator*() const {
+                unsigned k, j; // the factors
+                if (!get_factors(k, j))
+                    return std::pair<lpvar, lpvar>(static_cast<unsigned>(-1), 0);
+                
+                return std::pair<lpvar, lpvar>(k, j);
+            }
+            void advance_mask() {
+                for (unsigned k = 0; k < m_masl.size(); k++) {
+                    if (mask[k] == 0){
+                        mask[k] = 1;
+                        break;
+                    } else {
+                        mask[k] = 0;
+                    }
+                }
+            }
+            self_type operator++() {  self_type i = *this; operator++(1); return i;  }
+            self_type operator++(int) { advance_mask(); return *this; }
+
+            const_iterator(const unsigned_vector& mask) :
+                m_mask(mask) {
+                //   SASSERT(false);
+            }
+            bool operator==(const self_type &other) const {
+                return m_mask == other.m_mask;
+            }
+            bool operator!=(const self_type &other) const { return !(*this == other); }
+        };
+
+        const_iterator begin() const {
+            unsigned_vector mask(m_mon.m_vs.size(), static_cast<lpvar>(0));
+            mask[0] = 1; 
+            return const_iterator(mask);
+        }
+        
+        const_iterator end() const {
+            unsigned_vector mask(m_mon.m_vs.size(), 1);
+            return const_iterator(mask);
+        }
     };
     bool lemma_for_proportional_factors(unsigned i_mon, lpvar a, lpvar b) {
         return false;
     }
     // we derive a lemma from |xy| > |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
-        for (std::pair<lpvar, lpvar> factors : factors_of_monomial(i_mon))
+        for (std::pair<lpvar, lpvar> factors : factors_of_monomial(i_mon, *this))
             if (lemma_for_proportional_factors(i_mon, factors.first, factors.second))
                 return true;
         return false;
@@ -999,7 +1099,7 @@ struct solver::imp {
             || generate_basic_lemma_for_mon_proportionality(i_mon);
     }
 
-    bool generate_basic_lemma(svector<unsigned> & to_refine) {
+    bool generate_basic_lemma(unsigned_vector & to_refine) {
         for (unsigned i : to_refine) {
             if (generate_basic_lemma_for_mon(i)) {
                 return true;
@@ -1013,7 +1113,7 @@ struct solver::imp {
         for (lpvar j : m.m_vs) {
             auto it = m_var_lists.find(j);
             if (it == m_var_lists.end()) {
-                svector<unsigned> v;
+                unsigned_vector v;
                 v.push_back(i);
                 m_var_lists[j] = v;
             }
@@ -1068,7 +1168,7 @@ struct solver::imp {
         m_expl =   &exp;
         m_lemma =  &l;
         lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
-        svector<unsigned> to_refine;
+        unsigned_vector to_refine;
         for (unsigned i = 0; i < m_monomials.size(); i++) {
             if (!check_monomial(m_monomials[i]))
                 to_refine.push_back(i);
