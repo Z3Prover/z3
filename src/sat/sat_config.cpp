@@ -196,6 +196,14 @@ namespace sat {
         else 
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented");
 
+        s = p.pb_resolve();
+        if (s == "cardinality") 
+            m_pb_resolve = PB_CARDINALITY;
+        else if (s == "rounding") 
+            m_pb_resolve = PB_ROUNDING;
+        else 
+            throw sat_param_exception("invalid PB resolve: 'cardinality' or 'resolve' expected");
+
         m_card_solver = p.cardinality_solver();
 
         sat_simplifier_params sp(_p);

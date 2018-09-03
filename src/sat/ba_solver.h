@@ -42,8 +42,10 @@ namespace sat {
             unsigned m_num_bin_subsumes;
             unsigned m_num_clause_subsumes;
             unsigned m_num_pb_subsumes;
+            unsigned m_num_big_strengthenings;
             unsigned m_num_cut;
             unsigned m_num_gc;
+            unsigned m_num_overflow;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -316,8 +318,7 @@ namespace sat {
         bool elim_pure(literal lit);
         void unit_strengthen();
         void unit_strengthen(big& big, constraint& cs);
-        void unit_strengthen(big& big, card& c);
-        void unit_strengthen(big& big, pb& p);
+        void unit_strengthen(big& big, pb_base& p);
         void subsumption(constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
@@ -455,10 +456,11 @@ namespace sat {
 
         mutable bool m_overflow;
         void reset_active_var_set();
+        bool test_and_set_active(bool_var v);
         void inc_coeff(literal l, unsigned offset);
         int64_t get_coeff(bool_var v) const;
         uint64_t get_coeff(literal lit) const;
-        void get_coeff(bool_var v, literal& l, unsigned& c);
+        wliteral get_wliteral(bool_var v);
         unsigned get_abs_coeff(bool_var v) const;       
         int   get_int_coeff(bool_var v) const;
         unsigned get_bound() const;
@@ -477,6 +479,7 @@ namespace sat {
         bool validate_conflict(pb const& p) const;
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
+        bool validate_ineq(ineq const& ineq) const;
         bool validate_unit_propagation(card const& c, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal_vector const& r, literal alit) const;

@@ -60,6 +60,11 @@ namespace sat {
         PB_SEGMENTED
     };
 
+    enum pb_resolve {
+        PB_CARDINALITY,
+        PB_ROUNDING
+    };
+
     enum reward_t {
         ternary_reward,
         unit_literal_reward,
@@ -148,6 +153,7 @@ namespace sat {
         
         pb_solver          m_pb_solver;
         bool               m_card_solver;
+        pb_resolve         m_pb_resolve;
         
         // branching heuristic settings.
         branching_heuristic m_branching_heuristic;

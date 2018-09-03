@@ -82,6 +82,7 @@ struct goal2sat::imp {
         m_is_lemma(false) {
         updt_params(p);
         m_true = sat::null_bool_var;
+        mk_true();
     }
         
     void updt_params(params_ref const & p) {

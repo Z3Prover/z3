@@ -1065,13 +1065,14 @@ namespace sat {
         return c;
     }
 
-    void ba_solver::get_coeff(bool_var v, literal& l, unsigned& c) {
+    ba_solver::wliteral ba_solver::get_wliteral(bool_var v) {
         int64_t c1 = get_coeff(v);
-        l = literal(v, c1 < 0);
+        literal l = literal(v, c1 < 0);
         c1 = std::abs(c1);
-        c = static_cast<unsigned>(c1);
+        unsigned c = static_cast<unsigned>(c1);
         // TRACE("ba", tout << l << " " << c << "\n";);
         m_overflow |= c != c1;
+        return wliteral(c, l);
     }
 
     unsigned ba_solver::get_abs_coeff(bool_var v) const {
@@ -1121,7 +1122,6 @@ namespace sat {
 // #define DEBUG_CODE(_x_) _x_
 
     void ba_solver::bail_resolve_conflict(unsigned idx) {
-        m_overflow = false;
         literal_vector const& lits = s().m_trail;
         while (m_num_marks > 0) {
             bool_var v = lits[idx].var();
@@ -1157,13 +1157,14 @@ namespace sat {
     }
 
     lbool ba_solver::resolve_conflict() { 
-#if 1
-        return resolve_conflict_rs();
-#endif
-       
         if (0 == m_num_propagations_since_pop) {
             return l_undef;
         }
+
+        if (s().m_config.m_pb_resolve == PB_ROUNDING) {
+            return resolve_conflict_rs();
+        }
+       
         m_overflow = false;
         reset_coeffs();
         m_num_marks = 0;
@@ -1348,6 +1349,10 @@ namespace sat {
         return l_true;
 
     bail_out:
+        if (m_overflow) {
+            ++m_stats.m_num_overflow;
+            m_overflow = false;
+        }
         bail_resolve_conflict(idx);
         return l_undef;
     }
@@ -1403,24 +1408,25 @@ namespace sat {
             }
         }
         ineq.divide(c);
+        TRACE("ba", display(tout << "var: " << v << " " << c << ": ", ineq, true););
     }
 
     void ba_solver::round_to_one(bool_var w) {
         unsigned c = get_abs_coeff(w);
         if (c == 1 || c == 0) return;
         for (bool_var v : m_active_vars) {
-            literal l;
-            unsigned ci;
-            get_coeff(v, l, ci);
-            unsigned q = ci % c;
-            if (q != 0 && !is_false(l)) {
-                m_coeffs[v] = ci - q;
+            wliteral wl = get_wliteral(v);
+            unsigned q = wl.first % c;
+            if (q != 0 && !is_false(wl.second)) {
+                m_coeffs[v] = wl.first - q;
                 m_bound -= q;
                 SASSERT(m_bound > 0);
             }
         }        
+        SASSERT(validate_lemma());
         divide(c);
         SASSERT(validate_lemma());
+        TRACE("ba", active2pb(m_B); display(tout, m_B, true););
     }
 
     void ba_solver::divide(unsigned c) {
@@ -1431,8 +1437,7 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) {
             bool_var v = m_active_vars[i];
             int ci = get_int_coeff(v);
-            if (m_active_var_set.contains(v) || ci == 0) continue;
-            m_active_var_set.insert(v);
+            if (!test_and_set_active(v) || ci == 0) continue;
             if (ci > 0) {
                 m_coeffs[v] = (ci + c - 1) / c;
             }
@@ -1452,10 +1457,13 @@ namespace sat {
 
     void ba_solver::resolve_with(ineq const& ineq) {
         TRACE("ba", display(tout, ineq, true););
-        inc_bound(ineq.m_k);
+        inc_bound(ineq.m_k);        
+        TRACE("ba", tout << "bound: " << m_bound << "\n";);
+
         for (unsigned i = ineq.size(); i-- > 0; ) {
             literal l = ineq.lit(i);
             inc_coeff(l, static_cast<unsigned>(ineq.coeff(i)));
+            TRACE("ba", tout << "bound: " << m_bound << " lit: " << l << " coeff: " << ineq.coeff(i) << "\n";);
         }
     }
 
@@ -1518,27 +1526,26 @@ namespace sat {
             switch (js.get_kind()) {
             case justification::NONE:
                 SASSERT(consequent != null_literal);
-                inc_bound(1);
                 round_to_one(consequent.var());
+                inc_bound(1);
                 inc_coeff(consequent, 1);
                 break;
             case justification::BINARY:
                 SASSERT(consequent != null_literal);
-                inc_bound(1);
                 round_to_one(consequent.var());
+                inc_bound(1);
                 inc_coeff(consequent, 1);
                 process_antecedent(js.get_literal());
                 break;
             case justification::TERNARY:
                 SASSERT(consequent != null_literal);
-                inc_bound(1);
                 round_to_one(consequent.var());
+                inc_bound(1);
                 inc_coeff(consequent, 1);
                 process_antecedent(js.get_literal1());
                 process_antecedent(js.get_literal2());
                 break;
             case justification::CLAUSE: {
-                inc_bound(1);
                 clause & c = s().get_clause(js);
                 unsigned i = 0;
                 if (consequent != null_literal) {
@@ -1553,6 +1560,7 @@ namespace sat {
                         i = 2;
                     }
                 }
+                inc_bound(1);
                 unsigned sz = c.size();
                 for (; i < sz; i++)
                     process_antecedent(c[i]);
@@ -1576,6 +1584,7 @@ namespace sat {
                         }
                         else {
                             SASSERT(k > c);
+                            TRACE("ba", tout << "visited: " << l << "\n";);
                             k -= c;
                         }
                     }
@@ -1590,6 +1599,7 @@ namespace sat {
                 }
                 mark_variables(m_A);
                 if (consequent == null_literal) {
+                    SASSERT(validate_ineq(m_A)); 
                     m_bound = static_cast<unsigned>(m_A.m_k);
                     for (wliteral wl : m_A.m_wlits) {
                         process_antecedent(wl.second, wl.first);
@@ -1597,9 +1607,11 @@ namespace sat {
                 }
                 else {
                     round_to_one(consequent.var());
-                    if (cnstr.tag() == pb_t) round_to_one(m_A, consequent.var());  
+                    if (cnstr.tag() == pb_t) round_to_one(m_A, consequent.var()); 
+                    SASSERT(validate_ineq(m_A)); 
                     resolve_with(m_A);
                 }
+                break;
             }
             default:
                 UNREACHABLE();
@@ -1616,13 +1628,18 @@ namespace sat {
                 v = consequent.var();
                 mark_visited(v);
                 if (s().is_marked(v)) {
-                    if (get_coeff(v) != 0) {
+                    int64_t c = get_coeff(v);
+                    if (c == 0) {
+                        CTRACE("ba", c != 0, active2pb(m_A); display(tout << consequent << ": ", m_A, true););
+                        s().reset_mark(v);
+                        --m_num_marks;
+                    }
+                    else {
                         break;
                     }
-                    s().reset_mark(v);
-                    --m_num_marks;
                 }
                 if (idx == 0) {
+                    TRACE("ba", tout << "there is no consequent\n";);
                     goto bail_out;
                 }
                 --idx;
@@ -1647,9 +1664,14 @@ namespace sat {
             active2constraint();
             return l_true;
         }
+        
     bail_out:
-        IF_VERBOSE(1, verbose_stream() << "bail\n");
-        m_overflow = false;
+        IF_VERBOSE(1, verbose_stream() << "bail " << m_overflow << "\n");
+        TRACE("ba", tout << "bail " << m_overflow << "\n";);
+        if (m_overflow) {
+            ++m_stats.m_num_overflow;
+            m_overflow = false;
+        }
         return l_undef;
     }
 
@@ -1657,9 +1679,16 @@ namespace sat {
     bool ba_solver::create_asserting_lemma() {
         int64_t bound64 = m_bound;
         int64_t slack = -bound64;
-        for (bool_var v : m_active_vars) {
-            slack += get_abs_coeff(v);
+        reset_active_var_set();
+        unsigned j = 0, sz = m_active_vars.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            bool_var v = m_active_vars[i];
+            unsigned c = get_abs_coeff(v);
+            if (!test_and_set_active(v) || c == 0) continue;
+            slack += c;
+            m_active_vars[j++] = v;
         }
+        m_active_vars.shrink(j);
         m_lemma.reset();        
         m_lemma.push_back(null_literal);
         unsigned num_skipped = 0;
@@ -1694,16 +1723,19 @@ namespace sat {
             }
         }
         if (slack >= 0) {
+            TRACE("ba", tout << "slack is non-negative\n";);
             IF_VERBOSE(20, verbose_stream() << "(sat.card slack: " << slack << " skipped: " << num_skipped << ")\n";);
             return false;
         }
         if (m_overflow) {
+            TRACE("ba", tout << "overflow\n";);
             return false;
         }        
         if (m_lemma[0] == null_literal) {
             if (m_lemma.size() == 1) {
                 s().set_conflict(justification());
             }
+            TRACE("ba", tout << "no asserting literal\n";);
             return false;
         }
 
@@ -1767,8 +1799,7 @@ namespace sat {
             for (unsigned i = 0; i < sz; ++i) {
                 bool_var v = m_active_vars[i];
                 int64_t c = m_coeffs[v];
-                if (m_active_var_set.contains(v) || c == 0) continue;
-                m_active_var_set.insert(v);
+                if (!test_and_set_active(v) || c == 0) continue;
                 m_coeffs[v] /= static_cast<int>(g);
                 m_active_vars[j++] = v;
             }
@@ -1834,7 +1865,8 @@ namespace sat {
         return p;        
     }
 
-    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), m_constraint_id(0), m_ba(*this), m_sort(m_ba) {        
+    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), 
+                            m_allocator("ba"), m_constraint_id(0), m_ba(*this), m_sort(m_ba) {        
         TRACE("ba", tout << this << "\n";);
         m_num_propagations_since_pop = 0;
     }
@@ -2649,7 +2681,11 @@ namespace sat {
             constraint* c = m_learned[i];
             if (!m_constraint_to_reinit.contains(c)) {
                 remove_constraint(*c, "gc");
+                m_allocator.deallocate(c->obj_size(), c);
                 ++removed;
+            }
+            else {
+                m_learned[new_sz++] = c;
             }
         }
         m_stats.m_num_gc += removed;
@@ -3453,38 +3489,58 @@ namespace sat {
         }
     }
 
-    void ba_solver::unit_strengthen(big& big, card& c) {
-        for (literal l : c) {
-            literal r = big.get_root(~l);
-            if (r == ~l) continue;
-            unsigned k = c.k();
-            for (literal u : c) {
-                if (big.reaches(r, ~u)) {
-                    if (k == 0) {
-                        // ~r + C >= c.k() + 1
-                        IF_VERBOSE(0, verbose_stream() << "TBD add " << ~r << " to " << c << "\n";);
-                        return;
-                    }
-                    --k;                    
+    void ba_solver::unit_strengthen(big& big, pb_base& p) {
+        if (p.lit() != null_literal) return;
+        unsigned sz = p.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            literal u = p.get_lit(i);
+            literal r = big.get_root(u);
+            if (r == u) continue;
+            unsigned k = p.k(), b = 0;
+            for (unsigned j = 0; j < sz; ++j) {
+                literal v = p.get_lit(j);
+                if (r == big.get_root(v)) {
+                    b += p.get_coeff(j);
                 }
-            }
-        }
-    }
-
-    void ba_solver::unit_strengthen(big& big, pb& p) {
-        for (wliteral wl : p) {
-            literal r = big.get_root(~wl.second);
-            if (r == ~wl.second) continue;
-            unsigned k = p.k();
-            for (wliteral u : p) {
-                if (big.reaches(r, ~u.second)) {
-                    if (k < u.first) {
-                        // ~r + p >= p.k() + 1
-                        IF_VERBOSE(0, verbose_stream() << "TBD add " << ~r << " to " << p << "\n";);
-                        return;
+            }            
+            if (b > k) {
+                r.neg();
+                unsigned coeff = b - k;
+                
+                svector<wliteral> wlits;
+                // add coeff * r to p
+                wlits.push_back(wliteral(coeff, r));
+                for (unsigned j = 0; j < sz; ++j) {
+                    u = p.get_lit(j);
+                    unsigned c = p.get_coeff(j);
+                    if (r == u) {
+                        wlits[0].first += c;
                     }
-                    k -= u.first;
+                    else if (~r == u) {
+                        if (coeff == c) {
+                            wlits[0] = wlits.back();
+                            wlits.pop_back();
+                            b -= c;
+                        }
+                        else if (coeff < c) {
+                            wlits[0].first = c - coeff;
+                            wlits[0].second.neg();
+                            b -= coeff;
+                        }
+                        else {
+                            // coeff > c
+                            wlits[0].first = coeff - c;
+                            b -= c;
+                        }
+                    }
+                    else {
+                        wlits.push_back(wliteral(c, u));
+                    }
                 }
+                ++m_stats.m_num_big_strengthenings;
+                p.set_removed();
+                constraint* c = add_pb_ge(null_literal, wlits, b, p.learned());
+                return;
             }
         }
     }
@@ -3784,7 +3840,7 @@ namespace sat {
         }
         init_visited();
         for (wliteral l : p1) {
-            SASSERT(m_weights[l.second.index()] == 0);
+            SASSERT(m_weights.get(l.second.index(), 0) == 0);
             m_weights.setx(l.second.index(), l.first, 0);
             mark_visited(l.second);  
         }
@@ -3992,7 +4048,8 @@ namespace sat {
 
     void ba_solver::display(std::ostream& out, ineq const& ineq, bool values) const {
         for (unsigned i = 0; i < ineq.size(); ++i) {
-            out << ineq.coeff(i) << "*" << ineq.lit(i) << " ";
+            if (ineq.coeff(i) != 1) out << ineq.coeff(i) << "*";
+            out << ineq.lit(i) << " ";
             if (values) out << value(ineq.lit(i)) << " ";
         }
         out << ">= " << ineq.m_k << "\n";
@@ -4083,6 +4140,8 @@ namespace sat {
         st.update("ba resolves", m_stats.m_num_resolves);
         st.update("ba cuts", m_stats.m_num_cut);
         st.update("ba gc", m_stats.m_num_gc);
+        st.update("ba overflow", m_stats.m_num_overflow);
+        st.update("ba big strengthenings", m_stats.m_num_big_strengthenings);
     }
 
     bool ba_solver::validate_unit_propagation(card const& c, literal alit) const { 
@@ -4177,21 +4236,42 @@ namespace sat {
         int64_t val = -bound64;
         reset_active_var_set();
         for (bool_var v : m_active_vars) {
-            if (m_active_var_set.contains(v)) continue;            
-            unsigned coeff;
-            literal lit;
-            get_coeff(v, lit, coeff);
-            if (coeff == 0) continue;
-            if (!is_false(lit)) {
-                val += coeff;
+            if (!test_and_set_active(v)) continue;
+            wliteral wl = get_wliteral(v);
+            if (wl.first == 0) continue;
+            if (!is_false(wl.second)) {
+                val += wl.first;
             }
         }
-        CTRACE("ba", val >= 0, active2pb(m_A); display(tout, m_A););
+        CTRACE("ba", val >= 0, active2pb(m_A); display(tout, m_A, true););
         return val < 0;
+    }
+
+    /**
+     * the slack of inequalities on the stack should be non-positive.
+     */
+    bool ba_solver::validate_ineq(ineq const& ineq) const {
+        int64_t k = -static_cast<int64_t>(ineq.m_k);
+        for (wliteral wl : ineq.m_wlits) {
+            if (!is_false(wl.second))
+                k += wl.first;
+        }
+        CTRACE("ba", k > 0, display(tout, ineq, true););
+        return k <= 0;
     }
 
     void ba_solver::reset_active_var_set() {
         while (!m_active_var_set.empty()) m_active_var_set.erase();
+    }
+
+    bool ba_solver::test_and_set_active(bool_var v) {
+        if (m_active_var_set.contains(v)) {
+            return false;
+        }
+        else {
+            m_active_var_set.insert(v);
+            return true;
+        }
     }
 
     void ba_solver::active2pb(ineq& p) {
@@ -4205,17 +4285,14 @@ namespace sat {
     }
 
     void ba_solver::active2wlits(svector<wliteral>& wlits) {
-        reset_active_var_set();
         uint64_t sum = 0;        
+        reset_active_var_set();
         for (bool_var v : m_active_vars) {
-            if (m_active_var_set.contains(v)) continue;
-            unsigned coeff;
-            literal lit;
-            get_coeff(v, lit, coeff);
-            if (coeff == 0) continue;
-            m_active_var_set.insert(v);
-            wlits.push_back(wliteral(coeff, lit));
-            sum += coeff;
+            if (!test_and_set_active(v)) continue;
+            wliteral wl = get_wliteral(v);
+            if (wl.first == 0) continue;
+            wlits.push_back(wl);
+            sum += wl.first;
         }
         m_overflow |= sum >= UINT_MAX/2;
     }
