@@ -152,7 +152,7 @@ class mpz_manager {
     
     // make sure that n is a big number and has capacity equal to at least c.
     void allocate_if_needed(mpz & n, unsigned c) {
-        c = std::max(c, m_init_cell_capacity);
+        if (m_init_cell_capacity > c) c = m_init_cell_capacity;
         if (n.m_ptr == nullptr || capacity(n) < c) {
             deallocate(n);
             n.m_val             = 1;
