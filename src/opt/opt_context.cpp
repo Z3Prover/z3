@@ -351,7 +351,7 @@ namespace opt {
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
-        mdl->set_model_completion(true);
+        if (mdl) mdl->set_model_completion(true);
         TRACE("opt", tout << *mdl;);
     }
 

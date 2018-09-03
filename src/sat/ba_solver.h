@@ -25,6 +25,7 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/sat_lookahead.h"
 #include "sat/sat_unit_walk.h"
+#include "sat/sat_big.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
 
@@ -57,6 +58,7 @@ namespace sat {
         class card;
         class pb;
         class xr;
+        class pb_base;
 
         class constraint {
         protected:
@@ -104,6 +106,7 @@ namespace sat {
             card const& to_card() const;
             pb const&  to_pb() const;
             xr const& to_xr() const;
+            pb_base const& to_pb_base() const; 
             bool is_card() const { return m_tag == card_t; }
             bool is_pb() const { return m_tag == pb_t; }
             bool is_xr() const { return m_tag == xr_t; }
@@ -118,7 +121,7 @@ namespace sat {
         };
 
         friend std::ostream& operator<<(std::ostream& out, constraint const& c);
-
+        
         // base class for pb and cardinality constraints
         class pb_base : public constraint {
         protected:
@@ -204,18 +207,18 @@ namespace sat {
     protected:
 
         struct ineq {
-            literal_vector    m_lits;
-            svector<uint64_t> m_coeffs;
+            svector<wliteral> m_wlits;
             uint64_t          m_k;
             ineq(): m_k(0) {}
-            unsigned size() const { return m_lits.size(); }
-            literal lit(unsigned i) const { return m_lits[i]; }
-            uint64_t coeff(unsigned i) const { return m_coeffs[i]; }
-            void reset(uint64_t k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
-            void push(literal l, uint64_t c) { m_lits.push_back(l); m_coeffs.push_back(c); }
-            uint64_t coeff(literal lit) const;
-            void divide(uint64_t c);
+            unsigned size() const { return m_wlits.size(); }
+            literal lit(unsigned i) const { return m_wlits[i].second; }
+            unsigned coeff(unsigned i) const { return m_wlits[i].first; }
+            void reset(uint64_t k) { m_wlits.reset(); m_k = k; }
+            void push(literal l, unsigned c) { m_wlits.push_back(wliteral(c,l)); }
+            unsigned bv_coeff(bool_var v) const;
+            void divide(unsigned c);
             void weaken(unsigned i);
+            bool contains(literal l) const { for (auto wl : m_wlits) if (wl.second == l) return true; return false; }
         };
 
         solver*                m_solver;
@@ -279,7 +282,8 @@ namespace sat {
 
         // simplification routines
 
-        svector<bool>             m_visited;
+        svector<unsigned>             m_visited;
+        unsigned                      m_visited_ts;
         vector<svector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
         bool                      m_simplify_change;
@@ -298,9 +302,11 @@ namespace sat {
         void binary_subsumption(card& c1, literal lit);
         void clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses);
         void card_subsumption(card& c1, literal lit);
-        void mark_visited(literal l) { m_visited[l.index()] = true; }
-        void unmark_visited(literal l) { m_visited[l.index()] = false; }
-        bool is_marked(literal l) const { return m_visited[l.index()] != 0; }
+        void init_visited();
+        void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
+        void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
+        bool is_visited(bool_var v) const { return is_visited(literal(v, false)); }
+        bool is_visited(literal l) const { return m_visited[l.index()] == m_visited_ts; }
         unsigned get_num_unblocked_bin(literal l);
         literal get_min_occurrence_literal(card const& c);
         void init_use_lists();
@@ -308,6 +314,10 @@ namespace sat {
         unsigned set_non_external();
         unsigned elim_pure();
         bool elim_pure(literal lit);
+        void unit_strengthen();
+        void unit_strengthen(big& big, constraint& cs);
+        void unit_strengthen(big& big, card& c);
+        void unit_strengthen(big& big, pb& p);
         void subsumption(constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
@@ -404,12 +414,13 @@ namespace sat {
 
         // RoundingPb conflict resolution
         lbool resolve_conflict_rs();
-        void round_to_one(ineq& ineq, literal lit);
-        void round_to_one(literal lit);
-        void divide(uint64_t c);
+        void round_to_one(ineq& ineq, bool_var v);
+        void round_to_one(bool_var v);
+        void divide(unsigned c);
         void resolve_on(literal lit);
         void resolve_with(ineq const& ineq);
         void reset_marks(unsigned idx);
+        void mark_variables(ineq const& ineq);
 
         void bail_resolve_conflict(unsigned idx);        
 
@@ -487,6 +498,7 @@ namespace sat {
         constraint* active2constraint();
         constraint* active2card();
         void active2wlits();
+        void active2wlits(svector<wliteral>& wlits);
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
         void constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
