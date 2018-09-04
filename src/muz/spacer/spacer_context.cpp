@@ -2489,6 +2489,8 @@ expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p)
 
 void context::add_cover(int level, func_decl* p, expr* property, bool bg)
 {
+    scoped_proof _pf_(m);
+
     pred_transformer* pt = nullptr;
     if (!m_rels.find(p, pt)) {
         pt = alloc(pred_transformer, *this, get_manager(), p);
