@@ -202,7 +202,7 @@ namespace sat {
         else if (s == "rounding") 
             m_pb_resolve = PB_ROUNDING;
         else 
-            throw sat_param_exception("invalid PB resolve: 'cardinality' or 'resolve' expected");
+            throw sat_param_exception("invalid PB resolve: 'cardinality' or 'rounding' expected");
 
         s = p.pb_lemma_format();
         if (s == "cardinality") 

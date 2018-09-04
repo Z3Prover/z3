@@ -1607,7 +1607,7 @@ namespace sat {
                 }
                 else {
                     round_to_one(consequent.var());
-                    if (cnstr.tag() == pb_t) round_to_one(m_A, consequent.var()); 
+                    if (cnstr.is_pb()) round_to_one(m_A, consequent.var()); 
                     SASSERT(validate_ineq(m_A)); 
                     resolve_with(m_A);
                 }
@@ -1629,8 +1629,7 @@ namespace sat {
                 mark_visited(v);
                 if (s().is_marked(v)) {
                     int64_t c = get_coeff(v);
-                    if (c == 0) {
-                        CTRACE("ba", c != 0, active2pb(m_A); display(tout << consequent << ": ", m_A, true););
+                    if (c == 0 || (c < 0 == consequent.sign())) {
                         s().reset_mark(v);
                         --m_num_marks;
                     }
