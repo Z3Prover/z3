@@ -65,6 +65,11 @@ namespace sat {
         PB_ROUNDING
     };
 
+    enum pb_lemma_format {
+        PB_LEMMA_CARDINALITY,
+        PB_LEMMA_PB
+    };
+
     enum reward_t {
         ternary_reward,
         unit_literal_reward,
@@ -154,6 +159,7 @@ namespace sat {
         pb_solver          m_pb_solver;
         bool               m_card_solver;
         pb_resolve         m_pb_resolve;
+        pb_lemma_format    m_pb_lemma_format;
         
         // branching heuristic settings.
         branching_heuristic m_branching_heuristic;

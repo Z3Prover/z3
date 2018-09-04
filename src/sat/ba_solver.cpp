@@ -1341,7 +1341,7 @@ namespace sat {
         if (!create_asserting_lemma()) {
             goto bail_out;
         }
-        active2card();
+        active2lemma();
 
 
         DEBUG_CODE(VERIFY(validate_conflict(m_lemma, m_A)););
@@ -1654,19 +1654,16 @@ namespace sat {
         while (m_num_marks > 0 && !m_overflow);
         TRACE("ba", active2pb(m_A); display(tout, m_A, true););
 
-#if 0
-        // why this?
+        // TBD: check if this is useful
         if (!m_overflow && consequent != null_literal) {
             round_to_one(consequent.var());
         }
-#endif
         if (!m_overflow && create_asserting_lemma()) {
-            active2constraint();
+            active2lemma();
             return l_true;
         }
         
     bail_out:
-        IF_VERBOSE(1, verbose_stream() << "bail " << m_overflow << "\n");
         TRACE("ba", tout << "bail " << m_overflow << "\n";);
         if (m_overflow) {
             ++m_stats.m_num_overflow;
@@ -4142,6 +4139,8 @@ namespace sat {
         st.update("ba gc", m_stats.m_num_gc);
         st.update("ba overflow", m_stats.m_num_overflow);
         st.update("ba big strengthenings", m_stats.m_num_big_strengthenings);
+        st.update("ba lemmas", m_stats.m_num_lemmas);
+        st.update("ba subsumes", m_stats.m_num_bin_subsumes + m_stats.m_num_clause_subsumes + m_stats.m_num_pb_subsumes);
     }
 
     bool ba_solver::validate_unit_propagation(card const& c, literal alit) const { 
@@ -4297,6 +4296,18 @@ namespace sat {
         m_overflow |= sum >= UINT_MAX/2;
     }
 
+    ba_solver::constraint* ba_solver::active2lemma() {
+        switch (s().m_config.m_pb_lemma_format) {
+        case PB_LEMMA_CARDINALITY:
+            return active2card();
+        case PB_LEMMA_PB:
+            return active2constraint();
+        default:
+            UNREACHABLE();
+            return nullptr;
+        }
+    }
+
     ba_solver::constraint* ba_solver::active2constraint() {
         active2wlits();
         if (m_overflow) {
@@ -4304,6 +4315,7 @@ namespace sat {
         }
         constraint* c = add_pb_ge(null_literal, m_wlits, m_bound, true);                
         TRACE("ba", if (c) display(tout, *c, true););
+        ++m_stats.m_num_lemmas;
         return c;
     }
     
@@ -4381,13 +4393,7 @@ namespace sat {
         }
 
         if (slack >= k) {
-#if 0
-            return active2constraint();
-            active2pb(m_A);
-            std::cout << "not asserting\n";
-            display(std::cout, m_A, true);
-#endif
-            return 0;
+            return nullptr;
         }
 
         // produce asserting cardinality constraint
@@ -4397,8 +4403,9 @@ namespace sat {
         }       
         constraint* c = add_at_least(null_literal, lits, k, true);      
 
+        ++m_stats.m_num_lemmas;
+
         if (c) {
-            // IF_VERBOSE(0, verbose_stream() << *c << "\n";);
             lits.reset();
             for (wliteral wl : m_wlits) {
                 if (value(wl.second) == l_false) lits.push_back(wl.second);        

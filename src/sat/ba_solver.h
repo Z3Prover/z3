@@ -46,6 +46,7 @@ namespace sat {
             unsigned m_num_cut;
             unsigned m_num_gc;
             unsigned m_num_overflow;
+            unsigned m_num_lemmas;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -498,6 +499,7 @@ namespace sat {
 
         ineq m_A, m_B, m_C;
         void active2pb(ineq& p);
+        constraint* active2lemma();
         constraint* active2constraint();
         constraint* active2card();
         void active2wlits();

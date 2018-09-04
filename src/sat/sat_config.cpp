@@ -204,6 +204,14 @@ namespace sat {
         else 
             throw sat_param_exception("invalid PB resolve: 'cardinality' or 'resolve' expected");
 
+        s = p.pb_lemma_format();
+        if (s == "cardinality") 
+            m_pb_lemma_format = PB_LEMMA_CARDINALITY;
+        else if (s == "pb")
+            m_pb_lemma_format = PB_LEMMA_PB;
+        else
+            throw sat_param_exception("invalid PB lemma format: 'cardinality' or 'pb' expected");
+        
         m_card_solver = p.cardinality_solver();
 
         sat_simplifier_params sp(_p);
