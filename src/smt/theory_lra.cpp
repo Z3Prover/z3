@@ -1969,6 +1969,27 @@ public:
         visitor.display_asserts(out, fmls, true);
         out << "(check-sat)\n";            
     }
+    
+    bool all_variables_have_bounds() {
+        if (!m_has_int) {
+            return true;
+        }
+        unsigned nv = th.get_num_vars();
+        bool added_bound = false;
+        for (unsigned v = 0; v < nv; ++v) {
+            lp::constraint_index ci;
+            rational bound;
+            lp::var_index vi = m_theory_var2var_index[v];
+            if (!has_upper_bound(vi, ci, bound) && !has_lower_bound(vi, ci, bound)) {
+                lp::lar_term term;
+                term.add_coeff_var(rational::one(), vi);
+                app_ref b = mk_bound(term, rational::zero(), false);
+                TRACE("arith", tout << "added bound " << b << "\n";);
+                added_bound = true;
+            }
+        }
+        return !added_bound;
+    }
 
     lbool check_lia() {
         if (m.canceled()) {
@@ -1980,6 +2001,11 @@ public:
         if (!check_idiv_bounds()) {
             return l_false;
         }
+
+        lp::lar_term term;
+        lp::mpq k;
+        lp::explanation ex; // TBD, this should be streamlined accross different explanations
+        bool upper;
         m_explanation.reset();
         switch (m_lia->check()) {
         case lp::lia_move::sat:
