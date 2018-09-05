@@ -48,7 +48,8 @@ namespace spacer {
     }
 
     inline bool is_infty_level(unsigned lvl) {
-        return lvl == infty_level ();
+        // XXX: level is 16 bits in class pob
+        return lvl >= 65535;
     }
 
     inline unsigned next_level(unsigned lvl) {
