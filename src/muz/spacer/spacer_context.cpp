@@ -2507,7 +2507,7 @@ void context::add_cover(int level, func_decl* p, expr* property, bool bg)
 }
 
 void context::add_invariant (func_decl *p, expr *property)
-{add_cover (infty_level(), p, property, true);}
+{add_cover (infty_level(), p, property, use_bg_invs());}
 
 expr_ref context::get_reachable(func_decl *p) {
     pred_transformer* pt = nullptr;
