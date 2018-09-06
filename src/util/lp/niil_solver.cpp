@@ -26,7 +26,7 @@ typedef lp::constraint_index     lpci;
 typedef std::unordered_set<lpci> expl_set;
 typedef nra::mon_eq              mon_eq;
 typedef lp::var_index            lpvar;
-
+typedef lp::ineq                 ineq;
 struct hash_svector {
     size_t operator()(const unsigned_vector & v) const {
         return svector_hash<unsigned_hash>()(v);
@@ -513,7 +513,7 @@ struct solver::imp {
         return true;
     }
     
-    std::ostream & print_ineq(ineq & in, std::ostream & out) const {
+    std::ostream & print_ineq(const ineq & in, std::ostream & out) const {
         m_lar_solver.print_term(in.m_term, out);
         out << " " << lp::lconstraint_kind_string(in.m_cmp) << " 0";
         return out;

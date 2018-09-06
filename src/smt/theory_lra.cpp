@@ -2042,7 +2042,7 @@ public:
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            for (auto const& ev : ex) {
+            for (auto const& ev : ex.m_explanation) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
                 }
@@ -2096,39 +2096,40 @@ public:
         return r;
     }
 
-    niil::lemma m_lemma;
- 
-    lbool check_aftermath_niil(lbool r) {
-        switch (r) {
-        case l_false: {            
-            literal_vector core;
-            for (auto const& ineq : m_lemma) {
-                bool is_lower = true, pos = true, is_eq = false;
+    void process_lemma(const niil::lemma& lemma) {
+        literal_vector core;
+        for (auto const& ineq : lemma) {
+            bool is_lower = true, pos = true, is_eq = false;
                 
-                switch (ineq.m_cmp) {
-                case lp::LE: is_lower = false; pos = false;  break;
-                case lp::LT: is_lower = true;  pos = true; break;
-                case lp::GE: is_lower = true;  pos = false;  break;
-                case lp::GT: is_lower = false; pos = true; break;
-                case lp::EQ: is_eq = true; pos = true; break;
-                case lp::NE: is_eq = true; pos = false; break;
-                default: UNREACHABLE();
-                }
-                TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
-                app_ref atom(m);
-                if (is_eq) {
-                    atom = mk_eq(ineq.m_term);
-                }
-                else {
-                    // create term >= 0 (or term <= 0)
-                    atom = mk_bound(ineq.m_term, rational::zero(), is_lower);
-                }
-                literal lit(ctx().get_bool_var(atom), pos);
-                core.push_back(~lit);
+            switch (ineq.m_cmp) {
+            case lp::LE: is_lower = false; pos = false;  break;
+            case lp::LT: is_lower = true;  pos = true; break;
+            case lp::GE: is_lower = true;  pos = false;  break;
+            case lp::GT: is_lower = false; pos = true; break;
+            case lp::EQ: is_eq = true; pos = true; break;
+            case lp::NE: is_eq = true; pos = false; break;
+            default: UNREACHABLE();
             }
-            set_conflict_or_lemma(core, false);
-            break;
+            TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
+            app_ref atom(m);
+            if (is_eq) {
+                atom = mk_eq(ineq.m_term);
+            }
+            else {
+                // create term >= 0 (or term <= 0)
+                atom = mk_bound(ineq.m_term, rational::zero(), is_lower);
+            }
+            literal lit(ctx().get_bool_var(atom), pos);
+            core.push_back(~lit);
         }
+        set_conflict_or_lemma(core, false);
+    }
+ 
+    lbool check_aftermath_niil(lbool r, const niil::lemma & lemma) {
+        switch (r) {
+        case l_false:
+            process_lemma(lemma);
+            break;
         case l_true:
             if (assume_eqs()) {
                 return l_false;
@@ -2149,9 +2150,9 @@ public:
         if (!m_nra && !m_niil) return l_true;
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
-        
-        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_explanation, m_lemma);
-        return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r);
+        niil::lemma lemma;
+        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_explanation, lemma);
+        return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r, lemma);
     }
 
     /**
