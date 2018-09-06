@@ -1983,12 +1983,10 @@ public:
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
-
         lbool lia_check = l_undef;
         if (!check_idiv_bounds()) {
             return l_false;
         }
-
         lp::lar_term term;
         lp::mpq k;
         lp::explanation ex; // TBD, this should be streamlined accross different explanations
