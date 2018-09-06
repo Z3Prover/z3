@@ -979,116 +979,117 @@ struct solver::imp {
         int      m_sign;  // 
     };
     
-    struct factors_of_monomial {
-        unsigned         m_i_mon;
-        const imp&       m_imp;
-        const mon_eq&    m_mon;
-        unsigned_vector  m_minimized_vars;
-        int              m_sign;
-        factors_of_monomial(unsigned i_mon, const imp& s) : m_i_mon(i_mon), m_imp(s),
-                                                            m_mon(m_imp.m_monomials[i_mon]) {
-            m_minimized_vars = reduce_monomial_to_minimal(i_mon, m_sign);
-        }
+    // struct factors_of_monomial {
+    //     unsigned         m_i_mon;
+    //     const imp&       m_imp;
+    //     const mon_eq&    m_mon;
+    //     unsigned_vector  m_minimized_vars;
+    //     int              m_sign;
+    //     factors_of_monomial(unsigned i_mon, const imp& s) : m_i_mon(i_mon), m_imp(s),
+    //                                                         m_mon(m_imp.m_monomials[i_mon]) {
+    //         m_minimized_vars = reduce_monomial_to_minimal(i_mon, m_sign);
+    //     }
 
         
         
-        struct const_iterator {
-            // fields
-            unsigned_vector        m_mask;
-            factors_of_monomial&   m_fm;
-            //typedefs
+    //     struct const_iterator {
+    //         // fields
+    //         unsigned_vector        m_mask;
+    //         factors_of_monomial&   m_fm;
+    //         //typedefs
             
             
-            typedef const_iterator self_type;
-            typedef signed_two_factorization value_type;
-            typedef const signed_two_factorization reference;
-            //        typedef const column_cell* pointer;
-            typedef int difference_type;
-            typedef std::forward_iterator_tag iterator_category;
+    //         typedef const_iterator self_type;
+    //         typedef signed_two_factorization value_type;
+    //         typedef const signed_two_factorization reference;
+    //         //        typedef const column_cell* pointer;
+    //         typedef int difference_type;
+    //         typedef std::forward_iterator_tag iterator_category;
 
-            bool get_factors(unsigned& k, unsigned& j) {
-                unsigned_vector a;
-                unsigned_vector b;
-                for (unsigned j = 0; j < m_mask.size(); j++) {
-                    if (m_mask[j] == 1) {
-                        a.push_back(m_fm.m_minimized_vars[j]);
-                    } else {
-                        b.push_back(m_fm.m_minimized_vars[j]);
-                    }
-                }
-                SASSERT(!a.empty() && !b.empty());
-                std::sort(a.begin(), a.end());
-                std::sort(b.begin(), b.end());
-                int a_sign, b_sign;
-                if (a.size() == 1) {
-                    k = a[0];
-                    a_sign = 1;
-                } else if (!m_imp.find_monomial_of_vars(a, k, a_sign)) {
-                    return false;
-                } else {
-                    return false;
-                }
-                if (b.size() == 1) {
-                    j = b[0];
-                    b_sign = 1;
-                } else  if (!m_imp.find_monomial_of_vars(b, j, b_sign)) {
-                        return false;
-                } else {
-                    return false;
-                }
+    //         bool get_factors(unsigned& k, unsigned& j) {
+    //             unsigned_vector a;
+    //             unsigned_vector b;
+    //             for (unsigned j = 0; j < m_mask.size(); j++) {
+    //                 if (m_mask[j] == 1) {
+    //                     a.push_back(m_fm.m_minimized_vars[j]);
+    //                 } else {
+    //                     b.push_back(m_fm.m_minimized_vars[j]);
+    //                 }
+    //             }
+    //             SASSERT(!a.empty() && !b.empty());
+    //             std::sort(a.begin(), a.end());
+    //             std::sort(b.begin(), b.end());
+    //             int a_sign, b_sign;
+    //             if (a.size() == 1) {
+    //                 k = a[0];
+    //                 a_sign = 1;
+    //             } else if (!m_imp.find_monomial_of_vars(a, k, a_sign)) {
+    //                 return false;
+    //             } else {
+    //                 return false;
+    //             }
+    //             if (b.size() == 1) {
+    //                 j = b[0];
+    //                 b_sign = 1;
+    //             } else  if (!m_imp.find_monomial_of_vars(b, j, b_sign)) {
+    //                     return false;
+    //             } else {
+    //                 return false;
+    //             }
 
                 
-            }
+    //         }
             
-            reference operator*() const {
-                unsigned k, j; // the factors
-                if (!get_factors(k, j))
-                    return std::pair<lpvar, lpvar>(static_cast<unsigned>(-1), 0);
+    //         reference operator*() const {
+    //             unsigned k, j; // the factors
+    //             if (!get_factors(k, j))
+    //                 return std::pair<lpvar, lpvar>(static_cast<unsigned>(-1), 0);
                 
-                return std::pair<lpvar, lpvar>(k, j);
-            }
-            void advance_mask() {
-                for (unsigned k = 0; k < m_masl.size(); k++) {
-                    if (mask[k] == 0){
-                        mask[k] = 1;
-                        break;
-                    } else {
-                        mask[k] = 0;
-                    }
-                }
-            }
-            self_type operator++() {  self_type i = *this; operator++(1); return i;  }
-            self_type operator++(int) { advance_mask(); return *this; }
+    //             return std::pair<lpvar, lpvar>(k, j);
+    //         }
+    //         void advance_mask() {
+    //             for (unsigned k = 0; k < m_masl.size(); k++) {
+    //                 if (mask[k] == 0){
+    //                     mask[k] = 1;
+    //                     break;
+    //                 } else {
+    //                     mask[k] = 0;
+    //                 }
+    //             }
+    //         }
+    //         self_type operator++() {  self_type i = *this; operator++(1); return i;  }
+    //         self_type operator++(int) { advance_mask(); return *this; }
 
-            const_iterator(const unsigned_vector& mask) :
-                m_mask(mask) {
-                //   SASSERT(false);
-            }
-            bool operator==(const self_type &other) const {
-                return m_mask == other.m_mask;
-            }
-            bool operator!=(const self_type &other) const { return !(*this == other); }
-        };
+    //         const_iterator(const unsigned_vector& mask) :
+    //             m_mask(mask) {
+    //             //   SASSERT(false);
+    //         }
+    //         bool operator==(const self_type &other) const {
+    //             return m_mask == other.m_mask;
+    //         }
+    //         bool operator!=(const self_type &other) const { return !(*this == other); }
+    //     };
 
-        const_iterator begin() const {
-            unsigned_vector mask(m_mon.m_vs.size(), static_cast<lpvar>(0));
-            mask[0] = 1; 
-            return const_iterator(mask);
-        }
+    //     const_iterator begin() const {
+    //         unsigned_vector mask(m_mon.m_vs.size(), static_cast<lpvar>(0));
+    //         mask[0] = 1; 
+    //         return const_iterator(mask);
+    //     }
         
-        const_iterator end() const {
-            unsigned_vector mask(m_mon.m_vs.size(), 1);
-            return const_iterator(mask);
-        }
-    };
+    //     const_iterator end() const {
+    //         unsigned_vector mask(m_mon.m_vs.size(), 1);
+    //         return const_iterator(mask);
+    //     }
+    // };
     bool lemma_for_proportional_factors(unsigned i_mon, lpvar a, lpvar b) {
         return false;
     }
     // we derive a lemma from |xy| > |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
-        for (std::pair<lpvar, lpvar> factors : factors_of_monomial(i_mon, *this))
-            if (lemma_for_proportional_factors(i_mon, factors.first, factors.second))
-                return true;
+        SASSERT(false); // not implemented
+        // for (std::pair<lpvar, lpvar> factors : factors_of_monomial(i_mon, *this))
+        //     if (lemma_for_proportional_factors(i_mon, factors.first, factors.second))
+        //         return true;
         return false;
     }
 
