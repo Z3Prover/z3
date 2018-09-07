@@ -2042,12 +2042,12 @@ public:
         return lia_check;
     }
 
-    lbool check_aftermath_nra(lbool r) {
+    lbool check_aftermath_nra(lbool r, lp::explanation& ex) {
         m_a1 = alloc(scoped_anum, m_nra->am());
         m_a2 = alloc(scoped_anum, m_nra->am());
         switch (r) {
         case l_false:
-            set_conflict1();
+            set_conflict1(ex);
             break;
         case l_true:
             m_use_nra_model = true;
@@ -2063,7 +2063,7 @@ public:
         return r;
     }
 
-    void process_lemma(const niil::lemma& lemma) {
+    void process_lemma(lp::explanation& ex, const niil::lemma& lemma) {
         literal_vector core;
         for (auto const& ineq : lemma) {
             bool is_lower = true, pos = true, is_eq = false;
@@ -2089,13 +2089,13 @@ public:
             literal lit(ctx().get_bool_var(atom), pos);
             core.push_back(~lit);
         }
-        set_conflict_or_lemma(core, false);
+        set_conflict_or_lemma(ex, core, false);
     }
  
-    lbool check_aftermath_niil(lbool r, const niil::lemma & lemma) {
+    lbool check_aftermath_niil(lbool r, lp::explanation& ex, const niil::lemma & lemma) {
         switch (r) {
         case l_false:
-            process_lemma(lemma);
+            process_lemma(ex, lemma);
             break;
         case l_true:
             if (assume_eqs()) {
@@ -2118,8 +2118,9 @@ public:
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
         niil::lemma lemma;
+        m_explanation.reset();
         lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_explanation, lemma);
-        return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r, lemma);
+        return m_nra? check_aftermath_nra(r, m_explanation) : check_aftermath_niil(r, m_explanation, lemma);
     }
 
     /**
@@ -3176,27 +3177,27 @@ public:
     void set_conflict() {
         m_explanation.clear();
         m_solver->get_infeasibility_explanation(m_explanation);
-        set_conflict1();
+        set_conflict1(m_explanation);
     }
 
-    void set_conflict1() {
+    void set_conflict1(lp::explanation& ex) {
         literal_vector core;
-        set_conflict_or_lemma(core, true);
+        set_conflict_or_lemma(ex, core, true);
     }
 
-    void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
+    void set_conflict_or_lemma(lp::explanation& ex, literal_vector const& core, bool is_conflict) {
         m_eqs.reset();
         m_core.reset();
         m_params.reset();
         for (literal lit : core) {
             m_core.push_back(lit);
         }
-        // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
+        // m_solver->shrink_explanation_to_minimum(ex); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
+        TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, ex); );
         TRACE("arith", display(tout););
-        for (auto const& ev : m_explanation) {
+        for (auto const& ev : ex) {
             if (!ev.first.is_zero()) { 
                 set_evidence(ev.second);
             }
