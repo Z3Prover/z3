@@ -86,7 +86,6 @@ namespace smt {
         return true;
     }
 
-    // TBD: stronger parameter validation
     void theory_jobscheduler::internalize_cmd(expr* cmd) {
         symbol key, val;
         rational r;
