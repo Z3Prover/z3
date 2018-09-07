@@ -406,16 +406,16 @@ lia_move int_solver::hnf_cut() {
     return lia_move::undef;
 }
 
-
-int_solver::validate_model::~validate_model() {
-    if (r == lia_move::sat) {
-        std::unordered_map<var_index, mpq> mdl;
-        s.m_lar_solver->get_model(mdl);
-        for (auto const& kv : mdl) {
-            SASSERT(!s.m_lar_solver->var_is_int(kv.first) || kv.second.is_int());
+    int_solver::validate_model::~validate_model() {
+        if (r == lia_move::sat && !s.m_lar_solver->settings().get_cancel_flag()) {
+            std::unordered_map<var_index, mpq> mdl;
+            s.m_lar_solver->get_model(mdl);
+            for (auto const& kv : mdl) {
+                SASSERT(!s.m_lar_solver->var_is_int(kv.first) || kv.second.is_int());
+            }
         }
     }
-}
+
 
 lia_move int_solver::check(lemma& l, explanation& ex) {
     if (!has_inf_int()) return lia_move::sat;
