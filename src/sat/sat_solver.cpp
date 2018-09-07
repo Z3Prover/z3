@@ -340,12 +340,6 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
-#if 0
-        if ((l1.var() == 2039 || l2.var() == 2039) &&
-            (l1.var() == 27042 || l2.var() == 27042)) { 
-            IF_VERBOSE(1, verbose_stream() << "mk_bin: " << l1 << " " << l2 << " " << learned << "\n");
-        }
-#endif
         if (find_binary_watch(get_wlist(~l1), ~l2)) {
             assign(l1, justification());
             return;
