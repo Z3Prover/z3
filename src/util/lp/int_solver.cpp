@@ -134,7 +134,6 @@ bool int_solver::current_solution_is_inf_on_cut() const {
 
 lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row) {
     lp_assert(column_is_int_inf(inf_col));
-
     gomory gc(m_t, m_k, m_ex, inf_col, row, *this);
     return gc.create_cut();
 }
