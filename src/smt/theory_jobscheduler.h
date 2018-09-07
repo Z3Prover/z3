@@ -31,7 +31,7 @@ namespace smt {
     
     class theory_jobscheduler : public theory {
     public:
-        typedef map<symbol, double, symbol_hash_proc, symbol_eq_proc> properties;
+        typedef svector<symbol> properties;
     protected:
 
         struct job_resource {
@@ -64,7 +64,8 @@ namespace smt {
             enode*               m_start;
             enode*               m_end;
             enode*               m_job2resource;
-            job_info(): m_is_preemptable(false), m_job(nullptr), m_start(nullptr), m_end(nullptr), m_job2resource(nullptr) {}
+            bool                 m_is_bound;
+            job_info(): m_is_preemptable(false), m_job(nullptr), m_start(nullptr), m_end(nullptr), m_job2resource(nullptr), m_is_bound(false)  {}
         };
 
         struct res_available {
@@ -90,7 +91,8 @@ namespace smt {
             vector<res_available> m_available; // time intervals where resource is available
             time_t                m_end;       // can't run after
             enode*                m_resource;
-            res_info(): m_end(std::numeric_limits<time_t>::max()), m_resource(nullptr) {}
+            enode*                m_makespan;
+            res_info(): m_end(std::numeric_limits<time_t>::max()), m_resource(nullptr), m_makespan(nullptr) {}
         };
         
         ast_manager&     m;
@@ -98,6 +100,13 @@ namespace smt {
         arith_util       a;
         vector<job_info> m_jobs;
         vector<res_info> m_resources;
+        unsigned_vector  m_bound_jobs;
+        unsigned         m_bound_qhead;
+        struct scope {
+            unsigned m_bound_jobs_lim;
+            unsigned m_bound_qhead;
+        };
+        svector<scope> m_scopes;
         
     protected:
 
@@ -109,9 +118,9 @@ namespace smt {
 
         void assign_eh(bool_var v, bool is_true) override {}
 
-        void new_eq_eh(theory_var v1, theory_var v2) override {}
+        void new_eq_eh(theory_var v1, theory_var v2) override;
 
-        void new_diseq_eh(theory_var v1, theory_var v2) override {}
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
 
         void push_scope_eh() override;
 
@@ -166,6 +175,10 @@ namespace smt {
         time_t ect(unsigned j, unsigned r, time_t start);
         bool lst(unsigned j, unsigned r, time_t& t);
         
+        bool resource_available(job_resource const& jr, res_available const& ra) const;
+        bool first_available(job_resource const& jr, res_info const& ri, unsigned& idx) const;
+        bool last_available(job_resource const& jr, res_info const& ri, unsigned& idx) const;
+
         time_t solve_for_start(unsigned load_pct, unsigned job_load_pct, time_t end, time_t cap);
         time_t solve_for_end(unsigned load_pct, unsigned job_load_pct, time_t start, time_t cap);
         time_t solve_for_capacity(unsigned load_pct, unsigned job_load_pct, time_t start, time_t end);
@@ -179,17 +192,18 @@ namespace smt {
 
         // propagation
         void propagate_end_time(unsigned j, unsigned r);
-        void propagate_resource_energy(unsigned r);
+        void propagate_job2resource(unsigned j, unsigned r);
 
         // final check constraints
         bool constrain_end_time_interval(unsigned j, unsigned r);
         bool constrain_resource_energy(unsigned r);
+        bool split_job2resource(unsigned j);
 
         void assert_last_end_time(unsigned j, unsigned r, job_resource const& jr, literal eq);
         void assert_last_start_time(unsigned j, unsigned r, literal eq);
         void assert_first_start_time(unsigned j, unsigned r, literal eq);
-        void assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, literal eq);
-        void assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, literal eq);
+        void assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq);
+        void assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq);
 
         void block_job_overlap(unsigned r, uint_set const& jobs, unsigned last_job);
 

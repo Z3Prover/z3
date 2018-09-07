@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2017 Arie Gurfinkel
+Copyright (c) 2018 Microsoft Corporation
 
 Module Name:
 

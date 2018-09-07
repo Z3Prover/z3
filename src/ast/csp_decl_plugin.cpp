@@ -68,6 +68,11 @@ func_decl * csp_decl_plugin::mk_func_decl(
         name = symbol("resource");
         rng = m_resource_sort;
         break;
+    case OP_JS_RESOURCE_MAKESPAN:
+        if (arity != 1 || domain[0] != m_resource_sort) m_manager->raise_exception("makespan expects a resource argument");
+        name = symbol("makespan");
+        rng = m_int_sort;
+        break;
     case OP_JS_START:
         if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("start expects a job argument");
         if (num_parameters > 0) m_manager->raise_exception("no parameters");
@@ -93,27 +98,37 @@ func_decl * csp_decl_plugin::mk_func_decl(
         rng = m_manager->mk_bool_sort();
         break;
     case OP_JS_JOB_RESOURCE:        
-        if (arity != 5) m_manager->raise_exception("add-job-resource expects 5 arguments");
+        if (arity != 6) m_manager->raise_exception("add-job-resource expects 6 arguments");
         if (domain[0] != m_job_sort) m_manager->raise_exception("first argument of add-job-resource expects should be a job");
         if (domain[1] != m_resource_sort) m_manager->raise_exception("second argument of add-job-resource expects should be a resource");
         if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-job-resource expects should be an integer");
         if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-job-resource expects should be an integer");
         if (domain[4] != m_int_sort) m_manager->raise_exception("5th argument of add-job-resource expects should be an integer");
+        if (domain[5] != m_alist_sort) m_manager->raise_exception("6th argument of add-job-resource should be an a list of properties");
         name = symbol("add-job-resource");
         rng = m_alist_sort;
         break;
     case OP_JS_RESOURCE_AVAILABLE:
-        if (arity != 4) m_manager->raise_exception("add-resource-available expects 4 arguments");        
+        if (arity != 5) m_manager->raise_exception("add-resource-available expects 5 arguments");        
         if (domain[0] != m_resource_sort) m_manager->raise_exception("first argument of add-resource-available expects should be a resource");
         if (domain[1] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
         if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-resource-available expects should be an integer");
         if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-resource-available expects should be an integer");
+        if (domain[4] != m_alist_sort) m_manager->raise_exception("5th argument of add-resource-available should be an a list of properties");
         name = symbol("add-resource-available");
         rng = m_alist_sort;
         break;
     case OP_JS_JOB_PREEMPTABLE:
         if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("set-preemptable expects one argument, which is a job");
         name = symbol("set-preemptable");
+        rng = m_alist_sort;
+        break;
+    case OP_JS_PROPERTIES:
+        if (arity != 0) m_manager->raise_exception("js-properties takes no arguments");
+        for (unsigned i = 0; i < num_parameters; ++i) {
+            if (!parameters[i].is_symbol()) m_manager->raise_exception("js-properties expects a list of keyword parameters");
+        }
+        name = symbol("js-properties");
         rng = m_alist_sort;
         break;
     default: 
@@ -148,6 +163,7 @@ void csp_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     if (logic == symbol("CSP")) {
         op_names.push_back(builtin_name("job", OP_JS_JOB));
         op_names.push_back(builtin_name("resource", OP_JS_RESOURCE));
+        op_names.push_back(builtin_name("makespan", OP_JS_RESOURCE_MAKESPAN));
         op_names.push_back(builtin_name("job-start", OP_JS_START));
         op_names.push_back(builtin_name("job-end", OP_JS_END));
         op_names.push_back(builtin_name("job2resource", OP_JS_JOB2RESOURCE));
@@ -155,7 +171,7 @@ void csp_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
         op_names.push_back(builtin_name("add-job-resource", OP_JS_JOB_RESOURCE));
         op_names.push_back(builtin_name("add-resource-available", OP_JS_RESOURCE_AVAILABLE));
         op_names.push_back(builtin_name("set-preemptable", OP_JS_JOB_PREEMPTABLE));
-
+        op_names.push_back(builtin_name("js-properties", OP_JS_PROPERTIES));
     }
 }
 
@@ -233,15 +249,29 @@ app* csp_util::mk_job2resource(unsigned j) {
     return m.mk_app(m.mk_func_decl(m_fid, OP_JS_JOB2RESOURCE, 0, nullptr, 1, &js, nullptr), job);
 }
 
+app* csp_util::mk_makespan(unsigned r) {
+    app_ref resource(mk_resource(r), m);
+    sort* rs = m.get_sort(resource);
+    return m.mk_app(m.mk_func_decl(m_fid, OP_JS_RESOURCE_MAKESPAN, 0, nullptr, 1, &rs, nullptr), resource);
+}
+
 bool csp_util::is_resource(expr* e, unsigned& r) {
     return is_app_of(e, m_fid, OP_JS_RESOURCE) && (r = resource2id(e), true);
+}
+
+bool csp_util::is_makespan(expr * e, unsigned& r) {
+    return is_app_of(e, m_fid, OP_JS_RESOURCE_MAKESPAN) && is_resource(to_app(e)->get_arg(0), r);
 }
 
 bool csp_util::is_job(expr* e, unsigned& j) {
     return is_app_of(e, m_fid, OP_JS_JOB) && (j = job2id(e), true);
 }
 
-bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, uint64_t& start, uint64_t& end) {
+bool csp_util::is_job2resource(expr* e, unsigned& j) {
+    return is_app_of(e, m_fid, OP_JS_JOB2RESOURCE) && (j = job2id(e), true);
+}
+
+bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, uint64_t& start, uint64_t& end, svector<symbol>& properties) {
     if (!is_app_of(e, m_fid, OP_JS_RESOURCE_AVAILABLE)) return false;
     res = to_app(e)->get_arg(0);
     arith_util a(m);
@@ -252,10 +282,11 @@ bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpc
     start = r.get_uint64();
     if (!a.is_numeral(to_app(e)->get_arg(3), r) || !r.is_uint64()) return false;
     end = r.get_uint64();
+    if (!is_js_properties(to_app(e)->get_arg(4), properties)) return false;
     return true;
 }
 
-bool csp_util::is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end) {
+bool csp_util::is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end, svector<symbol>& properties) {
     if (!is_app_of(e, m_fid, OP_JS_JOB_RESOURCE)) return false;
     job = to_app(e)->get_arg(0);
     res = to_app(e)->get_arg(1);
@@ -267,6 +298,7 @@ bool csp_util::is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& 
     capacity = r.get_uint64();
     if (!a.is_numeral(to_app(e)->get_arg(4), r) || !r.is_uint64()) return false;
     end = r.get_uint64();
+    if (!is_js_properties(to_app(e)->get_arg(5), properties)) return false;
     return true;
 }
 
@@ -275,3 +307,14 @@ bool csp_util::is_set_preemptable(expr* e, expr *& job) {
     job = to_app(e)->get_arg(0);
     return true;
 }
+
+bool csp_util::is_js_properties(expr* e, svector<symbol>& properties) {
+    if (!is_app_of(e, m_fid, OP_JS_PROPERTIES)) return false;
+    unsigned sz = to_app(e)->get_decl()->get_num_parameters();
+    for (unsigned i = 0; i < sz; ++i) {
+        properties.push_back(to_app(e)->get_decl()->get_parameter(i).get_symbol());
+    }
+    return true;
+}
+
+
