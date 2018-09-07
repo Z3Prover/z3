@@ -3247,6 +3247,10 @@ public:
 
     void init_model(model_generator & mg) {
         init_variable_values();
+        DEBUG_CODE(            
+            for (auto const& kv : m_variable_values) {
+                SASSERT(!m_solver->var_is_int(kv.first) || kv.second.is_int() || m.canceled());
+            });
         m_factory = alloc(arith_factory, m);
         mg.register_factory(m_factory);
         TRACE("arith", display(tout););
@@ -3307,7 +3311,7 @@ public:
         else {
             rational r = get_value(v);
             TRACE("arith", tout << "v" << v << " := " << r << "\n";);
-            SASSERT(!a.is_int(o) || r.is_int());
+            SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.canceled()));
             if (a.is_int(o) && !r.is_int()) r = floor(r);
             return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
         }
