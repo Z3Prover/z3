@@ -60,6 +60,12 @@ struct ineq {
 typedef vector<ineq> lemma;
 
 class int_solver {
+    struct validate_model {
+        int_solver& s;
+        lia_move& r;
+        validate_model(int_solver& s, lia_move& r): s(s), r(r) {}
+        ~validate_model();
+    };
 public:
     // fields
     lar_solver          *m_lar_solver;
