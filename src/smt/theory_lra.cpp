@@ -154,6 +154,7 @@ class theory_lra::imp {
     ast_manager&         m;
     theory_arith_params& m_arith_params;
     arith_util           a;
+    bool                 m_has_int;
     arith_eq_adapter     m_arith_eq_adapter;
     vector<rational>     m_columns;
       
@@ -624,6 +625,7 @@ class theory_lra::imp {
         }
         if (result == UINT_MAX) {
             result = m_solver->add_var(v, is_int(v));
+            m_has_int |= is_int(v);
             m_theory_var2var_index.setx(v, result, UINT_MAX);
             m_var_index2theory_var.setx(result, v, UINT_MAX);
             m_var_trail.push_back(v);
@@ -798,6 +800,7 @@ public:
         th(th), m(m), 
         m_arith_params(ap), 
         a(m), 
+        m_has_int(false),
         m_arith_eq_adapter(th, ap, a),            
         m_internalize_head(0),
         m_not_handled(0),
@@ -1414,15 +1417,40 @@ public:
         return atom;
     }
 
+    bool all_variables_have_bounds() {
+        if (!m_has_int) {
+            return true;
+        }
+        unsigned nv = th.get_num_vars();
+        bool added_bound = false;
+        for (unsigned v = 0; v < nv; ++v) {
+            lp::constraint_index ci;
+            rational bound;
+            lp::var_index vi = m_theory_var2var_index[v];
+            if (!has_upper_bound(vi, ci, bound) && !has_lower_bound(vi, ci, bound)) {
+                lp::lar_term term;
+                term.add_monomial(rational::one(), vi);
+                app_ref b = mk_bound(term, rational::zero(), false);
+                TRACE("arith", tout << "added bound " << b << "\n";);
+                added_bound = true;
+            }
+        }
+        return !added_bound;
+    }
+
     lbool check_lia() {
         if (m.canceled()) {
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
+        if (!all_variables_have_bounds()) {
+            return l_false;
+        }
         lp::lar_term term;
         lp::mpq k;
         lp::explanation ex; // TBD, this should be streamlined accross different explanations
         bool upper;
+        std::cout << ".";
         switch(m_lia->check(term, k, ex, upper)) {
         case lp::lia_move::sat:
             return l_true;
@@ -2918,7 +2946,9 @@ public:
          for (auto const& kv : coeffs) {
              g = gcd(g, kv.m_value);
          }
-         if (!g.is_one() && !g.is_zero()) {
+		 if (g.is_zero())
+			 return rational::one();
+         if (!g.is_one()) {
              for (auto& kv : coeffs) {
                  kv.m_value /= g;
              }             
