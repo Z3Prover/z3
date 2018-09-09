@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.Net.Sdk">
+
+  <!-- Package metadata properties -->
+  <PropertyGroup>
+
+    <PackageId>Microsoft.Z3</PackageId>
+    <AssemblyName>Microsoft.Z3</AssemblyName>
+
+    <Title>Z3 .NET Interface</Title>
+    <AssemblyTitle>Z3 .NET Interface</AssemblyTitle>
+
+    <AssemblyProduct>Z3</AssemblyProduct>
+
+    <Description>.NET Interface to the Z3 Theorem Prover</Description>
+    <AssemblyDescription>.NET Interface to the Z3 Theorem Prover</AssemblyDescription>
+
+    <Copyright>Copyright (C) 2006-2015 Microsoft Corporation</Copyright>
+    <AssemblyCopyright>Copyright (C) 2006-2015 Microsoft Corporation</AssemblyCopyright>
+
+    <Company>Microsoft Corporation</Company>
+    <AssemblyCompany>Microsoft Corporation</AssemblyCompany>
+
+    <Version>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</Version>
+    <AssemblyVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</AssemblyVersion>
+
+    <FileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</FileVersion>
+    <AssemblyFileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</AssemblyFileVersion>
+
+    <PackageVersion>${DOTNET_PACKAGE_VERSION}</PackageVersion>
+  </PropertyGroup>
+
+  <!-- Build properties -->
+  <PropertyGroup>
+    <!-- Add net40;net35 only if the appropriate SDKs are installed. -->
+    <!-- Also, in xplat builds, netfx TFMs are not available. -->
+    <TargetFrameworks>netstandard2.0;net461;net45</TargetFrameworks>
+    <OutputTypeEx>library</OutputTypeEx>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <NoWarn>1701,1702</NoWarn>
+    <Warn>4</Warn>
+    <DefineConstants Condition="'$(TargetFramework)'=='net35'">FRAMEWORK_LT_4</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Compilation items -->
+  <ItemGroup>
+${Z3_DOTNET_COMPILE_ITEMS}
+  </ItemGroup>
+
+  <!-- Legacy .NET framework native library helper routines  -->
+  <ItemGroup>
+    <Content Include="${CMAKE_CURRENT_LIST_DIR}/Microsoft.Z3.props">
+      <PackagePath>build</PackagePath>
+    </Content>
+    <Content Include="${CMAKE_CURRENT_LIST_DIR}/Microsoft.Z3.targets">
+      <PackagePath>build</PackagePath>
+    </Content>
+  </ItemGroup>
+
+  <!-- Native binaries -->
+  <ItemGroup>
+    <!-- FIXME configuration fixed to Release -->
+    <Content Include="${CMAKE_BINARY_DIR}/Release/libz3.dll" Condition="Exists('${CMAKE_BINARY_DIR}/Release/libz3.dll')">
+      <PackagePath>runtimes\win-x64\native</PackagePath>
+    </Content>
+    <!-- TODO XPlat support -->
+  </ItemGroup>
+
+  <!-- NuGet package references -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net35'">
+    <PackageReference Include="Code.Contract" Version="1.0.0"/>
+  </ItemGroup>
+
+</Project>
