@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.Net.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Package metadata properties -->
   <PropertyGroup>
@@ -58,11 +58,13 @@ ${Z3_DOTNET_COMPILE_ITEMS}
 
   <!-- Native binaries -->
   <ItemGroup>
-    <!-- FIXME configuration fixed to Release -->
-    <Content Include="${CMAKE_BINARY_DIR}/Release/libz3.dll" Condition="Exists('${CMAKE_BINARY_DIR}/Release/libz3.dll')">
+    <!--TODO detect if we're building x86.-->
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll')">
       <PackagePath>runtimes\win-x64\native</PackagePath>
     </Content>
-    <!-- TODO XPlat support -->
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so')">
+      <PackagePath>runtimes\linux-x64\native</PackagePath>
+    </Content>
   </ItemGroup>
 
   <!-- NuGet package references -->

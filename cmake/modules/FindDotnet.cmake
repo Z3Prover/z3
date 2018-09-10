@@ -22,7 +22,8 @@
 #            [PLATFORM platform]
 #            [PACKAGE output_nuget_packages... ]
 #            [VERSION nuget_package_version]
-#            [DEPENDS depend_nuget_packages... ])
+#            [DEPENDS depend_nuget_packages... ]
+#            [SOURCES additional_file_dependencies... ])
 # ```
 # 
 # RUN_DOTNET -- Run a project with `dotnet run`. The `OUTPUT` argument represents artifacts 
@@ -41,7 +42,8 @@
 #            [CONFIG configuration]
 #            [PLATFORM platform]
 #            [PACKAGE output_nuget_packages... ]
-#            [DEPENDS depend_nuget_packages... ])
+#            [DEPENDS depend_nuget_packages... ]
+#            [SOURCES additional_file_dependencies... ])
 # ```
 #
 # DOTNET_REGISTER_LOCAL_REPOSITORY -- register a local NuGet package repository.
@@ -110,7 +112,6 @@ ENDFUNCTION()
 
 FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
     FILE(GLOB_RECURSE DOTNET_deps *.cs *.fs *.xaml *.csproj *.fsproj *.tsl)
-    LIST(FILTER DOTNET_deps EXCLUDE REGEX /obj/)
     CMAKE_PARSE_ARGUMENTS(
         # prefix
         _DN 
@@ -119,9 +120,12 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
         # oneValueArgs
         "CONFIG;PLATFORM;VERSION" 
         # multiValueArgs
-        "PACKAGE;DEPENDS;ARGUMENTS;OUTPUT"
+        "PACKAGE;DEPENDS;ARGUMENTS;OUTPUT;SOURCES"
         # the input arguments
         ${arguments})
+
+    LIST(APPEND DOTNET_deps ${_DN_SOURCES})
+    LIST(FILTER DOTNET_deps EXCLUDE REGEX /obj/)
 
     GET_FILENAME_COMPONENT(_DN_abs_proj "${_DN_PROJECT}" ABSOLUTE)
     GET_FILENAME_COMPONENT(_DN_proj_dir "${_DN_PROJECT}" DIRECTORY)

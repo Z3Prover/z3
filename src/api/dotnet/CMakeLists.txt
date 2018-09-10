@@ -137,21 +137,34 @@ endforeach()
 
 # FindDotnet.cmake forwards CMake build type to MSBuild.
 # And thus we can put the conditional properties in the project file.
-
+# Note, nuget package file names do not have the ${VER_REV} part.
+set(Z3_DOTNET_NUPKG_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in ${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj)
 ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj
-    # note, nuget package file names do not have the ${VER_REV} part.
-    VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}"
+    VERSION ${Z3_DOTNET_NUPKG_VERSION}
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in
     PACKAGE Microsoft.Z3)
 
-add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/buildtimestamp
-    DEPENDS ${Z3_DOTNET_ASSEMBLY_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in
-    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/buildtimestamp)
-add_custom_target(Z3_DOTNET_BUILD_DUMMY ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/buildtimestamp)
-add_dependencies(BUILD_Microsoft.Z3 Z3_DOTNET_BUILD_DUMMY libz3)
+add_dependencies(BUILD_Microsoft.Z3 libz3)
 
 # Convenient top-level target
 add_custom_target(build_z3_dotnet_bindings ALL DEPENDS BUILD_Microsoft.Z3)
 
-#TODO install
+###############################################################################
+# Install: register a local nuget repo and install our package.
+#          the build step depends on the 'purge' target, making sure that
+#          a user will always restore the freshly-built package.
+###############################################################################
+option(INSTALL_DOTNET_BINDINGS "Install .NET bindings when invoking install target" ON)
+
+if(INSTALL_DOTNET_BINDINGS)
+    install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3.${Z3_DOTNET_NUPKG_VERSION}.nupkg" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
+    install(CODE "include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/modules/FindDotnet.cmake)\n DOTNET_REGISTER_LOCAL_REPOSITORY(Microsoft.Z3.LocalBuild ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/z3.nuget)")
+# TODO docs?
+#  install(FILES "${Z3_DOTNET_ASSEMBLY_DLL_DOC}" DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+# TODO GAC?
+#  set(GAC_PKG_NAME "Microsoft.Z3.Sharp")
+#  set(PREFIX "${CMAKE_INSTALL_PREFIX}")
+#  set(VERSION "${Z3_VERSION}")
+endif()
+
