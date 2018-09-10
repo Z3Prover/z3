@@ -1152,9 +1152,6 @@ sig
     (** Create a new integer sort. *)
     val mk_sort : context -> Sort.sort
 
-    (** Retrieve the int value. *)
-    val get_int : Expr.expr -> int
-
     (** Get a big_int from an integer numeral *)
     val get_big_int : Expr.expr -> Big_int.big_int
 
@@ -1542,9 +1539,6 @@ sig
 
   (** The size of a bit-vector sort. *)
   val get_size : Sort.sort -> int
-
-  (**  Retrieve the int value. *)
-  val get_int : Expr.expr -> int
 
   (** Returns a string representation of a numeral. *)
   val numeral_to_string : Expr.expr -> string

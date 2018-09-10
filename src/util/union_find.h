@@ -122,8 +122,10 @@ public:
         TRACE("union_find", tout << "merging " << r1 << " " << r2 << "\n";);
         if (r1 == r2)
             return;
-        if (m_size[r1] > m_size[r2])
+        if (m_size[r1] > m_size[r2]) {
             std::swap(r1, r2);
+            std::swap(v1, v2);
+        }
         m_ctx.merge_eh(r2, r1, v2, v1);
         m_find[r1] = r2;
         m_size[r2] += m_size[r1];
