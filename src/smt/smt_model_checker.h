@@ -51,8 +51,10 @@ namespace smt {
         scoped_ptr<context>                         m_aux_context; // Auxiliary context used for model checking quantifiers.
         unsigned                                    m_max_cexs;
         unsigned                                    m_iteration_idx;
+        bool                                        m_has_rec_fun;
         proto_model *                               m_curr_model;
         obj_map<expr, expr *>                       m_value2expr;
+
         friend class instantiation_set;
 
         void init_aux_context();
@@ -64,6 +66,7 @@ namespace smt {
         bool add_blocking_clause(model * cex, expr_ref_vector & sks);
         bool check(quantifier * q);
         bool check_rec_fun(quantifier* q, bool strict_rec_fun);
+        bool has_rec_under_quantifiers();
         void check_quantifiers(bool strict_rec_fun, bool& found_relevant, unsigned& num_failures);
 
         struct instance {
