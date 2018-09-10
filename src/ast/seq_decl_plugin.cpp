@@ -842,7 +842,9 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
 }
 
 app* seq_decl_plugin::mk_string(symbol const& s) {
-    parameter param(s);
+    zstring canonStr(s.bare_str());
+    symbol canonSym(canonStr.encode().c_str());
+    parameter param(canonSym);
     func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
                                             func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
     return m_manager->mk_const(f);
