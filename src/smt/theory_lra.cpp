@@ -1465,10 +1465,12 @@ public:
         if (!m_has_int) {
             return true;
         }
-        unsigned nv = th.get_num_vars();
+        unsigned nv = std::min(th.get_num_vars(), m_theory_var2var_index.size());
         bool all_bounded = true;
         for (unsigned v = 0; v < nv; ++v) {
             lp::var_index vi = m_theory_var2var_index[v];
+			if (vi == UINT_MAX)
+				continue;
             if (!m_solver->is_term(vi) && !var_has_bound(vi, true) && !var_has_bound(vi, false)) {
                 lp::lar_term term;
                 term.add_monomial(rational::one(), vi);

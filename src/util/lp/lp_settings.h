@@ -357,7 +357,7 @@ public:
     }
     
 #ifdef Z3DEBUG
-    static unsigned ddd; // used for debugging    
+static unsigned ddd; // used for debugging    
 #endif
 }; // end of lp_settings class
 
