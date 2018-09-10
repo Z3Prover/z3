@@ -692,9 +692,7 @@ class theory_lra::imp {
         ++m_stats.m_add_rows;
     }
         
-    void internalize_eq(theory_var v1, theory_var v2) {     
-        enode* n1 = get_enode(v1);
-        enode* n2 = get_enode(v2);
+    void internalize_eq(theory_var v1, theory_var v2) {  
         app_ref term(m.mk_fresh_const("eq", a.mk_real()), m);
         scoped_internalize_state st(*this);
         st.vars().push_back(v1);
@@ -707,8 +705,8 @@ class theory_lra::imp {
         add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero()));
         TRACE("arith", 
               {
-                  expr*  o1 = n1->get_owner();
-                  expr*  o2 = n2->get_owner();                  
+                  expr*  o1 = get_enode(v1)->get_owner();
+                  expr*  o2 = get_enode(v2)->get_owner();                  
                   tout << "v" << v1 << " = " << "v" << v2 << ": "
                        << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";
               });
