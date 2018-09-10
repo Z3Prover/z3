@@ -56,7 +56,7 @@
 # 
 # Require 3.5 for batch copy multiple files
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.5.0)
 
 IF(DOTNET_FOUND)
     RETURN()
@@ -68,6 +68,9 @@ SET(DOTNET_MODULE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 IF(NOT DOTNET_EXE)
     SET(DOTNET_FOUND FALSE)
+    IF(Dotnet_FIND_REQUIRED)
+        MESSAGE(SEND_ERROR "Command 'dotnet' is not found.")
+    ENDIF()
     RETURN()
 ENDIF()
 
