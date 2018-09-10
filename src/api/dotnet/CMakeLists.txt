@@ -142,7 +142,10 @@ set(Z3_DOTNET_NUPKG_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in ${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj)
 ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj
     VERSION ${Z3_DOTNET_NUPKG_VERSION}
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in ${Z3_DOTNET_ASSEMBLY_SOURCES}
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in 
+            ${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.props
+            ${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.targets
+            ${Z3_DOTNET_ASSEMBLY_SOURCES}
     PACKAGE Microsoft.Z3)
 
 add_dependencies(BUILD_Microsoft.Z3 libz3)
