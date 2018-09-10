@@ -1461,7 +1461,7 @@ public:
         return atom;
     }
 
-    bool all_variables_have_bounds() {
+    bool make_sure_all_vars_have_bounds() {
         if (!m_has_int) {
             return true;
         }
@@ -1594,10 +1594,6 @@ public:
         if (m.canceled()) {
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
-        }
-        if (!all_variables_have_bounds()) {
-            TRACE("arith", tout << "not all variables have bounds\n";);
-            return l_false;
         }
         if (!check_idiv_bounds()) {
             TRACE("arith", tout << "idiv bounds check\n";);
