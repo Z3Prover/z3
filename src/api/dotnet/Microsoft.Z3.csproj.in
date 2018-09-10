@@ -59,7 +59,7 @@ ${Z3_DOTNET_COMPILE_ITEMS}
   <!-- Native binaries -->
   <ItemGroup>
     <!--TODO detect if we're building x86.-->
-    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll')">
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(Configuration)/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(Configuration)/libz3.dll')">
       <PackagePath>runtimes\win-x64\native</PackagePath>
     </Content>
     <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so')">
