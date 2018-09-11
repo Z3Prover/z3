@@ -74,6 +74,8 @@ env:
     - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
     # 64-bit GCC 4.8 Debug
     - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug RUN_UNIT_TESTS=BUILD_ONLY
+  include:
+    - dotnet: 2.1.4
 
 # macOS (a.k.a OSX) support
 matrix:
@@ -85,6 +87,7 @@ matrix:
       osx_image: xcode8.3
       # Note: Apple Clang does not support OpenMP
       env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0 DOTNET_BINDINGS=0
+    - dotnet: 2.1.4
 script:
   # Use `travis_wait` when doing LTO builds because this configuration will
   # have long link times during which it will not show any output which
