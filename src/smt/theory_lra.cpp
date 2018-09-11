@@ -129,6 +129,7 @@ class theory_lra::imp {
 
     struct scope {
         unsigned m_bounds_lim;
+        unsigned m_idiv_lim;
         unsigned m_asserted_qhead;            
         unsigned m_asserted_atoms_lim;
         unsigned m_underspecified_lim;
@@ -154,6 +155,7 @@ class theory_lra::imp {
     ast_manager&         m;
     theory_arith_params& m_arith_params;
     arith_util           a;
+    bool                 m_has_int;
     arith_eq_adapter     m_arith_eq_adapter;
     vector<rational>     m_columns;
       
@@ -229,6 +231,7 @@ class theory_lra::imp {
     svector<delayed_atom>  m_asserted_atoms;        
     expr*                  m_not_handled;
     ptr_vector<app>        m_underspecified;
+    ptr_vector<expr>       m_idiv_terms;
     unsigned_vector        m_var_trail;
     vector<ptr_vector<lp_api::bound> > m_use_list;        // bounds where variables are used.
 
@@ -442,6 +445,7 @@ class theory_lra::imp {
                 }
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
+                    m_idiv_terms.push_back(n);
                     app * mod = a.mk_mod(n1, n2);
                     ctx().internalize(mod, false);
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
@@ -451,6 +455,7 @@ class theory_lra::imp {
                     if (!is_num) {
                         found_not_handled(n);
                     }
+#if 0
                     else {
                         app_ref div(a.mk_idiv(n1, n2), m);
                         mk_enode(div);
@@ -461,7 +466,8 @@ class theory_lra::imp {
                         // abs(r) > v >= 0
                         assert_idiv_mod_axioms(u, v, w, r);
                     }
-                    if (!ctx().relevancy() && !is_num) mk_idiv_mod_axioms(n1, n2);                    
+#endif
+                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);                    
                 }
                 else if (a.is_rem(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
@@ -624,6 +630,7 @@ class theory_lra::imp {
         }
         if (result == UINT_MAX) {
             result = m_solver->add_var(v, is_int(v));
+            m_has_int |= is_int(v);
             m_theory_var2var_index.setx(v, result, UINT_MAX);
             m_var_index2theory_var.setx(result, v, UINT_MAX);
             m_var_trail.push_back(v);
@@ -796,9 +803,10 @@ public:
         th(th), m(m), 
         m_arith_params(ap), 
         a(m), 
+        m_has_int(false),
         m_arith_eq_adapter(th, ap, a),            
         m_internalize_head(0),
-        m_not_handled(0),
+        m_not_handled(nullptr),
         m_asserted_qhead(0), 
         m_assume_eq_head(0),
         m_num_conflicts(0),
@@ -908,6 +916,7 @@ public:
         scope& s = m_scopes.back();
         s.m_bounds_lim = m_bounds_trail.size();
         s.m_asserted_qhead = m_asserted_qhead;
+        s.m_idiv_lim = m_idiv_terms.size();
         s.m_asserted_atoms_lim = m_asserted_atoms.size();
         s.m_not_handled = m_not_handled;
         s.m_underspecified_lim = m_underspecified.size();
@@ -933,6 +942,7 @@ public:
             }
             m_theory_var2var_index[m_var_trail[i]] = UINT_MAX;
         }
+        m_idiv_terms.shrink(m_scopes[old_size].m_idiv_lim);
         m_asserted_atoms.shrink(m_scopes[old_size].m_asserted_atoms_lim);
         m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
         m_underspecified.shrink(m_scopes[old_size].m_underspecified_lim);
@@ -1028,37 +1038,74 @@ public:
         add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero()));
         add_def_constraint(m_solver->add_var_bound(get_var_index(v), lp::GE, rational::zero()));
         add_def_constraint(m_solver->add_var_bound(get_var_index(v), lp::LT, abs(r)));
+        TRACE("arith", m_solver->print_constraints(tout << term << "\n"););
     }
 
     void mk_idiv_mod_axioms(expr * p, expr * q) {
         if (a.is_zero(q)) {
             return;
         }
+        TRACE("arith", tout << expr_ref(p, m) << " " << expr_ref(q, m) << "\n";);
         // if q is zero, then idiv and mod are uninterpreted functions.
         expr_ref div(a.mk_idiv(p, q), m);
         expr_ref mod(a.mk_mod(p, q), m);
         expr_ref zero(a.mk_int(0), m);
-        literal q_ge_0     = mk_literal(a.mk_ge(q, zero));
-        literal q_le_0     = mk_literal(a.mk_le(q, zero));
-        //            literal eqz        = th.mk_eq(q, zero, false);
         literal eq         = th.mk_eq(a.mk_add(a.mk_mul(q, div), mod), p, false);
         literal mod_ge_0   = mk_literal(a.mk_ge(mod, zero));
-        // q >= 0 or p = (p mod q) + q * (p div q)
-        // q <= 0 or p = (p mod q) + q * (p div q)
-        // q >= 0 or (p mod q) >= 0
-        // q <= 0 or (p mod q) >= 0
-        // q <= 0 or (p mod q) <  q
-        // q >= 0 or (p mod q) < -q
-        // enable_trace("mk_bool_var");
-        mk_axiom(q_ge_0, eq);
-        mk_axiom(q_le_0, eq);
-        mk_axiom(q_ge_0, mod_ge_0);
-        mk_axiom(q_le_0, mod_ge_0);
-        mk_axiom(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));
-        mk_axiom(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));
-        rational k;
-        if (m_arith_params.m_arith_enum_const_mod && a.is_numeral(q, k) && 
-            k.is_pos() && k < rational(8)) {
+        literal div_ge_0   = mk_literal(a.mk_ge(div, zero));
+        literal div_le_0   = mk_literal(a.mk_le(div, zero));
+        literal p_ge_0     = mk_literal(a.mk_ge(p, zero));
+        literal p_le_0     = mk_literal(a.mk_le(p, zero));
+
+        rational k(0);
+        expr_ref upper(m);
+
+        if (a.is_numeral(q, k)) {
+            if (k.is_pos()) { 
+                upper = a.mk_numeral(k - 1, true);
+            }
+            else if (k.is_neg()) {
+                upper = a.mk_numeral(-k - 1, true);
+            }
+        }
+        else {
+            k = rational::zero();
+        }
+
+        if (!k.is_zero()) {
+            mk_axiom(eq);
+            mk_axiom(mod_ge_0);
+            mk_axiom(mk_literal(a.mk_le(mod, upper)));
+            if (k.is_pos()) {
+                mk_axiom(~p_ge_0, div_ge_0);
+                mk_axiom(~p_le_0, div_le_0);
+            }
+            else {
+                mk_axiom(~p_ge_0, div_le_0);
+                mk_axiom(~p_le_0, div_ge_0);
+            }
+        }
+        else {
+            // q >= 0 or p = (p mod q) + q * (p div q)
+            // q <= 0 or p = (p mod q) + q * (p div q)
+            // q >= 0 or (p mod q) >= 0
+            // q <= 0 or (p mod q) >= 0
+            // q <= 0 or (p mod q) <  q
+            // q >= 0 or (p mod q) < -q
+            literal q_ge_0 = mk_literal(a.mk_ge(q, zero));
+            literal q_le_0 = mk_literal(a.mk_le(q, zero));
+            mk_axiom(q_ge_0, eq);
+            mk_axiom(q_le_0, eq);
+            mk_axiom(q_ge_0, mod_ge_0);
+            mk_axiom(q_le_0, mod_ge_0);
+            mk_axiom(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));
+            mk_axiom(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));        
+            mk_axiom(q_le_0, ~p_ge_0, div_ge_0); 
+            mk_axiom(q_le_0, ~p_le_0, div_le_0); 
+            mk_axiom(q_ge_0, ~p_ge_0, div_le_0); 
+            mk_axiom(q_ge_0, ~p_le_0, div_ge_0); 
+        }
+        if (m_arith_params.m_arith_enum_const_mod && k.is_pos() && k < rational(8)) {
             unsigned _k = k.get_unsigned();
             literal_buffer lits;
             for (unsigned j = 0; j < _k; ++j) {
@@ -1206,10 +1253,9 @@ public:
     }
 
     void init_variable_values() {
+        reset_variable_values();
         if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
-            reset_variable_values();
             m_solver->get_model(m_variable_values);
-            TRACE("arith", display(tout););
         }
     }
 
@@ -1312,6 +1358,7 @@ public:
     }
 
     final_check_status final_check_eh() {
+        IF_VERBOSE(2, verbose_stream() << "final-check\n");
         m_use_nra_model = false;
         lbool is_sat = l_true;
         if (m_solver->get_status() != lp::lp_status::OPTIMAL) {
@@ -1326,7 +1373,7 @@ public:
             }
             if (assume_eqs()) {
                 return FC_CONTINUE;
-            }
+            }            
 
             switch (check_lia()) {
             case l_true:
@@ -1338,7 +1385,7 @@ public:
                 st = FC_CONTINUE;
                 break;
             }
-                
+            
             switch (check_nra()) {
             case l_true:
                 break;
@@ -1412,10 +1459,143 @@ public:
         return atom;
     }
 
+    bool make_sure_all_vars_have_bounds() {
+        if (!m_has_int) {
+            return true;
+        }
+        unsigned nv = std::min(th.get_num_vars(), m_theory_var2var_index.size());
+        bool all_bounded = true;
+        for (unsigned v = 0; v < nv; ++v) {
+            lp::var_index vi = m_theory_var2var_index[v];
+			if (vi == UINT_MAX)
+				continue;
+            if (!m_solver->is_term(vi) && !var_has_bound(vi, true) && !var_has_bound(vi, false)) {
+                lp::lar_term term;
+                term.add_monomial(rational::one(), vi);
+                app_ref b = mk_bound(term, rational::zero(), true);
+                TRACE("arith", tout << "added bound " << b << "\n";);
+                IF_VERBOSE(2, verbose_stream() << "bound: " << b << "\n");
+                all_bounded = false;
+            }
+        }
+        return all_bounded;
+    }
+
+    /**
+     * n = (div p q)
+     *
+     * (div p q) * q + (mod p q) = p, (mod p q) >= 0
+     *
+     * 0 < q => (p/q <= v(p)/v(q) => n <= floor(v(p)/v(q)))
+     * 0 < q => (v(p)/v(q) <= p/q => v(p)/v(q) - 1 < n) 
+     * 
+     */
+    bool check_idiv_bounds() {
+        if (m_idiv_terms.empty()) {
+            return true;
+        }
+        bool all_divs_valid = true;        
+        init_variable_values();
+        for (expr* n : m_idiv_terms) {
+            expr* p = nullptr, *q = nullptr;
+            VERIFY(a.is_idiv(n, p, q));
+            theory_var v  = mk_var(n);
+            theory_var v1 = mk_var(p);
+            theory_var v2 = mk_var(q);
+            rational r = get_value(v);
+            rational r1 = get_value(v1);
+            rational r2 = get_value(v2);
+            rational r3;
+            if (r2.is_zero()) {
+                continue;
+            }
+            if (r1.is_int() && r2.is_int() && r == div(r1, r2)) {
+                continue;
+            }
+            if (r2.is_neg()) {
+                // TBD
+                continue;
+            }
+
+            if (a.is_numeral(q, r3)) {
+            
+                SASSERT(r3 == r2 && r2.is_int());
+                // p <= r1 => n <= div(r1, r2)
+                // r1 <= p => div(r1, r2) <= n
+                literal p_le_r1  = mk_literal(a.mk_le(p, a.mk_numeral(ceil(r1), true)));
+                literal p_ge_r1  = mk_literal(a.mk_ge(p, a.mk_numeral(floor(r1), true)));
+                literal n_le_div = mk_literal(a.mk_le(n, a.mk_numeral(div(ceil(r1), r2), true)));
+                literal n_ge_div = mk_literal(a.mk_ge(n, a.mk_numeral(div(floor(r1), r2), true)));
+                mk_axiom(~p_le_r1, n_le_div); 
+                mk_axiom(~p_ge_r1, n_ge_div);
+
+                all_divs_valid = false;
+
+                TRACE("arith",
+                      literal_vector lits;
+                      lits.push_back(~p_le_r1);
+                      lits.push_back(n_le_div);
+                      ctx().display_literals_verbose(tout, lits) << "\n";
+                      lits[0] = ~p_ge_r1;
+                      lits[1] = n_ge_div;
+                      ctx().display_literals_verbose(tout, lits) << "\n";);                      
+                continue;
+            }
+
+            if (!r1.is_int() || !r2.is_int()) {
+                // std::cout << r1 << " " << r2 << " " << r << " " << expr_ref(n, m) << "\n";
+                // TBD
+                // r1 = 223/4, r2 = 2, r = 219/8 
+                // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
+                // then 
+                //      p/q <= ceil(r1)/floor(r2) => n <= div(ceil(r1), floor(r2))
+                //      p/q >= floor(r1)/ceil(r2) => n >= div(floor(r1), ceil(r2))
+                continue;
+            }
+
+
+            all_divs_valid = false;
+
+        
+            //  
+            //    p/q <= r1/r2 => n <= div(r1, r2)
+            // <=>
+            //    p*r2 <= q*r1 => n <= div(r1, r2)
+            //
+            //    p/q >= r1/r2 => n >= div(r1, r2)
+            // <=>
+            //    p*r2 >= r1*q => n >= div(r1, r2)
+            // 
+            expr_ref zero(a.mk_int(0), m);
+            expr_ref divc(a.mk_numeral(div(r1, r2), true), m);
+            expr_ref pqr(a.mk_sub(a.mk_mul(a.mk_numeral(r2, true), p), a.mk_mul(a.mk_numeral(r1, true), q)), m);            
+            literal pq_lhs   = ~mk_literal(a.mk_le(pqr, zero));
+            literal pq_rhs   = ~mk_literal(a.mk_ge(pqr, zero));
+            literal n_le_div = mk_literal(a.mk_le(n, divc));
+            literal n_ge_div = mk_literal(a.mk_ge(n, divc)); 
+            mk_axiom(pq_lhs, n_le_div); 
+            mk_axiom(pq_rhs, n_ge_div);
+            TRACE("arith",
+                  literal_vector lits;
+                  lits.push_back(pq_lhs);
+                  lits.push_back(n_le_div);
+                  ctx().display_literals_verbose(tout, lits) << "\n";
+                  lits[0] = pq_rhs;
+                  lits[1] = n_ge_div;
+                  ctx().display_literals_verbose(tout, lits) << "\n";);
+        }
+        
+        return all_divs_valid;
+    }
+
     lbool check_lia() {
         if (m.canceled()) {
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
+        }
+        if (!check_idiv_bounds()) {
+            TRACE("arith", tout << "idiv bounds check\n";);
+            return l_false;
         }
         lp::lar_term term;
         lp::mpq k;
@@ -1427,6 +1607,7 @@ public:
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
             app_ref b = mk_bound(term, k, !upper);
+            IF_VERBOSE(2, verbose_stream() << "branch " << b << "\n";);
             // branch on term >= k + 1
             // branch on term <= k
             // TBD: ctx().force_phase(ctx().get_literal(b));
@@ -1439,6 +1620,7 @@ public:
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             app_ref b = mk_bound(term, k, !upper);
+            IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n";);
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
@@ -2381,6 +2563,18 @@ public:
         }
     }
 
+    bool var_has_bound(lp::var_index vi, bool is_lower) {
+        bool is_strict = false;
+        rational b;
+        lp::constraint_index ci;
+        if (is_lower) {
+            return m_solver->has_lower_bound(vi, ci, b, is_strict);
+        }
+        else {
+            return m_solver->has_upper_bound(vi, ci, b, is_strict);
+        }        
+    }
+
     bool has_upper_bound(lp::var_index vi, lp::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, false); }
 
     bool has_lower_bound(lp::var_index vi, lp::constraint_index& ci, rational const& bound) { return has_bound(vi, ci, bound, true); }
@@ -2916,7 +3110,9 @@ public:
          for (auto const& kv : coeffs) {
              g = gcd(g, kv.m_value);
          }
-         if (!g.is_one() && !g.is_zero()) {
+		 if (g.is_zero())
+			 return rational::one();
+         if (!g.is_one()) {
              for (auto& kv : coeffs) {
                  kv.m_value /= g;
              }             
@@ -2949,7 +3145,7 @@ public:
         }
         if (!ctx().b_internalized(b)) {
             fm.hide(b->get_decl());
-            bool_var bv = ctx().mk_bool_var(b);
+            bool_var bv =  ctx().mk_bool_var(b);
             ctx().set_var_theory(bv, get_id());
             // ctx().set_enode_flag(bv, true);
             lp_api::bound_kind bkind = lp_api::bound_kind::lower_t;
