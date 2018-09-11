@@ -86,13 +86,6 @@ matrix:
       # Note: Apple Clang does not support OpenMP
       env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0 DOTNET_BINDINGS=0
 
-matrix:
-  include:
-    - language: csharp
-      dotnet: 2.1.4
-      script:
-        # Add at least one dotnet command invocation to activate the build env.
-        - dotnet restore
 script:
   # Use `travis_wait` when doing LTO builds because this configuration will
   # have long link times during which it will not show any output which

@@ -1,5 +1,9 @@
 FROM ubuntu:16.04
 
+RUN wget -q https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    apt-get install apt-transport-https
+
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         binutils \
@@ -20,13 +24,13 @@ RUN apt-get update && \
         libomp-dev \
         llvm-3.9 \
         make \
-        mono-devel \
         ninja-build \
         python3 \
         python3-setuptools \
         python2.7 \
         python-setuptools \
-        sudo
+        sudo \
+        dotnet-sdk-2.1
 
 # Create `user` user for container with password `user`.  and give it
 # password-less sudo access
