@@ -1,14 +1,12 @@
 FROM ubuntu:14.04
 
-RUN curl -SL https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
-    dpkg -i packages-microsoft-prod.deb && \
-    apt-get install apt-transport-https
-
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
+        apt-transport-https \
         binutils \
         clang-3.9 \
         cmake \
+        curl \
         doxygen \
         default-jdk \
         gcc-multilib \
@@ -26,8 +24,12 @@ RUN apt-get update && \
         python3 \
         python3-setuptools \
         python2.7 \
-        python-setuptools \
-        dotnet-sdk-2.1
+        python-setuptools
+
+RUN curl -SL https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    apt-get update && \
+    apt-get -y --no-install-recommends install dotnet-sdk-2.1
 
 # Create `user` user for container with password `user`.  and give it
 # password-less sudo access
