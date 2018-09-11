@@ -78,17 +78,17 @@ else
 fi
 
 # .NET bindings?
-if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
-  ADDITIONAL_Z3_OPTS+=( \
-    '-DBUILD_DOTNET_BINDINGS=ON' \
-    '-DINSTALL_DOTNET_BINDINGS=ON' \
-  )
-else
-  ADDITIONAL_Z3_OPTS+=( \
-    '-DBUILD_DOTNET_BINDINGS=OFF' \
-    '-DINSTALL_DOTNET_BINDINGS=OFF' \
-  )
-fi
+#if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
+#  ADDITIONAL_Z3_OPTS+=( \
+#    '-DBUILD_DOTNET_BINDINGS=ON' \
+#    '-DINSTALL_DOTNET_BINDINGS=ON' \
+#  )
+#else
+#  ADDITIONAL_Z3_OPTS+=( \
+#    '-DBUILD_DOTNET_BINDINGS=OFF' \
+#    '-DINSTALL_DOTNET_BINDINGS=OFF' \
+#  )
+#fi
 
 # Java bindings?
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then

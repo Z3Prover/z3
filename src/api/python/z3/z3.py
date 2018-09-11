@@ -2176,6 +2176,8 @@ class ArithRef(ExprRef):
         >>> (x * y).sort()
         Real
         """
+        if isinstance(other, BoolRef):
+           return If(other, self, 0)
         a, b = _coerce_exprs(self, other)
         return ArithRef(_mk_bin(Z3_mk_mul, a, b), self.ctx)
 
