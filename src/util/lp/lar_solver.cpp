@@ -1964,7 +1964,6 @@ void lar_solver::update_boxed_column_type_and_bound(var_index j, lconstraint_kin
 
             if (up < m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
                 m_status = lp_status::INFEASIBLE;
-                lp_assert(false);
                 m_infeasible_column_index = j;
             }
             else {
