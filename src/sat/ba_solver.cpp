@@ -1570,6 +1570,7 @@ namespace sat {
                 ++m_stats.m_num_resolves;
                 ext_justification_idx index = js.get_ext_justification_idx();
                 constraint& cnstr = index2constraint(index);
+                SASSERT(!cnstr.was_removed());
                 switch (cnstr.tag()) {
                 case card_t: 
                 case pb_t: {
@@ -2660,7 +2661,8 @@ namespace sat {
     }
 
     void ba_solver::gc() {
-        if (m_learned.size() >= 2 * m_constraints.size()) {
+        if (m_learned.size() >= 2 * m_constraints.size() && 
+            (s().at_search_lvl() || s().at_base_lvl())) {
             for (auto & c : m_learned) update_psm(*c);
             std::stable_sort(m_learned.begin(), m_learned.end(), constraint_glue_psm_lt());
             gc_half("glue-psm");
