@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-RUN wget -q https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb && \
+RUN curl -SL https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && \
     apt-get install apt-transport-https
 
