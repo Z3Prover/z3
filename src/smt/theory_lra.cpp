@@ -1517,6 +1517,17 @@ public:
                 continue;
             }
 
+            if (!r1.is_int() || !r2.is_int()) {
+                // std::cout << r1 << " " << r2 << " " << r << " " << expr_ref(n, m) << "\n";
+                // TBD
+                // r1 = 223/4, r2 = 2, r = 219/8 
+                // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
+                // then 
+                //      p/q <= ceil(r1)/floor(r2) => n <= div(ceil(r1), floor(r2))
+                //      p/q >= floor(r1)/ceil(r2) => n >= div(floor(r1), ceil(r2))
+                continue;
+            }
+
             if (a.is_numeral(q, r3)) {
             
                 SASSERT(r3 == r2 && r2.is_int());
@@ -1542,16 +1553,6 @@ public:
                 continue;
             }
 
-            if (!r1.is_int() || !r2.is_int()) {
-                // std::cout << r1 << " " << r2 << " " << r << " " << expr_ref(n, m) << "\n";
-                // TBD
-                // r1 = 223/4, r2 = 2, r = 219/8 
-                // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
-                // then 
-                //      p/q <= ceil(r1)/floor(r2) => n <= div(ceil(r1), floor(r2))
-                //      p/q >= floor(r1)/ceil(r2) => n >= div(floor(r1), ceil(r2))
-                continue;
-            }
 
 
             all_divs_valid = false;
