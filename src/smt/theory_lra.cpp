@@ -1512,7 +1512,7 @@ public:
             if (r1.is_int() && r2.is_int() && r == div(r1, r2)) {
                 continue;
             }
-            if (r2.is_neg()) {
+            if (r2.is_neg() || r1.is_neg()) {
                 // TBD
                 continue;
             }
