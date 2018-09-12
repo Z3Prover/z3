@@ -91,8 +91,8 @@ if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
   # Build .NET example
   # FIXME: Move compliation step into CMake target
   mcs ${Z3_SRC_DIR}/examples/dotnet/Program.cs /target:exe /out:dotnet_test.exe /reference:Microsoft.Z3.dll /r:System.Numerics.dll
-  # Run .NET example
-  run_quiet run_non_native_binding mono ./dotnet_test.exe
+  # Build & Run .NET example
+  run_quiet run_non_native_binding dotnet run -p ${Z3_SRC_DIR}/examples/dotnet/dotnet.csproj
 fi
 
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then
