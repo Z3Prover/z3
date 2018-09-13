@@ -107,7 +107,6 @@ private:
     lia_move report_conflict_from_gomory_cut();
     void adjust_term_and_k_for_some_ints_case_gomory(mpq& lcm_den);
     lia_move proceed_with_gomory_cut(unsigned j);
-    int find_free_var_in_gomory_row(const row_strip<mpq>& );
     bool is_gomory_cut_target(const row_strip<mpq>&);
     bool at_bound(unsigned j) const;
     bool at_low(unsigned j) const;

@@ -102,6 +102,8 @@ bool int_solver::is_gomory_cut_target(const row_strip<mpq>& row) {
     for (const auto & p : row) {
         j = p.var();
         if (is_base(j)) continue;
+        if (is_free(j))
+            return false;
         if (!at_bound(j))
             return false;
         if (!is_zero(get_value(j).y)) {
@@ -350,24 +352,11 @@ lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row
     return lia_move::cut;
 }
 
-int int_solver::find_free_var_in_gomory_row(const row_strip<mpq>& row) {
-    unsigned j;
-    for (const auto & p : row) {
-        j = p.var();
-        if (!is_base(j) && is_free(j))
-            return static_cast<int>(j);
-    }
-    return -1;
-}
-
 lia_move int_solver::proceed_with_gomory_cut(unsigned j) {
     const row_strip<mpq>& row = m_lar_solver->get_row(row_of_basic_column(j));
 
-    if (-1 != find_free_var_in_gomory_row(row))  
-        return lia_move::undef;
-
     if (!is_gomory_cut_target(row)) 
-        return lia_move::undef;
+        return create_branch_on_column(j);
 
     *m_upper = true;
     return mk_gomory_cut(j, row);
