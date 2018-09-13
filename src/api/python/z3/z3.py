@@ -6626,14 +6626,6 @@ class Solver(Z3PPObject):
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""
         return _to_expr_ref(Z3_solver_get_proof(self.ctx.ref(), self.solver), self.ctx)
-
-    def from_file(self, filename):
-        """Parse assertions from a file"""
-        Z3_solver_from_file(self.ctx.ref(), self.solver, filename)
-
-    def from_string(self, s):
-        """Parse assertions from a string"""
-        Z3_solver_from_string(self.ctx.ref(), self.solver, s)
         
     def assertions(self):
         """Return an AST vector containing all added constraints.
