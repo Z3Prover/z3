@@ -33,39 +33,8 @@ class lar_solver;
 template <typename T, typename X>
 struct lp_constraint;
 
-struct ineq {
-    lp::lconstraint_kind m_cmp;
-    lp::lar_term         m_term;
-    ineq(lp::lconstraint_kind cmp, const lp::lar_term& term) : m_cmp(cmp), m_term(term) {}
-    ineq() {} // empty constructor
-    void add_coeff_var(const mpq& c, unsigned j) {
-        m_term.add_coeff_var(c, j);
-    }
-    bool holds(const vector<impq> & x) const {
-        auto v = m_term.apply(x);
-        switch(m_cmp) {
-        case lconstraint_kind::LE: return v <= zero_of_type<impq>();
-        case lconstraint_kind::LT: return v <  zero_of_type<impq>();
-        case lconstraint_kind::GE: return v >= zero_of_type<impq>();
-        case lconstraint_kind::GT: return v >  zero_of_type<impq>();
-        case lconstraint_kind::EQ: return v == zero_of_type<impq>();
-        default:
-            lp_assert(false);
-            return false;
-        }
-    }
-    bool is_empty() const { return m_term.is_empty(); }
-};
-
-typedef vector<ineq> lemma;
 
 class int_solver {
-    struct validate_model {
-        int_solver& s;
-        lia_move& r;
-        validate_model(int_solver& s, lia_move& r): s(s), r(r) {}
-        ~validate_model();
-    };
 public:
     // fields
     lar_solver          *m_lar_solver;
@@ -85,6 +54,7 @@ public:
     mpq const& get_offset() const { return m_k; }
     explanation const& get_explanation() const { return m_ex; }
     bool is_upper() const { return m_upper; }
+    lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
@@ -146,7 +116,6 @@ private:
     unsigned row_of_basic_column(unsigned j) const;
 
 public:
-    std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     void display_column(std::ostream & out, unsigned j) const;
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
@@ -171,7 +140,6 @@ public:
     int find_inf_int_nbasis_column() const;
     lia_move run_gcd_test();
     lia_move gomory_cut();
-    void add_free_vars_ineqs_to_lemma();
     lia_move hnf_cut();
     lia_move make_hnf_cut();
     bool init_terms_for_hnf_cut();
