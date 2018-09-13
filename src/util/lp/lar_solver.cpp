@@ -71,7 +71,7 @@ bool lar_solver::sizes_are_correct() const {
 }
     
  
-void lar_solver::print_implied_bound(const implied_bound& be, std::ostream & out) const {
+std::ostream& lar_solver::print_implied_bound(const implied_bound& be, std::ostream & out) const {
     out << "implied bound\n";
     unsigned v = be.m_j;
     if (is_term(v)) {
@@ -83,6 +83,7 @@ void lar_solver::print_implied_bound(const implied_bound& be, std::ostream & out
     }
     out << " " << lconstraint_kind_string(be.kind()) << " "  << be.m_bound << std::endl;
     out << "end of implied bound" << std::endl;
+    return out;
 }
     
 bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const {
@@ -1208,39 +1209,41 @@ std::string lar_solver::get_variable_name(var_index vi) const {
 }
 
 // ********** print region start
-void lar_solver::print_constraint(constraint_index ci, std::ostream & out) const {
+std::ostream& lar_solver::print_constraint(constraint_index ci, std::ostream & out) const {
     if (ci >= m_constraints.size()) {
         out << "constraint " << T_to_string(ci) << " is not found";
         out << std::endl;
-        return;
+        return out;
     }
 
-    print_constraint(m_constraints[ci], out);
+    return print_constraint(m_constraints[ci], out);
 }
 
-void lar_solver::print_constraints(std::ostream& out) const  {
+std::ostream& lar_solver::print_constraints(std::ostream& out) const  {
     out << "number of constraints = " << m_constraints.size() << std::endl;
     for (auto c : m_constraints) {
         print_constraint(c, out);
     }
+    return out;
 }
 
-void lar_solver::print_terms(std::ostream& out) const  {
+std::ostream& lar_solver::print_terms(std::ostream& out) const  {
     for (auto it : m_terms) {
         print_term(*it, out);
         out << "\n";
     }
+    return out;
 }
 
-void lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const {
+std::ostream& lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const {
     print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
     mpq free_coeff = c->get_free_coeff_of_left_side();
     if (!is_zero(free_coeff))
         out << " + " << free_coeff;
-        
+    return out;
 }
 
-void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
+std::ostream& lar_solver::print_term(lar_term const& term, std::ostream & out) const {
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
     }
@@ -1263,14 +1266,15 @@ void lar_solver::print_term(lar_term const& term, std::ostream & out) const {
             out << T_to_string(val);
         out << this->get_column_name(p.var());
     }
-
+    return out;
 }
 
-void lar_solver::print_term_as_indices(lar_term const& term, std::ostream & out) const {
+std::ostream& lar_solver::print_term_as_indices(lar_term const& term, std::ostream & out) const {
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
     }
     print_linear_combination_of_column_indices_only(term.coeffs_as_vector(), out);
+    return out;
 }
 
 mpq lar_solver::get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const {
@@ -1284,9 +1288,10 @@ mpq lar_solver::get_left_side_val(const lar_base_constraint &  cns, const std::u
     return ret;
 }
 
-void lar_solver::print_constraint(const lar_base_constraint * c, std::ostream & out) const {
+std::ostream& lar_solver::print_constraint(const lar_base_constraint * c, std::ostream & out) const {
     print_left_side_of_constraint(c, out);
     out << " " << lconstraint_kind_string(c->m_kind) << " " << c->m_right_side << std::endl;
+    return out;
 }
 
 void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list) {
