@@ -156,7 +156,6 @@ class theory_lra::imp {
     ast_manager&         m;
     theory_arith_params& m_arith_params;
     arith_util           a;
-    bool                 m_has_int;
     arith_eq_adapter     m_arith_eq_adapter;
     vector<rational>     m_columns;
       
@@ -717,7 +716,6 @@ class theory_lra::imp {
         }
         if (result == UINT_MAX) {
             result = m_solver->add_var(v, is_int(v));
-            m_has_int |= is_int(v);
             m_theory_var2var_index.setx(v, result, UINT_MAX);
             m_var_index2theory_var.setx(result, v, UINT_MAX);
             m_var_trail.push_back(v);
@@ -910,7 +908,6 @@ public:
         th(th), m(m), 
         m_arith_params(ap), 
         a(m), 
-        m_has_int(false),
         m_arith_eq_adapter(th, ap, a),            
         m_internalize_head(0),
         m_one_var(UINT_MAX),
@@ -1501,7 +1498,6 @@ public:
     }
 
     void init_variable_values() {
-        reset_variable_values();
         if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
             TRACE("arith", tout << "update variable values\n";);
             m_solver->get_model(m_variable_values);
@@ -1978,6 +1974,7 @@ public:
         return !added_bound;
     }
 
+
     lbool check_lia() {
         if (m.canceled()) {
             TRACE("arith", tout << "canceled\n";);
@@ -1987,6 +1984,7 @@ public:
         if (!check_idiv_bounds()) {
             return l_false;
         }
+
         lp::lar_term term;
         lp::mpq k;
         lp::explanation ex; // TBD, this should be streamlined accross different explanations
@@ -2062,12 +2060,12 @@ public:
         return lia_check;
     }
 
-    lbool check_aftermath_nra(lbool r, lp::explanation& ex) {
+    lbool check_aftermath_nra(lbool r) {
         m_a1 = alloc(scoped_anum, m_nra->am());
         m_a2 = alloc(scoped_anum, m_nra->am());
         switch (r) {
         case l_false:
-            set_conflict1(ex);
+            set_conflict1();
             break;
         case l_true:
             m_use_nra_model = true;
@@ -2083,40 +2081,39 @@ public:
         return r;
     }
 
-    void process_lemma(lp::explanation& ex, const niil::lemma& lemma) {
-        literal_vector core;
-        for (auto const& ineq : lemma) {
-            bool is_lower = true, pos = true, is_eq = false;
-                
-            switch (ineq.m_cmp) {
-            case lp::LE: is_lower = false; pos = false;  break;
-            case lp::LT: is_lower = true;  pos = true; break;
-            case lp::GE: is_lower = true;  pos = false;  break;
-            case lp::GT: is_lower = false; pos = true; break;
-            case lp::EQ: is_eq = true; pos = true; break;
-            case lp::NE: is_eq = true; pos = false; break;
-            default: UNREACHABLE();
-            }
-            TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
-            app_ref atom(m);
-            if (is_eq) {
-                atom = mk_eq(ineq.m_term);
-            }
-            else {
-                // create term >= 0 (or term <= 0)
-                atom = mk_bound(ineq.m_term, rational::zero(), is_lower);
-            }
-            literal lit(ctx().get_bool_var(atom), pos);
-            core.push_back(~lit);
-        }
-        set_conflict_or_lemma(ex, core, false);
-    }
+    niil::lemma m_lemma;
  
-    lbool check_aftermath_niil(lbool r, lp::explanation& ex, const niil::lemma & lemma) {
+    lbool check_aftermath_niil(lbool r) {
         switch (r) {
-        case l_false:
-            process_lemma(ex, lemma);
+        case l_false: {            
+            literal_vector core;
+            for (auto const& ineq : m_lemma) {
+                bool is_lower = true, pos = true, is_eq = false;
+                
+                switch (ineq.m_cmp) {
+                case lp::LE: is_lower = false; pos = false;  break;
+                case lp::LT: is_lower = true;  pos = true; break;
+                case lp::GE: is_lower = true;  pos = false;  break;
+                case lp::GT: is_lower = false; pos = true; break;
+                case lp::EQ: is_eq = true; pos = true; break;
+                case lp::NE: is_eq = true; pos = false; break;
+                default: UNREACHABLE();
+                }
+                TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
+                app_ref atom(m);
+                if (is_eq) {
+                    atom = mk_eq(ineq.m_term);
+                }
+                else {
+                    // create term >= 0 (or term <= 0)
+                    atom = mk_bound(ineq.m_term, rational::zero(), is_lower);
+                }
+                literal lit(ctx().get_bool_var(atom), pos);
+                core.push_back(~lit);
+            }
+            set_conflict_or_lemma(core, false);
             break;
+        }
         case l_true:
             if (assume_eqs()) {
                 return l_false;
@@ -2137,10 +2134,9 @@ public:
         if (!m_nra && !m_niil) return l_true;
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
-        niil::lemma lemma;
         m_explanation.reset();
-        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_explanation, lemma);
-        return m_nra? check_aftermath_nra(r, m_explanation) : check_aftermath_niil(r, m_explanation, lemma);
+        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_explanation, m_lemma);
+        return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r);
     }
 
     /**
@@ -3179,27 +3175,27 @@ public:
     void set_conflict() {
         m_explanation.clear();
         m_solver->get_infeasibility_explanation(m_explanation);
-        set_conflict1(m_explanation);
+        set_conflict1();
     }
 
-    void set_conflict1(lp::explanation& ex) {
+    void set_conflict1() {
         literal_vector core;
-        set_conflict_or_lemma(ex, core, true);
+        set_conflict_or_lemma(core, true);
     }
 
-    void set_conflict_or_lemma(lp::explanation& ex, literal_vector const& core, bool is_conflict) {
+    void set_conflict_or_lemma(literal_vector const& core, bool is_conflict) {
         m_eqs.reset();
         m_core.reset();
         m_params.reset();
         for (literal lit : core) {
             m_core.push_back(lit);
         }
-        // m_solver->shrink_explanation_to_minimum(ex); // todo, enable when perf is fixed
+        // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
-        TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, ex); );
+        TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
         TRACE("arith", display(tout););
-        for (auto const& ev : ex) {
+        for (auto const& ev : m_explanation) {
             if (!ev.first.is_zero()) { 
                 set_evidence(ev.second);
             }
