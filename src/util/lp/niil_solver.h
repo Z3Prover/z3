@@ -24,9 +24,15 @@ Revision History:
 #include "util/params.h"
 #include "nlsat/nlsat_solver.h"
 #include "util/lp/lar_solver.h"
-#include "util/lp/int_solver.h"
 namespace niil {
-typedef lp::lemma lemma;
+struct ineq {
+    lp::lconstraint_kind m_cmp;
+    lp::lar_term         m_term;
+    ineq(lp::lconstraint_kind cmp, const lp::lar_term& term) : m_cmp(cmp), m_term(term) {} 
+};
+
+typedef vector<ineq> lemma;
+
 // nonlinear integer incremental linear solver
 class solver {
     struct imp;
