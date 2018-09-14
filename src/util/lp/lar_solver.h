@@ -164,13 +164,11 @@ public:
 
 
     // terms
-    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
-                       const mpq &m_v);
+    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs);
 
-    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
-                                 const mpq &m_v);
+    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs);
 
-    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs, const mpq& v);
+    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs);
     void push_and_register_term(lar_term* t);
 
     void add_row_for_term(const lar_term * term, unsigned term_ext_index);

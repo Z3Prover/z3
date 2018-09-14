@@ -137,7 +137,6 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
             kind = static_cast<lconstraint_kind>(-kind);
         }
         rs_of_evidence /= ratio;
-        rs_of_evidence += t->m_v * ratio;
     }
 
     return kind == be.kind() && rs_of_evidence == be.m_bound;
@@ -613,7 +612,6 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
             for (auto & p : term.coeffs()){
                 register_monoid_in_map(coeffs, t.first * p.second , p.first);
             }
-            free_coeff += t.first * term.m_v;
         }
     }
 
@@ -1117,7 +1115,7 @@ bool lar_solver::has_upper_bound(var_index var, constraint_index& ci, mpq& value
 bool lar_solver::has_value(var_index var, mpq& value) const {
     if (is_term(var)) {
         lar_term const& t = get_term(var);
-        value = t.m_v;
+        value = zero_of_type<mpq>();
         for (auto const& cv : t) {
             impq const& r = get_column_value(cv.var());
             if (!numeric_traits<mpq>::is_zero(r.y)) return false;
@@ -1497,7 +1495,7 @@ bool lar_solver::term_is_int(const lar_term * t) const {
     for (auto const & p :  t->m_coeffs)
         if (! (column_is_int(p.first)  && p.second.is_int()))
             return false;
-    return t->m_v.is_int();
+    return true;
 }
 
 bool lar_solver::var_is_int(var_index v) const {
@@ -1598,9 +1596,8 @@ void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
 }
 
 
-var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
-                                         const mpq &m_v) {
-    push_and_register_term(new lar_term(coeffs, m_v));
+var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs) {
+    push_and_register_term(new lar_term(coeffs));
     return m_terms_start_index + m_terms.size() - 1;
 }
 
@@ -1643,12 +1640,11 @@ void lar_solver::push_and_register_term(lar_term* t) {
 }
 
 // terms
-var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
-                               const mpq &m_v) {
+var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs) {
     if (strategy_is_undecided())
-        return add_term_undecided(coeffs, m_v);
+        return add_term_undecided(coeffs);
 
-    push_and_register_term(new lar_term(coeffs, m_v));
+    push_and_register_term(new lar_term(coeffs));
     unsigned adjusted_term_index = m_terms.size() - 1;
     var_index ret = m_terms_start_index + adjusted_term_index;
     if (use_tableau() && !coeffs.empty()) {
@@ -1743,9 +1739,8 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
     //    lp_assert(!term_is_int(m_terms[adjusted_term_index]) || right_side.is_int());
     unsigned term_j;
     if (m_var_register.external_is_used(j, term_j)) {
-        mpq rs = right_side - m_terms[adjusted_term_index]->m_v;
         m_constraints.push_back(new lar_term_constraint(m_terms[adjusted_term_index], kind, right_side));
-        update_column_type_and_bound(term_j, kind, rs, ci);
+        update_column_type_and_bound(term_j, kind, right_side, ci);
     }
     else {
         add_constraint_from_term_and_create_new_column_row(j, m_terms[adjusted_term_index], kind, right_side);
@@ -1756,7 +1751,7 @@ constraint_index lar_solver::add_constraint(const vector<std::pair<mpq, var_inde
     vector<std::pair<mpq, var_index>> left_side;
     mpq rs = -right_side_parm;
     substitute_terms_in_linear_expression(left_side_with_terms, left_side, rs);
-    unsigned term_index = add_term(left_side, zero_of_type<mpq>());
+    unsigned term_index = add_term(left_side);
     constraint_index ci = m_constraints.size();
     add_var_bound_on_constraint_for_term(term_index, kind_par, -rs, ci);
     return ci;
@@ -1767,7 +1762,7 @@ void lar_solver::add_constraint_from_term_and_create_new_column_row(unsigned ter
 
     add_row_from_term_no_constraint(term, term_j);
     unsigned j = A_r().column_count() - 1;
-    update_column_type_and_bound(j, kind, right_side - term->m_v, m_constraints.size());
+    update_column_type_and_bound(j, kind, right_side, m_constraints.size());
     m_constraints.push_back(new lar_term_constraint(term, kind, right_side));
     lp_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
 }

@@ -23,7 +23,6 @@ namespace lp {
 struct lar_term {
     // the term evaluates to sum of m_coeffs + m_v
     std::unordered_map<unsigned, mpq> m_coeffs;
-    mpq m_v;
     lar_term() {}
     void add_monomial(const mpq& c, unsigned j) {
         auto it = m_coeffs.find(j);
@@ -37,7 +36,7 @@ struct lar_term {
     }
 
     bool is_empty() const {
-        return m_coeffs.size() == 0 && is_zero(m_v);
+        return m_coeffs.size() == 0;
     }
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
@@ -46,8 +45,7 @@ struct lar_term {
         return m_coeffs;
     }
     
-    lar_term(const vector<std::pair<mpq, unsigned>>& coeffs,
-             const mpq & v) : m_v(v) {
+    lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
         for (const auto & p : coeffs) {
             add_monomial(p.first, p.second);
         }
@@ -87,7 +85,7 @@ struct lar_term {
 
     template <typename T>
     T apply(const vector<T>& x) const {
-        T ret = T(m_v);
+        T ret = zero_of_type<T>();
         for (const auto & t : m_coeffs) {
             ret += t.second * x[t.first];
         }
@@ -96,7 +94,6 @@ struct lar_term {
    
     void clear() {
         m_coeffs.clear();
-        m_v = zero_of_type<mpq>();
     }
 
     struct ival {
