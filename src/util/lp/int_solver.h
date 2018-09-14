@@ -160,5 +160,5 @@ public:
     bool hnf_has_var_with_non_integral_value() const;
     bool hnf_cutter_is_full() const;
     void patch_nbasic_column(unsigned j, bool patch_only_int_vals);
-};
+  };
 }

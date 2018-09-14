@@ -383,19 +383,25 @@ typedef monomial mono;
 
 
 // this will allow to enable and disable tracking of the pivot rows
-struct pivoted_rows_tracking_control {
-    lar_solver * m_lar_solver;
-    bool m_track_pivoted_rows;
-    pivoted_rows_tracking_control(lar_solver* ls) :
+struct check_return_helper {
+    lar_solver *     m_lar_solver;
+    const lia_move & m_r;
+    bool             m_track_pivoted_rows;
+    check_return_helper(lar_solver* ls, const lia_move& r) :
         m_lar_solver(ls),
+        m_r(r),
         m_track_pivoted_rows(ls->get_track_pivoted_rows())
     {
         TRACE("pivoted_rows", tout << "pivoted rows = " << ls->m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
         m_lar_solver->set_track_pivoted_rows(false);
     }
-    ~pivoted_rows_tracking_control() {
+    ~check_return_helper() {
         TRACE("pivoted_rows", tout << "pivoted rows = " << m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
         m_lar_solver->set_track_pivoted_rows(m_track_pivoted_rows);
+        if (m_r == lia_move::cut || m_r == lia_move::branch) {
+            int_solver * s = m_lar_solver->get_int_solver();
+            m_lar_solver->adjust_cut_for_terms(*(s->m_t), *(s->m_k));
+        }
     }
 };
 
@@ -615,7 +621,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
     lia_move r = run_gcd_test();
     if (r != lia_move::undef) return r;
 
-    pivoted_rows_tracking_control pc(m_lar_solver);
+    check_return_helper pc(m_lar_solver, r);
 
     if(settings().m_int_pivot_fixed_vars_from_basis)
         m_lar_solver->pivot_fixed_vars_from_basis();

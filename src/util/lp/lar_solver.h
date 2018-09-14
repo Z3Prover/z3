@@ -584,5 +584,6 @@ public:
     lar_term get_term_to_maximize(unsigned ext_j) const;
     void set_cut_strategy(unsigned cut_frequency);
     bool sum_first_coords(const lar_term& t, mpq & val) const;
+    void adjust_cut_for_terms(const lar_term& t, mpq & rs);
 };
 }

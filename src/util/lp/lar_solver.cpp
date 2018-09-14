@@ -2265,6 +2265,16 @@ void lar_solver::set_cut_strategy(unsigned cut_frequency) {
     } 
 }
 
+void lar_solver::adjust_cut_for_terms(const lar_term& t, mpq & rs) {
+    for (const auto& p : t) {
+        if (!is_term(p.var())) continue;
+        const lar_term & p_term = get_term(p.var());
+        if (p_term.m_v.is_zero()) continue;
+        rs -= p.coeff() * p_term.m_v;
+    }
+}
+
+
 } // namespace lp
 
 
