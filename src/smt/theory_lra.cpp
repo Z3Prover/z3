@@ -54,6 +54,17 @@ std::ostream& operator<<(std::ostream& out, bound_kind const& k) {
     return out;
 }
 
+struct term_info {
+    rational m_offset;
+    lp::var_index m_var;
+
+    rational const& offset() const { return m_offset; }
+    lp::var_index var() const { return m_var; }
+
+    term_info(): m_var(-1) {}
+    term_info(lp:var_index vi, rational const& offset): m_offset(offset), m_var(vi) {}
+};
+
 class bound { 
     smt::bool_var     m_bv;
     smt::theory_var  m_var;
@@ -777,8 +788,8 @@ class theory_lra::imp {
             lp::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
             TRACE("arith", tout << mk_pp(term, m) << " " << v << " " << vi << "\n";);
             if (vi == UINT_MAX) {
-                vi = m_solver->add_term(m_left_side, st.coeff());
-                m_theory_var2var_index.setx(v, vi, UINT_MAX);
+                vi = m_solver->add_term(m_left_side);
+                m_theory_var2var_index.setx(v, term_info(vi, st.coeff()), term_info(0, rational::zero()));
                 if (m_solver->is_term(vi)) {
                     m_term_index2theory_var.setx(m_solver->adjust_term_index(vi), v, UINT_MAX);
                 }
@@ -1187,17 +1198,19 @@ public:
     lp::impq get_ivalue(theory_var v) const {
         SASSERT(can_get_ivalue(v));
         lp::var_index vi = m_theory_var2var_index[v];
-        if (!m_solver->is_term(vi))
-            return m_solver->get_column_value(vi);
-        m_todo_terms.push_back(std::make_pair(vi, rational::one()));
-        lp::impq result(0);
+        term_info ti = m_theory_var2var_index[v];
+        if (!m_solver->is_term(ti.var()))
+            return m_solver->get_column_value(ti.var()) + ti.offset();
+        m_todo_terms.push_back(std::make_pair(ti, rational::one())); 
+        lp::impq result(ti);
         while (!m_todo_terms.empty()) {
-            vi = m_todo_terms.back().first;
+            ti = m_todo_terms.back().first;
+            vi = ti.var();
             rational coeff = m_todo_terms.back().second;
             m_todo_terms.pop_back();
+            result += ti.offset() * coeff;            
             if (m_solver->is_term(vi)) {
                 const lp::lar_term& term = m_solver->get_term(vi);
-                result += term.m_v * coeff;
                 for (const auto & i:  term) {
                     m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
                 }                    
