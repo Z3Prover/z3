@@ -179,6 +179,7 @@ extern "C" {
         LOG_Z3_solver_from_file(c, s, file_name);
         char const* ext = get_extension(file_name);
         std::ifstream is(file_name);
+        init_solver(c, s);
         if (!is) {
             SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
         }

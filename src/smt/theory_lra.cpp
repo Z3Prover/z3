@@ -1685,15 +1685,15 @@ public:
         for (auto const& ev : ex.m_explanation) {
             fmls.push_back(constraint2fml(ev.second));
         }        
-        expr_ref t(m);
-        t = term2expr(term);
-        if (upper) 
+        expr_ref t(term2expr(term), m);
+        if (upper) {
             fmls.push_back(m.mk_not(a.mk_ge(t, a.mk_numeral(k, true))));
-        else 
+        }
+        else {
             fmls.push_back(m.mk_not(a.mk_le(t, a.mk_numeral(k, true))));
+        }
         ast_pp_util visitor(m);
         visitor.collect(fmls);
-
         visitor.display_decls(out);
         visitor.display_asserts(out, fmls, true);
         out << "(check-sat)\n";            
