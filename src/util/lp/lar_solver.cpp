@@ -1645,6 +1645,7 @@ void lar_solver::push_and_register_term(lar_term* t) {
 // terms
 var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
                                const mpq &m_v) {
+    TRACE("add_term_lar_solver", print_linear_combination_of_column_indices(coeffs, tout););
     if (strategy_is_undecided())
         return add_term_undecided(coeffs, m_v);
 
