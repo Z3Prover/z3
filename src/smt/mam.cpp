@@ -2775,6 +2775,8 @@ namespace smt {
                 // This enodes are not necessarily relevant.
                 // So, we must check whether m_context.is_relevant(m_app) is true or not.
                 if (m_app->get_num_args() == c->m_num_args && m_context.is_relevant(m_app)) {
+                    update_max_generation(m_app, nullptr);
+
                     // update the pattern instance
                     SASSERT(!m_pattern_instances.empty());
                     if (m_pattern_instances.size() == m_max_top_generation.size()) {
