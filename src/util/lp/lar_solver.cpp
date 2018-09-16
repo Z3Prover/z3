@@ -1656,6 +1656,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
         if (m_settings.bound_propagation())
             m_rows_with_changed_bounds.insert(A_r().row_count() - 1);
     }
+    CTRACE("add_term_lar_solver", !m_v.is_zero(), print_term(*m_terms.back(), tout););
     lp_assert(m_var_register.size() == A_r().column_count());
     return ret;
 }
@@ -2264,6 +2265,16 @@ void lar_solver::set_cut_strategy(unsigned cut_frequency) {
         settings().set_hnf_cut_period(100000000);
     } 
 }
+
+void lar_solver::adjust_cut_for_terms(const lar_term& t, mpq & rs) {
+    for (const auto& p : t) {
+        if (!is_term(p.var())) continue;
+        const lar_term & p_term = get_term(p.var());
+        if (p_term.m_v.is_zero()) continue;
+        rs -= p.coeff() * p_term.m_v;
+    }
+}
+
 
 } // namespace lp
 
