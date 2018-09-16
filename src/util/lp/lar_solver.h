@@ -535,7 +535,7 @@ public:
         return m_columns_to_ul_pairs()[j].lower_bound_witness();
     }
 
-    void subs_term_columns(lar_term& t) {
+    void subs_term_columns(lar_term& t, mpq & rs) {
         vector<std::pair<unsigned,unsigned>> columns_to_subs;
         for (const auto & m : t.m_coeffs) {
             unsigned tj = adjust_column_index_to_term_index(m.first);
@@ -545,9 +545,12 @@ public:
         for (const auto & p : columns_to_subs) {
             auto it = t.m_coeffs.find(p.first);
             lp_assert(it != t.m_coeffs.end());
+            const lar_term& lt = get_term(p.second);
             mpq v = it->second;
             t.m_coeffs.erase(it);
             t.m_coeffs[p.second] = v;
+            if (lt.m_v.is_zero()) continue;
+            rs -= v * lt.m_v;
         }
     }
 
@@ -584,5 +587,6 @@ public:
     lar_term get_term_to_maximize(unsigned ext_j) const;
     void set_cut_strategy(unsigned cut_frequency);
     bool sum_first_coords(const lar_term& t, mpq & val) const;
+    void adjust_cut_for_terms(const lar_term& t, mpq & rs);
 };
 }
