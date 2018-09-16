@@ -380,7 +380,7 @@ class QGoal:
         self.parent = parent
         self.must = must
 
-class Quipie(MiniIC3):
+class Quip(MiniIC3):
 
     # prev & tras -> r', such that r' intersects with cube
     def add_reachable(self, prev, cube):
@@ -391,14 +391,13 @@ class Quipie(MiniIC3):
         is_sat = s.check()
         assert is_sat == sat
         m = s.model();
-        result = [self.prev(lit) for lit in cube if is_true(m.eval(lit))]
-        # ? result = self.values2literals(m, cube)
+        result = self.values2literals(m, cube)
         assert result
         self.reachable.add(result)
 
     # A state s0 and level f0 such that
     # not(s0) is f0-1 inductive
-    def quipie_blocked(self, s0, f0):
+    def quip_blocked(self, s0, f0):
         self.push_heap(QGoal(self.next(s0), None, f0, must))
         while self.goals:
            f, g = heapq.heappop(self.goals)
