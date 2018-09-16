@@ -133,8 +133,9 @@ class State:
         self.solver = s
 
     def add(self, clause):
-        self.R |= { clause }
-        self.solver.add(clause)
+        if clause not in self.R:
+           self.R |= { clause }
+           self.solver.add(clause)
     
 class Goal:
     def __init__(self, cube, parent, level):
@@ -142,9 +143,30 @@ class Goal:
         self.cube = cube
         self.parent = parent
 
-# push a goal on a heap
-def push_heap(heap, goal):
-    heapq.heappush(heap, (goal.level, goal))
+def is_seq(f):
+    return isinstance(f, list) or isinstance(f, tuple) or isinstance(f, AstVector)
+
+# Check if the initial state is bad
+def check_disjoint(a, b):
+    s = fd_solver()
+    s.add(a)
+    s.add(b)
+    return unsat == s.check()
+
+
+# Remove clauses that are subsumed
+def prune(R):
+    removed = set([])
+    s = fd_solver()
+    for f1 in R:
+        s.push()
+        for f2 in R:
+            if f2 not in removed:
+               s.add(Not(f2) if f1.eq(f2) else f2)
+        if s.check() == unsat:
+            removed |= { f1 }
+        s.pop()
+    return R - removed
                 
 class MiniIC3:
     def __init__(self, init, trans, goal, x0, xn):
@@ -166,40 +188,19 @@ class MiniIC3:
         self.s_good.add(Not(self.bad))        
         
     def next(self, f):
-        if isinstance(f, list) or isinstance(f, tuple) or isinstance(f, AstVector):
+        if is_seq(f):
            return [self.next(f1) for f1 in f]
         return substitute(f, zip(self.x0, self.xn))    
     
     def prev(self, f):
-        if isinstance(f, list) or isinstance(f, tuple) or isinstance(f, AstVector):
+        if is_seq(f):
            return [self.prev(f1) for f1 in f]
         return substitute(f, zip(self.xn, self.x0))    
     
     def add_solver(self):
         s = fd_solver()
         s.add(self.trans)
-        self.states += [State(s)]
-        
-    # Check if the initial state is bad
-    def check_init(self):
-        s = fd_solver()
-        s.add(self.bad)
-        s.add(self.init)
-        return unsat == s.check()
-
-    # Remove clauses that are subsumed
-    def prune(self, i):
-        removed = set([])
-        s = fd_solver()
-        for f1 in self.states[i].R:
-            s.push()
-            for f2 in self.states[i].R:
-                if f2 not in removed:
-                    s.add(Not(f2) if f1.eq(f2) else f2)
-            if s.check() == unsat:
-                removed |= { f1 }
-            s.pop()
-        self.states[i].R = self.states[i].R - removed
+        self.states += [State(s)]        
 
     def R(self, i):
         return And(self.states[i].R)
@@ -209,8 +210,7 @@ class MiniIC3:
         i = 1
         while i + 1 < len(self.states):
             if not (self.states[i].R - self.states[i+1].R):
-               self.prune(i)
-               return self.R(i)
+               return And(prune(self.states[i].R))
             i += 1
         return None
 
@@ -259,8 +259,7 @@ class MiniIC3:
     # Add a clause to levels 0 until i
     def assert_clause(self, i, clause):
         for j in range(i + 1):
-            if clause not in self.states[j].R:
-                self.states[j].add(clause)
+            self.states[j].add(clause)
 
     # minimize cube that is core of Dual solver.
     # this assumes that props & cube => Trans    
@@ -271,10 +270,14 @@ class MiniIC3:
         assert core
         return [c for c in core if c in set(cube)]
 
+    # push a goal on a heap
+    def push_heap(self, goal):
+        heapq.heappush(self.goals, (goal.level, goal))
+
     # A state s0 and level f0 such that
     # not(s0) is f0-1 inductive
     def ic3_blocked(self, s0, f0):
-        push_heap(self.goals, Goal(self.next(s0), None, f0))
+        self.push_heap(Goal(self.next(s0), None, f0))
         while self.goals:
             f, g = heapq.heappop(self.goals)
             sys.stdout.write("%d." % f)
@@ -287,10 +290,10 @@ class MiniIC3:
             if is_sat == unsat:
                self.block_cube(f, self.prev(cube))
                if f < f0:
-                  push_heap(self.goals, Goal(g.cube, g.parent, f + 1))
+                  self.push_heap(Goal(g.cube, g.parent, f + 1))
             elif is_sat == sat:
-               push_heap(self.goals, Goal(cube, g, f - 1))
-               push_heap(self.goals, g)
+               self.push_heap(Goal(cube, g, f - 1))
+               self.push_heap(g)
             else:
                return is_sat
         print("")
@@ -322,7 +325,7 @@ class MiniIC3:
         return cube, f, is_sat
                         
     def run(self):
-        if not self.check_init():
+        if not check_disjoint(self.init, self.bad):
            return "goal is reached in initial state"
         level = 0
         while True:
@@ -361,3 +364,76 @@ def test(file):
 
 test("data/horn1.smt2")
 test("data/horn2.smt2")
+
+
+
+"""
+# TBD: Quip variant of IC3
+
+must = True
+may = False
+
+class QGoal:
+    def __init__(self, cube, parent, level, must):
+        self.level = level
+        self.cube = cube
+        self.parent = parent
+        self.must = must
+
+class Quipie(MiniIC3):
+
+    # prev & tras -> r', such that r' intersects with cube
+    def add_reachable(self, prev, cube):
+        s = fd_solver()
+        s.add(self.trans)
+        s.add(prev)
+        s.add(Or(cube))
+        is_sat = s.check()
+        assert is_sat == sat
+        m = s.model();
+        result = [self.prev(lit) for lit in cube if is_true(m.eval(lit))]
+        # ? result = self.values2literals(m, cube)
+        assert result
+        self.reachable.add(result)
+
+    # A state s0 and level f0 such that
+    # not(s0) is f0-1 inductive
+    def quipie_blocked(self, s0, f0):
+        self.push_heap(QGoal(self.next(s0), None, f0, must))
+        while self.goals:
+           f, g = heapq.heappop(self.goals)
+           sys.stdout.write("%d." % f)
+           sys.stdout.flush()
+           if f == 0:
+              if g.must:
+                 print("")
+                 return g
+              self.add_reachable(self.init, p.parent.cube)
+              continue
+
+        # TBD
+        return None
+
+                        
+    def run(self):
+        if not check_disjoint(self.init, self.bad):
+           return "goal is reached in initial state"
+        level = 0
+        while True:
+            inv = self.is_valid()
+            if inv is not None:
+                return inv
+            is_sat, cube = self.unfold()
+            if is_sat == unsat:
+               level += 1
+               print("Unfold %d" % level)
+               sys.stdout.flush()
+               self.add_solver()
+            elif is_sat == sat:
+               cex = self.quipie_blocked(cube, level)
+               if cex is not None:
+                  return cex
+            else:
+               return is_sat  
+
+"""
