@@ -2963,13 +2963,22 @@ public:
         }
     }
 
-    bool get_value(enode* n, expr_ref& r) {
+    bool get_value(enode* n, rational& val) {
         theory_var v = n->get_th_var(get_id());            
         if (!can_get_bound(v)) return false;
         lp::var_index vi = m_theory_var2var_index[v];
-        rational val;
         if (m_solver->has_value(vi, val)) {
             if (is_int(n) && !val.is_int()) return false;
+            return true;
+        }
+        else {
+            return false;
+        }
+    }    
+
+    bool get_value(enode* n, expr_ref& r) {
+        rational val;
+        if (get_value(n, val)) {
             r = a.mk_numeral(val, is_int(n));
             return true;
         }
@@ -2978,7 +2987,7 @@ public:
         }
     }    
 
-    bool get_lower(enode* n, expr_ref& r) {
+    bool get_lower(enode* n, rational& val, bool& is_strict) {
         theory_var v = n->get_th_var(get_id());
         if (!can_get_bound(v)) {
             TRACE("arith", tout << "cannot get lower for " << v << "\n";);
@@ -2986,29 +2995,36 @@ public:
         }
         lp::var_index vi = m_theory_var2var_index[v];
         lp::constraint_index ci;
-        rational val;
+        return m_solver->has_lower_bound(vi, ci, val, is_strict);
+    }
+
+    bool get_lower(enode* n, expr_ref& r) {
         bool is_strict;
-        if (m_solver->has_lower_bound(vi, ci, val, is_strict)) {
+        rational val;
+        if (get_lower(n, val, is_strict) && !is_strict) {
             r = a.mk_numeral(val, is_int(n));
             return true;
         }
-        TRACE("arith", m_solver->print_constraints(tout << "does not have lower bound " << vi << "\n"););
         return false;
     }
 
-    bool get_upper(enode* n, expr_ref& r) {
+    bool get_upper(enode* n, rational& val, bool& is_strict) {
         theory_var v = n->get_th_var(get_id());
         if (!can_get_bound(v))
             return false;
         lp::var_index vi = m_theory_var2var_index[v];
         lp::constraint_index ci;
-        rational val;
+        return m_solver->has_upper_bound(vi, ci, val, is_strict);
+
+    }
+
+    bool get_upper(enode* n, expr_ref& r) {
         bool is_strict;
-        if (m_solver->has_upper_bound(vi, ci, val, is_strict)) {
+        rational val;
+        if (get_upper(n, val, is_strict) && !is_strict) {
             r = a.mk_numeral(val, is_int(n));
             return true;
         }
-        TRACE("arith", m_solver->print_constraints(tout << "does not have upper bound " << vi << "\n"););
         return false;
     }
 
@@ -3439,6 +3455,9 @@ void theory_lra::init_model(model_generator & m) {
 model_value_proc * theory_lra::mk_value(enode * n, model_generator & mg) {
     return m_imp->mk_value(n, mg);
 }
+bool theory_lra::get_value(enode* n, rational& r) {
+    return m_imp->get_value(n, r);
+}
 bool theory_lra::get_value(enode* n, expr_ref& r) {
     return m_imp->get_value(n, r);
 }
@@ -3447,6 +3466,12 @@ bool theory_lra::get_lower(enode* n, expr_ref& r) {
 }
 bool theory_lra::get_upper(enode* n, expr_ref& r) {
     return m_imp->get_upper(n, r);
+}
+bool theory_lra::get_lower(enode* n, rational& r, bool& is_strict) {
+    return m_imp->get_lower(n, r, is_strict);
+}
+bool theory_lra::get_upper(enode* n, rational& r, bool& is_strict) {
+    return m_imp->get_upper(n, r, is_strict);
 }
 
 bool theory_lra::validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
