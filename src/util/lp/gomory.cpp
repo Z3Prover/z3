@@ -39,57 +39,59 @@ class gomory::imp {
     const impq & upper_bound(unsigned j) const  { return m_int_solver.upper_bound(j); }
     constraint_index column_lower_bound_constraint(unsigned j) const { return m_int_solver.column_lower_bound_constraint(j); }
     constraint_index column_upper_bound_constraint(unsigned j) const { return m_int_solver.column_upper_bound_constraint(j); }
-
-    void int_case_in_gomory_cut(const mpq & a, unsigned x_j,
-                                            mpq & lcm_den, const mpq& f_0, const mpq& one_minus_f_0) {
-        lp_assert(is_int(x_j));
-        lp_assert(!a.is_int());
-        mpq f_j =  int_solver::fractional_part(a);
+    bool column_is_fixed(unsigned j) const { return m_int_solver.m_lar_solver->column_is_fixed(j); }
+    void int_case_in_gomory_cut(const mpq & a, unsigned j,
+                                            mpq & lcm_den, const mpq& f0, const mpq& one_minus_f0) {
+        lp_assert(is_int(j) && !a.is_int());
+        mpq fj =  int_solver::fractional_part(a);
+        lp_assert(fj.is_pos());
         TRACE("gomory_cut_detail", 
-              tout << a << " x_j" << x_j << " k = " << m_k << "\n";
-              tout << "f_j: " << f_j << "\n";
-              tout << "f_0: " << f_0 << "\n";
-              tout << "1 - f_0: " << 1 - f_0 << "\n";
-              tout << "at_lower(" << x_j << ") = " << at_lower(x_j) << std::endl;
+              tout << a << " j=" << j << " k = " << m_k;
+              tout << ", fj: " << fj << ", ";
+              tout << "f0: " << f0 << ", ";
+              tout << "1 - f0: " << 1 - f0 << ", ";
+              tout << (at_lower(j)?"at_lower":"at_upper")<< std::endl;
               );
-        lp_assert (!f_j.is_zero());
         mpq new_a;
-        if (at_lower(x_j)) {
-            if (f_j <= one_minus_f_0) {
-                new_a = f_j / one_minus_f_0;
+        mpq one_minus_fj = 1 - fj;
+        if (at_lower(j)) {
+            bool go_for_pos_a = fj / one_minus_f0 <  one_minus_fj / f0;
+            if (go_for_pos_a) {
+                new_a = fj / one_minus_f0;
             }
             else {
-                new_a = (1 - f_j) / f_0;
+                new_a = one_minus_fj / f0;
             }
-            m_k.addmul(new_a, lower_bound(x_j).x);
-            m_ex.push_justification(column_lower_bound_constraint(x_j), new_a);
+            m_k.addmul(new_a, lower_bound(j).x);
+            m_ex.push_justification(column_lower_bound_constraint(j), new_a);
         }
         else {
-            lp_assert(at_upper(x_j));
-            if (f_j <= f_0) {
-                new_a = f_j / f_0;
+            bool go_for_pos_a = fj / f0 < one_minus_fj / one_minus_f0;
+            lp_assert(at_upper(j));
+            // the upper terms are inverted
+            if (go_for_pos_a) {
+                new_a = - fj / f0;
             }
             else {
-                new_a = (mpq(1) - f_j) / one_minus_f_0;
+                new_a =  - one_minus_fj / one_minus_f0;
             }
-            new_a.neg(); // the upper terms are inverted
-            m_k.addmul(new_a, upper_bound(x_j).x);
-            m_ex.push_justification(column_upper_bound_constraint(x_j), new_a);
+            m_k.addmul(new_a, upper_bound(j).x);
+            m_ex.push_justification(column_upper_bound_constraint(j), new_a);
         }
         TRACE("gomory_cut_detail", tout << "new_a: " << new_a << " k: " << m_k << "\n";);
-        m_t.add_monomial(new_a, x_j);
+        m_t.add_monomial(new_a, j);
         lcm_den = lcm(lcm_den, denominator(new_a));
     }
 
-    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, const mpq& f_0, const mpq& one_minus_f_0) {
+    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, const mpq& f0, const mpq& one_minus_f0) {
         TRACE("gomory_cut_detail_real", tout << "real\n";);
         mpq new_a;
         if (at_lower(x_j)) {
             if (a.is_pos()) {
-                new_a  =  a / one_minus_f_0;
+                new_a  =  a / one_minus_f0;
             }
             else {
-                new_a  =  a / f_0;
+                new_a  =  a / f0;
                 new_a.neg();
             }
             m_k.addmul(new_a, lower_bound(x_j).x); // is it a faster operation than
@@ -99,11 +101,11 @@ class gomory::imp {
         else {
             lp_assert(at_upper(x_j));
             if (a.is_pos()) {
-                new_a =   a / f_0; 
+                new_a =   a / f0; 
                 new_a.neg(); // the upper terms are inverted.
             }
             else {
-                new_a =   a / one_minus_f_0; 
+                new_a =   a / one_minus_f0; 
             }
             m_k.addmul(new_a, upper_bound(x_j).x); //  k += upper_bound(x_j).x * new_a; 
             m_ex.push_justification(column_upper_bound_constraint(x_j), new_a);
@@ -173,23 +175,28 @@ public:
         // gomory will be   t <= k and the current solution has a property t > k
         m_k = 1;
         mpq lcm_den(1);
-        unsigned x_j;
-        mpq a;
         bool some_int_columns = false;
-        mpq f_0  = int_solver::fractional_part(get_value(m_inf_col));
-        mpq one_min_f_0 = 1 - f_0;
+        mpq f0  = int_solver::fractional_part(get_value(m_inf_col));
+        mpq one_min_f0 = 1 - f0;
         for (const auto & p : m_row) {
-            x_j = p.var();
-            if (x_j == m_inf_col)
+            unsigned j = p.var();
+            if (column_is_fixed(j)) {
+                m_ex.push_justification(column_lower_bound_constraint(j));
+                m_ex.push_justification(column_upper_bound_constraint(j));
                 continue;
+            }
+            if (j == m_inf_col) {
+                lp_assert(p.coeff() == one_of_type<mpq>());
+                TRACE("gomory_cut_detail", tout << "seeing basic var";);
+                continue;
+            }
             // make the format compatible with the format used in: Integrating Simplex with DPLL(T)
-            a = p.coeff();
-            a.neg();  
-            if (is_real(x_j)) 
-                real_case_in_gomory_cut(a, x_j, f_0, one_min_f_0);
-            else if (!a.is_int()) { // f_j will be zero and no monomial will be added
+            mpq a = - p.coeff();
+            if (is_real(j)) 
+                real_case_in_gomory_cut(a, j, f0, one_min_f0);
+            else if (!a.is_int()) { // fj will be zero and no monomial will be added
                 some_int_columns = true;
-                int_case_in_gomory_cut(a, x_j, lcm_den, f_0, one_min_f_0);
+                int_case_in_gomory_cut(a, j, lcm_den, f0, one_min_f0);
             }
         }
 

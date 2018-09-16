@@ -1645,7 +1645,6 @@ void lar_solver::push_and_register_term(lar_term* t) {
 // terms
 var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
                                const mpq &m_v) {
-    TRACE("add_term_lar_solver", print_linear_combination_of_column_indices(coeffs, tout););
     if (strategy_is_undecided())
         return add_term_undecided(coeffs, m_v);
 
@@ -1657,6 +1656,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
         if (m_settings.bound_propagation())
             m_rows_with_changed_bounds.insert(A_r().row_count() - 1);
     }
+    CTRACE("add_term_lar_solver", !m_v.is_zero(), print_term(*m_terms.back(), tout););
     lp_assert(m_var_register.size() == A_r().column_count());
     return ret;
 }
