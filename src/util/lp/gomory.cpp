@@ -55,26 +55,18 @@ class gomory::imp {
         mpq new_a;
         mpq one_minus_fj = 1 - fj;
         if (at_lower(j)) {
-            bool go_for_pos_a = fj / one_minus_f0 <  one_minus_fj / f0;
-            if (go_for_pos_a) {
-                new_a = fj / one_minus_f0;
-            }
-            else {
-                new_a = one_minus_fj / f0;
-            }
+            mpq fj_over_one_min_f0 = fj / one_minus_f0;
+            mpq one_minus_fj_over_f0 = one_minus_fj / f0;
+            new_a = fj_over_one_min_f0 < one_minus_fj_over_f0? fj_over_one_min_f0 : one_minus_fj_over_f0;
             m_k.addmul(new_a, lower_bound(j).x);
             m_ex.push_justification(column_lower_bound_constraint(j), new_a);
         }
         else {
-            bool go_for_pos_a = fj / f0 < one_minus_fj / one_minus_f0;
+            mpq fj_over_f0 = fj / f0;
+            mpq one_minus_fj_over_one_minus_f0 = one_minus_fj / one_minus_f0;
             lp_assert(at_upper(j));
-            // the upper terms are inverted
-            if (go_for_pos_a) {
-                new_a = - fj / f0;
-            }
-            else {
-                new_a =  - one_minus_fj / one_minus_f0;
-            }
+            // the upper terms are inverted - therefore we have -
+            new_a = - (fj_over_f0 < one_minus_fj_over_one_minus_f0? fj_over_f0 : one_minus_fj_over_one_minus_f0);
             m_k.addmul(new_a, upper_bound(j).x);
             m_ex.push_justification(column_upper_bound_constraint(j), new_a);
         }
