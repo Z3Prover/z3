@@ -30,6 +30,7 @@
 #include "smt/params/theory_str_params.h"
 #include "smt/proto_model/value_factory.h"
 #include "smt/smt_model_generator.h"
+#include "smt/smt_arith_value.h"
 #include<set>
 #include<stack>
 #include<vector>
@@ -546,6 +547,7 @@ protected:
     void process_concat_eq_unroll(expr * concat, expr * unroll);
 
     // regex automata and length-aware regex
+    void solve_regex_automata();
     unsigned estimate_regex_complexity(expr * re);
     unsigned estimate_regex_complexity_under_complement(expr * re);
     unsigned estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2);

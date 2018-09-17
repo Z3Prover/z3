@@ -36,6 +36,7 @@ namespace smt {
         unsigned_vector m_var2enode_lim;
 
         friend class context;
+        friend class arith_value;
     protected:
         virtual void init(context * ctx);
 
