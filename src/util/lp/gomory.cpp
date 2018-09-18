@@ -71,7 +71,7 @@ class gomory::imp {
         else {
             lp_assert(at_upper(j));
             // the upper terms are inverted: therefore we have the minus
-            new_a = - (fj < f0? fj / f0 : (- one_minus_fj / one_minus_f0));
+            new_a = fj < f0? (- fj / f0 ) : (one_minus_fj / one_minus_f0);
             m_k.addmul(new_a, upper_bound(j).x);
             m_ex.push_justification(column_upper_bound_constraint(j), new_a);
         }
