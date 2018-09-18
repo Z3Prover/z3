@@ -190,12 +190,13 @@ class gomory::imp {
     
     void dump_row_coefficients(std::ostream & out) const {
         for (const auto& p : m_row) {
-            dump_coeff(out, p);
+            if (!column_is_fixed(p.var()))
+                dump_coeff(out, p);
         }
     }
     
     void dump_the_row(std::ostream& out) const {
-        out << "; the row\n";
+        out << "; the row, excluding fixed vars\n";
         out << "(assert ( = ( + ";
         dump_row_coefficients(out);
         out << ") 0))\n";
@@ -204,6 +205,7 @@ class gomory::imp {
     void dump_declarations(std::ostream& out) const {
         // for a column j the var name is vj
         for (const auto & p : m_row) {
+            if (column_is_fixed(p.var())) continue;
             out << "(declare-fun " << var_name(p.var()) << " () "
                 << (is_int(p.var())? "Int" : "Real") << ")\n";
         }
@@ -217,8 +219,9 @@ class gomory::imp {
     }
     
     void dump_explanations(std::ostream& out) const {
-        for (const auto & p : m_row) {
+        for (const auto & p : m_row) {            
             unsigned j = p.var();
+            if (column_is_fixed(j)) continue;
             if (j == m_inf_col) {
                 continue;
             }
