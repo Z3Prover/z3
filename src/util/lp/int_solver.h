@@ -113,17 +113,9 @@ private:
     bool has_low(unsigned j) const;
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
-    inline static bool is_rational(const impq & n) {
-        return is_zero(n.y);  
-    }
 
 public:
     void display_column(std::ostream & out, unsigned j) const;
-    inline static
-    mpq fractional_part(const impq & n) {
-        lp_assert(is_rational(n));
-        return n.x - floor(n.x);
-    }
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
     bool current_solution_is_inf_on_cut() const;
