@@ -17,7 +17,6 @@ Author:
 Revision History:
 
 --*/
-#pragma once;
 
 #include "smt/smt_arith_value.h"
 #include "smt/theory_lra.h"

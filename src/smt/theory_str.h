@@ -582,6 +582,8 @@ protected:
     bool can_concat_eq_str(expr * concat, zstring& str);
     bool can_concat_eq_concat(expr * concat1, expr * concat2);
     bool check_concat_len_in_eqc(expr * concat);
+    void check_eqc_empty_string(expr * lhs, expr * rhs);
+    void check_eqc_concat_concat(std::set<expr*> & eqc_concat_lhs, std::set<expr*> & eqc_concat_rhs);
     bool check_length_consistency(expr * n1, expr * n2);
     bool check_length_const_string(expr * n1, expr * constStr);
     bool check_length_eq_var_concat(expr * n1, expr * n2);

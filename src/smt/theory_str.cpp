@@ -8097,31 +8097,7 @@ namespace smt {
 
         // BEGIN new_eq_handler() in strTheory
 
-        {
-            rational nn1Len, nn2Len;
-            bool nn1Len_exists = get_len_value(lhs, nn1Len);
-            bool nn2Len_exists = get_len_value(rhs, nn2Len);
-            expr_ref emptyStr(mk_string(""), m);
-
-            if (nn1Len_exists && nn1Len.is_zero()) {
-                if (!in_same_eqc(lhs, emptyStr) && rhs != emptyStr) {
-                    expr_ref eql(ctx.mk_eq_atom(mk_strlen(lhs), mk_int(0)), m);
-                    expr_ref eqr(ctx.mk_eq_atom(lhs, emptyStr), m);
-                    expr_ref toAssert(ctx.mk_eq_atom(eql, eqr), m);
-                    assert_axiom(toAssert);
-                }
-            }
-
-            if (nn2Len_exists && nn2Len.is_zero()) {
-                if (!in_same_eqc(rhs, emptyStr) && lhs != emptyStr) {
-                    expr_ref eql(ctx.mk_eq_atom(mk_strlen(rhs), mk_int(0)), m);
-                    expr_ref eqr(ctx.mk_eq_atom(rhs, emptyStr), m);
-                    expr_ref toAssert(ctx.mk_eq_atom(eql, eqr), m);
-                    assert_axiom(toAssert);
-                }
-            }
-        }
-
+        check_eqc_empty_string(lhs, rhs);
         instantiate_str_eq_length_axiom(ctx.get_enode(lhs), ctx.get_enode(rhs));
 
         // group terms by equivalence class (groupNodeInEqc())
@@ -8173,52 +8149,7 @@ namespace smt {
               );
 
         // step 1: Concat == Concat
-        int hasCommon = 0;
-        if (eqc_concat_lhs.size() != 0 && eqc_concat_rhs.size() != 0) {
-            std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
-            std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
-            for (; itor1 != eqc_concat_lhs.end(); itor1++) {
-                if (eqc_concat_rhs.find(*itor1) != eqc_concat_rhs.end()) {
-                    hasCommon = 1;
-                    break;
-                }
-            }
-            for (; itor2 != eqc_concat_rhs.end(); itor2++) {
-                if (eqc_concat_lhs.find(*itor2) != eqc_concat_lhs.end()) {
-                    hasCommon = 1;
-                    break;
-                }
-            }
-            if (hasCommon == 0) {
-                if (opt_ConcatOverlapAvoid) {
-                    bool found = false;
-                    // check each pair and take the first ones that won't immediately overlap
-                    for (itor1 = eqc_concat_lhs.begin(); itor1 != eqc_concat_lhs.end() && !found; ++itor1) {
-                        expr * concat_lhs = *itor1;
-                        for (itor2 = eqc_concat_rhs.begin(); itor2 != eqc_concat_rhs.end() && !found; ++itor2) {
-                            expr * concat_rhs = *itor2;
-                            if (will_result_in_overlap(concat_lhs, concat_rhs)) {
-                                TRACE("str", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
-                                      << mk_pp(concat_rhs, m) << " will result in overlap; skipping." << std::endl;);
-                            } else {
-                                TRACE("str", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
-                                      << mk_pp(concat_rhs, m) << " won't overlap. Simplifying here." << std::endl;);
-                                simplify_concat_equality(concat_lhs, concat_rhs);
-                                found = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!found) {
-                        TRACE("str", tout << "All pairs of concats expected to overlap, falling back." << std::endl;);
-                        simplify_concat_equality(*(eqc_concat_lhs.begin()), *(eqc_concat_rhs.begin()));
-                    }
-                } else {
-                    // default behaviour
-                    simplify_concat_equality(*(eqc_concat_lhs.begin()), *(eqc_concat_rhs.begin()));
-                }
-            }
-        }
+        check_eqc_concat_concat(eqc_concat_lhs, eqc_concat_rhs);
 
         // step 2: Concat == Constant
 
@@ -8269,6 +8200,86 @@ namespace smt {
             }
         }
 
+    }
+
+    // Check that a string's length can be 0 iff it is the empty string.
+    void theory_str::check_eqc_empty_string(expr * lhs, expr * rhs) {
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+
+        rational nn1Len, nn2Len;
+        bool nn1Len_exists = get_len_value(lhs, nn1Len);
+        bool nn2Len_exists = get_len_value(rhs, nn2Len);
+        expr_ref emptyStr(mk_string(""), m);
+
+        if (nn1Len_exists && nn1Len.is_zero()) {
+            if (!in_same_eqc(lhs, emptyStr) && rhs != emptyStr) {
+                expr_ref eql(ctx.mk_eq_atom(mk_strlen(lhs), mk_int(0)), m);
+                expr_ref eqr(ctx.mk_eq_atom(lhs, emptyStr), m);
+                expr_ref toAssert(ctx.mk_eq_atom(eql, eqr), m);
+                assert_axiom(toAssert);
+            }
+        }
+
+        if (nn2Len_exists && nn2Len.is_zero()) {
+            if (!in_same_eqc(rhs, emptyStr) && lhs != emptyStr) {
+                expr_ref eql(ctx.mk_eq_atom(mk_strlen(rhs), mk_int(0)), m);
+                expr_ref eqr(ctx.mk_eq_atom(rhs, emptyStr), m);
+                expr_ref toAssert(ctx.mk_eq_atom(eql, eqr), m);
+                assert_axiom(toAssert);
+            }
+        }
+    }
+
+    void theory_str::check_eqc_concat_concat(std::set<expr*> & eqc_concat_lhs, std::set<expr*> & eqc_concat_rhs) {
+        ast_manager & m = get_manager();
+
+        int hasCommon = 0;
+        if (eqc_concat_lhs.size() != 0 && eqc_concat_rhs.size() != 0) {
+            std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
+            std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
+            for (; itor1 != eqc_concat_lhs.end(); itor1++) {
+                if (eqc_concat_rhs.find(*itor1) != eqc_concat_rhs.end()) {
+                    hasCommon = 1;
+                    break;
+                }
+            }
+            for (; itor2 != eqc_concat_rhs.end(); itor2++) {
+                if (eqc_concat_lhs.find(*itor2) != eqc_concat_lhs.end()) {
+                    hasCommon = 1;
+                    break;
+                }
+            }
+            if (hasCommon == 0) {
+                if (opt_ConcatOverlapAvoid) {
+                    bool found = false;
+                    // check each pair and take the first ones that won't immediately overlap
+                    for (itor1 = eqc_concat_lhs.begin(); itor1 != eqc_concat_lhs.end() && !found; ++itor1) {
+                        expr * concat_lhs = *itor1;
+                        for (itor2 = eqc_concat_rhs.begin(); itor2 != eqc_concat_rhs.end() && !found; ++itor2) {
+                            expr * concat_rhs = *itor2;
+                            if (will_result_in_overlap(concat_lhs, concat_rhs)) {
+                                TRACE("str", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
+                                        << mk_pp(concat_rhs, m) << " will result in overlap; skipping." << std::endl;);
+                            } else {
+                                TRACE("str", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
+                                        << mk_pp(concat_rhs, m) << " won't overlap. Simplifying here." << std::endl;);
+                                simplify_concat_equality(concat_lhs, concat_rhs);
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!found) {
+                        TRACE("str", tout << "All pairs of concats expected to overlap, falling back." << std::endl;);
+                        simplify_concat_equality(*(eqc_concat_lhs.begin()), *(eqc_concat_rhs.begin()));
+                    }
+                } else {
+                    // default behaviour
+                    simplify_concat_equality(*(eqc_concat_lhs.begin()), *(eqc_concat_rhs.begin()));
+                }
+            }
+        }
     }
 
     void theory_str::set_up_axioms(expr * ex) {
