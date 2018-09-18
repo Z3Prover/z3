@@ -20,19 +20,10 @@
 #include "util/lp/gomory.h"
 #include "util/lp/int_solver.h"
 #include "util/lp/lar_solver.h"
+#include "util/lp/lp_utils.h"
 namespace lp {
 
 class gomory::imp {
-    inline static bool is_rational(const impq & n) { return is_zero(n.y); }
-
-    inline static mpq fractional_part(const impq & n) {
-        lp_assert(is_rational(n));
-        return n.x - floor(n.x);
-    }
-    inline static mpq fractional_part(const mpq & n) {
-        return n - floor(n);
-    }
-
     lar_term   &          m_t; // the term to return in the cut
     mpq        &          m_k; // the right side of the cut
     explanation&          m_ex; // the conflict explanation

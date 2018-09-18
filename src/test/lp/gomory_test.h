@@ -1,4 +1,5 @@
 namespace lp {
+#include "util/lp/lp_utils.h"
 struct gomory_test {
     gomory_test(
         std::function<std::string (unsigned)> name_function_p,
@@ -88,7 +89,7 @@ struct gomory_test {
         lp_assert(is_int(x_j));
         lp_assert(!a.is_int());
              lp_assert(f_0 > zero_of_type<mpq>() && f_0 < one_of_type<mpq>());
-        mpq f_j =  int_solver::fractional_part(a);
+        mpq f_j =  fractional_part(a);
         TRACE("gomory_cut_detail", 
               tout << a << " x_j = " << x_j << ", k = " << k << "\n";
               tout << "f_j: " << f_j << "\n";
@@ -206,7 +207,7 @@ struct gomory_test {
         unsigned x_j;
         mpq a;
         bool some_int_columns = false;
-        mpq f_0  = int_solver::fractional_part(get_value(inf_col));
+        mpq f_0  = fractional_part(get_value(inf_col));
         mpq one_min_f_0 = 1 - f_0;
         for ( auto pp : row) {
             a = pp.first;
