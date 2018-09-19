@@ -24,7 +24,7 @@ Revision History:
 #include "util/params.h"
 #include "nlsat/nlsat_solver.h"
 #include "util/lp/lar_solver.h"
-namespace niil {
+namespace nla {
 struct ineq {
     lp::lconstraint_kind m_cmp;
     lp::lar_term         m_term;
