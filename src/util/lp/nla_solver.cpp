@@ -21,7 +21,7 @@
 #include "util/map.h"
 #include "util/lp/mon_eq.h"
 #include "util/lp/lp_utils.h"
-namespace niil {
+namespace nla {
 typedef lp::constraint_index     lpci;
 typedef std::unordered_set<lpci> expl_set;
 typedef nra::mon_eq              mon_eq;
@@ -251,7 +251,7 @@ struct solver::imp {
             fill_explanation_and_lemma_sign(m_monomials[i_mon],
                                        other_m,
                                        sign * other_sign);
-            TRACE("niil_solver", tout << "lemma generated\n";);
+            TRACE("nla_solver", tout << "lemma generated\n";);
             return true;
         }
             
@@ -291,7 +291,7 @@ struct solver::imp {
         add_explanation_of_reducing_to_mininal_monomial(b, expl);
         m_expl->clear();
         m_expl->add(expl);
-        TRACE("niil_solver",
+        TRACE("nla_solver",
               tout << "used constraints: ";
               for (auto &p : *m_expl)
                   m_lar_solver.print_constraint(p.second, tout); tout << "\n";
@@ -299,7 +299,7 @@ struct solver::imp {
         lp::lar_term t;
         t.add_coeff_var(rational(1), a.var());
         t.add_coeff_var(rational(- sign), b.var());
-        TRACE("niil_solver", print_explanation_and_lemma(tout););
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
         ineq in(lp::lconstraint_kind::NE, t);
         m_lemma->push_back(in);
     }
@@ -465,7 +465,7 @@ struct solver::imp {
         default:
             if (mon_val.is_zero() && var_is_fixed_to_zero(mon.var())) {
                 create_lemma_one_of_the_factors_is_zero(mon);
-                TRACE("niil_solver", print_explanation_and_lemma(tout););
+                TRACE("nla_solver", print_explanation_and_lemma(tout););
                 return true;
             }
             return false;
@@ -475,7 +475,7 @@ struct solver::imp {
         t.m_v = -rs;
         ineq in(kind, t);
         m_lemma->push_back(in);
-        TRACE("niil_solver", print_explanation_and_lemma(tout););
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
         return true;
     }
 
@@ -590,7 +590,7 @@ struct solver::imp {
     }
 
     vector<mono_index_with_sign> get_ones_of_monomimal(const svector<lpvar> & vars) {
-        TRACE("niil_solver", tout << "get_ones_of_monomimal";);
+        TRACE("nla_solver", tout << "get_ones_of_monomimal";);
         vector<mono_index_with_sign> ret;
         for (unsigned i = 0; i < vars.size(); i++) {
             mono_index_with_sign mi;
@@ -722,7 +722,7 @@ struct solver::imp {
         t.add_coeff_var(rational(- sign), j);
         ineq in(lp::lconstraint_kind::EQ, t);
         m_lemma->push_back(in);
-        TRACE("niil_solver", print_explanation_and_lemma(tout););
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
     }
     
     // vars here are minimal vars for m.vs
@@ -738,7 +738,7 @@ struct solver::imp {
                 if (mask[k] == 0) {
                     mask[k] = 1;
                     sign *= ones_of_monomial[k].m_sign;
-                    TRACE("niil_solver", tout << "index m_i = " << ones_of_monomial[k].m_i;);
+                    TRACE("nla_solver", tout << "index m_i = " << ones_of_monomial[k].m_i;);
                     vars.erase(vars.begin() + ones_of_monomial[k].m_i);
                     std::sort(vars.begin(), vars.end());
                     // now the value of vars has to be v*sign
@@ -811,7 +811,7 @@ struct solver::imp {
     
     bool large_lemma_for_proportion_case(const mon_eq& m, const unsigned_vector & mask,
                                          const unsigned_vector & large, unsigned j) {
-        TRACE("niil_solver", );
+        TRACE("nla_solver", );
         const rational j_val = m_lar_solver.get_column_value_rational(j);
         const rational m_val = m_lar_solver.get_column_value_rational(m.m_v);
         const rational m_abs_val = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
@@ -835,7 +835,7 @@ struct solver::imp {
 
     bool small_lemma_for_proportion_case(const mon_eq& m, const unsigned_vector & mask,
                                          const unsigned_vector & _small, unsigned j) {
-        TRACE("niil_solver", );
+        TRACE("nla_solver", );
         const rational j_val = m_lar_solver.get_column_value_rational(j);
         const rational m_val = m_lar_solver.get_column_value_rational(m.m_v);
         const rational m_abs_val = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
@@ -891,7 +891,7 @@ struct solver::imp {
         for (unsigned k = 0; k < mask.size(); k++) {
             if (mask[k] == 0) {
                 mask[k] = 1;
-                TRACE("niil_solver", tout << "large[" << k << "] = " << large[k];);
+                TRACE("nla_solver", tout << "large[" << k << "] = " << large[k];);
                 SASSERT(std::find(vars.begin(), vars.end(), vars_copy[large[k]]) != vars.end());
                 vars.erase(vars_copy[large[k]]);
                 std::sort(vars.begin(), vars.end());
@@ -899,7 +899,7 @@ struct solver::imp {
                 lpvar j;
                 if (find_compimenting_monomial(vars, j) &&
                     large_lemma_for_proportion_case(m, mask, large, j)) {
-                    TRACE("niil_solver", print_explanation_and_lemma(tout););
+                    TRACE("nla_solver", print_explanation_and_lemma(tout););
                     return true;
                 }
             } else {
@@ -922,7 +922,7 @@ struct solver::imp {
         for (unsigned k = 0; k < mask.size(); k++) {
             if (mask[k] == 0) {
                 mask[k] = 1;
-                TRACE("niil_solver", tout << "_small[" << k << "] = " << _small[k];);
+                TRACE("nla_solver", tout << "_small[" << k << "] = " << _small[k];);
                 SASSERT(std::find(vars.begin(), vars.end(), vars_copy[_small[k]]) != vars.end());
                 vars.erase(vars_copy[_small[k]]);
                 std::sort(vars.begin(), vars.end());
@@ -930,7 +930,7 @@ struct solver::imp {
                 lpvar j;
                 if (find_compimenting_monomial(vars, j) &&
                     small_lemma_for_proportion_case(m, mask, _small, j)) {
-                    TRACE("niil_solver", print_explanation_and_lemma(tout););
+                    TRACE("nla_solver", print_explanation_and_lemma(tout););
                     return true;
                 }
             } else {
@@ -949,7 +949,7 @@ struct solver::imp {
         unsigned_vector large;
         unsigned_vector _small;
         get_large_and_small_indices_of_monomimal(m, large, _small);
-        TRACE("niil_solver", tout << "large size = " << large.size() << ", _small size = " << _small.size(););
+        TRACE("nla_solver", tout << "large size = " << large.size() << ", _small size = " << _small.size(););
         if (large.empty() && _small.empty())
             return false;
         
@@ -966,7 +966,7 @@ struct solver::imp {
     }
 
     bool generate_basic_lemma_for_mon_proportionality(unsigned i_mon) {
-        TRACE("niil_solver", tout << "generate_basic_lemma_for_mon_proportionality";);
+        TRACE("nla_solver", tout << "generate_basic_lemma_for_mon_proportionality";);
         if (basic_lemma_for_mon_proportionality_from_factors_to_product(i_mon))
             return true;
 
@@ -1172,7 +1172,7 @@ struct solver::imp {
     }
     
     lbool check(lp::explanation & exp, lemma& l) {
-        TRACE("niil_solver", tout << "check of niil";);
+        TRACE("nla_solver", tout << "check of nla";);
         m_expl =   &exp;
         m_lemma =  &l;
         lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
@@ -1185,7 +1185,7 @@ struct solver::imp {
         if (to_refine.empty())
             return l_true;
 
-        TRACE("niil_solver", tout << "to_refine.size() = " << to_refine.size() << std::endl;);
+        TRACE("nla_solver", tout << "to_refine.size() = " << to_refine.size() << std::endl;);
         
         init_search();
         
