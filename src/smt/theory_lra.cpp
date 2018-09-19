@@ -258,23 +258,23 @@ class theory_lra::imp {
 
     // non-linear arithmetic
     scoped_ptr<nra::solver>  m_nra;
-    bool                     m_use_niil;
-    scoped_ptr<niil::solver> m_niil;
+    bool                     m_use_nla;
+    scoped_ptr<nla::solver>  m_nla;
     bool                     m_use_nra_model;
     scoped_ptr<scoped_anum>  m_a1, m_a2;
 
     struct switcher {
         theory_lra::imp& m_th_imp;
         scoped_ptr<nra::solver>*  m_nra;
-        scoped_ptr<niil::solver>* m_niil;
-        bool m_use_niil;
-        switcher(theory_lra::imp& i): m_th_imp(i), m_nra(nullptr), m_niil(nullptr) {
+        scoped_ptr<nla::solver>* m_nla;
+        bool m_use_nla;
+        switcher(theory_lra::imp& i): m_th_imp(i), m_nra(nullptr), m_nla(nullptr) {
         }
 
         bool need_check() {
-            if (m_use_niil) {
-                if (m_niil != nullptr)
-                    return (*m_niil)->need_check();
+            if (m_use_nla) {
+                if (m_nla != nullptr)
+                    return (*m_nla)->need_check();
             }
             else {
                 if (m_nra != nullptr)
@@ -284,9 +284,9 @@ class theory_lra::imp {
         }
         
         void push() {
-            if (m_use_niil) {
-                if (m_niil != nullptr)
-                    (*m_niil)->push();
+            if (m_use_nla) {
+                if (m_nla != nullptr)
+                    (*m_nla)->push();
             }
             else {
                 if (m_nra != nullptr)
@@ -295,9 +295,9 @@ class theory_lra::imp {
         }
 
         void pop(unsigned scopes) {
-            if (m_use_niil) {
-                if (m_niil != nullptr)
-                    (*m_niil)->pop(scopes);
+            if (m_use_nla) {
+                if (m_nla != nullptr)
+                    (*m_nla)->pop(scopes);
             }
             else {
                 if (m_nra != nullptr)
@@ -307,9 +307,9 @@ class theory_lra::imp {
 
         
         void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs) {
-            if (m_use_niil) {
-                m_th_imp.ensure_niil();
-                (*m_niil)->add_monomial(v, sz, vs);
+            if (m_use_nla) {
+                m_th_imp.ensure_nla();
+                (*m_nla)->add_monomial(v, sz, vs);
             }
             else {
                 m_th_imp.ensure_nra();
@@ -383,7 +383,7 @@ class theory_lra::imp {
 
         m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
-        m_switcher.m_use_niil = m_use_niil = lp.niil();
+        m_switcher.m_use_nla = m_use_nla = lp.nla();
         m_lia = alloc(lp::int_solver, m_solver.get());
         get_one(true);
         get_zero(true);
@@ -431,9 +431,14 @@ class theory_lra::imp {
         if (!m_niil) {
             m_niil = alloc(niil::solver, *m_solver.get(), m.limit(), ctx().get_params());
             m_switcher.m_niil = &m_niil;
+
+    void ensure_nla() {
+        if (!m_nla) {
+            m_nla = alloc(nla::solver, *m_solver.get(), m.limit(), ctx().get_params());
+            m_switcher.m_nla = &m_nla;
             for (auto const& _s : m_scopes) {
                 (void)_s;
-                m_niil->push();
+                m_nla->push();
             }
         }
     }
@@ -1600,7 +1605,7 @@ public:
 
     bool is_eq(theory_var v1, theory_var v2) {
         if (m_use_nra_model) {
-            lp_assert(!m_use_niil);
+            lp_assert(!m_use_nla);
             return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
         }
         else {
@@ -2097,9 +2102,9 @@ public:
         return r;
     }
 
-    niil::lemma m_lemma;
+    nla::lemma m_lemma;
  
-    lbool check_aftermath_niil(lbool r) {
+    lbool check_aftermath_nla(lbool r) {
         switch (r) {
         case l_false: {            
             literal_vector core;
@@ -2147,12 +2152,12 @@ public:
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
-        if (!m_nra && !m_niil) return l_true;
+        if (!m_nra && !m_nla) return l_true;
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
         m_explanation.reset();
-        lbool r = m_nra? m_nra->check(m_explanation): m_niil->check(m_explanation, m_lemma);
-        return m_nra? check_aftermath_nra(r) : check_aftermath_niil(r);
+        lbool r = m_nra? m_nra->check(m_explanation): m_nla->check(m_explanation, m_lemma);
+        return m_nra? check_aftermath_nra(r) : check_aftermath_nla(r);
     }
 
     /**
