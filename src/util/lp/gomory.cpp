@@ -168,11 +168,13 @@ public:
         mpq one_min_f0 = 1 - f0;
         for (const auto & p : m_row) {
             unsigned j = p.var();
+#if 1
             if (column_is_fixed(j)) {
                 m_ex.push_justification(column_lower_bound_constraint(j));
                 m_ex.push_justification(column_upper_bound_constraint(j));
                 continue;
             }
+#endif
             if (j == m_inf_col) {
                 lp_assert(p.coeff() == one_of_type<mpq>());
                 TRACE("gomory_cut_detail", tout << "seeing basic var";);
@@ -194,7 +196,7 @@ public:
             adjust_term_and_k_for_some_ints_case_gomory(lcm_den);
         lp_assert(m_int_solver.current_solution_is_inf_on_cut());
         m_int_solver.m_lar_solver->subs_term_columns(m_t, m_k);
-        TRACE("gomory_cut", tout<<"gomory cut:"; m_int_solver.m_lar_solver->print_term(m_t, tout); tout << " <= " << m_k << std::endl;);
+        TRACE("gomory_cut", tout<<"gomory cut:"; m_int_solver.m_lar_solver->print_term(m_t, tout) << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
     imp(lar_term & t, mpq & k, explanation& ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& int_slv ) :

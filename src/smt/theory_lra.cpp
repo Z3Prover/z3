@@ -1629,6 +1629,7 @@ public:
     expr_ref term2expr(lp::lar_term const& term) {
         expr_ref t(m);
         expr_ref_vector ts(m);
+        ts.push_back(a.mk_numeral(term.m_v, true));
         for (auto const& p : term) {
             lp::var_index wi = p.var();
             if (m_solver->is_term(wi)) {

@@ -577,7 +577,7 @@ public:
     }
 
     void print_column_info(unsigned j, std::ostream & out) const {
-        out << "j = " << j << ", name = "<< column_name(j);
+        out << "j = " << j << ",\tname = "<< column_name(j) << "\t";
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
@@ -596,11 +596,11 @@ public:
             lp_assert(false);
         }
         //        out << "basis heading = " << m_basis_heading[j] << std::endl;
-        out << " x =                " << m_x[j];
+        out << "\tx = " << m_x[j];
         if (m_basis_heading[j] >= 0)
             out << " base\n";
         else
-            out << " nbas\n";
+           out << " \n";
     }
 
     bool column_is_free(unsigned j) const { return this->m_column_type[j] == free; }
