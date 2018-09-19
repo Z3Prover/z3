@@ -17,7 +17,7 @@ Author:
 Revision History:
 
 --*/
-#pragma once;
+#pragma once
 
 #include "ast/arith_decl_plugin.h"
 #include "smt/smt_context.h"

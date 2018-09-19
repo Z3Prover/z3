@@ -189,7 +189,7 @@ struct check_return_helper {
         m_lar_solver->set_track_pivoted_rows(m_track_pivoted_rows);
         if (m_r == lia_move::cut || m_r == lia_move::branch) {
             int_solver * s = m_lar_solver->get_int_solver();
-            m_lar_solver->adjust_cut_for_terms(*(s->m_t), *(s->m_k));
+            // m_lar_solver->adjust_cut_for_terms(*(s->m_t), *(s->m_k));
         }
     }
 };

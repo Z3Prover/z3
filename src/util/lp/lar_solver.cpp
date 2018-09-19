@@ -1273,7 +1273,7 @@ std::ostream& lar_solver::print_term_as_indices(lar_term const& term, std::ostre
     if (!numeric_traits<mpq>::is_zero(term.m_v)) {
         out << term.m_v << " + ";
     }
-    print_linear_combination_of_column_indices_only(term.coeffs_as_vector(), out);
+    print_linear_combination_of_column_indices_only(term, out);
     return out;
 }
 
