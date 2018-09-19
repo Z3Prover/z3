@@ -22,7 +22,7 @@ z3_add_component(lp
     lp_utils.cpp
     matrix.cpp
     mon_eq.cpp
-    niil_solver.cpp
+    nla_solver.cpp
     nra_solver.cpp
     permutation_matrix.cpp
     random_updater.cpp      
