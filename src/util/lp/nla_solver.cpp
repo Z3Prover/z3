@@ -17,7 +17,7 @@
 
 
   --*/
-#include "util/lp/niil_solver.h"
+#include "util/lp/nla_solver.h"
 #include "util/map.h"
 #include "util/lp/mon_eq.h"
 #include "util/lp/lp_utils.h"
