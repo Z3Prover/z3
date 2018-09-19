@@ -118,6 +118,17 @@ constraint_index int_solver::column_upper_bound_constraint(unsigned j) const {
     return m_lar_solver->get_column_upper_bound_witness(j);
 }
 
+bool int_solver::current_solution_is_inf_on_cut() const {
+    const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
+    impq v = m_t->apply(x);
+    mpq sign = *m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
+    CTRACE("current_solution_is_inf_on_cut", v * sign <= (*m_k) * sign,
+           tout << "m_upper = " << *m_upper << std::endl;
+           tout << "v = " << v << ", k = " << (*m_k) << std::endl;
+          );
+    return v * sign > (*m_k) * sign;
+}
+
 constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
     return m_lar_solver->get_column_lower_bound_witness(j);
 }
