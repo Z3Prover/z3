@@ -42,7 +42,7 @@
 #include "ast/ast_pp.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
-#include "util/lp/niil_solver.h"
+#include "util/lp/nla_solver.h"
 
 namespace lp_api {
 enum bound_kind { lower_t, upper_t };
