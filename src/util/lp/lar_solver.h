@@ -239,8 +239,7 @@ public:
 
     void analyze_new_bounds_on_row_tableau(
         unsigned row_index,
-        bound_propagator & bp
-                                           );
+        bound_propagator & bp);
 
     
     void substitute_basis_var_in_terms_for_row(unsigned i);
@@ -549,7 +548,6 @@ public:
             mpq v = it->second;
             t.m_coeffs.erase(it);
             t.m_coeffs[p.second] = v;
-            if (lt.m_v.is_zero()) continue;
             rs -= v * lt.m_v;
         }
     }

@@ -197,12 +197,21 @@ class gomory::imp {
         out << "(assert ( = ( +";
         dump_row_coefficients(out) << ") 0))\n";
     }
+
+    void dump_declaration(std::ostream& out, unsigned v) const {
+        out << "(declare-const " << var_name(v) << (is_int(v) ? " Int" : " Real") << ")\n";
+    }
     
     void dump_declarations(std::ostream& out) const {
         // for a column j the var name is vj
         for (const auto & p : m_row) {
-            out << "(declare-const " << var_name(p.var()) 
-                << (is_int(p.var())? " Int" : " Real") << ")\n";
+            dump_declaration(out, p.var());
+        }
+        for (const auto& p : m_t) {
+            unsigned v = p.var();
+            if (m_int_solver.m_lar_solver->is_term(v)) {
+                dump_declaration(out, v);
+            }
         }
     }
 
@@ -298,7 +307,7 @@ public:
         lp_assert(m_int_solver.current_solution_is_inf_on_cut());
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
         m_int_solver.m_lar_solver->subs_term_columns(m_t, m_k);
-        // TBD: validate result of subs_term_columns
+        TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t, tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
