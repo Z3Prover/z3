@@ -75,7 +75,7 @@ struct lar_term_constraint: public lar_base_constraint {
     }
     unsigned size() const override { return m_term->size();}
     lar_term_constraint(const lar_term *t, lconstraint_kind kind, const mpq& right_side) : lar_base_constraint(kind, right_side), m_term(t) { }
-    mpq get_free_coeff_of_left_side() const override { return m_term->m_v;}
+    // mpq get_free_coeff_of_left_side() const override { return m_term->m_v;}
 
 };
 

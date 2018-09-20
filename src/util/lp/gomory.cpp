@@ -45,7 +45,7 @@ class gomory::imp {
     void int_case_in_gomory_cut(const mpq & a, unsigned j,
                                 mpq & lcm_den, const mpq& f0, const mpq& one_minus_f0) {
         lp_assert(is_int(j) && !a.is_int());
-        mpq fj =  fractional_part(a);
+        mpq fj = fractional_part(a);
         TRACE("gomory_cut_detail", 
               tout << a << " j=" << j << " k = " << m_k;
               tout << ", fj: " << fj << ", ";
@@ -56,10 +56,9 @@ class gomory::imp {
         mpq new_a;
         if (at_lower(j)) {
             new_a = fj <= one_minus_f0 ? fj / one_minus_f0 : ((1 - fj) / f0);
-            m_k.addmul(new_a, lower_bound(j).x);
-            // m_k += (new_a * lower_bound(j).x);
             lp_assert(new_a.is_pos());
-            m_ex.push_justification(column_lower_bound_constraint(j), new_a);
+            m_k.addmul(new_a, lower_bound(j).x);
+            m_ex.push_justification(column_lower_bound_constraint(j), new_a);            
         }
         else {
             lp_assert(at_upper(j));
@@ -67,7 +66,6 @@ class gomory::imp {
             new_a = - (fj <= f0 ? fj / f0  : ((1 - fj) / one_minus_f0));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
-            // m_k += (new_a * upper_bound(j).x);
             m_ex.push_justification(column_upper_bound_constraint(j), new_a);
         }
         m_t.add_monomial(new_a, j);
@@ -251,9 +249,12 @@ class gomory::imp {
     std::ostream& dump_term_le_k(std::ostream & out) const {
         return dump_term_sum(out << "(<= ") << " " << m_k << ")";
     }
+
     void dump_the_cut_assert(std::ostream & out) const {
         dump_term_le_k(out << "(assert (not ") << "))\n";
     }
+
+
     void dump_cut_and_constraints_as_smt_lemma(std::ostream& out) const {
         dump_declarations(out);
         dump_the_row(out);
@@ -284,7 +285,6 @@ public:
         mpq one_min_f0 = 1 - f0;
         for (const auto & p : m_row) {
             unsigned j = p.var();
-
             if (j == m_inf_col) {
                 lp_assert(p.coeff() == one_of_type<mpq>());
                 TRACE("gomory_cut_detail", tout << "seeing basic var";);
@@ -306,11 +306,11 @@ public:
             adjust_term_and_k_for_some_ints_case_gomory(lcm_den);
         lp_assert(m_int_solver.current_solution_is_inf_on_cut());
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
-        m_int_solver.m_lar_solver->subs_term_columns(m_t, m_k);
-        TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
+        m_int_solver.m_lar_solver->subs_term_columns(m_t);
         TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t, tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
+
     imp(lar_term & t, mpq & k, explanation& ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& int_slv ) :
         m_t(t),
         m_k(k),

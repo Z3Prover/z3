@@ -55,7 +55,7 @@ std::ostream& operator<<(std::ostream& out, bound_kind const& k) {
 }
 
 class bound { 
-    smt::bool_var     m_bv;
+    smt::bool_var    m_bv;
     smt::theory_var  m_var;
     bool             m_is_int;
     rational         m_value;
@@ -165,13 +165,13 @@ class theory_lra::imp {
         expr_ref_vector     m_terms;                     
         vector<rational>    m_coeffs;
         svector<theory_var> m_vars;
-        rational            m_coeff;
+        rational            m_offset;
         ptr_vector<expr>    m_terms_to_internalize;
         internalize_state(ast_manager& m): m_terms(m) {}
         void reset() {
             m_terms.reset();
             m_coeffs.reset();
-            m_coeff.reset();
+            m_offset.reset();
             m_vars.reset();
             m_terms_to_internalize.reset();
         }
@@ -197,7 +197,7 @@ class theory_lra::imp {
         expr_ref_vector&     terms() { return m_st.m_terms; }                     
         vector<rational>&    coeffs() { return m_st.m_coeffs; }
         svector<theory_var>& vars() { return m_st.m_vars; }
-        rational&            coeff() { return m_st.m_coeff; }
+        rational&            offset() { return m_st.m_offset; }
         ptr_vector<expr>&    terms_to_internalize() { return m_st.m_terms_to_internalize; }            
         void push(expr* e, rational c) { m_st.m_terms.push_back(e); m_st.m_coeffs.push_back(c); }
         void set_back(unsigned i) { 
@@ -216,6 +216,8 @@ class theory_lra::imp {
     svector<theory_var>      m_term_index2theory_var;   // reverse map from lp_solver variables to theory variables  
     var_coeffs               m_left_side;              // constraint left side
     mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model
+    lp::var_index m_one_var;
+    lp::var_index m_zero_var;
 
     enum constraint_source {
         inequality_source,
@@ -331,6 +333,32 @@ class theory_lra::imp {
         }
     }
 
+    void add_const(int c, lp::var_index& var) {
+        if (var != UINT_MAX) {
+            return;
+        }
+        app_ref cnst(a.mk_int(c), m);
+        TRACE("arith", tout << "add " << cnst << "\n";);
+        enode* e = mk_enode(cnst);
+        theory_var v = mk_var(cnst);
+        var = m_solver->add_var(v, true);
+        m_theory_var2var_index.setx(v, var, UINT_MAX);
+        m_var_index2theory_var.setx(var, v, UINT_MAX);
+        m_var_trail.push_back(v);
+        add_def_constraint(m_solver->add_var_bound(var, lp::GE, rational(c)));
+        add_def_constraint(m_solver->add_var_bound(var, lp::LE, rational(c)));
+    }
+
+    lp::var_index get_one() {
+        add_const(1, m_one_var);
+        return m_one_var;
+    }
+
+    lp::var_index get_zero() {
+        add_const(0, m_zero_var);
+        return m_zero_var;
+    }
+
 
     void found_not_handled(expr* n) {
         m_not_handled = n;
@@ -375,7 +403,7 @@ class theory_lra::imp {
         expr_ref_vector & terms = st.terms();
         svector<theory_var>& vars = st.vars();
         vector<rational>& coeffs = st.coeffs();
-        rational& coeff = st.coeff();
+        rational& offset = st.offset();
         rational r;
         expr* n1, *n2;
         unsigned index = 0;
@@ -415,7 +443,7 @@ class theory_lra::imp {
                 ++index;
             }
             else if (a.is_numeral(n, r)) {
-                coeff += coeffs[index]*r;
+                offset += coeffs[index]*r;
                 ++index;
             }
             else if (a.is_uminus(n, n1)) {
@@ -427,7 +455,6 @@ class theory_lra::imp {
                 app* t = to_app(n);
                 internalize_args(t);
                 mk_enode(t);
-				
                 theory_var v = mk_var(n);
                 coeffs[vars.size()] = coeffs[index];
                 vars.push_back(v);
@@ -738,7 +765,15 @@ class theory_lra::imp {
     }
        
     bool is_unit_var(scoped_internalize_state& st) {
-        return st.coeff().is_zero() && st.vars().size() == 1 && st.coeffs()[0].is_one();
+        return st.offset().is_zero() && st.vars().size() == 1 && st.coeffs()[0].is_one();
+    }
+
+    bool is_one(scoped_internalize_state& st) {
+        return st.offset().is_one() && st.vars().empty();
+    }
+
+    bool is_zero(scoped_internalize_state& st) {
+        return st.offset().is_zero() && st.vars().empty();
     }
 
     theory_var internalize_def(app* term, scoped_internalize_state& st) {
@@ -771,13 +806,24 @@ class theory_lra::imp {
         if (is_unit_var(st)) {
             return st.vars()[0];
         }
+        else if (is_one(st)) {
+            return get_one();
+        }
+        else if (is_zero(st)) {
+            return get_zero();
+        }
         else {
             init_left_side(st);
             theory_var v = mk_var(term);
             lp::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
-            TRACE("arith", tout << mk_pp(term, m) << " " << v << " " << vi << "\n";);
+            TRACE("arith", tout << mk_pp(term, m) << " v" << v << "\n";);
             if (vi == UINT_MAX) {
-                vi = m_solver->add_term(m_left_side, st.coeff());
+                rational const& offset = st.offset();
+                if (!offset.is_zero()) {
+                    m_left_side.push_back(std::make_pair(offset, get_one()));
+                }
+                SASSERT(!m_left_side.empty());
+                vi = m_solver->add_term(m_left_side);
                 m_theory_var2var_index.setx(v, vi, UINT_MAX);
                 if (m_solver->is_term(vi)) {
                     m_term_index2theory_var.setx(m_solver->adjust_term_index(vi), v, UINT_MAX);
@@ -806,6 +852,8 @@ public:
         m_has_int(false),
         m_arith_eq_adapter(th, ap, a),            
         m_internalize_head(0),
+        m_one_var(UINT_MAX),
+        m_zero_var(UINT_MAX),
         m_not_handled(nullptr),
         m_asserted_qhead(0), 
         m_assume_eq_head(0),
@@ -879,7 +927,7 @@ public:
     }
         
     void internalize_eq_eh(app * atom, bool_var) {
-        expr* lhs = 0, *rhs = 0;
+        expr* lhs = nullptr, *rhs = nullptr;
         VERIFY(m.is_eq(atom, lhs, rhs));
         enode * n1 = get_enode(lhs);
         enode * n2 = get_enode(rhs);
@@ -1197,7 +1245,6 @@ public:
             m_todo_terms.pop_back();
             if (m_solver->is_term(vi)) {
                 const lp::lar_term& term = m_solver->get_term(vi);
-                result += term.m_v * coeff;
                 for (const auto & i:  term) {
                     m_todo_terms.push_back(std::make_pair(i.var(), coeff * i.coeff()));
                 }                    
@@ -1234,7 +1281,6 @@ public:
             m_todo_terms.pop_back();
             if (m_solver->is_term(wi)) {
                 const lp::lar_term& term = m_solver->get_term(wi);
-                result += term.m_v * coeff;
                 for (const auto & i : term) {
                     if (m_variable_values.count(i.var()) > 0) {
                         result += m_variable_values[i.var()] * coeff * i.coeff();
@@ -1481,8 +1527,8 @@ public:
         bool all_bounded = true;
         for (unsigned v = 0; v < nv; ++v) {
             lp::var_index vi = m_theory_var2var_index[v];
-			if (vi == UINT_MAX)
-				continue;
+            if (vi == UINT_MAX)
+                continue;
             if (!m_solver->is_term(vi) && !var_has_bound(vi, true) && !var_has_bound(vi, false)) {
                 lp::lar_term term;
                 term.add_monomial(rational::one(), vi);
@@ -1516,23 +1562,10 @@ public:
             theory_var v  = mk_var(n);
             theory_var v1 = mk_var(p);
             theory_var v2 = mk_var(q);
-            rational r = get_value(v);
             rational r1 = get_value(v1);
-            rational r2 = get_value(v2);
-            rational r3;
-            if (r2.is_zero()) {
-                continue;
-            }
-            if (r1.is_int() && r2.is_int() && r == div(r1, r2)) {
-                continue;
-            }
-            if (r2.is_neg() || r1.is_neg()) {
-                // TBD
-                continue;
-            }
+            rational r2;
 
-            if (!r1.is_int() || !r2.is_int()) {
-                // std::cout << r1 << " " << r2 << " " << r << " " << expr_ref(n, m) << "\n";
+            if (!r1.is_int() || r1.is_neg()) {
                 // TBD
                 // r1 = 223/4, r2 = 2, r = 219/8 
                 // take ceil(r1), floor(r1), ceil(r2), floor(r2), for floor(r2) > 0
@@ -1542,16 +1575,18 @@ public:
                 continue;
             }
 
-            if (a.is_numeral(q, r3)) {
+            if (a.is_numeral(q, r2) && r2.is_pos()) {
+                if (get_value(v) == div(r1, r2)) continue;
             
-                SASSERT(r3 == r2 && r2.is_int());
-                SASSERT(r1.is_int() && r3.is_int());
                 rational div_r = div(r1, r2);
                 // p <= q * div(r1, q) + q - 1 => div(p, q) <= div(r1, r2)
                 // p >= q * div(r1, q) => div(r1, q) <= div(p, q)
                 rational mul(1);
                 rational hi = r2 * div_r + r2 - 1;
                 rational lo = r2 * div_r;
+
+                // used to normalize inequalities so they 
+                // don't appear as 8*x >= 15, but x >= 2
                 expr *n1 = nullptr, *n2 = nullptr;
                 if (a.is_mul(p, n1, n2) && is_numeral(n1, mul) && mul.is_pos()) {
                     p = n2;
@@ -1568,7 +1603,7 @@ public:
                 all_divs_valid = false;
 
                 TRACE("arith",
-                      tout << r1 << " div " << r2 << " = " << r3 << "\n";
+                      tout << r1 << " div " << r2 << "\n";
                       literal_vector lits;
                       lits.push_back(~p_le_r1);
                       lits.push_back(n_le_div);
@@ -1578,8 +1613,10 @@ public:
                       ctx().display_literals_verbose(tout, lits) << "\n";);                      
                 continue;
             }
+#if 0
 
-
+            // TBD similar for non-linear division.
+            // better to deal with in nla_solver:
 
             all_divs_valid = false;
 
@@ -1610,6 +1647,7 @@ public:
                   lits[0] = pq_rhs;
                   lits[1] = n_ge_div;
                   ctx().display_literals_verbose(tout, lits) << "\n";);
+#endif
         }
         
         return all_divs_valid;
@@ -1629,7 +1667,6 @@ public:
     expr_ref term2expr(lp::lar_term const& term) {
         expr_ref t(m);
         expr_ref_vector ts(m);
-        ts.push_back(a.mk_numeral(term.m_v, true));
         for (auto const& p : term) {
             lp::var_index wi = p.var();
             if (m_solver->is_term(wi)) {
@@ -1709,17 +1746,13 @@ public:
             TRACE("arith", tout << "idiv bounds check\n";);
             return l_false;
         }
-        lp::lar_term term;
-        lp::mpq k;
-        lp::explanation ex; // TBD, this should be streamlined accross different explanations
-        bool upper;
         m_explanation.reset();
-        switch(m_lia->check(term, k, ex, upper)) {
+        switch (m_lia->check()) {
         case lp::lia_move::sat:
             return l_true;
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
-            app_ref b = mk_bound(term, k, !upper);
+            app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(2, verbose_stream() << "branch " << b << "\n";);
             // branch on term >= k + 1
             // branch on term <= k
@@ -1732,13 +1765,13 @@ public:
             TRACE("arith", tout << "cut\n";);
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
-            app_ref b = mk_bound(term, k, !upper);
+            app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
             IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n");
-            TRACE("arith", dump_cut_lemma(tout, term, k, ex, upper););
+            TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_lia->get_explanation(), m_lia->is_upper()););
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            for (auto const& ev : ex.m_explanation) {
+            for (auto const& ev : m_lia->get_explanation().m_explanation) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
                 }
@@ -1753,7 +1786,7 @@ public:
         case lp::lia_move::conflict:
             TRACE("arith", tout << "conflict\n";);
             // ex contains unsat core
-            m_explanation = ex.m_explanation;
+            m_explanation = m_lia->get_explanation().m_explanation;
             set_conflict1();
             return l_false;
         case lp::lia_move::undef:
@@ -2922,7 +2955,7 @@ public:
                 lp::lar_term const& term = m_solver->get_term(vi);
                 TRACE("arith", m_solver->print_term(term, tout) << "\n";);
                 scoped_anum r1(m_nra->am());
-                rational c1 = term.m_v * wcoeff;
+                rational c1(0);
                 m_nra->am().set(r1, c1.to_mpq());
                 m_nra->am().add(r, r1, r);                
                 for (auto const & arg : term) {
@@ -3197,7 +3230,6 @@ public:
             coeffs.find(w, c0);
             coeffs.insert(w, c0 + ti.coeff() * coeff);
         }
-        offset += coeff * term.m_v;
     }
 
     app_ref coeffs2app(u_map<rational> const& coeffs, rational const& offset, bool is_int) {
