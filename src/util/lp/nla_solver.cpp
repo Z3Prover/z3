@@ -222,6 +222,7 @@ struct solver::imp {
         m_monomials_lim.shrink(m_monomials_lim.size() - n);       
     }
 
+    // make sure that the monomial value is the product of the values of the factors
     bool check_monomial(const mon_eq& m) {
         SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
         const rational & model_val = m_lar_solver.get_column_value_rational(m.var());
@@ -235,6 +236,8 @@ struct solver::imp {
     /**
      * \brief <here we have two monomials, i_mon and other_m, examined for "sign" equivalence>
      */
+    // If we see that monomials are the same up to the sign,
+    // but the values are not equal up to the sign, we generate a lemman and a conflict explanation
     bool generate_basic_lemma_for_mon_sign_var_other_mon(
         unsigned i_mon,
         unsigned j_var,
@@ -283,7 +286,7 @@ struct solver::imp {
         return out;
     }
 
-    // the monomials should be equal by modulo sign, but they are not equal in the model module sign
+    // the monomials should be equal by modulo sign, but they are not equal in the model by modulo sign
     void fill_explanation_and_lemma_sign(const mon_eq& a, const mon_eq & b, int sign) {
         expl_set expl;
         SASSERT(sign == 1 || sign == -1);
@@ -305,7 +308,7 @@ struct solver::imp {
     }
     
     /**
-     * \brief <go over monomials containing j_var>
+     * \brief <go over monomials containing j_var and generate the sign lemma
      */
     bool generate_basic_lemma_for_mon_sign_var(unsigned i_mon,
                                                unsigned j_var, const svector<lpvar>& mon_vars, int sign) {
@@ -323,7 +326,8 @@ struct solver::imp {
         return false;
     }
 
-    // replaces each variable by a smaller one and flips the sing if the var comes with a minus
+    // Replaces each variable index by a smaller index and flips the sing if the var comes with a minus.
+    // 
     svector<lpvar> reduce_monomial_to_minimal(const svector<lpvar> & vars, int & sign)  {
         svector<lpvar> ret;
         sign = 1;
@@ -335,7 +339,8 @@ struct solver::imp {
     }
 
     /**
-     * \brief <generate lemma by using the fact that (-(ab) = (-a)b)>
+     * \brief <generate lemma by using the fact that -ab = (-a)b) and
+     -ab = a(-b)
      */
     bool generate_basic_lemma_for_mon_sign(unsigned i_mon) {
         if (m_vars_equivalence.empty()) {
@@ -434,7 +439,15 @@ struct solver::imp {
         }
         return sign;
     }
-    
+
+    /*
+      Here we use the following theorems
+      a) v1 = 0 or v2 = 0 iff v1*v2 = 0
+      b) (v1 > 0 and v2 > 0) or (v1 < 0 and v2 < 0) iff
+      v1 * v2 > 0
+      c) (v1 < 0 and v2 > 0) or (v1 > 0 and v2 < 0) iff
+      v1 * v2 < 0
+     */
     bool generate_basic_lemma_for_mon_zero(unsigned i_mon) {
         m_expl->clear();
         const auto mon = m_monomials[i_mon];
@@ -1100,6 +1113,8 @@ struct solver::imp {
         return false;
     }
 
+    // use basic multiplication properties to create a lemma
+    // for the given monomial
     bool generate_basic_lemma_for_mon(unsigned i_mon) {
         return generate_basic_lemma_for_mon_sign(i_mon)
             || generate_basic_lemma_for_mon_zero(i_mon)
@@ -1107,6 +1122,7 @@ struct solver::imp {
             || generate_basic_lemma_for_mon_proportionality(i_mon);
     }
 
+    // use basic multiplication properties to create a lemma
     bool generate_basic_lemma(unsigned_vector & to_refine) {
         for (unsigned i : to_refine) {
             if (generate_basic_lemma_for_mon(i)) {
@@ -1116,7 +1132,7 @@ struct solver::imp {
         return false;
     }
 
-    void map_monominals_vars(unsigned i) {
+    void map_monomials_var_to_monomial_indices(unsigned i) {
         const mon_eq& m = m_monomials[i];
         for (lpvar j : m.m_vs) {
             auto it = m_var_lists.find(j);
@@ -1133,7 +1149,7 @@ struct solver::imp {
 
     void map_vars_to_monomials_and_constraints() {
         for (unsigned i = 0; i < m_monomials.size(); i++)
-            map_monominals_vars(i);
+            map_monomials_var_to_monomial_indices(i);
     }
 
     void init_vars_equivalence() {
