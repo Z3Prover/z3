@@ -256,3 +256,32 @@ expr_ref_vector solver::get_units(ast_manager& m) {
 
     return result;
 }
+
+expr_ref_vector solver::get_non_units(ast_manager& m) {
+    expr_ref_vector result(m), fmls(m);
+    get_assertions(fmls);
+    family_id bfid = m.get_basic_family_id();
+    expr_mark marked;
+    for (unsigned i = 0; i < fmls.size(); ++i) {
+        expr* f = fmls.get(i);
+        if (marked.is_marked(f)) continue;
+        marked.mark(f);
+        if (!is_app(f)) {
+            result.push_back(f);
+            continue;
+        }
+        app* _f = to_app(f);
+        if (_f->get_family_id() == bfid) {
+            if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) {
+                fmls.append(_f->get_num_args(), _f->get_args());
+            }
+            else if (m.is_eq(f) || m.is_distinct(f)) {
+                result.push_back(f);
+            }
+        }
+        else {
+            result.push_back(f);
+        }
+    }
+    return result;
+}
