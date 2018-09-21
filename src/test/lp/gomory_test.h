@@ -185,7 +185,6 @@ struct gomory_test {
     }
 
     void print_term(lar_term & t, std::ostream & out) {
-        lp_assert(is_zero(t.m_v));
         vector<std::pair<mpq, unsigned>>  row;
         for (auto p : t.m_coeffs)
             row.push_back(std::make_pair(p.second, p.first));
