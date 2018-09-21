@@ -23,7 +23,7 @@ Revision History:
 namespace lp {
 class column_namer {
 public:
-    virtual std::string get_column_name(unsigned j) const = 0;
+    virtual std::string get_variable_name(unsigned j) const = 0;
     template <typename T>
     void print_row(const row_strip<T> & row, std::ostream & out) const {
         vector<std::pair<T, unsigned>> coeff;
@@ -55,7 +55,7 @@ public:
             else if (val != numeric_traits<T>::one())
                 out << val;
         
-            out << get_column_name(it.second);
+            out << get_variable_name(it.second);
         }
     }
     template <typename T>
@@ -78,7 +78,7 @@ public:
             else if (val != numeric_traits<T>::one())
                 out << val;
         
-            out << get_column_name(it.second);
+            out << get_variable_name(it.second);
         }
     }
 
