@@ -69,7 +69,7 @@ static unsigned my_random() {
 }
 struct simple_column_namer:public column_namer
 {
-    std::string get_column_name(unsigned j) const override {
+    std::string get_variable_name(unsigned j) const override {
         return std::string("x") + T_to_string(j); 
     }
 };

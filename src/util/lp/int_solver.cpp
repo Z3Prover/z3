@@ -797,7 +797,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
 
     TRACE("freedom_interval",
           tout << "freedom variable for:\n";
-          tout << m_lar_solver->get_column_name(j);
+          tout << m_lar_solver->get_variable_name(j);
           tout << "[";
           if (inf_l) tout << "-oo"; else tout << l;
           tout << "; ";
