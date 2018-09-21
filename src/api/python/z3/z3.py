@@ -6646,6 +6646,11 @@ class Solver(Z3PPObject):
         """
         return AstVector(Z3_solver_get_units(self.ctx.ref(), self.solver), self.ctx)
 
+    def non_units(self):
+        """Return an AST vector containing all atomic formulas in solver state that are not units.
+        """
+        return AstVector(Z3_solver_get_non_units(self.ctx.ref(), self.solver), self.ctx)
+
     def statistics(self):
         """Return statistics for the last `check()`.
 
