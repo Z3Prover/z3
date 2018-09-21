@@ -79,7 +79,7 @@ std::ostream& lar_solver::print_implied_bound(const implied_bound& be, std::ostr
         print_term(*m_terms[be.m_j - m_terms_start_index],  out);
     }
     else {
-        out << get_column_name(v);
+        out << get_variable_name(v);
     }
     out << " " << lconstraint_kind_string(be.kind()) << " "  << be.m_bound << std::endl;
     out << "end of implied bound" << std::endl;
@@ -990,15 +990,6 @@ column_type lar_solver::get_column_type(unsigned j) const{
     return m_mpq_lar_core_solver.m_column_types[j];
 }
 
-std::string lar_solver::get_column_name(unsigned j) const {
-    if (j >= m_terms_start_index) 
-        return std::string("_t") + T_to_string(j);
-    if (j >= m_var_register.size())
-        return std::string("_s") + T_to_string(j);
-
-    return std::string("v") + T_to_string(m_var_register.local_to_external(j));
-}
-
 bool lar_solver::all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side) {
     for (auto it : left_side) {
         if (! var_is_registered(it.second))
@@ -1281,8 +1272,13 @@ void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<var_in
 }
 
 
-std::string lar_solver::get_variable_name(var_index vi) const {
-    return get_column_name(vi);
+std::string lar_solver::get_variable_name(var_index j) const {
+    if (j >= m_terms_start_index) 
+        return std::string("_t") + T_to_string(j);
+    if (j >= m_var_register.size())
+        return std::string("_s") + T_to_string(j);
+
+    return std::string("v") + T_to_string(m_var_register.local_to_external(j));
 }
 
 // ********** print region start
@@ -1335,7 +1331,7 @@ std::ostream& lar_solver::print_term(lar_term const& term, std::ostream & out) c
             out << " - ";
         else if (val != numeric_traits<mpq>::one())
             out << T_to_string(val);
-        out << this->get_column_name(p.var());
+        out << this->get_variable_name(p.var());
     }
     return out;
 }
