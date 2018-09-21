@@ -42,7 +42,7 @@ class gomory::imp {
     constraint_index column_upper_bound_constraint(unsigned j) const { return m_int_solver.column_upper_bound_constraint(j); }
     bool column_is_fixed(unsigned j) const { return m_int_solver.m_lar_solver->column_is_fixed(j); }
     void int_case_in_gomory_cut(const mpq & a, unsigned j,
-                                            mpq & lcm_den, const mpq& f0, const mpq& one_minus_f0) {
+                                            mpq & lcm_den, const mpq& one_minus_f0) {
         lp_assert(is_int(j) && !a.is_int());
         mpq fj =  fractional_part(a);
         TRACE("gomory_cut_detail", 
@@ -298,7 +298,14 @@ public:
                 real_case_in_gomory_cut(a, j, f0, one_min_f0);
             else if (!a.is_int()) { // fj will be zero and no monomial will be added
                 some_int_columns = true;
-                int_case_in_gomory_cut(a, j, lcm_den, f0, one_min_f0);
+                int_case_in_gomory_cut(a, j, lcm_den, one_min_f0);
+            } else {
+                lp_assert(a.is_int());
+                // in this case we just need to add the explanations of the bound
+                if (at_lower(j))
+                    m_ex.push_justification(column_lower_bound_constraint(j));
+                else
+                    m_ex.push_justification(column_upper_bound_constraint(j));
             }
         }
 
