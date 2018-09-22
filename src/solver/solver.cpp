@@ -257,7 +257,7 @@ expr_ref_vector solver::get_units(ast_manager& m) {
     return result;
 }
 
-static bool is_atom(ast_manager& m, expr* f) {
+static bool is_m_atom(ast_manager& m, expr* f) {
     if (!is_app(f)) return true;
     app* _f = to_app(f);
     family_id bfid = m.get_basic_family_id();
@@ -284,13 +284,13 @@ expr_ref_vector solver::get_non_units(ast_manager& m) {
         if (_f->get_family_id() == bfid) {
             // basic objects are true/false/and/or/not/=/distinct 
             // and proof objects (that are not Boolean).
-            if (i < sz0 && m.is_not(f) && is_atom(m, _f->get_arg(0))) {
+            if (i < sz0 && m.is_not(f) && is_m_atom(m, _f->get_arg(0))) {
                 marked.mark(_f->get_arg(0));
             }
             else if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) {
                 fmls.append(_f->get_num_args(), _f->get_args());
             }
-            else if (i >= sz0 && is_atom(m, f)) {
+            else if (i >= sz0 && is_m_atom(m, f)) {
                 result.push_back(f);
             }
         }
