@@ -208,6 +208,10 @@ struct solver::imp {
     {
     }
 
+
+    rational vvr(unsigned j) const { return m_lar_solver.get_column_value_rational(j); }
+    lp::impq vv(unsigned j) const { return m_lar_solver.get_column_value(j); }
+    
     void add(lpvar v, unsigned sz, lpvar const* vs) {
         m_monomials.push_back(mon_eq(v, sz, vs));
     }
@@ -990,21 +994,16 @@ struct solver::imp {
     }
 
     struct signed_binary_factorization {
-        unsigned m_k; // monomial index
-        bool     m_k_is_var;
-        unsigned m_j; // monomial index
-        bool     m_j_is_var;
+        unsigned m_j; // var index : the var can correspond to a monomial var or just to a var 
+        unsigned m_k; // var index : the var can correspond to a monomial var or just to a var
         int      m_sign;
         // the default constructor
-        signed_binary_factorization() :m_k(-1) {}
-        signed_binary_factorization(unsigned k, bool k_is_var, unsigned j, bool j_is_var, int sign) : m_k(k),
-                                                                                                      m_k_is_var(k_is_var),
-                                                                                                      m_j(j),
-                                                                                                      m_j_is_var(j_is_var),
-                                                                                                      m_sign(sign) {}
+        signed_binary_factorization() :m_j(-1) {}
+        signed_binary_factorization(unsigned j, unsigned k, int sign) :
+            m_j(j),
+            m_k(k),
+            m_sign(sign) {}
 
-        bool k_is_var() const { return m_k_is_var; }
-        bool j_is_var() const { return m_j_is_var; }
     };
     
     struct binary_factorizations_of_monomial {
@@ -1044,7 +1043,7 @@ struct solver::imp {
                 }
             }
             
-            bool get_factors(unsigned& k, bool& k_is_var, unsigned& j, bool& j_is_var, int& sign) const {
+            bool get_factors(unsigned& k, unsigned& j, int& sign) const {
                 unsigned_vector k_vars;
                 unsigned_vector j_vars;
                 init_vars_by_the_mask(k_vars, j_vars);
@@ -1056,29 +1055,24 @@ struct solver::imp {
                 if (k_vars.size() == 1) {
                     k = k_vars[0];
                     k_sign = 1;
-                    k_is_var = true;
-                } else if (m_binary_factorizations.m_imp.find_monomial_of_vars(k_vars, k, k_sign)) {
-                    k_is_var = false;
-                } else {
+                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(k_vars, k, k_sign)) {
                     return false;
                 }
                 if (j_vars.size() == 1) {
                     j = j_vars[0];
                     j_sign = 1;
-                    j_is_var = true;
-                } else if (m_binary_factorizations.m_imp.find_monomial_of_vars(j_vars, j, j_sign)) {
-                    j_is_var = false;
-                } else return false;
+                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(j_vars, j, j_sign)) {
+                    return false;
+                }
                 sign = j_sign * k_sign;
                 return true;
             }
             
             reference operator*() const {
-                unsigned k,j; int sign;
-                bool k_is_var, j_is_var;
-                if (!get_factors(k, k_is_var, j, j_is_var, sign))
+                unsigned j, k; int sign;
+                if (!get_factors(j, k, sign))
                     return signed_binary_factorization();
-                return signed_binary_factorization(k, k_is_var, j, j_is_var, m_binary_factorizations.m_sign * sign);
+                return signed_binary_factorization(j, k, m_binary_factorizations.m_sign * sign);
             }
             void advance_mask() {
                 SASSERT(false);// not implemented
@@ -1115,23 +1109,60 @@ struct solver::imp {
             return const_iterator(mask, *this);
         }
     };
+
+    // we derive a lemma from |x| >= 1 || |y| = 0 => |xy| >= |y|
+    bool lemma_for_proportional_factors_on_vars_ge(lpvar i, lpvar j, lpvar k) {
+        if (!(abs(vvr(j)) >= rational(1) || vvr(k).is_zero()))
+            return false;
+        // the precondition holds
+        if (! (abs(vvr(i)) >= abs(vvr(k)))) {
+            SASSERT(false); // create here
+            return true;
+        }
+        return false;
+    }
+
+    // we derive a lemma from |x| <= 1 || |y| = 0 => |xy| <= |y|
+    bool lemma_for_proportional_factors_on_vars_le(lpvar i, lpvar j, lpvar k) {
+        TRACE("nla_solver",
+              tout << "i=";
+              print_var(i, tout);
+              tout << "j=";
+              print_var(j, tout);
+              tout << "k=";
+              print_var(k, tout););
+              
+        if (!(abs(vvr(j)) <= rational(1) || vvr(k).is_zero()))
+            return false;
+        // the precondition holds
+        if (! (abs(vvr(i)) <= abs(vvr(k)))) {
+            SASSERT(false); // create here
+            return true;
+        }
+        return false;
+    }
+
+    
+    // we derive a lemma from |x| >= 1 || |y| = 0 => |xy| >= |y|, or the similar of <= 
     bool lemma_for_proportional_factors(unsigned i_mon, const signed_binary_factorization& f) {
-        TRACE("nla_solver", print_monomial(m_monomials[i_mon], tout);
+        lpvar var_of_mon = m_monomials[i_mon].var();
+        TRACE("nla_solver",
+              m_lar_solver.print_constraints(tout);
+              tout << "\n";
+              print_var(var_of_mon, tout);
               tout << " is factorized as ";
               if (f.m_sign == -1) { tout << "-";}
-              if (f.k_is_var()) {
-                  tout <<  m_lar_solver.get_variable_name(f.m_k);
-              } else {
-                  print_monomial(m_monomials[f.m_k], tout);
-              }
+              print_var(f.m_j, tout);
               tout << "*";
-              if (f.j_is_var()) {
-                  tout << m_lar_solver.get_variable_name(f.m_j);
-              } else {
-                  print_monomial(m_monomials[f.m_j], tout);
-              });
-             SASSERT(false);
-        return false; // not implemented
+              print_var(f.m_k, tout);
+              );
+        if (lemma_for_proportional_factors_on_vars_ge(var_of_mon, f.m_j, f.m_k)
+            || lemma_for_proportional_factors_on_vars_ge(var_of_mon, f.m_k, f.m_j))
+            return true;
+        if (lemma_for_proportional_factors_on_vars_le(var_of_mon, f.m_j, f.m_k)
+            || lemma_for_proportional_factors_on_vars_le(var_of_mon, f.m_k, f.m_j))
+            return true;
+        return false;
     }
     // we derive a lemma from |xy| >= |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
