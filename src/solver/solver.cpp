@@ -273,7 +273,8 @@ expr_ref_vector solver::get_non_units(ast_manager& m) {
         }
         app* _f = to_app(f);
         if (_f->get_family_id() == bfid) {
-            // basic objects are true/false/and/or/not/=/distinct and proof objects (that are not Boolean)
+            // basic objects are true/false/and/or/not/=/distinct 
+            // and proof objects (that are not Boolean).
             if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) {
                 fmls.append(_f->get_num_args(), _f->get_args());
             }
