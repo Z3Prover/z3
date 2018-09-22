@@ -125,19 +125,19 @@ constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
 
 bool int_solver::current_solution_is_inf_on_cut() const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
-    impq v = m_t->apply(x);
-    mpq sign = *m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
-    CTRACE("current_solution_is_inf_on_cut", v * sign <= (*m_k) * sign,
-           tout << "m_upper = " << *m_upper << std::endl;
-           tout << "v = " << v << ", k = " << (*m_k) << std::endl;
+    impq v = m_t.apply(x);
+    mpq sign = m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
+    CTRACE("current_solution_is_inf_on_cut", v * sign <= m_k * sign,
+           tout << "m_upper = " << m_upper << std::endl;
+           tout << "v = " << v << ", k = " << m_k << std::endl;
           );
-    return v * sign > (*m_k) * sign;
+    return v * sign > m_k * sign;
 }
 
 lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row) {
     lp_assert(column_is_int_inf(inf_col));
 
-    gomory gc(*m_t, *m_k, *m_ex, inf_col, row, *this);
+    gomory gc(m_t, m_k, m_ex, inf_col, row, *this);
     return gc.create_cut();
 }
 
@@ -147,7 +147,7 @@ lia_move int_solver::proceed_with_gomory_cut(unsigned j) {
     if (!is_gomory_cut_target(row)) 
         return create_branch_on_column(j);
 
-    *m_upper = true;
+    m_upper = true;
     return mk_gomory_cut(j, row);
 }
 
@@ -189,7 +189,7 @@ struct check_return_helper {
         m_lar_solver->set_track_pivoted_rows(m_track_pivoted_rows);
         if (m_r == lia_move::cut || m_r == lia_move::branch) {
             int_solver * s = m_lar_solver->get_int_solver();
-            m_lar_solver->adjust_cut_for_terms(*(s->m_t), *(s->m_k));
+            // m_lar_solver->adjust_cut_for_terms(*(s->m_t), *(s->m_k));
         }
     }
 };
@@ -373,21 +373,21 @@ lia_move int_solver::make_hnf_cut() {
 #else
     vector<mpq> x0;
 #endif
-    lia_move r =  m_hnf_cutter.create_cut(*m_t, *m_k, *m_ex, *m_upper, x0);
+    lia_move r =  m_hnf_cutter.create_cut(m_t, m_k, m_ex, m_upper, x0);
 
     if (r == lia_move::cut) {      
         TRACE("hnf_cut",
-              m_lar_solver->print_term(*m_t, tout << "cut:"); 
-              tout << " <= " << *m_k << std::endl;
+              m_lar_solver->print_term(m_t, tout << "cut:"); 
+              tout << " <= " << m_k << std::endl;
               for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
                   m_lar_solver->print_constraint(i, tout);
               }              
               );
         lp_assert(current_solution_is_inf_on_cut());
         settings().st().m_hnf_cuts++;
-        m_ex->clear();        
+        m_ex.clear();        
         for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
-             m_ex->push_justification(i);
+             m_ex.push_justification(i);
         }
     } 
     return r;
@@ -403,10 +403,13 @@ lia_move int_solver::hnf_cut() {
     return lia_move::undef;
 }
 
-lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex, bool & upper) {
+lia_move int_solver::check() {
     if (!has_inf_int()) return lia_move::sat;
 
-    m_t = &t;  m_k = &k;  m_ex = &ex; m_upper = &upper;
+    m_t.clear();
+    m_k.reset();
+    m_ex.clear();
+    m_upper = false;
     lia_move r = run_gcd_test();
     if (r != lia_move::undef) return r;
 
@@ -646,8 +649,8 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
 void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
     constraint_index lc, uc;
     m_lar_solver->get_bound_constraint_witnesses_for_column(j, lc, uc);
-    m_ex->m_explanation.push_back(std::make_pair(mpq(1), lc));
-    m_ex->m_explanation.push_back(std::make_pair(mpq(1), uc));
+    m_ex.m_explanation.push_back(std::make_pair(mpq(1), lc));
+    m_ex.m_explanation.push_back(std::make_pair(mpq(1), uc));
 }
 void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row) {
     for (const auto & c : row) {
@@ -1042,20 +1045,20 @@ const impq& int_solver::lower_bound(unsigned j) const {
 
 lia_move int_solver::create_branch_on_column(int j) {
     TRACE("check_main_int", tout << "branching" << std::endl;);
-    lp_assert(m_t->is_empty());
+    lp_assert(m_t.is_empty());
     lp_assert(j != -1);
-    m_t->add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
+    m_t.add_monomial(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
     if (is_free(j)) {
-        *m_upper = true;
-        *m_k = mpq(0);
+        m_upper = true;
+        m_k = mpq(0);
     } else {
-        *m_upper = left_branch_is_more_narrow_than_right(j);
-        *m_k = *m_upper? floor(get_value(j)) : ceil(get_value(j));        
+        m_upper = left_branch_is_more_narrow_than_right(j);
+        m_k = m_upper? floor(get_value(j)) : ceil(get_value(j));        
     }
 
     TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
           display_column(tout, j);
-          tout << "k = " << *m_k << std::endl;
+          tout << "k = " << m_k << std::endl;
           );
     return lia_move::branch;
 

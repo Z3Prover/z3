@@ -256,3 +256,34 @@ expr_ref_vector solver::get_units(ast_manager& m) {
 
     return result;
 }
+
+expr_ref_vector solver::get_non_units(ast_manager& m) {
+    expr_ref_vector result(m), fmls(m);
+    get_assertions(fmls);
+    family_id bfid = m.get_basic_family_id();
+    expr_mark marked;
+    unsigned sz0 = fmls.size();
+    for (unsigned i = 0; i < fmls.size(); ++i) {
+        expr* f = fmls.get(i);
+        if (marked.is_marked(f)) continue;
+        marked.mark(f);
+        if (!is_app(f)) {
+            if (i >= sz0) result.push_back(f);
+            continue;
+        }
+        app* _f = to_app(f);
+        if (_f->get_family_id() == bfid) {
+            // basic objects are true/false/and/or/not/=/distinct and proof objects (that are not Boolean)
+            if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) {
+                fmls.append(_f->get_num_args(), _f->get_args());
+            }
+            else if (m.is_eq(f) || m.is_distinct(f)) {
+                if (i >= sz0) result.push_back(f);
+            }
+        }
+        else {
+            if (i >= sz0) result.push_back(f);
+        }
+    }
+    return result;
+}

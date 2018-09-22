@@ -7,6 +7,7 @@ endif()
 set(Z3_FULL_VERSION "\"${Z3_FULL_VERSION_STR}\"")
 configure_file(version.h.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/version.h)
 
+
 z3_add_component(util
   SOURCES
     approx_nat.cpp
