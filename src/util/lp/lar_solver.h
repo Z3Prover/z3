@@ -395,7 +395,7 @@ public:
 
     bool try_to_set_fixed(column_info<mpq> & ci);
 
-    column_type get_column_type(const column_info<mpq> & ci);
+    column_type get_column_type(unsigned j) const;
 
     std::string get_column_name(unsigned j) const;
 
