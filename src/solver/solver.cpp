@@ -257,6 +257,15 @@ expr_ref_vector solver::get_units(ast_manager& m) {
     return result;
 }
 
+static bool is_atom(ast_manager& m, expr* f) {
+    if (!is_app(f)) return true;
+    app* _f = to_app(f);
+    family_id bfid = m.get_basic_family_id();
+    if (_f->get_family_id() != bfid) return true;
+    if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) return false;    
+    return m.is_eq(f) || m.is_distinct(f);
+}
+
 expr_ref_vector solver::get_non_units(ast_manager& m) {
     expr_ref_vector result(m), fmls(m);
     get_assertions(fmls);
@@ -275,13 +284,17 @@ expr_ref_vector solver::get_non_units(ast_manager& m) {
         if (_f->get_family_id() == bfid) {
             // basic objects are true/false/and/or/not/=/distinct 
             // and proof objects (that are not Boolean).
-            if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) {
+            if (i < sz0 && m.is_not(f) && is_atom(m, _f->get_arg(0))) {
+                marked.mark(_f->get_arg(0));
+            }
+            else if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) {
                 fmls.append(_f->get_num_args(), _f->get_args());
             }
-            else if (m.is_eq(f) || m.is_distinct(f)) {
-                if (i >= sz0) result.push_back(f);
+            else if (i >= sz0 && is_atom(m, f)) {
+                result.push_back(f);
             }
         }
+        
         else {
             if (i >= sz0) result.push_back(f);
         }
