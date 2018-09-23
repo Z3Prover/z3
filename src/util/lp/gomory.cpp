@@ -27,11 +27,15 @@ class gomory::imp {
     lar_term   &          m_t; // the term to return in the cut
     mpq        &          m_k; // the right side of the cut
     explanation&          m_ex; // the conflict explanation
-    unsigned              m_inf_col; // a basis column which has to be an integer but has a not integral value
+    unsigned              m_inf_col; // a basis column which has to be an integer but has a non integral value
     const row_strip<mpq>& m_row;
-    const int_solver&           m_int_solver;
-
-
+    const int_solver&     m_int_solver;
+    mpq                   m_lcm_den;
+    mpq                   m_f;
+    mpq                   m_one_minus_f;
+    mpq                   m_fj;
+    mpq                   m_one_minus_fj;
+    
     const impq & get_value(unsigned j) const { return m_int_solver.get_value(j); }
     bool is_real(unsigned j) const { return m_int_solver.is_real(j); }
     bool at_lower(unsigned j) const { return m_int_solver.at_lower(j); }
@@ -42,66 +46,60 @@ class gomory::imp {
     constraint_index column_upper_bound_constraint(unsigned j) const { return m_int_solver.column_upper_bound_constraint(j); }
     bool column_is_fixed(unsigned j) const { return m_int_solver.m_lar_solver->column_is_fixed(j); }
 
-    void int_case_in_gomory_cut(const mpq & a, unsigned j,
-                                mpq & lcm_den, const mpq& f0, const mpq& one_minus_f0) {
-        lp_assert(is_int(j) && !a.is_int());
-        mpq fj = fractional_part(a);
+    void int_case_in_gomory_cut(unsigned j) {
+        lp_assert(is_int(j) && m_fj.is_pos());
         TRACE("gomory_cut_detail", 
-              tout << a << " j=" << j << " k = " << m_k;
-              tout << ", fj: " << fj << ", ";
-              tout << "a - fj = " << a - fj <<  ", ";
+              tout << " k = " << m_k;
+              tout << ", fj: " << m_fj << ", ";
               tout << (at_lower(j)?"at_lower":"at_upper")<< std::endl;
               );
-        lp_assert(fj.is_pos() && (a - fj).is_int());
         mpq new_a;
         if (at_lower(j)) {
-            new_a = fj <= one_minus_f0 ? fj / one_minus_f0 : ((1 - fj) / f0);
+            new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
             lp_assert(new_a.is_pos());
             m_k.addmul(new_a, lower_bound(j).x);
-            m_ex.push_justification(column_lower_bound_constraint(j), new_a);            
+            m_ex.push_justification(column_lower_bound_constraint(j));            
         }
         else {
             lp_assert(at_upper(j));
             // the upper terms are inverted: therefore we have the minus
-            new_a = - (fj <= f0 ? fj / f0  : ((1 - fj) / one_minus_f0));
+            new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
-            m_ex.push_justification(column_upper_bound_constraint(j), new_a);
+            m_ex.push_justification(column_upper_bound_constraint(j));
         }
         m_t.add_monomial(new_a, j);
-        lcm_den = lcm(lcm_den, denominator(new_a));
-        TRACE("gomory_cut_detail", tout << "v" << j << " new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << lcm_den << "\n";);
+        m_lcm_den = lcm(m_lcm_den, denominator(new_a));
+        TRACE("gomory_cut_detail", tout << "v" << j << " new_a = " << new_a << ", k = " << m_k << ", m_lcm_den = " << m_lcm_den << "\n";);
     }
 
-    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, const mpq& f0, const mpq& one_minus_f0) {
+    void real_case_in_gomory_cut(const mpq & a, unsigned j) {
         TRACE("gomory_cut_detail_real", tout << "real\n";);
         mpq new_a;
-        if (at_lower(x_j)) {
+        if (at_lower(j)) {
             if (a.is_pos()) {
-                new_a  =  a / one_minus_f0;
+                new_a = a / m_one_minus_f;
             }
             else {
-                new_a  =  a / f0;
-                new_a.neg();
+                new_a = - a / m_f;
             }
-            m_k.addmul(new_a, lower_bound(x_j).x); // is it a faster operation than
-            // k += lower_bound(x_j).x * new_a;  
-            m_ex.push_justification(column_lower_bound_constraint(x_j), new_a);
+            m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
+            // k += lower_bound(j).x * new_a;  
+            m_ex.push_justification(column_lower_bound_constraint(j));
         }
         else {
-            lp_assert(at_upper(x_j));
+            lp_assert(at_upper(j));
             if (a.is_pos()) {
-                new_a =   a / f0; 
-                new_a.neg(); // the upper terms are inverted.
+                new_a =  - a / m_f; 
             }
             else {
-                new_a =   a / one_minus_f0; 
+                new_a =   a / m_one_minus_f; 
             }
-            m_k.addmul(new_a, upper_bound(x_j).x); //  k += upper_bound(x_j).x * new_a; 
-            m_ex.push_justification(column_upper_bound_constraint(x_j), new_a);
+            m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a; 
+            m_ex.push_justification(column_upper_bound_constraint(j));
         }
-        TRACE("gomory_cut_detail_real", tout << a << "*v" << x_j << " k: " << m_k << "\n";);
-        m_t.add_monomial(new_a, x_j);
+        TRACE("gomory_cut_detail_real", tout << a << "*v" << j << " k: " << m_k << "\n";);
+        m_t.add_monomial(new_a, j);
     }
 
     lia_move report_conflict_from_gomory_cut() {
@@ -111,7 +109,7 @@ class gomory::imp {
         return lia_move::conflict;
     }
 
-    void adjust_term_and_k_for_some_ints_case_gomory(mpq &lcm_den) {
+    void adjust_term_and_k_for_some_ints_case_gomory() {
         lp_assert(!m_t.is_empty());
         // k = 1 + sum of m_t at bounds
         auto pol = m_t.coeffs_as_vector();
@@ -134,16 +132,16 @@ class gomory::imp {
                 m_t.add_monomial(mpq(1), v);
             }
         } else {
-            lcm_den = lcm(lcm_den, denominator(m_k));
-            lp_assert(lcm_den.is_pos());
-            TRACE("gomory_cut_detail", tout << "pol.size() > 1 den: " << lcm_den << std::endl;);
-            if (!lcm_den.is_one()) {
+            m_lcm_den = lcm(m_lcm_den, denominator(m_k));
+            lp_assert(m_lcm_den.is_pos());
+            TRACE("gomory_cut_detail", tout << "pol.size() > 1 den: " << m_lcm_den << std::endl;);
+            if (!m_lcm_den.is_one()) {
                 // normalize coefficients of integer parameters to be integers.
                 for (auto & pi: pol) {
-                    pi.first *= lcm_den;
+                    pi.first *= m_lcm_den;
                     SASSERT(!is_int(pi.second) || pi.first.is_int());
                 }
-                m_k *= lcm_den;
+                m_k *= m_lcm_den;
             }
             // negate everything to return -pol <= -m_k
             for (const auto & pi: pol) {
@@ -275,14 +273,14 @@ public:
         // gomory will be   t <= k and the current solution has a property t > k
         m_k = 1;
         m_t.clear();
-        mpq lcm_den(1);
+        mpq m_lcm_den(1);
         bool some_int_columns = false;
-        mpq f0  = fractional_part(get_value(m_inf_col));
-        TRACE("gomory_cut_detail", tout << "f0: " << f0 << ", ";
-              tout << "1 - f0: " << 1 - f0 << ", get_value(m_inf_col).x - f0 = " << get_value(m_inf_col).x - f0;);
-        lp_assert(f0.is_pos() && (get_value(m_inf_col).x - f0).is_int());  
+        mpq m_f  = fractional_part(get_value(m_inf_col));
+        TRACE("gomory_cut_detail", tout << "m_f: " << m_f << ", ";
+              tout << "1 - m_f: " << 1 - m_f << ", get_value(m_inf_col).x - m_f = " << get_value(m_inf_col).x - m_f;);
+        lp_assert(m_f.is_pos() && (get_value(m_inf_col).x - m_f).is_int());  
 
-        mpq one_min_f0 = 1 - f0;
+        mpq one_min_m_f = 1 - m_f;
         for (const auto & p : m_row) {
             unsigned j = p.var();
             if (j == m_inf_col) {
@@ -290,20 +288,26 @@ public:
                 TRACE("gomory_cut_detail", tout << "seeing basic var";);
                 continue;
             }
-            // make the format compatible with the format used in: Integrating Simplex with DPLL(T)
-            mpq a = - p.coeff();
-            if (is_real(j)) 
-                real_case_in_gomory_cut(a, j, f0, one_min_f0);
-            else if (!a.is_int()) { // fj will be zero and no monomial will be added
+
+             // use -p.coeff() to make the format compatible with the format used in: Integrating Simplex with DPLL(T)
+            if (is_real(j)) {  
+                real_case_in_gomory_cut(- p.coeff(), j);
+            } else {
+                if (p.coeff().is_int()) {
+                    // m_fj will be zero and no monomial will be added
+                    continue;
+                }
                 some_int_columns = true;
-                int_case_in_gomory_cut(a, j, lcm_den, f0, one_min_f0);
+                m_fj = fractional_part(-p.coeff());
+				m_one_minus_fj = 1 - m_fj;
+                int_case_in_gomory_cut(j);
             }
         }
 
         if (m_t.is_empty())
             return report_conflict_from_gomory_cut();
         if (some_int_columns)
-            adjust_term_and_k_for_some_ints_case_gomory(lcm_den);
+            adjust_term_and_k_for_some_ints_case_gomory();
         lp_assert(m_int_solver.current_solution_is_inf_on_cut());
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
         m_int_solver.m_lar_solver->subs_term_columns(m_t);
@@ -317,9 +321,10 @@ public:
         m_ex(ex),
         m_inf_col(basic_inf_int_j),
         m_row(row),
-        m_int_solver(int_slv)
-    {
-    }
+        m_int_solver(int_slv),
+        m_lcm_den(1),
+        m_f(fractional_part(get_value(basic_inf_int_j).x)),
+        m_one_minus_f(1 - m_f) {}
     
 };
 
