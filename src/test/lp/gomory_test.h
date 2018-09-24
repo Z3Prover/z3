@@ -82,7 +82,7 @@ struct gomory_test {
             expl.push_justification(column_upper_bound_constraint(x_j), new_a);
         }
         TRACE("gomory_cut_detail_real", tout << a << "*v" << x_j << " k: " << k << "\n";);
-        pol.add_monomial(new_a, x_j);
+        pol.add_coeff_var(new_a, x_j);
     }
     
     void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & t, explanation& expl, mpq & lcm_den, const mpq& f_0, const mpq& one_minus_f_0) {
@@ -122,7 +122,7 @@ struct gomory_test {
             expl.push_justification(column_upper_bound_constraint(x_j), new_a);
         }
         TRACE("gomory_cut_detail", tout << "new_a: " << new_a << " k: " << k << "\n";);
-        t.add_monomial(new_a, x_j);
+        t.add_coeff_var(new_a, x_j);
         lcm_den = lcm(lcm_den, denominator(new_a));
     }
 
@@ -145,12 +145,12 @@ struct gomory_test {
                 if (!k.is_int())
                     k = ceil(k);
                 // switch size
-                t.add_monomial(- mpq(1), v);
+                t.add_coeff_var(- mpq(1), v);
                 k.neg();
             } else {
                 if (!k.is_int())
                     k = floor(k);
-                t.add_monomial(mpq(1), v);
+                t.add_coeff_var(mpq(1), v);
             }
         } else {
             TRACE("gomory_cut_detail", tout << "pol.size() > 1" << std::endl;);
@@ -177,7 +177,7 @@ struct gomory_test {
             
             // negate everything to return -pol <= -k
             for (const auto & pi: pol)
-                t.add_monomial(-pi.first, pi.second);
+                t.add_coeff_var(-pi.first, pi.second);
             k.neg();
         }
         TRACE("gomory_cut_detail", tout << "k = " << k << std::endl;);
