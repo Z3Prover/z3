@@ -909,13 +909,8 @@ bool lar_solver::try_to_set_fixed(column_info<mpq> & ci) {
     return false;
 }
 
-column_type lar_solver::get_column_type(const column_info<mpq> & ci) {
-    auto ret = ci.get_column_type_no_flipping();
-    if (ret == column_type::boxed) { // changing boxed to fixed because of the no span
-        if (ci.get_lower_bound() == ci.get_upper_bound())
-            ret = column_type::fixed;
-    }
-    return ret;
+column_type lar_solver::get_column_type(unsigned j) const{
+    return m_mpq_lar_core_solver.m_column_types[j];
 }
 
 std::string lar_solver::get_column_name(unsigned j) const {

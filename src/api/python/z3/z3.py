@@ -6605,7 +6605,12 @@ class Solver(Z3PPObject):
             _handle_parse_error(e, self.ctx)        
     
     def cube(self, vars = None):
-        """Get set of cubes"""
+        """Get set of cubes
+        The method takes an optional set of variables that restrict which
+        variables may be used as a starting point for cubing.
+        If vars is not None, then the first case split is based on a variable in
+        this set.
+        """
         self.cube_vs = AstVector(None, self.ctx)
         if vars is not None:
            for v in vars:
@@ -6621,6 +6626,10 @@ class Solver(Z3PPObject):
                 return
 
     def cube_vars(self):
+        """Access the set of variables that were touched by the most recently generated cube.
+        This set of variables can be used as a starting point for additional cubes.
+        The idea is that variables that appear in clauses that are reduced by the most recent
+        cube are likely more useful to cube on."""
         return self.cube_vs
 
     def proof(self):
