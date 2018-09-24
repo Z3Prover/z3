@@ -113,7 +113,6 @@ public:
         if (m_num_scopes > 0) {
             throw default_exception("Cannot translate sat solver at non-base level");
         }
-        std::cout << "translate\n"; std::cout.flush();
         ast_translation tr(m, dst_m);
         m_solver.pop_to_base_level();
         inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p, is_incremental());
@@ -168,7 +167,6 @@ public:
     lbool check_sat(unsigned sz, expr * const * assumptions) override {
         m_solver.pop_to_base_level();
         m_core.reset();
-        std::cout << "#inconsistent: " << m_solver.inconsistent() << "\n";
         if (m_solver.inconsistent()) return l_false;
         expr_ref_vector _assumptions(m);
         obj_map<expr, expr*> asm2fml;
@@ -779,8 +777,6 @@ private:
             }
             m_core.push_back(e);            
         }
-        std::cout << "core " << core << "\n";
-        std::cout.flush();
     }
 
     void check_assumptions(dep2asm_t& dep2asm) {
