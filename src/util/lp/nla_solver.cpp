@@ -77,7 +77,8 @@ struct vars_equivalence {
     unsigned size() const { return m_map.size(); }
 
     void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
-        if (t->size() != 2 || ! t->m_v.is_zero())
+        SASSERT(false); // check for new terms
+        if (t->size() != 2 || t->size() != 3)
             return;
         bool seen_minus = false;
         bool seen_plus = false;
@@ -489,7 +490,8 @@ struct solver::imp {
         }
         lp::lar_term t;
         t.add_coeff_var(rational(1), m_monomials[i_mon].var());
-        t.m_v = -rs;
+        SASSERT(false); // figure out the change!!!!!! 
+        //  t.m_v = -rs;
         ineq in(kind, t);
         m_lemma->push_back(in);
         TRACE("nla_solver", print_explanation_and_lemma(tout););
@@ -1274,6 +1276,9 @@ struct solver::imp {
         
         return l_undef;
     }
+    void test() {
+        std::cout << "test called\n";
+    }
 }; // end of imp
 
 void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
@@ -1285,9 +1290,6 @@ bool solver::need_check() { return true; }
 lbool solver::check(lp::explanation & ex, lemma& l) {
     return m_imp->check(ex, l);
 }
-
-
-}; // end of imp
 
 void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
     m_imp->add(v, sz, vs);
@@ -1313,6 +1315,14 @@ solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p) {
 
 solver::~solver() {
     dealloc(m_imp);
+}
+
+void solver::test() {
+    lp::lar_solver s;
+    reslimit l;
+    params_ref p;
+    imp i(s, l, p);
+    i.test();
 }
 
 }
