@@ -69,8 +69,8 @@ class gomory::imp {
             m_ex.push_justification(column_upper_bound_constraint(j));
         }
         m_t.add_coeff_var(new_a, j);
-        lcm_den = lcm(lcm_den, denominator(new_a));
-        TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << lcm_den << "\n";);
+        m_lcm_den = lcm(m_lcm_den, denominator(new_a));
+        TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << m_lcm_den << "\n";);
     }
 
     void real_case_in_gomory_cut(const mpq & a, unsigned j) {
@@ -98,8 +98,8 @@ class gomory::imp {
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a; 
             m_ex.push_justification(column_upper_bound_constraint(j));
         }
-        TRACE("gomory_cut_detail_real", tout << a << "*v" << x_j << " k: " << m_k << "\n";);
-        m_t.add_coeff_var(new_a, x_j);
+        TRACE("gomory_cut_detail_real", tout << a << "*v" << j << " k: " << m_k << "\n";);
+        m_t.add_coeff_var(new_a, j);
     }
 
     lia_move report_conflict_from_gomory_cut() {

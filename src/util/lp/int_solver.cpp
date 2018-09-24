@@ -120,21 +120,6 @@ constraint_index int_solver::column_upper_bound_constraint(unsigned j) const {
 
 bool int_solver::current_solution_is_inf_on_cut() const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
-    impq v = m_t->apply(x);
-    mpq sign = *m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
-    CTRACE("current_solution_is_inf_on_cut", v * sign <= (*m_k) * sign,
-           tout << "m_upper = " << *m_upper << std::endl;
-           tout << "v = " << v << ", k = " << (*m_k) << std::endl;
-          );
-    return v * sign > (*m_k) * sign;
-}
-
-constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
-    return m_lar_solver->get_column_lower_bound_witness(j);
-}
-
-bool int_solver::current_solution_is_inf_on_cut() const {
-    const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = m_t.apply(x);
     mpq sign = m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
     CTRACE("current_solution_is_inf_on_cut", v * sign <= m_k * sign,
@@ -142,6 +127,10 @@ bool int_solver::current_solution_is_inf_on_cut() const {
            tout << "v = " << v << ", k = " << m_k << std::endl;
           );
     return v * sign > m_k * sign;
+}
+
+constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
+    return m_lar_solver->get_column_lower_bound_witness(j);
 }
 
 lia_move int_solver::mk_gomory_cut( unsigned inf_col, const row_strip<mpq> & row) {
@@ -186,11 +175,9 @@ typedef monomial mono;
 // this will allow to enable and disable tracking of the pivot rows
 struct check_return_helper {
     lar_solver *     m_lar_solver;
-    const lia_move & m_r;
     bool             m_track_pivoted_rows;
-    check_return_helper(lar_solver* ls, const lia_move& r) :
+    check_return_helper(lar_solver* ls) :
         m_lar_solver(ls),
-        m_r(r),
         m_track_pivoted_rows(ls->get_track_pivoted_rows())
     {
         TRACE("pivoted_rows", tout << "pivoted rows = " << ls->m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
@@ -389,8 +376,8 @@ lia_move int_solver::make_hnf_cut() {
 
     if (r == lia_move::cut) {      
         TRACE("hnf_cut",
-              m_lar_solver->print_term(*m_t, tout << "cut:"); 
-              tout << " <= " << *m_k << std::endl;
+              m_lar_solver->print_term(m_t, tout << "cut:"); 
+              tout << " <= " << m_k << std::endl;
               for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
                   m_lar_solver->print_constraint(i, tout);
               }              
@@ -433,7 +420,7 @@ lia_move int_solver::check() {
 
     CHECK_RET(run_gcd_test());
 
-    check_return_helper pc(m_lar_solver, r);
+    check_return_helper pc(m_lar_solver);
 
     if (settings().m_int_pivot_fixed_vars_from_basis)
         m_lar_solver->pivot_fixed_vars_from_basis();
@@ -611,8 +598,8 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
 void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
     constraint_index lc, uc;
     m_lar_solver->get_bound_constraint_witnesses_for_column(j, lc, uc);
-    m_ex->push_justification(lc);
-    m_ex->push_justification(uc);
+    m_ex.push_justification(lc);
+    m_ex.push_justification(uc);
 }
 void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row) {
     for (const auto & c : row) {
@@ -1009,13 +996,13 @@ lia_move int_solver::create_branch_on_column(int j) {
     TRACE("check_main_int", tout << "branching" << std::endl;);
     lp_assert(m_t.is_empty());
     lp_assert(j != -1);
-    m_t->add_coeff_var(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
+    m_t.add_coeff_var(mpq(1), m_lar_solver->adjust_column_index_to_term_index(j));
     if (is_free(j)) {
         m_upper = true;
         m_k = mpq(0);
     } else {
         m_upper = left_branch_is_more_narrow_than_right(j);
-        m_k = *m_upper? floor(get_value(j)) : ceil(get_value(j));        
+        m_k = m_upper? floor(get_value(j)) : ceil(get_value(j));        
     }
 
     TRACE("int_solver", tout << "branching v" << j << " = " << get_value(j) << "\n";
