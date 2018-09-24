@@ -156,6 +156,7 @@ class theory_lra::imp {
     ast_manager&         m;
     theory_arith_params& m_arith_params;
     arith_util           a;
+    bool                 m_has_int;
     arith_eq_adapter     m_arith_eq_adapter;
     vector<rational>     m_columns;
       
@@ -222,10 +223,10 @@ class theory_lra::imp {
     lp::var_index m_rzero_var;
 
     enum constraint_source {
-        inequality_source,
-        equality_source,
-        definition_source,
-        null_source
+                            inequality_source,
+                            equality_source,
+                            definition_source,
+                            null_source
     };
     svector<constraint_source>                    m_constraint_sources;
     svector<literal>                              m_inequalities;    // asserted rows corresponding to inequality literals.
@@ -360,7 +361,6 @@ class theory_lra::imp {
     enode* get_enode(expr* e) const { return ctx().get_enode(e); }
     expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }        
 
-    
     void init_solver() {
         if (m_solver) return;
 
@@ -424,10 +424,6 @@ class theory_lra::imp {
         add_const(0, m_zero_var);
         return m_zero_var;
     }
-    void ensure_niil() {
-        if (!m_niil) {
-            m_niil = alloc(niil::solver, *m_solver.get(), m.limit(), ctx().get_params());
-            m_switcher.m_niil = &m_niil;
 
     void ensure_nla() {
         if (!m_nla) {
@@ -721,6 +717,7 @@ class theory_lra::imp {
         }
         if (result == UINT_MAX) {
             result = m_solver->add_var(v, is_int(v));
+            m_has_int |= is_int(v);
             m_theory_var2var_index.setx(v, result, UINT_MAX);
             m_var_index2theory_var.setx(result, v, UINT_MAX);
             m_var_trail.push_back(v);
@@ -913,6 +910,7 @@ public:
         th(th), m(m), 
         m_arith_params(ap), 
         a(m), 
+        m_has_int(false),
         m_arith_eq_adapter(th, ap, a),            
         m_internalize_head(0),
         m_one_var(UINT_MAX),
@@ -1483,6 +1481,7 @@ public:
     }
 
     void init_variable_values() {
+        reset_variable_values();
         if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
             TRACE("arith", tout << "update variable values\n";);
             m_solver->get_model(m_variable_values);
@@ -1507,9 +1506,9 @@ public:
         init_variable_values();
         TRACE("arith", 
               for (theory_var v = 0; v < sz; ++v) {
-                  if (th.is_relevant_and_shared(get_enode(v))) { 
-                      tout << "v" << v << " ";
-                  }
+                                                   if (th.is_relevant_and_shared(get_enode(v))) { 
+                                                                                                 tout << "v" << v << " ";
+                                                   }
               }
               tout << "\n"; );
         if (!m_use_nra_model) {
@@ -1719,7 +1718,7 @@ public:
         return atom;
     }
 
-    /*    bool make_sure_all_vars_have_bounds() {
+    bool make_sure_all_vars_have_bounds() {
         if (!m_has_int) {
             return true;
         }
@@ -1731,7 +1730,7 @@ public:
                 continue;
             if (!m_solver->is_term(vi) && !var_has_bound(vi, true) && !var_has_bound(vi, false)) {
                 lp::lar_term term;
-                term.add_monomial(rational::one(), vi);
+                term.add_coeff_var(rational::one(), vi);
                 app_ref b = mk_bound(term, rational::zero(), true);
                 TRACE("arith", tout << "added bound " << b << "\n";);
                 IF_VERBOSE(2, verbose_stream() << "bound: " << b << "\n");
@@ -1739,7 +1738,7 @@ public:
             }
         }
         return all_bounded;
-        }*/
+    }
 
     /**
      * n = (div p q)
@@ -1940,28 +1939,6 @@ public:
         visitor.display_asserts(out, fmls, true);
         out << "(check-sat)\n";            
     }
-    
-    bool all_variables_have_bounds() {
-        if (!m_has_int) {
-            return true;
-        }
-        unsigned nv = th.get_num_vars();
-        bool added_bound = false;
-        for (unsigned v = 0; v < nv; ++v) {
-            lp::constraint_index ci;
-            rational bound;
-            lp::var_index vi = m_theory_var2var_index[v];
-            if (!has_upper_bound(vi, ci, bound) && !has_lower_bound(vi, ci, bound)) {
-                lp::lar_term term;
-                term.add_coeff_var(rational::one(), vi);
-                app_ref b = mk_bound(term, rational::zero(), false);
-                TRACE("arith", tout << "added bound " << b << "\n";);
-                added_bound = true;
-            }
-        }
-        return !added_bound;
-    }
-
 
     lbool check_lia() {
         if (m.canceled()) {
@@ -1972,11 +1949,6 @@ public:
         if (!check_idiv_bounds()) {
             return l_false;
         }
-
-        lp::lar_term term;
-        lp::mpq k;
-        lp::explanation ex; // TBD, this should be streamlined accross different explanations
-        bool upper;
         m_explanation.reset();
         switch (m_lia->check()) {
         case lp::lia_move::sat:
@@ -2015,7 +1987,7 @@ public:
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            for (auto const& ev : ex) {
+            for (auto const& ev : m_explanation) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
                 }
@@ -2031,7 +2003,6 @@ public:
         case lp::lia_move::conflict:
             TRACE("arith", tout << "conflict\n";);
             // ex contains unsat core
-            m_explanation = ex;
             set_conflict1();
             lia_check = l_false;
             break;
@@ -2350,7 +2321,7 @@ public:
                   );
             DEBUG_CODE(
                 for (auto& lit : m_core) {
-                    SASSERT(ctx().get_assignment(lit) == l_true);
+                                          SASSERT(ctx().get_assignment(lit) == l_true);
                 });
             ++m_stats.m_bound_propagations1;
             assign(lit);
@@ -2554,7 +2525,7 @@ public:
             }            
             CTRACE("arith_verbose", !atoms.empty(),  
                    for (unsigned i = 0; i < atoms.size(); ++i) {
-                       atoms[i]->display(tout); tout << "\n";
+                                                                atoms[i]->display(tout); tout << "\n";
                    });
             lp_bounds occs(m_bounds[v]);
                 
@@ -3197,6 +3168,12 @@ public:
             m_core.push_back(lit);
         }
         // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
+        /*
+          static unsigned cn = 0;
+          static unsigned num_l = 0;
+          num_l+=m_explanation.size();
+          std::cout << num_l / (++cn) << "\n";
+        */
         ++m_num_conflicts;
         ++m_stats.m_conflicts;
         TRACE("arith", tout << "scope: " << ctx().get_scope_level() << "\n"; display_evidence(tout, m_explanation); );
@@ -3251,10 +3228,6 @@ public:
 
     void init_model(model_generator & mg) {
         init_variable_values();
-        DEBUG_CODE(            
-            for (auto const& kv : m_variable_values) {
-                SASSERT(!m_solver->var_is_int(kv.first) || kv.second.is_int() || m.canceled());
-            });
         m_factory = alloc(arith_factory, m);
         mg.register_factory(m_factory);
         TRACE("arith", display(tout););
@@ -3563,7 +3536,7 @@ public:
 
     app_ref coeffs2app(u_map<rational> const& coeffs, rational const& offset, bool is_int) {
         expr_ref_vector args(m);
-         for (auto const& kv : coeffs) {
+        for (auto const& kv : coeffs) {
             theory_var w = kv.m_key;
             expr* o = get_enode(w)->get_owner();
             if (kv.m_value.is_zero()) {
