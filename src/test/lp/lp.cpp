@@ -54,6 +54,7 @@
 #include "util/lp/lu_def.h"
 #include "util/lp/general_matrix.h"
 #include "util/lp/bound_propagator.h"
+#include "util/lp/nla_solver.h"
 namespace lp {
 unsigned seed = 1;
 
@@ -1894,6 +1895,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-nla", "test nla_solver");
     parser.add_option_with_help_string("-hnf", "test hermite normal form");
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
@@ -2404,7 +2406,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     lp_status status = solver->solve();
     std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << sw.get_current_seconds() <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
     if (solver->get_status() == lp_status::INFEASIBLE) {
-        vector<std::pair<lp::mpq, constraint_index>> evidence;
+        explanation evidence;
         solver->get_infeasibility_explanation(evidence);
     }
     if (args_parser.option_is_used("--randomize_lar")) {
@@ -3545,6 +3547,10 @@ void test_gomory_cut() {
     test_gomory_cut_1();
 }
 
+void test_nla() {
+    nla::solver::test();
+}
+
 void test_lp_local(int argn, char**argv) {
     
     // initialize_util_module();
@@ -3560,7 +3566,15 @@ void test_lp_local(int argn, char**argv) {
     }
 
     args_parser.print();
+    
+    if (args_parser.option_is_used("-nla")) {
+#ifdef Z3DEBUG
+        test_nla();
+#endif
+        return finalize(0);
+    }
 
+    
     if (args_parser.option_is_used("-hnf")) {
 #ifdef Z3DEBUG
         test_hnf();
