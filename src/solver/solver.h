@@ -236,6 +236,8 @@ public:
     */
     expr_ref_vector get_units(ast_manager& m);
 
+    expr_ref_vector get_non_units(ast_manager& m);
+
     class scoped_push {
         solver& s;
         bool    m_nopop;

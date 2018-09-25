@@ -259,7 +259,7 @@ public:
         return m_num_scopes;
     }
 
-    void assert_expr_core2(expr * t, expr * a) override {
+    void assert_expr_core2(expr * t, expr * a) override {        
         if (a) {
             m_asmsf.push_back(a);
             assert_expr_core(m.mk_implies(a, t));
@@ -473,6 +473,7 @@ public:
     }
 
     void convert_internalized() {
+        m_solver.pop_to_base_level();
         if (!is_internalized() && m_fmls_head > 0) {
             internalize_formulas();
         }

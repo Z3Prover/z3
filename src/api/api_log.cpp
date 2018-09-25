@@ -19,7 +19,7 @@ Revision History:
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "util/util.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 
 std::ostream * g_z3_log = nullptr;
 bool g_z3_log_enabled   = false;

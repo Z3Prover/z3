@@ -1815,8 +1815,10 @@ struct
     | _ -> UNKNOWN
 
   let get_model x =
-    let q = Z3native.solver_get_model (gc x) x in
-    if Z3native.is_null_model q then None else Some q
+    try 
+       let q = Z3native.solver_get_model (gc x) x in
+       if Z3native.is_null_model q then None else Some q 
+    with | _ -> None
 
   let get_proof x =
     let q = Z3native.solver_get_proof (gc x) x in
@@ -1952,8 +1954,10 @@ struct
     | _ -> Solver.UNKNOWN
 
   let get_model (x:optimize) =
-    let q = Z3native.optimize_get_model (gc x) x in
-    if Z3native.is_null_model q then None else Some q
+    try
+      let q = Z3native.optimize_get_model (gc x) x in
+      if Z3native.is_null_model q then None else Some q
+    with | _ -> None
 
   let get_lower (x:handle) = Z3native.optimize_get_lower (gc x.opt) x.opt x.h
   let get_upper (x:handle) = Z3native.optimize_get_upper (gc x.opt) x.opt x.h

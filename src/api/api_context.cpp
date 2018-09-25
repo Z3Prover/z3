@@ -19,7 +19,7 @@ Revision History:
 --*/
 #include<typeinfo>
 #include "api/api_context.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "api/api_log_macros.h"
