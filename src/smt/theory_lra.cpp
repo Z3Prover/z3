@@ -218,6 +218,8 @@ class theory_lra::imp {
     mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model
     lp::var_index m_one_var;
     lp::var_index m_zero_var;
+    lp::var_index m_rone_var;
+    lp::var_index m_rzero_var;
 
     enum constraint_source {
         inequality_source,
@@ -333,11 +335,11 @@ class theory_lra::imp {
         }
     }
 
-    void add_const(int c, lp::var_index& var) {
+    lp::var_index add_const(int c, lp::var_index& var, bool is_int) {
         if (var != UINT_MAX) {
-            return;
+            return var;
         }
-        app_ref cnst(a.mk_int(c), m);
+        app_ref cnst(a.mk_numeral(rational(c), is_int), m);
         TRACE("arith", tout << "add " << cnst << "\n";);
         enode* e = mk_enode(cnst);
         theory_var v = mk_var(cnst);
@@ -347,16 +349,15 @@ class theory_lra::imp {
         m_var_trail.push_back(v);
         add_def_constraint(m_solver->add_var_bound(var, lp::GE, rational(c)));
         add_def_constraint(m_solver->add_var_bound(var, lp::LE, rational(c)));
+        return var;
     }
 
-    lp::var_index get_one() {
-        add_const(1, m_one_var);
-        return m_one_var;
+    lp::var_index get_one(bool is_int) {
+        return add_const(1, is_int ? m_one_var : m_rone_var, is_int);
     }
 
-    lp::var_index get_zero() {
-        add_const(0, m_zero_var);
-        return m_zero_var;
+    lp::var_index get_zero(bool is_int) {
+        return add_const(0, is_int ? m_zero_var : m_rzero_var, is_int);
     }
 
 
@@ -577,6 +578,7 @@ class theory_lra::imp {
     }
 
     enode * mk_enode(app * n) {
+        TRACE("arith", tout << expr_ref(n, m) << "\n";);
         if (ctx().e_internalized(n)) {
             return get_enode(n);
         }
@@ -777,6 +779,7 @@ class theory_lra::imp {
     }
 
     theory_var internalize_def(app* term, scoped_internalize_state& st) {
+        TRACE("arith", tout << expr_ref(term, m) << "\n";);
         if (ctx().e_internalized(term)) {
             IF_VERBOSE(0, verbose_stream() << "repeated term\n";);
             return mk_var(term, false);
@@ -807,10 +810,10 @@ class theory_lra::imp {
             return st.vars()[0];
         }
         else if (is_one(st)) {
-            return get_one();
+            return get_one(a.is_int(term));
         }
         else if (is_zero(st)) {
-            return get_zero();
+            return get_zero(a.is_int(term));
         }
         else {
             init_left_side(st);
@@ -820,7 +823,7 @@ class theory_lra::imp {
             if (vi == UINT_MAX) {
                 rational const& offset = st.offset();
                 if (!offset.is_zero()) {
-                    m_left_side.push_back(std::make_pair(offset, get_one()));
+                    m_left_side.push_back(std::make_pair(offset, get_one(a.is_int(term))));
                 }
                 SASSERT(!m_left_side.empty());
                 vi = m_solver->add_term(m_left_side);
@@ -854,6 +857,8 @@ public:
         m_internalize_head(0),
         m_one_var(UINT_MAX),
         m_zero_var(UINT_MAX),
+        m_rone_var(UINT_MAX),
+        m_rzero_var(UINT_MAX),
         m_not_handled(nullptr),
         m_asserted_qhead(0), 
         m_assume_eq_head(0),
@@ -925,16 +930,18 @@ public:
         }
         return true;
     }
+
+    bool is_arith(enode* n) {
+        return n && n->get_th_var(get_id()) != null_theory_var;
+    }
         
     void internalize_eq_eh(app * atom, bool_var) {
+        TRACE("arith_verbose", tout << mk_pp(atom, m) << "\n";);
         expr* lhs = nullptr, *rhs = nullptr;
         VERIFY(m.is_eq(atom, lhs, rhs));
         enode * n1 = get_enode(lhs);
         enode * n2 = get_enode(rhs);
-        if (n1->get_th_var(get_id()) != null_theory_var &&
-            n2->get_th_var(get_id()) != null_theory_var &&
-            n1 != n2) {
-            TRACE("arith_verbose", tout << mk_pp(atom, m) << "\n";);
+        if (is_arith(n1) && is_arith(n2) && n1 != n2) {
             m_arith_eq_adapter.mk_axioms(n1, n2);
         }
     }
@@ -1301,6 +1308,7 @@ public:
     void init_variable_values() {
         reset_variable_values();
         if (!m.canceled() && m_solver.get() && th.get_num_vars() > 0) {
+            TRACE("arith", tout << "update variable values\n";);
             m_solver->get_model(m_variable_values);
         }
     }
@@ -3002,6 +3010,7 @@ public:
         if (!can_get_bound(v)) return false;
         lp::var_index vi = m_theory_var2var_index[v];
         if (m_solver->has_value(vi, val)) {
+            TRACE("arith", tout << expr_ref(n->get_owner(), m) << " := " << val << "\n";);
             if (is_int(n) && !val.is_int()) return false;
             return true;
         }
