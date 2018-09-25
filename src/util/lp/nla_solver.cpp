@@ -331,7 +331,7 @@ struct solver::imp {
         t.add_coeff_var(rational(1), a.var());
         t.add_coeff_var(rational(- sign), b.var());
         TRACE("nla_solver", print_explanation_and_lemma(tout););
-        ineq in(lp::lconstraint_kind::NE, t);
+        ineq in(lp::lconstraint_kind::NE, t, rational::zero());
         m_lemma->push_back(in);
     }
     
@@ -516,8 +516,7 @@ struct solver::imp {
         lp::lar_term t;
         t.add_coeff_var(rational(1), m_monomials[i_mon].var());
         SASSERT(false); // figure out the change!!!!!! 
-        //  t.m_v = -rs;
-        ineq in(kind, t);
+        ineq in(kind, t, rs);
         m_lemma->push_back(in);
         TRACE("nla_solver", print_explanation_and_lemma(tout););
         return true;
@@ -543,7 +542,7 @@ struct solver::imp {
     ineq ineq_j_is_equal_to_zero(lpvar j) const {
         lp::lar_term t;
         t.add_coeff_var(rational(1), j);
-        ineq i(lp::lconstraint_kind::EQ, t);
+        ineq i(lp::lconstraint_kind::EQ, t, rational::zero());
         return i;
     }
     
@@ -763,7 +762,7 @@ struct solver::imp {
         lp::lar_term t;
         t.add_coeff_var(rational(1), m.var());
         t.add_coeff_var(rational(- sign), j);
-        ineq in(lp::lconstraint_kind::EQ, t);
+        ineq in(lp::lconstraint_kind::EQ, t, rational::zero());
         m_lemma->push_back(in);
         TRACE("nla_solver", print_explanation_and_lemma(tout););
     }
@@ -838,18 +837,18 @@ struct solver::imp {
         // the first literal
         lp::lar_term t; 
         t.add_coeff_var(rational(j_sign), j);
-        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t, rational::zero()));
 
         t.clear();
         // the second literal
         t.add_coeff_var(rational(mon_sign), m.var());
-        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t, rational::zero()));
 
         t.clear();
         // the third literal
         t.add_coeff_var(rational(mon_sign), m.var());
         t.add_coeff_var(- rational(j_sign), j);
-        m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
+        m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t, rational::zero()));
     }
     
     bool large_lemma_for_proportion_case(const mon_eq& m, const unsigned_vector & mask,
@@ -911,16 +910,16 @@ struct solver::imp {
         lp::lar_term t;
         // the first literal
         t.add_coeff_var(rational(j_sign), j);
-        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t, rational::zero()));
         //the second literal
         t.clear();
         t.add_coeff_var(rational(mon_sign), m.var());
-        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t));
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t, rational::zero()));
         // the third literal
         t.clear();
         t.add_coeff_var(rational(j_sign), j);
         t.add_coeff_var(- rational(mon_sign), m.var());
-        m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t));
+        m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t, rational::zero()));
     }
     
     bool large_basic_lemma_for_mon_proportionality(unsigned i_mon, const unsigned_vector& large) {
