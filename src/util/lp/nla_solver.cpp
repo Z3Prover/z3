@@ -47,7 +47,9 @@ struct vars_equivalence {
             m_j(j),
             m_sign(sign),
             m_c0(c0),
-            m_c1(c1) {}
+            m_c1(c1) {
+            SASSERT(m_i != m_j);
+        }
     };
 
     // The map from the variables to m_equivs indices
@@ -152,21 +154,54 @@ struct vars_equivalence {
         return m_tree.empty();
     }
 
-    // the sign is flipped if needed
-    lpvar map_to_min(lpvar j, int& sign) const {
-        SASSERT(false);
-        return 0;
+    bool is_root(unsigned j) const {
+        auto it = m_tree.find(j);
+        if (it == m_tree.end())
+            return true;
+
+        return it->second == static_cast<unsigned>(-1);
     }
 
+    static unsigned get_parent_node(unsigned j, const equiv& e) {
+        SASSERT(e.m_i == j || e.m_j == j);
+        return e.m_i == j? e.m_j : e.m_i;
+    }
+    
+    // Finds the minimal var which is equivalent to j.
+    // The sign is flipped if needed
+    lpvar map_to_root(lpvar j, int& sign) const {
+        while (true) {
+            auto it = m_tree.find(j);
+            if (it == m_tree.end())
+                return j;
+            if (it->second == static_cast<unsigned>(-1))
+                return j;
+            const equiv & e = m_equivs[it->second];
+            sign *= e.m_sign;
+            j = get_parent_node(j, e);
+        }
+    }
+
+    void add_equiv_exp(unsigned j, expl_set& exp) const {
+        while (true) {
+            auto it = m_tree.find(j);
+            if (it == m_tree.end())
+                return;
+            if (it->second == static_cast<unsigned>(-1))
+                return;
+            const equiv & e = m_equivs[it->second];
+            exp.insert(e.m_c0);
+            exp.insert(e.m_c1);
+            j = get_parent_node(j, e);
+        }
+    }
+    
     template <typename T>
     void add_explanation_of_reducing_to_mininal_monomial(const T & m, expl_set & exp) const {
         for (auto j : m)
             add_equiv_exp(j, exp);
     }
-        
-    void add_equiv_exp(lpvar j, expl_set & exp) const {
-        SASSERT(false);
-    }
+
 }; // end of vars_equivalence
 
 struct solver::imp {
@@ -241,7 +276,7 @@ struct solver::imp {
 
         auto other_vars_copy = other_m.m_vs;
         int other_sign = 1;
-        reduce_monomial_to_minimal(other_vars_copy, other_sign);
+        reduce_monomial_to_canonical(other_vars_copy, other_sign);
         if (mon_vars == other_vars_copy &&
             values_are_different(m_monomials[i_mon].var(), sign * other_sign, other_m.var())) {
             fill_explanation_and_lemma_sign(m_monomials[i_mon],
@@ -321,11 +356,13 @@ struct solver::imp {
 
     // Replaces each variable index by a smaller index and flips the sing if the var comes with a minus.
     // 
-    svector<lpvar> reduce_monomial_to_minimal(const svector<lpvar> & vars, int & sign) const {
+    svector<lpvar> reduce_monomial_to_canonical(const svector<lpvar> & vars, int & sign) const {
         svector<lpvar> ret;
         sign = 1;
         for (unsigned i = 0; i < vars.size(); i++) {
-            ret.push_back(m_vars_equivalence.map_to_min(vars[i], sign));
+            unsigned root = m_vars_equivalence.map_to_root(vars[i], sign);
+            SASSERT(m_vars_equivalence.is_root(root));
+            ret.push_back(m_vars_equivalence.map_to_root(vars[i], sign));
         }
         std::sort(ret.begin(), ret.end());
         return ret;
@@ -343,7 +380,7 @@ struct solver::imp {
         int sign = 1;
         
         auto mon_vars =  m_of_i.m_vs;
-        reduce_monomial_to_minimal(mon_vars, sign);
+        reduce_monomial_to_canonical(mon_vars, sign);
         for (unsigned j_var : mon_vars)
             if (generate_basic_lemma_for_mon_sign_var(i_mon, j_var, mon_vars, sign))
                 return true;
@@ -660,7 +697,7 @@ struct solver::imp {
     bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
         const mon_eq & m = m_monomials[i_mon];
         int sign;
-        svector<lpvar> reduced_vars = reduce_monomial_to_minimal(m.m_vs, sign);
+        svector<lpvar> reduced_vars = reduce_monomial_to_canonical(m.m_vs, sign);
         rational v = m_lar_solver.get_column_value_rational(m.m_v);
         if (sign == -1)
             v = -v;
@@ -890,7 +927,7 @@ struct solver::imp {
         unsigned_vector mask(large.size(), (unsigned) 0); // init mask by zeroes
         const auto & m = m_monomials[i_mon];
         int sign;
-        auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
+        auto vars = reduce_monomial_to_canonical(m.m_vs, sign);
         auto vars_copy = vars;
         auto v = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
         // We cross out from vars the "large" variables represented by the mask
@@ -921,7 +958,7 @@ struct solver::imp {
         unsigned_vector mask(_small.size(), (unsigned) 0); // init mask by zeroes
         const auto & m = m_monomials[i_mon];
         int sign;
-        auto vars = reduce_monomial_to_minimal(m.m_vs, sign);
+        auto vars = reduce_monomial_to_canonical(m.m_vs, sign);
         auto vars_copy = vars;
         auto v = lp::abs(m_lar_solver.get_column_value_rational(m.m_v));
         // We cross out from vars the "large" variables represented by the mask
@@ -1005,7 +1042,7 @@ struct solver::imp {
         
         binary_factorizations_of_monomial(unsigned i_mon, const imp& s) : m_i_mon(i_mon), m_imp(s),
                                                             m_mon(m_imp.m_monomials[i_mon]) {
-            m_minimized_vars = m_imp.reduce_monomial_to_minimal(
+            m_minimized_vars = m_imp.reduce_monomial_to_canonical(
                 m_imp.m_monomials[m_i_mon].m_vs, m_sign);
         }
 
@@ -1225,7 +1262,7 @@ struct solver::imp {
     void register_monomial_in_min_map(unsigned i) {
         const mon_eq& m = m_monomials[i];
         int sign;
-        svector<lpvar> key = reduce_monomial_to_minimal(m.m_vs, sign);
+        svector<lpvar> key = reduce_monomial_to_canonical(m.m_vs, sign);
         register_key_mono_in_min_monomials(key, i, sign);
     }
     
