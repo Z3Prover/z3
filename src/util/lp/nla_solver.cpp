@@ -41,11 +41,7 @@ struct vars_equivalence {
         int                  m_sign;
         lpci                 m_c0;
         lpci                 m_c1;
-        // the index of the tree node in the m_tree_array it attached to 
-        // or -1 if not attached
-        bool                 m_in_the_tree;
-        // if the tree node is set then
-        // the parent corresponds to m_i and the child to m_j
+
         equiv(lpvar i, lpvar j, int sign, lpci c0, lpci c1) :
             m_i(i),
             m_j(j),
@@ -54,8 +50,13 @@ struct vars_equivalence {
             m_c1(c1) {}
     };
 
+    // The map from the variables to m_equivs indices
+    // If m_tree[v] == -1 then the variable is a root.
+    // Otherwize m_equivs[m_tree[v]].m_i == v or m_equivs[m_tree[v]].m_i == v.
+    // m_tree is a spanning tree of the graph of equivs represented by m_equivs
+    std::unordered_map<unsigned, unsigned> m_tree;  
+    
     // if m_tree[v] is not equal to -1 then m_equivs[v] = (k, v), that is m_equivs[v].m_j = v
-    vector<unsigned>                  m_tree;
     vector<equiv>                     m_equivs;         // all equivalences extracted from constraints
     void clear() {
         m_equivs.clear();
@@ -65,9 +66,9 @@ struct vars_equivalence {
     unsigned size() const { return m_tree.size(); }
 
     void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
-        SASSERT(false); // check for new terms
-        if (t->size() != 2 || t->size() != 3)
+        if (t->size() != 2)
             return;
+        TRACE("nla_solver", tout << "term size = 2";);
         bool seen_minus = false;
         bool seen_plus = false;
         lpvar i = -1, j;
@@ -85,12 +86,7 @@ struct vars_equivalence {
             else
                 j = p.var();
         }
-        SASSERT(i != j && i != static_cast<lpvar>(-1));
-        if (i < j) { // swap 
-            lpvar tmp = i;
-            i = j;
-            j = tmp;
-        }
+        TRACE("nla_solver", tout << "adding equiv";);
         int sign = (seen_minus && seen_plus)? 1 : -1;
         m_equivs.push_back(equiv(i, j, sign, c0, c1));
     }
@@ -107,18 +103,43 @@ struct vars_equivalence {
                 continue;
             if (s.get_upper_bound(j) != lp::zero_of_type<lp::impq>() ||
                 s.get_lower_bound(j) != lp::zero_of_type<lp::impq>())
-                continue; 
+                continue;
+            TRACE("nla_solver", tout << "term = "; s.print_term(*s.terms()[i], tout););
             add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
         }
     }
 
     // we create a spanning tree on all variables participating in an equivalence
     void create_tree() {
-        for (equiv & e : m_equivs)
-            add_equiv_to_tree(e);
+        for (unsigned k = 0; k < m_equivs.size(); k++)
+            connect_equiv_to_tree(k);
     }
 
-    void add_equiv_to_tree(equiv &e) {
+    void connect_equiv_to_tree(unsigned k) {
+        // m_tree is a spanning tree of the graph of m_equivs
+        const equiv &e = m_equivs[k];
+        TRACE("nla_solver", tout << "m_i = " << e.m_i << ", " << "m_j = " << e.m_j ;);
+        bool i_is_in = m_tree.find(e.m_i) != m_tree.end();
+        bool j_is_in = m_tree.find(e.m_j) != m_tree.end();
+        
+        if (!(i_is_in || j_is_in)) {
+            // none of the edge vertices is in the tree
+            // let m_i be the parent, and m_j be the child
+            TRACE("nla_solver", tout << "create nodes for " << e.m_i << " and " << e.m_j; );
+            m_tree.emplace(e.m_i, -1);
+            m_tree.emplace(e.m_j, k);
+        } else if (i_is_in && (!j_is_in)) {
+            // create a node for m_j, with m_i is the parent
+            TRACE("nla_solver", tout << "create a node for " << e.m_j; );
+            m_tree.emplace(e.m_j, k);
+            // if m_i is a root here we can set its parent m_j
+        } else if ((!i_is_in) && j_is_in) {
+            TRACE("nla_solver", tout << "create a node for " << e.m_i; );
+            m_tree.emplace(e.m_i, k);
+            // if m_j is a root here we can set its parent to m_i
+        } else {
+            TRACE("nla_solver", tout << "both vertices are in the tree";);
+        }
     }
     
     void init(const lp::lar_solver& s) {
