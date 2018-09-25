@@ -217,9 +217,9 @@ struct solver::imp {
     
     vars_equivalence                                       m_vars_equivalence;
     vector<mon_eq>                                         m_monomials;
-    // maps the vector of the minimized monomial vars to the list of the indices of monomials having the same minimized monomial
+    // maps the vector of the rooted monomial vars to the list of the indices of monomials having the same rooted monomial
     std::unordered_map<svector<lpvar>, vector<mono_index_with_sign>, hash_svector>
-    m_minimal_monomials;
+    m_rooted_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
     std::unordered_map<lpvar, unsigned_vector>    m_var_lists;
@@ -354,7 +354,7 @@ struct solver::imp {
         return false;
     }
 
-    // Replaces each variable index by a smaller index and flips the sing if the var comes with a minus.
+    // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
     // 
     svector<lpvar> reduce_monomial_to_canonical(const svector<lpvar> & vars, int & sign) const {
         svector<lpvar> ret;
@@ -515,7 +515,6 @@ struct solver::imp {
         }
         lp::lar_term t;
         t.add_coeff_var(rational(1), m_monomials[i_mon].var());
-        SASSERT(false); // figure out the change!!!!!! 
         ineq in(kind, t, rs);
         m_lemma->push_back(in);
         TRACE("nla_solver", print_explanation_and_lemma(tout););
@@ -685,7 +684,7 @@ struct solver::imp {
         if (ones_of_mon.empty()) {
             return false;
         }
-        if (m_minimal_monomials.empty() && m.size() > 2)
+        if (m_rooted_monomials.empty() && m.size() > 2)
             create_min_mon_map();
         
         return process_ones_of_mon(m, ones_of_mon, vars, v);
@@ -710,8 +709,8 @@ struct solver::imp {
             sign = 1;
             return true;
         }
-        auto it = m_minimal_monomials.find(vars);
-        if (it == m_minimal_monomials.end()) {
+        auto it = m_rooted_monomials.find(vars);
+        if (it == m_rooted_monomials.end()) {
             return false;
         }
 
@@ -995,7 +994,7 @@ struct solver::imp {
         if (large.empty() && _small.empty())
             return false;
         
-        if (m_minimal_monomials.empty())
+        if (m_rooted_monomials.empty())
             create_min_mon_map();
 
         if (!large.empty() && large_basic_lemma_for_mon_proportionality(i_mon, large))
@@ -1036,12 +1035,14 @@ struct solver::imp {
         unsigned         m_i_mon;
         const imp&       m_imp;
         const mon_eq&    m_mon;
-        unsigned_vector  m_minimized_vars;
+        unsigned_vector  m_rooted_vars;
         int              m_sign; // the sign appears after reducing the monomial "mm_mon" to the minimal one
         
-        binary_factorizations_of_monomial(unsigned i_mon, const imp& s) : m_i_mon(i_mon), m_imp(s),
-                                                            m_mon(m_imp.m_monomials[i_mon]) {
-            m_minimized_vars = m_imp.reduce_monomial_to_canonical(
+        binary_factorizations_of_monomial(unsigned i_mon, const imp& s) :
+            m_i_mon(i_mon),
+            m_imp(s),
+            m_mon(m_imp.m_monomials[i_mon]) {
+            m_rooted_vars = m_imp.reduce_monomial_to_canonical(
                 m_imp.m_monomials[m_i_mon].m_vs, m_sign);
         }
 
@@ -1062,9 +1063,9 @@ struct solver::imp {
             void init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
                 for (unsigned j = 0; j < m_mask.size(); j++) {
                     if (m_mask[j] == 1) {
-                        k_vars.push_back(m_binary_factorizations.m_minimized_vars[j]);
+                        k_vars.push_back(m_binary_factorizations.m_rooted_vars[j]);
                     } else {
-                        j_vars.push_back(m_binary_factorizations.m_minimized_vars[j]);
+                        j_vars.push_back(m_binary_factorizations.m_rooted_vars[j]);
                     }
                 }
             }
@@ -1247,12 +1248,12 @@ struct solver::imp {
 
     void register_key_mono_in_min_monomials(const svector<lpvar>& key, unsigned i, int sign) {
         mono_index_with_sign ms(i, sign);
-        auto it = m_minimal_monomials.find(key);
-        if (it == m_minimal_monomials.end()) {
+        auto it = m_rooted_monomials.find(key);
+        if (it == m_rooted_monomials.end()) {
             vector<mono_index_with_sign> v;
             v.push_back(ms);
             // v is a vector containing a single mono_index_with_sign
-            m_minimal_monomials.emplace(key, v);
+            m_rooted_monomials.emplace(key, v);
         } else {
             it->second.push_back(ms);
         }
