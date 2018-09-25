@@ -1279,16 +1279,6 @@ lbool solver::check(lp::explanation & ex, lemma& l) {
     return m_imp->check(ex, l);
 }
 
-void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
-    m_imp->add(v, sz, vs);
-}
-    
-bool solver::need_check() { return true; }
-    
-lbool solver::check(lp::explanation & ex, lemma& l) {
-    return m_imp->check(ex, l);
-}    
-    
 void solver::push(){
     m_imp->push();
 }
