@@ -34,47 +34,35 @@ struct hash_svector {
 };
 
 struct vars_equivalence {
+    
     struct equiv {
         lpvar                m_i;
         lpvar                m_j;
         int                  m_sign;
         lpci                 m_c0;
         lpci                 m_c1;
+        // the index of the tree node in the m_tree_array it attached to 
+        // or -1 if not attached
+        bool                 m_in_the_tree;
+        // if the tree node is set then
+        // the parent corresponds to m_i and the child to m_j
         equiv(lpvar i, lpvar j, int sign, lpci c0, lpci c1) :
             m_i(i),
             m_j(j),
             m_sign(sign),
             m_c0(c0),
-            m_c1(c1)
-        {
-            SASSERT(i > j);
-        }
+            m_c1(c1) {}
     };
 
-    struct eq_var {
-        lpvar m_var;
-        int   m_sign;
-        expl_set m_explanation;
-        eq_var(const equiv& e) :
-            m_var(e.m_j),
-            m_sign(e.m_sign) {
-            m_explanation.insert(e.m_c0); m_explanation.insert(e.m_c1);
-        }
-        void improve(const equiv & e) {
-            SASSERT(e.m_j > m_var);
-            m_var = e.m_j;
-            m_sign *= e.m_sign;
-            m_explanation.insert(e.m_c0); m_explanation.insert(e.m_c1);
-        }
-    };
-    std::unordered_map<lpvar, eq_var> m_map;         // the resulting mapping
+    // if m_tree[v] is not equal to -1 then m_equivs[v] = (k, v), that is m_equivs[v].m_j = v
+    vector<unsigned>                  m_tree;
     vector<equiv>                     m_equivs;         // all equivalences extracted from constraints
     void clear() {
         m_equivs.clear();
-        m_map.clear();
+        m_tree.clear();
     }
 
-    unsigned size() const { return m_map.size(); }
+    unsigned size() const { return m_tree.size(); }
 
     void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
         SASSERT(false); // check for new terms
@@ -124,46 +112,29 @@ struct vars_equivalence {
         }
     }
 
-    void create_map() {
-        bool progress;
-        do {
-            progress = false;
-            for (const auto & e : m_equivs) {
-                unsigned i = e.m_i;
-                auto it = m_map.find(i);
-                if (it == m_map.end()) {
-                    m_map.emplace(i, eq_var(e));
-                    progress = true;
-                } else {
-                    if (it->second.m_var > e.m_j) {
-                        it->second.improve(e);
-                        progress = true;
-                    }
-                }
-            }
-        } while(progress);
+    // we create a spanning tree on all variables participating in an equivalence
+    void create_tree() {
+        for (equiv & e : m_equivs)
+            add_equiv_to_tree(e);
     }
-        
+
+    void add_equiv_to_tree(equiv &e) {
+    }
+    
     void init(const lp::lar_solver& s) {
         clear();
         collect_equivs(s);
-        create_map();
+        create_tree();
     }
 
     bool empty() const {
-        return m_map.empty();
+        return m_tree.empty();
     }
 
     // the sign is flipped if needed
     lpvar map_to_min(lpvar j, int& sign) const {
-        auto it = m_map.find(j);
-        if (it == m_map.end())
-            return j;
-
-        if (it->second.m_sign == -1) {
-            sign = -sign;
-        }
-        return it->second.m_var;
+        SASSERT(false);
+        return 0;
     }
 
     template <typename T>
@@ -173,11 +144,7 @@ struct vars_equivalence {
     }
         
     void add_equiv_exp(lpvar j, expl_set & exp) const {
-        auto it = m_map.find(j);
-        if (it == m_map.end())
-            return;
-        for (auto k : it->second.m_explanation)
-            exp.insert(k);
+        SASSERT(false);
     }
 }; // end of vars_equivalence
 
