@@ -355,6 +355,7 @@ class theory_lra::imp {
     scoped_ptr<lp::lar_solver> m_solver;
     resource_limit         m_resource_limit;
     lp_bounds              m_new_bounds;
+    switcher m_switcher;
 
     context& ctx() const { return th.get_context(); }
     theory_id get_id() const { return th.get_id(); }
@@ -423,9 +424,8 @@ class theory_lra::imp {
         return add_const(1, is_int ? m_one_var : m_rone_var, is_int);
     }
 
-    lp::var_index get_zero() {
-        add_const(0, m_zero_var);
-        return m_zero_var;
+     lp::var_index get_zero(bool is_int) {
+        return add_const(0, is_int ? m_zero_var : m_rzero_var, is_int);
     }
 
     void ensure_nla() {
@@ -927,7 +927,8 @@ public:
         m_use_nra_model(false),
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_solver(nullptr),
-        m_resource_limit(*this) {
+        m_resource_limit(*this),
+	m_switcher(*this) {
     }
         
     ~imp() {
@@ -1481,6 +1482,7 @@ public:
             return m_variable_values[vi];
         
         if (!m_solver->is_term(vi)) {
+            TRACE("arith", tout << "not a term v" << v << "\n";);
             return rational::zero();
         }
         
@@ -1536,9 +1538,9 @@ public:
         init_variable_values();
         TRACE("arith", 
               for (theory_var v = 0; v < sz; ++v) {
-                                                   if (th.is_relevant_and_shared(get_enode(v))) { 
-                                                                                                 tout << "v" << v << " ";
-                                                   }
+                  if (th.is_relevant_and_shared(get_enode(v))) { 
+                      tout << "v" << v << " ";
+                  }
               }
               tout << "\n"; );
         if (!m_use_nra_model) {
@@ -2540,7 +2542,7 @@ public:
             }            
             CTRACE("arith_verbose", !atoms.empty(),  
                    for (unsigned i = 0; i < atoms.size(); ++i) {
-                                                                atoms[i]->display(tout); tout << "\n";
+                       atoms[i]->display(tout); tout << "\n";
                    });
             lp_bounds occs(m_bounds[v]);
                 
