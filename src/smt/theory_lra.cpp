@@ -226,10 +226,10 @@ class theory_lra::imp {
     lp::var_index m_rzero_var;
 
     enum constraint_source {
-                            inequality_source,
-                            equality_source,
-                            definition_source,
-                            null_source
+        inequality_source,
+        equality_source,
+        definition_source,
+        null_source
     };
     svector<constraint_source>                    m_constraint_sources;
     svector<literal>                              m_inequalities;    // asserted rows corresponding to inequality literals.
@@ -928,7 +928,7 @@ public:
         m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
         m_solver(nullptr),
         m_resource_limit(*this),
-	m_switcher(*this) {
+        m_switcher(*this) {
     }
         
     ~imp() {
@@ -1679,17 +1679,14 @@ public:
         return FC_GIVEUP;
     }
 
-    // create a eq atom representing "term = 0"
-    app_ref mk_eq(lp::lar_term const& term) {
-        rational offset(0);
+    // create an eq atom representing "term = offset"
+    app_ref mk_eq(lp::lar_term const& term, rational const& offset) {
         u_map<rational> coeffs;
-        term2coeffs(term, coeffs, rational::one(), offset);
-        offset.neg();
+        term2coeffs(term, coeffs);
         bool isint = offset.is_int();
         for (auto const& kv : coeffs) isint &= is_int(kv.m_key) && kv.m_value.is_int();
-        app_ref atom(m);
         app_ref t = coeffs2app(coeffs, rational::zero(), isint);
-        atom = m.mk_eq(t, a.mk_numeral(offset, isint));
+        app_ref atom(m.mk_eq(t, a.mk_numeral(offset, isint)), m);
         ctx().internalize(atom, true);
         ctx().mark_as_relevant(atom.get());
         return atom;
@@ -1697,11 +1694,10 @@ public:
 
     // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
     app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
-        bool is_int = k.is_int();
-        rational offset = -k;
+        rational offset = k;
+        bool is_int = offset.is_int();
         u_map<rational> coeffs;
-        term2coeffs(term, coeffs, rational::one(), offset);
-        offset.neg();
+        term2coeffs(term, coeffs);
         TRACE("arith", 
               m_solver->print_term(term, tout << "term: ") << "\n";
               for (auto const& kv : coeffs) {
@@ -2095,11 +2091,11 @@ public:
                 TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
                 app_ref atom(m);
                 if (is_eq) {
-                    atom = mk_eq(ineq.m_term);
+                    atom = mk_eq(ineq.m_term, ineq.m_rs);
                 }
                 else {
                     // create term >= 0 (or term <= 0)
-                    atom = mk_bound(ineq.m_term, rational::zero(), is_lower);
+                    atom = mk_bound(ineq.m_term, ineq.m_rs, is_lower);
                 }
                 literal lit(ctx().get_bool_var(atom), pos);
                 core.push_back(~lit);
@@ -2117,7 +2113,7 @@ public:
         }
         return r;
     }
-	
+
     lbool check_nra() {
         m_use_nra_model = false;
         if (m.canceled()) {
@@ -3524,7 +3520,11 @@ public:
         return internalize_def(term);
     }
 
-    void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff, rational& offset) {
+    void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs) {
+        term2coeffs(term, coeffs, rational::one());
+    }
+
+    void term2coeffs(lp::lar_term const& term, u_map<rational>& coeffs, rational const& coeff) {
         for (const auto & ti : term) {
             theory_var w;
             if (m_solver->is_term(ti.var())) {
@@ -3532,7 +3532,7 @@ public:
                 //if (w == null_theory_var) // if extracting expressions directly from nested term
                 lp::lar_term const& term1 = m_solver->get_term(ti.var());
                 rational coeff2 = coeff * ti.coeff();
-                term2coeffs(term1, coeffs, coeff2, offset);
+                term2coeffs(term1, coeffs, coeff2);
                 continue;
             }
             else {
@@ -3574,9 +3574,8 @@ public:
 
     app_ref mk_term(lp::lar_term const& term, bool is_int) {     
         u_map<rational> coeffs;
-        rational offset;
-        term2coeffs(term, coeffs, rational::one(), offset);
-        return coeffs2app(coeffs, offset, is_int);
+        term2coeffs(term, coeffs);
+        return coeffs2app(coeffs, rational::zero(), is_int);
     }
 
     rational gcd_reduce(u_map<rational>& coeffs) {
