@@ -57,7 +57,7 @@ namespace nra {
         /*        bool check_assignment(mon_eq const& m) const {
             rational r1 = m_variable_values[m.m_v];
             rational r2(1);
-            for (auto w : m.m_vs) {
+            for (auto w : m.vars()) {
                 r2 *= m_variable_values[w];
             }
             return r1 == r2;
@@ -135,11 +135,11 @@ namespace nra {
         void add_monomial_eq(mon_eq const& m) {
             polynomial::manager& pm = m_nlsat->pm();
             svector<polynomial::var> vars;
-            for (auto v : m.m_vs) {
+            for (auto v : m) {
                 vars.push_back(lp2nl(v));
             }
             polynomial::monomial_ref m1(pm.mk_monomial(vars.size(), vars.c_ptr()), pm);
-            polynomial::monomial_ref m2(pm.mk_monomial(lp2nl(m.m_v), 1), pm);
+            polynomial::monomial_ref m2(pm.mk_monomial(lp2nl(m.var()), 1), pm);
             polynomial::monomial* mls[2] = { m1, m2 };
             polynomial::scoped_numeral_vector coeffs(pm.m());
             coeffs.push_back(mpz(1));
@@ -225,8 +225,8 @@ namespace nra {
 
         std::ostream& display(std::ostream& out) const {
             for (auto m : m_monomials) {
-                out << "v" << m.m_v << " = ";
-                for (auto v : m.m_vs) {
+                out << "v" << m.var() << " = ";
+                for (auto v : m) {
                     out << "v" << v << " ";
                 }
                 out << "\n";
