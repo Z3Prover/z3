@@ -167,7 +167,7 @@ struct vars_equivalence {
         return e.m_i == j? e.m_j : e.m_i;
     }
     
-    // Finds the minimal var which is equivalent to j.
+    // Finds the root var which is equivalent to j.
     // The sign is flipped if needed
     lpvar map_to_root(lpvar j, int& sign) const {
         while (true) {
@@ -197,7 +197,7 @@ struct vars_equivalence {
     }
     
     template <typename T>
-    void add_explanation_of_reducing_to_mininal_monomial(const T & m, expl_set & exp) const {
+    void add_explanation_of_reducing_to_rooted_monomial(const T & m, expl_set & exp) const {
         for (auto j : m)
             add_equiv_exp(j, exp);
     }
@@ -294,10 +294,11 @@ struct solver::imp {
         return ! ( sign * m_lar_solver.get_column_value(j) == m_lar_solver.get_column_value(k));
     }
 
-    void add_explanation_of_reducing_to_mininal_monomial(const mon_eq& m, expl_set & eset) const {
-        m_vars_equivalence.add_explanation_of_reducing_to_mininal_monomial(m, eset);
+    void add_explanation_of_reducing_to_rooted_monomial(const mon_eq& m, expl_set & eset) const {
+        m_vars_equivalence.add_explanation_of_reducing_to_rooted_monomial(m, eset);
     }
 
+    
     std::ostream& print_monomial(const mon_eq& m, std::ostream& out) const {
         out << m_lar_solver.get_variable_name(m.var()) << " = ";
         for (unsigned k = 0; k < m.size(); k++) {
@@ -318,8 +319,8 @@ struct solver::imp {
     void fill_explanation_and_lemma_sign(const mon_eq& a, const mon_eq & b, int sign) {
         expl_set expl;
         SASSERT(sign == 1 || sign == -1);
-        add_explanation_of_reducing_to_mininal_monomial(a, expl);
-        add_explanation_of_reducing_to_mininal_monomial(b, expl);
+        add_explanation_of_reducing_to_rooted_monomial(a, expl);
+        add_explanation_of_reducing_to_rooted_monomial(b, expl);
         m_expl->clear();
         m_expl->add(expl);
         TRACE("nla_solver",
@@ -752,7 +753,7 @@ struct solver::imp {
                                             const vector<mono_index_with_sign>& ones_of_monomial, int sign, lpvar j) {
         expl_set expl;
         SASSERT(sign == 1 || sign == -1);
-        add_explanation_of_reducing_to_mininal_monomial(m, expl);
+        add_explanation_of_reducing_to_rooted_monomial(m, expl);
         m_expl->clear();
         m_expl->add(expl);
         for (unsigned k : mask) {
@@ -766,7 +767,7 @@ struct solver::imp {
         TRACE("nla_solver", print_explanation_and_lemma(tout););
     }
     
-    // vars here are minimal vars for m.vs
+    // vars here are root vars for m.vs
     bool process_ones_of_mon(const mon_eq& m,
                              const vector<mono_index_with_sign>& ones_of_monomial, const svector<lpvar> &min_vars,
                              const rational& v) {
@@ -862,7 +863,7 @@ struct solver::imp {
         if (j_sign == 0) // abs(j_val) <= abs(m_val) which is not a conflict
             return false;
         expl_set expl;
-        add_explanation_of_reducing_to_mininal_monomial(m, expl);
+        add_explanation_of_reducing_to_rooted_monomial(m, expl);
         for (unsigned k = 0; k < mask.size(); k++) {
             if (mask[k] == 1)
                 add_explanation_of_large_value(m.m_vs[large[k]], expl);
@@ -886,7 +887,7 @@ struct solver::imp {
             return false;
 
         expl_set expl;
-        add_explanation_of_reducing_to_mininal_monomial(m, expl);
+        add_explanation_of_reducing_to_rooted_monomial(m, expl);
         for (unsigned k = 0; k < mask.size(); k++) {
             if (mask[k] == 1)
                 add_explanation_of_small_value(m.m_vs[_small[k]], expl);
@@ -1036,7 +1037,7 @@ struct solver::imp {
         const imp&       m_imp;
         const mon_eq&    m_mon;
         unsigned_vector  m_rooted_vars;
-        int              m_sign; // the sign appears after reducing the monomial "mm_mon" to the minimal one
+        int              m_sign; // the sign appears after reducing the monomial "mm_mon" to the rooted one
         
         binary_factorizations_of_monomial(unsigned i_mon, const imp& s) :
             m_i_mon(i_mon),
@@ -1102,17 +1103,21 @@ struct solver::imp {
                 return signed_binary_factorization(j, k, m_binary_factorizations.m_sign * sign);
             }
             void advance_mask() {
-                SASSERT(false);// not implemented
-                /*
-                  for (unsigned k = 0; k < m_masl.size(); k++) {
-                  if (mask[k] == 0){
-                  mask[k] = 1;
-                  break;
-                  } else {
-                  mask[k] = 0;
-                  }
-                  }*/
+                for (unsigned k = 0; k < m_mask.size(); k++) {
+                    if (m_mask[k] == 0){
+                        m_mask[k] = 1;
+                        break;
+                    } else {
+                        m_mask[k] = 0;
+                    }
+                }
             }
+
+            void add_factorization_explanation(expl_set expl) const {
+                SASSERT(false);
+                /see get_factors()!
+            }
+            
             self_type operator++() {  self_type i = *this; operator++(1); return i;  }
             self_type operator++(int) { advance_mask(); return *this; }
 
@@ -1193,9 +1198,16 @@ struct solver::imp {
     }
     // we derive a lemma from |xy| >= |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
-        for (auto factorization : binary_factorizations_of_monomial(i_mon, *this)) {
-            if (lemma_for_proportional_factors(i_mon, factorization))
+        auto factor_generator = binary_factorizations_of_monomial(i_mon, *this) ;
+        for (auto it = factor_generator.begin(); it != factor_generator.end(); it++) {
+            if (lemma_for_proportional_factors(i_mon, *it)) {
+                expl_set exp;
+                add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], exp);
+                it.add_factorization_explanation(exp);
+                m_expl->clear();
+                m_expl->add(exp);
                 return true;
+            }
         }
         //  return true;
         SASSERT(false);
