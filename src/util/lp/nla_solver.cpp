@@ -67,56 +67,18 @@ struct vars_equivalence {
 
     unsigned size() const { return m_tree.size(); }
 
-    void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
-        if (t->size() != 2)
-            return;
-        TRACE("nla_solver", tout << "term size = 2";);
-        bool seen_minus = false;
-        bool seen_plus = false;
-        lpvar i = -1, j;
-        for(const auto & p : *t) {
-            const auto & c = p.coeff();
-            if (c == 1) {
-                seen_plus = true;
-            } else if (c == - 1) {
-                seen_minus = true;
-            } else {
-                return;
-            }
-            if (i == static_cast<lpvar>(-1))
-                i = p.var();
-            else
-                j = p.var();
-        }
-        TRACE("nla_solver", tout << "adding equiv";);
-        int sign = (seen_minus && seen_plus)? 1 : -1;
-        m_equivs.push_back(equiv(i, j, sign, c0, c1));
-    }
 
-    // we look for octagon constraints here, with a left part  +-x +- y 
-    void collect_equivs(const lp::lar_solver& s) {
-        for (unsigned i = 0; i < s.terms().size(); i++) {
-            unsigned ti = i + s.terms_start_index();
-            if (!s.term_is_used_as_row(ti))
-                continue;
-            lpvar j = s.external2local(ti);
-            if (!s.column_has_upper_bound(j) ||
-                !s.column_has_lower_bound(j))
-                continue;
-            if (s.get_upper_bound(j) != lp::zero_of_type<lp::impq>() ||
-                s.get_lower_bound(j) != lp::zero_of_type<lp::impq>())
-                continue;
-            TRACE("nla_solver", tout << "term = "; s.print_term(*s.terms()[i], tout););
-            add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
-        }
-    }
-
+    
     // we create a spanning tree on all variables participating in an equivalence
     void create_tree() {
         for (unsigned k = 0; k < m_equivs.size(); k++)
             connect_equiv_to_tree(k);
     }
 
+    void add_equiv(lpvar i, lpvar j, int sign, lpci c0, lpci c1) {
+        m_equivs.push_back(equiv(i, j, sign, c0, c1));
+    }
+    
     void connect_equiv_to_tree(unsigned k) {
         // m_tree is a spanning tree of the graph of m_equivs
         const equiv &e = m_equivs[k];
@@ -144,12 +106,6 @@ struct vars_equivalence {
         }
     }
     
-    void init(const lp::lar_solver& s) {
-        clear();
-        collect_equivs(s);
-        create_tree();
-    }
-
     bool empty() const {
         return m_tree.empty();
     }
@@ -1253,9 +1209,58 @@ struct solver::imp {
             map_monomial_vars_to_monomial_indices(i);
     }
 
+    // we look for octagon constraints here, with a left part  +-x +- y 
+    void collect_equivs() {
+        const lp::lar_solver& s = m_lar_solver;
+
+        for (unsigned i = 0; i < s.terms().size(); i++) {
+            unsigned ti = i + s.terms_start_index();
+            if (!s.term_is_used_as_row(ti))
+                continue;
+            lpvar j = s.external2local(ti);
+            if (!s.column_has_upper_bound(j) ||
+                !s.column_has_lower_bound(j))
+                continue;
+            if (s.get_upper_bound(j) != lp::zero_of_type<lp::impq>() ||
+                s.get_lower_bound(j) != lp::zero_of_type<lp::impq>())
+                continue;
+            TRACE("nla_solver", tout << "term = "; s.print_term(*s.terms()[i], tout););
+            add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
+        }
+    }
+
+    void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
+        if (t->size() != 2)
+            return;
+        TRACE("nla_solver", tout << "term size = 2";);
+        bool seen_minus = false;
+        bool seen_plus = false;
+        lpvar i = -1, j;
+        for(const auto & p : *t) {
+            const auto & c = p.coeff();
+            if (c == 1) {
+                seen_plus = true;
+            } else if (c == - 1) {
+                seen_minus = true;
+            } else {
+                return;
+            }
+            if (i == static_cast<lpvar>(-1))
+                i = p.var();
+            else
+                j = p.var();
+        }
+        TRACE("nla_solver", tout << "adding equiv";);
+        int sign = (seen_minus && seen_plus)? 1 : -1;
+        m_vars_equivalence.add_equiv(i, j, sign, c0, c1);
+    }
+
+    
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
-        m_vars_equivalence.init(m_lar_solver);
+        m_vars_equivalence.clear();
+        collect_equivs();
+        m_vars_equivalence.create_tree();
     }
 
     void register_key_mono_in_min_monomials(const svector<lpvar>& key, unsigned i, int sign) {
