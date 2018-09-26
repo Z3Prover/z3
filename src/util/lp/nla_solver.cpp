@@ -1115,7 +1115,7 @@ struct solver::imp {
 
             void add_factorization_explanation(expl_set expl) const {
                 SASSERT(false);
-                /see get_factors()!
+                // see get_factors()!
             }
             
             self_type operator++() {  self_type i = *this; operator++(1); return i;  }
