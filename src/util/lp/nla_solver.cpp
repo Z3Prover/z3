@@ -1171,7 +1171,7 @@ struct solver::imp {
         t.clear(); // abs(xy) - abs(y) <= 0
         t.add_coeff_var(rational(xy_sign), xy);
         t.add_coeff_var(rational(-y_sign), y);
-        m_lemma->push_back(ineq(lp::lconstraint_kind::LE, t, rational::zero()));
+        m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t, rational::zero()));
         TRACE("nla_solver", tout<< "lemma: ";print_lemma(*m_lemma, tout););
         return true;
     }
