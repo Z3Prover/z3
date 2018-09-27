@@ -1108,15 +1108,54 @@ struct solver::imp {
     };
 
     // we derive a lemma from |x| >= 1 || y = 0 => |xy| >= |y|
-    bool lemma_for_proportional_factors_on_vars_ge(lpvar i, lpvar j, lpvar k) {
-        if (!(abs(vvr(j)) >= rational(1) || vvr(k).is_zero()))
+    bool lemma_for_proportional_factors_on_vars_ge(lpvar xy, lpvar x, lpvar y) {
+        TRACE("nla_solver",
+              tout << "xy=";
+              print_var(xy, tout);
+              tout << "x=";
+              print_var(x, tout);
+              tout << "y=";
+              print_var(y, tout););
+        const rational & _x = vvr(x);
+        const rational & _y = vvr(y);
+
+        if (!(abs(_x) >= rational(1) || _y.is_zero()))
             return false;
         // the precondition holds
-        if (! (abs(vvr(i)) >= abs(vvr(k)))) {
-            SASSERT(false); // create here
-            return true;
+        const rational & _xy = vvr(xy);
+        if (abs(_xy) >= abs(_y))
+            return false;
+        // adding negation of x >= 1 or the negation of x <= -1
+        lp::lar_term t;
+        t.add_coeff_var(rational(1), x);
+        if (_x >= rational(1)) {
+            m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t, rational(1)));
+        } else {
+            SASSERT(_x <= -rational(1));
+            m_lemma->push_back(ineq(lp::lconstraint_kind::GT, t, -rational(1)));
         }
-        return false;
+        
+        t.clear();
+        t.add_coeff_var(rational(1), y);
+        int y_sign;
+        if (_y.is_pos()) {
+            y_sign = 1;
+            m_lemma->push_back(ineq(lp::lconstraint_kind::LE, t, rational::zero()));
+        } else if (_y.is_neg()) {
+            y_sign = -1;
+            m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t, rational::zero()));
+        } else {
+            SASSERT(_y.is_zero());
+            y_sign = 1;
+            m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));
+        }            
+        int xy_sign = _xy.is_pos()? 1: -1;
+        t.clear(); // abs(xy) - abs(y) <= 0
+        t.add_coeff_var(rational(xy_sign), xy);
+        t.add_coeff_var(rational(-y_sign), y);
+        m_lemma->push_back(ineq(lp::lconstraint_kind::LE, t, rational::zero()));
+        TRACE("nla_solver", tout<< "lemma: ";print_lemma(*m_lemma, tout););
+        return true;
     }
     // here xy
     // we derive a lemma from |x| <= 1 || y = 0 => |xy| <= |y|
@@ -1137,26 +1176,44 @@ struct solver::imp {
         const rational & _xy = vvr(xy);
         if (abs(_xy) <= abs(_y))
             return false;
-        // adding x != val(x);
+        // Here we just create the lemma.
         lp::lar_term t;
-        t.add_coeff_var(rational(1), x);
-        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, _x));
-        
+        if (abs(_x) <= rational(1)) {
+            // add to lemma x < -1 || x > 1
+            t.add_coeff_var(rational(1), x);
+            m_lemma->push_back(ineq(lp::lconstraint_kind::LT, t, -rational(1)));
+            m_lemma->push_back(ineq(lp::lconstraint_kind::GT, t,  rational(1)));
+        } else {
+            lp_assert(_y.is_zero() && t.is_empty());
+            // add to lemma y != 0
+            t.add_coeff_var(rational(1), y);
+            m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));
+        }
+            
+            
         t.clear();
         t.add_coeff_var(rational(1), y);
         int y_sign;
         if (_y.is_pos()) {
             y_sign = 1;
             m_lemma->push_back(ineq(lp::lconstraint_kind::LE, t, rational::zero()));
-        } else if (_y.is_neg()) {
-            y_sign = -1;
-            m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t, rational::zero()));
         } else {
-            SASSERT(_y.is_zero());
-            y_sign = 1;
-            m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));
-        }            
-        int xy_sign = _xy.is_pos()? 1: -1;
+            y_sign = -1;
+            m_lemma->push_back(ineq(lp::lconstraint_kind::GT, t, rational::zero()));
+        }
+
+        t.clear();
+        t.add_coeff_var(rational(1), xy);
+        int xy_sign;
+        if (_y.is_pos()) {
+            xy_sign = 1;
+            m_lemma->push_back(ineq(lp::lconstraint_kind::LE, t, rational::zero()));
+        } else {
+            xy_sign = -1;
+            m_lemma->push_back(ineq(lp::lconstraint_kind::GT, t, rational::zero()));
+        }
+
+        
         t.clear(); // abs(xy) - abs(y) <= 0
         t.add_coeff_var(rational(xy_sign), xy);
         t.add_coeff_var(rational(-y_sign), y);
