@@ -16,6 +16,7 @@ public:
         m_v(v), m_vs(sz, vs) {}
     mon_eq(lp::var_index v, const svector<lp::var_index> &vs):
         m_v(v), m_vs(vs) {}
+    mon_eq() {}
     unsigned var() const { return m_v; }
     unsigned size() const { return m_vs.size(); }
     svector<lp::var_index>::const_iterator begin() const { return m_vs.begin(); }
