@@ -1404,7 +1404,9 @@ struct solver::imp {
         
         return l_undef;
     }
-    void test() {
+    void test_factorization() {
+        binary_factorizations_of_monomial f(0, // 0 is the index of "abcde"
+                                        *this);
         std::cout << "test called\n";
     }
 }; // end of imp
@@ -1437,10 +1439,64 @@ solver::~solver() {
 
 void solver::test() {
     lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
+        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+    lpvar lp_a = s.add_var(a, true);
+    lpvar lp_b = s.add_var(b, true);
+    lpvar lp_c = s.add_var(c, true);
+    lpvar lp_d = s.add_var(d, true);
+    lpvar lp_e = s.add_var(e, true);
+    lpvar lp_abcde = s.add_var(abcde, true);
+    lpvar lp_ac = s.add_var(ac, true);
+    lpvar lp_bde = s.add_var(bde, true);
+    lpvar lp_acd = s.add_var(acd, true);
+    lpvar lp_be = s.add_var(be, true);
+    
     reslimit l;
     params_ref p;
-    imp i(s, l, p);
-    i.test();
+    solver nla(s, l, p);
+
+
+
+    // create monomial abcde
+    vector<unsigned> vec;
+    vec.push_back(lp_a);
+    vec.push_back(lp_b);
+    vec.push_back(lp_c);
+    vec.push_back(lp_d);
+    vec.push_back(lp_e);
+
+    nla.add_monomial(lp_abcde, vec.size(), vec.begin());
+
+    // create monomial ac
+    vec.clear();
+    vec.push_back(lp_a);
+    vec.push_back(lp_c);
+    nla.add_monomial(lp_ac, vec.size(), vec.begin());
+
+    // create monomial bde
+    vec.clear();
+    vec.push_back(lp_b);
+    vec.push_back(lp_d);
+    vec.push_back(lp_e);
+    nla.add_monomial(lp_bde, vec.size(), vec.begin());
+
+    // create monomial acd
+    vec.clear();
+    vec.push_back(lp_a);
+    vec.push_back(lp_c);
+    vec.push_back(lp_e);
+    nla.add_monomial(lp_acd, vec.size(), vec.begin());
+
+    // create monomial be
+    vec.clear();
+    vec.push_back(lp_b);
+    vec.push_back(lp_e);
+    nla.add_monomial(lp_be, vec.size(), vec.begin());
+
+    nla.m_imp->test_factorization();
+
+    
 }
 
 }
