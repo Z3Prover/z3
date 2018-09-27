@@ -671,12 +671,7 @@ struct solver::imp {
     }
 
     // returns the variable m_i, of a monomial if found and sets the sign,
-    bool find_monomial_of_vars(const svector<lpvar>& vars, unsigned &j, int & sign) const {
-        if (vars.size() == 1) {
-            j = vars[0];
-            sign = 1;
-            return true;
-        }
+    bool find_monomial_of_vars(const svector<lpvar>& vars, mon_eq& m, int & sign) const {
         auto it = m_rooted_monomials.find(vars);
         if (it == m_rooted_monomials.end()) {
             return false;
@@ -684,15 +679,17 @@ struct solver::imp {
 
         const mono_index_with_sign & mi = *(it->second.begin());
         sign = mi.m_sign;
-        j = mi.m_i;
+        m = m_monomials[mi.m_i];
         return true;
     }
 
-    bool find_compimenting_monomial(const svector<lpvar> & vars, lpvar & j) {
+    bool find_complimenting_monomial(const svector<lpvar> & vars, lpvar & j) {
+        mon_eq m;
         int other_sign;
-        if (!find_monomial_of_vars(vars, j, other_sign)) {
+        if (!find_monomial_of_vars(vars, m, other_sign)) {
             return false;
         }
+        j = m.var();
         return true;
     }
     
@@ -703,10 +700,12 @@ struct solver::imp {
         int sign,
         lpvar& j) {
         int other_sign;
-        if (!find_monomial_of_vars(vars, j, other_sign)) {
+        mon_eq mn;
+        if (!find_monomial_of_vars(vars, mn, other_sign)) {
             return false;
         }
         sign *= other_sign;
+        j = mn.var();
         rational other_val = m_lar_solver.get_column_value_rational(j);
         return sign * other_val != v;                
     }
@@ -906,7 +905,7 @@ struct solver::imp {
                 std::sort(vars.begin(), vars.end());
                 // now the value of vars has to be v*sign
                 lpvar j;
-                if (find_compimenting_monomial(vars, j) &&
+                if (find_complimenting_monomial(vars, j) &&
                     large_lemma_for_proportion_case(m, mask, large, j)) {
                     TRACE("nla_solver", print_explanation_and_lemma(tout););
                     return true;
@@ -937,7 +936,7 @@ struct solver::imp {
                 std::sort(vars.begin(), vars.end());
                 // now the value of vars has to be v*sign
                 lpvar j;
-                if (find_compimenting_monomial(vars, j) &&
+                if (find_complimenting_monomial(vars, j) &&
                     small_lemma_for_proportion_case(m, mask, _small, j)) {
                     TRACE("nla_solver", print_explanation_and_lemma(tout););
                     return true;
@@ -997,6 +996,10 @@ struct solver::imp {
             m_k(k),
             m_sign(sign) {}
 
+        bool is_empty() const {
+            return m_j == static_cast<unsigned>(-1);
+        }
+
     };
     
     struct binary_factorizations_of_monomial {
@@ -1005,7 +1008,7 @@ struct solver::imp {
         const mon_eq&    m_mon;
         unsigned_vector  m_rooted_vars;
         int              m_sign; // the sign appears after reducing the monomial "mm_mon" to the rooted one
-        
+
         binary_factorizations_of_monomial(unsigned i_mon, const imp& s) :
             m_i_mon(i_mon),
             m_imp(s),
@@ -1047,20 +1050,23 @@ struct solver::imp {
                 std::sort(j_vars.begin(), j_vars.end());
 
                 int k_sign, j_sign;
+                mon_eq m;
                 if (k_vars.size() == 1) {
                     k = k_vars[0];
                     k_sign = 1;
                     k_mon = -1;
-                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(k_vars, k, k_sign)) {
+                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(k_vars, m, k_sign)) {
                     return false;
                 }
+                k = m.var();
                 if (j_vars.size() == 1) {
                     j = j_vars[0];
                     j_sign = 1;
-                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(j_vars, j, j_sign)) {
+                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(j_vars, m, j_sign)) {
                     return false;
                 }
                 sign = j_sign * k_sign;
+                j = m.var();
                 return true;
             }
 
@@ -1241,6 +1247,8 @@ struct solver::imp {
     // we derive a lemma from |xy| >= |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
         for (auto factorization : binary_factorizations_of_monomial(i_mon, *this)) {
+            if (factorization.is_empty())
+                continue;
             if (lemma_for_proportional_factors(i_mon, factorization)) {
                 expl_set exp;
                 add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], exp);
@@ -1405,8 +1413,25 @@ struct solver::imp {
         return l_undef;
     }
     void test_factorization() {
-        binary_factorizations_of_monomial f(0, // 0 is the index of "abcde"
+        vector<ineq> lemma;
+        m_lemma = & lemma;
+        lp::explanation exp;
+        m_expl = & exp;
+        init_search();
+        if (m_rooted_monomials.empty())
+            create_min_mon_map();
+
+        binary_factorizations_of_monomial fc(0, // 0 is the index of "abcde"
                                         *this);
+     
+        std::cout << "factorizations = of "; print_var(m_monomials[0].var(), std::cout) << "\n";
+        for (auto f : fc) {
+            if (f.is_empty()) continue;
+            std::cout << "f.m_j = "; print_var(f.m_j, std::cout);
+            std::cout << " f.m_k = "; print_var(f.m_k, std::cout);
+            std::cout << "sign = " << f.m_sign << std::endl;
+            
+        }
         std::cout << "test called\n";
     }
 }; // end of imp
