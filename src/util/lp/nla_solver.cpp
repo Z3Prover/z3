@@ -1055,18 +1055,22 @@ struct solver::imp {
                     k = k_vars[0];
                     k_sign = 1;
                     k_mon = -1;
-                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(k_vars, m, k_sign)) {
-                    return false;
+                } else {
+                    if (!m_binary_factorizations.m_imp.find_monomial_of_vars(k_vars, m, k_sign)) {
+                        return false;
+                    }
+                    k = m.var();
                 }
-                k = m.var();
                 if (j_vars.size() == 1) {
                     j = j_vars[0];
                     j_sign = 1;
-                } else if (!m_binary_factorizations.m_imp.find_monomial_of_vars(j_vars, m, j_sign)) {
-                    return false;
+                } else {
+                    if (!m_binary_factorizations.m_imp.find_monomial_of_vars(j_vars, m, j_sign)) {
+                        return false;
+                    }
+                    j = m.var();
                 }
                 sign = j_sign * k_sign;
-                j = m.var();
                 return true;
             }
 
