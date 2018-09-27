@@ -551,7 +551,6 @@ public:
     const row_strip<mpq> &  get_row(unsigned i) {
         return A_r().m_rows[i];
     }
-
     
     unsigned get_base_column_in_row(unsigned row_index) const {
         return m_mpq_lar_core_solver.m_r_solver.get_base_column_in_row(row_index);
