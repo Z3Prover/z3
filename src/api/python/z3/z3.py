@@ -1258,6 +1258,11 @@ def Consts(names, sort):
         names = names.split(" ")
     return [Const(name, sort) for name in names]
 
+def FreshConst(sort, prefix='c'):
+    """Create a fresh constant of a specified sort"""
+    ctx = _get_ctx(sort.ctx)
+    return _to_expr_ref(Z3_mk_fresh_const(ctx.ref(), prefix, sort.ast), ctx)
+    
 def Var(idx, s):
     """Create a Z3 free variable. Free variables are used to create quantified formulas.
 
@@ -4280,7 +4285,7 @@ def get_map_func(a):
         _z3_assert(is_map(a), "Z3 array map expression expected.")
     return FuncDeclRef(Z3_to_func_decl(a.ctx_ref(), Z3_get_decl_ast_parameter(a.ctx_ref(), a.decl().ast, 0)), a.ctx)
 
-def ArraySort(d, r):
+def ArraySort(*sig):
     """Return the Z3 array sort with the given domain and range sorts.
 
     >>> A = ArraySort(IntSort(), BoolSort())
@@ -4294,12 +4299,23 @@ def ArraySort(d, r):
     >>> AA
     Array(Int, Array(Int, Bool))
     """
+    sig = _get_args(sig)
     if __debug__:
-        _z3_assert(is_sort(d), "Z3 sort expected")
-        _z3_assert(is_sort(r), "Z3 sort expected")
-        _z3_assert(d.ctx == r.ctx, "Context mismatch")
+        z3_assert(len(sig) > 1, "At least two arguments expected")
+    arity = len(sig) - 1
+    r = sig[arity]
+    d = sig[0]
+    if __debug__:
+        for s in sig:
+            _z3_assert(is_sort(s), "Z3 sort expected")
+            _z3_assert(s.ctx == r.ctx, "Context mismatch")
     ctx = d.ctx
-    return ArraySortRef(Z3_mk_array_sort(ctx.ref(), d.ast, r.ast), ctx)
+    if len(sig) == 2:
+        return ArraySortRef(Z3_mk_array_sort(ctx.ref(), d.ast, r.ast), ctx)
+    dom = (Sort * arity)()
+    for i in range(arity):
+        dom[i] = sig[i].ast    
+    return ArraySortRef(Z3_mk_array_sort_n(ctx.ref(), arity, dom, r.ast), ctx)
 
 def Array(name, dom, rng):
     """Return an array constant named `name` with the given domain and range sorts.
@@ -8048,7 +8064,7 @@ def substitute(t, *m):
     """
     if isinstance(m, tuple):
         m1 = _get_args(m)
-        if isinstance(m1, list):
+        if isinstance(m1, list) and all(isinstance(p, tuple) for p in m1):
             m = m1
     if __debug__:
         _z3_assert(is_expr(t), "Z3 expression expected")
