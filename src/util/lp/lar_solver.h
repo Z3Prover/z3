@@ -542,7 +542,6 @@ public:
         for (const auto & p : columns_to_subs) {
             auto it = t.m_coeffs.find(p.first);
             lp_assert(it != t.m_coeffs.end());
-            const lar_term& lt = get_term(p.second);
             mpq v = it->second;
             t.m_coeffs.erase(it);
             t.m_coeffs[p.second] = v;

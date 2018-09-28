@@ -187,10 +187,6 @@ struct check_return_helper {
     ~check_return_helper() {
         TRACE("pivoted_rows", tout << "pivoted rows = " << m_lar_solver->m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows->size() << std::endl;);
         m_lar_solver->set_track_pivoted_rows(m_track_pivoted_rows);
-        if (m_r == lia_move::cut || m_r == lia_move::branch) {
-            int_solver * s = m_lar_solver->get_int_solver();
-            // m_lar_solver->adjust_cut_for_terms(*(s->m_t), *(s->m_k));
-        }
     }
 };
 
