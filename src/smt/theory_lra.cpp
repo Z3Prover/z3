@@ -2084,8 +2084,8 @@ public:
                 case lp::LT: is_lower = true;  pos = true; break;
                 case lp::GE: is_lower = true;  pos = false;  break;
                 case lp::GT: is_lower = false; pos = true; break;
-                case lp::EQ: is_eq = true; pos = true; break;
-                case lp::NE: is_eq = true; pos = false; break;
+                case lp::EQ: is_eq = true; pos = false; break;
+                case lp::NE: is_eq = true; pos = true; break;
                 default: UNREACHABLE();
                 }
                 TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
