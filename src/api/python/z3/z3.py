@@ -4301,7 +4301,7 @@ def ArraySort(*sig):
     """
     sig = _get_args(sig)
     if __debug__:
-        z3_assert(len(sig) > 1, "At least two arguments expected")
+        _z3_assert(len(sig) > 1, "At least two arguments expected")
     arity = len(sig) - 1
     r = sig[arity]
     d = sig[0]
