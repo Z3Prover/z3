@@ -17,10 +17,6 @@ const impq & bound_propagator::get_upper_bound(unsigned j) const {
 }
 void bound_propagator::try_add_bound(mpq  v, unsigned j, bool is_low, bool coeff_before_j_is_pos, unsigned row_or_term_index, bool strict) {
     j = m_lar_solver.adjust_column_index_to_term_index(j);    
-    if (m_lar_solver.is_term(j)) {
-        // lp treats terms as not having a free coefficient, restoring it below for the outside consumption
-        v += m_lar_solver.get_term(j).m_v;
-    }
 
     lconstraint_kind kind = is_low? GE : LE;
     if (strict)

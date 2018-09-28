@@ -164,13 +164,11 @@ public:
 
 
     // terms
-    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
-                       const mpq &m_v);
+    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs);
 
-    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
-                                 const mpq &m_v);
+    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs);
 
-    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs, const mpq& v);
+    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs);
     void push_and_register_term(lar_term* t);
 
     void add_row_for_term(const lar_term * term, unsigned term_ext_index);
@@ -239,8 +237,7 @@ public:
 
     void analyze_new_bounds_on_row_tableau(
         unsigned row_index,
-        bound_propagator & bp
-                                           );
+        bound_propagator & bp);
 
     
     void substitute_basis_var_in_terms_for_row(unsigned i);
@@ -332,7 +329,7 @@ public:
 
 
     void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
-                                                vector<std::pair<mpq, var_index>> &left_side, mpq & free_coeff) const;
+                                                vector<std::pair<mpq, var_index>> &left_side) const;
 
 
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
@@ -398,7 +395,7 @@ public:
 
     bool try_to_set_fixed(column_info<mpq> & ci);
 
-    column_type get_column_type(const column_info<mpq> & ci);
+    column_type get_column_type(unsigned j) const;
 
     std::string get_column_name(unsigned j) const;
 
@@ -545,6 +542,7 @@ public:
         for (const auto & p : columns_to_subs) {
             auto it = t.m_coeffs.find(p.first);
             lp_assert(it != t.m_coeffs.end());
+            const lar_term& lt = get_term(p.second);
             mpq v = it->second;
             t.m_coeffs.erase(it);
             t.m_coeffs[p.second] = v;

@@ -50,17 +50,39 @@ def_module_params('sat',
 	                  ('unit_walk', BOOL, False, 'use unit-walk search instead of CDCL'),
                           ('unit_walk_threads', UINT, 0, 'number of unit-walk search threads to find satisfiable solution'),
                           ('lookahead.cube.cutoff', SYMBOL, 'depth', 'cutoff type used to create lookahead cubes: depth, freevars, psat, adaptive_freevars, adaptive_psat'),
+                          # - depth: the maximal cutoff is fixed to the value of lookahead.cube.depth. 
+                          #          So if the value is 10, at most 1024 cubes will be generated of length 10.
+                          # - freevars: cutoff based on a variable fraction of lookahead.cube.freevars. 
+                          #          Cut if the number of current unassigned variables drops below a fraction of number of initial variables.
+                          # - psat:  Let psat_heur := (Sum_{clause C} (psat.clause_base ^ {-|C|+1})) / |freevars|^psat.var_exp
+                          #          Cut if the value of psat_heur exceeds psat.trigger
+                          # - adaptive_freevars: Cut if the number of current unassigned variables drops below a fraction of free variables
+                          #          at the time of the last conflict. The fraction is increased every time the a cutoff is created.
+                          # - adative_psat: Cut based on psat_heur in an adaptive way.
                           ('lookahead.cube.fraction', DOUBLE, 0.4, 'adaptive fraction to create lookahead cubes. Used when lookahead.cube.cutoff is adaptive_freevars or adaptive_psat'),
                           ('lookahead.cube.depth', UINT, 1, 'cut-off depth to create cubes. Used when lookahead.cube.cutoff is depth.'),
-                          ('lookahead.cube.freevars', DOUBLE, 0.8, 'cube free fariable fraction. Used when lookahead.cube.cutoff is freevars'),
+                          ('lookahead.cube.freevars', DOUBLE, 0.8, 'cube free variable fraction. Used when lookahead.cube.cutoff is freevars'),
                           ('lookahead.cube.psat.var_exp', DOUBLE, 1, 'free variable exponent for PSAT cutoff'),
                           ('lookahead.cube.psat.clause_base', DOUBLE, 2, 'clause base for PSAT cutoff'),
                           ('lookahead.cube.psat.trigger', DOUBLE, 5, 'trigger value to create lookahead cubes for PSAT cutoff. Used when lookahead.cube.cutoff is psat'),
-                          ('lookahead_search', BOOL, False, 'use lookahead solver'),
                           ('lookahead.preselect', BOOL, False, 'use pre-selection of subset of variables for branching'),
                           ('lookahead_simplify', BOOL, False, 'use lookahead solver during simplification'),
                           ('lookahead.use_learned', BOOL, False, 'use learned clauses when selecting lookahead literal'),
                           ('lookahead_simplify.bca', BOOL, True, 'add learned binary clauses as part of lookahead simplification'),
                           ('lookahead.global_autarky', BOOL, False, 'prefer to branch on variables that occur in clauses that are reduced'),
-                          ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu')))
+                          ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu'))
+                          # reward function used to determine which literal to cube on.
+                          # - ternary: reward function useful for random 3-SAT instances. Used by Heule and Knuth in March.
+                          # - heule_schur: reward function based on "Schur Number 5", Heule, AAAI 2018
+                          #   The score of a literal lit is: 
+                          #           Sum_{C in Clauses | lit in C} 2 ^ (- |C|+1)
+                          #           * Sum_{lit' in C | lit' != lit} lit_occs(~lit')
+                          #           / | C |
+                          #   where lit_occs(lit) is the number of clauses containing lit.
+                          # - heuleu: The score of a literal lit is: Sum_{C in Clauses | lit in C} 2 ^ (-|C| + 1)
+                          # - unit: heule_schur + also counts number of unit clauses.
+                          # - march_cu: default reward function used in a version of March
+                          # Each reward function also comes with its own variant of "mix_diff", which 
+                          # is the function for combining reward metrics for the positive and negative variant of a literal. 
+                          )
 

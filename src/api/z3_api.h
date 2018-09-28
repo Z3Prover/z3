@@ -6121,6 +6121,14 @@ extern "C" {
     */
     Z3_ast_vector Z3_API Z3_solver_get_units(Z3_context c, Z3_solver s);
 
+
+    /**
+       \brief Return the set of non units in the solver state.
+
+       def_API('Z3_solver_get_non_units', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
+    */
+    Z3_ast_vector Z3_API Z3_solver_get_non_units(Z3_context c, Z3_solver s);
+
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
 

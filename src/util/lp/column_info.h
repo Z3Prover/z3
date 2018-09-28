@@ -69,16 +69,6 @@ public:
         m_column_index(static_cast<unsigned>(-1))
     {}
     
-    column_info(unsigned column_index) :
-        m_lower_bound_is_set(false),
-        m_lower_bound_is_strict(false),
-        m_upper_bound_is_set (false),
-        m_upper_bound_is_strict (false),
-        m_is_fixed(false),
-        m_cost(numeric_traits<T>::zero()),
-        m_column_index(column_index) {
-    }
-
     column_info(const column_info & ci) {
         m_name = ci.m_name;
         m_lower_bound_is_set = ci.m_lower_bound_is_set;

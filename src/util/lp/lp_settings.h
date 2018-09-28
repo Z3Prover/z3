@@ -433,7 +433,15 @@ inline void ensure_increasing(vector<unsigned> & v) {
         }
 }
 
+inline static bool is_rational(const impq & n) { return is_zero(n.y); }
 
+inline static mpq fractional_part(const impq & n) {
+    lp_assert(is_rational(n));
+    return n.x - floor(n.x);
+}
+inline static mpq fractional_part(const mpq & n) {
+    return n - floor(n);
+}
 
 #if Z3DEBUG
 bool D();

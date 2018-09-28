@@ -1266,9 +1266,9 @@ namespace qe {
                 in->reset();
                 in->inc_depth();
                 result.push_back(in.get());
-                if (in->models_enabled()) {
+                if (in->models_enabled()) {                    
                     model_converter_ref mc;
-                    mc = model2model_converter(m_model.get());
+                    mc = model2model_converter(m_model_save.get());
                     mc = concat(m_pred_abs.fmc(), mc.get());
                     in->add(mc.get());
                 }

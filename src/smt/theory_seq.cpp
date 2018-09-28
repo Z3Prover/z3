@@ -4588,10 +4588,10 @@ bool theory_seq::lower_bound2(expr* _e, rational& lo) {
     theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, m_autil.get_family_id(), e);
     if (!tha) {
         theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, m_autil.get_family_id(), e);
-        if (!thi || !thi->get_lower(ctx.get_enode(e), _lo)) return false;
+        if (!thi || !thi->get_lower(ctx.get_enode(e), _lo) || !m_autil.is_numeral(_lo, lo)) return false;
     }
     enode *ee = ctx.get_enode(e);
-    if (!tha->get_lower(ee, _lo) || m_autil.is_numeral(_lo, lo)) {
+    if (tha && (!tha->get_lower(ee, _lo) || m_autil.is_numeral(_lo, lo))) {
         enode *next = ee->get_next();
         bool flag = false;
         while (next != ee) {
