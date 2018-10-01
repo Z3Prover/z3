@@ -27,7 +27,7 @@ void clear() {lp_assert(false); // not implemented
 }
 
 
-lar_solver::lar_solver() : m_status(lp_status::OPTIMAL),
+lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
                            m_infeasible_column_index(-1),
                            m_terms_start_index(1000000),
                            m_mpq_lar_core_solver(m_settings, *this),
@@ -1174,6 +1174,7 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
         std::unordered_set<impq> set_of_different_pairs; 
         std::unordered_set<mpq> set_of_different_singles;
         delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(delta);
+        TRACE("get_model", tout << "delta=" << delta << "size = " << m_mpq_lar_core_solver.m_r_x.size() << std::endl;);
         for (i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
             const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[i];
             set_of_different_pairs.insert(rp);

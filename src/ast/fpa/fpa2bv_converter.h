@@ -220,6 +220,8 @@ private:
 
     func_decl * mk_bv_uf(func_decl * f, sort * const * domain, sort * range);
     expr_ref nan_wrap(expr * n);
+
+    expr_ref extra_quantify(expr * e);
 };
 
 #endif

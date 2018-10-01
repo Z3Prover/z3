@@ -21,6 +21,8 @@ Notes:
 #include "ast/ast_smt2_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/used_vars.h"
+#include "ast/rewriter/var_subst.h"
 
 #include "ast/fpa/fpa2bv_converter.h"
 #include "ast/rewriter/fpa_rewriter.h"
@@ -230,6 +232,39 @@ void fpa2bv_converter::mk_var(unsigned base_inx, sort * srt, expr_ref & result) 
     result = m_util.mk_fp(sgn, e, s);
 }
 
+expr_ref fpa2bv_converter::extra_quantify(expr * e)
+{
+    used_vars uv;
+    unsigned nv;
+
+    ptr_buffer<sort> new_decl_sorts;
+    sbuffer<symbol> new_decl_names;
+    expr_ref_buffer subst_map(m);
+
+    uv(e);
+    nv = uv.get_num_vars();
+    subst_map.resize(uv.get_max_found_var_idx_plus_1());
+
+    for (unsigned i = 0; i < nv; i++)
+    {
+        if (uv.contains(i)) {
+            TRACE("fpa2bv", tout << "uv[" << i << "] = " << mk_ismt2_pp(uv.get(i), m) << std::endl; );
+            sort * s = uv.get(i);
+            var * v = m.mk_var(i, s);
+            new_decl_sorts.push_back(s);
+            new_decl_names.push_back(symbol(i));
+            subst_map.set(i, v);
+        }
+    }
+
+    expr_ref res(m);
+    var_subst vsubst(m);
+    res = vsubst.operator()(e, nv, subst_map.c_ptr());
+    TRACE("fpa2bv", tout << "subst'd = " << mk_ismt2_pp(res, m) << std::endl; );
+    res = m.mk_forall(nv, new_decl_sorts.c_ptr(), new_decl_names.c_ptr(), res);
+    return res;
+}
+
 void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
 {
     TRACE("fpa2bv", tout << "UF: " << mk_ismt2_pp(f, m) << std::endl; );
@@ -252,7 +287,7 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
                                m_bv_util.mk_extract(sbits+ebits-2, sbits-1, bv_app),
                                m_bv_util.mk_extract(sbits-2, 0, bv_app));
         new_eq = m.mk_eq(fapp, flt_app);
-        m_extra_assertions.push_back(new_eq);
+        m_extra_assertions.push_back(extra_quantify(new_eq));
         result = flt_app;
     }
     else if (m_util.is_rm(rng)) {
@@ -263,7 +298,7 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
         bv_app = m.mk_app(bv_f, num, args);
         flt_app = m_util.mk_bv2rm(bv_app);
         new_eq = m.mk_eq(fapp, flt_app);
-        m_extra_assertions.push_back(new_eq);
+        m_extra_assertions.push_back(extra_quantify(new_eq));
         result = flt_app;
     }
     else
