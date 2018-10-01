@@ -380,7 +380,11 @@ endif()
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
 if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel"))
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+      # Intel's compiler requires linking with libiomp5
+      list(APPEND Z3_DEPENDENT_LIBS "iomp5")
+    endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # FIXME: Remove "x.." when CMP0054 is set to NEW
   elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
