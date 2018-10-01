@@ -2,7 +2,7 @@ z3_add_component(lp
   SOURCES
     binary_heap_priority_queue.cpp
     binary_heap_upair_queue.cpp
-    bound_propagator.cpp
+    lp_bound_propagator.cpp
     core_solver_pretty_printer.cpp
     dense_matrix.cpp
     eta_matrix.cpp
