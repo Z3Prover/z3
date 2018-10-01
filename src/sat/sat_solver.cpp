@@ -1014,14 +1014,38 @@ namespace sat {
     }
 
     lbool solver::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
-        if (!m_cuber) {
+        bool is_first = !m_cuber;
+        if (is_first) {
             m_cuber = alloc(lookahead, *this);
         }
         lbool result = m_cuber->cube(vars, lits, backtrack_level);
         m_cuber->update_cube_statistics(m_aux_stats);
-        if (result == l_false) {
+        switch (result) {
+        case l_false:
             dealloc(m_cuber);
             m_cuber = nullptr;
+            if (is_first) {
+                pop_to_base_level();
+                set_conflict(justification());
+            }
+            break;
+        case l_true: {
+            pop_to_base_level();
+            model const& mdl = m_cuber->get_model();
+            for (bool_var v = 0; v < mdl.size(); ++v) {
+                if (value(v) != l_undef) {
+                    continue;
+                }
+                literal l(v, false);
+                if (mdl[v] != l_true) l.neg();
+                push();
+                assign_core(l, justification());
+            }
+            mk_model();
+            break;
+        }
+        default:
+            break;
         }
         return result;
     }

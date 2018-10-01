@@ -2137,6 +2137,8 @@ namespace sat {
             if (lit == null_literal) {
                 vars.reset();
                 for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
+                m_model.reset();
+                init_model();
                 return l_true;
             }
             TRACE("sat", tout << "choose: " << lit << " cube: " << m_cube_state.m_cube << "\n";);
