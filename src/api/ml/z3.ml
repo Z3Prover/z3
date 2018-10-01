@@ -1815,8 +1815,9 @@ struct
     | _ -> UNKNOWN
 
   let get_model x =
-    let q = Z3native.solver_get_model (gc x) x in
-    if Z3native.is_null_model q then None else Some q
+  let q = Z3native.solver_get_model (gc x) x in
+    try if Z3native.is_null_model q then None else Some q with | _ -> None
+    
 
   let get_proof x =
     let q = Z3native.solver_get_proof (gc x) x in

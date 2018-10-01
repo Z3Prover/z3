@@ -3407,10 +3407,10 @@ sig
   (** Parse the given string using the SMT-LIB2 parser.
 
       @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
-  val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
+  val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> AST.ASTVector.ast_vector
 
   (** Parse the given file using the SMT-LIB2 parser. *)
-  val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
+  val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> AST.ASTVector.ast_vector
 end
 
 
