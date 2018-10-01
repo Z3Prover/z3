@@ -245,6 +245,9 @@ expr_ref fpa2bv_converter::extra_quantify(expr * e)
     nv = uv.get_num_vars();
     subst_map.resize(uv.get_max_found_var_idx_plus_1());
 
+    if (nv == 0)
+        return expr_ref(e, m);
+
     for (unsigned i = 0; i < nv; i++)
     {
         if (uv.contains(i)) {
