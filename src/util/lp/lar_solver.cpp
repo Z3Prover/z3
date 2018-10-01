@@ -1236,16 +1236,15 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
     lp_assert(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
     variable_values.clear();
     mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
-    unsigned i;
+    unsigned j;
     unsigned n = m_mpq_lar_core_solver.m_r_x.size();
-    variable_values.resize(n);
     do {
         // different pairs have to produce different singleton values
         std::unordered_set<impq> set_of_different_pairs; 
         std::unordered_set<mpq> set_of_different_singles;
         delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(delta);
-        for (i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
-            const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[i];
+        for (j = 0; j < n; j++ ) {
+            const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[j];
             set_of_different_pairs.insert(rp);
             mpq x = rp.x + delta * rp.y;
             set_of_different_singles.insert(x);
@@ -1258,7 +1257,7 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
             if (!column_corresponds_to_term(j))
                 variable_values[j] = x;
         }
-    } while (i != m_mpq_lar_core_solver.m_r_x.size());
+    } while (j != n);
 }
 
 
