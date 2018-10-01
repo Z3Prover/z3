@@ -1749,7 +1749,9 @@ class QuantifierRef(BoolRef):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
-        """Return the Boolean sort."""
+        """Return the Boolean sort or sort of Lambda."""
+        if self.is_lambda():
+            return _sort(self.ctx, self.as_ast())
         return BoolSort(self.ctx)
 
     def is_forall(self):
