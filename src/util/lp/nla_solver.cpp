@@ -222,30 +222,6 @@ struct solver::imp {
     /**
      * \brief <here we have two monomials, i_mon and other_m, examined for "sign" equivalence>
      */
-    // If we see that monomials are the same up to the sign,
-    // but the values are not equal up to the sign, we generate a lemman and a conflict explanation
-    bool generate_basic_lemma_for_mon_sign_var_other_mon(
-        unsigned i_mon,
-        unsigned j_var,
-        const unsigned_vector & mon_vars,
-        const mon_eq& other_m, int sign) {
-        if (mon_vars.size() != other_m.size())
-            return false;
-
-        auto other_vars_copy = other_m.vars();
-        int other_sign = 1;
-        reduce_monomial_to_canonical(other_vars_copy, other_sign);
-        if (mon_vars == other_vars_copy &&
-            values_are_different(m_monomials[i_mon].var(), sign * other_sign, other_m.var())) {
-            fill_explanation_and_lemma_sign(m_monomials[i_mon],
-                                            other_m,
-                                            sign * other_sign);
-            TRACE("nla_solver", tout << "lemma generated\n";);
-            return true;
-        }
-            
-        return false;
-    }
 
     bool values_are_different(lpvar j, int sign, lpvar k) const {
         SASSERT(sign == 1 || sign == -1);
@@ -302,25 +278,6 @@ struct solver::imp {
         ineq in(lp::lconstraint_kind::NE, t, rational::zero());
         m_lemma->push_back(in);
     }
-    
-    /**
-     * \brief <go over monomials containing j_var and generate the sign lemma
-     */
-    bool generate_basic_lemma_for_mon_sign_var(unsigned i_mon,
-                                               unsigned j_var, const svector<lpvar>& mon_vars, int sign) {
-        auto it = m_var_lists.find(j_var);
-        for (auto other_i_mon : it->second) {
-            if (other_i_mon == i_mon) continue;
-            if (generate_basic_lemma_for_mon_sign_var_other_mon(
-                    i_mon,
-                    j_var,
-                    mon_vars,
-                    m_monomials[other_i_mon],
-                    sign))
-                return true;
-        }
-        return false;
-    }
 
     // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
     // 
@@ -344,14 +301,24 @@ struct solver::imp {
         if (m_vars_equivalence.empty()) {
             return false;
         }
-        const mon_eq& m_of_i = m_monomials[i_mon];
-        int sign = 1;
+
+        for (auto it : m_rooted_monomials) {
+            const auto & list = it.second;
+            const auto & m0 = list[0];
+            rational val = vvr(m_monomials[m0.m_i].var()) * m0.m_sign;
+            // every other monomial in the list has to have the same value up to the sign
+            for (unsigned i = 1; i < list.size(); i++) {
+                const auto & mi = list[i];
+                rational other_val = vvr(m_monomials[mi.m_i].var()) * mi.m_sign;
+                if (val != other_val) {
+                    fill_explanation_and_lemma_sign(m_monomials[m0.m_i],
+                                                    m_monomials[mi.m_i],
+                                                    m0.m_sign * mi.m_sign);
+                    return true;
+                }
+            }
+        }
         
-        auto mon_vars =  m_of_i.vars();
-        reduce_monomial_to_canonical(mon_vars, sign);
-        for (unsigned j_var : mon_vars)
-            if (generate_basic_lemma_for_mon_sign_var(i_mon, j_var, mon_vars, sign))
-                return true;
         return false;
     }
 
@@ -652,8 +619,6 @@ struct solver::imp {
         if (ones_of_mon.empty()) {
             return false;
         }
-        if (m_rooted_monomials.empty() && m.size() > 2)
-            create_min_mon_map();
         
         return process_ones_of_mon(m, ones_of_mon, vars, v);
     }
@@ -961,9 +926,6 @@ struct solver::imp {
         if (large.empty() && _small.empty())
             return false;
         
-        if (m_rooted_monomials.empty())
-            create_min_mon_map();
-
         if (!large.empty() && large_basic_lemma_for_mon_proportionality(i_mon, large))
             return true;
 
@@ -1263,8 +1225,6 @@ struct solver::imp {
                 return true;
             }
         }
-        //  return true;
-        SASSERT(false);
         return false;
     }
 
@@ -1380,8 +1340,8 @@ struct solver::imp {
         svector<lpvar> key = reduce_monomial_to_canonical(m.vars(), sign);
         register_key_mono_in_min_monomials(key, i, sign);
     }
-    
-    void create_min_mon_map() {
+
+    void create_rooted_monomials_map() {
         for (unsigned i = 0; i < m_monomials.size(); i++)
             register_monomial_in_min_map(i);
     }
@@ -1389,6 +1349,7 @@ struct solver::imp {
     void init_search() {
         map_vars_to_monomials_and_constraints();
         init_vars_equivalence();
+        create_rooted_monomials_map();
         m_expl->clear();
         m_lemma->clear();
     }
@@ -1422,8 +1383,6 @@ struct solver::imp {
         lp::explanation exp;
         m_expl = & exp;
         init_search();
-        if (m_rooted_monomials.empty())
-            create_min_mon_map();
 
         binary_factorizations_of_monomial fc(0, // 0 is the index of "abcde"
                                         *this);
