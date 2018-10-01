@@ -339,6 +339,7 @@ namespace smt {
         SASSERT(v != null_theory_var);
         v = find(v);
         var_data* d = m_var_data[v];
+        TRACE("array", tout << "v" << v << "\n";);
         for (enode * store : d->m_stores) {
             SASSERT(is_store(store));
             instantiate_default_store_axiom(store);
@@ -383,13 +384,21 @@ namespace smt {
     void theory_array_full::relevant_eh(app* n) {
         TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
         theory_array::relevant_eh(n);
-        if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)) {
+        if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n) && !is_store(n)) {
             return;
         }
         context & ctx = get_context();
         enode* node = ctx.get_enode(n);
-
-        if (is_select(n)) {
+        if (is_store(n)) {
+            enode * arg = ctx.get_enode(n->get_arg(0));
+            if (is_const(arg)) {
+                TRACE("array", tout << expr_ref(arg->get_owner(), get_manager()) << " " << is_const(arg) << "\n";);
+                theory_var v = arg->get_th_var(get_id());
+                set_prop_upward(v);
+                add_parent_default(v);
+            }
+        }
+        else if (is_select(n)) {
             enode * arg = ctx.get_enode(n->get_arg(0));
             theory_var v = arg->get_th_var(get_id());
             SASSERT(v != null_theory_var);
