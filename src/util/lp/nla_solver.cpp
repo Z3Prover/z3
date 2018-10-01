@@ -963,6 +963,11 @@ struct solver::imp {
         }
 
     };
+
+    std::ostream & print_signed_binary_factorization(const signed_binary_factorization& f, std::ostream& out) const {
+        print_var(f.m_j, out) << "*"; print_var(f.m_k, out) << ", sign = " << f.m_sign;
+        return out;
+    }
     
     struct binary_factorizations_of_monomial {
         unsigned         m_i_mon;
@@ -983,8 +988,9 @@ struct solver::imp {
         
         struct const_iterator {
             // fields
-            unsigned_vector        m_mask;
+            unsigned_vector                            m_mask;
             const binary_factorizations_of_monomial&   m_binary_factorizations;
+            
 
             //typedefs
             typedef const_iterator self_type;
@@ -994,6 +1000,7 @@ struct solver::imp {
             typedef std::forward_iterator_tag iterator_category;
 
             void init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
+                k_vars.push_back(m_binary_factorizations.m_rooted_vars.back());
                 for (unsigned j = 0; j < m_mask.size(); j++) {
                     if (m_mask[j] == 1) {
                         k_vars.push_back(m_binary_factorizations.m_rooted_vars[j]);
@@ -1003,7 +1010,7 @@ struct solver::imp {
                 }
             }
             
-            bool get_factors(unsigned& k, unsigned& j, unsigned & k_mon, unsigned & j_mon, int& sign) const {
+            bool get_factors(unsigned& k, unsigned& j, int& sign) const {
                 unsigned_vector k_vars;
                 unsigned_vector j_vars;
                 init_vars_by_the_mask(k_vars, j_vars);
@@ -1016,7 +1023,6 @@ struct solver::imp {
                 if (k_vars.size() == 1) {
                     k = k_vars[0];
                     k_sign = 1;
-                    k_mon = -1;
                 } else {
                     if (!m_binary_factorizations.m_imp.find_monomial_of_vars(k_vars, m, k_sign)) {
                         return false;
@@ -1038,8 +1044,7 @@ struct solver::imp {
 
             reference operator*() const {
                 unsigned j, k; int sign;
-                unsigned j_mon, k_mon;
-                if (!get_factors(j, k, j_mon, k_mon, sign))
+                if (!get_factors(j, k, sign))
                     return signed_binary_factorization();
                 return signed_binary_factorization(j, k, m_binary_factorizations.m_sign * sign);
             }
@@ -1068,13 +1073,14 @@ struct solver::imp {
         };
 
         const_iterator begin() const {
-            unsigned_vector mask(m_mon.vars().size(), static_cast<lpvar>(0));
-            mask[0] = 1; 
+            // we keep the last element always in the first factor to avoid
+            // repeating a pair twice
+            unsigned_vector mask(m_mon.vars().size() - 1, static_cast<lpvar>(0));
             return const_iterator(mask, *this);
         }
         
         const_iterator end() const {
-            unsigned_vector mask(m_mon.vars().size(), 1);
+            unsigned_vector mask(m_mon.vars().size() - 1, 1);
             return const_iterator(mask, *this);
         }
     };
@@ -1213,8 +1219,10 @@ struct solver::imp {
     // we derive a lemma from |xy| >= |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
         for (auto factorization : binary_factorizations_of_monomial(i_mon, *this)) {
-            if (factorization.is_empty())
+            if (factorization.is_empty()) {
+                TRACE("nla_solver", tout << "empty factorization";);
                 continue;
+            }
             if (lemma_for_proportional_factors(i_mon, factorization)) {
                 expl_set exp;
                 add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], exp);
