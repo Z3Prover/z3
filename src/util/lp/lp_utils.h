@@ -50,11 +50,34 @@ bool contains(const std::unordered_map<A, B> & map, const A& key) {
 
 namespace lp {
 
-
-   inline void throw_exception(std::string && str) {
-        throw default_exception(std::move(str));
+template <typename T>
+void print_linear_combination_of_column_indices_only(const T & coeffs, std::ostream & out) {
+    bool first = true;
+    for (const auto & it : coeffs) {
+        auto val = it.coeff();
+        if (first) {
+            first = false;
+        } else {
+            if (val.is_pos()) {
+                out << " + ";
+            } else {
+                out << " - ";
+                val = -val;
+            }
+        }
+        if (val == 1)
+            out << " ";
+        else 
+            out << T_to_string(val);
+        
+        out << "x" << it.var();
     }
-    typedef z3_exception exception;
+}
+
+inline void throw_exception(std::string && str) {
+    throw default_exception(std::move(str));
+}
+typedef z3_exception exception;
 
 #define lp_assert(_x_) { SASSERT(_x_); }
 inline void lp_unreachable() { lp_assert(false); }

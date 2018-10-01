@@ -26,7 +26,7 @@ Revision History:
 #include "shell/smtlib_frontend.h"
 #include "shell/z3_log_frontend.h"
 #include "util/warning.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 #include "shell/dimacs_frontend.h"
 #include "shell/datalog_frontend.h"
 #include "shell/opt_frontend.h"

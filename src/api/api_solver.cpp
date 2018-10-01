@@ -179,6 +179,7 @@ extern "C" {
         LOG_Z3_solver_from_file(c, s, file_name);
         char const* ext = get_extension(file_name);
         std::ifstream is(file_name);
+        init_solver(c, s);
         if (!is) {
             SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
         }
@@ -364,6 +365,21 @@ extern "C" {
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         expr_ref_vector fmls = to_solver_ref(s)->get_units(mk_c(c)->m());
+        for (expr* f : fmls) {
+            v->m_ast_vector.push_back(f);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_ast_vector Z3_API Z3_solver_get_non_units(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_get_non_units(c, s);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector fmls = to_solver_ref(s)->get_non_units(mk_c(c)->m());
         for (expr* f : fmls) {
             v->m_ast_vector.push_back(f);
         }

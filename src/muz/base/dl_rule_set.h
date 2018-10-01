@@ -77,7 +77,7 @@ namespace datalog {
            \brief Number of predicates that depend on \c f.
          */
         unsigned out_degree(func_decl * f) const;
-        
+
         /**
            \brief If the rependency graph is acyclic, put all elements into \c res
              ordered so that elements can depend only on elements that are before them.
@@ -131,7 +131,7 @@ namespace datalog {
             it must exist for the whole lifetime of the \c stratifier object.
         */
         rule_stratifier(const rule_dependencies & deps)
-            : m_deps(deps), m_next_preorder(0) 
+            : m_deps(deps), m_next_preorder(0)
         {
             process();
         }
@@ -145,7 +145,7 @@ namespace datalog {
         const comp_vector & get_strats() const { return m_strats; }
 
         unsigned get_predicate_strat(func_decl * pred) const;
-        
+
         void display( std::ostream & out ) const;
     };
 
@@ -203,6 +203,10 @@ namespace datalog {
            \brief Remove rule \c r from the rule set.
         */
         void del_rule(rule * r);
+        /**
+           \brief Replace a rule \c r with the rule \c other
+        */
+        void replace_rule(rule * r, rule * other);
 
         /**
            \brief Add all rules from a different rule_set.
@@ -276,8 +280,7 @@ namespace datalog {
     inline std::ostream& operator<<(std::ostream& out, rule_set const& r) { r.display(out); return out; }
 
 
-    
+
 };
 
 #endif /* DL_RULE_SET_H_ */
-

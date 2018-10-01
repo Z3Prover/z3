@@ -164,13 +164,11 @@ public:
 
 
     // terms
-    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
-                       const mpq &m_v);
+    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs);
 
-    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
-                                 const mpq &m_v);
+    var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs);
 
-    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs, const mpq& v);
+    bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs);
     void push_and_register_term(lar_term* t);
 
     void add_row_for_term(const lar_term * term, unsigned term_ext_index);
@@ -208,7 +206,10 @@ public:
     void update_lower_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
 
     void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
+
     //end of init region
+
+
     lp_settings & settings();
 
     lp_settings const & settings() const;
@@ -227,9 +228,7 @@ public:
     bool use_lu() const;
     
     bool sizes_are_correct() const;
- 
-    void print_implied_bound(const implied_bound& be, std::ostream & out) const;
-    
+     
     bool implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const;
     
     void analyze_new_bounds_on_row(
@@ -238,8 +237,7 @@ public:
 
     void analyze_new_bounds_on_row_tableau(
         unsigned row_index,
-        bound_propagator & bp
-                                           );
+        bound_propagator & bp);
 
     
     void substitute_basis_var_in_terms_for_row(unsigned i);
@@ -331,7 +329,7 @@ public:
 
 
     void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
-                                                vector<std::pair<mpq, var_index>> &left_side, mpq & free_coeff) const;
+                                                vector<std::pair<mpq, var_index>> &left_side) const;
 
 
     void detect_rows_of_bound_change_column_for_nbasic_column(unsigned j);
@@ -397,7 +395,7 @@ public:
 
     bool try_to_set_fixed(column_info<mpq> & ci);
 
-    column_type get_column_type(const column_info<mpq> & ci);
+    column_type get_column_type(unsigned j) const;
 
     std::string get_column_name(unsigned j) const;
 
@@ -436,29 +434,32 @@ public:
         int inf_sign) const;
 
 
-
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
 
     std::string get_variable_name(var_index vi) const;
 
-    // ********** print region start
-    void print_constraint(constraint_index ci, std::ostream & out) const;
+    // print utilities
 
-    void print_constraints(std::ostream& out) const ;
+    std::ostream& print_constraint(constraint_index ci, std::ostream & out) const;
 
-    void print_terms(std::ostream& out) const;
+    std::ostream& print_constraints(std::ostream& out) const ;
 
-    void print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
+    std::ostream& print_terms(std::ostream& out) const;
 
-    void print_term(lar_term const& term, std::ostream & out) const;
+    std::ostream& print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
 
-    void print_term_as_indices(lar_term const& term, std::ostream & out) const;
+    std::ostream& print_term(lar_term const& term, std::ostream & out) const;
 
+    std::ostream& print_term_as_indices(lar_term const& term, std::ostream & out) const;
+
+    std::ostream& print_constraint(const lar_base_constraint * c, std::ostream & out) const;
+
+    std::ostream& print_implied_bound(const implied_bound& be, std::ostream & out) const;
+
+    
     mpq get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
-
-    void print_constraint(const lar_base_constraint * c, std::ostream & out) const;
 
     void fill_var_set_for_random_update(unsigned sz, var_index const * vars, vector<unsigned>& column_list);
 

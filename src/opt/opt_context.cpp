@@ -351,7 +351,7 @@ namespace opt {
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
-        mdl->set_model_completion(true);
+        if (mdl) mdl->set_model_completion(true);
         TRACE("opt", tout << *mdl;);
     }
 
@@ -1084,11 +1084,7 @@ namespace opt {
             }
             term = m_arith.mk_add(args.size(), args.c_ptr());
         }
-        else if (m_arith.is_arith_expr(term) && !is_mul_const(term)) {
-            TRACE("opt", tout << "Purifying " << term << "\n";);
-            term = purify(fm, term);
-        }
-        else if (m.is_ite(term)) {
+        else if (m.is_ite(term) || !is_mul_const(term)) {
             TRACE("opt", tout << "Purifying " << term << "\n";);
             term = purify(fm, term);
         }

@@ -484,7 +484,6 @@ namespace smt {
     void theory_arith<Ext>::mk_idiv_mod_axioms(expr * dividend, expr * divisor) {
         if (!m_util.is_zero(divisor)) {
             ast_manager & m = get_manager();
-            bool is_numeral = m_util.is_numeral(divisor);
             // if divisor is zero, then idiv and mod are uninterpreted functions.
             expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
             expr_ref eqz(m), eq(m), lower(m), upper(m);
@@ -3301,6 +3300,21 @@ namespace smt {
         theory_var v = n->get_th_var(get_id());
         bound* b = (v == null_theory_var) ? nullptr : upper(v);
         return b && to_expr(b->get_value(), is_int(v), r);
+    }
+
+
+    template<typename Ext>
+    bool theory_arith<Ext>::get_lower(enode * n, rational& r, bool& is_strict) {
+        theory_var v = n->get_th_var(get_id());
+        bound* b = (v == null_theory_var) ? nullptr : lower(v);
+        return b && (r = b->get_value().get_rational().to_rational(), is_strict = b->get_value().get_infinitesimal().is_pos(), true);
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::get_upper(enode * n, rational& r, bool& is_strict) {
+        theory_var v = n->get_th_var(get_id());
+        bound* b = (v == null_theory_var) ? nullptr : upper(v);
+        return b && (r = b->get_value().get_rational().to_rational(), is_strict = b->get_value().get_infinitesimal().is_neg(), true);
     }
 
     // -----------------------------------

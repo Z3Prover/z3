@@ -1238,6 +1238,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
         break;
     case column_type::free_column:
         out << "( _" << this->m_x[j] << "_)" << std::endl;
+        break;
     default:
         lp_unreachable();
     }
