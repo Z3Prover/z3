@@ -178,10 +178,19 @@ lbool solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>
     return check_sat(0, nullptr);
 }
 
-bool solver::is_literal(ast_manager& m, expr* e) {
-    return is_uninterp_const(e) || (m.is_not(e, e) && is_uninterp_const(e));
+
+static bool is_m_atom(ast_manager& m, expr* f) {
+    if (!is_app(f)) return true;
+    app* _f = to_app(f);
+    family_id bfid = m.get_basic_family_id();
+    if (_f->get_family_id() != bfid) return true;
+    if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) return false;    
+    return m.is_eq(f) || m.is_distinct(f);
 }
 
+bool solver::is_literal(ast_manager& m, expr* e) {
+    return is_m_atom(m, e) || (m.is_not(e, e) && is_m_atom(m, e));
+}
 
 void solver::assert_expr(expr* f) {
     expr_ref fml(f, get_manager());
@@ -254,5 +263,42 @@ expr_ref_vector solver::get_units(ast_manager& m) {
         m.dec_ref(e);
     }
 
+    return result;
+}
+
+
+expr_ref_vector solver::get_non_units(ast_manager& m) {
+    expr_ref_vector result(m), fmls(m);
+    get_assertions(fmls);
+    family_id bfid = m.get_basic_family_id();
+    expr_mark marked;
+    unsigned sz0 = fmls.size();
+    for (unsigned i = 0; i < fmls.size(); ++i) {
+        expr* f = fmls.get(i);
+        if (marked.is_marked(f)) continue;
+        marked.mark(f);
+        if (!is_app(f)) {
+            if (i >= sz0) result.push_back(f);
+            continue;
+        }
+        app* _f = to_app(f);
+        if (_f->get_family_id() == bfid) {
+            // basic objects are true/false/and/or/not/=/distinct 
+            // and proof objects (that are not Boolean).
+            if (i < sz0 && m.is_not(f) && is_m_atom(m, _f->get_arg(0))) {
+                marked.mark(_f->get_arg(0));
+            }
+            else if (_f->get_num_args() > 0 && m.is_bool(_f->get_arg(0))) {
+                fmls.append(_f->get_num_args(), _f->get_args());
+            }
+            else if (i >= sz0 && is_m_atom(m, f)) {
+                result.push_back(f);
+            }
+        }
+        
+        else {
+            if (i >= sz0) result.push_back(f);
+        }
+    }
     return result;
 }

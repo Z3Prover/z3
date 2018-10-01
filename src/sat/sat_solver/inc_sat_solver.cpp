@@ -259,7 +259,7 @@ public:
         return m_num_scopes;
     }
 
-    void assert_expr_core2(expr * t, expr * a) override {
+    void assert_expr_core2(expr * t, expr * a) override {        
         if (a) {
             m_asmsf.push_back(a);
             assert_expr_core(m.mk_implies(a, t));
@@ -311,7 +311,10 @@ public:
     expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) override {
         if (!is_internalized()) {
             lbool r = internalize_formulas();
-            if (r != l_true) return expr_ref_vector(m);
+            if (r != l_true) {
+                IF_VERBOSE(0, verbose_stream() << "internalize produced " << r << "\n");
+                return expr_ref_vector(m);
+            }
         }
         convert_internalized();
         obj_hashtable<expr> _vs;
@@ -329,6 +332,7 @@ public:
             return result;
         }
         if (result == l_true) {
+            IF_VERBOSE(1, verbose_stream() << "formulas are SAT\n");
             return expr_ref_vector(m);
         }        
         expr_ref_vector fmls(m);
@@ -345,6 +349,7 @@ public:
                 vs.push_back(x);
             }
         }
+        if (fmls.empty()) { IF_VERBOSE(0, verbose_stream() << "no literals were produced in cube\n"); }
         return fmls;
     }
     
@@ -473,6 +478,7 @@ public:
     }
 
     void convert_internalized() {
+        m_solver.pop_to_base_level();
         if (!is_internalized() && m_fmls_head > 0) {
             internalize_formulas();
         }

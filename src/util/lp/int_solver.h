@@ -39,19 +39,23 @@ public:
     // fields
     lar_solver          *m_lar_solver;
     unsigned            m_number_of_calls;
-    lar_term            *m_t; // the term to return in the cut
-    mpq                 *m_k; // the right side of the cut
-    explanation         *m_ex; // the conflict explanation
-    bool                *m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
+    lar_term            m_t; // the term to return in the cut
+    mpq                 m_k; // the right side of the cut
+    explanation         m_ex; // the conflict explanation
+    bool                m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
     hnf_cutter          m_hnf_cutter;
     // methods
     int_solver(lar_solver* lp);
 
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
-    lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
+    lia_move check();
+    lar_term const& get_term() const { return m_t; }
+    mpq const& get_offset() const { return m_k; }
+    explanation const& get_explanation() const { return m_ex; }
+    bool is_upper() const { return m_upper; }
+
     bool move_non_basic_column_to_bounds(unsigned j);
-    lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
@@ -113,17 +117,9 @@ private:
     bool has_low(unsigned j) const;
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
-    inline static bool is_rational(const impq & n) {
-        return is_zero(n.y);  
-    }
 
 public:
     void display_column(std::ostream & out, unsigned j) const;
-    inline static
-    mpq fractional_part(const impq & n) {
-        lp_assert(is_rational(n));
-        return n.x - floor(n.x);
-    }
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
     bool current_solution_is_inf_on_cut() const;

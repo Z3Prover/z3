@@ -2805,8 +2805,8 @@ def get_full_version_string(major, minor, build, revision):
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
-    version_template = os.path.join(c.src_dir, 'version.h.in')
-    version_header_output = os.path.join(c.src_dir, 'version.h')
+    version_template = os.path.join(c.src_dir, 'z3_version.h.in')
+    version_header_output = os.path.join(c.src_dir, 'z3_version.h')
     # Note the substitution names are what is used by the CMake
     # builds system. If you change these you should change them
     # in the CMake build too

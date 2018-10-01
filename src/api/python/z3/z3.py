@@ -1258,6 +1258,11 @@ def Consts(names, sort):
         names = names.split(" ")
     return [Const(name, sort) for name in names]
 
+def FreshConst(sort, prefix='c'):
+    """Create a fresh constant of a specified sort"""
+    ctx = _get_ctx(sort.ctx)
+    return _to_expr_ref(Z3_mk_fresh_const(ctx.ref(), prefix, sort.ast), ctx)
+    
 def Var(idx, s):
     """Create a Z3 free variable. Free variables are used to create quantified formulas.
 
@@ -1744,7 +1749,9 @@ class QuantifierRef(BoolRef):
         return Z3_get_ast_id(self.ctx_ref(), self.as_ast())
 
     def sort(self):
-        """Return the Boolean sort."""
+        """Return the Boolean sort or sort of Lambda."""
+        if self.is_lambda():
+            return _sort(self.ctx, self.as_ast())
         return BoolSort(self.ctx)
 
     def is_forall(self):
@@ -4280,7 +4287,7 @@ def get_map_func(a):
         _z3_assert(is_map(a), "Z3 array map expression expected.")
     return FuncDeclRef(Z3_to_func_decl(a.ctx_ref(), Z3_get_decl_ast_parameter(a.ctx_ref(), a.decl().ast, 0)), a.ctx)
 
-def ArraySort(d, r):
+def ArraySort(*sig):
     """Return the Z3 array sort with the given domain and range sorts.
 
     >>> A = ArraySort(IntSort(), BoolSort())
@@ -4294,12 +4301,23 @@ def ArraySort(d, r):
     >>> AA
     Array(Int, Array(Int, Bool))
     """
+    sig = _get_args(sig)
     if __debug__:
-        _z3_assert(is_sort(d), "Z3 sort expected")
-        _z3_assert(is_sort(r), "Z3 sort expected")
-        _z3_assert(d.ctx == r.ctx, "Context mismatch")
+        _z3_assert(len(sig) > 1, "At least two arguments expected")
+    arity = len(sig) - 1
+    r = sig[arity]
+    d = sig[0]
+    if __debug__:
+        for s in sig:
+            _z3_assert(is_sort(s), "Z3 sort expected")
+            _z3_assert(s.ctx == r.ctx, "Context mismatch")
     ctx = d.ctx
-    return ArraySortRef(Z3_mk_array_sort(ctx.ref(), d.ast, r.ast), ctx)
+    if len(sig) == 2:
+        return ArraySortRef(Z3_mk_array_sort(ctx.ref(), d.ast, r.ast), ctx)
+    dom = (Sort * arity)()
+    for i in range(arity):
+        dom[i] = sig[i].ast    
+    return ArraySortRef(Z3_mk_array_sort_n(ctx.ref(), arity, dom, r.ast), ctx)
 
 def Array(name, dom, rng):
     """Return an array constant named `name` with the given domain and range sorts.
@@ -6605,7 +6623,12 @@ class Solver(Z3PPObject):
             _handle_parse_error(e, self.ctx)        
     
     def cube(self, vars = None):
-        """Get set of cubes"""
+        """Get set of cubes
+        The method takes an optional set of variables that restrict which
+        variables may be used as a starting point for cubing.
+        If vars is not None, then the first case split is based on a variable in
+        this set.
+        """
         self.cube_vs = AstVector(None, self.ctx)
         if vars is not None:
            for v in vars:
@@ -6621,6 +6644,10 @@ class Solver(Z3PPObject):
                 return
 
     def cube_vars(self):
+        """Access the set of variables that were touched by the most recently generated cube.
+        This set of variables can be used as a starting point for additional cubes.
+        The idea is that variables that appear in clauses that are reduced by the most recent
+        cube are likely more useful to cube on."""
         return self.cube_vs
 
     def proof(self):
@@ -6645,6 +6672,11 @@ class Solver(Z3PPObject):
         """Return an AST vector containing all currently inferred units.
         """
         return AstVector(Z3_solver_get_units(self.ctx.ref(), self.solver), self.ctx)
+
+    def non_units(self):
+        """Return an AST vector containing all atomic formulas in solver state that are not units.
+        """
+        return AstVector(Z3_solver_get_non_units(self.ctx.ref(), self.solver), self.ctx)
 
     def statistics(self):
         """Return statistics for the last `check()`.
@@ -8034,7 +8066,7 @@ def substitute(t, *m):
     """
     if isinstance(m, tuple):
         m1 = _get_args(m)
-        if isinstance(m1, list):
+        if isinstance(m1, list) and all(isinstance(p, tuple) for p in m1):
             m = m1
     if __debug__:
         _z3_assert(is_expr(t), "Z3 expression expected")
