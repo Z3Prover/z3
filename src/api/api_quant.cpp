@@ -155,7 +155,7 @@ extern "C" {
         expr_ref result(mk_c(c)->m());
         if (num_decls == 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE, nullptr);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
 
         sort* const* ts = reinterpret_cast<sort * const*>(types);
@@ -166,7 +166,7 @@ extern "C" {
         result = mk_c(c)->m().mk_lambda(names.size(), ts, names.c_ptr(), to_expr(body));
         mk_c(c)->save_ast_trail(result.get());
         return of_ast(result.get());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_lambda_const(Z3_context c, 
@@ -178,7 +178,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (num_decls == 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE, nullptr);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
 
         svector<symbol>  _names;
@@ -196,7 +196,7 @@ extern "C" {
         result = mk_c(c)->m().mk_lambda(_vars.size(), _vars.c_ptr(), _names.c_ptr(), result);
         mk_c(c)->save_ast_trail(result.get());
         return of_ast(result.get());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 

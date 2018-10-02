@@ -558,6 +558,8 @@ namespace sat {
 
         double psat_heur();
 
+        bool should_cutoff(unsigned depth);
+
     public:
         lookahead(solver& s) : 
             m_s(s),

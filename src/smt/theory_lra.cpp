@@ -147,7 +147,7 @@ class theory_lra::imp {
         imp& m_imp;
     public:
         resource_limit(imp& i): m_imp(i) { }
-        virtual bool get_cancel_flag() { return m_imp.m.canceled(); }
+        bool get_cancel_flag() override { return m_imp.m.canceled(); }
     };
 
 
@@ -341,7 +341,7 @@ class theory_lra::imp {
         }
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
         TRACE("arith", tout << "add " << cnst << "\n";);
-        enode* e = mk_enode(cnst);
+        mk_enode(cnst);
         theory_var v = mk_var(cnst);
         var = m_solver->add_var(v, true);
         m_theory_var2var_index.setx(v, var, UINT_MAX);
@@ -1054,7 +1054,7 @@ public:
     // to_int (to_real x) = x
     // to_real(to_int(x)) <= x < to_real(to_int(x)) + 1
     void mk_to_int_axiom(app* n) {
-        expr* x = 0, *y = 0;
+        expr* x = nullptr, *y = nullptr;
         VERIFY (a.is_to_int(n, x));            
         if (a.is_to_real(x, y)) {
             mk_axiom(th.mk_eq(y, n, false));
@@ -1070,7 +1070,7 @@ public:
 
     // is_int(x) <=> to_real(to_int(x)) = x
     void mk_is_int_axiom(app* n) {
-        expr* x = 0;
+        expr* x = nullptr;
         VERIFY(a.is_is_int(n, x));
         literal eq = th.mk_eq(a.mk_to_real(a.mk_to_int(x)), x, false);
         literal is_int = ctx().get_literal(n);
@@ -1450,7 +1450,7 @@ public:
                 st = FC_GIVEUP;
                 break;
             }
-            if (m_not_handled != 0) {            
+            if (m_not_handled != nullptr) {
                 TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);        
                 st = FC_GIVEUP;
             }
@@ -1569,7 +1569,6 @@ public:
             VERIFY(a.is_idiv(n, p, q));
             theory_var v  = mk_var(n);
             theory_var v1 = mk_var(p);
-            theory_var v2 = mk_var(q);
             rational r1 = get_value(v1);
             rational r2;
 
@@ -2080,12 +2079,12 @@ public:
                 m_core2.push_back(~c);
             }
             m_core2.push_back(lit);
-            justification * js = 0;
+            justification * js = nullptr;
             if (proofs_enabled()) {
                 js = alloc(theory_lemma_justification, get_id(), ctx(), m_core2.size(), m_core2.c_ptr(),
                            m_params.size(), m_params.c_ptr());
             }
-            ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_AUX_LEMMA, 0);
+            ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
         }
         else {
             ctx().assign(
@@ -2140,7 +2139,7 @@ public:
         rational const& k1 = b.get_value();
         lp_bounds & bounds = m_bounds[v];
 
-        lp_api::bound* end = 0;
+        lp_api::bound* end = nullptr;
         lp_api::bound* lo_inf = end, *lo_sup = end;
         lp_api::bound* hi_inf = end, *hi_sup = end;
             
@@ -2798,7 +2797,7 @@ public:
                     justification* js = 
                         ctx().mk_justification(
                             ext_theory_eq_propagation_justification(
-                                get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, 0));
+                                get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
 
                     TRACE("arith",
                           for (unsigned i = 0; i <  m_core.size(); ++i) {

@@ -27,7 +27,7 @@ Revision History:
 // Windows
 #include<windows.h>
 #elif defined(__APPLE__) && defined(__MACH__)
-// Mac OS X
+// macOS
 #include<mach/mach.h>
 #include<mach/clock.h>
 #include<sys/time.h>
@@ -59,7 +59,7 @@ struct scoped_timer::imp {
     HANDLE           m_timer;
     bool             m_first;
 #elif defined(__APPLE__) && defined(__MACH__)
-    // Mac OS X
+    // macOS
     pthread_t        m_thread_id;
     pthread_attr_t   m_attributes;
     unsigned         m_interval;    
@@ -89,7 +89,7 @@ struct scoped_timer::imp {
         }
     }
 #elif defined(__APPLE__) && defined(__MACH__)
-    // Mac OS X
+    // macOS
     static void * thread_func(void * arg) {
         scoped_timer::imp * st = static_cast<scoped_timer::imp*>(arg);  
 
@@ -153,7 +153,7 @@ struct scoped_timer::imp {
                               ms,
                               WT_EXECUTEINTIMERTHREAD);
 #elif defined(__APPLE__) && defined(__MACH__)
-        // Mac OS X
+        // macOS
         m_interval = ms?ms:0xFFFFFFFF;
         if (pthread_attr_init(&m_attributes) != 0)
             throw default_exception("failed to initialize timer thread attributes");
@@ -194,7 +194,7 @@ struct scoped_timer::imp {
                               m_timer,
                               INVALID_HANDLE_VALUE);
 #elif defined(__APPLE__) && defined(__MACH__)
-        // Mac OS X
+        // macOS
 
         // If the waiting-thread is not up and waiting yet, 
         // we can make sure that it finishes quickly by 

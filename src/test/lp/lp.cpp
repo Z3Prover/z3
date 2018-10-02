@@ -1161,14 +1161,14 @@ void setup_solver(unsigned max_iterations, unsigned time_limit, bool look_for_mi
 bool values_are_one_percent_close(double a, double b);
 
 void print_x(mps_reader<double, double> & reader, lp_solver<double, double> * solver) {
-    for (auto name : reader.column_names()) {
+    for (const auto & name : reader.column_names()) {
         std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
     }
     std::cout << std::endl;
 }
 
 void compare_solutions(mps_reader<double, double> & reader, lp_solver<double, double> * solver, lp_solver<double, double> * solver0) {
-    for (auto name : reader.column_names()) {
+    for (const auto & name : reader.column_names()) {
         double a = solver->get_column_value_by_name(name);
         double b = solver0->get_column_value_by_name(name);
         if (!values_are_one_percent_close(a, b)) {
@@ -1299,7 +1299,7 @@ void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /
         std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
         if (solver->get_status() == lp_status::OPTIMAL) {
             if (reader.column_names().size() < 20) {
-                for (auto name : reader.column_names()) {
+                for (const auto & name : reader.column_names()) {
                     std::cout << name << "=" << solver->get_column_value_by_name(name).get_double() << ' ';
                 }
             }
@@ -1414,7 +1414,7 @@ void solve_mps_with_known_solution(std::string file_name, std::unordered_map<std
                 }
             }
             if (reader.column_names().size() < 20) {
-                for (auto name : reader.column_names()) {
+                for (const auto & name : reader.column_names()) {
                     std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
                 }
                 std::cout << std::endl;
@@ -1775,7 +1775,7 @@ void solve_rational() {
     expected_sol["x8"] = lp::mpq(0);
     solver.find_maximal_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
-    for (auto it : expected_sol) {
+    for (const auto & it : expected_sol) {
         lp_assert(it.second == solver.get_column_value_by_name(it.first));
     }
 }
@@ -2369,7 +2369,7 @@ void test_files_from_directory(std::string test_file_dir, argument_parser & args
 
 std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp::mpq> * lps, mps_reader<lp::mpq, lp::mpq> & reader) {
     std::unordered_map<std::string, lp::mpq> ret;
-    for (auto it : reader.column_names()) {
+    for (const auto & it : reader.column_names()) {
         ret[it] = lps->get_column_value_by_name(it);
     }
     return ret;
@@ -2487,7 +2487,7 @@ void test_lar_solver(argument_parser & args_parser) {
 
     std::string file_list = args_parser.get_option_value("--filelist");
     if (file_list.size() > 0) {
-        for (std::string fn : get_file_names_from_file_list(file_list))
+        for (const std::string & fn : get_file_names_from_file_list(file_list))
             test_lar_on_file(fn, args_parser);
         return;
     }
@@ -3624,7 +3624,7 @@ void test_lp_local(int argn, char**argv) {
     }
     std::string file_list = args_parser.get_option_value("--filelist");
     if (file_list.size() > 0) {
-        for (std::string fn : get_file_names_from_file_list(file_list))
+        for (const std::string & fn : get_file_names_from_file_list(file_list))
             solve_mps(fn, args_parser);
         return finalize(0);
     }

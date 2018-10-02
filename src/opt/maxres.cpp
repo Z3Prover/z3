@@ -144,7 +144,7 @@ public:
         }        
     }
 
-    virtual ~maxres() {}
+    ~maxres() override {}
 
     bool is_literal(expr* l) {
         return 
@@ -332,7 +332,7 @@ public:
     }
 
 
-    virtual lbool operator()() {
+    lbool operator()() override {
         m_defs.reset();
         switch(m_st) {
         case s_primal:
@@ -343,7 +343,7 @@ public:
         return l_undef;
     }
 
-    virtual void collect_statistics(statistics& st) const { 
+    void collect_statistics(statistics& st) const override {
         st.update("maxres-cores", m_stats.m_num_cores);
         st.update("maxres-correction-sets", m_stats.m_num_cs);
     }
@@ -781,7 +781,7 @@ public:
         TRACE("opt", tout << "after remove: " << asms << "\n";);
     }
 
-    virtual void updt_params(params_ref& _p) {
+    void updt_params(params_ref& _p) override {
         maxsmt_solver_base::updt_params(_p);
         opt_params p(_p);
         m_hill_climb =              p.maxres_hill_climb();
@@ -816,7 +816,7 @@ public:
         return l_true;
     }
 
-    virtual void commit_assignment() {
+    void commit_assignment() override {
         if (m_found_feasible_optimum) {
             TRACE("opt", tout << "Committing feasible solution\n" << m_defs << " " << m_asms;);
             s().assert_expr(m_defs);

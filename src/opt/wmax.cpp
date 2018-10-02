@@ -49,9 +49,9 @@ namespace opt {
             m_trail(m),
             m_defs(m) {}
 
-        virtual ~wmax() {}
+        ~wmax() override {}
 
-        lbool operator()() {
+        lbool operator()() override {
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
             obj_map<expr, rational> soft;            

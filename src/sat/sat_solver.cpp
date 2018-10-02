@@ -66,13 +66,13 @@ namespace sat {
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
-        m_ext                     = 0;
+        m_ext                     = nullptr;
         m_cuber                   = nullptr;
         m_mc.set_solver(this);
     }
 
     solver::~solver() {
-        m_ext = 0;
+        m_ext = nullptr;
         SASSERT(check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses);
@@ -1014,14 +1014,39 @@ namespace sat {
     }
 
     lbool solver::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
-        if (!m_cuber) {
+        bool is_first = !m_cuber;
+        if (is_first) {
             m_cuber = alloc(lookahead, *this);
         }
         lbool result = m_cuber->cube(vars, lits, backtrack_level);
         m_cuber->update_cube_statistics(m_aux_stats);
-        if (result == l_false) {
+        switch (result) {
+        case l_false:
             dealloc(m_cuber);
             m_cuber = nullptr;
+            if (is_first) {
+                pop_to_base_level();
+                set_conflict(justification());
+            }
+            break;
+        case l_true: {
+            lits.reset();
+            pop_to_base_level();
+            model const& mdl = m_cuber->get_model();
+            for (bool_var v = 0; v < mdl.size(); ++v) {
+                if (value(v) != l_undef) {
+                    continue;
+                }
+                literal l(v, false);
+                if (mdl[v] != l_true) l.neg();
+                push();
+                assign_core(l, justification());
+            }
+            mk_model();
+            break;
+        }
+        default:
+            break;
         }
         return result;
     }
@@ -1133,7 +1158,7 @@ namespace sat {
         srch.config().set_config(m_config);
         srch.import(*this, false);
         scoped_rl.push_child(&srch.rlimit());
-        lbool r = srch.check(num_lits, lits, 0);
+        lbool r = srch.check(num_lits, lits, nullptr);
         m_model = srch.get_model();
         // srch.collect_statistics(m_aux_stats);
         return r;
@@ -1270,7 +1295,7 @@ namespace sat {
         if (!canceled) {
             rlimit().reset_cancel();
         }
-        set_par(0, 0);        
+        set_par(nullptr, 0);
         ls.reset();
         uw.reset();
         if (finished_id == -1) {

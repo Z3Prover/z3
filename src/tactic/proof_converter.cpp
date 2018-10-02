@@ -130,7 +130,7 @@ proof_ref apply(ast_manager & m, proof_converter_ref & pc1, proof_converter_ref_
     for (unsigned i = 0; i < sz; i++) {
         proof_ref pr(m);
         SASSERT(pc2s[i]); // proof production is enabled
-        pr = pc2s[i]->operator()(m, 0, 0);
+        pr = pc2s[i]->operator()(m, 0, nullptr);
         prs.push_back(pr);
     }
     return (*pc1)(m, sz, prs.c_ptr());

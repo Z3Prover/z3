@@ -72,7 +72,7 @@ struct goal2sat::imp {
     imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         pb(m),
-        m_ext(0),
+        m_ext(nullptr),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -1063,7 +1063,7 @@ void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
 
 expr_ref sat2goal::mc::lit2expr(sat::literal l) {
     if (!m_var2expr.get(l.var())) {
-        app* aux = m.mk_fresh_const(0, m.mk_bool_sort());
+        app* aux = m.mk_fresh_const(nullptr, m.mk_bool_sort());
         m_var2expr.set(l.var(), aux);
         if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
         m_gmc->hide(aux->get_decl());
@@ -1107,7 +1107,7 @@ struct sat2goal::imp {
             SASSERT(m_lit2expr.get((~l).index()) == 0);
             app* aux = mc ? mc->var2expr(l.var()) : nullptr;
             if (!aux) {
-                aux = m.mk_fresh_const(0, m.mk_bool_sort());
+                aux = m.mk_fresh_const(nullptr, m.mk_bool_sort());
                 if (mc) {
                     mc->insert(l.var(), aux, true);
                 }

@@ -529,7 +529,7 @@ namespace sat {
     }
 
     lbool local_search::check() {
-        return check(0, 0);
+        return check(0, nullptr);
     }
 
 #define PROGRESS(tries, flips)                                          \

@@ -40,7 +40,7 @@ public:
     
     void operator()(goal_ref const & g, 
                     goal_ref_buffer & result) override;
-    virtual void cleanup() override;
+    void cleanup() override;
 };
 
 class ac_rewriter {
