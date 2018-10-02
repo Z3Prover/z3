@@ -308,9 +308,9 @@ public:
         return nullptr;
     }
 
-    expr_ref_vector last_cube() {
+    expr_ref_vector last_cube(bool is_sat) {
         expr_ref_vector result(m);
-        result.push_back(m.mk_false());
+        result.push_back(is_sat ? m.mk_true() : m.mk_false());
         return result;
     }
 
@@ -334,15 +334,15 @@ public:
         lbool result = m_solver.cube(vars, lits, backtrack_level);
         switch (result) {
         case l_true:
-            return expr_ref_vector(m);
+            return last_cube(true);
         case l_false: 
-            return last_cube();
+            return last_cube(false);
         default: 
-            SASSERT(!lits.empty());
-            if (lits.empty()) {
-                IF_VERBOSE(0, verbose_stream() << "empty cube for undef\n";);
-            }
             break;
+        }
+        if (lits.empty()) {
+            set_reason_unknown(m_solver.get_reason_unknown());
+            return expr_ref_vector(m);
         }
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
@@ -358,7 +358,6 @@ public:
                 vs.push_back(x);
             }
         }
-        if (fmls.empty()) { IF_VERBOSE(0, verbose_stream() << "no literals were produced in cube\n"); }
         return fmls;
     }
     

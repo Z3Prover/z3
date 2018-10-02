@@ -79,6 +79,7 @@ public:
 
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
+        set_reason_unknown("cubing is not supported on tactics");
         return expr_ref_vector(get_manager());
     }
 
