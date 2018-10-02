@@ -156,7 +156,7 @@ namespace qe {
                 std::swap(e1, e2);
             }
             // y + -1*x == 0  --> y = x
-            expr *a0 = 0, *a1 = 0, *x = 0;
+            expr *a0 = nullptr, *a1 = nullptr, *x = nullptr;
             if (a.is_zero(e2) && a.is_add(e1, a0, a1)) {
                 if (a.is_times_minus_one(a1, x)) {
                     e1 = a0;

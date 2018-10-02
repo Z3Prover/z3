@@ -10,5 +10,5 @@ which can be run on Windows via
 
 On Linux and FreeBSD, we must use
    LD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample
-On OSX, the corresponding option is DYLD_LIBRARY_PATH:   
+On macOS, the corresponding option is DYLD_LIBRARY_PATH:
    DYLD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample  

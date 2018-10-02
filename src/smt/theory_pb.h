@@ -258,7 +258,7 @@ namespace smt {
             card_watch*  m_lit_cwatch[2];
             card*        m_card;
             
-            var_info(): m_var_watch(0), m_ineq(0), m_card(0)
+            var_info(): m_var_watch(nullptr), m_ineq(nullptr), m_card(nullptr)
             {
                 m_lit_watch[0] = nullptr;
                 m_lit_watch[1] = nullptr;

@@ -110,7 +110,7 @@ namespace smt {
     public:
         seq_expr_solver(ast_manager& m, smt_params& fp):
             m_kernel(m, fp) {}
-        virtual lbool check_sat(expr* e) {
+        lbool check_sat(expr* e) override {
             m_kernel.push();
             m_kernel.assert_expr(e);
             lbool r = m_kernel.check();
@@ -6712,8 +6712,8 @@ namespace smt {
     }
 
     unsigned theory_str::estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2) {
-        ENSURE(aut1 != NULL);
-        ENSURE(aut2 != NULL);
+        ENSURE(aut1 != nullptr);
+        ENSURE(aut2 != nullptr);
         return _qmul(aut1->num_states(), aut2->num_states());
     }
 
@@ -6966,7 +6966,7 @@ namespace smt {
      * and the equality with 0 is based on whether solutions of length 0 are allowed.
      */
     void theory_str::find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut) {
-        ENSURE(aut != NULL);
+        ENSURE(aut != nullptr);
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
@@ -7018,7 +7018,7 @@ namespace smt {
      * if it exists, or -1 otherwise.
      */
     bool theory_str::refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound) {
-        ENSURE(aut != NULL);
+        ENSURE(aut != nullptr);
 
         if (aut->final_states().size() < 1) {
             // no solutions at all
@@ -7128,7 +7128,7 @@ namespace smt {
      * if a shorter solution exists, or -1 otherwise.
      */
     bool theory_str::refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound) {
-        ENSURE(aut != NULL);
+        ENSURE(aut != nullptr);
 
         if (aut->final_states().empty()) {
             // no solutions at all!
@@ -7247,7 +7247,7 @@ namespace smt {
             return retval;
         } else {
             TRACE("str", tout << "ERROR: unrecognized automaton path constraint " << mk_pp(cond, m) << ", cannot translate" << std::endl;);
-            retval = NULL;
+            retval = nullptr;
             return retval;
         }
     }
@@ -7260,7 +7260,7 @@ namespace smt {
      * are returned in `characterConstraints`.
      */
     expr_ref theory_str::generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints) {
-        ENSURE(aut != NULL);
+        ENSURE(aut != nullptr);
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
@@ -10643,8 +10643,10 @@ namespace smt {
                     if (!u.str.is_string(concat_lhs)) {
                         lhs_terms.push_back(ctx.mk_eq_atom(concat_lhs, concat_lhs_str));
                     }
+
                     if (!u.str.is_string(concat_rhs)) {
                         lhs_terms.push_back(ctx.mk_eq_atom(concat_rhs, concat_rhs_str));
+
                     }
 
                     if (lhs_terms.empty()) {
@@ -12216,7 +12218,7 @@ namespace smt {
                             // - in the same EQC as freeVar
                             if (term_appears_as_subterm(freeVar, re_str)) {
                                 TRACE("str", tout << "prevent value testing on free var " << mk_pp(freeVar, m) << " as it belongs to one or more regex constraints." << std::endl;);
-                                return NULL;
+                                return nullptr;
                             }
                         }
                     }

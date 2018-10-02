@@ -127,7 +127,7 @@ class name_nested_formulas : public name_exprs_core {
         ast_manager & m;
         expr *        m_root;
 
-        pred(ast_manager & m):m(m), m_root(0) {}
+        pred(ast_manager & m):m(m), m_root(nullptr) {}
 
         bool operator()(expr * t) override {
             TRACE("name_exprs", tout << "name_nested_formulas::pred:\n" << mk_ismt2_pp(t, m) << "\n";);

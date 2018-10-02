@@ -20,5 +20,5 @@ Notes:
 #include "solver/solver.h"
 
 solver * mk_solver2lookahead(solver* s) {
-    return 0;
+    return nullptr;
 }

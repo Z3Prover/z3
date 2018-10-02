@@ -19,7 +19,7 @@ void test_print(Z3_context ctx, Z3_ast_vector av) {
     Z3_ast a = Z3_mk_and(ctx, Z3_ast_vector_size(ctx, av), args);
     Z3_inc_ref(ctx, a);
     delete[] args;
-    char const* spec1 = Z3_benchmark_to_smtlib_string(ctx, "test", 0, 0, 0, 0, 0, a);
+    char const* spec1 = Z3_benchmark_to_smtlib_string(ctx, "test", nullptr, nullptr, nullptr, 0, nullptr, a);
     Z3_dec_ref(ctx, a);
     std::cout << "spec1: benchmark->string\n" << spec1 << "\n";
 

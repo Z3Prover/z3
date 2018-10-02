@@ -1325,7 +1325,7 @@ bool pred_transformer::is_qblocked (pob &n) {
 
     // assert cti
     s->assert_expr(n.post());
-    lbool res = s->check_sat(0, 0);
+    lbool res = s->check_sat(0, nullptr);
 
     // if (res == l_false) {
     //     expr_ref_vector core(m);

@@ -1120,7 +1120,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
                         break;
                     }
                 if (flag) {
-                    expr* nl_fst = 0;
+                    expr* nl_fst = nullptr;
                     if (e.rs().size()>1 && is_var(e.rs().get(0)))
                         nl_fst = e.rs().get(0);
                     if (nl_fst && nl_fst != r_fst) {
@@ -1173,7 +1173,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
                         break;
                     }
                 if (flag) {
-                    expr* nl_fst = 0;
+                    expr* nl_fst = nullptr;
                     if (e.rs().size()>1 && is_var(e.rs().get(0)))
                         nl_fst = e.rs().get(0);
                     if (nl_fst && nl_fst != r_fst) {
@@ -1375,8 +1375,8 @@ bool theory_seq::branch_variable_mb() {
             continue;
         }
         rational l1, l2;
-        for (auto elem : len1) l1 += elem;
-        for (auto elem : len2) l2 += elem;
+        for (const auto& elem : len1) l1 += elem;
+        for (const auto& elem : len2) l2 += elem;
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
             expr_ref l = mk_concat(e.ls());

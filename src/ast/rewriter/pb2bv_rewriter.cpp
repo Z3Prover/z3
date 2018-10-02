@@ -458,7 +458,7 @@ struct pb2bv_rewriter::imp {
             result = m.mk_true();
             expr_ref_vector carry(m), new_carry(m);
             m_base.push_back(bound + rational::one());
-            for (rational b_i : m_base) {
+            for (const rational& b_i : m_base) {
                 unsigned B   = b_i.get_unsigned();
                 unsigned d_i = (bound % b_i).get_unsigned();
                 bound = div(bound, b_i);                

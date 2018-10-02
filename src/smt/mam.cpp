@@ -2571,6 +2571,7 @@ namespace smt {
             m_n1 = m_context.get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.c_ptr());              \
             if (m_n1 == 0 || !m_context.is_relevant(m_n1))                                                                                                              \
                 goto backtrack;                                                                                                                                         \
+            update_max_generation(m_n1, nullptr);                                                                                                                       \
             m_registers[static_cast<const get_cgr *>(m_pc)->m_oreg] = m_n1;                                                                                             \
             m_pc = m_pc->m_next;                                                                                                                                        \
             goto main_loop;

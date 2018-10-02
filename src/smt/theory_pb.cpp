@@ -759,18 +759,18 @@ namespace smt {
 
         card& get_card() { return m_card; }
 
-        virtual void get_antecedents(conflict_resolution& cr) {
+        void get_antecedents(conflict_resolution& cr) override {
             cr.mark_literal(m_card.lit());
             for (unsigned i = m_card.k(); i < m_card.size(); ++i) {
                 cr.mark_literal(~m_card.lit(i));
             }
         }
 
-        virtual theory_id get_from_theory() const {
+        theory_id get_from_theory() const override {
             return m_fid;
         }
         
-        virtual proof* mk_proof(smt::conflict_resolution& cr) { 
+        proof* mk_proof(smt::conflict_resolution& cr) override {
             ptr_buffer<proof> prs;
             ast_manager& m = cr.get_context().get_manager(); 
             expr_ref fact(m);
@@ -897,7 +897,7 @@ namespace smt {
     void theory_pb::watch_literal(literal lit, card* c) {
         init_watch(lit.var());
         ptr_vector<card>* cards = m_var_infos[lit.var()].m_lit_cwatch[lit.sign()];
-        if (cards == 0) {
+        if (cards == nullptr) {
             cards = alloc(ptr_vector<card>);
             m_var_infos[lit.var()].m_lit_cwatch[lit.sign()] = cards;
         }
@@ -961,13 +961,13 @@ namespace smt {
     void theory_pb::add_clause(card& c, literal_vector const& lits) {
         m_stats.m_num_conflicts++;
         context& ctx = get_context();
-        justification* js = 0;
+        justification* js = nullptr;
         c.inc_propagations(*this);
         if (!resolve_conflict(c, lits)) {
 			if (proofs_enabled()) {
 				js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
 			}
-            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
         }
         SASSERT(ctx.inconsistent());
     }
@@ -1027,7 +1027,7 @@ namespace smt {
     }
 
     void theory_pb::assign_eh(bool_var v, bool is_true) {
-        ptr_vector<ineq>* ineqs = 0;
+        ptr_vector<ineq>* ineqs = nullptr;
         context& ctx = get_context();
         literal nlit(v, is_true);
         init_watch(v);
@@ -1060,7 +1060,7 @@ namespace smt {
         }
 
         ptr_vector<card>* cards = m_var_infos[v].m_lit_cwatch[nlit.sign()];
-        if (cards != 0  && !cards->empty() && !ctx.inconsistent())  {
+        if (cards != nullptr  && !cards->empty() && !ctx.inconsistent())  {
             ptr_vector<card>::iterator it = cards->begin(), it2 = it, end = cards->end();
             for (; it != end; ++it) {
                 if (ctx.get_assignment((*it)->lit()) != l_true) {
@@ -1088,7 +1088,7 @@ namespace smt {
         }
 
         card* crd = m_var_infos[v].m_card;
-        if (crd != 0 && !ctx.inconsistent()) {
+        if (crd != nullptr && !ctx.inconsistent()) {
             crd->init_watch(*this, is_true);
         }
 
@@ -1527,7 +1527,7 @@ namespace smt {
                     else {
                         z++;
                         clear_watch(*c);
-                        m_var_infos[v].m_card = 0;
+                        m_var_infos[v].m_card = nullptr;
                         dealloc(c);
                         m_card_trail[i] = null_bool_var;
                         ctx.remove_watch(v);
@@ -1671,7 +1671,7 @@ namespace smt {
             if (v != null_bool_var) {
                 card* c = m_var_infos[v].m_card;
                 clear_watch(*c);
-                m_var_infos[v].m_card = 0;
+                m_var_infos[v].m_card = nullptr;
                 dealloc(c);
             }
         }
@@ -1774,11 +1774,11 @@ namespace smt {
         context& ctx = get_context();
         TRACE("pb", tout << "#prop:" << c.m_num_propagations << " - " << lits << "\n"; 
               display(tout, c, true);); 
-        justification* js = 0;
+        justification* js = nullptr;
         if (proofs_enabled()) {                                         
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
-        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
     }
 
 
@@ -1894,11 +1894,11 @@ namespace smt {
             break;
         case b_justification::JUSTIFICATION: {
             justification* j = js.get_justification(); 
-            card_justification* pbj = 0;            
+            card_justification* pbj = nullptr;
             if (j->get_from_theory() == get_id()) {
                 pbj = dynamic_cast<card_justification*>(j);
             }
-            if (pbj != 0) {
+            if (pbj != nullptr) {
                 card& c2 = pbj->get_card();
                 result = card2expr(c2);
             }            
@@ -2170,11 +2170,11 @@ namespace smt {
         VERIFY(internalize_card(atl, false));
         bool_var abv = ctx.get_bool_var(atl);
         m_antecedents.push_back(literal(abv));
-        justification* js = 0;
+        justification* js = nullptr;
         if (proofs_enabled()) {
-            js = 0; // 
+            js = nullptr;
         }
-        ctx.mk_clause(m_antecedents.size(), m_antecedents.c_ptr(), js, CLS_AUX_LEMMA, 0);
+        ctx.mk_clause(m_antecedents.size(), m_antecedents.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
     }
 
     bool theory_pb::resolve_conflict(card& c, literal_vector const& confl) {
@@ -2403,7 +2403,7 @@ namespace smt {
         }
 #endif
         SASSERT(validate_antecedents(m_antecedents));
-        ctx.assign(alit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), alit, 0, 0)));
+        ctx.assign(alit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), alit, 0, nullptr)));
 
         DEBUG_CODE(
             m_antecedents.push_back(~alit);
