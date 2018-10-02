@@ -4836,9 +4836,24 @@ namespace smt {
     }
 
     bool theory_str::get_arith_value(expr* e, rational& val) const {
-        arith_value v(get_context());
-        return v.get_value(e, val);
-    }
+         context& ctx = get_context();
+         ast_manager & m = get_manager();
+         if (!ctx.e_internalized(e)) {
+             return false;
+         }
+         // check root of the eqc for an integer constant
+         // if an integer constant exists in the eqc, it should be the root
+         enode * en_e = ctx.get_enode(e);
+         enode * root_e = en_e->get_root();
+         if (m_autil.is_numeral(root_e->get_owner(), val) && val.is_int()) {
+             TRACE("str", tout << mk_pp(e, m) << " ~= " << mk_pp(root_e->get_owner(), m) << std::endl;);
+             return true;
+         } else {
+             TRACE("str", tout << "root of eqc of " << mk_pp(e, m) << " is not a numeral" << std::endl;);
+             return false;
+         }
+
+     }
 
     bool theory_str::lower_bound(expr* _e, rational& lo) {
         if (opt_DisableIntegerTheoryIntegration) {
