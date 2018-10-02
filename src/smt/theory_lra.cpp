@@ -341,7 +341,7 @@ class theory_lra::imp {
         }
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
         TRACE("arith", tout << "add " << cnst << "\n";);
-        enode* e = mk_enode(cnst);
+        mk_enode(cnst);
         theory_var v = mk_var(cnst);
         var = m_solver->add_var(v, true);
         m_theory_var2var_index.setx(v, var, UINT_MAX);
