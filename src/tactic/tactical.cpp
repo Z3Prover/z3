@@ -744,7 +744,7 @@ public:
         SASSERT(t);  
     }    
 
-    virtual ~unary_tactical() { }
+    ~unary_tactical() override { }
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override { 
         m_t->operator()(in, result);
@@ -1003,7 +1003,7 @@ public:
         SASSERT(m_p);
     }
 
-    virtual ~cond_tactical() {}
+    ~cond_tactical() override {}
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {
         if (m_p->operator()(*(in.get())).is_true()) 
@@ -1035,7 +1035,7 @@ public:
         SASSERT(m_p);
     }
     
-    virtual ~fail_if_tactic() {}
+    ~fail_if_tactic() override {}
 
     void cleanup() override {}
 

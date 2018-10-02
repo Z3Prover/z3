@@ -1217,7 +1217,7 @@ namespace sat {
         lookahead& lh;
     public:
         lookahead_literal_occs_fun(lookahead& lh): lh(lh) {}
-        double operator()(literal l) { return lh.literal_occs(l); }
+        double operator()(literal l) override { return lh.literal_occs(l); }
     };
 
     // Ternary clause managagement:

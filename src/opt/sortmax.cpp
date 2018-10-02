@@ -39,9 +39,9 @@ namespace opt {
         sortmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft), m_sort(*this), m_trail(m), m_fresh(m) {}
 
-        virtual ~sortmax() {}
+        ~sortmax() override {}
 
-        lbool operator()() {
+        lbool operator()() override {
             obj_map<expr, rational> soft;            
             if (!init()) {
                 return l_false;
