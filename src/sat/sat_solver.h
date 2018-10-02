@@ -37,7 +37,6 @@ Revision History:
 #include "sat/sat_drat.h"
 #include "sat/sat_parallel.h"
 #include "sat/sat_local_search.h"
-#include "sat/sat_par.h"
 #include "util/params.h"
 #include "util/statistics.h"
 #include "util/stopwatch.h"
