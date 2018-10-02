@@ -817,7 +817,7 @@ public:
     }
 
     
-    const bool column_is_bounded(unsigned j) const {
+    bool column_is_bounded(unsigned j) const {
         switch(m_column_types()[j]) {
         case column_type::fixed:
         case column_type::boxed:
