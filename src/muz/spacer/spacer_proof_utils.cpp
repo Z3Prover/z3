@@ -600,7 +600,7 @@ namespace spacer {
     proof* hypothesis_reducer::reduce_core(proof* pf) {
         SASSERT(m.is_false(m.get_fact(pf)));
 
-        proof *res = NULL;
+        proof *res = nullptr;
 
         ptr_vector<proof> todo;
         todo.push_back(pf);

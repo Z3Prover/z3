@@ -1120,7 +1120,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
                         break;
                     }
                 if (flag) {
-                    expr* nl_fst = 0;
+                    expr* nl_fst = nullptr;
                     if (e.rs().size()>1 && is_var(e.rs().get(0)))
                         nl_fst = e.rs().get(0);
                     if (nl_fst && nl_fst != r_fst) {
@@ -1173,7 +1173,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
                         break;
                     }
                 if (flag) {
-                    expr* nl_fst = 0;
+                    expr* nl_fst = nullptr;
                     if (e.rs().size()>1 && is_var(e.rs().get(0)))
                         nl_fst = e.rs().get(0);
                     if (nl_fst && nl_fst != r_fst) {

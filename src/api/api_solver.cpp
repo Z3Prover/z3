@@ -369,7 +369,7 @@ extern "C" {
             v->m_ast_vector.push_back(f);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast_vector Z3_API Z3_solver_get_non_units(Z3_context c, Z3_solver s) {
@@ -384,7 +384,7 @@ extern "C" {
             v->m_ast_vector.push_back(f);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
@@ -631,7 +631,7 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 mk_c(c)->handle_exception(ex);
-                return 0;
+                return nullptr;
             }
         }
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
@@ -644,7 +644,7 @@ extern "C" {
             to_ast_vector_ref(vs).push_back(a);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);        
+        Z3_CATCH_RETURN(nullptr);
     }
 
 

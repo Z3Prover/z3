@@ -577,7 +577,7 @@ namespace smt {
                 }
 
                 if (inst.m_def) {
-                    m_context->internalize_assertion(inst.m_def, 0, gen);
+                    m_context->internalize_assertion(inst.m_def, nullptr, gen);
                 }
                 
                 TRACE("model_checker_bug_detail", tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";

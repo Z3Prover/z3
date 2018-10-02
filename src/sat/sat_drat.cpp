@@ -26,7 +26,7 @@ Notes:
 namespace sat {
     drat::drat(solver& s):
         s(s),
-        m_out(0),
+        m_out(nullptr),
         m_inconsistent(false),
         m_check_unsat(false),
         m_check_sat(false),

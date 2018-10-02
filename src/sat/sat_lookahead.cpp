@@ -33,7 +33,7 @@ namespace sat {
     }
     
     lookahead::scoped_ext::~scoped_ext() {
-        if (p.m_s.m_ext) p.m_s.m_ext->set_lookahead(0); 
+        if (p.m_s.m_ext) p.m_s.m_ext->set_lookahead(nullptr);
     }
 
     lookahead::scoped_assumptions::scoped_assumptions(lookahead& p, literal_vector const& lits): p(p), lits(lits) {

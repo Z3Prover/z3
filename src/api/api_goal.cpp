@@ -163,7 +163,7 @@ extern "C" {
         if (to_goal_ref(g)->mc()) 
             (*to_goal_ref(g)->mc())(m_ref->m_model);
         RETURN_Z3(of_model(m_ref));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }    
 
     Z3_goal Z3_API Z3_goal_translate(Z3_context c, Z3_goal g, Z3_context target) {
