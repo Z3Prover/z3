@@ -1569,7 +1569,6 @@ public:
             VERIFY(a.is_idiv(n, p, q));
             theory_var v  = mk_var(n);
             theory_var v1 = mk_var(p);
-            theory_var v2 = mk_var(q);
             rational r1 = get_value(v1);
             rational r2;
 
