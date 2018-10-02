@@ -1000,7 +1000,9 @@ struct solver::imp {
             typedef std::forward_iterator_tag iterator_category;
 
             void init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
-                k_vars.push_back(m_binary_factorizations.m_rooted_vars.back());
+                // the last element for m_binary_factorizations.m_rooted_vars goes to k_vars
+                SASSERT(m_mask.size() + 1  == m_binary_factorizations.m_rooted_vars.size());
+                k_vars.push_back(m_binary_factorizations.m_rooted_vars.back()); 
                 for (unsigned j = 0; j < m_mask.size(); j++) {
                     if (m_mask[j] == 1) {
                         k_vars.push_back(m_binary_factorizations.m_rooted_vars[j]);
