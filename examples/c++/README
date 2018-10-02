@@ -5,6 +5,6 @@ in the build directory.
 
 This command will create the executable cpp_example.
 On Windows, you can just execute it.
-On OSX and Linux, you must install z3 first using 
+On macOS and Linux, you must install z3 first using
    sudo make install
-OR update LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (OSX) with the build directory. You need that to be able to find the Z3 shared library.
+OR update LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (macOS) with the build directory. You need that to be able to find the Z3 shared library.

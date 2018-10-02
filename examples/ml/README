@@ -20,4 +20,4 @@ ocamlfind ocamlopt -o ml_example -package Z3 -linkpkg ml_example.ml
 
 Note that the resulting binaries depend on the shared z3 library
 (libz3.dll/.so/.dylb), which needs to be in the PATH (Windows), LD_LIBRARY_PATH
-(Linux), or DYLD_LIBRARY_PATH (OSX).
+(Linux), or DYLD_LIBRARY_PATH (macOS).
