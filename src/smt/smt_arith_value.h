@@ -33,5 +33,6 @@ namespace smt {
         bool get_lo(expr* e, rational& lo, bool& strict);
         bool get_up(expr* e, rational& up, bool& strict);
         bool get_value(expr* e, rational& value);
+        final_check_status final_check();
     };
 };
