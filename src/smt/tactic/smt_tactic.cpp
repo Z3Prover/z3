@@ -217,7 +217,7 @@ public:
                     model_ref md;
                     m_ctx->get_model(md);
                     buffer<symbol> r;
-                    m_ctx->get_relevant_labels(0, r);
+                    m_ctx->get_relevant_labels(nullptr, r);
                     labels_vec rv;
                     rv.append(r.size(), r.c_ptr());
                     model_converter_ref mc;
@@ -270,7 +270,7 @@ public:
                             model_ref md;
                             m_ctx->get_model(md);
                             buffer<symbol> r;
-                            m_ctx->get_relevant_labels(0, r);
+                            m_ctx->get_relevant_labels(nullptr, r);
                             labels_vec rv;
                             rv.append(r.size(), r.c_ptr());
                             in->add(model_and_labels2model_converter(md.get(), rv));

@@ -277,7 +277,7 @@ namespace sat {
         
         lbool check();
 
-        lbool check(unsigned sz, literal const* assumptions, parallel* p = 0);
+        lbool check(unsigned sz, literal const* assumptions, parallel* p = nullptr);
 
         local_search_config& config() { return m_config;  }
 

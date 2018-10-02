@@ -636,7 +636,7 @@ public:
                         else {                                                                                  
                             SASSERT(is_decided_unsat(r2));                                                 
                             
-                            if (cores_enabled && r2[0]->dep(0) != 0) {
+                            if (cores_enabled && r2[0]->dep(0) != nullptr) {
                                 expr_dependency_ref * new_dep = alloc(expr_dependency_ref, new_m);
                                 *new_dep = r2[0]->dep(0);
                                 core_buffer.set(i, new_dep);
@@ -674,7 +674,7 @@ public:
                 ast_translation translator(*(managers[i]), m, false);
                 goal_ref_buffer * r = goals_vect[i];
                 unsigned j = result.size();
-                if (r != 0) {
+                if (r != nullptr) {
                     for (unsigned k = 0; k < r->size(); k++) {
                         result.push_back((*r)[k]->translate(translator));
                     }

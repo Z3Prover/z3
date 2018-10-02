@@ -394,7 +394,7 @@ namespace eq {
             expr* const* args = &e;
             if (is_lambda(q)) {
                 r = q;
-                pr = 0;
+                pr = nullptr;
                 return;
             }
             flatten_args(q, num_args, args);

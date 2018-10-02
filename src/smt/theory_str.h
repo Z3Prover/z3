@@ -164,7 +164,7 @@ protected:
     rational upper_bound;
 public:
     regex_automaton_under_assumptions() :
-        re_term(NULL), aut(NULL), polarity(false),
+        re_term(nullptr), aut(nullptr), polarity(false),
         assume_lower_bound(false), assume_upper_bound(false) {}
 
     regex_automaton_under_assumptions(expr * re_term, eautomaton * aut, bool polarity) :

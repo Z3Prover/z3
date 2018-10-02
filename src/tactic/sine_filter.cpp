@@ -54,7 +54,7 @@ public:
         TRACE("sine", tout << new_forms.size(););
         g->reset();
         for (unsigned i = 0; i < new_forms.size(); i++) {
-            g->assert_expr(new_forms.get(i), 0, 0);
+            g->assert_expr(new_forms.get(i), nullptr, nullptr);
         }
         g->inc_depth();
         g->updt_prec(goal::OVER);

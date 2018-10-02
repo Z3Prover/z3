@@ -565,7 +565,7 @@ namespace smt {
             return m_asserted_formulas.has_quantifiers();
         }
 
-        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = 0) {
+        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = nullptr) {
             return m_fingerprints.insert(data, data_hash, num_args, args, def);
         }
 

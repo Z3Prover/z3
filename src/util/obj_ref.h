@@ -115,7 +115,7 @@ public:
     */
     T * steal() { 
         T * r = m_obj;
-        m_obj = 0;
+        m_obj = nullptr;
         return r;
     }
 };

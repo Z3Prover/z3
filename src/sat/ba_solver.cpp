@@ -1527,7 +1527,7 @@ namespace sat {
         return p;        
     }
 
-    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), m_constraint_id(0), m_ba(*this), m_sort(m_ba) {        
+    ba_solver::ba_solver(): m_solver(nullptr), m_lookahead(nullptr), m_unit_walk(nullptr), m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
         TRACE("ba", tout << this << "\n";);
         m_num_propagations_since_pop = 0;
     }

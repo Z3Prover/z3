@@ -36,7 +36,7 @@ class lia2card_tactic : public tactic {
         expr*    m_expr;
         bound(unsigned lo, unsigned hi, expr* b):
             m_lo(lo), m_hi(hi), m_expr(b) {}
-        bound(): m_lo(0), m_hi(0), m_expr(0) {}
+        bound(): m_lo(0), m_hi(0), m_expr(nullptr) {}
     };
 
     struct lia_rewriter_cfg : public default_rewriter_cfg {

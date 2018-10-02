@@ -66,13 +66,13 @@ namespace sat {
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
-        m_ext                     = 0;
+        m_ext                     = nullptr;
         m_cuber                   = nullptr;
         m_mc.set_solver(this);
     }
 
     solver::~solver() {
-        m_ext = 0;
+        m_ext = nullptr;
         SASSERT(check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses);
@@ -1157,7 +1157,7 @@ namespace sat {
         srch.config().set_config(m_config);
         srch.import(*this, false);
         scoped_rl.push_child(&srch.rlimit());
-        lbool r = srch.check(num_lits, lits, 0);
+        lbool r = srch.check(num_lits, lits, nullptr);
         m_model = srch.get_model();
         // srch.collect_statistics(m_aux_stats);
         return r;
@@ -1294,7 +1294,7 @@ namespace sat {
         if (!canceled) {
             rlimit().reset_cancel();
         }
-        set_par(0, 0);        
+        set_par(nullptr, 0);
         ls.reset();
         uw.reset();
         if (finished_id == -1) {
