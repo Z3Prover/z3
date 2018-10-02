@@ -57,10 +57,10 @@ public:
 template <>  class numeric_traits<int> {
 public:
     static bool precise() { return true; }
-    static int const zero() { return 0; }
-    static int const one() { return 1; }
+    static int zero() { return 0; }
+    static int one() { return 1; }
     static bool is_zero(int v) { return v == 0; }
-    static double const get_double(int const & d) { return d; }
+    static double get_double(int const & d) { return d; }
     static bool is_int(int) {return true;}
     static bool is_pos(int j) {return j > 0;}
     static bool is_neg(int j) {return j < 0;}
