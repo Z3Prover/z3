@@ -41,7 +41,7 @@ class generic_model_converter : public model_converter {
 public:
     generic_model_converter(ast_manager & m, char const* orig) : m(m), m_orig(orig) {}
     
-    virtual ~generic_model_converter();
+    ~generic_model_converter() override;
     
     void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
 

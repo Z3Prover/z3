@@ -110,7 +110,7 @@ namespace smt {
     public:
         seq_expr_solver(ast_manager& m, smt_params& fp):
             m_kernel(m, fp) {}
-        virtual lbool check_sat(expr* e) {
+        lbool check_sat(expr* e) override {
             m_kernel.push();
             m_kernel.assert_expr(e);
             lbool r = m_kernel.check();

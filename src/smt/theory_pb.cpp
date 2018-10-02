@@ -759,18 +759,18 @@ namespace smt {
 
         card& get_card() { return m_card; }
 
-        virtual void get_antecedents(conflict_resolution& cr) {
+        void get_antecedents(conflict_resolution& cr) override {
             cr.mark_literal(m_card.lit());
             for (unsigned i = m_card.k(); i < m_card.size(); ++i) {
                 cr.mark_literal(~m_card.lit(i));
             }
         }
 
-        virtual theory_id get_from_theory() const {
+        theory_id get_from_theory() const override {
             return m_fid;
         }
         
-        virtual proof* mk_proof(smt::conflict_resolution& cr) { 
+        proof* mk_proof(smt::conflict_resolution& cr) override {
             ptr_buffer<proof> prs;
             ast_manager& m = cr.get_context().get_manager(); 
             expr_ref fact(m);

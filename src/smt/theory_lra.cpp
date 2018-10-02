@@ -147,7 +147,7 @@ class theory_lra::imp {
         imp& m_imp;
     public:
         resource_limit(imp& i): m_imp(i) { }
-        virtual bool get_cancel_flag() { return m_imp.m.canceled(); }
+        bool get_cancel_flag() override { return m_imp.m.canceled(); }
     };
 
 

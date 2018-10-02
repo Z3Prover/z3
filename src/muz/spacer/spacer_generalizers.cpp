@@ -50,7 +50,7 @@ namespace{
         contains_array_op_proc(ast_manager &manager) :
             m(manager), m_array_fid(m.mk_family_id("array"))
             {}
-        virtual bool operator()(expr *e) {
+        bool operator()(expr *e) override {
             return is_app(e) && to_app(e)->get_family_id() == m_array_fid;
         }
     };

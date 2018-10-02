@@ -397,7 +397,7 @@ public:
 
     column_type get_column_type(unsigned j) const;
 
-    std::string get_column_name(unsigned j) const;
+    std::string get_column_name(unsigned j) const override;
 
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side);
 

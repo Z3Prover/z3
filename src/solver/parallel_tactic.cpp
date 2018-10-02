@@ -672,7 +672,7 @@ public:
         init();
     }
 
-    void operator ()(const goal_ref & g,goal_ref_buffer & result) {
+    void operator ()(const goal_ref & g,goal_ref_buffer & result) override {
         fail_if_proof_generation("parallel-tactic", g);
         ast_manager& m = g->m();        
         solver* s = m_solver->translate(m, m_params);
@@ -719,29 +719,29 @@ public:
         return pp.conquer_batch_size();
     }
 
-    void cleanup() {
+    void cleanup() override {
         m_queue.reset();
     }
 
-    tactic* translate(ast_manager& m) {
+    tactic* translate(ast_manager& m) override {
         solver* s = m_solver->translate(m, m_params);
         return alloc(parallel_tactic, s, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params.copy(p);
         parallel_params pp(p);
         m_conquer_delay = pp.conquer_delay();
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.copy(m_stats);
         st.update("par unsat", m_num_unsat);
         st.update("par models", m_models.size());
         st.update("par progress", m_progress);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
     }
 };
