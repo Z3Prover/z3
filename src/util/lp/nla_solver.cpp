@@ -258,6 +258,7 @@ struct solver::imp {
         return out;
     }
 
+    
     // the monomials should be equal by modulo sign, but they are not equal in the model by modulo sign
     void fill_explanation_and_lemma_sign(const mon_eq& a, const mon_eq & b, int sign) {
         expl_set expl;
@@ -271,12 +272,13 @@ struct solver::imp {
               for (auto &p : *m_expl)
                   m_lar_solver.print_constraint(p.second, tout); tout << "\n";
               );
+        SASSERT(m_lemma->size() == 0);
         lp::lar_term t;
         t.add_coeff_var(rational(1), a.var());
         t.add_coeff_var(rational(- sign), b.var());
-        TRACE("nla_solver", print_explanation_and_lemma(tout););
-        ineq in(lp::lconstraint_kind::NE, t, rational::zero());
+        ineq in(lp::lconstraint_kind::EQ, t, rational::zero());
         m_lemma->push_back(in);
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
     }
 
     // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
@@ -293,18 +295,32 @@ struct solver::imp {
         return ret;
     }
 
+    bool list_contains_one_to_refine(const std::unordered_set<unsigned> & to_refine_set,
+                                          const vector<mono_index_with_sign>& list_of_mon_indices) {
+        for (const auto& p : list_of_mon_indices) {
+            if (to_refine_set.find(p.m_i) != to_refine_set.end())
+                return true;
+        }
+        return false;
+    }
+    
     /**
      * \brief <generate lemma by using the fact that -ab = (-a)b) and
      -ab = a(-b)
     */
-    bool generate_basic_lemma_for_mon_sign(unsigned i_mon) {
+    bool generate_basic_sign_lemma(const unsigned_vector& to_refine) {
         if (m_vars_equivalence.empty()) {
             return false;
         }
-
+        std::unordered_set<unsigned> to_refine_set;
+        for (unsigned i : to_refine)
+            to_refine_set.insert(i);
         for (auto it : m_rooted_monomials) {
             const auto & list = it.second;
+            if (!list_contains_one_to_refine(to_refine_set, list))
+                continue;
             const auto & m0 = list[0];
+           
             rational val = vvr(m_monomials[m0.m_i].var()) * m0.m_sign;
             // every other monomial in the list has to have the same value up to the sign
             for (unsigned i = 1; i < list.size(); i++) {
@@ -1241,14 +1257,19 @@ struct solver::imp {
     // use basic multiplication properties to create a lemma
     // for the given monomial
     bool generate_basic_lemma_for_mon(unsigned i_mon) {
-        return generate_basic_lemma_for_mon_sign(i_mon)
-            || generate_basic_lemma_for_mon_zero(i_mon)
-            || generate_basic_lemma_for_mon_neutral(i_mon)
-            || generate_basic_lemma_for_mon_proportionality(i_mon);
+        return
+            generate_basic_lemma_for_mon_zero(i_mon)
+            ||
+            generate_basic_lemma_for_mon_neutral(i_mon)
+            ||
+            generate_basic_lemma_for_mon_proportionality(i_mon);
     }
 
     // use basic multiplication properties to create a lemma
     bool generate_basic_lemma(unsigned_vector & to_refine) {
+        if (generate_basic_sign_lemma(to_refine))
+            return true;
+
         for (unsigned i : to_refine) {
             if (generate_basic_lemma_for_mon(i)) {
                 return true;
