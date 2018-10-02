@@ -70,7 +70,7 @@ public:
 #undef min
 
 
-#elif defined(__APPLE__) && defined (__MACH__) // Mac OS X
+#elif defined(__APPLE__) && defined (__MACH__) // macOS
 
 #include<mach/mach.h>
 #include<mach/clock.h>

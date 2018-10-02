@@ -53,7 +53,7 @@ public:
 class psort_inst_cache;
 
 #if defined(__APPLE__) && defined(__MACH__)
-// CMW: for some unknown reason, llvm on OSX does not like the name `psort'
+// CMW: for some unknown reason, llvm on macOS does not like the name `psort'
 #define psort Z3_psort
 #endif
 

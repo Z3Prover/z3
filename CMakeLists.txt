@@ -240,7 +240,7 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
   endif()
 elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-  # Does OSX really not need any special flags?
+  # Does macOS really not need any special flags?
   message(STATUS "Platform: Darwin")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
