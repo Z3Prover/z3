@@ -308,6 +308,12 @@ public:
         return nullptr;
     }
 
+    expr_ref_vector last_cube() {
+        expr_ref_vector result(m);
+        result.push_back(m.mk_false());
+        return result;
+    }
+
     expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) override {
         if (!is_internalized()) {
             lbool r = internalize_formulas();
@@ -326,15 +332,18 @@ public:
         }
         sat::literal_vector lits;
         lbool result = m_solver.cube(vars, lits, backtrack_level);
-        if (result == l_false || lits.empty()) {
-            expr_ref_vector result(m);
-            result.push_back(m.mk_false());
-            return result;
-        }
-        if (result == l_true) {
-            IF_VERBOSE(1, verbose_stream() << "formulas are SAT\n");
+        switch (result) {
+        case l_true:
             return expr_ref_vector(m);
-        }        
+        case l_false: 
+            return last_cube();
+        default: 
+            SASSERT(!lits.empty());
+            if (lits.empty()) {
+                IF_VERBOSE(0, verbose_stream() << "empty cube for undef\n";);
+            }
+            break;
+        }
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);

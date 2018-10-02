@@ -2057,6 +2057,15 @@ namespace sat {
         return h;
     }
 
+    bool lookahead::should_cutoff(unsigned depth) {
+        return depth > 0 && 
+            ((m_config.m_cube_cutoff == depth_cutoff && depth == m_config.m_cube_depth) ||
+             (m_config.m_cube_cutoff == freevars_cutoff && m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) ||
+             (m_config.m_cube_cutoff == psat_cutoff && psat_heur() >= m_config.m_cube_psat_trigger) ||
+             (m_config.m_cube_cutoff == adaptive_freevars_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
+             (m_config.m_cube_cutoff == adaptive_psat_cutoff && psat_heur() >= m_cube_state.m_psat_threshold));
+    }
+
     lbool lookahead::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
         scoped_ext _scoped_ext(*this);
         lits.reset();
@@ -2102,22 +2111,13 @@ namespace sat {
             }
             backtrack_level = UINT_MAX;
             depth = m_cube_state.m_cube.size();
-            if ((m_config.m_cube_cutoff == depth_cutoff && depth == m_config.m_cube_depth) ||
-                (m_config.m_cube_cutoff == freevars_cutoff && m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) ||
-                (m_config.m_cube_cutoff == psat_cutoff && psat_heur() >= m_config.m_cube_psat_trigger) ||
-                (m_config.m_cube_cutoff == adaptive_freevars_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
-                (m_config.m_cube_cutoff == adaptive_psat_cutoff && psat_heur() >= m_cube_state.m_psat_threshold)) {
+            if (should_cutoff(depth)) {
                 double dec = (1.0 - pow(m_config.m_cube_fraction, depth));
                 m_cube_state.m_freevars_threshold *= dec;
                 m_cube_state.m_psat_threshold *= 2.0 - dec;
                 set_conflict();
                 m_cube_state.inc_cutoff();
-#if 0
-                // return cube of all literals, not just the ones in the main cube
-                lits.append(m_trail.size() - init_trail, m_trail.c_ptr() + init_trail);
-#else
                 lits.append(m_cube_state.m_cube);
-#endif
                 vars.reset();
                 for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
                 backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);

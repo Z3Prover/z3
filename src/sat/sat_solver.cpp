@@ -1030,6 +1030,7 @@ namespace sat {
             }
             break;
         case l_true: {
+            lits.reset();
             pop_to_base_level();
             model const& mdl = m_cuber->get_model();
             for (bool_var v = 0; v < mdl.size(); ++v) {
