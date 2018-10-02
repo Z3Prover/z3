@@ -1375,8 +1375,8 @@ bool theory_seq::branch_variable_mb() {
             continue;
         }
         rational l1, l2;
-        for (auto elem : len1) l1 += elem;
-        for (auto elem : len2) l2 += elem;
+        for (const auto& elem : len1) l1 += elem;
+        for (const auto& elem : len2) l2 += elem;
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
             expr_ref l = mk_concat(e.ls());
