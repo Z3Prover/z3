@@ -45,7 +45,7 @@ public:
     
     void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
 
-    void hide(func_decl * f) { m_entries.push_back(entry(f, 0, m, HIDE)); }
+    void hide(func_decl * f) { m_entries.push_back(entry(f, nullptr, m, HIDE)); }
 
     void add(func_decl * d, expr* e);
 

@@ -148,7 +148,7 @@ public:
 
         // translate enumeration constants to bit-vectors.
         for (expr* v : vars) {
-            func_decl* f = 0;
+            func_decl* f = nullptr;
             if (is_app(v) && is_uninterp_const(v) && m_rewriter.enum2bv().find(to_app(v)->get_decl(), f)) {
                 bvars.push_back(m.mk_const(f));
             }

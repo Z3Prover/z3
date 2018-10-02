@@ -351,7 +351,7 @@ bool model::can_inline_def(top_sort& ts, func_decl* f) {
 
 
 expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) {
-    if (!e) return expr_ref(0, m);
+    if (!e) return expr_ref(nullptr, m);
 
     TRACE("model", tout << "cleaning up:\n" << mk_pp(e, m) << "\n";);
 
@@ -453,7 +453,7 @@ void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s)
 
 expr_ref model::get_inlined_const_interp(func_decl* f) {
     expr* v = get_const_interp(f);
-    if (!v) return expr_ref(0, m);
+    if (!v) return expr_ref(nullptr, m);
     top_sort st(m);
     expr_ref result1(v, m);
     expr_ref result2 = cleanup_expr(st, v, UINT_MAX);

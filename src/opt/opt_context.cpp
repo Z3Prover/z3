@@ -281,7 +281,7 @@ namespace opt {
         symbol pri = optp.priority();
 
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
-        lbool is_sat = s.check_sat(0,0);
+        lbool is_sat = s.check_sat(0,nullptr);
         TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
             s.get_model(m_model);

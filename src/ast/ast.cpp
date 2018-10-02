@@ -424,7 +424,7 @@ sort * get_sort(expr const * n) {
         return to_quantifier(n)->get_sort();
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
