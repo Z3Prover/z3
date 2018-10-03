@@ -1285,17 +1285,17 @@ struct solver::imp {
         return false;
     }
 
-    bool basic_lemma_for_mon_zero_from_monomial_to_factor(const signed_factorization& factorization) {
+    bool basic_lemma_for_mon_zero_from_monomial_to_factor(lpvar i_mon, const signed_factorization& factorization) {
         SASSERT(false);
     }
 
-    bool basic_lemma_for_mon_zero_from_factors_to_monomial(const signed_factorization& factorization) {
+    bool basic_lemma_for_mon_zero_from_factors_to_monomial(lpvar i_mon, const signed_factorization& factorization) {
         SASSERT(false);
     }
 
     
-    bool basic_lemma_for_mon_zero(const signed_factorization& factorization) {
-        return basic_lemma_for_mon_zero_from_monomial_to_factor(factorization) || basic_lemma_for_mon_zero_from_factors_to_monomial(factorization);
+    bool basic_lemma_for_mon_zero(lpvar i_mon, const signed_factorization& factorization) {
+        return basic_lemma_for_mon_zero_from_monomial_to_factor(i_mon, factorization) || basic_lemma_for_mon_zero_from_factors_to_monomial(i_mon, factorization);
     }
             
     bool basic_lemma_for_mon_neutral(const signed_factorization& factorization) {
@@ -1313,11 +1313,12 @@ struct solver::imp {
     bool basic_lemma_for_mon(unsigned i_mon) {
         for (auto factorization : binary_factorizations_of_monomial(i_mon, *this)) {
             if ( 
-            basic_lemma_for_mon_zero(factorization)
-            ||
-            basic_lemma_for_mon_neutral(factorization)
-            ||
-            basic_lemma_for_mon_proportionality(factorization))
+                basic_lemma_for_mon_zero(i_mon, factorization)
+                ||
+                basic_lemma_for_mon_neutral(factorization)
+                ||
+                basic_lemma_for_mon_proportionality(factorization)
+                 )
                 return true;
             
         }
