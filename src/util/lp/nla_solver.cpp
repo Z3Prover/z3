@@ -308,7 +308,7 @@ struct solver::imp {
      * \brief <generate lemma by using the fact that -ab = (-a)b) and
      -ab = a(-b)
     */
-    bool generate_basic_sign_lemma(const unsigned_vector& to_refine) {
+    bool basic_sign_lemma(const unsigned_vector& to_refine) {
         if (m_vars_equivalence.empty()) {
             return false;
         }
@@ -429,7 +429,7 @@ struct solver::imp {
       c) (v1 < 0 and v2 > 0) or (v1 > 0 and v2 < 0) iff
       v1 * v2 < 0
     */
-    bool generate_basic_lemma_for_mon_zero(unsigned i_mon) {
+    bool basic_lemma_for_mon_zero(unsigned i_mon) {
         m_expl->clear();
         const auto mon = m_monomials[i_mon];
         const rational & mon_val = m_lar_solver.get_column_value_rational(mon.var());
@@ -628,7 +628,7 @@ struct solver::imp {
      * \brief <generate lemma by using the fact that 1*x = x or x*1 = x>
      * v is the value of monomial, vars is the array of reduced to minimum variables of the monomial
      */
-    bool generate_basic_neutral_for_reduced_monomial(const mon_eq & m, const rational & v, const svector<lpvar> & vars) {
+    bool basic_neutral_for_reduced_monomial(const mon_eq & m, const rational & v, const svector<lpvar> & vars) {
         vector<mono_index_with_sign> ones_of_mon = get_ones_of_monomimal(vars);
         
         // if abs(m.vars()[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.vars()[j] = 1, or -1 otherwise.
@@ -641,14 +641,14 @@ struct solver::imp {
     /**
      * \brief <generate lemma by using the fact that 1*x = x or x*1 = x>
      */    
-    bool generate_basic_lemma_for_mon_neutral(unsigned i_mon) {
+    bool basic_lemma_for_mon_neutral(unsigned i_mon) {
         const mon_eq & m = m_monomials[i_mon];
         int sign;
         svector<lpvar> reduced_vars = reduce_monomial_to_canonical(m.vars(), sign);
         rational v = m_lar_solver.get_column_value_rational(m.var());
         if (sign == -1)
             v = -v;
-        return generate_basic_neutral_for_reduced_monomial(m, v, reduced_vars);
+        return basic_neutral_for_reduced_monomial(m, v, reduced_vars);
     }
 
     // returns the variable m_i, of a monomial if found and sets the sign,
@@ -695,7 +695,7 @@ struct solver::imp {
         SASSERT(false);
     }
 
-    void generate_equality_for_neutral_case(const mon_eq & m,
+    void equality_for_neutral_case(const mon_eq & m,
                                             const unsigned_vector & mask,
                                             const vector<mono_index_with_sign>& ones_of_monomial, int sign, lpvar j) {
         expl_set expl;
@@ -734,7 +734,7 @@ struct solver::imp {
                     lpvar j;
                     if (!find_lpvar_and_sign_with_wrong_val(m, vars, v, sign, j))
                         return false;
-                    generate_equality_for_neutral_case(m, mask, ones_of_monomial, j, sign);
+                    equality_for_neutral_case(m, mask, ones_of_monomial, j, sign);
                     return true;
                 } else {
                     SASSERT(mask[k] == 1);
@@ -955,34 +955,39 @@ struct solver::imp {
     // |ab| >= |b| iff |a| >= 1 or b = 0
     // |ab| <= |b| iff |a| <= 1 or b = 0
     // and their commutative variants
-    bool generate_basic_lemma_for_mon_proportionality(unsigned i_mon) {
-        TRACE("nla_solver", tout << "generate_basic_lemma_for_mon_proportionality";);
+    bool basic_lemma_for_mon_proportionality(unsigned i_mon) {
+        TRACE("nla_solver", tout << "basic_lemma_for_mon_proportionality";);
         if (basic_lemma_for_mon_proportionality_from_factors_to_product(i_mon))
             return true;
 
         return basic_lemma_for_mon_proportionality_from_product_to_factors(i_mon);
     }
 
-    struct signed_binary_factorization {
-        unsigned m_j; // var index : the var can correspond to a monomial var or just to a var 
-        unsigned m_k; // var index : the var can correspond to a monomial var or just to a var
-        int      m_sign;
-        // the default constructor
-        signed_binary_factorization() :m_j(-1) {}
-        signed_binary_factorization(unsigned j, unsigned k, int sign) :
-            m_j(j),
-            m_k(k),
-            m_sign(sign) {}
-
+    class signed_factorization {
+        svector<lpvar> m_vars;  // the m_vars[j] corresponds to a monomial var or just to a var 
+        int            m_sign;
+        
+    public:
         bool is_empty() const {
-            return m_j == static_cast<unsigned>(-1);
+            return m_vars.size() == 0;
         }
-
+        svector<lpvar> & vars() { return m_vars; }
+        const svector<lpvar> & vars() const { return m_vars; }
+        int sign() const { return m_sign; }
+        int& sign() { return m_sign; } // the setter
+        unsigned operator[](unsigned k) const { return m_vars[k]; }
+        size_t size() const { return m_vars.size(); }
+        const lpvar* begin() const { return m_vars.begin(); }
+        const lpvar* end() const { return m_vars.end(); }
     };
 
-    std::ostream & print_signed_binary_factorization(const signed_binary_factorization& f, std::ostream& out) const {
-        print_var(f.m_j, out) << "*"; print_var(f.m_k, out) << ", sign = " << f.m_sign;
-        return out;
+    std::ostream & print_factorization(const signed_factorization& f, std::ostream& out) const {
+        for (unsigned k = 0; k < f.size(); k++ ) {
+            print_var(f[k], out);
+            if (k < f.size() - 1)
+                out << "*";
+        }
+        return out << ", sign = " << f.sign();
     }
     
     struct binary_factorizations_of_monomial {
@@ -1006,12 +1011,12 @@ struct solver::imp {
             // fields
             unsigned_vector                            m_mask;
             const binary_factorizations_of_monomial&   m_binary_factorizations;
-            
+            bool m_full_factorization_returned;
 
             //typedefs
             typedef const_iterator self_type;
-            typedef signed_binary_factorization value_type;
-            typedef const signed_binary_factorization reference;
+            typedef signed_factorization value_type;
+            typedef const signed_factorization reference;
             typedef int difference_type;
             typedef std::forward_iterator_tag iterator_category;
 
@@ -1061,13 +1066,18 @@ struct solver::imp {
             }
 
             reference operator*() const {
+                if (m_full_factorization_returned == false)  {
+                    return create_full_factorization();
+                }
                 unsigned j, k; int sign;
                 if (!get_factors(j, k, sign))
-                    return signed_binary_factorization();
-                return signed_binary_factorization(j, k, m_binary_factorizations.m_sign * sign);
+                    return signed_factorization();
+                return create_binary_signed_factorization(j, k, m_binary_factorizations.m_sign * sign);
             }
             
             void advance_mask() {
+                if (m_full_factorization_returned == false)
+                    m_full_factorization_returned = true;
                 for (unsigned k = 0; k < m_mask.size(); k++) {
                     if (m_mask[k] == 0){
                         m_mask[k] = 1;
@@ -1085,11 +1095,30 @@ struct solver::imp {
             const_iterator(const unsigned_vector& mask, const binary_factorizations_of_monomial & f) : m_mask(mask), m_binary_factorizations(f) {}
             
             bool operator==(const self_type &other) const {
-                return m_mask == other.m_mask;
+                return
+                    m_full_factorization_returned == other.m_full_factorization_returned
+                    &&
+                    m_mask == other.m_mask;
             }
             bool operator!=(const self_type &other) const { return !(*this == other); }
+            
+            signed_factorization create_binary_signed_factorization(lpvar j, lpvar k, int sign) const {
+                signed_factorization f;
+                f.vars().push_back(j);
+                f.vars().push_back(k);
+                f.sign() = sign;
+                return f;
+            }
+
+            signed_factorization create_full_factorization() const {
+                signed_factorization f;
+                f.vars() == m_binary_factorizations.m_rooted_vars;
+                f.sign() = m_binary_factorizations.m_sign;
+                return f;
+            }
         };
 
+        
         const_iterator begin() const {
             // we keep the last element always in the first factor to avoid
             // repeating a pair twice
@@ -1099,7 +1128,9 @@ struct solver::imp {
         
         const_iterator end() const {
             unsigned_vector mask(m_mon.vars().size() - 1, 1);
-            return const_iterator(mask, *this);
+            auto it = const_iterator(mask, *this);
+            it.m_full_factorization_returned = true;
+            return it;
         }
     };
 
@@ -1125,15 +1156,17 @@ struct solver::imp {
         }
     }
     
-    // we derive a lemma from |x| >= 1 || y = 0 => |xy| >= |y|
-    bool lemma_for_proportional_factors_on_vars_ge(lpvar xy, lpvar x, lpvar y) {
+    // We derive a lemma from |x| >= 1 || y = 0 => |xy| >= |y|
+    // Here f is a factorization of monomial xy ( it can have more factors than 2)
+    // f[k] plays the role of y, the rest of the factors play the role of x
+    bool lemma_for_proportional_factors_on_vars_ge(lpvar xy, unsigned k, const signed_factorization& f) {
         TRACE("nla_solver",
-              tout << "xy=";
-              print_var(xy, tout);
-              tout << "x=";
-              print_var(x, tout);
+              tout << "f=";
+              print_factorization(f, tout);
               tout << "y=";
-              print_var(y, tout););
+              print_var(f[k], tout););
+        SASSERT(false);
+        /*
         const rational & _x = vvr(x);
         const rational & _y = vvr(y);
 
@@ -1170,10 +1203,14 @@ struct solver::imp {
         m_lemma->push_back(ineq(lp::lconstraint_kind::GE, t, rational::zero()));
         TRACE("nla_solver", tout<< "lemma: ";print_lemma(*m_lemma, tout););
         return true;
+        */
+        return false;
     }
 
     // we derive a lemma from |x| <= 1 || y = 0 => |xy| <= |y|
-    bool lemma_for_proportional_factors_on_vars_le(lpvar xy, lpvar x, lpvar y) {
+    bool lemma_for_proportional_factors_on_vars_le(lpvar xy, unsigned k, const signed_factorization & f) {
+        SASSERT(false);
+        /*
         TRACE("nla_solver",
               tout << "xy=";
               print_var(xy, tout);
@@ -1213,26 +1250,20 @@ struct solver::imp {
         m_lemma->push_back(ineq(lp::lconstraint_kind::LE, t, rational::zero()));
         TRACE("nla_solver", tout<< "lemma: ";print_lemma(*m_lemma, tout););
         return true;
+        */
+        return false;
     }
 
-    
     // we derive a lemma from |x| >= 1 || |y| = 0 => |xy| >= |y|, or the similar of <= 
-    bool lemma_for_proportional_factors(unsigned i_mon, const signed_binary_factorization& f) {
+    bool lemma_for_proportional_factors(unsigned i_mon, const signed_factorization& f) {
         lpvar var_of_mon = m_monomials[i_mon].var();
-        TRACE("nla_solver",
-              m_lar_solver.print_constraints(tout);
-              tout << "\n";
-              print_var(var_of_mon, tout);
-              tout << " is factorized as ";
-              if (f.m_sign == -1) { tout << "-";}
-              print_var(f.m_j, tout);
-              tout << "*";
-              print_var(f.m_k, tout);
-              );
-        return lemma_for_proportional_factors_on_vars_ge(var_of_mon, f.m_j, f.m_k)
-            || lemma_for_proportional_factors_on_vars_ge(var_of_mon, f.m_k, f.m_j)           
-            || lemma_for_proportional_factors_on_vars_le(var_of_mon, f.m_j, f.m_k)
-            || lemma_for_proportional_factors_on_vars_le(var_of_mon, f.m_k, f.m_j);         
+        TRACE("nla_solver", print_var(var_of_mon, tout); tout << " is factorized as "; print_factorization(f, tout););
+        for (unsigned k = 0; k < f.size(); k++) {
+            if (lemma_for_proportional_factors_on_vars_ge(var_of_mon, k, f) ||
+                lemma_for_proportional_factors_on_vars_le(var_of_mon, k, f))
+                return true;
+        }
+        return false;
     }
     // we derive a lemma from |xy| >= |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
@@ -1244,8 +1275,8 @@ struct solver::imp {
             if (lemma_for_proportional_factors(i_mon, factorization)) {
                 expl_set exp;
                 add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], exp);
-                add_explanation_of_reducing_to_rooted_monomial(factorization.m_j, exp);
-                add_explanation_of_reducing_to_rooted_monomial(factorization.m_k, exp);
+                for (lpvar j : factorization)
+                    add_explanation_of_reducing_to_rooted_monomial(j, exp);
                 m_expl->clear();
                 m_expl->add(exp);
                 return true;
@@ -1254,24 +1285,52 @@ struct solver::imp {
         return false;
     }
 
+    bool basic_lemma_for_mon_zero_from_monomial_to_factor(const signed_factorization& factorization) {
+        SASSERT(false);
+    }
+
+    bool basic_lemma_for_mon_zero_from_factors_to_monomial(const signed_factorization& factorization) {
+        SASSERT(false);
+    }
+
+    
+    bool basic_lemma_for_mon_zero(const signed_factorization& factorization) {
+        return basic_lemma_for_mon_zero_from_monomial_to_factor(factorization) || basic_lemma_for_mon_zero_from_factors_to_monomial(factorization);
+    }
+            
+    bool basic_lemma_for_mon_neutral(const signed_factorization& factorization) {
+        SASSERT(false);
+        return false;
+    }
+            
+    bool basic_lemma_for_mon_proportionality(const signed_factorization& factorization) {
+        SASSERT(false);
+        return false;
+    }
+    
     // use basic multiplication properties to create a lemma
     // for the given monomial
-    bool generate_basic_lemma_for_mon(unsigned i_mon) {
-        return
-            generate_basic_lemma_for_mon_zero(i_mon)
+    bool basic_lemma_for_mon(unsigned i_mon) {
+        for (auto factorization : binary_factorizations_of_monomial(i_mon, *this)) {
+            if ( 
+            basic_lemma_for_mon_zero(factorization)
             ||
-            generate_basic_lemma_for_mon_neutral(i_mon)
+            basic_lemma_for_mon_neutral(factorization)
             ||
-            generate_basic_lemma_for_mon_proportionality(i_mon);
+            basic_lemma_for_mon_proportionality(factorization))
+                return true;
+            
+        }
+        return false;;
     }
 
     // use basic multiplication properties to create a lemma
-    bool generate_basic_lemma(unsigned_vector & to_refine) {
-        if (generate_basic_sign_lemma(to_refine))
+    bool basic_lemma(unsigned_vector & to_refine) {
+        if (basic_sign_lemma(to_refine))
             return true;
 
         for (unsigned i : to_refine) {
-            if (generate_basic_lemma_for_mon(i)) {
+            if (basic_lemma_for_mon(i)) {
                 return true;
             }
         }
@@ -1403,7 +1462,7 @@ struct solver::imp {
         
         init_search();
         
-        if (generate_basic_lemma(to_refine))
+        if (basic_lemma(to_refine))
             return l_false;
         
         return l_undef;
@@ -1421,10 +1480,10 @@ struct solver::imp {
         std::cout << "factorizations = of "; print_var(m_monomials[0].var(), std::cout) << "\n";
         for (auto f : fc) {
             if (f.is_empty()) continue;
-            std::cout << "f.m_j = "; print_var(f.m_j, std::cout);
-            std::cout << " f.m_k = "; print_var(f.m_k, std::cout);
-            std::cout << "sign = " << f.m_sign << std::endl;
-            
+            for (lpvar j : f) {
+                std::cout << "j = "; print_var(j, std::cout);
+            }
+            std::cout << "sign = " << f.sign() << std::endl;
         }
         std::cout << "test called\n";
     }
