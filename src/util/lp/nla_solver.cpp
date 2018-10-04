@@ -239,9 +239,6 @@ struct solver::imp {
         add_explanation_of_reducing_to_rooted_monomial(m_monomials[it->second], exp);
     }
 
-    
-
-    
     std::ostream& print_monomial(const mon_eq& m, std::ostream& out) const {
         out << m_lar_solver.get_variable_name(m.var()) << " = ";
         for (unsigned k = 0; k < m.size(); k++) {
@@ -964,10 +961,10 @@ struct solver::imp {
     }
 
     class signed_factorization {
-        svector<lpvar> m_vars;  // the m_vars[j] corresponds to a monomial var or just to a var 
-        int            m_sign;
-        
+        svector<lpvar>         m_vars;  // the m_vars[j] corresponds to a monomial var or just to a var 
+        int                    m_sign;
     public:
+        std::function<void (expl_set&)> m_explain;
         bool is_empty() const {
             return m_vars.size() == 0;
         }
@@ -979,6 +976,7 @@ struct solver::imp {
         size_t size() const { return m_vars.size(); }
         const lpvar* begin() const { return m_vars.begin(); }
         const lpvar* end() const { return m_vars.end(); }
+        signed_factorization(std::function<void (expl_set&)> explain) : m_explain(explain) {}
     };
 
     std::ostream & print_factorization(const signed_factorization& f, std::ostream& out) const {
@@ -1071,7 +1069,7 @@ struct solver::imp {
                 }
                 unsigned j, k; int sign;
                 if (!get_factors(j, k, sign))
-                    return signed_factorization();
+                    return signed_factorization([](expl_set&){});
                 return create_binary_signed_factorization(j, k, m_binary_factorizations.m_sign * sign);
             }
             
@@ -1103,7 +1101,24 @@ struct solver::imp {
             bool operator!=(const self_type &other) const { return !(*this == other); }
             
             signed_factorization create_binary_signed_factorization(lpvar j, lpvar k, int sign) const {
-                signed_factorization f;
+                std::function<void (expl_set&)> explain = [&](expl_set& exp){
+                                                         const imp & impl = m_binary_factorizations.m_imp;
+                                                         auto it = impl.m_var_to_its_monomial.find(k);
+                                                         if (it != impl.m_var_to_its_monomial.end()) {
+                                                             unsigned mon_index = it->second;
+                                                             impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
+                                                         }
+                                                         it = impl.m_var_to_its_monomial.find(j);
+                                                         if (it != impl.m_var_to_its_monomial.end()) {
+                                                             unsigned mon_index = it->second;
+                                                             impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
+                                                         }
+                                                         if (m_full_factorization_returned) {
+
+                                                             impl.add_explanation_of_reducing_to_rooted_monomial(m_binary_factorizations.m_mon, exp);
+                                                         }
+                                                     };
+                signed_factorization f(explain);
                 f.vars().push_back(j);
                 f.vars().push_back(k);
                 f.sign() = sign;
@@ -1111,7 +1126,7 @@ struct solver::imp {
             }
 
             signed_factorization create_full_factorization() const {
-                signed_factorization f;
+                signed_factorization f([](expl_set&){});
                 f.vars() == m_binary_factorizations.m_rooted_vars;
                 f.sign() = m_binary_factorizations.m_sign;
                 return f;
@@ -1284,13 +1299,39 @@ struct solver::imp {
         }
         return false;
     }
-
+    // here we use the fact
+    // xy = 0 -> x = 0 or y = 0
     bool basic_lemma_for_mon_zero_from_monomial_to_factor(lpvar i_mon, const signed_factorization& factorization) {
-        SASSERT(false);
+        if (! vvr(i_mon).is_zero() )
+            return false;
+        for (lpvar j : factorization) {
+            if ( vvr(j).is_zero())
+                return false;
+        }
+        lp::lar_term t;
+        t.add_coeff_var(i_mon);
+        SASSERT(m_lemma->empty());
+        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));
+        for (lpvar j : factorization) {
+            t.clear();
+            t.add_coeff_var(j);
+            m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));            
+        }
+        expl_set e;
+        factorization.m_explain(e);
+        set_expl(e);
+        return true;
     }
 
+    void set_expl(const expl_set & e) {
+        m_expl->clear();
+        for (lpci ci : e)
+            m_expl->push_justification(ci);
+    }
+    
     bool basic_lemma_for_mon_zero_from_factors_to_monomial(lpvar i_mon, const signed_factorization& factorization) {
         SASSERT(false);
+        return false;
     }
 
     
