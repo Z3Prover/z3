@@ -1488,13 +1488,13 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m().limit(), rlimit);
+        expr_ref_vector asms(m());
+        asms.append(num_assumptions, assumptions);
         if (!m_processing_pareto) {
-            ptr_vector<expr> cnstr(m_assertions);
-            cnstr.append(num_assumptions, assumptions);
-            get_opt()->set_hard_constraints(cnstr);
+            get_opt()->set_hard_constraints(m_assertions);
         }
         try {
-            r = get_opt()->optimize();
+            r = get_opt()->optimize(asms);
             if (r == l_true && get_opt()->is_pareto()) {
                 m_processing_pareto = true;
             }

@@ -117,10 +117,12 @@ extern "C" {
        \brief Check consistency and produce optimal values.
        \param c - context
        \param o - optimization context
+       \param num_assumptions - number of additional assumptions
+       \param assumptions - the additional assumptions
 
-       def_API('Z3_optimize_check', INT, (_in(CONTEXT), _in(OPTIMIZE)))
+       def_API('Z3_optimize_check', INT, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT), _in_array(2, AST)))
     */
-    Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o);
+    Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o, unsigned num_assumptions, Z3_ast const assumptions[]);
 
 
     /**
@@ -142,6 +144,14 @@ extern "C" {
        def_API('Z3_optimize_get_model', MODEL, (_in(CONTEXT), _in(OPTIMIZE)))
     */
     Z3_model Z3_API Z3_optimize_get_model(Z3_context c, Z3_optimize o);
+
+    /**
+       \brief Retrieve the unsat core for the last #Z3_optimize_chec
+       The unsat core is a subset of the assumptions \c a.
+
+       def_API('Z3_optimize_get_unsat_core', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE)))       
+     */
+    Z3_ast_vector Z3_API Z3_optimize_get_unsat_core(Z3_context c, Z3_optimize o);
 
     /**
        \brief Set parameters on optimization context.
