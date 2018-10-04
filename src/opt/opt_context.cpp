@@ -479,7 +479,6 @@ namespace opt {
         return r;
     }
 
-
     expr_ref context::mk_le(unsigned i, model_ref& mdl) {
         objective const& obj = m_objectives[i];
         return mk_cmp(false, mdl, obj);
@@ -489,8 +488,7 @@ namespace opt {
         objective const& obj = m_objectives[i];
         return mk_cmp(true, mdl, obj);
     }
-    
-    
+        
     expr_ref context::mk_gt(unsigned i, model_ref& mdl) {
         expr_ref result = mk_le(i, mdl);
         result = mk_not(m, result);
