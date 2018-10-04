@@ -2457,6 +2457,7 @@ namespace z3 {
         }
         check_result check() { Z3_lbool r = Z3_optimize_check(ctx(), m_opt, 0, 0); check_error(); return to_check_result(r); }
         check_result check(expr_vector const& asms) { 
+            unsigned n = asms.size();
             array<Z3_ast> _asms(n);
             for (unsigned i = 0; i < n; i++) {
                 check_context(*this, asms[i]);
@@ -2467,7 +2468,7 @@ namespace z3 {
             return to_check_result(r); 
         }
         model get_model() const { Z3_model m = Z3_optimize_get_model(ctx(), m_opt); check_error(); return model(ctx(), m); }
-        expr_vector unsat_core() const { Z3_ast_vector r = Z3_optimize_get_unsat_core(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
+        expr_vector unsat_core() const { Z3_ast_vector r = Z3_optimize_get_unsat_core(ctx(), m_opt); check_error(); return expr_vector(ctx(), r); }
         void set(params const & p) { Z3_optimize_set_params(ctx(), m_opt, p); check_error(); }
         expr lower(handle const& h) {
             Z3_ast r = Z3_optimize_get_lower(ctx(), m_opt, h.h());
