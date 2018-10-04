@@ -94,7 +94,6 @@ class lar_solver : public column_namer {
     var_register m_var_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     vector<lar_base_constraint*>                        m_constraints;
-private:
     stacked_value<unsigned>                             m_constraint_count;
     // the set of column indices j such that bounds have changed for j
     int_set                                             m_columns_with_changed_bound;
