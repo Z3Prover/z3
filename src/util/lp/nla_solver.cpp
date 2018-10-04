@@ -1074,8 +1074,10 @@ struct solver::imp {
             }
             
             void advance_mask() {
-                if (m_full_factorization_returned == false)
+                if (m_full_factorization_returned == false) {
                     m_full_factorization_returned = true;
+                    return;
+                }
                 for (unsigned k = 0; k < m_mask.size(); k++) {
                     if (m_mask[k] == 0){
                         m_mask[k] = 1;
@@ -1090,7 +1092,10 @@ struct solver::imp {
             self_type operator++() {  self_type i = *this; operator++(1); return i;  }
             self_type operator++(int) { advance_mask(); return *this; }
 
-            const_iterator(const unsigned_vector& mask, const binary_factorizations_of_monomial & f) : m_mask(mask), m_binary_factorizations(f) {}
+            const_iterator(const unsigned_vector& mask, const binary_factorizations_of_monomial & f) : m_mask(mask),
+                                                                                                       m_binary_factorizations(f) ,
+                                                                                                       m_full_factorization_returned(false)
+            {}
             
             bool operator==(const self_type &other) const {
                 return
@@ -1127,7 +1132,7 @@ struct solver::imp {
 
             signed_factorization create_full_factorization() const {
                 signed_factorization f([](expl_set&){});
-                f.vars() == m_binary_factorizations.m_rooted_vars;
+                f.vars() = m_binary_factorizations.m_rooted_vars;
                 f.sign() = m_binary_factorizations.m_sign;
                 return f;
             }
@@ -1445,7 +1450,6 @@ struct solver::imp {
         m_vars_equivalence.add_equiv(i, j, sign, c0, c1);
     }
 
-    
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
         m_vars_equivalence.clear();
@@ -1454,6 +1458,7 @@ struct solver::imp {
     }
 
     void register_key_mono_in_min_monomials(const svector<lpvar>& key, unsigned i, int sign) {
+
         mono_index_with_sign ms(i, sign);
         auto it = m_rooted_monomials.find(key);
         if (it == m_rooted_monomials.end()) {
@@ -1462,6 +1467,7 @@ struct solver::imp {
             // v is a vector containing a single mono_index_with_sign
             m_rooted_monomials.emplace(key, v);
         } else {
+
             it->second.push_back(ms);
         }
     }
@@ -1509,25 +1515,28 @@ struct solver::imp {
         
         return l_undef;
     }
-    void test_factorization() {
+    
+    void test_factorization(unsigned mon_index, unsigned number_of_factorizations) {
         vector<ineq> lemma;
         m_lemma = & lemma;
         lp::explanation exp;
         m_expl = & exp;
         init_search();
 
-        binary_factorizations_of_monomial fc(0, // 0 is the index of "abcde"
+        binary_factorizations_of_monomial fc(mon_index, // 0 is the index of "abcde"
                                         *this);
      
         std::cout << "factorizations = of "; print_var(m_monomials[0].var(), std::cout) << "\n";
+        unsigned found_factorizations = 0;
         for (auto f : fc) {
             if (f.is_empty()) continue;
+            found_factorizations ++;
             for (lpvar j : f) {
                 std::cout << "j = "; print_var(j, std::cout);
             }
             std::cout << "sign = " << f.sign() << std::endl;
         }
-        std::cout << "test called\n";
+        SASSERT(found_factorizations == number_of_factorizations);
     }
 }; // end of imp
 
@@ -1605,7 +1614,7 @@ void solver::test() {
     vec.clear();
     vec.push_back(lp_a);
     vec.push_back(lp_c);
-    vec.push_back(lp_e);
+    vec.push_back(lp_d);
     nla.add_monomial(lp_acd, vec.size(), vec.begin());
 
     // create monomial be
@@ -1614,7 +1623,8 @@ void solver::test() {
     vec.push_back(lp_e);
     nla.add_monomial(lp_be, vec.size(), vec.begin());
 
-    nla.m_imp->test_factorization();
+    nla.m_imp->test_factorization(0, // 0 is the index of monomial abcde
+                                  3); // 3 is the number of expected factorizations
 
     
 }
