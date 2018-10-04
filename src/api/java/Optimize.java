@@ -168,7 +168,7 @@ public class Optimize extends Z3Object {
           r = Z3_lbool.fromInt(
               Native.optimizeCheck(
                   getContext().nCtx(), 
-                  getNativeObject(), 0, null);
+                  getNativeObject(), 0, null));
         }
         else {
           r = Z3_lbool.fromInt(
