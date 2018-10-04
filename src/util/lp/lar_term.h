@@ -41,6 +41,11 @@ public:
         }
     }
 
+    void add_coeff_var(unsigned j) {
+        rational c(1);
+        add_coeff_var(c, j);
+    }
+
     bool is_empty() const {
         return m_coeffs.empty(); // && is_zero(m_v);
     }
