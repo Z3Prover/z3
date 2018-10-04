@@ -183,9 +183,9 @@ namespace Microsoft.Z3
         /// don't use strict inequalities) meets the objectives.
         /// </summary>
         ///
-        public Status Check()
+        public Status Check(params Expr[] assumptions)
         {
-            Z3_lbool r = (Z3_lbool)Native.Z3_optimize_check(Context.nCtx, NativeObject);
+            Z3_lbool r = (Z3_lbool)Native.Z3_optimize_check(Context.nCtx, NativeObject, (uint)assumptions.Length, AST.ArrayToNative(assumptions));
             switch (r)
             {
                 case Z3_lbool.Z3_L_TRUE:
@@ -233,6 +233,25 @@ namespace Microsoft.Z3
                     return null;
                 else
                     return new Model(Context, x);
+            }
+        }
+
+        /// <summary>
+        /// The unsat core of the last <c>Check</c>.
+        /// </summary>
+        /// <remarks>
+        /// The unsat core is a subset of <c>assumptions</c>
+        /// The result is empty if <c>Check</c> was not invoked before,
+        /// if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled.
+        /// </remarks>
+        public BoolExpr[] UnsatCore
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<Expr[]>() != null);
+
+                ASTVector core = new ASTVector(Context, Native.Z3_optimize_get_unsat_core(Context.nCtx, NativeObject));                
+                return core.ToBoolExprArray();
             }
         }
 

@@ -108,7 +108,8 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         unsigned rlimit = std::stoi(gparams::get_value("rlimit"));
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m.limit(), rlimit);
-        lbool r = opt.optimize();
+        expr_ref_vector asms(m);
+        lbool r = opt.optimize(asms);
         switch (r) {
         case l_true:  std::cout << "sat\n"; break;
         case l_false: std::cout << "unsat\n"; break;

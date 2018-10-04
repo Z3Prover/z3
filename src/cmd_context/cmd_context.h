@@ -148,7 +148,7 @@ public:
     virtual bool empty() = 0;
     virtual void push() = 0;
     virtual void pop(unsigned n) = 0;
-    virtual lbool optimize() = 0;
+    virtual lbool optimize(expr_ref_vector const& asms) = 0;
     virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
     virtual void display_assignment(std::ostream& out) = 0;
     virtual bool is_pareto() = 0;
