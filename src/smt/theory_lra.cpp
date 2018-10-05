@@ -2017,7 +2017,7 @@ public:
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            for (auto const& ev : m_explanation) {
+            for (auto const& ev : m_lia->get_explanation()) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
                 }
