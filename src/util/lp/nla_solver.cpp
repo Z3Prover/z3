@@ -347,8 +347,8 @@ struct solver::imp {
     // otherwise it remains false
     // Returns 2 if the sign is not defined.
     int get_mon_sign_zero_var(unsigned j, bool & strict) {
-        auto it = m_var_lists.find(j);
-        if (it == m_var_lists.end())
+        auto it = m_var_to_mon_indices.find(j);
+        if (it == m_var_to_mon_indices.end())
             return 2;
         lpci lci = -1;
         lpci uci = -1;
@@ -1391,7 +1391,7 @@ struct solver::imp {
             if (it == m_var_to_mon_indices.end()) {
                 unsigned_vector v;
                 v.push_back(i);
-                m_var_lists[j] = v;
+                m_var_to_mon_indices[j] = v;
             }
             else {
                 it->second.push_back(i);
