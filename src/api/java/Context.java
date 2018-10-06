@@ -1982,7 +1982,7 @@ public class Context implements AutoCloseable {
      */
     public SeqExpr intToString(Expr e) 
     {
-	return (SeqExpr) Expr.create(this, Native.Z3_mkIntToStr(nCtx(), e.getNativeObject()));
+	return (SeqExpr) Expr.create(this, Native.mkIntToStr(nCtx(), e.getNativeObject()));
     }
 
     /**
