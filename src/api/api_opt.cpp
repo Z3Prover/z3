@@ -354,10 +354,8 @@ extern "C" {
             return;
         }
 
-        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
-        for (; it != end; ++it) {
-            to_optimize_ptr(opt)->add_hard_constraint(*it);
+        for (expr * e : ctx->assertions()) {
+            to_optimize_ptr(opt)->add_hard_constraint(e);
         }
     }
 

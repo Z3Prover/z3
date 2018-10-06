@@ -379,10 +379,8 @@ extern "C" {
         for (unsigned i = 0; i < coll.m_rules.size(); ++i) {
             to_fixedpoint_ref(d)->add_rule(coll.m_rules[i].get(), coll.m_names[i]);
         }
-        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-        for (; it != end; ++it) {
-            to_fixedpoint_ref(d)->ctx().assert_expr(*it);
+        for (expr * e : ctx.assertions()) {
+            to_fixedpoint_ref(d)->ctx().assert_expr(e);
         }
 
         return of_ast_vector(v);

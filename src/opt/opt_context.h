@@ -133,7 +133,7 @@ namespace opt {
             void push();
             void pop();
             void add(expr* hard);
-            bool set(ptr_vector<expr> & hard);
+            bool set(expr_ref_vector const&  hard);
             unsigned add(expr* soft, rational const& weight, symbol const& id);
             unsigned add(app* obj, bool is_max);
             unsigned get_index(symbol const& id) { return m_indices[id]; }
@@ -187,7 +187,7 @@ namespace opt {
         void push() override;
         void pop(unsigned n) override;
         bool empty() override { return m_scoped_state.m_objectives.empty(); }
-        void set_hard_constraints(ptr_vector<expr> & hard) override;
+        void set_hard_constraints(expr_ref_vector const& hard) override;
         lbool optimize(expr_ref_vector const& asms) override;
         void set_model(model_ref& _m) override { m_model = _m; }
         void get_model_core(model_ref& _m) override;

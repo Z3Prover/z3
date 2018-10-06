@@ -79,13 +79,13 @@ namespace opt {
         m_hard.push_back(hard);
     }
 
-    bool context::scoped_state::set(ptr_vector<expr> & hard) {
+    bool context::scoped_state::set(expr_ref_vector const & hard) {
         bool eq = hard.size() == m_hard.size();
         for (unsigned i = 0; eq && i < hard.size(); ++i) {
-            eq = hard[i] == m_hard[i].get();
+            eq = hard.get(i) == m_hard.get(i);
         }
         m_hard.reset();
-        m_hard.append(hard.size(), hard.c_ptr());
+        m_hard.append(hard);
         return !eq;
     }
 
@@ -177,7 +177,7 @@ namespace opt {
         r.append(m_core);
     }
 
-    void context::set_hard_constraints(ptr_vector<expr>& fmls) {
+    void context::set_hard_constraints(expr_ref_vector const& fmls) {
         if (m_scoped_state.set(fmls)) {
             clear_state();
         }
@@ -803,7 +803,20 @@ namespace opt {
         fmls.reset();
         expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {
-            fmls.push_back(r->form(i));
+            if (asms.empty()) {
+                fmls.push_back(r->form(i));
+                continue;
+            }
+
+            ptr_vector<expr> deps;
+            expr_dependency_ref core(r->dep(i), m);
+            m.linearize(core, deps);
+            if (!deps.empty()) {
+                fmls.push_back(m.mk_implies(m.mk_and(deps.size(), deps.c_ptr()), r->form(i)));
+            }
+            else {
+                fmls.push_back(r->form(i));
+            }
         }        
         if (r->inconsistent()) {
             ptr_vector<expr> core_elems;
