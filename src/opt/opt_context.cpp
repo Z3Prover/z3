@@ -292,7 +292,7 @@ namespace opt {
             model_updated(m_model.get());
         }
         if (is_sat != l_true) {
-            TRACE("opt", tout << m_hard_constraints << "\n";);            
+            TRACE("opt", tout << m_hard_constraints << " " << asms << "\n";);            
             if (!asms.empty()) {
                 s.get_unsat_core(m_core);
             }
