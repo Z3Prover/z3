@@ -3,8 +3,9 @@
   Author: Nikolaj Bjorner
 */
 #include "util/lp/lar_solver.h"
-#include "util/lp/mon_eq.h"
-namespace nra {
+#include "util/lp/monomial.h"
+namespace nla {
+typedef monomial mon_eq;
 bool check_assignment(mon_eq const& m, variable_map_type & vars) {
     rational r1 = vars[m.var()];
     if (r1.is_zero()) {
