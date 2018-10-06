@@ -9,11 +9,12 @@
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
-#include "util/lp/mon_eq.h"
+#include "util/lp/monomial.h"
 
 namespace nra {
 
-
+typedef nla::monomial mon_eq;
+typedef nla::variable_map_type variable_map_type;
     struct solver::imp {
         lp::lar_solver&      s;
         reslimit&              m_limit;  

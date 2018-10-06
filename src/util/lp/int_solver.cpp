@@ -169,8 +169,6 @@ unsigned int_solver::row_of_basic_column(unsigned j) const {
 // }
 
 
-typedef monomial mono;
-
 
 // this will allow to enable and disable tracking of the pivot rows
 struct check_return_helper {
