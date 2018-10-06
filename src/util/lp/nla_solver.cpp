@@ -52,12 +52,10 @@ struct vars_equivalence {
     };
 
     // The map from the variables to m_equivs indices
-    // If m_tree[v] == -1 then the variable is a root.
-    // Otherwize m_equivs[m_tree[v]].m_i == v or m_equivs[m_tree[v]].m_i == v.
     // m_tree is a spanning tree of the graph of equivs represented by m_equivs
     std::unordered_map<unsigned, unsigned> m_tree;  
-    
-    // if m_tree[v] is not equal to -1 then m_equivs[v] = (k, v), that is m_equivs[v].m_j = v
+    // If m_tree[v] == -1 then the variable is a root.
+    // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), that k is the parent of v
     vector<equiv>                     m_equivs;         // all equivalences extracted from constraints
     void clear() {
         m_equivs.clear();
@@ -291,22 +289,14 @@ struct solver::imp {
         return ret;
     }
 
-    //
-    // reduce_monomial_to_canonical should be replaced by below:
-    //
+
     // Replaces definition m_v = v1* .. * vn by
     // m_v = coeff * w1 * ... * wn, where w1, .., wn are canonical
     // representative under current equations.
     // 
     monomial_coeff canonize_monomial(monomial const& m) const {
-        svector<lpvar> vars;
         rational sign = rational(1);
-        for (lpvar v : m.vars()) {
-            unsigned root = m_vars_equivalence.map_to_root(v, sign);
-            SASSERT(m_vars_equivalence.is_root(root));
-            vars.push_back(root);
-        }
-        std::sort(vars.begin(), vars.end());
+        svector<lpvar> vars = reduce_monomial_to_canonical(m.vars(), sign);
         return monomial_coeff(m.var(), vars, sign);
     }
 
@@ -1474,7 +1464,6 @@ struct solver::imp {
     }
     
     void register_monomial_in_min_map(unsigned i) {
-        const monomial& m = m_monomials[i];
         monomial_coeff mc = canonize_monomial(m_monomials[i]);
         register_key_mono_in_min_monomials(mc, i);        
     }
