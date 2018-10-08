@@ -1,0 +1,11 @@
+﻿---
+BasedOnStyle: LLVM
+IndentCaseLabels: 'false'
+IndentWidth: '4'
+PointerAlignment: Left
+BreakBeforeBraces: Custom
+BraceWrapping:
+  BeforeElse: true
+AccessModifierOffset: 0
+
+...
