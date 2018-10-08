@@ -22,6 +22,8 @@
 #include "util/lp/monomial.h"
 #include "util/lp/lp_utils.h"
 #include "util/lp/vars_equivalence.h"
+#include "util/lp/factorization.h"
+
 namespace nla {
 
 struct solver::imp {
@@ -837,24 +839,6 @@ struct solver::imp {
             basic_lemma_for_mon_proportionality_from_product_to_factors(i_mon);
     }
 
-    class factorization {
-        svector<lpvar>         m_vars;
-        rational               m_sign;
-        std::function<void (expl_set&)> m_explain;
-    public:
-        void explain(expl_set& s) const { m_explain(s); }
-        bool is_empty() const { return m_vars.empty(); }
-        svector<lpvar> & vars() { return m_vars; }
-        const svector<lpvar> & vars() const { return m_vars; }
-        rational const& sign() const { return m_sign; }
-        rational& sign() { return m_sign; } // the setter
-        unsigned operator[](unsigned k) const { return m_vars[k]; }
-        size_t size() const { return m_vars.size(); }
-        const lpvar* begin() const { return m_vars.begin(); }
-        const lpvar* end() const { return m_vars.end(); }
-        factorization(std::function<void (expl_set&)> explain) : m_explain(explain) {}
-    };
-
     std::ostream & print_factorization(const factorization& f, std::ostream& out) const {
         for (unsigned k = 0; k < f.size(); k++ ) {
             print_var(f[k], out);
@@ -865,8 +849,8 @@ struct solver::imp {
     }
     
     struct factorization_factory {
-        unsigned         m_i_mon;
-        const imp&       m_impf;
+        unsigned           m_i_mon;
+        const imp&         m_impf;
         const monomial&    m_mon;
         monomial_coeff m_cmon;
 
@@ -879,9 +863,9 @@ struct solver::imp {
 
         struct const_iterator {
             // fields
-            svector<bool>                              m_mask;
-            const factorization_factory&   m_factorization;
-            bool m_full_factorization_returned;
+            svector<bool>                  m_mask;
+            const factorization_factory&   m_ff;
+            bool                           m_full_factorization_returned;
 
             //typedefs
             typedef const_iterator self_type;
@@ -892,13 +876,13 @@ struct solver::imp {
 
             void init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
                 // the last element for m_factorization.m_rooted_vars goes to k_vars
-                SASSERT(m_mask.size() + 1  == m_factorization.m_cmon.vars().size());
-                k_vars.push_back(m_factorization.m_cmon.vars().back()); 
+                SASSERT(m_mask.size() + 1  == m_ff.m_cmon.vars().size());
+                k_vars.push_back(m_ff.m_cmon.vars().back()); 
                 for (unsigned j = 0; j < m_mask.size(); j++) {
                     if (m_mask[j]) {
-                        k_vars.push_back(m_factorization.m_cmon[j]);
+                        k_vars.push_back(m_ff.m_cmon[j]);
                     } else {
-                        j_vars.push_back(m_factorization.m_cmon[j]);
+                        j_vars.push_back(m_ff.m_cmon[j]);
                     }
                 }
             }
@@ -917,7 +901,7 @@ struct solver::imp {
                     k = k_vars[0];
                     k_sign = 1;
                 } else {
-                    if (!m_factorization.m_impf.find_monomial_of_vars(k_vars, m, k_sign)) {
+                    if (!m_ff.m_impf.find_monomial_of_vars(k_vars, m, k_sign)) {
                         return false;
                     }
                     k = m.var();
@@ -926,7 +910,7 @@ struct solver::imp {
                     j = j_vars[0];
                     j_sign = 1;
                 } else {
-                    if (!m_factorization.m_impf.find_monomial_of_vars(j_vars, m, j_sign)) {
+                    if (!m_ff.m_impf.find_monomial_of_vars(j_vars, m, j_sign)) {
                         return false;
                     }
                     j = m.var();
@@ -942,7 +926,7 @@ struct solver::imp {
                 unsigned j, k; rational sign;
                 if (!get_factors(j, k, sign))
                     return factorization([](expl_set&){});
-                return create_binary_factorization(j, k, m_factorization.m_cmon.coeff() * sign);
+                return create_binary_factorization(j, k, m_ff.m_cmon.coeff() * sign);
             }
             
             void advance_mask() {
@@ -967,7 +951,7 @@ struct solver::imp {
 
             const_iterator(const svector<bool>& mask, const factorization_factory & f) : 
                 m_mask(mask),
-                m_factorization(f) ,
+                m_ff(f) ,
                 m_full_factorization_returned(false)
             {}
             
@@ -979,8 +963,9 @@ struct solver::imp {
             bool operator!=(const self_type &other) const { return !(*this == other); }
             
             factorization create_binary_factorization(lpvar j, lpvar k, rational const& sign) const {
+                // todo : the current explanation is an overkill
                 std::function<void (expl_set&)> explain = [&](expl_set& exp){
-                    const imp & impl = m_factorization.m_impf;
+                    const imp & impl = m_ff.m_impf;
                     unsigned mon_index = 0;
                     if (impl.m_var_to_its_monomial.find(k, mon_index)) {
                         impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
@@ -988,9 +973,8 @@ struct solver::imp {
                     if (impl.m_var_to_its_monomial.find(j, mon_index)) {
                         impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
                     }
-                    if (m_full_factorization_returned) {                        
-                        impl.add_explanation_of_reducing_to_rooted_monomial(m_factorization.m_mon, exp);
-                    }
+
+                    impl.add_explanation_of_reducing_to_rooted_monomial(m_ff.m_mon, exp);
                 };
                 factorization f(explain);
                 f.vars().push_back(j);
@@ -1001,8 +985,8 @@ struct solver::imp {
 
             factorization create_full_factorization() const {
                 factorization f([](expl_set&){});
-                f.vars() = m_factorization.m_cmon.vars();
-                f.sign() = m_factorization.m_cmon.coeff();
+                f.vars() = m_ff.m_mon.vars();
+                f.sign() = rational(1);
                 return f;
             }
         };
