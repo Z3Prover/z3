@@ -2,7 +2,7 @@
 #include "util/lp/factorization.h"
 namespace nla {
 
-void const_iterator::init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
+void const_iterator_mon::init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
     // the last element for m_factorization.m_rooted_vars goes to k_vars
     SASSERT(m_mask.size() + 1  == m_ff->m_cmon.vars().size());
     k_vars.push_back(m_ff->m_cmon.vars().back()); 
@@ -15,7 +15,7 @@ void const_iterator::init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_ve
     }
 }
             
-bool const_iterator::get_factors(unsigned& k, unsigned& j, rational& sign) const {
+bool const_iterator_mon::get_factors(unsigned& k, unsigned& j, rational& sign) const {
     unsigned_vector k_vars;
     unsigned_vector j_vars;
     init_vars_by_the_mask(k_vars, j_vars);
@@ -47,7 +47,7 @@ bool const_iterator::get_factors(unsigned& k, unsigned& j, rational& sign) const
     return true;
 }
 
-const_iterator::reference const_iterator::operator*() const {
+const_iterator_mon::reference const_iterator_mon::operator*() const {
     if (m_full_factorization_returned == false)  {
         return create_full_factorization();
     }
@@ -57,7 +57,7 @@ const_iterator::reference const_iterator::operator*() const {
     return create_binary_factorization(j, k, m_ff->m_cmon.coeff() * sign);
 }
             
-void const_iterator::advance_mask() {
+void const_iterator_mon::advance_mask() {
     if (!m_full_factorization_returned) {
         m_full_factorization_returned = true;
         return;
@@ -74,23 +74,23 @@ void const_iterator::advance_mask() {
 }
 
             
-const_iterator::self_type const_iterator::operator++() {  self_type i = *this; operator++(1); return i;  }
-const_iterator::self_type const_iterator::operator++(int) { advance_mask(); return *this; }
+const_iterator_mon::self_type const_iterator_mon::operator++() {  self_type i = *this; operator++(1); return i;  }
+const_iterator_mon::self_type const_iterator_mon::operator++(int) { advance_mask(); return *this; }
 
-const_iterator::const_iterator(const svector<bool>& mask, const factorization_factory *f) : 
+const_iterator_mon::const_iterator_mon(const svector<bool>& mask, const factorization_factory *f) : 
     m_mask(mask),
     m_ff(f) ,
     m_full_factorization_returned(false)
 {}
             
-bool const_iterator::operator==(const const_iterator::self_type &other) const {
+bool const_iterator_mon::operator==(const const_iterator_mon::self_type &other) const {
     return
         m_full_factorization_returned == other.m_full_factorization_returned &&
         m_mask == other.m_mask;
 }
-bool const_iterator::operator!=(const const_iterator::self_type &other) const { return !(*this == other); }
+bool const_iterator_mon::operator!=(const const_iterator_mon::self_type &other) const { return !(*this == other); }
             
-factorization const_iterator::create_binary_factorization(lpvar j, lpvar k, rational const& sign) const {
+factorization const_iterator_mon::create_binary_factorization(lpvar j, lpvar k, rational const& sign) const {
     // todo : the current explanation is an overkill
     // std::function<void (expl_set&)> explain = [&](expl_set& exp){
     //                                               const imp & impl = m_ff->m_impf;
@@ -111,7 +111,7 @@ factorization const_iterator::create_binary_factorization(lpvar j, lpvar k, rati
     return f;
 }
 
-factorization const_iterator::create_full_factorization() const {
+factorization const_iterator_mon::create_full_factorization() const {
     factorization f;
     f.vars() = m_ff->m_mon.vars();
     f.sign() = rational(1);
