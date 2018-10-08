@@ -41,14 +41,14 @@ public:
     const lpvar* end() const { return m_vars.end(); }
 };
 
-struct const_iterator {
+struct const_iterator_mon {
     // fields
     svector<bool>                  m_mask;
     const factorization_factory *  m_ff;
     bool                           m_full_factorization_returned;
 
     //typedefs
-    typedef const_iterator self_type;
+    typedef const_iterator_mon self_type;
     typedef factorization value_type;
     typedef const factorization reference;
     typedef int difference_type;
@@ -64,7 +64,7 @@ struct const_iterator {
     self_type operator++();
     self_type operator++(int);
 
-    const_iterator(const svector<bool>& mask, const factorization_factory *f);
+    const_iterator_mon(const svector<bool>& mask, const factorization_factory *f);
     
     bool operator==(const self_type &other) const;
     bool operator!=(const self_type &other) const;
@@ -87,16 +87,16 @@ struct factorization_factory {
         m_cmon(cmon) {
     }
 
-    const_iterator begin() const {
+    const_iterator_mon begin() const {
         // we keep the last element always in the first factor to avoid
         // repeating a pair twice
         svector<bool> mask(m_mon.vars().size() - 1, false);
-        return const_iterator(mask, this);
+        return const_iterator_mon(mask, this);
     }
     
-    const_iterator end() const {
+    const_iterator_mon end() const {
         svector<bool> mask(m_mon.vars().size() - 1, true);
-        auto it = const_iterator(mask, this);
+        auto it = const_iterator_mon(mask, this);
         it.m_full_factorization_returned = true;
         return it;
     } 
