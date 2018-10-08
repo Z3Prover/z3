@@ -275,7 +275,7 @@ struct mus::imp {
         expr_ref_vector& m_fmls;
         unsigned m_size;
 
-        public:
+    public:
         scoped_append(imp& imp, expr_ref_vector& fmls1, expr_set const& fmls2)
             : m_fmls(fmls1), m_size(fmls1.size()) {
             expr_set::iterator it = fmls2.begin(), end = fmls2.end();

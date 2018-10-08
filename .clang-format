@@ -6,6 +6,6 @@ PointerAlignment: Left
 BreakBeforeBraces: Custom
 BraceWrapping:
   BeforeElse: true
-AccessModifierOffset: 0
+AccessModifierOffset: -4
 
 ...
