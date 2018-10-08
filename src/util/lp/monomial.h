@@ -2,6 +2,7 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner
 */
+#pragma once
 #include "util/lp/lp_settings.h"
 #include "util/vector.h"
 #include "util/lp/lar_solver.h"
@@ -22,6 +23,7 @@ namespace nla {
         monomial(lp::var_index v, const svector<lp::var_index> &vs):
            m_v(v), m_vs(vs) {}
         monomial() {}
+        
         unsigned var() const { return m_v; }
         unsigned size() const { return m_vs.size(); }
         unsigned operator[](unsigned idx) const { return m_vs[idx]; }

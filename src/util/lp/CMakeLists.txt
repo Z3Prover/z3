@@ -6,6 +6,7 @@ z3_add_component(lp
     core_solver_pretty_printer.cpp
     dense_matrix.cpp
     eta_matrix.cpp
+    factorization.cpp
     gomory.cpp
     indexed_vector.cpp
     int_solver.cpp
