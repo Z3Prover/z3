@@ -26,6 +26,8 @@
 
 namespace nla {
 
+
+
 struct solver::imp {
 
     typedef lp::lar_base_constraint lpcon;
@@ -525,7 +527,7 @@ struct solver::imp {
         return basic_neutral_for_reduced_monomial(m, v, reduced_vars);
     }
 
-    // returns the variable m_i, of a monomial if found and sets the sign,
+    // returns true if found
     bool find_monomial_of_vars(const svector<lpvar>& vars, monomial& m, rational & sign) const {
         auto it = m_rooted_monomials.find(vars);
         if (it == m_rooted_monomials.end()) {
@@ -848,164 +850,6 @@ struct solver::imp {
         return out << ", sign = " << f.sign();
     }
     
-    struct factorization_factory {
-        unsigned           m_i_mon;
-        const imp&         m_impf;
-        const monomial&    m_mon;
-        monomial_coeff m_cmon;
-
-        factorization_factory(unsigned i_mon, const imp& s) :
-            m_i_mon(i_mon),
-            m_impf(s),
-            m_mon(m_impf.m_monomials[i_mon]),
-            m_cmon(m_impf.canonize_monomial(m_mon)) {
-        }
-
-        struct const_iterator {
-            // fields
-            svector<bool>                  m_mask;
-            const factorization_factory&   m_ff;
-            bool                           m_full_factorization_returned;
-
-            //typedefs
-            typedef const_iterator self_type;
-            typedef factorization value_type;
-            typedef const factorization reference;
-            typedef int difference_type;
-            typedef std::forward_iterator_tag iterator_category;
-
-            void init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
-                // the last element for m_factorization.m_rooted_vars goes to k_vars
-                SASSERT(m_mask.size() + 1  == m_ff.m_cmon.vars().size());
-                k_vars.push_back(m_ff.m_cmon.vars().back()); 
-                for (unsigned j = 0; j < m_mask.size(); j++) {
-                    if (m_mask[j]) {
-                        k_vars.push_back(m_ff.m_cmon[j]);
-                    } else {
-                        j_vars.push_back(m_ff.m_cmon[j]);
-                    }
-                }
-            }
-            
-            bool get_factors(unsigned& k, unsigned& j, rational& sign) const {
-                unsigned_vector k_vars;
-                unsigned_vector j_vars;
-                init_vars_by_the_mask(k_vars, j_vars);
-                SASSERT(!k_vars.empty() && !j_vars.empty());
-                std::sort(k_vars.begin(), k_vars.end());
-                std::sort(j_vars.begin(), j_vars.end());
-
-                rational k_sign, j_sign;
-                monomial m;
-                if (k_vars.size() == 1) {
-                    k = k_vars[0];
-                    k_sign = 1;
-                } else {
-                    if (!m_ff.m_impf.find_monomial_of_vars(k_vars, m, k_sign)) {
-                        return false;
-                    }
-                    k = m.var();
-                }
-                if (j_vars.size() == 1) {
-                    j = j_vars[0];
-                    j_sign = 1;
-                } else {
-                    if (!m_ff.m_impf.find_monomial_of_vars(j_vars, m, j_sign)) {
-                        return false;
-                    }
-                    j = m.var();
-                }
-                sign = j_sign * k_sign;
-                return true;
-            }
-
-            reference operator*() const {
-                if (m_full_factorization_returned == false)  {
-                    return create_full_factorization();
-                }
-                unsigned j, k; rational sign;
-                if (!get_factors(j, k, sign))
-                    return factorization([](expl_set&){});
-                return create_binary_factorization(j, k, m_ff.m_cmon.coeff() * sign);
-            }
-            
-            void advance_mask() {
-                if (!m_full_factorization_returned) {
-                    m_full_factorization_returned = true;
-                    return;
-                }
-                for (bool& m : m_mask) {
-                    if (m) {
-                        m = false;
-                    }
-                    else {
-                        m = true;
-                        break;
-                    }
-                }
-            }
-
-            
-            self_type operator++() {  self_type i = *this; operator++(1); return i;  }
-            self_type operator++(int) { advance_mask(); return *this; }
-
-            const_iterator(const svector<bool>& mask, const factorization_factory & f) : 
-                m_mask(mask),
-                m_ff(f) ,
-                m_full_factorization_returned(false)
-            {}
-            
-            bool operator==(const self_type &other) const {
-                return
-                    m_full_factorization_returned == other.m_full_factorization_returned &&
-                    m_mask == other.m_mask;
-            }
-            bool operator!=(const self_type &other) const { return !(*this == other); }
-            
-            factorization create_binary_factorization(lpvar j, lpvar k, rational const& sign) const {
-                // todo : the current explanation is an overkill
-                std::function<void (expl_set&)> explain = [&](expl_set& exp){
-                    const imp & impl = m_ff.m_impf;
-                    unsigned mon_index = 0;
-                    if (impl.m_var_to_its_monomial.find(k, mon_index)) {
-                        impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
-                    }
-                    if (impl.m_var_to_its_monomial.find(j, mon_index)) {
-                        impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
-                    }
-
-                    impl.add_explanation_of_reducing_to_rooted_monomial(m_ff.m_mon, exp);
-                };
-                factorization f(explain);
-                f.vars().push_back(j);
-                f.vars().push_back(k);
-                f.sign() = sign;
-                return f;
-            }
-
-            factorization create_full_factorization() const {
-                factorization f([](expl_set&){});
-                f.vars() = m_ff.m_mon.vars();
-                f.sign() = rational(1);
-                return f;
-            }
-        };
-
-        
-        const_iterator begin() const {
-            // we keep the last element always in the first factor to avoid
-            // repeating a pair twice
-            svector<bool> mask(m_mon.vars().size() - 1, false);
-            return const_iterator(mask, *this);
-        }
-        
-        const_iterator end() const {
-            svector<bool> mask(m_mon.vars().size() - 1, true);
-            auto it = const_iterator(mask, *this);
-            it.m_full_factorization_returned = true;
-            return it;
-        }
-    };
 
     void restrict_signs_of_xy_and_y_on_lemma(lpvar y, lpvar xy, const rational& _y, const rational& _xy, int& y_sign, int &xy_sign) {
         lp::lar_term t;
@@ -1133,9 +977,36 @@ struct solver::imp {
         }
         return false;
     }
+
+    struct factorization_factory_imp: factorization_factory {
+        const imp&         m_imp;
+        
+        factorization_factory_imp(unsigned i_mon, const imp& s) :
+            factorization_factory(i_mon,
+                s.m_monomials[i_mon],
+                s.canonize_monomial(s.m_monomials[i_mon])
+                ),
+                m_imp(s) { }
+        
+         bool find_monomial_of_vars(const svector<lpvar>& vars, monomial& m, rational & sign) const {
+            auto it = m_imp.m_rooted_monomials.find(vars);
+            if (it == m_imp.m_rooted_monomials.end()) {
+                return false;
+            }
+
+            const mono_index_with_sign & mi = *(it->second.begin());
+            sign = mi.m_sign;
+            m = m_imp.m_monomials[mi.m_i];
+            return true;
+        }
+        
+        
+    };
+
+    
     // we derive a lemma from |xy| >= |y| => |x| >= 1 || |y| = 0
     bool basic_lemma_for_mon_proportionality_from_product_to_factors(unsigned i_mon) {
-        for (auto factorization : factorization_factory(i_mon, *this)) {
+        for (auto factorization : factorization_factory_imp(i_mon, *this)) {
             if (factorization.is_empty()) {
                 TRACE("nla_solver", tout << "empty factorization";);
                 continue;
@@ -1152,6 +1023,16 @@ struct solver::imp {
         }
         return false;
     }
+
+    void explain(const factorization& f, expl_set exp) {
+        for (lpvar k : f) {
+            unsigned mon_index = 0;
+            if (m_var_to_its_monomial.find(k, mon_index)) {
+                add_explanation_of_reducing_to_rooted_monomial(m_monomials[mon_index], exp);
+            }
+        }
+    }
+    
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
     bool basic_lemma_for_mon_zero_from_monomial_to_factor(lpvar i_mon, const factorization& factorization) {
@@ -1171,7 +1052,9 @@ struct solver::imp {
             m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));            
         }
         expl_set e;
-        factorization.explain(e);
+        explain(factorization, e);
+        // todo: it is an overkill, need to find shorter explanations
+        add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], e);
         set_expl(e);
         return true;
     }
@@ -1207,7 +1090,7 @@ struct solver::imp {
     // use basic multiplication properties to create a lemma
     // for the given monomial
     bool basic_lemma_for_mon(unsigned i_mon) {
-        for (auto factorization : factorization_factory(i_mon, *this)) {
+        for (auto factorization : factorization_factory_imp(i_mon, *this)) {
             if (basic_lemma_for_mon_zero(i_mon, factorization) ||
                 basic_lemma_for_mon_neutral(factorization) ||
                 basic_lemma_for_mon_proportionality(factorization))
@@ -1363,7 +1246,7 @@ struct solver::imp {
         m_expl = & exp;
         init_search();
 
-        factorization_factory fc(mon_index, // 0 is the index of "abcde"
+        factorization_factory_imp fc(mon_index, // 0 is the index of "abcde"
                                              *this);
      
         std::cout << "factorizations = of "; print_var(m_monomials[0].var(), std::cout) << "\n";
@@ -1379,6 +1262,8 @@ struct solver::imp {
         SASSERT(found_factorizations == number_of_factorizations);
     }
 }; // end of imp
+
+
 
 void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
     m_imp->add(v, sz, vs);
