@@ -26,8 +26,6 @@
 
 namespace nla {
 
-
-
 struct solver::imp {
 
     typedef lp::lar_base_constraint lpcon;
@@ -40,13 +38,13 @@ struct solver::imp {
     };
     
     vars_equivalence                                       m_vars_equivalence;
-    vector<monomial>                                         m_monomials;
+    vector<monomial>                                        m_monomials;
     // maps the vector of the rooted monomial vars to the list of the indices of monomials having the same rooted monomial
     std::unordered_map<svector<lpvar>, vector<mono_index_with_sign>, hash_svector>
     m_rooted_monomials;
     unsigned_vector                                        m_monomials_lim;
     lp::lar_solver&                                        m_lar_solver;
-    std::unordered_map<lpvar, unsigned_vector>             m_var_to_mon_indices;
+    std::unordered_map<lpvar, unsigned_vector>             m_var_containing_monomials;
 
     // monomial.var()  -> monomial index
     u_map<unsigned>                                        m_var_to_its_monomial;
@@ -228,7 +226,7 @@ struct solver::imp {
     // otherwise it remains false
     // Returns 2 if the sign is not defined.
     int get_mon_sign_zero_var(unsigned j, bool & strict) {
-        if (m_var_to_mon_indices.find(j) == m_var_to_mon_indices.end())
+        if (m_var_containing_monomials.find(j) == m_var_containing_monomials.end())
             return 2;
         lpci lci = -1;
         lpci uci = -1;
@@ -1116,11 +1114,11 @@ struct solver::imp {
     void map_monomial_vars_to_monomial_indices(unsigned i) {
         const monomial& m = m_monomials[i];
         for (lpvar j : m.vars()) {
-            auto it = m_var_to_mon_indices.find(j);
-            if (it == m_var_to_mon_indices.end()) {
+            auto it = m_var_containing_monomials.find(j);
+            if (it == m_var_containing_monomials.end()) {
                 unsigned_vector v;
                 v.push_back(i);
-                m_var_to_mon_indices[j] = v;
+                m_var_containing_monomials[j] = v;
             }
             else {
                 it->second.push_back(i);
