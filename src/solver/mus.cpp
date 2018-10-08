@@ -39,7 +39,8 @@ struct mus::imp {
 
     imp(solver& s)
         : m_solver(s), m(s.get_manager()), m_lit2expr(m), m_assumptions(m),
-          m_soft(m) {}
+          m_soft(m) {
+    }
 
     void reset() {
         m_lit2expr.reset();
@@ -63,7 +64,9 @@ struct mus::imp {
         return idx;
     }
 
-    void add_assumption(expr* lit) { m_assumptions.push_back(lit); }
+    void add_assumption(expr* lit) {
+        m_assumptions.push_back(lit);
+    }
 
     lbool get_mus(expr_ref_vector& mus) {
         m_model.reset();
@@ -297,7 +300,9 @@ struct mus::imp {
             : m_fmls(fmls1), m_size(fmls1.size()) {
             fmls1.push_back(fml);
         }
-        ~scoped_append() { m_fmls.shrink(m_size); }
+        ~scoped_append() {
+            m_fmls.shrink(m_size);
+        }
     };
 
     template <class T> void display_vec(std::ostream& out, T const& v) const {
@@ -353,17 +358,29 @@ struct mus::imp {
     }
 };
 
-mus::mus(solver& s) { m_imp = alloc(imp, s); }
+mus::mus(solver& s) {
+    m_imp = alloc(imp, s);
+}
 
-mus::~mus() { dealloc(m_imp); }
+mus::~mus() {
+    dealloc(m_imp);
+}
 
-unsigned mus::add_soft(expr* lit) { return m_imp->add_soft(lit); }
+unsigned mus::add_soft(expr* lit) {
+    return m_imp->add_soft(lit);
+}
 
-void mus::add_assumption(expr* lit) { return m_imp->add_assumption(lit); }
+void mus::add_assumption(expr* lit) {
+    return m_imp->add_assumption(lit);
+}
 
-lbool mus::get_mus(expr_ref_vector& mus) { return m_imp->get_mus(mus); }
+lbool mus::get_mus(expr_ref_vector& mus) {
+    return m_imp->get_mus(mus);
+}
 
-void mus::reset() { m_imp->reset(); }
+void mus::reset() {
+    m_imp->reset();
+}
 
 void mus::set_soft(unsigned sz, expr* const* soft, rational const* weights) {
     m_imp->set_soft(sz, soft, weights);

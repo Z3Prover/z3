@@ -7,5 +7,6 @@ BreakBeforeBraces: Custom
 BraceWrapping:
   BeforeElse: true
 AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: false
 
 ...
