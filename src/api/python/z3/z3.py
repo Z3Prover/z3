@@ -7311,10 +7311,15 @@ class Optimize(Z3PPObject):
         """restore to previously created backtracking point"""
         Z3_optimize_pop(self.ctx.ref(), self.optimize)
 
-    def check(self):
+    def check(self, *assumptions):
         """Check satisfiability while optimizing objective functions."""
-        return CheckSatResult(Z3_optimize_check(self.ctx.ref(), self.optimize))
-
+        assumptions = _get_args(assumptions)
+        num = len(assumptions)
+        _assumptions = (Ast * num)()
+        for i in range(num):
+            _assumptions[i] = assumptions[i].as_ast()
+        return CheckSatResult(Z3_optimize_check(self.ctx.ref(), self.optimize, num, _assumptions))
+    
     def reason_unknown(self):
         """Return a string that describes why the last `check()` returned `unknown`."""
         return Z3_optimize_get_reason_unknown(self.ctx.ref(), self.optimize)
@@ -7325,6 +7330,9 @@ class Optimize(Z3PPObject):
             return ModelRef(Z3_optimize_get_model(self.ctx.ref(), self.optimize), self.ctx)
         except Z3Exception:
             raise Z3Exception("model is not available")
+
+    def unsat_core(self):
+        return AstVector(Z3_optimize_get_unsat_core(self.ctx.ref(), self.optimize), self.ctx)
 
     def lower(self, obj):
         if not isinstance(obj, OptimizeObjective):

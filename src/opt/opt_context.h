@@ -133,7 +133,7 @@ namespace opt {
             void push();
             void pop();
             void add(expr* hard);
-            bool set(ptr_vector<expr> & hard);
+            bool set(expr_ref_vector const&  hard);
             unsigned add(expr* soft, rational const& weight, symbol const& id);
             unsigned add(app* obj, bool is_max);
             unsigned get_index(symbol const& id) { return m_indices[id]; }
@@ -164,6 +164,7 @@ namespace opt {
         obj_map<func_decl, unsigned> m_objective_fns;
         obj_map<func_decl, expr*>    m_objective_orig;
         func_decl_ref_vector         m_objective_refs;
+        expr_ref_vector              m_core;
         tactic_ref                   m_simplify;
         bool                         m_enable_sat;
         bool                         m_enable_sls;
@@ -186,8 +187,8 @@ namespace opt {
         void push() override;
         void pop(unsigned n) override;
         bool empty() override { return m_scoped_state.m_objectives.empty(); }
-        void set_hard_constraints(ptr_vector<expr> & hard) override;
-        lbool optimize() override;
+        void set_hard_constraints(expr_ref_vector const& hard) override;
+        lbool optimize(expr_ref_vector const& asms) override;
         void set_model(model_ref& _m) override { m_model = _m; }
         void get_model_core(model_ref& _m) override;
         void get_box_model(model_ref& _m, unsigned index) override;
@@ -254,7 +255,7 @@ namespace opt {
 
         void reset_maxsmts();
         void import_scoped_state();
-        void normalize();
+        void normalize(expr_ref_vector const& asms);
         void internalize();
         bool is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);
         bool is_minimize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);
@@ -270,7 +271,7 @@ namespace opt {
         expr* mk_objective_fn(unsigned index, objective_t ty, unsigned sz, expr*const* args);
         void to_fmls(expr_ref_vector& fmls);
         void from_fmls(expr_ref_vector const& fmls);
-        void simplify_fmls(expr_ref_vector& fmls);
+        void simplify_fmls(expr_ref_vector& fmls, expr_ref_vector const& asms);
         void mk_atomic(expr_ref_vector& terms);
 
         void update_lower() { update_bound(true); }

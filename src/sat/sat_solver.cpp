@@ -78,6 +78,8 @@ namespace sat {
         del_clauses(m_clauses);
         TRACE("sat", tout << "Delete learned\n";);
         del_clauses(m_learned);
+        dealloc(m_cuber);
+        m_cuber = nullptr;
     }
 
     void solver::del_clauses(clause_vector& clauses) {

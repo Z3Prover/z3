@@ -1312,7 +1312,7 @@ void cmd_context::assert_expr(expr * t) {
     m().inc_ref(t);
     m_assertions.push_back(t);
     if (produce_unsat_cores())
-        m_assertion_names.push_back(0);
+        m_assertion_names.push_back(nullptr);
     if (m_solver)
         m_solver->assert_expr(t);
 }
@@ -1488,13 +1488,24 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m().limit(), rlimit);
+        expr_ref_vector asms(m());
+        asms.append(num_assumptions, assumptions);
         if (!m_processing_pareto) {
-            ptr_vector<expr> cnstr(m_assertions);
-            cnstr.append(num_assumptions, assumptions);
-            get_opt()->set_hard_constraints(cnstr);
+            expr_ref_vector assertions(m());
+            unsigned sz = m_assertions.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                if (m_assertion_names.size() > i && m_assertion_names[i]) {
+                    asms.push_back(m_assertion_names[i]);
+                    assertions.push_back(m().mk_implies(m_assertion_names[i], m_assertions[i]));
+                }
+                else {
+                    assertions.push_back(m_assertions[i]);
+                }
+            }
+            get_opt()->set_hard_constraints(assertions);
         }
         try {
-            r = get_opt()->optimize();
+            r = get_opt()->optimize(asms);
             if (r == l_true && get_opt()->is_pareto()) {
                 m_processing_pareto = true;
             }
@@ -1802,11 +1813,8 @@ void cmd_context::validate_model() {
         cancel_eh<reslimit> eh(m().limit());
         expr_ref r(m());
         scoped_ctrl_c ctrlc(eh);
-        ptr_vector<expr>::const_iterator it  = begin_assertions();
-        ptr_vector<expr>::const_iterator end = end_assertions();
         bool invalid_model = false;
-        for (; it != end; ++it) {
-            expr * a = *it;
+        for (expr * a : assertions()) {
             if (is_ground(a)) {
                 r = nullptr;
                 evaluator(a, r);

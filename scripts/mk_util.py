@@ -1668,9 +1668,6 @@ class DotNetDLLComponent(Component):
                                 '/noconfig',
                                 '/nostdlib+',
                                 '/reference:mscorlib.dll',
-                                # Under mono this isn't neccessary as mono will search the system
-                                # library paths for libz3.so
-                                '/linkresource:{}.dll'.format(get_component(Z3_DLL_COMPONENT).dll_name),
                                ]
                              )
 

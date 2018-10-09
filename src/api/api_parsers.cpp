@@ -71,10 +71,8 @@ extern "C" {
             SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
             return of_ast_vector(v);
         }
-        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
-        for (; it != end; ++it) {
-            v->m_ast_vector.push_back(*it);
+        for (expr * e : ctx->assertions()) {
+            v->m_ast_vector.push_back(e);
         }
         return of_ast_vector(v);
         Z3_CATCH_RETURN(nullptr);

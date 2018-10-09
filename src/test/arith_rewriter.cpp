@@ -1,4 +1,3 @@
-
 /*++
 Copyright (c) 2015 Microsoft Corporation
 
@@ -26,8 +25,8 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
-    result = *ctx.begin_assertions();
+    ENSURE(!ctx.assertions().empty());
+    result = ctx.assertions().get(0);
     return result;
 }
 
