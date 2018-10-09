@@ -144,6 +144,10 @@ public :
         return m_mpq_lar_core_solver.m_r_x[j];
     }
 
+    void set_column_value(unsigned j, const impq& v) {
+        m_mpq_lar_core_solver.m_r_x[j] = v;
+    }
+    
     const mpq& get_column_value_rational(unsigned j) const {
         return m_mpq_lar_core_solver.m_r_x[j].x;
     }

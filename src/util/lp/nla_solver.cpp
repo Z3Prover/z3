@@ -37,6 +37,7 @@ struct solver::imp {
         mono_index_with_sign() {}
     };
     
+    //fields    
     vars_equivalence                                       m_vars_equivalence;
     vector<monomial>                                       m_monomials;
     // maps the vector of the rooted monomial vars to the list of the indices of monomials having the same rooted monomial
@@ -1263,6 +1264,17 @@ struct solver::imp {
         }
         SASSERT(found_factorizations == number_of_factorizations);
     }
+    
+    lbool test_basic_sign_lemma_with_constraints(
+        vector<ineq>& lemma,
+        lp::explanation& exp )
+    {
+        m_lar_solver.set_status(lp::lp_status::OPTIMAL);
+        m_lemma = & lemma;
+        m_expl = & exp;
+
+        return check(exp, lemma);
+    }
 }; // end of imp
 
 
@@ -1293,27 +1305,17 @@ solver::~solver() {
     dealloc(m_imp);
 }
 
-void solver::test_factorization() {
-    lp::lar_solver s;
-    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
-        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
-    lpvar lp_a = s.add_var(a, true);
-    lpvar lp_b = s.add_var(b, true);
-    lpvar lp_c = s.add_var(c, true);
-    lpvar lp_d = s.add_var(d, true);
-    lpvar lp_e = s.add_var(e, true);
-    lpvar lp_abcde = s.add_var(abcde, true);
-    lpvar lp_ac = s.add_var(ac, true);
-    lpvar lp_bde = s.add_var(bde, true);
-    lpvar lp_acd = s.add_var(acd, true);
-    lpvar lp_be = s.add_var(be, true);
-    
-    reslimit l;
-    params_ref p;
-    solver nla(s, l, p);
-
-
-
+void create_abcde(solver & nla,
+                  unsigned lp_a,
+                  unsigned lp_b,
+                  unsigned lp_c,
+                  unsigned lp_d,
+                  unsigned lp_e,
+                  unsigned lp_abcde,
+                  unsigned lp_ac,
+                  unsigned lp_bde,
+                  unsigned lp_acd,
+                  unsigned lp_be) {
     // create monomial abcde
     vector<unsigned> vec;
     vec.push_back(lp_a);
@@ -1349,10 +1351,102 @@ void solver::test_factorization() {
     vec.push_back(lp_b);
     vec.push_back(lp_e);
     nla.add_monomial(lp_be, vec.size(), vec.begin());
+}
+
+void solver::test_factorization() {
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
+        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+    lpvar lp_a = s.add_var(a, true);
+    lpvar lp_b = s.add_var(b, true);
+    lpvar lp_c = s.add_var(c, true);
+    lpvar lp_d = s.add_var(d, true);
+    lpvar lp_e = s.add_var(e, true);
+    lpvar lp_abcde = s.add_var(abcde, true);
+    lpvar lp_ac = s.add_var(ac, true);
+    lpvar lp_bde = s.add_var(bde, true);
+    lpvar lp_acd = s.add_var(acd, true);
+    lpvar lp_be = s.add_var(be, true);
+    
+    reslimit l;
+    params_ref p;
+    solver nla(s, l, p);
+
+    create_abcde(nla,
+                 lp_a,
+                 lp_b,
+                 lp_c,
+                 lp_d,
+                 lp_e,
+                 lp_abcde,
+                 lp_ac,
+                 lp_bde,
+                 lp_acd,
+                 lp_be);
 
     nla.m_imp->test_factorization(0, // 0 is the index of monomial abcde
                                   3); // 3 is the number of expected factorizations
 
+    
+}
+void solver::test_basic_sign_lemma_with_constraints() {
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
+        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+    lpvar lp_a = s.add_var(a, true);
+    lpvar lp_b = s.add_var(b, true);
+    lpvar lp_c = s.add_var(c, true);
+    lpvar lp_d = s.add_var(d, true);
+    lpvar lp_e = s.add_var(e, true);
+    lpvar lp_abcde = s.add_var(abcde, true);
+    lpvar lp_ac = s.add_var(ac, true);
+    lpvar lp_bde = s.add_var(bde, true);
+    lpvar lp_acd = s.add_var(acd, true);
+    lpvar lp_be = s.add_var(be, true);
+    
+    reslimit l;
+    params_ref p;
+    solver nla(s, l, p);
+    
+    // make bde = -acd
+    
+    
+    vector<std::pair<rational, lpvar>> t;
+    
+    // b + a = 0
+    t.push_back(std::make_pair(rational(1), lp_a));  t.push_back(std::make_pair(rational(1), lp_b)); 
+    lpvar b_plus_a = s.add_term(t);
+    s.add_var_bound(b_plus_a, lp::lconstraint_kind::GE, rational::zero());
+    s.add_var_bound(b_plus_a, lp::lconstraint_kind::LE, rational::zero());
+    t.clear();
+    // now b = -a
+    
+    // e - c = 0
+    t.push_back(std::make_pair(-rational(1), lp_c));  t.push_back(std::make_pair(rational(1), lp_e)); 
+    lpvar e_min_c = s.add_term(t);
+    s.add_var_bound(e_min_c, lp::lconstraint_kind::GE, rational::zero());
+    s.add_var_bound(e_min_c, lp::lconstraint_kind::LE, rational::zero());    
+    t.clear();
+    // now e = c
+    s.set_column_value(lp_bde, lp::impq(rational(0)));
+    s.set_column_value(lp_acd, lp::impq(rational(1)));
+    create_abcde(nla,
+                 lp_a,
+                 lp_b,
+                 lp_c,
+                 lp_d,
+                 lp_e,
+                 lp_abcde,
+                 lp_ac,
+                 lp_bde,
+                 lp_acd,
+                 lp_be);
+    vector<ineq> lemma;
+    lp::explanation exp;
+    
+    SASSERT(nla.m_imp->test_basic_sign_lemma_with_constraints(lemma, exp) == l_false);
+    
+    nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
     
 }
 
