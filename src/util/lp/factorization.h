@@ -23,7 +23,7 @@
 
 namespace nla {
 
-class factorization_factory;
+struct factorization_factory;
 typedef unsigned lpvar;
 
 class factorization {
