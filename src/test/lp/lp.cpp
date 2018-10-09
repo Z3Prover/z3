@@ -1895,7 +1895,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
-    parser.add_option_with_help_string("-nla", "test nla_solver");
+    parser.add_option_with_help_string("-nla_fact", "test nla_solver");
     parser.add_option_with_help_string("-hnf", "test hermite normal form");
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
@@ -3547,8 +3547,8 @@ void test_gomory_cut() {
     test_gomory_cut_1();
 }
 
-void test_nla() {
-    nla::solver::test();
+void test_nla_factorization() {
+    nla::solver::test_factorization();
 }
 
 void test_lp_local(int argn, char**argv) {
@@ -3567,9 +3567,9 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
     
-    if (args_parser.option_is_used("-nla")) {
+    if (args_parser.option_is_used("-nla_fact")) {
 #ifdef Z3DEBUG
-        test_nla();
+        test_nla_factorization();
 #endif
         return finalize(0);
     }

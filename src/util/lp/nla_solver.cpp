@@ -38,13 +38,16 @@ struct solver::imp {
     };
     
     vars_equivalence                                       m_vars_equivalence;
-    vector<monomial>                                        m_monomials;
+    vector<monomial>                                       m_monomials;
     // maps the vector of the rooted monomial vars to the list of the indices of monomials having the same rooted monomial
-    std::unordered_map<svector<lpvar>, vector<mono_index_with_sign>, hash_svector>
-    m_rooted_monomials;
-    unsigned_vector                                        m_monomials_lim;
+    std::unordered_map<svector<lpvar>,
+                       vector<mono_index_with_sign>,
+                       hash_svector>
+                                                           m_rooted_monomials;
+    // this field is used for push/pop operations
+    unsigned_vector                                        m_monomials_counts;
     lp::lar_solver&                                        m_lar_solver;
-    std::unordered_map<lpvar, unsigned_vector>             m_var_containing_monomials;
+    std::unordered_map<lpvar, unsigned_vector>             m_monomials_containing_var;
 
     // monomial.var()  -> monomial index
     u_map<unsigned>                                        m_var_to_its_monomial;
@@ -67,16 +70,16 @@ struct solver::imp {
     }
     
     void push() {
-        m_monomials_lim.push_back(m_monomials.size());
+        m_monomials_counts.push_back(m_monomials.size());
     }
     
     void pop(unsigned n) {
         if (n == 0) return;
-        m_monomials.shrink(m_monomials_lim[m_monomials_lim.size() - n]);
-        m_monomials_lim.shrink(m_monomials_lim.size() - n);       
+        m_monomials.shrink(m_monomials_counts[m_monomials_counts.size() - n]);
+        m_monomials_counts.shrink(m_monomials_counts.size() - n);       
     }
 
-    // make sure that the monomial value is the product of the values of the factors
+    // return true if the monomial value is equal to the product of the values of the factors
     bool check_monomial(const monomial& m) {
         SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
         const rational & model_val = m_lar_solver.get_column_value_rational(m.var());
@@ -147,8 +150,9 @@ struct solver::imp {
     }
 
     // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
+    // Also sorts the result.
     // 
-    svector<lpvar> reduce_monomial_to_canonical(const svector<lpvar> & vars, rational & sign) const {
+    svector<lpvar> reduce_monomial_to_rooted(const svector<lpvar> & vars, rational & sign) const {
         svector<lpvar> ret;
         sign = 1;
         for (lpvar v : vars) {
@@ -167,7 +171,7 @@ struct solver::imp {
     // 
     monomial_coeff canonize_monomial(monomial const& m) const {
         rational sign = rational(1);
-        svector<lpvar> vars = reduce_monomial_to_canonical(m.vars(), sign);
+        svector<lpvar> vars = reduce_monomial_to_rooted(m.vars(), sign);
         return monomial_coeff(m.var(), vars, sign);
     }
 
@@ -226,7 +230,7 @@ struct solver::imp {
     // otherwise it remains false
     // Returns 2 if the sign is not defined.
     int get_mon_sign_zero_var(unsigned j, bool & strict) {
-        if (m_var_containing_monomials.find(j) == m_var_containing_monomials.end())
+        if (m_monomials_containing_var.find(j) == m_monomials_containing_var.end())
             return 2;
         lpci lci = -1;
         lpci uci = -1;
@@ -518,7 +522,7 @@ struct solver::imp {
     bool basic_lemma_for_mon_neutral(unsigned i_mon) {
         const monomial & m = m_monomials[i_mon];
         rational sign;
-        svector<lpvar> reduced_vars = reduce_monomial_to_canonical(m.vars(), sign);
+        svector<lpvar> reduced_vars = reduce_monomial_to_rooted(m.vars(), sign);
         rational v = m_lar_solver.get_column_value_rational(m.var());
         if (sign == -1)
             v = -v;
@@ -753,7 +757,7 @@ struct solver::imp {
         svector<bool> mask(large.size(), false);  // init mask by false
         const auto & m = m_monomials[i_mon];
         rational sign;
-        auto vars = reduce_monomial_to_canonical(m.vars(), sign);
+        auto vars = reduce_monomial_to_rooted(m.vars(), sign);
         auto vars_copy = vars;
         auto v = lp::abs(m_lar_solver.get_column_value_rational(m.var()));
         // We cross out from vars the "large" variables represented by the mask
@@ -784,7 +788,7 @@ struct solver::imp {
         svector<bool> mask(_small.size(), false); // init mask by false
         const auto & m = m_monomials[i_mon];
         rational sign;
-        auto vars = reduce_monomial_to_canonical(m.vars(), sign);
+        auto vars = reduce_monomial_to_rooted(m.vars(), sign);
         auto vars_copy = vars;
         auto v = lp::abs(m_lar_solver.get_column_value_rational(m.var()));
         // We cross out from vars the "large" variables represented by the mask
@@ -1114,11 +1118,11 @@ struct solver::imp {
     void map_monomial_vars_to_monomial_indices(unsigned i) {
         const monomial& m = m_monomials[i];
         for (lpvar j : m.vars()) {
-            auto it = m_var_containing_monomials.find(j);
-            if (it == m_var_containing_monomials.end()) {
-                unsigned_vector v;
-                v.push_back(i);
-                m_var_containing_monomials[j] = v;
+            auto it = m_monomials_containing_var.find(j);
+            if (it == m_monomials_containing_var.end()) {
+                unsigned_vector ms;
+                ms.push_back(i);
+                m_monomials_containing_var[j] = ms;
             }
             else {
                 it->second.push_back(i);
@@ -1289,7 +1293,7 @@ solver::~solver() {
     dealloc(m_imp);
 }
 
-void solver::test() {
+void solver::test_factorization() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
