@@ -1897,6 +1897,7 @@ void test_replace_column() {
 
 void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-nla_fact", "test nla_solver");
+    parser.add_option_with_help_string("-nla_bslwct", "test_basic_sign_lemma_with_constraints");
     parser.add_option_with_help_string("-hnf", "test hermite normal form");
     parser.add_option_with_help_string("-gomory", "gomory");
     parser.add_option_with_help_string("-intd", "test integer_domain");
@@ -3571,6 +3572,13 @@ void test_lp_local(int argn, char**argv) {
     if (args_parser.option_is_used("-nla_fact")) {
 #ifdef Z3DEBUG
         test_nla_factorization();
+#endif
+        return finalize(0);
+    }
+
+    if (args_parser.option_is_used("-nla_bslwct")) { 
+#ifdef Z3DEBUG
+        nla::solver::test_basic_sign_lemma_with_constraints();
 #endif
         return finalize(0);
     }
