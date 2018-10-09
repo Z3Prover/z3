@@ -47,5 +47,7 @@ public:
     bool need_check();
     lbool check(lp::explanation&, lemma&);
     static void test_factorization();
+    static void test_basic_sign_lemma_with_constraints();
+    
 };
 }

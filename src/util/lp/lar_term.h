@@ -57,11 +57,6 @@ public:
         return m_coeffs;
     }
     
-    lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
-        for (const auto & p : coeffs) {
-            add_coeff_var(p.first, p.second);
-        }
-    }
     bool operator==(const lar_term & a) const {  return false; } // take care not to create identical terms
     bool operator!=(const lar_term & a) const {  return ! (*this == a);}
     // some terms get used in add constraint
