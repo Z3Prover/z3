@@ -26,6 +26,7 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/mam.h"
 #include "smt/qi_queue.h"
+#include <unordered_set>
 
 namespace smt {
 
@@ -108,30 +109,31 @@ namespace smt {
            \brief Ensures that all relevant proof steps to explain why the enode is equal to the root of its
            equivalence class are in the log and up-to-date.
         */
-        void log_justification_to_root(std::ostream & log, enode *en) {
+        void log_justification_to_root(std::ostream & log, enode *en, std::unordered_set<enode *> &already_visited) {
             enode *root = en->get_root();
             for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
-                if (it->m_proof_logged_status == smt::logged_status::NOT_LOGGED) {
-                    it->m_proof_logged_status = smt::logged_status::BEING_LOGGED;
-                    log_single_justification(log, it);
-                    it->m_proof_logged_status = smt::logged_status::LOGGED;
-                } else if (it->m_proof_logged_status != smt::logged_status::BEING_LOGGED && it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
+                if (already_visited.find(it) == already_visited.end()) already_visited.insert(it);
+                else break;
 
-                    // When the justification of an argument changes m_proof_logged_status is not reset => We need to check if the proofs of all arguments are logged.
-                    it->m_proof_logged_status = smt::logged_status::BEING_LOGGED;
+                if (!it->m_proof_is_logged) {
+                    log_single_justification(log, it, already_visited);
+                    it->m_proof_is_logged = true;
+                } else if (it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
+
+                    // When the justification of an argument changes m_proof_is_logged is not reset => We need to check if the proofs of all arguments are logged.
                     const unsigned num_args = it->get_num_args();
                     enode *target = it->get_trans_justification().m_target;
 
                     for (unsigned i = 0; i < num_args; ++i) {
-                        log_justification_to_root(log, it->get_arg(i));
-                        log_justification_to_root(log, target->get_arg(i));
+                        log_justification_to_root(log, it->get_arg(i), already_visited);
+                        log_justification_to_root(log, target->get_arg(i), already_visited);
                     }
-                    it->m_proof_logged_status = smt::logged_status::LOGGED;
+                    it->m_proof_is_logged = true;
                 }
             }
-            if (root->m_proof_logged_status == smt::logged_status::NOT_LOGGED) {
+            if (!root->m_proof_is_logged) {
                 log << "[eq-expl] #" << root->get_owner_id() << " root\n";
-                root->m_proof_logged_status = smt::logged_status::LOGGED;
+                root->m_proof_is_logged = true;
             }
         }
 
@@ -139,7 +141,7 @@ namespace smt {
           \brief Logs a single equality explanation step and, if necessary, recursively calls log_justification_to_root to log
           equalities needed by the step (e.g. argument equalities for congruence steps).
         */
-        void log_single_justification(std::ostream & out, enode *en) {
+        void log_single_justification(std::ostream & out, enode *en, std::unordered_set<enode *> &already_visited) {
             smt::literal lit;
             unsigned num_args;
             enode *target = en->get_trans_justification().m_target;
@@ -158,8 +160,8 @@ namespace smt {
                     num_args = en->get_num_args();
 
                     for (unsigned i = 0; i < num_args; ++i) {
-                        log_justification_to_root(out, en->get_arg(i));
-                        log_justification_to_root(out, target->get_arg(i));
+                        log_justification_to_root(out, en->get_arg(i), already_visited);
+                        log_justification_to_root(out, target->get_arg(i), already_visited);
                     }
 
                     out << "[eq-expl] #" << en->get_owner_id() << " cg";
@@ -206,18 +208,20 @@ namespace smt {
                 if (has_trace_stream()) {
                     std::ostream & out = trace_stream();
 
+                    std::unordered_set<enode *> already_visited;
+
                     // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
                     // is used. We need to make sure that all of these equalities appear in the log.
                     for (unsigned i = 0; i < num_bindings; ++i) {
-                        log_justification_to_root(out, bindings[i]);
+                        log_justification_to_root(out, bindings[i], already_visited);
                     }
 
                     for (auto n : used_enodes) {
                         enode *orig = std::get<0>(n);
                         enode *substituted = std::get<1>(n);
                         if (orig != nullptr) {
-                            log_justification_to_root(out, orig);
-                            log_justification_to_root(out, substituted);
+                            log_justification_to_root(out, orig, already_visited);
+                            log_justification_to_root(out, substituted, already_visited);
                         }
                     }
 

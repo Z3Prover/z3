@@ -562,7 +562,7 @@ namespace smt {
             invert_trans(n1);
             n1->m_trans.m_target        = n2;
             n1->m_trans.m_justification = js;
-            n1->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
+            n1->m_proof_is_logged   = false;
             SASSERT(r1->trans_reaches(n1));
             // ---------------
             // r1 -> ..  -> n1 -> n2 -> ... -> r2
@@ -742,14 +742,14 @@ namespace smt {
         eq_justification js               = n->m_trans.m_justification;
         prev->m_trans.m_target            = nullptr;
         prev->m_trans.m_justification     = null_eq_justification;
-        prev->m_proof_logged_status       = smt::logged_status::NOT_LOGGED;
+        prev->m_proof_is_logged       = false;
         while (curr != nullptr) {
             SASSERT(prev->trans_reaches(n));
             enode * new_curr              = curr->m_trans.m_target;
             eq_justification new_js       = curr->m_trans.m_justification;
             curr->m_trans.m_target        = prev;
             curr->m_trans.m_justification = js;
-            curr->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
+            curr->m_proof_is_logged   = false;
             prev                          = curr;
             js                            = new_js;
             curr                          = new_curr;
@@ -1043,7 +1043,7 @@ namespace smt {
         SASSERT(r1->trans_reaches(n1));
         n1->m_trans.m_target        = nullptr;
         n1->m_trans.m_justification = null_eq_justification;
-        n1->m_proof_logged_status   = smt::logged_status::NOT_LOGGED;
+        n1->m_proof_is_logged   = false;
         invert_trans(r1);
         // ---------------
         // n1 -> ... -> r1
