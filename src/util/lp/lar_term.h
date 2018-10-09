@@ -21,10 +21,17 @@
 #include "util/lp/indexed_vector.h"
 namespace lp {
 struct lar_term {
-    // the term evaluates to sum of m_coeffs 
+
     std::unordered_map<unsigned, mpq> m_coeffs;
-    // mpq m_v;
+
     lar_term() {}
+
+    lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
+        for (const auto & p : coeffs) {
+            add_coeff_var(p.first, p.second);
+        }
+    }
+    
     void add_coeff_var(const mpq& c, unsigned j) {
         auto it = m_coeffs.find(j);
         if (it == m_coeffs.end()) {
@@ -51,11 +58,6 @@ struct lar_term {
         return m_coeffs;
     }
     
-    lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
-        for (const auto & p : coeffs) {
-            add_coeff_var(p.first, p.second);
-        }
-    }
     bool operator==(const lar_term & a) const {  return false; } // take care not to create identical terms
     bool operator!=(const lar_term & a) const {  return ! (*this == a);}
     // some terms get used in add constraint
