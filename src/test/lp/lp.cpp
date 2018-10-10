@@ -1895,6 +1895,8 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-nla_blfmz_mf", "test_basic_lemma_for_mon_zero_from_factor_to_monomial");
+    parser.add_option_with_help_string("-nla_blfmz_fm", "test_basic_lemma_for_mon_zero_from_monomials_to_factor");
     parser.add_option_with_help_string("-nla_fact", "test nla_solver");
     parser.add_option_with_help_string("-nla_bslwct", "test_basic_sign_lemma_with_constraints");
     parser.add_option_with_help_string("-hnf", "test hermite normal form");
@@ -3578,6 +3580,20 @@ void test_lp_local(int argn, char**argv) {
     if (args_parser.option_is_used("-nla_bslwct")) { 
 #ifdef Z3DEBUG
         nla::solver::test_basic_sign_lemma_with_constraints();
+#endif
+        return finalize(0);
+    }
+
+    if (args_parser.option_is_used("-nla_blfmz_mf")) { 
+#ifdef Z3DEBUG
+        nla::solver::test_basic_lemma_for_mon_zero_from_monomial_to_factor();
+#endif
+        return finalize(0);
+    }
+
+    if (args_parser.option_is_used("-nla_blfmz_fm")) { 
+#ifdef Z3DEBUG
+        nla::solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial();
 #endif
         return finalize(0);
     }
