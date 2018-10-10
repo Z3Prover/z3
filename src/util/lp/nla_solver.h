@@ -48,6 +48,7 @@ public:
     lbool check(lp::explanation&, lemma&);
     static void test_factorization();
     static void test_basic_sign_lemma_with_constraints();
-    
+    static void test_basic_lemma_for_mon_zero_from_monomial_to_factor();
+    static void test_basic_lemma_for_mon_zero_from_factors_to_monomial();
 };
 }

@@ -1038,15 +1038,16 @@ struct solver::imp {
     
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
-    bool basic_lemma_for_mon_zero_from_monomial_to_factor(lpvar i_mon, const factorization& factorization) {
-        if (!vvr(i_mon).is_zero() )
+    bool basic_lemma_for_mon_zero_from_monomial_to_factor(unsigned i_mon, const factorization& factorization) {
+        lpvar mon_var = m_monomials[i_mon].var();
+        if (!vvr(mon_var).is_zero() )
             return false;
         for (lpvar j : factorization) {
             if (vvr(j).is_zero())
                 return false;
         }
         lp::lar_term t;
-        t.add_coeff_var(rational::one(), i_mon);
+        t.add_coeff_var(rational::one(), mon_var);
         SASSERT(m_lemma->empty());
         m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));
         for (lpvar j : factorization) {
@@ -1069,7 +1070,7 @@ struct solver::imp {
     }
     
     bool basic_lemma_for_mon_zero_from_factors_to_monomial(lpvar i_mon, const factorization& factorization) {
-        NOT_IMPLEMENTED_YET();
+        //        NOT_IMPLEMENTED_YET();
         return false;
     }
 
@@ -1081,12 +1082,12 @@ struct solver::imp {
     }
             
     bool basic_lemma_for_mon_neutral(const factorization& factorization) {
-        NOT_IMPLEMENTED_YET();
+        // NOT_IMPLEMENTED_YET();
         return false;
     }
             
     bool basic_lemma_for_mon_proportionality(const factorization& factorization) {
-        NOT_IMPLEMENTED_YET();
+        // NOT_IMPLEMENTED_YET();
         return false;
     }
     
@@ -1275,6 +1276,28 @@ struct solver::imp {
 
         return check(exp, lemma);
     }
+
+    lbool test_basic_lemma_for_mon_zero_from_monomial_to_factor(
+        vector<ineq>& lemma,
+        lp::explanation& exp )
+    {
+        m_lar_solver.set_status(lp::lp_status::OPTIMAL);
+        m_lemma = & lemma;
+        m_expl = & exp;
+
+        return check(exp, lemma);
+    }
+
+    lbool test_basic_lemma_for_mon_zero_from_factors_to_monomial(
+        vector<ineq>& lemma,
+        lp::explanation& exp )
+    {
+        m_lar_solver.set_status(lp::lp_status::OPTIMAL);
+        m_lemma = & lemma;
+        m_expl = & exp;
+
+        return check(exp, lemma);
+    }
 }; // end of imp
 
 
@@ -1389,6 +1412,101 @@ void solver::test_factorization() {
 
     
 }
+
+void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factor() {
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
+        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+    lpvar lp_a = s.add_var(a, true);
+    lpvar lp_b = s.add_var(b, true);
+    lpvar lp_c = s.add_var(c, true);
+    lpvar lp_d = s.add_var(d, true);
+    lpvar lp_e = s.add_var(e, true);
+    lpvar lp_abcde = s.add_var(abcde, true);
+    lpvar lp_ac = s.add_var(ac, true);
+    lpvar lp_bde = s.add_var(bde, true);
+    lpvar lp_acd = s.add_var(acd, true);
+    lpvar lp_be = s.add_var(be, true);
+    
+    reslimit l;
+    params_ref p;
+    solver nla(s, l, p);
+    
+    create_abcde(nla,
+                 lp_a,
+                 lp_b,
+                 lp_c,
+                 lp_d,
+                 lp_e,
+                 lp_abcde,
+                 lp_ac,
+                 lp_bde,
+                 lp_acd,
+                 lp_be);
+    vector<ineq> lemma;
+    lp::explanation exp;
+
+
+    // set all vars to 1
+    s.set_column_value(lp_a, rational(1));
+    s.set_column_value(lp_b, rational(1));
+    s.set_column_value(lp_c, rational(1));
+    s.set_column_value(lp_d, rational(1));
+    s.set_column_value(lp_e, rational(1));
+    s.set_column_value(lp_abcde, rational(1));
+    s.set_column_value(lp_ac, rational(1));
+    s.set_column_value(lp_bde, rational(1));
+    s.set_column_value(lp_acd, rational(1));
+    s.set_column_value(lp_be, rational(1));
+
+    // set bde to zero
+    s.set_column_value(lp_bde, rational(0));
+
+    SASSERT(nla.m_imp->test_basic_lemma_for_mon_zero_from_monomial_to_factor(lemma, exp) == l_false);
+    
+    nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
+    
+}
+
+void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
+        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+    lpvar lp_a = s.add_var(a, true);
+    lpvar lp_b = s.add_var(b, true);
+    lpvar lp_c = s.add_var(c, true);
+    lpvar lp_d = s.add_var(d, true);
+    lpvar lp_e = s.add_var(e, true);
+    lpvar lp_abcde = s.add_var(abcde, true);
+    lpvar lp_ac = s.add_var(ac, true);
+    lpvar lp_bde = s.add_var(bde, true);
+    lpvar lp_acd = s.add_var(acd, true);
+    lpvar lp_be = s.add_var(be, true);
+    
+    reslimit l;
+    params_ref p;
+    solver nla(s, l, p);
+    
+    create_abcde(nla,
+                 lp_a,
+                 lp_b,
+                 lp_c,
+                 lp_d,
+                 lp_e,
+                 lp_abcde,
+                 lp_ac,
+                 lp_bde,
+                 lp_acd,
+                 lp_be);
+    vector<ineq> lemma;
+    lp::explanation exp;
+    
+    SASSERT(nla.m_imp->test_basic_lemma_for_mon_zero_from_factors_to_monomial(lemma, exp) == l_false);
+    
+    nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
+    
+}
+
 void solver::test_basic_sign_lemma_with_constraints() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
