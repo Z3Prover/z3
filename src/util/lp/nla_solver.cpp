@@ -1038,27 +1038,25 @@ struct solver::imp {
     
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
-    bool basic_lemma_for_mon_zero_from_monomial_to_factor(unsigned i_mon, const factorization& factorization) {
+    bool basic_lemma_for_mon_zero_from_monomial_to_factor(unsigned i_mon, const factorization& f) {
         lpvar mon_var = m_monomials[i_mon].var();
         if (!vvr(mon_var).is_zero() )
             return false;
-        for (lpvar j : factorization) {
+        for (lpvar j : f) {
             if (vvr(j).is_zero())
                 return false;
         }
         lp::lar_term t;
-        t.add_coeff_var(rational::one(), mon_var);
+        t.add_coeff_var(mon_var);
         SASSERT(m_lemma->empty());
         m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));
-        for (lpvar j : factorization) {
+        for (lpvar j : f) {
             t.clear();
             t.add_coeff_var(rational::one(), j);
             m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));            
         }
         expl_set e;
-        explain(factorization, e);
-        // todo: it is an overkill, need to find shorter explanations
-        add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], e);
+        add_explanation_of_factorization(i_mon, f, e);
         set_expl(e);
         return true;
     }
@@ -1068,10 +1066,41 @@ struct solver::imp {
         for (lpci ci : e)
             m_expl->push_justification(ci);
     }
-    
-    bool basic_lemma_for_mon_zero_from_factors_to_monomial(lpvar i_mon, const factorization& factorization) {
-        //        NOT_IMPLEMENTED_YET();
-        return false;
+
+    void add_explanation_of_factorization(unsigned i_mon, const factorization& f, expl_set & e) {
+        explain(f, e);
+        // todo: it is an overkill, need to find shorter explanations
+        add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], e);
+    }
+
+    // x = 0 or y = 0 -> xy = 0
+    bool basic_lemma_for_mon_zero_from_factors_to_monomial(unsigned i_mon, const factorization& f) {
+        if (vvr(m_monomials[i_mon].var()).is_zero())
+            return false;
+        unsigned zero_j = -1;
+        for (lpvar j : f) {
+            if (vvr(j).is_zero()) {
+                zero_j = j;
+                break;
+            }
+        }
+
+        if (zero_j == static_cast<unsigned>(-1)) {
+            return false;
+        } 
+
+        lp::lar_term t;
+        t.add_coeff_var(zero_j);
+        SASSERT(m_lemma->empty());
+        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));   
+        t.clear();
+        t.add_coeff_var(m_monomials[i_mon].var());
+        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));            
+
+        expl_set e;
+        add_explanation_of_factorization(i_mon, f, e);
+        set_expl(e);
+        return true;
     }
 
     
@@ -1500,6 +1529,21 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
                  lp_be);
     vector<ineq> lemma;
     lp::explanation exp;
+
+    // set all vars to 0
+    s.set_column_value(lp_a, rational(0));
+    s.set_column_value(lp_b, rational(0));
+    s.set_column_value(lp_c, rational(0));
+    s.set_column_value(lp_d, rational(0));
+    s.set_column_value(lp_e, rational(0));
+    s.set_column_value(lp_abcde, rational(0));
+    s.set_column_value(lp_ac, rational(0));
+    s.set_column_value(lp_bde, rational(0));
+    s.set_column_value(lp_acd, rational(0));
+    s.set_column_value(lp_be, rational(0));
+
+    // set bde to one
+    s.set_column_value(lp_bde, rational(1));
     
     SASSERT(nla.m_imp->test_basic_lemma_for_mon_zero_from_factors_to_monomial(lemma, exp) == l_false);
     
