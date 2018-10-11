@@ -3601,14 +3601,14 @@ void test_lp_local(int argn, char**argv) {
 
     if (args_parser.option_is_used("-nla_blnt_mf")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors();
+        nla::solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
 #endif
         return finalize(0);
     }
 
     if (args_parser.option_is_used("-nla_bnt_fm")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial();
+        nla::solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 #endif
         return finalize(0);
     }
