@@ -1486,6 +1486,7 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial() {
 }
 
 void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
+    std::cout << "test_basic_lemma_for_mon_zero_from_factors_to_monomial\n";
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
@@ -1531,8 +1532,8 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     s.set_column_value(lp_acd, rational(1));
     s.set_column_value(lp_be, rational(1));
 
-    // set bde to zero
-    s.set_column_value(lp_bde, rational(0));
+    // set b to zero
+    s.set_column_value(lp_b, rational(0));
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
@@ -1541,6 +1542,7 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
 }
 
 void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
+    std::cout << "test_basic_lemma_for_mon_zero_from_monomial_to_factors\n";
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
@@ -1628,22 +1630,22 @@ void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     vector<ineq> lemma;
     lp::explanation exp;
 
-    // set all vars to 0
-    s.set_column_value(lp_a, rational(0));
-    s.set_column_value(lp_b, rational(0));
-    s.set_column_value(lp_c, rational(0));
-    s.set_column_value(lp_d, rational(0));
-    s.set_column_value(lp_e, rational(0));
-    s.set_column_value(lp_abcde, rational(0));
-    s.set_column_value(lp_ac, rational(0));
-    s.set_column_value(lp_bde, rational(0));
-    s.set_column_value(lp_acd, rational(0));
-    s.set_column_value(lp_be, rational(0));
-
-    // set bde, b, and e to one
-    s.set_column_value(lp_bde, rational(1));
+    // set all vars to 1
+    s.set_column_value(lp_a, rational(1));
     s.set_column_value(lp_b, rational(1));
+    s.set_column_value(lp_c, rational(1));
+    s.set_column_value(lp_d, rational(1));
     s.set_column_value(lp_e, rational(1));
+    s.set_column_value(lp_abcde, rational(1));
+    s.set_column_value(lp_ac, rational(1));
+    s.set_column_value(lp_bde, rational(1));
+    s.set_column_value(lp_acd, rational(1));
+    s.set_column_value(lp_be, rational(1));
+
+    // set bde te 2, b to minus 2
+    s.set_column_value(lp_bde, rational(2));
+    s.set_column_value(lp_b, - rational(2));
+    // we have bde = -b, therefore d = +-1 and c = +-1
     
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
