@@ -3606,7 +3606,7 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
 
-    if (args_parser.option_is_used("-nla_bnt_fm")) { 
+    if (args_parser.option_is_used("-nla_blnt_fm")) { 
 #ifdef Z3DEBUG
         nla::solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 #endif
