@@ -386,7 +386,7 @@ struct solver::imp {
     
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const {
         m_lar_solver.print_term(in.m_term, out);
-        out << " " << lp::lconstraint_kind_string(in.m_cmp) << " 0";
+        out << " " << lp::lconstraint_kind_string(in.m_cmp) << " " << in.m_rs;
         return out;
     }
 
@@ -1104,14 +1104,69 @@ struct solver::imp {
     }
 
     
-    bool basic_lemma_for_mon_zero(unsigned i_mon, const factorization& factorization) {
+    bool basic_lemma_for_mon_zero(unsigned i_mon, const factorization& f) {
         return 
-            basic_lemma_for_mon_zero_from_monomial_to_factor(i_mon, factorization) || 
-            basic_lemma_for_mon_zero_from_factors_to_monomial(i_mon, factorization);
+            basic_lemma_for_mon_zero_from_monomial_to_factor(i_mon, f) || 
+            basic_lemma_for_mon_zero_from_factors_to_monomial(i_mon, f);
     }
 
-    bool basic_lemma_for_mon_neutral_monomial_to_factor(unsigned i_mon, const factorization& factorization) {
-        return false;
+    // use the fact that
+    // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1
+    bool basic_lemma_for_mon_neutral_monomial_to_factor(unsigned i_mon, const factorization& f) {
+        // todo : consider the case of just two factors
+        lpvar mon_var = m_monomials[i_mon].var();
+        const auto & mv = vvr(mon_var);
+        const auto  abs_mv = abs(mv);
+        
+        if (abs_mv == rational::zero()) {
+            return false;
+        }
+        lpvar jl = -1;
+        for (lpvar j : f ) {
+            if (abs(vvr(j)) == abs_mv) {
+                jl = j;
+                break;
+            }
+        }
+        if (jl == static_cast<lpvar>(-1))
+            return false;
+        lpvar not_one_j = -1;
+        for (lpvar j : f ) {
+            if (j == jl) {
+                continue;
+            }
+            if (abs(vvr(j)) != rational(1)) {
+                not_one_j = j;
+                break;
+            }
+        }
+
+        if (not_one_j == static_cast<lpvar>(-1)) {
+            return false;
+        } 
+        
+        lp::lar_term t; // jl + mon_var != 0
+        t.add_coeff_var(jl);
+        t.add_coeff_var(mon_var);
+        SASSERT(m_lemma->empty());
+        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));   
+        t.clear();
+        
+        // jl - mon_var != 0
+        t.add_coeff_var(jl);
+        t.add_coeff_var(-rational(1), mon_var);
+
+        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));   
+        t.clear();
+
+
+            // not_one_j = 1
+        t.add_coeff_var(not_one_j);
+        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational(1)));   
+        
+        // not_one_j = -1
+        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, -rational(1)));   
+        return true;
     }
 
     bool basic_lemma_for_mon_neutral_from_factors_to_monomial(unsigned i_mon, const factorization& factorization) {
