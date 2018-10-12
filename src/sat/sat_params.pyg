@@ -15,7 +15,7 @@ def_module_params('sat',
                           ('restart.margin', DOUBLE, 1.1, 'margin between fast and slow restart factors. For ema'),
                           ('restart.emafastglue', DOUBLE, 3e-2, 'ema alpha factor for fast moving average'),
                           ('restart.emaslowglue', DOUBLE, 1e-5, 'ema alpha factor for slow moving average'),
-                          ('variable_decay', UINT, 110, 'multiplier (divided by 100) for the VSIDS activity increement'), 
+                          ('variable_decay', UINT, 110, 'multiplier (divided by 100) for the VSIDS activity increment'), 
                           ('inprocess.max', UINT, UINT_MAX, 'maximal number of inprocessing passes'),
                           ('branching.heuristic', SYMBOL, 'vsids', 'branching heuristic vsids, lrb or chb'),
                           ('branching.anti_exploration', BOOL, False, 'apply anti-exploration heuristic for branch selection'),
@@ -58,7 +58,7 @@ def_module_params('sat',
                           # - psat:  Let psat_heur := (Sum_{clause C} (psat.clause_base ^ {-|C|+1})) / |freevars|^psat.var_exp
                           #          Cut if the value of psat_heur exceeds psat.trigger
                           # - adaptive_freevars: Cut if the number of current unassigned variables drops below a fraction of free variables
-                          #          at the time of the last conflict. The fraction is increased every time the a cutoff is created.
+                          #          at the time of the last conflict. The fraction is increased every time the cutoff is created.
                           # - adative_psat: Cut based on psat_heur in an adaptive way.
                           ('lookahead.cube.fraction', DOUBLE, 0.4, 'adaptive fraction to create lookahead cubes. Used when lookahead.cube.cutoff is adaptive_freevars or adaptive_psat'),
                           ('lookahead.cube.depth', UINT, 1, 'cut-off depth to create cubes. Used when lookahead.cube.cutoff is depth.'),
