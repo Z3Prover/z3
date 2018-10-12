@@ -369,10 +369,25 @@ struct solver::imp {
         }
     }
 
+    void ineq_j_is_equal_to_zero_add_to_lemma(lpvar j) {
+        m_lemma->push_back(ineq_j_is_equal_to_zero(j));
+    }
+    
     ineq ineq_j_is_equal_to_zero(lpvar j) const {
         lp::lar_term t;
         t.add_coeff_var(rational(1), j);
         ineq i(lp::lconstraint_kind::EQ, t, rational::zero());
+        return i;
+    }
+
+    void ineq_j_is_nequal_to_zero_add_to_lemma(lpvar j) {
+        m_lemma->push_back(ineq_j_is_nequal_to_zero(j));
+    }
+    
+    ineq ineq_j_is_nequal_to_zero(lpvar j) const {
+        lp::lar_term t;
+        t.add_coeff_var(rational(1), j);
+        ineq i(lp::lconstraint_kind::NE, t, rational::zero());
         return i;
     }
     
@@ -953,18 +968,11 @@ struct solver::imp {
         lpvar mon_var = m_monomials[i_mon].var();
         if (!vvr(mon_var).is_zero() )
             return false;
-        for (lpvar j : f) {
-            if (vvr(j).is_zero())
-                return false;
-        }
-        lp::lar_term t;
-        t.add_coeff_var(mon_var);
+
         SASSERT(m_lemma->empty());
-        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));
+        ineq_j_is_nequal_to_zero_add_to_lemma(mon_var);
         for (lpvar j : f) {
-            t.clear();
-            t.add_coeff_var(rational::one(), j);
-            m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));            
+            m_lemma->push_back(ineq_j_is_equal_to_zero(j));            
         }
         expl_set e;
         add_explanation_of_factorization(i_mon, f, e);
@@ -1000,13 +1008,8 @@ struct solver::imp {
             return false;
         } 
 
-        lp::lar_term t;
-        t.add_coeff_var(zero_j);
-        SASSERT(m_lemma->empty());
-        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));   
-        t.clear();
-        t.add_coeff_var(m_monomials[i_mon].var());
-        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));            
+        ineq_j_is_nequal_to_zero_add_to_lemma(zero_j);
+        ineq_j_is_equal_to_zero_add_to_lemma(m_monomials[i_mon].var());
 
         expl_set e;
         add_explanation_of_factorization(i_mon, f, e);
