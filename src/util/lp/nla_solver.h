@@ -52,5 +52,7 @@ public:
     static void test_basic_lemma_for_mon_zero_from_factors_to_monomial();
     static void test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
     static void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
+    static void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0();
+    static void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1();
 };
 }
