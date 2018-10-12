@@ -561,7 +561,7 @@ template <typename T, typename X> void lp_solver<T, X>::set_scaled_cost(unsigned
     column_info<T> * ci = this->m_map_from_var_index_to_column_info[this->m_core_solver_columns_to_external_columns[j]];
     T cost = ci->get_cost();
     if (ci->is_flipped()){
-        cost *= -1;
+        cost *= T(-1);
     }
     lp_assert(ci->is_fixed() == false);
     this->m_costs[j] = cost * this->m_column_scale[j];
