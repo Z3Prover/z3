@@ -549,7 +549,7 @@ namespace sat {
         //
         // -----------------------
     public:
-        void cleanup();
+        void cleanup(bool force);
         void simplify(bool learned = true);
         void asymmetric_branching();
         unsigned scc_bin();

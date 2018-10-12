@@ -1086,7 +1086,7 @@ namespace sat {
             init_assumptions(num_lits, lits);
             propagate(false);
             if (check_inconsistent()) return l_false;
-            cleanup();
+            cleanup(m_config.m_force_cleanup);
 
             if (m_config.m_unit_walk) {
                 return do_unit_walk();
@@ -1458,7 +1458,7 @@ namespace sat {
         if (should_restart()) 
             return l_undef;
         if (at_base_lvl()) {
-            cleanup(); // cleaner may propagate frozen clauses
+            cleanup(false); // cleaner may propagate frozen clauses
             if (inconsistent()) {
                 TRACE("sat", tout << "conflict at level 0\n";);
                 return l_false;
@@ -1654,7 +1654,7 @@ namespace sat {
 
         SASSERT(at_base_lvl());
 
-        m_cleaner();
+        m_cleaner(m_config.m_force_cleanup);
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_scc();
@@ -3695,10 +3695,10 @@ namespace sat {
     // Simplification
     //
     // -----------------------
-    void solver::cleanup() {
+    void solver::cleanup(bool force) {
         if (!at_base_lvl() || inconsistent())
             return;
-        if (m_cleaner() && m_ext)
+        if (m_cleaner(force) && m_ext)
             m_ext->clauses_modifed();
     }
 
