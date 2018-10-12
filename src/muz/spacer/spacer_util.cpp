@@ -891,7 +891,7 @@ namespace {
             for_each_expr(cs, fml);
             return false;
         }
-        catch(found) {
+        catch(const found &) {
             return true;
         }
     }

@@ -415,7 +415,7 @@ namespace tb {
             try {
                 quick_for_each_expr(p, t);
             }
-            catch (non_constructor) {
+            catch (const non_constructor &) {
                 return false;
             }
             return true;

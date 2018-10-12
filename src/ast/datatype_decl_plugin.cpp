@@ -231,7 +231,7 @@ namespace datatype {
                 }
                 return s;
             }
-            catch (invalid_datatype) {
+            catch (const invalid_datatype &) {
                 m_manager->raise_exception("invalid datatype");
                 return nullptr;
             }

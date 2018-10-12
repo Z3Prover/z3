@@ -219,7 +219,7 @@ private:
             quick_for_each_expr(m_proc, m_mark1, fml);
             m_mark1.reset();
         }
-        catch (contains_predicate_proc::found) {
+        catch (const contains_predicate_proc::found &) {
             m_mark1.reset();
             return true;
         }

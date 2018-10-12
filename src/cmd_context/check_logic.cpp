@@ -476,7 +476,7 @@ struct check_logic::imp {
             quick_for_each_expr(*this, n);
             return true;
         }
-        catch (failed) {
+        catch (const failed &) {
             return false;
         }
     }
@@ -495,7 +495,7 @@ struct check_logic::imp {
             check_sort(f->get_range());
             return true;
         }
-        catch (failed) {
+        catch (const failed &) {
             return false;
         }
     }

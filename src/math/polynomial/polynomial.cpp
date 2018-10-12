@@ -4493,7 +4493,7 @@ namespace polynomial {
                         }
                         #endif
                     }
-                    catch (sparse_mgcd_failed) {
+                    catch (const sparse_mgcd_failed &) {
                         flet<bool> use_prs(m_use_prs_gcd, false);
                         gcd_prs(u, v, x, r);
                     }
