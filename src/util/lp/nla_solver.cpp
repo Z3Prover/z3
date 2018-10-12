@@ -45,7 +45,7 @@ struct solver::imp {
                        vector<mono_index_with_sign>,
                        hash_svector>
                                                            m_rooted_monomials;
-    // this field is used for push/pop operations
+    // this field is used for the push/pop operations
     unsigned_vector                                        m_monomials_counts;
     lp::lar_solver&                                        m_lar_solver;
     std::unordered_map<lpvar, unsigned_vector>             m_monomials_containing_var;
@@ -127,7 +127,12 @@ struct solver::imp {
         return out;
     }
 
-    
+    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, lp::lconstraint_kind cmp, const rational& rs) {
+        lp::lar_term t;
+        t.add_coeff_var(a, j);
+        t.add_coeff_var(b, k);
+        m_lemma->push_back(ineq(cmp, t, rs));
+    }
     // the monomials should be equal by modulo sign, but they are not equal in the model by modulo sign
     void fill_explanation_and_lemma_sign(const monomial& a, const monomial & b, rational const& sign) {
         expl_set expl;
@@ -142,11 +147,7 @@ struct solver::imp {
                   m_lar_solver.print_constraint(p.second, tout); tout << "\n";
               );
         SASSERT(m_lemma->size() == 0);
-        lp::lar_term t;
-        t.add_coeff_var(rational(1), a.var());
-        t.add_coeff_var(-sign, b.var());
-        ineq in(lp::lconstraint_kind::EQ, t, rational::zero());
-        m_lemma->push_back(in);
+        mk_ineq(rational(1), a.var(), -sign, b.var(), lp::lconstraint_kind::EQ, rational::zero());
         TRACE("nla_solver", print_explanation_and_lemma(tout););
     }
 
@@ -369,7 +370,7 @@ struct solver::imp {
         }
     }
 
-    void ineq_j_is_equal_to_zero_add_to_lemma(lpvar j) {
+    void mk_var_EQ_zero(lpvar j) {
         m_lemma->push_back(ineq_j_is_equal_to_zero(j));
     }
     
@@ -1009,7 +1010,7 @@ struct solver::imp {
         } 
 
         ineq_j_is_nequal_to_zero_add_to_lemma(zero_j);
-        ineq_j_is_equal_to_zero_add_to_lemma(m_monomials[i_mon].var());
+        mk_var_EQ_zero(m_monomials[i_mon].var());
 
         expl_set e;
         add_explanation_of_factorization(i_mon, f, e);
