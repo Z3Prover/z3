@@ -138,6 +138,10 @@ struct solver::imp {
         mk_ineq(rational(1), j, b, k, cmp, rs);
     }
 
+    void mk_ineq(lpvar j, const rational& b, lpvar k, lp::lconstraint_kind cmp) {
+        mk_ineq(j, b, k, cmp, rational::zero());
+    }
+
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, lp::lconstraint_kind cmp) {
         mk_ineq(a, j, b, k, cmp, rational::zero());
     }
@@ -164,6 +168,10 @@ struct solver::imp {
 
     void mk_ineq(const rational& a, lpvar j, lp::lconstraint_kind cmp) {
         mk_ineq(a, j, cmp, rational::zero());
+    }
+
+    void mk_ineq(lpvar j, lpvar k, lp::lconstraint_kind cmp) {
+        mk_ineq(rational(1), j, rational(1), k, cmp, rational::zero());
     }
 
     void mk_ineq(lpvar j, lp::lconstraint_kind cmp) {
@@ -1049,27 +1057,18 @@ struct solver::imp {
             return false;
         } 
         
-        lp::lar_term t; // jl + mon_var != 0
-        t.add_coeff_var(jl);
-        t.add_coeff_var(mon_var);
         SASSERT(m_lemma->empty());
-        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));   
-        t.clear();
+        // jl + mon_var != 0
+        mk_ineq(jl, mon_var, lp::lconstraint_kind::NE);   
         
         // jl - mon_var != 0
-        t.add_coeff_var(jl);
-        t.add_coeff_var(-rational(1), mon_var);
-
-        m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational::zero()));   
-        t.clear();
-
+        mk_ineq(jl, -rational(1), mon_var, lp::lconstraint_kind::NE);   
 
             // not_one_j = 1
-        t.add_coeff_var(not_one_j);
-        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational(1)));   
+        mk_ineq(not_one_j, lp::lconstraint_kind::EQ,  rational(1));   
         
         // not_one_j = -1
-        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, -rational(1)));   
+        mk_ineq(not_one_j, lp::lconstraint_kind::EQ, -rational(1));   
         return true;
     }
 
@@ -1096,52 +1095,29 @@ struct solver::imp {
             return false;
         }
 
-        lp::lar_term t;
-        
         if (not_one_j == static_cast<lpvar>(-1)) {
+     		// we can derive that the value of the monomial is equal to sign
             for (lpvar j : f){
-                // we can derive that the value of the monomial is equal to sign
-                t.add_coeff_var(j);
+                
                 if (vvr(j) == rational(1)) {
-                    m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational(1)));   
-                    t.clear();
-                    continue;
-                }
-                if (vvr(j) == -rational(1)) { 
-                    m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, -rational(1)));   
-                    t.clear();
-
-                    continue;
+                    mk_ineq(j, lp::lconstraint_kind::NE, rational(1));   
+                } else if (vvr(j) == -rational(1)) {
+                    mk_ineq(j, lp::lconstraint_kind::NE, -rational(1));   
                 } 
             }
-            t.add_coeff_var(m_monomials[i_mon].var());
-            m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational(sign)));   
+            mk_ineq(m_monomials[i_mon].var(), lp::lconstraint_kind::EQ, rational(sign));   
             return true;
         }
         
         for (lpvar j : f){
-            t.add_coeff_var(j);
             if (vvr(j) == rational(1)) {
-                m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational(1)));   
-                t.clear();
-                continue;
-            }
-            if (vvr(j) == -rational(1)) { 
-                m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, -rational(1)));   
-                t.clear();
-
-                continue;
+                mk_ineq(j, lp::lconstraint_kind::NE, rational(1));   
+            } else if (vvr(j) == -rational(1)) { 
+                mk_ineq(j, lp::lconstraint_kind::NE, -rational(1));   
             } 
         }
-
-        t.add_coeff_var(m_monomials[i_mon].var());
-        t.add_coeff_var(- rational(sign), not_one_j);
-        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));   
-        t.clear();
-        
-       
+        mk_ineq(m_monomials[i_mon].var(), -rational(sign), not_one_j,lp::lconstraint_kind::EQ);   
         return true;
-
     }
 
     bool basic_lemma_for_mon_proportionality(unsigned i_mon, const factorization& f) {
