@@ -502,33 +502,6 @@ struct solver::imp {
         }
     }
 
-    /**
-     * \brief generate lemma by using the fact that 1*x = x or x*1 = x
-     * v is the value of monomial, 
-     * vars is the array of reduced to minimum variables of the monomial
-     */
-    bool basic_neutral_for_reduced_monomial(const monomial & m, const rational & v, const svector<lpvar> & vars) {
-        vector<mono_index_with_sign> ones_of_mon = get_ones_of_monomimal(vars);
-        
-        // if abs(m.vars()[j]) is 1, then ones_of_mon[j] = sign, where sign is 1 in case of m.vars()[j] = 1, or -1 otherwise.
-        if (ones_of_mon.empty()) {
-            return false;
-        }
-        
-        return process_ones_of_mon(m, ones_of_mon, vars, v);
-    }
-    /**
-     * \brief <generate lemma by using the fact that 1*x = x or x*1 = x>
-     */    
-    bool basic_lemma_for_mon_neutral(unsigned i_mon) {
-        const monomial & m = m_monomials[i_mon];
-        rational sign;
-        svector<lpvar> reduced_vars = reduce_monomial_to_rooted(m.vars(), sign);
-        rational v = m_lar_solver.get_column_value_rational(m.var());
-        if (sign == -1)
-            v = -v;
-        return basic_neutral_for_reduced_monomial(m, v, reduced_vars);
-    }
 
     // returns true if found
     bool find_monomial_of_vars(const svector<lpvar>& vars, monomial& m, rational & sign) const {
@@ -569,69 +542,7 @@ struct solver::imp {
         rational other_val = m_lar_solver.get_column_value_rational(j);
         return sign * other_val != v;                
     }
-
-    void add_explanation_of_one(const mono_index_with_sign & mi) {
-        NOT_IMPLEMENTED_YET();
-    }
-
-    // m: v = v1*v2...*vn
-    // mask: indices of variables that were processed
-    // ones_of_monomial signed monomial indices
-    // sign ?
-    // j ?
-    // 
-    void equality_for_neutral_case(const monomial & m,
-                                   const svector<bool> & mask,
-                                   const vector<mono_index_with_sign>& ones_of_monomial, lpvar j, rational const& sign) {
-        expl_set expl;
-        SASSERT(sign == 1 || sign == -1);
-        add_explanation_of_reducing_to_rooted_monomial(m, expl);
-        m_expl->clear();
-        m_expl->add(expl);
-        for (unsigned k : mask) {
-            add_explanation_of_one(ones_of_monomial[k]);
-        }
-        lp::lar_term t;
-        t.add_coeff_var(rational(1), m.var());
-        t.add_coeff_var(rational(- sign), j);
-        ineq in(lp::lconstraint_kind::EQ, t, rational::zero());
-        m_lemma->push_back(in);
-        TRACE("nla_solver", print_explanation_and_lemma(tout););
-    }
     
-    // vars here are root vars for m.vs
-    bool process_ones_of_mon(const monomial& m,
-                             const vector<mono_index_with_sign>& ones_of_monomial, const svector<lpvar> &min_vars,
-                             const rational& v) {
-        svector<bool> mask(ones_of_monomial.size(), false);
-        auto vars = min_vars;
-        rational sign(1);
-        // We cross out the ones representing the mask from vars
-        do {
-            for (unsigned k = 0; k < mask.size(); k++) {
-                if (!mask[k]) {
-                    mask[k] = true;
-                    sign *= ones_of_monomial[k].m_sign;
-                    TRACE("nla_solver", tout << "index m_i = " << ones_of_monomial[k].m_i;);
-                    vars.erase(vars.begin() + ones_of_monomial[k].m_i);
-                    std::sort(vars.begin(), vars.end());
-                    // now the value of vars has to be v*sign
-                    lpvar j;
-                    if (!find_lpvar_and_sign_with_wrong_val(m, vars, v, sign, j))
-                        return false;
-                    equality_for_neutral_case(m, mask, ones_of_monomial, j, sign);
-                    return true;
-                } else {
-                    SASSERT(mask[k]);
-                    sign *= ones_of_monomial[k].m_sign;
-                    mask[k] = false;
-                    vars.push_back(min_vars[ones_of_monomial[k].m_i]); // vars becomes unsorted
-                }
-            }
-        } while(true);
-        return false; // we exhausted the mask and did not find a compliment monomial
-    }
-
     void add_explanation_of_large_value(lpvar j, expl_set & expl) {
         lpci ci;
         rational b;
@@ -1169,9 +1080,81 @@ struct solver::imp {
         return true;
     }
 
-    bool basic_lemma_for_mon_neutral_from_factors_to_monomial(unsigned i_mon, const factorization& factorization) {
+    // use the fact
+    // 1 * 1 ... * 1 * x * 1 ... * 1 = x
+
+    bool basic_lemma_for_mon_neutral_from_factors_to_monomial(unsigned i_mon, const factorization& f) {
+        int sign = 1;
+        lpvar not_one_j = -1;
+        for (lpvar j : f){
+            if (vvr(j) == rational(1)) {
+                continue;
+            }
+            if (vvr(j) == -rational(1)) { 
+                sign = - sign;
+                continue;
+            } 
+            if (not_one_j == static_cast<lpvar>(-1)) {
+                not_one_j = j;
+                continue;
+            }
+
+            // if we are here then there are at least two factors with values different from one and minus one: cannot create the lemma
+            return false;
+        }
+
+        lp::lar_term t;
+        
+        if (not_one_j == static_cast<lpvar>(-1)) {
+            for (lpvar j : f){
+                // we can derive that the value of the monomial is equal to sign
+                t.add_coeff_var(j);
+                if (vvr(j) == rational(1)) {
+                    m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational(1)));   
+                    t.clear();
+                    continue;
+                }
+                if (vvr(j) == -rational(1)) { 
+                    m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, -rational(1)));   
+                    t.clear();
+
+                    continue;
+                } 
+            }
+            t.add_coeff_var(m_monomials[i_mon].var());
+            m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational(sign)));   
+            return true;
+        }
+        
+        for (lpvar j : f){
+            t.add_coeff_var(j);
+            if (vvr(j) == rational(1)) {
+                m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, rational(1)));   
+                t.clear();
+                continue;
+            }
+            if (vvr(j) == -rational(1)) { 
+                m_lemma->push_back(ineq(lp::lconstraint_kind::NE, t, -rational(1)));   
+                t.clear();
+
+                continue;
+            } 
+        }
+
+        t.add_coeff_var(m_monomials[i_mon].var());
+        t.add_coeff_var(- rational(sign), not_one_j);
+        m_lemma->push_back(ineq(lp::lconstraint_kind::EQ, t, rational::zero()));   
+        t.clear();
+        
+       
+        return true;
+
+    }
+
+    bool basic_lemma_for_mon_proportionality(unsigned i_mon, const factorization& f) {
         return false;
     }
+
     
     bool basic_lemma_for_mon_neutral(unsigned i_mon, const factorization& factorization) {
         return
@@ -1179,11 +1162,7 @@ struct solver::imp {
             basic_lemma_for_mon_neutral_from_factors_to_monomial(i_mon, factorization);
         return false;
     }
-            
-    bool basic_lemma_for_mon_proportionality(unsigned i_mon, const factorization& factorization) {
-        // NOT_IMPLEMENTED_YET();
-        return false;
-    }
+
     
     // use basic multiplication properties to create a lemma
     // for the given monomial
@@ -1484,8 +1463,12 @@ void solver::test_factorization() {
 
     
 }
-
 void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial() {
+    test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0();
+    test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1();
+}
+
+void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
@@ -1531,8 +1514,64 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial() {
     s.set_column_value(lp_acd, rational(1));
     s.set_column_value(lp_be, rational(1));
 
-    // set bde to zero
-    s.set_column_value(lp_bde, rational(0));
+    // set bde to 9, and d to 2, and abcde to 2
+    s.set_column_value(lp_bde, rational(9));
+    s.set_column_value(lp_d, rational(2));
+    s.set_column_value(lp_abcde, rational(2));
+    
+    SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
+    
+    nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
+    
+}
+void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
+        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+    lpvar lp_a = s.add_var(a, true);
+    lpvar lp_b = s.add_var(b, true);
+    lpvar lp_c = s.add_var(c, true);
+    lpvar lp_d = s.add_var(d, true);
+    lpvar lp_e = s.add_var(e, true);
+    lpvar lp_abcde = s.add_var(abcde, true);
+    lpvar lp_ac = s.add_var(ac, true);
+    lpvar lp_bde = s.add_var(bde, true);
+    lpvar lp_acd = s.add_var(acd, true);
+    lpvar lp_be = s.add_var(be, true);
+    
+    reslimit l;
+    params_ref p;
+    solver nla(s, l, p);
+    
+    create_abcde(nla,
+                 lp_a,
+                 lp_b,
+                 lp_c,
+                 lp_d,
+                 lp_e,
+                 lp_abcde,
+                 lp_ac,
+                 lp_bde,
+                 lp_acd,
+                 lp_be);
+    vector<ineq> lemma;
+    lp::explanation exp;
+
+
+    // set all vars to 1
+    s.set_column_value(lp_a, rational(1));
+    s.set_column_value(lp_b, rational(1));
+    s.set_column_value(lp_c, rational(1));
+    s.set_column_value(lp_d, rational(1));
+    s.set_column_value(lp_e, rational(1));
+    s.set_column_value(lp_abcde, rational(1));
+    s.set_column_value(lp_ac, rational(1));
+    s.set_column_value(lp_bde, rational(1));
+    s.set_column_value(lp_acd, rational(1));
+    s.set_column_value(lp_be, rational(1));
+
+    // set bde to 9
+    s.set_column_value(lp_bde, rational(9));
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
