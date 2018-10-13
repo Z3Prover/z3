@@ -139,7 +139,7 @@ namespace z3 {
     */
     class context {
     public:
-        enum class rounding_mode {
+        enum rounding_mode {
             RNA,
             RNE,
             RTP,
@@ -2693,11 +2693,12 @@ namespace z3 {
 
     inline sort context::fpa_rounding_mode() {
         switch (m_rounding_mode) {
-            case rounding_mode::RNA: return sort(*this, Z3_mk_fpa_rna(m_ctx));
-            case rounding_mode::RNE: return sort(*this, Z3_mk_fpa_rne(m_ctx));
-            case rounding_mode::RTP: return sort(*this, Z3_mk_fpa_rtp(m_ctx));
-            case rounding_mode::RTN: return sort(*this, Z3_mk_fpa_rtn(m_ctx));
-            case rounding_mode::RTZ: return sort(*this, Z3_mk_fpa_rtz(m_ctx));
+        case rounding_mode::RNA: return sort(*this, Z3_mk_fpa_rna(m_ctx));
+        case rounding_mode::RNE: return sort(*this, Z3_mk_fpa_rne(m_ctx));
+        case rounding_mode::RTP: return sort(*this, Z3_mk_fpa_rtp(m_ctx));
+        case rounding_mode::RTN: return sort(*this, Z3_mk_fpa_rtn(m_ctx));
+        case rounding_mode::RTZ: return sort(*this, Z3_mk_fpa_rtz(m_ctx));
+        default: return sort(*this); 
         }
     }
 
