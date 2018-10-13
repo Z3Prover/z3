@@ -155,7 +155,7 @@ namespace z3 {
         void init(config & c) {
             m_ctx = Z3_mk_context_rc(c);
             m_enable_exceptions = true;
-            m_rounding_mode = rounding_mode::RNA;
+            m_rounding_mode = RNA;
             Z3_set_error_handler(m_ctx, 0);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
@@ -2695,11 +2695,11 @@ namespace z3 {
 
     inline sort context::fpa_rounding_mode() {
         switch (m_rounding_mode) {
-        case rounding_mode::RNA: return sort(*this, Z3_mk_fpa_rna(m_ctx));
-        case rounding_mode::RNE: return sort(*this, Z3_mk_fpa_rne(m_ctx));
-        case rounding_mode::RTP: return sort(*this, Z3_mk_fpa_rtp(m_ctx));
-        case rounding_mode::RTN: return sort(*this, Z3_mk_fpa_rtn(m_ctx));
-        case rounding_mode::RTZ: return sort(*this, Z3_mk_fpa_rtz(m_ctx));
+        case RNA: return sort(*this, Z3_mk_fpa_rna(m_ctx));
+        case RNE: return sort(*this, Z3_mk_fpa_rne(m_ctx));
+        case RTP: return sort(*this, Z3_mk_fpa_rtp(m_ctx));
+        case RTN: return sort(*this, Z3_mk_fpa_rtn(m_ctx));
+        case RTZ: return sort(*this, Z3_mk_fpa_rtz(m_ctx));
         default: return sort(*this); 
         }
     }
