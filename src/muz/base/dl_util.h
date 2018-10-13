@@ -276,7 +276,7 @@ namespace datalog {
         }
         unsigned n = container.size();
         unsigned ofs = 1;
-        int r_i = 1;
+        unsigned r_i = 1;
         for(unsigned i=removed_cols[0]+1; i<n; i++) {
             if(r_i!=removed_col_cnt && removed_cols[r_i]==i) {
                 r_i++;
