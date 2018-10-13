@@ -396,7 +396,7 @@ def check_java():
                 libdirs = m.group(1).split(',')
                 for libdir in libdirs:
                     q = os.path.dirname(libdir)
-                    if cdirs.count(q) == 0:
+                    if cdirs.count(q) == 0 and len(q) > 0:
                         cdirs.append(q)
         t.close()
 
