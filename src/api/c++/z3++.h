@@ -127,6 +127,14 @@ namespace z3 {
         unsat, sat, unknown
     };
 
+    enum rounding_mode {
+        RNA,
+        RNE,
+        RTP,
+        RTN,
+        RTZ
+    };
+
     inline check_result to_check_result(Z3_lbool l) {
         if (l == Z3_L_TRUE) return sat;
         else if (l == Z3_L_FALSE) return unsat;
@@ -137,15 +145,9 @@ namespace z3 {
     /**
        \brief A Context manages all other Z3 objects, global configuration options, etc.
     */
+
+
     class context {
-    public:
-        enum rounding_mode {
-            RNA,
-            RNE,
-            RTP,
-            RTN,
-            RTZ
-        };
     private:
         bool       m_enable_exceptions;
         rounding_mode m_rounding_mode;
