@@ -119,7 +119,8 @@ func_decl * csp_decl_plugin::mk_func_decl(
         rng = m_alist_sort;
         break;
     case OP_JS_JOB_PREEMPTABLE:
-        if (arity != 1 || domain[0] != m_job_sort) m_manager->raise_exception("set-preemptable expects one argument, which is a job");
+        if (arity != 1 || domain[0] != m_job_sort) 
+            m_manager->raise_exception("set-preemptable expects one argument, which is a job");
         name = symbol("set-preemptable");
         rng = m_alist_sort;
         break;
@@ -129,6 +130,22 @@ func_decl * csp_decl_plugin::mk_func_decl(
             if (!parameters[i].is_symbol()) m_manager->raise_exception("js-properties expects a list of keyword parameters");
         }
         name = symbol("js-properties");
+        rng = m_alist_sort;
+        break;
+    case OP_JS_JOB_GOAL:
+        if (arity != 1 || domain[0] != m_job_sort) 
+            m_manager->raise_exception("add-job-goal expects one argument, which is a job");
+        if (num_parameters != 2 || !parameters[0].is_symbol() || !parameters[1].is_int())
+            m_manager->raise_exception("add-job-goal expects one symbol and one integer parameter");
+        name = symbol("add-job-goal");
+        rng = m_alist_sort;
+        break;
+    case OP_JS_OBJECTIVE:
+        if (arity != 0)
+            m_manager->raise_exception("add-optimization-objective expects no arguments");
+        if (num_parameters != 1 || !parameters[0].is_symbol())
+            m_manager->raise_exception("add-optimization-objective expects one symbol parameter");
+        name = symbol("add-optimization-objective");
         rng = m_alist_sort;
         break;
     default: 
@@ -172,6 +189,8 @@ void csp_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
         op_names.push_back(builtin_name("add-resource-available", OP_JS_RESOURCE_AVAILABLE));
         op_names.push_back(builtin_name("set-preemptable", OP_JS_JOB_PREEMPTABLE));
         op_names.push_back(builtin_name("js-properties", OP_JS_PROPERTIES));
+        op_names.push_back(builtin_name("add-job-goal", OP_JS_JOB_GOAL));
+        op_names.push_back(builtin_name("add-optimization-objective", OP_JS_OBJECTIVE));
     }
 }
 
@@ -309,11 +328,43 @@ bool csp_util::is_set_preemptable(expr* e, expr *& job) {
 }
 
 bool csp_util::is_js_properties(expr* e, svector<symbol>& properties) {
-    if (!is_app_of(e, m_fid, OP_JS_PROPERTIES)) return false;
+    if (!is_app_of(e, m_fid, OP_JS_PROPERTIES)) 
+        return false;
     unsigned sz = to_app(e)->get_decl()->get_num_parameters();
     for (unsigned i = 0; i < sz; ++i) {
         properties.push_back(to_app(e)->get_decl()->get_parameter(i).get_symbol());
     }
+    return true;
+}
+
+bool csp_util::is_job_goal(expr* e, js_job_goal& goal, unsigned& level, expr*& job) {
+    if (!is_app_of(e, m_fid, OP_JS_JOB_GOAL)) 
+        return false;
+    SASSERT(2 == to_app(e)->get_decl()->get_num_parameters());
+    SASSERT(1 == to_app(e)->get_num_args());
+    symbol g = to_app(e)->get_decl()->get_parameter(0).get_symbol();
+    level = to_app(e)->get_decl()->get_parameter(1).get_int();
+    if (g == ":earliest-end-time" || g == "earliest-end-time")
+        goal = JS_JOB_GOAL_EARLIEST_END_TIME;
+    else if (g == ":latest-start-time" || g == "latest-start-time")
+        goal = JS_JOB_GOAL_LATEST_START_TIME;
+    else 
+        return false;
+    job = to_app(e)->get_arg(0);
+    return true;
+}
+
+bool csp_util::is_objective(expr* e, js_optimization_objective& objective) {
+    if (!is_app_of(e, m_fid, OP_JS_OBJECTIVE))
+        return false;
+    SASSERT(1 == to_app(e)->get_decl()->get_num_parameters());    
+    symbol obj = to_app(e)->get_decl()->get_parameter(0).get_symbol();
+    if (obj == ":duration" || obj == "duration")
+        objective = JS_OBJECTIVE_DURATION;
+    else if (obj == ":priority" || obj == "priority") 
+        objective = JS_OBJECTIVE_PRIORITY;
+    else 
+        return false;
     return true;
 }
 

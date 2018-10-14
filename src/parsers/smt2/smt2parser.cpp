@@ -625,8 +625,6 @@ namespace smt2 {
                 args.push_back(u);
                 next();
             }
-            if (args.empty())
-                throw parser_exception("invalid indexed sort, index expected");
             sort * r = d->instantiate(pm(), args.size(), args.c_ptr());
             if (r == nullptr)
                 throw parser_exception("invalid sort application");
@@ -1520,7 +1518,6 @@ namespace smt2 {
             check_identifier("invalid indexed identifier, symbol expected");
             symbol r = curr_id();
             next();
-            unsigned num_indices = 0;
             while (!curr_is_rparen()) {
                 if (curr_is_int()) {
                     if (!curr_numeral().is_unsigned()) {
@@ -1545,10 +1542,7 @@ namespace smt2 {
                 else {
                     throw parser_exception("invalid indexed identifier, integer, identifier or '(' expected");
                 }
-                num_indices++;
             }
-            if (num_indices == 0)
-                throw parser_exception("invalid indexed identifier, index expected");
             next();
             return r;
         }
