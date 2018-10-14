@@ -16,6 +16,8 @@ Author:
 
 Notes:
 
+
+
 --*/
 
 #include <cmath>
@@ -31,7 +33,7 @@ namespace sat {
     }
     
     lookahead::scoped_ext::~scoped_ext() {
-        if (p.m_s.m_ext) p.m_s.m_ext->set_lookahead(0); 
+        if (p.m_s.m_ext) p.m_s.m_ext->set_lookahead(nullptr);
     }
 
     lookahead::scoped_assumptions::scoped_assumptions(lookahead& p, literal_vector const& lits): p(p), lits(lits) {
@@ -1215,7 +1217,7 @@ namespace sat {
         lookahead& lh;
     public:
         lookahead_literal_occs_fun(lookahead& lh): lh(lh) {}
-        double operator()(literal l) { return lh.literal_occs(l); }
+        double operator()(literal l) override { return lh.literal_occs(l); }
     };
 
     // Ternary clause managagement:
@@ -2055,6 +2057,15 @@ namespace sat {
         return h;
     }
 
+    bool lookahead::should_cutoff(unsigned depth) {
+        return depth > 0 && 
+            ((m_config.m_cube_cutoff == depth_cutoff && depth == m_config.m_cube_depth) ||
+             (m_config.m_cube_cutoff == freevars_cutoff && m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) ||
+             (m_config.m_cube_cutoff == psat_cutoff && psat_heur() >= m_config.m_cube_psat_trigger) ||
+             (m_config.m_cube_cutoff == adaptive_freevars_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
+             (m_config.m_cube_cutoff == adaptive_psat_cutoff && psat_heur() >= m_cube_state.m_psat_threshold));
+    }
+
     lbool lookahead::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
         scoped_ext _scoped_ext(*this);
         lits.reset();
@@ -2100,22 +2111,13 @@ namespace sat {
             }
             backtrack_level = UINT_MAX;
             depth = m_cube_state.m_cube.size();
-            if ((m_config.m_cube_cutoff == depth_cutoff && depth == m_config.m_cube_depth) ||
-                (m_config.m_cube_cutoff == freevars_cutoff && m_freevars.size() <= m_init_freevars * m_config.m_cube_freevars) ||
-                (m_config.m_cube_cutoff == psat_cutoff && psat_heur() >= m_config.m_cube_psat_trigger) ||
-                (m_config.m_cube_cutoff == adaptive_freevars_cutoff && m_freevars.size() < m_cube_state.m_freevars_threshold) ||
-                (m_config.m_cube_cutoff == adaptive_psat_cutoff && psat_heur() >= m_cube_state.m_psat_threshold)) {
+            if (should_cutoff(depth)) {
                 double dec = (1.0 - pow(m_config.m_cube_fraction, depth));
                 m_cube_state.m_freevars_threshold *= dec;
                 m_cube_state.m_psat_threshold *= 2.0 - dec;
                 set_conflict();
                 m_cube_state.inc_cutoff();
-#if 0
-                // return cube of all literals, not just the ones in the main cube
-                lits.append(m_trail.size() - init_trail, m_trail.c_ptr() + init_trail);
-#else
                 lits.append(m_cube_state.m_cube);
-#endif
                 vars.reset();
                 for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
                 backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
@@ -2135,6 +2137,8 @@ namespace sat {
             if (lit == null_literal) {
                 vars.reset();
                 for (auto v : m_freevars) if (in_reduced_clause(v)) vars.push_back(v);
+                m_model.reset();
+                init_model();
                 return l_true;
             }
             TRACE("sat", tout << "choose: " << lit << " cube: " << m_cube_state.m_cube << "\n";);

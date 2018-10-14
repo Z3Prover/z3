@@ -1,4 +1,3 @@
-
 /*++
 Copyright (c) 2018 Microsoft Corporation
 
@@ -17,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#pragma once;
 
 #include "smt/smt_arith_value.h"
 #include "smt/theory_lra.h"
@@ -95,5 +93,11 @@ namespace smt {
         }
         while (next != n);
         return false;
+    }
+
+    final_check_status arith_value::final_check() {
+        family_id afid = a.get_family_id();
+        theory * th = m_ctx.get_theory(afid);
+        return th->final_check_eh();
     }
 };

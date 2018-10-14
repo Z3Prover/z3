@@ -134,7 +134,7 @@ namespace sat {
             virtual void set_k(unsigned k) { VERIFY(k < 4000000000);  m_k = k; }
             virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
             unsigned k() const { return m_k; }
-            virtual bool well_formed() const;
+            bool well_formed() const override;
         };
 
         class card : public pb_base {
@@ -146,13 +146,13 @@ namespace sat {
             literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
-            virtual void negate();                     
-            virtual void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
-            virtual literal_vector literals() const { return literal_vector(m_size, m_lits); }            
-            virtual bool is_watching(literal l) const;
-            virtual literal get_lit(unsigned i) const { return m_lits[i]; }
-            virtual void set_lit(unsigned i, literal l) { m_lits[i] = l; }
-            virtual unsigned get_coeff(unsigned i) const { return 1; }
+            void negate() override;
+            void swap(unsigned i, unsigned j) override { std::swap(m_lits[i], m_lits[j]); }
+            literal_vector literals() const override { return literal_vector(m_size, m_lits); }
+            bool is_watching(literal l) const override;
+            literal get_lit(unsigned i) const override { return m_lits[i]; }
+            void set_lit(unsigned i, literal l) override { m_lits[i] = l; }
+            unsigned get_coeff(unsigned i) const override { return 1; }
         };
 
         
@@ -179,14 +179,14 @@ namespace sat {
             void update_max_sum();
             void set_num_watch(unsigned s) { m_num_watch = s; }
             bool is_cardinality() const;
-            virtual void negate();                       
-            virtual void set_k(unsigned k) { m_k = k; VERIFY(k < 4000000000); update_max_sum(); }
-            virtual void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
-            virtual literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
-            virtual bool is_watching(literal l) const;
-            virtual literal get_lit(unsigned i) const { return m_wlits[i].second; }
-            virtual void set_lit(unsigned i, literal l) { m_wlits[i].second = l; }
-            virtual unsigned get_coeff(unsigned i) const { return m_wlits[i].first; }
+            void negate() override;
+            void set_k(unsigned k) override { m_k = k; VERIFY(k < 4000000000); update_max_sum(); }
+            void swap(unsigned i, unsigned j) override { std::swap(m_wlits[i], m_wlits[j]); }
+            literal_vector literals() const override { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
+            bool is_watching(literal l) const override;
+            literal get_lit(unsigned i) const override { return m_wlits[i].second; }
+            void set_lit(unsigned i, literal l) override { m_wlits[i].second = l; }
+            unsigned get_coeff(unsigned i) const override { return m_wlits[i].first; }
         };
 
         class xr : public constraint {
@@ -197,13 +197,13 @@ namespace sat {
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }
-            virtual void negate() { m_lits[0].neg(); }
-            virtual void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
-            virtual bool is_watching(literal l) const;
-            virtual literal_vector literals() const { return literal_vector(size(), begin()); }
-            virtual literal get_lit(unsigned i) const { return m_lits[i]; }
-            virtual void set_lit(unsigned i, literal l) { m_lits[i] = l; }
-            virtual bool well_formed() const;
+            void negate() override { m_lits[0].neg(); }
+            void swap(unsigned i, unsigned j) override { std::swap(m_lits[i], m_lits[j]); }
+            bool is_watching(literal l) const override;
+            literal_vector literals() const override { return literal_vector(size(), begin()); }
+            literal get_lit(unsigned i) const override { return m_lits[i]; }
+            void set_lit(unsigned i, literal l) override { m_lits[i] = l; }
+            bool well_formed() const override;
         };
 
 
@@ -524,44 +524,44 @@ namespace sat {
 
     public:
         ba_solver();
-        virtual ~ba_solver();
-        virtual void set_solver(solver* s) { m_solver = s; }
-        virtual void set_lookahead(lookahead* l) { m_lookahead = l; }
-        virtual void set_unit_walk(unit_walk* u) { m_unit_walk = u; }
+        ~ba_solver() override;
+        void set_solver(solver* s) override { m_solver = s; }
+        void set_lookahead(lookahead* l) override { m_lookahead = l; }
+        void set_unit_walk(unit_walk* u) override { m_unit_walk = u; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xr(literal_vector const& lits);
 
-        virtual bool propagate(literal l, ext_constraint_idx idx);
-        virtual lbool resolve_conflict();
-        virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r);
-        virtual void asserted(literal l);
-        virtual check_result check();
-        virtual void push();
-        virtual void pop(unsigned n);
-        virtual void simplify();
-        virtual void clauses_modifed();
-        virtual lbool get_phase(bool_var v);
-        virtual bool set_root(literal l, literal r);
-        virtual void flush_roots();
-        virtual std::ostream& display(std::ostream& out) const;
-        virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const;
-        virtual void collect_statistics(statistics& st) const;
-        virtual extension* copy(solver* s);
-        virtual extension* copy(lookahead* s, bool learned);
-        virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
-        virtual void pop_reinit();
-        virtual void gc(); 
-        virtual double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const;
-        virtual bool is_extended_binary(ext_justification_idx idx, literal_vector & r);
-        virtual void init_use_list(ext_use_list& ul);
-        virtual bool is_blocked(literal l, ext_constraint_idx idx);
-        virtual bool check_model(model const& m) const;
+        bool propagate(literal l, ext_constraint_idx idx) override;
+        lbool resolve_conflict() override;
+        void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) override;
+        void asserted(literal l) override;
+        check_result check() override;
+        void push() override;
+        void pop(unsigned n) override;
+        void simplify() override;
+        void clauses_modifed() override;
+        lbool get_phase(bool_var v) override;
+        bool set_root(literal l, literal r) override;
+        void flush_roots() override;
+        std::ostream& display(std::ostream& out) const override;
+        std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const override;
+        void collect_statistics(statistics& st) const override;
+        extension* copy(solver* s) override;
+        extension* copy(lookahead* s, bool learned) override;
+        void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) override;
+        void pop_reinit() override;
+        void gc() override;
+        double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const override;
+        bool is_extended_binary(ext_justification_idx idx, literal_vector & r) override;
+        void init_use_list(ext_use_list& ul) override;
+        bool is_blocked(literal l, ext_constraint_idx idx) override;
+        bool check_model(model const& m) const override;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
         void display(std::ostream& out, constraint const& c, bool values) const;
 
-        virtual bool validate();
+        bool validate() override;
 
 
     };

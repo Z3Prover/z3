@@ -424,7 +424,7 @@ sort * get_sort(expr const * n) {
         return to_quantifier(n)->get_sort();
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
@@ -1655,6 +1655,12 @@ bool ast_manager::are_distinct(expr* a, expr* b) const {
     }
     return false;
 }
+
+func_decl* ast_manager::get_rec_fun_decl(quantifier* q) const {
+    SASSERT(is_rec_fun_def(q)); 
+    return to_app(to_app(q->get_pattern(0))->get_arg(0))->get_decl(); 
+}
+
 
 void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);

@@ -215,6 +215,12 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
             new_decl_names.push_back(symbol(name_buffer.c_str()));
             new_decl_sorts.push_back(m_conv.bu().mk_sort(sbits+ebits));
         }
+        else if (m_conv.is_rm(s)) {
+            name_buffer.reset();
+            name_buffer << n << ".bv";
+            new_decl_names.push_back(symbol(name_buffer.c_str()));
+            new_decl_sorts.push_back(m_conv.bu().mk_sort(3));
+        }
         else {
             new_decl_sorts.push_back(s);
             new_decl_names.push_back(n);
@@ -247,6 +253,11 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
         new_exp = m_conv.fu().mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
                                     m_conv.bu().mk_extract(ebits - 1, 0, new_var),
                                     m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var));
+    }
+    else if (m_conv.is_rm(s)) {
+        expr_ref new_var(m());
+        new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(3));
+        new_exp = m_conv.fu().mk_bv2rm(new_var);
     }
     else
         new_exp = m().mk_var(t->get_idx(), s);

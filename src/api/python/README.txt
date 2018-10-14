@@ -12,8 +12,8 @@ If you are using a 64-bit Python interpreter, you should use
        msbuild /p:configuration=external /p:platform=x64
 
 
-On Linux and OSX, you must install Z3Py, before trying example.py.
-To install Z3Py on Linux and OSX, you should execute the following 
+On Linux and macOS, you must install Z3Py, before trying example.py.
+To install Z3Py on Linux and macOS, you should execute the following
 command in the Z3 root directory
 
         sudo make install-z3py

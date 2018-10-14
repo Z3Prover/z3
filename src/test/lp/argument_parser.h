@@ -112,7 +112,7 @@ public:
     std::string usage_string() {
         std::string ret = "";
         std::vector<std::string> unknown_options;
-        for (auto t : m_free_args) {
+        for (const auto & t : m_free_args) {
             if (starts_with(t, "-") || starts_with(t, "\\")) {
                 unknown_options.push_back(t);
             }
@@ -120,7 +120,7 @@ public:
         if (unknown_options.size()) {
             ret = "Unknown options:";
         }
-        for (auto unknownOption : unknown_options) {
+        for (const auto & unknownOption : unknown_options) {
             ret += unknownOption;
             ret += ",";
         }
@@ -140,7 +140,7 @@ public:
             return;
         }
         std::cout << "options are: " << std::endl;
-        for (std::string s : m_used_options) {
+        for (const std::string & s : m_used_options) {
             std::cout << s << std::endl;
         }
         for (auto & t : m_used_options_with_after_string) {

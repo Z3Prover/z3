@@ -157,10 +157,8 @@ extern "C" {
         bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
-        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
-        for (; it != end; ++it) {
-            to_solver_ref(s)->assert_expr(*it);
+        for (expr * e : ctx->assertions()) {
+            to_solver_ref(s)->assert_expr(e);
         }
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
     }
@@ -179,6 +177,7 @@ extern "C" {
         LOG_Z3_solver_from_file(c, s, file_name);
         char const* ext = get_extension(file_name);
         std::ifstream is(file_name);
+        init_solver(c, s);
         if (!is) {
             SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
         }
@@ -368,7 +367,22 @@ extern "C" {
             v->m_ast_vector.push_back(f);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast_vector Z3_API Z3_solver_get_non_units(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_get_non_units(c, s);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector fmls = to_solver_ref(s)->get_non_units(mk_c(c)->m());
+        for (expr* f : fmls) {
+            v->m_ast_vector.push_back(f);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
     }
 
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
@@ -615,7 +629,7 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 mk_c(c)->handle_exception(ex);
-                return 0;
+                return nullptr;
             }
         }
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
@@ -628,7 +642,7 @@ extern "C" {
             to_ast_vector_ref(vs).push_back(a);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);        
+        Z3_CATCH_RETURN(nullptr);
     }
 
 

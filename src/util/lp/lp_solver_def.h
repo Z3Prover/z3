@@ -24,7 +24,7 @@ Revision History:
 namespace lp {
 template <typename T, typename X> column_info<T> * lp_solver<T, X>::get_or_create_column_info(unsigned column) {
     auto it = m_map_from_var_index_to_column_info.find(column);
-    return (it == m_map_from_var_index_to_column_info.end())? (m_map_from_var_index_to_column_info[column] = new column_info<T>(static_cast<unsigned>(-1))) : it->second;
+    return (it == m_map_from_var_index_to_column_info.end())? (m_map_from_var_index_to_column_info[column] = new column_info<T>()) : it->second;
 }
 
 template <typename T, typename X>

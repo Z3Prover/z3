@@ -117,11 +117,11 @@ class lemma_quantifier_generalizer : public lemma_generalizer {
     int m_offset;
 public:
     lemma_quantifier_generalizer(context &ctx, bool normalize_cube = true);
-    virtual ~lemma_quantifier_generalizer() {}
-    virtual void operator()(lemma_ref &lemma);
+    ~lemma_quantifier_generalizer() override {}
+    void operator()(lemma_ref &lemma) override;
 
-    virtual void collect_statistics(statistics& st) const;
-    virtual void reset_statistics() {m_st.reset();}
+    void collect_statistics(statistics& st) const override;
+    void reset_statistics() override {m_st.reset();}
 private:
     bool generalize(lemma_ref &lemma, app *term);
 

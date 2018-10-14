@@ -259,7 +259,7 @@ public:
         return m_num_scopes;
     }
 
-    void assert_expr_core2(expr * t, expr * a) override {
+    void assert_expr_core2(expr * t, expr * a) override {        
         if (a) {
             m_asmsf.push_back(a);
             assert_expr_core(m.mk_implies(a, t));
@@ -308,10 +308,19 @@ public:
         return nullptr;
     }
 
+    expr_ref_vector last_cube(bool is_sat) {
+        expr_ref_vector result(m);
+        result.push_back(is_sat ? m.mk_true() : m.mk_false());
+        return result;
+    }
+
     expr_ref_vector cube(expr_ref_vector& vs, unsigned backtrack_level) override {
         if (!is_internalized()) {
             lbool r = internalize_formulas();
-            if (r != l_true) return expr_ref_vector(m);
+            if (r != l_true) {
+                IF_VERBOSE(0, verbose_stream() << "internalize produced " << r << "\n");
+                return expr_ref_vector(m);
+            }
         }
         convert_internalized();
         obj_hashtable<expr> _vs;
@@ -323,14 +332,18 @@ public:
         }
         sat::literal_vector lits;
         lbool result = m_solver.cube(vars, lits, backtrack_level);
-        if (result == l_false || lits.empty()) {
-            expr_ref_vector result(m);
-            result.push_back(m.mk_false());
-            return result;
+        switch (result) {
+        case l_true:
+            return last_cube(true);
+        case l_false: 
+            return last_cube(false);
+        default: 
+            break;
         }
-        if (result == l_true) {
+        if (lits.empty()) {
+            set_reason_unknown(m_solver.get_reason_unknown());
             return expr_ref_vector(m);
-        }        
+        }
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
@@ -473,6 +486,7 @@ public:
     }
 
     void convert_internalized() {
+        m_solver.pop_to_base_level();
         if (!is_internalized() && m_fmls_head > 0) {
             internalize_formulas();
         }

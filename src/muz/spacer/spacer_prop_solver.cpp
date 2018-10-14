@@ -94,6 +94,7 @@ void prop_solver::add_level()
 
 void prop_solver::ensure_level(unsigned lvl)
 {
+    if (is_infty_level(lvl)) return;
     while (lvl >= level_cnt()) {
         add_level();
     }

@@ -396,7 +396,9 @@ namespace smt {
         for (; it != end; ++it) {
             if (!it->is_dead() && it->m_var != b && is_free(it->m_var)) {
                 theory_var v  = it->m_var;
-                expr * bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(rational::zero(), is_int(v)));
+                expr* e = get_enode(v)->get_owner();
+                bool _is_int = m_util.is_int(e);
+                expr * bound  = m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int));
                 context & ctx = get_context();
                 ctx.internalize(bound, true);
                 ctx.mark_as_relevant(bound);

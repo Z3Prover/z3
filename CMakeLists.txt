@@ -240,7 +240,7 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
   endif()
 elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-  # Does OSX really not need any special flags?
+  # Does macOS really not need any special flags?
   message(STATUS "Platform: Darwin")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
@@ -380,9 +380,17 @@ endif()
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
 if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel"))
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+      # Intel's compiler requires linking with libiomp5
+      list(APPEND Z3_DEPENDENT_LIBS "iomp5")
+    endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # FIXME: Remove "x.." when CMP0054 is set to NEW
+  elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+    set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
+    # Intel's compiler requires linking with libiomp5 
+    list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
   elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()

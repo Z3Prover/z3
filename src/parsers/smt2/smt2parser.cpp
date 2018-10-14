@@ -2614,7 +2614,7 @@ namespace smt2 {
 
             check_rparen("invalid get-value command, ')' expected");
             model_ref md;
-            if (!m_ctx.is_model_available(md) || m_ctx.get_check_sat_result() == 0)
+            if (!m_ctx.is_model_available(md) || m_ctx.get_check_sat_result() == nullptr)
                 throw cmd_exception("model is not available");
             if (index != 0) {
                 m_ctx.get_opt()->get_box_model(md, index);

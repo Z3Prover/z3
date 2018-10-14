@@ -1103,6 +1103,7 @@ namespace smt {
                 e = m_util.mk_gt(obj, e);
             }
         }
+        TRACE("opt", tout << e << "\n";);
         return e;
     }
 
@@ -1119,6 +1120,8 @@ namespace smt {
         std::ostringstream strm;
         strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
         app* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
+        expr_ref result(b, m);
+        TRACE("opt", tout << result << "\n";);
         if (!ctx.b_internalized(b)) {
             fm.hide(b->get_decl());
             bool_var bv = ctx.mk_bool_var(b);
@@ -1133,7 +1136,7 @@ namespace smt {
             TRACE("arith", tout << mk_pp(b, m) << "\n";
                   display_atom(tout, a, false););            
         }
-        return expr_ref(b, m);
+        return result;
     }
 
 

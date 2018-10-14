@@ -21,6 +21,7 @@ Revision History:
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/id_gen.h"
 #include "ast/ast_smt2_pp.h"
+#include "util/gparams.h"
 
 struct arith_decl_plugin::algebraic_numbers_wrapper {
     unsynch_mpq_manager           m_qmanager;
@@ -487,7 +488,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         if (arity != 1 || domain[0] != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
             m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
         }
-        return m_manager->mk_func_decl(symbol("divides"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
+        return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
 
@@ -512,7 +513,7 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         if (num_args != 1 || m_manager->get_sort(args[0]) != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
             m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
         }
-        return m_manager->mk_func_decl(symbol("divides"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
+        return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     }
     if (m_manager->int_real_coercions() && use_coercion(k)) {
@@ -549,8 +550,9 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("*",OP_MUL));
     op_names.push_back(builtin_name("/",OP_DIV));
     op_names.push_back(builtin_name("div",OP_IDIV));
-    // clashes with user-defined functions
-    // op_names.push_back(builtin_name("divides",OP_IDIVIDES));
+    if (gparams::get_value("smtlib2_compliant") == "true") {
+        op_names.push_back(builtin_name("divisible",OP_IDIVIDES));
+    }
     op_names.push_back(builtin_name("rem",OP_REM));
     op_names.push_back(builtin_name("mod",OP_MOD));
     op_names.push_back(builtin_name("to_real",OP_TO_REAL));

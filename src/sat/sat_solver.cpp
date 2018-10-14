@@ -66,18 +66,20 @@ namespace sat {
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
-        m_ext                     = 0;
+        m_ext                     = nullptr;
         m_cuber                   = nullptr;
         m_mc.set_solver(this);
     }
 
     solver::~solver() {
-        m_ext = 0;
+        m_ext = nullptr;
         SASSERT(check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses);
         TRACE("sat", tout << "Delete learned\n";);
         del_clauses(m_learned);
+        dealloc(m_cuber);
+        m_cuber = nullptr;
     }
 
     void solver::del_clauses(clause_vector& clauses) {
@@ -1008,14 +1010,39 @@ namespace sat {
     }
 
     lbool solver::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
-        if (!m_cuber) {
+        bool is_first = !m_cuber;
+        if (is_first) {
             m_cuber = alloc(lookahead, *this);
         }
         lbool result = m_cuber->cube(vars, lits, backtrack_level);
         m_cuber->update_cube_statistics(m_aux_stats);
-        if (result == l_false) {
+        switch (result) {
+        case l_false:
             dealloc(m_cuber);
             m_cuber = nullptr;
+            if (is_first) {
+                pop_to_base_level();
+                set_conflict(justification());
+            }
+            break;
+        case l_true: {
+            lits.reset();
+            pop_to_base_level();
+            model const& mdl = m_cuber->get_model();
+            for (bool_var v = 0; v < mdl.size(); ++v) {
+                if (value(v) != l_undef) {
+                    continue;
+                }
+                literal l(v, false);
+                if (mdl[v] != l_true) l.neg();
+                push();
+                assign_core(l, justification());
+            }
+            mk_model();
+            break;
+        }
+        default:
+            break;
         }
         return result;
     }
@@ -1053,7 +1080,7 @@ namespace sat {
             init_assumptions(num_lits, lits);
             propagate(false);
             if (check_inconsistent()) return l_false;
-            cleanup();
+            cleanup(m_config.m_force_cleanup);
 
             if (m_config.m_unit_walk) {
                 return do_unit_walk();
@@ -1127,7 +1154,7 @@ namespace sat {
         srch.config().set_config(m_config);
         srch.import(*this, false);
         scoped_rl.push_child(&srch.rlimit());
-        lbool r = srch.check(num_lits, lits, 0);
+        lbool r = srch.check(num_lits, lits, nullptr);
         m_model = srch.get_model();
         // srch.collect_statistics(m_aux_stats);
         return r;
@@ -1264,7 +1291,7 @@ namespace sat {
         if (!canceled) {
             rlimit().reset_cancel();
         }
-        set_par(0, 0);        
+        set_par(nullptr, 0);
         ls.reset();
         uw.reset();
         if (finished_id == -1) {
@@ -1425,7 +1452,7 @@ namespace sat {
         if (should_restart()) 
             return l_undef;
         if (at_base_lvl()) {
-            cleanup(); // cleaner may propagate frozen clauses
+            cleanup(false); // cleaner may propagate frozen clauses
             if (inconsistent()) {
                 TRACE("sat", tout << "conflict at level 0\n";);
                 return l_false;
@@ -1621,7 +1648,7 @@ namespace sat {
 
         SASSERT(at_base_lvl());
 
-        m_cleaner();
+        m_cleaner(m_config.m_force_cleanup);
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_scc();
@@ -3662,10 +3689,10 @@ namespace sat {
     // Simplification
     //
     // -----------------------
-    void solver::cleanup() {
+    void solver::cleanup(bool force) {
         if (!at_base_lvl() || inconsistent())
             return;
-        if (m_cleaner() && m_ext)
+        if (m_cleaner(force) && m_ext)
             m_ext->clauses_modifed();
     }
 

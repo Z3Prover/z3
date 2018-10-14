@@ -1862,8 +1862,9 @@ namespace sat {
         return p;        
     }
 
-    ba_solver::ba_solver(): m_solver(0), m_lookahead(0), m_unit_walk(0), 
-                            m_allocator("ba"), m_constraint_id(0), m_ba(*this), m_sort(m_ba) {        
+    ba_solver::ba_solver()
+        : m_solver(nullptr), m_lookahead(nullptr), m_unit_walk(nullptr), 
+          m_constraint_id(0), m_ba(*this), m_sort(m_ba) {
         TRACE("ba", tout << this << "\n";);
         m_num_propagations_since_pop = 0;
     }
@@ -3838,7 +3839,7 @@ namespace sat {
         }
         init_visited();
         for (wliteral l : p1) {
-            SASSERT(m_weights.get(l.second.index(), 0) == 0);
+            SASSERT(m_weights.size() <= l.second.index() || m_weights[l.second.index()] == 0);
             m_weights.setx(l.second.index(), l.first, 0);
             mark_visited(l.second);  
         }
@@ -4394,6 +4395,12 @@ namespace sat {
         }
 
         if (slack >= k) {
+#if 0
+            return active2constraint();
+            active2pb(m_A);
+            std::cout << "not asserting\n";
+            display(std::cout, m_A, true);
+#endif
             return nullptr;
         }
 

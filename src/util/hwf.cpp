@@ -45,7 +45,7 @@ Revision History:
 // For SSE2, it is best to use compiler intrinsics because this makes it completely
 // clear to the compiler what instructions should be used. E.g., for sqrt(), the Windows compiler selects
 // the x87 FPU, even when /arch:SSE2 is on.
-// Luckily, these are kind of standardized, at least for Windows/Linux/OSX.
+// Luckily, these are kind of standardized, at least for Windows/Linux/macOS.
 #ifdef __clang__
 #undef USE_INTRINSICS
 #endif
@@ -75,14 +75,14 @@ hwf_manager::hwf_manager() :
 #endif
 #endif
 #else
-    // OSX/Linux: Nothing.
+    // macOS/Linux: Nothing.
 #endif
 
     // We only set the precision of the FPU here in the constructor. At the moment, there are no
     // other parts of the code that could overwrite this, and Windows takes care of context switches.
 
     // CMW: I'm not sure what happens on CPUs with hyper-threading (since the FPU is shared).
-    // I have yet to discover whether Linux and OSX save the FPU state when switching context.
+    // I have yet to discover whether Linux and macOS save the FPU state when switching context.
     // As long as we stick to using the SSE2 FPU though, there shouldn't be any problems with respect
     // to the precision (not sure about the rounding modes though).
 }
@@ -279,7 +279,7 @@ void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf co
   #endif
 #endif
 #else
-    // Linux, OSX
+    // Linux, macOS
     o.value = ::fma(x.value, y.value, z.value);
 #endif
 #endif
@@ -331,7 +331,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     }
 #endif
 #else
-    // Linux, OSX.
+    // Linux, macOS.
     o.value = nearbyint(x.value);
 #endif
 }
@@ -623,7 +623,7 @@ void hwf_manager::set_rounding_mode(mpf_rounding_mode rm)
         UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
     }
 #endif
-#else // OSX/Linux
+#else // macOS/Linux
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN:
         SETRM(FE_TONEAREST);

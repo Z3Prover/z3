@@ -78,11 +78,11 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
     int i = 1;
     while (i < argc) {
 	char * arg = argv[i];    
-        char * eq_pos = 0;
+        char * eq_pos = nullptr;
         
         if (arg[0] == '-' || arg[0] == '/') {
             char * opt_name = arg + 1;
-            char * opt_arg  = 0;
+            char * opt_arg  = nullptr;
             char * colon    = strchr(arg, ':');
             if (colon) {
                 opt_arg = colon + 1;
@@ -97,7 +97,7 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
             else if (strcmp(opt_name, "v") == 0) {
                 if (!opt_arg)
                     error("option argument (/v:level) is missing.");
-                long lvl = strtol(opt_arg, 0, 10);
+                long lvl = strtol(opt_arg, nullptr, 10);
                 set_verbosity_level(lvl);
             }
             else if (strcmp(opt_name, "w") == 0) {

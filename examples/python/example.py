@@ -20,7 +20,7 @@
 # export PYTHONPATH=MYZ3/bin/python
 # python example.py
 
-# Running this example on OSX:
+# Running this example on macOS:
 # export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:MYZ3/bin
 # export PYTHONPATH=MYZ3/bin/python
 # python example.py

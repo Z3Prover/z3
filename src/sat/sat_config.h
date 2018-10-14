@@ -146,6 +146,8 @@ namespace sat {
         bool               m_gc_burst;
         bool               m_gc_defrag;
 
+        bool               m_force_cleanup;
+
 
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;

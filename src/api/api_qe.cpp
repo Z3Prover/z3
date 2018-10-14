@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2018 Microsoft Corporation
+Copyright (c) Microsoft Corporation, Arie Gurfinkel 2017
 
 Module Name:
 
@@ -70,39 +70,39 @@ extern "C"
     }
 
     Z3_ast Z3_API Z3_qe_model_project_skolem (Z3_context c,
-                                              Z3_model m,
+                                              Z3_model mdl,
                                               unsigned num_bounds,
                                               Z3_app const bound[],
                                               Z3_ast body,
                                               Z3_ast_map map)
     {
         Z3_TRY;
-        LOG_Z3_qe_model_project_skolem (c, m, num_bounds, bound, body, map);
+        LOG_Z3_qe_model_project_skolem (c, mdl, num_bounds, bound, body, map);
         RESET_ERROR_CODE();
 
-        ast_manager& man = mk_c(c)->m ();
-        app_ref_vector vars(man);
+        ast_manager& m = mk_c(c)->m();
+        app_ref_vector vars(m);
         if (!to_apps(num_bounds, bound, vars)) {
             RETURN_Z3(nullptr);
         }
 
-        expr_ref result (mk_c(c)->m ());
+        expr_ref result (m);
         result = to_expr (body);
-        model_ref model (to_model_ref (m));
-        expr_map emap (man);
+        model_ref model (to_model_ref (mdl));
+        expr_map emap (m);
 
-        spacer::qe_project (mk_c(c)->m (), vars, result, model, emap);
-        mk_c(c)->save_ast_trail (result.get ());
+        spacer::qe_project(m, vars, result, model, emap);
+        mk_c(c)->save_ast_trail(result);
 
         obj_map<ast, ast*> &map_z3 = to_ast_map_ref(map);
 
-        for (expr_map::iterator it = emap.begin(), end = emap.end(); it != end; ++it){
-            man.inc_ref(&(it->get_key()));
-            man.inc_ref(it->get_value());
-            map_z3.insert(&(it->get_key()), it->get_value());
+        for (auto& kv : emap) {
+            m.inc_ref(kv.m_key);
+            m.inc_ref(kv.m_value);
+            map_z3.insert(kv.m_key, kv.m_value);
         }
 
-        return of_expr (result.get ());
+        return of_expr (result);
         Z3_CATCH_RETURN(nullptr);
     }
 
@@ -124,9 +124,9 @@ extern "C"
 
         expr_ref result (mk_c(c)->m ());
         result = mk_and (lits);
-        mk_c(c)->save_ast_trail (result.get ());
+        mk_c(c)->save_ast_trail (result);
 
-        return of_expr (result.get ());
+        return of_expr (result);
         Z3_CATCH_RETURN(nullptr);
     }
 
@@ -138,8 +138,8 @@ extern "C"
         ast_ref_vector &vVars = to_ast_vector_ref (vars);
 
         app_ref_vector vApps (mk_c(c)->m());
-        for (unsigned i = 0; i < vVars.size (); ++i) {
-            app *a = to_app (vVars.get (i));
+        for (ast* v : vVars) {
+            app * a = to_app(v);
             if (a->get_kind () != AST_APP) {
                 SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
                 RETURN_Z3(nullptr);
@@ -162,7 +162,7 @@ extern "C"
             }
         }
 
-        mk_c(c)->save_ast_trail (result.get ());
+        mk_c(c)->save_ast_trail (result);
         return of_expr (result);
         Z3_CATCH_RETURN(nullptr);
     }

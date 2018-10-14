@@ -468,7 +468,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_decl_symbol_parameter(c, d, idx);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(d, 0);
+        CHECK_VALID_AST(d, nullptr);
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return nullptr;
@@ -486,7 +486,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_decl_sort_parameter(c, d, idx);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(d, 0);
+        CHECK_VALID_AST(d, nullptr);
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
@@ -504,7 +504,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_decl_ast_parameter(c, d, idx);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(d, 0);
+        CHECK_VALID_AST(d, nullptr);
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
@@ -522,7 +522,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_decl_func_decl_parameter(c, d, idx);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(d, 0);
+        CHECK_VALID_AST(d, nullptr);
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
@@ -596,7 +596,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_domain(c, d, i);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(d, 0);
+        CHECK_VALID_AST(d, nullptr);
         if (i >= to_func_decl(d)->get_arity()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);

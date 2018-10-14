@@ -152,6 +152,8 @@ namespace sat {
         m_gc_burst        = p.gc_burst();
         m_gc_defrag       = p.gc_defrag();
 
+        m_force_cleanup   = p.force_cleanup();
+
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();

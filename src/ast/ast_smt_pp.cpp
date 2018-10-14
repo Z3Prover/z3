@@ -117,7 +117,7 @@ bool smt_renaming::all_is_legal(char const* s) {
 }
 
 smt_renaming::smt_renaming() {
-    for (unsigned i = 0; i < ARRAYSIZE(m_predef_names); ++i) {
+    for (unsigned i = 0; i < Z3_ARRAYSIZE(m_predef_names); ++i) {
         symbol s(m_predef_names[i]);
         m_translate.insert(s, sym_b(s, false));
         m_rev_translate.insert(s, s);

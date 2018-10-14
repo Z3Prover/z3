@@ -73,7 +73,7 @@ def _build_z3():
         if subprocess.call(['nmake'], env=build_env,
                            cwd=BUILD_DIR) != 0:
             raise LibError("Unable to build Z3.")
-    else:   # linux and osx
+    else:   # linux and macOS
         if subprocess.call(['make', '-j', str(multiprocessing.cpu_count())],
                     env=build_env, cwd=BUILD_DIR) != 0:
             raise LibError("Unable to build Z3.")

@@ -1161,14 +1161,14 @@ void setup_solver(unsigned max_iterations, unsigned time_limit, bool look_for_mi
 bool values_are_one_percent_close(double a, double b);
 
 void print_x(mps_reader<double, double> & reader, lp_solver<double, double> * solver) {
-    for (auto name : reader.column_names()) {
+    for (const auto & name : reader.column_names()) {
         std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
     }
     std::cout << std::endl;
 }
 
 void compare_solutions(mps_reader<double, double> & reader, lp_solver<double, double> * solver, lp_solver<double, double> * solver0) {
-    for (auto name : reader.column_names()) {
+    for (const auto & name : reader.column_names()) {
         double a = solver->get_column_value_by_name(name);
         double b = solver0->get_column_value_by_name(name);
         if (!values_are_one_percent_close(a, b)) {
@@ -1299,7 +1299,7 @@ void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /
         std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
         if (solver->get_status() == lp_status::OPTIMAL) {
             if (reader.column_names().size() < 20) {
-                for (auto name : reader.column_names()) {
+                for (const auto & name : reader.column_names()) {
                     std::cout << name << "=" << solver->get_column_value_by_name(name).get_double() << ' ';
                 }
             }
@@ -1414,7 +1414,7 @@ void solve_mps_with_known_solution(std::string file_name, std::unordered_map<std
                 }
             }
             if (reader.column_names().size() < 20) {
-                for (auto name : reader.column_names()) {
+                for (const auto & name : reader.column_names()) {
                     std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
                 }
                 std::cout << std::endl;
@@ -1775,7 +1775,7 @@ void solve_rational() {
     expected_sol["x8"] = lp::mpq(0);
     solver.find_maximal_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
-    for (auto it : expected_sol) {
+    for (const auto & it : expected_sol) {
         lp_assert(it.second == solver.get_column_value_by_name(it.first));
     }
 }
@@ -2369,7 +2369,7 @@ void test_files_from_directory(std::string test_file_dir, argument_parser & args
 
 std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp::mpq> * lps, mps_reader<lp::mpq, lp::mpq> & reader) {
     std::unordered_map<std::string, lp::mpq> ret;
-    for (auto it : reader.column_names()) {
+    for (const auto & it : reader.column_names()) {
         ret[it] = lps->get_column_value_by_name(it);
     }
     return ret;
@@ -2487,7 +2487,7 @@ void test_lar_solver(argument_parser & args_parser) {
 
     std::string file_list = args_parser.get_option_value("--filelist");
     if (file_list.size() > 0) {
-        for (std::string fn : get_file_names_from_file_list(file_list))
+        for (const std::string & fn : get_file_names_from_file_list(file_list))
             test_lar_on_file(fn, args_parser);
         return;
     }
@@ -2667,13 +2667,20 @@ void test_term() {
     lar_solver solver;
     unsigned _x = 0;
     unsigned _y = 1;
+    unsigned _one = 2;
     var_index x = solver.add_var(_x, false);
     var_index y = solver.add_var(_y, false);
+    var_index one = solver.add_var(_one, false);
+
+    vector<std::pair<mpq, var_index>> term_one;
+    term_one.push_back(std::make_pair((int)1, one));
+    solver.add_constraint(term_one, lconstraint_kind::EQ, mpq(0));
 
     vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
     term_ls.push_back(std::pair<mpq, var_index>((int)1, y));
-    var_index z = solver.add_term(term_ls, mpq(3));
+    term_ls.push_back(std::make_pair((int)3, one));
+    var_index z = solver.add_term(term_ls);
 
     vector<std::pair<mpq, var_index>> ls;
     ls.push_back(std::pair<mpq, var_index>((int)1, x));
@@ -2743,10 +2750,10 @@ void test_bound_propagation_one_small_sample1() {
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::pair<mpq, var_index>(1, a));
     coeffs.push_back(std::pair<mpq, var_index>(-1, c));
-    ls.add_term(coeffs, zero_of_type<mpq>());
+    ls.add_term(coeffs);
     coeffs.pop_back();
     coeffs.push_back(std::pair<mpq, var_index>(-1, b));
-    ls.add_term(coeffs, zero_of_type<mpq>());
+    ls.add_term(coeffs);
     coeffs.clear();
     coeffs.push_back(std::pair<mpq, var_index>(1, a));
     coeffs.push_back(std::pair<mpq, var_index>(-1, b));
@@ -3485,12 +3492,12 @@ void test_maximize_term() {
     vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
     term_ls.push_back(std::pair<mpq, var_index>((int)-1, y));
-    unsigned term_x_min_y = solver.add_term(term_ls, mpq(0));
+    unsigned term_x_min_y = solver.add_term(term_ls);
     term_ls.clear();
     term_ls.push_back(std::pair<mpq, var_index>((int)2, x));
     term_ls.push_back(std::pair<mpq, var_index>((int)2, y));
     
-    unsigned term_2x_pl_2y = solver.add_term(term_ls, mpq(0));
+    unsigned term_2x_pl_2y = solver.add_term(term_ls);
     solver.add_var_bound(term_x_min_y,  LE, zero_of_type<mpq>());
     solver.add_var_bound(term_2x_pl_2y, LE, mpq((int)5));
     solver.find_feasible_solution();
@@ -3502,8 +3509,7 @@ void test_maximize_term() {
         std::cout<< "v[" << p.first << "] = " << p.second << std::endl;
     }
     std::cout << "calling int_solver\n";
-    lar_term t; mpq k; explanation ex; bool upper;
-    lia_move lm = i_solver.check(t, k, ex, upper);
+    lia_move lm = i_solver.check();
     VERIFY(lm == lia_move::sat);
     impq term_max;
     lp_status st = solver.maximize_term(term_2x_pl_2y, term_max);
@@ -3618,7 +3624,7 @@ void test_lp_local(int argn, char**argv) {
     }
     std::string file_list = args_parser.get_option_value("--filelist");
     if (file_list.size() > 0) {
-        for (std::string fn : get_file_names_from_file_list(file_list))
+        for (const std::string & fn : get_file_names_from_file_list(file_list))
             solve_mps(fn, args_parser);
         return finalize(0);
     }

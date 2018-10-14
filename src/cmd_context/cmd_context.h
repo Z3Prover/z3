@@ -148,8 +148,8 @@ public:
     virtual bool empty() = 0;
     virtual void push() = 0;
     virtual void pop(unsigned n) = 0;
-    virtual lbool optimize() = 0;
-    virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
+    virtual lbool optimize(expr_ref_vector const& asms) = 0;
+    virtual void set_hard_constraints(expr_ref_vector const & hard) = 0;
     virtual void display_assignment(std::ostream& out) = 0;
     virtual bool is_pareto() = 0;
     virtual void set_logic(symbol const& s) = 0;
@@ -452,11 +452,8 @@ public:
 
     double get_seconds() const { return m_watch.get_seconds(); }
 
-    ptr_vector<expr>::const_iterator begin_assertions() const { return m_assertions.begin(); }
-    ptr_vector<expr>::const_iterator end_assertions() const { return m_assertions.end(); }
-
-    ptr_vector<expr>::const_iterator begin_assertion_names() const { return m_assertion_names.begin(); }
-    ptr_vector<expr>::const_iterator end_assertion_names() const { return m_assertion_names.end(); }
+    ptr_vector<expr> const& assertions() const { return m_assertions; }
+    ptr_vector<expr> const& assertion_names() const { return m_assertion_names; }
 
     /**
        \brief Hack: consume assertions if there are no scopes.

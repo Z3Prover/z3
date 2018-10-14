@@ -1976,6 +1976,22 @@ public class Context implements AutoCloseable {
     {
         return (SeqExpr) Expr.create(this, Native.mkString(nCtx(), s));
     }
+
+    /**
+     * Convert an integer expression to a string.
+     */
+    public SeqExpr intToString(Expr e) 
+    {
+	return (SeqExpr) Expr.create(this, Native.mkIntToStr(nCtx(), e.getNativeObject()));
+    }
+
+    /**
+     * Convert an integer expression to a string.
+     */
+    public IntExpr stringToInt(Expr e)  
+    {
+	return (IntExpr) Expr.create(this, Native.mkStrToInt(nCtx(), e.getNativeObject()));
+    }
     
     /**
      * Concatenate sequences.

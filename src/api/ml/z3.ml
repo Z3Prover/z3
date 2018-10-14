@@ -43,6 +43,14 @@ let mk_list f n =
   in
   mk_list' 0 []
 
+let check_int32 v = v = Int32.to_int (Int32.of_int v)
+
+let mk_int_expr ctx v ty = 
+   if not (check_int32 v) then
+      Z3native.mk_numeral ctx (string_of_int v) ty
+   else
+      Z3native.mk_int ctx v ty
+    
 let mk_context (settings:(string * string) list) =
   let cfg = Z3native.mk_config () in
   let f e = Z3native.set_param_value cfg (fst e) (snd e) in
@@ -531,7 +539,7 @@ end = struct
   let mk_fresh_const (ctx:context) (prefix:string) (range:Sort.sort) = Z3native.mk_fresh_const ctx prefix range
   let mk_app (ctx:context) (f:FuncDecl.func_decl) (args:expr list) = expr_of_func_app ctx f args
   let mk_numeral_string (ctx:context) (v:string) (ty:Sort.sort) = Z3native.mk_numeral ctx v ty
-  let mk_numeral_int (ctx:context) (v:int) (ty:Sort.sort) = Z3native.mk_int ctx v ty
+  let mk_numeral_int (ctx:context) (v:int) (ty:Sort.sort) = mk_int_expr ctx v ty
   let equal (a:expr) (b:expr) = AST.equal a b
   let compare (a:expr) (b:expr) = AST.compare a b
 end
@@ -1036,7 +1044,7 @@ struct
     let mk_mod = Z3native.mk_mod
     let mk_rem = Z3native.mk_rem
     let mk_numeral_s (ctx:context) (v:string) = Z3native.mk_numeral ctx v (mk_sort ctx)
-    let mk_numeral_i (ctx:context) (v:int) = Z3native.mk_int ctx v (mk_sort ctx)
+    let mk_numeral_i (ctx:context) (v:int) = mk_int_expr ctx v (mk_sort ctx)
     let mk_int2real = Z3native.mk_int2real
     let mk_int2bv = Z3native.mk_int2bv
   end
@@ -1061,11 +1069,13 @@ struct
     let mk_numeral_nd (ctx:context) (num:int) (den:int) =
       if den = 0 then
         raise (Error "Denominator is zero")
+      else if not (check_int32 num) || not (check_int32 den) then
+        raise (Error "numerals don't fit in 32 bits")
       else
         Z3native.mk_real ctx num den
 
     let mk_numeral_s (ctx:context) (v:string) = Z3native.mk_numeral ctx v (mk_sort ctx)
-    let mk_numeral_i (ctx:context) (v:int) = Z3native.mk_int ctx v (mk_sort ctx)
+    let mk_numeral_i (ctx:context) (v:int) = mk_int_expr ctx v (mk_sort ctx)
     let mk_is_integer = Z3native.mk_is_int
     let mk_real2int = Z3native.mk_real2int
 
@@ -1154,11 +1164,6 @@ struct
   let is_bv_carry (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_CARRY)
   let is_bv_xor3 (x:expr) = (AST.is_app x) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) = OP_XOR3)
   let get_size (x:Sort.sort) = Z3native.get_bv_sort_size (Sort.gc x) x
-
-  let get_int (x:expr) =
-    match Z3native.get_numeral_int (Expr.gc x) x with
-    | true, v -> v
-    | false, _ -> raise (Error "Conversion failed.")
 
   let numeral_to_string (x:expr) = Z3native.get_numeral_string (Expr.gc x) x
   let mk_const (ctx:context) (name:Symbol.symbol) (size:int) =
@@ -1810,8 +1815,10 @@ struct
     | _ -> UNKNOWN
 
   let get_model x =
-    let q = Z3native.solver_get_model (gc x) x in
-    if Z3native.is_null_model q then None else Some q
+    try 
+       let q = Z3native.solver_get_model (gc x) x in
+       if Z3native.is_null_model q then None else Some q 
+    with | _ -> None
 
   let get_proof x =
     let q = Z3native.solver_get_proof (gc x) x in
@@ -1940,15 +1947,17 @@ struct
   let minimize (x:optimize) (e:Expr.expr) = mk_handle x (Z3native.optimize_minimize (gc x) x e)
 
   let check (x:optimize) =
-    let r = lbool_of_int (Z3native.optimize_check (gc x) x) in
+    let r = lbool_of_int (Z3native.optimize_check (gc x) x) 0 [] in
     match r with
     | L_TRUE -> Solver.SATISFIABLE
     | L_FALSE -> Solver.UNSATISFIABLE
     | _ -> Solver.UNKNOWN
 
   let get_model (x:optimize) =
-    let q = Z3native.optimize_get_model (gc x) x in
-    if Z3native.is_null_model q then None else Some q
+    try
+      let q = Z3native.optimize_get_model (gc x) x in
+      if Z3native.is_null_model q then None else Some q
+    with | _ -> None
 
   let get_lower (x:handle) = Z3native.optimize_get_lower (gc x.opt) x.opt x.h
   let get_upper (x:handle) = Z3native.optimize_get_upper (gc x.opt) x.opt x.h
