@@ -19,7 +19,6 @@ Revision History:
 
 --*/
 
-#include <functional>
 
 #include "muz/spacer/spacer_context.h"
 #include "muz/spacer/spacer_generalizers.h"
@@ -37,7 +36,7 @@ Revision History:
 using namespace spacer;
 
 namespace {
-struct index_lt_proc : public std::function<bool(app*, app*)> {
+struct index_lt_proc : public std::binary_function<app*, app *, bool> {
     arith_util m_arith;
     index_lt_proc(ast_manager &m) : m_arith(m) {}
     bool operator() (app *a, app *b) {
