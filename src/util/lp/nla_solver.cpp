@@ -1120,8 +1120,57 @@ struct solver::imp {
         return true;
     }
 
+    // // |xy| >= |y| -> |x| >= 1 or y = 0
+    // bool basic_lemma_for_mon_proportionality_from_monomial_to_factors_ge_j(unsigned i_mon, const factorization& f, lpvar j) {
+    //     if (vvr(j).is_zero()){
+    //         return false;
+    //     }
+        
+        
+    //     for (lpvar k : f) {
+    //         if (k == j) {
+    //             continue;
+    //         }
+            
+    //         if (vvr(k).is_zero()) {
+    //             mk_
+    //         }
+    //     }
+    // }
+    // // |xy| >= |y| -> |x| >= 1 or y = 0
+    // // or
+    // // |xy| <= |y| -> |x| <= 1 or y = 0
+    // bool basic_lemma_for_mon_proportionality_from_monomial_to_factors(unsigned i_mon, const factorization& f) {
+    //     lpvar mon_var = m_monomials[i_mon].var();
+    //     for (lpvar j : f) {
+    //         if (abs(vvr(mon_var)) >= abs(vvr(j))) {
+    //             if (basic_lemma_for_mon_proportionality_from_monomial_to_factors_ge_j(i_mon, f, j))
+    //                 return true;
+                
+    //         }
+    //         if (abs(vvr(mon_var)) <= abs(vvr(j)) ) {
+    //             if (basic_lemma_for_mon_proportionality_from_monomial_to_factors_le_j(i_mon, f, j))
+    //                 return true;
+                
+    //         }
+    //     }
+    //     return false;
+    // }
+    
+    // |x| >= 1 or y = 0  -> |xy| >= |y| 
+    // or
+    // |x| <= 1 or y = 0  -> |xy| <= |y| 
+    bool basic_lemma_for_mon_proportionality_from_factors_to_monomial(unsigned i_mon, const factorization& f) {
+        return false;
+    } 
+
+    
     bool basic_lemma_for_mon_proportionality(unsigned i_mon, const factorization& f) {
         return false;
+        // return basic_lemma_for_mon_proportionality_from_monomial_to_factors(i_mon, f)
+        //     ||
+        //     basic_lemma_for_mon_proportionality_from_factors_to_monomial(i_mon, f)
+        //     ;
     }
 
     
