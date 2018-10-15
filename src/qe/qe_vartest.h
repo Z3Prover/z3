@@ -21,10 +21,9 @@ Revision History:
 
 #include "ast/ast.h"
 #include "util/uint_set.h"
-#include <functional>
 
 // TBD: move under qe namespace
-class is_variable_proc : public std::function<bool(expr*)> {
+class is_variable_proc : public std::unary_function<expr*,bool> {
 public:
     virtual bool operator()(const expr* e) const = 0;
 };
