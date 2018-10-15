@@ -1952,7 +1952,7 @@ struct
   let minimize (x:optimize) (e:Expr.expr) = mk_handle x (Z3native.optimize_minimize (gc x) x e)
 
   let check (x:optimize) =
-    let r = lbool_of_int (Z3native.optimize_check (gc x) x 0 []) 0 in
+    let r = lbool_of_int (Z3native.optimize_check (gc x) x 0 []) in
     match r with
     | L_TRUE -> Solver.SATISFIABLE
     | L_FALSE -> Solver.UNSATISFIABLE
