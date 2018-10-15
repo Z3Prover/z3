@@ -707,7 +707,8 @@ struct
   let mk_exists_const = _internal_mk_quantifier_const ~universal:false
   let mk_lambda_const ctx bound body = Z3native.mk_lambda_const ctx (List.length bound) bound body
   let mk_lambda ctx bound body = 
-      let (names, sorts) = List.unzip bound in
+      let names = List.map (fun (x,_) -> x) bound in
+      let sorts = List.map (fun (_,y) -> y) bound in
       Z3native.mk_lambda ctx (List.length bound) sorts names body
 
   let mk_quantifier (ctx:context) (universal:bool) (sorts:Sort.sort list) (names:Symbol.symbol list) (body:expr) (weight:int option) (patterns:Pattern.pattern list) (nopatterns:expr list) (quantifier_id:Symbol.symbol option) (skolem_id:Symbol.symbol option) =
