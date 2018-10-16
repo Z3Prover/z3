@@ -394,8 +394,7 @@ struct solver::imp {
             mk_ineq(j, lp::lconstraint_kind::EQ);
         }
         expl_set e;
-        add_explanation_of_factorization(i_mon, f, e);
-        set_expl(e);
+        add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
         return true;
     }
 
@@ -411,6 +410,11 @@ struct solver::imp {
         add_explanation_of_reducing_to_rooted_monomial(m_monomials[i_mon], e);
     }
 
+    void add_explanation_of_factorization_and_set_explanation(unsigned i_mon, const factorization& f, expl_set& e){
+        add_explanation_of_factorization(i_mon, f, e);
+        set_expl(e);
+    }
+    
     // x = 0 or y = 0 -> xy = 0
     bool basic_lemma_for_mon_zero_from_factors_to_monomial(unsigned i_mon, const factorization& f) {
         if (vvr(m_monomials[i_mon].var()).is_zero())
@@ -431,8 +435,7 @@ struct solver::imp {
         mk_ineq(m_monomials[i_mon].var(), lp::lconstraint_kind::EQ);
 
         expl_set e;
-        add_explanation_of_factorization(i_mon, f, e);
-        set_expl(e);
+        add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
         return true;
     }
 
@@ -489,7 +492,9 @@ struct solver::imp {
         mk_ineq(not_one_j, lp::lconstraint_kind::EQ,  rational(1));   
         
         // not_one_j = -1
-        mk_ineq(not_one_j, lp::lconstraint_kind::EQ, -rational(1));   
+        mk_ineq(not_one_j, lp::lconstraint_kind::EQ, -rational(1));
+        expl_set e;
+        add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
         return true;
     }
 
@@ -516,6 +521,9 @@ struct solver::imp {
             return false;
         }
 
+        expl_set e;
+        add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
+        
         if (not_one_j == static_cast<lpvar>(-1)) {
      		// we can derive that the value of the monomial is equal to sign
             for (lpvar j : f){
@@ -644,7 +652,6 @@ struct solver::imp {
     }
 
     void register_key_mono_in_min_monomials(monomial_coeff const& mc, unsigned i) {
-
         mono_index_with_sign ms(i, mc.coeff());
         auto it = m_rooted_monomials.find(mc.vars());
         if (it == m_rooted_monomials.end()) {
