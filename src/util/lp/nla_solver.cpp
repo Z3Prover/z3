@@ -326,93 +326,6 @@ struct solver::imp {
         return 2; // the sign of the variable is not defined
     }
     
-
-    // Return 0 if the monomial has to to have a zero value,
-    // -1 if the monomial has to be negative or zero 
-    // 1 if positive or zero
-    // otherwise return 2 (2 is not a sign!)
-    // if strict is true then 0 is excluded
-    int get_mon_sign_zero(unsigned i_mon, bool & strict) {
-        int sign = 1;
-        strict = true;
-        const monomial m = m_monomials[i_mon];
-        for (lpvar j : m) {
-            int s = get_mon_sign_zero_var(j, strict);
-            if (s == 2)
-                return 2;
-            if (s == 0)
-                return 0;
-            sign *= s;
-        }
-        return sign;
-    }
-
-    /*
-      Here we use the following theorems
-      a) v1 = 0 or v2 = 0 iff v1*v2 = 0
-      b) (v1 > 0 and v2 > 0) or (v1 < 0 and v2 < 0) iff
-      v1 * v2 > 0
-      c) (v1 < 0 and v2 > 0) or (v1 > 0 and v2 < 0) iff
-      v1 * v2 < 0
-    */
-    bool basic_lemma_for_mon_zero(unsigned i_mon) {
-        m_expl->clear();
-        const auto mon = m_monomials[i_mon];
-        const rational & mon_val = m_lar_solver.get_column_value_rational(mon.var());
-        bool strict;
-        int sign = get_mon_sign_zero(i_mon, strict);
-        lp::lconstraint_kind kind;
-        rational rs(0);
-        switch(sign) {
-        case 0:
-            SASSERT(!mon_val.is_zero());
-            kind = lp::lconstraint_kind::EQ;
-            break;
-        case 1:
-            if (strict)
-                rs = rational(1);
-            if (mon_val >= rs)
-                return false;
-            kind = lp::lconstraint_kind::GE;
-            break;
-        case -1:
-            if (strict)
-                rs = rational(-1);
-            if (mon_val <= rs)
-                return false;
-            kind = lp::lconstraint_kind::LE;
-            break;
-        default:
-            if (mon_val.is_zero() && var_is_fixed_to_zero(mon.var())) {
-                create_lemma_one_of_the_factors_is_zero(mon);
-                TRACE("nla_solver", print_explanation_and_lemma(tout););
-                return true;
-            }
-            return false;
-        }
-        mk_ineq(m_monomials[i_mon].var(), kind, rs);
-        TRACE("nla_solver", print_explanation_and_lemma(tout););
-        return true;
-    }
-
-    void create_lemma_one_of_the_factors_is_zero(const monomial& m) {
-        lpci lci, uci;
-        rational b;
-        bool is_strict;
-        m_lar_solver.has_lower_bound(m.var(), lci, b, is_strict);
-        SASSERT(b.is_zero() && !is_strict);
-        m_lar_solver.has_upper_bound(m.var(), uci, b, is_strict);
-        SASSERT(b.is_zero() && !is_strict);
-        m_expl->clear();
-        m_expl->push_justification(lci);
-        m_expl->push_justification(uci);
-        m_lemma->clear();
-        for (auto j : m) {
-            mk_ineq(j, lp::lconstraint_kind::EQ, rational::zero());
-        }
-    }
-
-       
     bool var_is_fixed_to_zero(lpvar j) const {
         return 
             m_lar_solver.column_has_upper_bound(j) &&
@@ -1328,8 +1241,9 @@ struct solver::imp {
         
         init_search();
         
-        if (basic_lemma(to_refine))
+        if (basic_lemma(to_refine)) {
             return l_false;
+        }
         
         return l_undef;
     }
