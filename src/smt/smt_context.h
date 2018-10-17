@@ -1614,23 +1614,22 @@ namespace smt {
         void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_asserted_formulas.insert_macro(f, m, pr, dep); }
     };
 
-
     struct pp_lit {
-        smt::context & ctx;
-        smt::literal lit;
-        pp_lit(smt::context & ctx, smt::literal lit) : ctx(ctx), lit(lit) {}
+        context & ctx;
+        literal lit;
+        pp_lit(context & ctx, literal lit) : ctx(ctx), lit(lit) {}
     };
 
     inline std::ostream & operator<<(std::ostream & out, pp_lit const & pp) {
-        pp.ctx.display_detailed_literal(out, pp.lit);
-        return out;
+        return pp.ctx.display_detailed_literal(out, pp.lit);
     }
 
     struct pp_lits {
-        smt::context & ctx;
-        smt::literal *lits;
+        context & ctx;
+        literal const *lits;
         unsigned len;
-        pp_lits(smt::context & ctx, unsigned len, smt::literal *lits) : ctx(ctx), lits(lits), len(len) {}
+        pp_lits(context & ctx, unsigned len, literal const *lits) : ctx(ctx), lits(lits), len(len) {}
+        pp_lits(context & ctx, literal_vector const& ls) : ctx(ctx), lits(ls.c_ptr()), len(ls.size()) {}
     };
 
     inline std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {

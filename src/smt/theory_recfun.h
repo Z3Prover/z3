@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2018 Microsoft Corporation
 
 Module Name:
 
@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    Leonardo de Moura (leonardo) 2008-10-31.
+    Simon Cuares December 2017
 
 Revision History:
 
