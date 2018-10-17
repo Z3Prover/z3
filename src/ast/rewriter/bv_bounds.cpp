@@ -111,7 +111,7 @@ bv_bounds::conv_res bv_bounds::convert(expr * e, vector<ninterval>& nis, bool ne
     numeral val, val1;
     unsigned bv_sz1;
 
-    if (0) {
+    if (false) {
         if (m_m.is_eq(e, lhs, rhs) && to_bound(lhs) && m_bv_util.is_numeral(rhs, val, bv_sz1)) {
             return record(to_app(lhs), val, val, negated, nis);
         }
@@ -125,7 +125,7 @@ bv_bounds::conv_res bv_bounds::convert(expr * e, vector<ninterval>& nis, bool ne
         return record(to_app(lhs), numeral::zero(), val, negated, nis);
     }
 
-    if (1) {
+    if (true) {
         numeral rhs_val;
         unsigned rhs_sz;
         if (m_m.is_eq(e, lhs, rhs)
@@ -343,7 +343,7 @@ bool bv_bounds::add_constraint(expr* e) {
     numeral val, val1;
     unsigned bv_sz1;
 
-    if (0) {
+    if (false) {
         if (m_m.is_eq(e, lhs, rhs) && to_bound(lhs) && m_bv_util.is_numeral(rhs, val, bv_sz1)) {
             return add_bound_unsigned(to_app(lhs), val, val, negated);
         }

@@ -220,7 +220,7 @@ lbool lackr::lazy() {
     lackr_model_constructor mc(m_m, m_info);
     push_abstraction();
     unsigned ackr_head = 0;
-    while (1) {
+    while (true) {
         m_st.m_it++;
         checkpoint();
         TRACE("lackr", tout << "lazy check: " << m_st.m_it << "\n";);
