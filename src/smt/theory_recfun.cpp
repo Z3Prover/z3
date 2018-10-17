@@ -189,11 +189,10 @@ namespace smt {
         m_q_clauses.push_back(std::move(c));
     }
 
-    // if `is_true` and `v = C_f_i(t1...tn)`, then body-expand i-th case of `f(t1…tn)`
+    // if `is_true` and `v = C_f_i(t1...tn)`, then body-expand i-th case of `f(t1...tn)`
     void theory_recfun::assign_eh(bool_var v, bool is_true) {
         expr* e = get_context().bool_var2expr(v);
-        if (!is_true) return;
-        if (!is_app(e)) return;
+        if (!is_true || !is_app(e)) return;
         app* a = to_app(e);
         if (u().is_case_pred(a)) {
             TRACEFN("assign_case_pred_true "<< mk_pp(e,m()));
@@ -235,23 +234,19 @@ namespace smt {
     }
     
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
-        TRACEFN("assert_macro_axiom " << pp_case_expansion(e,m()));
+        TRACEFN("assert_macro_axiom " << pp_case_expansion(e, m()));
         SASSERT(e.m_def->is_fun_macro());
-        expr_ref lhs(e.m_lhs, m());
         context & ctx = get_context();
         auto & vars = e.m_def->get_vars();
+        expr_ref lhs(e.m_lhs, m());
         // substitute `e.args` into the macro RHS
         expr_ref rhs(apply_args(vars, e.m_args, e.m_def->get_macro_rhs()), m());
         TRACEFN("macro expansion yields" << mk_pp(rhs,m()));
-        // now build the axiom `lhs = rhs`
-        ctx.internalize(rhs, false);
-        // add unit clause `lhs=rhs`
+        // add unit clause `lhs = rhs`
         literal l(mk_eq(lhs, rhs, true));
         ctx.mark_as_relevant(l);
-        literal_vector lits;
-        lits.push_back(l);
-        TRACEFN("assert_macro_axiom: " << pp_lits(ctx, lits));
-        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());   
+        TRACEFN("assert_macro_axiom: " << pp_lit(ctx, l));
+        ctx.mk_th_axiom(get_id(), 1, &l);
     }
 
     void theory_recfun::assert_case_axioms(case_expansion & e) {
@@ -263,43 +258,27 @@ namespace smt {
         auto & vars = e.m_def->get_vars();
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
+            literal_vector guards;
+            for (auto & g : c.get_guards()) {
+                expr_ref guard = apply_args(vars, e.m_args, g);
+                ctx.internalize(guard, false);
+                guards.push_back(~ctx.get_literal(guard));
+            }
             app_ref pred_applied = apply_pred(c.get_pred(), e.m_args);
             SASSERT(u().owns_app(pred_applied));
-            // substitute arguments in `path`
-            expr_ref_vector path(m());
-            for (auto & g : c.get_guards()) {
-                expr_ref g_applied = apply_args(vars, e.m_args, g);
-                path.push_back(g_applied);
-            }
-            // assert `p(args) <=> And(guards)` (with CNF on the fly)
             ctx.internalize(pred_applied, false);
-            ctx.mark_as_relevant(ctx.get_bool_var(pred_applied));
             literal concl = ctx.get_literal(pred_applied);
-            {
-                // assert `guards=>p(args)`
-                literal_vector c;
-                c.push_back(concl);
-                for (expr* g : path) {
-                    ctx.internalize(g, false);
-                    c.push_back(~ ctx.get_literal(g));
-                }
+            ctx.mark_as_relevant(concl);
 
-                //TRACE("recfun", tout << "assert_case_axioms " << pp_case_expansion(e)
-                //    << " axiom " << mk_pp(*l) <<"\n";);
-                TRACEFN("assert_case_axiom " << pp_lits(get_context(), path.size()+1, c.c_ptr()));
-                get_context().mk_th_axiom(get_id(), path.size()+1, c.c_ptr());
-            }
-            {
-                // assert `p(args) => guards[i]` for each `i`
-                for (expr * _g : path) {
-                    SASSERT(ctx.b_internalized(_g));
-                    literal g = ctx.get_literal(_g);
-                    literal c[2] = {~ concl, g};
+            // assert `p(args) <=> And(guards)` (with CNF on the fly)
 
-                    TRACEFN("assert_case_axiom " << pp_lits(get_context(), 2, c));
-                    get_context().mk_th_axiom(get_id(), 2, c);
-                }
+            for (literal g : guards) {
+                literal c[2] = {~ concl, ~g};
+                ctx.mark_as_relevant(g);
+                get_context().mk_th_axiom(get_id(), 2, c);
             }
+            guards.push_back(concl);
+            get_context().mk_th_axiom(get_id(), guards.size(), guards.c_ptr());
 
             // also body-expand paths that do not depend on any defined fun
             if (c.is_immediate()) {
@@ -322,23 +301,17 @@ namespace smt {
         expr_ref rhs = apply_args(vars, args, e.m_cdef->get_rhs());
         // substitute `e.args` into the guard of this particular case, to make
         // the `condition` part of the clause `conds => lhs=rhs`
-        expr_ref_vector guards(m());
-        for (auto & g : e.m_cdef->get_guards()) {
-            expr_ref new_guard = apply_args(vars, args, g);
-            guards.push_back(new_guard);
-        }        
-        // now build the axiom `conds => lhs = rhs`
-        ctx.internalize(rhs, false);
-        for (auto& g : guards) ctx.internalize(g, false);
-        
-        // add unit clause `conds => lhs=rhs`
+
+        // now build the axiom `conds => lhs = rhs`        
+
         literal_vector clause;
-        for (auto& g : guards) {
-            ctx.internalize(g, false);
-            literal l = ~ ctx.get_literal(g);
+        for (auto & g : e.m_cdef->get_guards()) {
+            expr_ref guard = apply_args(vars, args, g);
+            ctx.internalize(guard, false);
+            literal l = ~ ctx.get_literal(guard);
             ctx.mark_as_relevant(l);
             clause.push_back(l);
-        }
+        }        
         literal l(mk_eq(lhs, rhs, true));
         ctx.mark_as_relevant(l);
         clause.push_back(l);
