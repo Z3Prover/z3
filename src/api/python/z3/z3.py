@@ -8327,7 +8327,7 @@ def prove(claim, **keywords):
         print(s.model())
 
 def _solve_html(*args, **keywords):
-    """Version of funcion `solve` used in RiSE4Fun."""
+    """Version of function `solve` used in RiSE4Fun."""
     s = Solver()
     s.set(**keywords)
     s.add(*args)
@@ -8349,7 +8349,7 @@ def _solve_html(*args, **keywords):
         print(s.model())
 
 def _solve_using_html(s, *args, **keywords):
-    """Version of funcion `solve_using` used in RiSE4Fun."""
+    """Version of function `solve_using` used in RiSE4Fun."""
     if __debug__:
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
@@ -8372,7 +8372,7 @@ def _solve_using_html(s, *args, **keywords):
         print(s.model())
 
 def _prove_html(claim, **keywords):
-    """Version of funcion `prove` used in RiSE4Fun."""
+    """Version of function `prove` used in RiSE4Fun."""
     if __debug__:
         _z3_assert(is_bool(claim), "Z3 Boolean expression expected")
     s = Solver()
