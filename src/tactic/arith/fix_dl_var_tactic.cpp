@@ -226,7 +226,7 @@ class fix_dl_var_tactic : public tactic {
                 }
                 return most_occs();
             }
-            catch (failed) {
+            catch (const failed &) {
                 return nullptr;
             }
         }

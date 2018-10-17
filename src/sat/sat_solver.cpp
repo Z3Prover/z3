@@ -1147,7 +1147,7 @@ namespace sat {
 
             }
         }
-        catch (abort_solver) {
+        catch (const abort_solver &) {
             m_reason_unknown = "sat.giveup";
             return l_undef;
         }

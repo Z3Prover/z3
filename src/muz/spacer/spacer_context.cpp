@@ -2737,7 +2737,7 @@ lbool context::solve(unsigned from_lvl)
             // }
         }
         VERIFY (validate ());
-    } catch (unknown_exception)
+    } catch (const unknown_exception &)
     {}
 
     if (m_last_result == l_true) {

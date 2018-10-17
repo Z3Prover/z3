@@ -247,7 +247,7 @@ bool has_zk_const(expr *e){
     try {
         for_each_expr(p, e);
     }
-    catch (has_zk_const_ns::found) {
+    catch (const has_zk_const_ns::found &) {
         return true;
     }
     return false;

@@ -146,7 +146,7 @@ extern "C" {
     Z3_model Z3_API Z3_optimize_get_model(Z3_context c, Z3_optimize o);
 
     /**
-       \brief Retrieve the unsat core for the last #Z3_optimize_chec
+       \brief Retrieve the unsat core for the last #Z3_optimize_check
        The unsat core is a subset of the assumptions \c a.
 
        def_API('Z3_optimize_get_unsat_core', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE)))       

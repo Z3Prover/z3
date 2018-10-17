@@ -261,7 +261,7 @@ namespace smt {
         try {
             for_each_expr(*this, m_visited, n);
         }
-        catch (is_model_value) {
+        catch (const is_model_value &) {
             return true;
         }
         return false;

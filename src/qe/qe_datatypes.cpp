@@ -61,7 +61,7 @@ namespace qe {
                     project_nonrec(model, vars, lits);
                 }
             }
-            catch (cant_project) {
+            catch (const cant_project &) {
                 TRACE("qe", tout << "can't project:" << mk_pp(var, m) << "\n";);
                 return false;
             }

@@ -57,7 +57,7 @@ namespace {
         term_ite_proc f(m);
         try {
             quick_for_each_expr(f, e);
-        } catch (term_ite_proc::found) {
+        } catch (const term_ite_proc::found &) {
             return true;
         }
         return false;
