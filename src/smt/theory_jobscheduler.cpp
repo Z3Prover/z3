@@ -94,19 +94,28 @@ namespace smt {
         symbol key, val;
         rational r;
         expr* job, *resource;
-        unsigned j = 0, res = 0, cap = 0, loadpct = 100;
+        unsigned j = 0, res = 0, cap = 0, loadpct = 100, level = 0;
         time_t start = 0, end = std::numeric_limits<time_t>::max(), capacity = 0;
+        js_job_goal goal;
+        js_optimization_objective obj;
         properties ps;
         if (u.is_set_preemptable(cmd, job) && u.is_job(job, j)) {
             set_preemptable(j, true);            
         }
-        else if (u.is_add_resource_available(cmd, resource, loadpct, start, end, ps) && u.is_resource(resource, res)) {
+        else if (u.is_add_resource_available(cmd, resource, loadpct, cap, start, end, ps) && u.is_resource(resource, res)) {
             std::sort(ps.begin(), ps.end(), symbol_cmp());
+            (void) cap; // TBD
             add_resource_available(res, loadpct, start, end, ps);
         }
         else if (u.is_add_job_resource(cmd, job, resource, loadpct, capacity, end, ps) && u.is_job(job, j) && u.is_resource(resource, res)) {
             std::sort(ps.begin(), ps.end(), symbol_cmp());
             add_job_resource(j, res, loadpct, capacity, end, ps);
+        }
+        else if (u.is_job_goal(cmd, goal, level, job) && u.is_job(job, j)) {
+            // skip
+        }
+        else if (u.is_objective(cmd, obj)) {
+            // skip
         }
         else {
             invalid_argument("command not recognized ", cmd);
@@ -487,7 +496,7 @@ namespace smt {
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_info const& j) const {
         for (job_resource const& jr : j.m_resources) {
-            display(out << "  ", jr);
+            display(out << "  ", jr) << "\n";
         }
         return out;
     }
@@ -507,10 +516,10 @@ namespace smt {
     void theory_jobscheduler::display(std::ostream & out) const {
         out << "jobscheduler:\n";
         for (unsigned j = 0; j < m_jobs.size(); ++j) {
-            display(out << "job " << j << ":\n", m_jobs[j]);
+            display(out << "job " << j << ":\n", m_jobs[j]) << "\n";
         }
         for (unsigned r = 0; r < m_resources.size(); ++r) {
-            display(out << "resource " << r << ":\n", m_resources[r]);
+            display(out << "resource " << r << ":\n", m_resources[r]) << "\n";
         }
     }
         
@@ -615,8 +624,8 @@ namespace smt {
 
     void theory_jobscheduler::add_job_resource(unsigned j, unsigned r, unsigned loadpct, uint64_t cap, time_t end, properties const& ps) {
         SASSERT(get_context().at_base_level());
-        SASSERT(1 <= loadpct && loadpct <= 100);
-        SASSERT(0 < cap);
+        SASSERT(0 <= loadpct && loadpct <= 100);
+        SASSERT(0 <= cap);
         m_jobs.reserve(j + 1);
         m_resources.reserve(r + 1);
         job_info& ji = m_jobs[j];
@@ -690,7 +699,8 @@ namespace smt {
         }
 
         literal lit;
-
+        unsigned job_id = 0;
+        
         for (job_info const& ji : m_jobs) {
             if (ji.m_resources.empty()) {
                 throw default_exception("every job should be associated with at least one resource");
@@ -719,6 +729,10 @@ namespace smt {
                 // TBD: more accurate estimates for runtime_lb based on gaps
                 // TBD: correct estimate of runtime_ub taking gaps into account.
             }
+            CTRACE("csp", (start_lb > end_ub), tout << "there is no associated resource working time\n";);
+            if (start_lb > end_ub) {
+                warning_msg("Job %d has no associated resource working time", job_id);
+            }
 
             // start(j) >= start_lb
             lit = mk_ge(ji.m_start, start_lb);
@@ -730,6 +744,8 @@ namespace smt {
 
             // start(j) + runtime_lb <= end(j)
             // end(j) <= start(j) + runtime_ub 
+
+            ++job_id;
         }        
         
         TRACE("csp", tout << "add-done end\n";);

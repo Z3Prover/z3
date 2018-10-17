@@ -94,6 +94,7 @@ namespace smt {
         void setup_unknown(static_features & st);
         void setup_arrays();
         void setup_datatypes();
+        void setup_recfuns();
         void setup_bv();
         void setup_arith();
         void setup_dl();

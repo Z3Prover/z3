@@ -2317,7 +2317,7 @@ namespace smt2 {
             next();
         }
 
-        void parse_rec_fun_decl(func_decl_ref& f, expr_ref_vector& bindings, svector<symbol>& ids) {
+        recfun::promise_def parse_rec_fun_decl(func_decl_ref& f, expr_ref_vector& bindings, svector<symbol>& ids) {
             SASSERT(m_num_bindings == 0);
             check_identifier("invalid function/constant definition, symbol expected");
             symbol id = curr_id();
@@ -2328,7 +2328,8 @@ namespace smt2 {
             unsigned num_vars  = parse_sorted_vars();
             SASSERT(num_vars == m_num_bindings);
             parse_sort("Invalid recursive function definition");
-            f = m().mk_func_decl(id, num_vars, sort_stack().c_ptr() + sort_spos, sort_stack().back());
+            recfun::promise_def pdef = m_ctx.decl_rec_fun(id, num_vars, sort_stack().c_ptr() + sort_spos, sort_stack().back());
+            f = pdef.get_def()->get_decl();
             bindings.append(num_vars, expr_stack().c_ptr() + expr_spos);
             ids.append(num_vars, symbol_stack().c_ptr() + sym_spos);
             symbol_stack().shrink(sym_spos);
@@ -2336,6 +2337,7 @@ namespace smt2 {
             expr_stack().shrink(expr_spos);
             m_env.end_scope();
             m_num_bindings = 0;
+            return pdef;
         }
 
         void parse_rec_fun_bodies(func_decl_ref_vector const& decls, vector<expr_ref_vector> const& bindings, vector<svector<symbol> >const & ids) {

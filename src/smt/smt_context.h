@@ -1614,6 +1614,35 @@ namespace smt {
         void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_asserted_formulas.insert_macro(f, m, pr, dep); }
     };
 
+
+    struct pp_lit {
+        smt::context & ctx;
+        smt::literal lit;
+        pp_lit(smt::context & ctx, smt::literal lit) : ctx(ctx), lit(lit) {}
+    };
+
+    inline std::ostream & operator<<(std::ostream & out, pp_lit const & pp) {
+        pp.ctx.display_detailed_literal(out, pp.lit);
+        return out;
+    }
+
+    struct pp_lits {
+        smt::context & ctx;
+        smt::literal *lits;
+        unsigned len;
+        pp_lits(smt::context & ctx, unsigned len, smt::literal *lits) : ctx(ctx), lits(lits), len(len) {}
+    };
+
+    inline std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {
+        out << "clause{";
+        bool first = true;
+        for (unsigned i = 0; i < pp.len; ++i) {
+            if (first) { first = false; } else { out << " ∨ "; }
+            pp.ctx.display_detailed_literal(out, pp.lits[i]);
+        }
+        return out << "}";
+    }
+
 };
 
 #endif /* SMT_CONTEXT_H_ */

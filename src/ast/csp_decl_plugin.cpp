@@ -109,12 +109,13 @@ func_decl * csp_decl_plugin::mk_func_decl(
         rng = m_alist_sort;
         break;
     case OP_JS_RESOURCE_AVAILABLE:
-        if (arity != 5) m_manager->raise_exception("add-resource-available expects 5 arguments");        
+        if (arity != 6) m_manager->raise_exception("add-resource-available expects 6 arguments");        
         if (domain[0] != m_resource_sort) m_manager->raise_exception("first argument of add-resource-available expects should be a resource");
-        if (domain[1] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
+        if (domain[2] != m_int_sort) m_manager->raise_exception("2nd argument of add-resource-available expects should be an integer");
         if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-resource-available expects should be an integer");
         if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-resource-available expects should be an integer");
-        if (domain[4] != m_alist_sort) m_manager->raise_exception("5th argument of add-resource-available should be an a list of properties");
+        if (domain[4] != m_int_sort) m_manager->raise_exception("5th argument of add-resource-available expects should be an integer");
+        if (domain[5] != m_alist_sort) m_manager->raise_exception("6th argument of add-resource-available should be an a list of properties");
         name = symbol("add-resource-available");
         rng = m_alist_sort;
         break;
@@ -290,18 +291,20 @@ bool csp_util::is_job2resource(expr* e, unsigned& j) {
     return is_app_of(e, m_fid, OP_JS_JOB2RESOURCE) && (j = job2id(e), true);
 }
 
-bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, uint64_t& start, uint64_t& end, svector<symbol>& properties) {
+bool csp_util::is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, unsigned& cap_time, uint64_t& start, uint64_t& end, svector<symbol>& properties) {
     if (!is_app_of(e, m_fid, OP_JS_RESOURCE_AVAILABLE)) return false;
     res = to_app(e)->get_arg(0);
     arith_util a(m);
     rational r;
     if (!a.is_numeral(to_app(e)->get_arg(1), r) || !r.is_unsigned()) return false;
     loadpct = r.get_unsigned();
-    if (!a.is_numeral(to_app(e)->get_arg(2), r) || !r.is_uint64()) return false;
-    start = r.get_uint64();
+    if (!a.is_numeral(to_app(e)->get_arg(2), r) || !r.is_unsigned()) return false;
+    cap_time = r.get_unsigned();
     if (!a.is_numeral(to_app(e)->get_arg(3), r) || !r.is_uint64()) return false;
+    start = r.get_uint64();
+    if (!a.is_numeral(to_app(e)->get_arg(4), r) || !r.is_uint64()) return false;
     end = r.get_uint64();
-    if (!is_js_properties(to_app(e)->get_arg(4), properties)) return false;
+    if (!is_js_properties(to_app(e)->get_arg(5), properties)) return false;
     return true;
 }
 

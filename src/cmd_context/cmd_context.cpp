@@ -680,6 +680,8 @@ bool cmd_context::logic_has_datatype() const {
     return !has_logic() || smt_logics::logic_has_datatype(m_logic);
 }
 
+bool cmd_context::logic_has_recfun() const { return true; }
+
 void cmd_context::init_manager_core(bool new_manager) {
     SASSERT(m_manager != 0);
     SASSERT(m_pmanager != 0);
@@ -692,6 +694,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
+        register_plugin(symbol("recfun"),   alloc(recfun_decl_plugin), logic_has_recfun());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
@@ -708,6 +711,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("bv"),       logic_has_bv(), fids);
         load_plugin(symbol("array"),    logic_has_array(), fids);
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
+        load_plugin(symbol("recfun"),   logic_has_recfun(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
@@ -891,7 +895,25 @@ void cmd_context::model_del(func_decl* f) {
     m_mc0->hide(f);
 }
 
-void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e) {
+
+recfun_decl_plugin * cmd_context::get_recfun_plugin() {
+    ast_manager & m = get_ast_manager();
+    family_id id = m.get_family_id("recfun");
+    recfun_decl_plugin* p = reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(id));
+    SASSERT(p);
+    return p;
+}
+
+
+recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range) {
+    SASSERT(logic_has_recfun());
+    recfun_decl_plugin* p = get_recfun_plugin();
+    recfun::promise_def def = p->mk_def(name, arity, domain, range);
+    return def;
+}
+
+// insert a recursive function as a regular quantified axiom
+void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& binding, svector<symbol> const &ids, expr* e) {
     expr_ref eq(m());
     app_ref lhs(m());
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
@@ -920,6 +942,28 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
         m_rec_fun_declared = true;
     }
     assert_expr(eq);
+}
+
+
+void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* rhs) {
+    TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
+
+    if (gparams::get_value("smt.recfun.native") != "true") {
+        // just use an axiom
+        insert_rec_fun_as_axiom(f, binding, ids, rhs);
+        return;
+    }
+
+    recfun_decl_plugin* p = get_recfun_plugin();
+
+    var_ref_vector vars(m());
+    for (expr* b : binding) {
+        SASSERT(is_var(b));
+        vars.push_back(to_var(b));
+    }
+    
+    recfun::promise_def d = p->get_promise_def(f->get_name());
+    p->set_definition(d, vars.size(), vars.c_ptr(), rhs);
 }
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {
