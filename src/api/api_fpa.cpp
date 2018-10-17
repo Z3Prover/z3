@@ -913,7 +913,7 @@ extern "C" {
         CHECK_VALID_AST(t, 0);
         if (sgn == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "sign cannot be a nullpointer");
-            return 0;
+            return false;
         }
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
@@ -922,13 +922,13 @@ extern "C" {
         expr * e = to_expr(t);
         if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid expression argument, expecting a valid fp, not a NaN");
-            return 0;
+            return false;
         }
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(to_expr(t), val);
         if (!r || mpfm.is_nan(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid expression argument, expecting a valid fp, not a NaN");
-            return 0;
+            return false;
         }
         *sgn = mpfm.sgn(val);
         return r;
@@ -1043,7 +1043,7 @@ extern "C" {
         CHECK_VALID_AST(t, 0);
         if (n == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid nullptr argument");
-            return 0;
+            return false;
         }
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
@@ -1055,7 +1055,7 @@ extern "C" {
         if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid expression argument, expecting a valid fp, not a NaN");
             *n = 0;
-            return 0;
+            return false;
         }
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(e, val);
@@ -1065,10 +1065,10 @@ extern "C" {
             !mpzm.is_uint64(z)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid expression argument, expecting a valid fp, not a NaN");
             *n = 0;
-            return 0;
+            return false;
         }
         *n = mpzm.get_uint64(z);
-        return 1;
+        return true;
         Z3_CATCH_RETURN(0);
     }
 
@@ -1121,7 +1121,7 @@ extern "C" {
         CHECK_VALID_AST(t, 0);
         if (n == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid null argument");
-            return 0;
+            return false;
         }
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
@@ -1132,14 +1132,14 @@ extern "C" {
         if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid expression argument, expecting a valid fp, not a NaN");
             *n = 0;
-            return 0;
+            return false;
         }
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(e, val);
         if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val) || mpfm.is_inf(val))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "invalid expression argument, expecting a valid fp, not a NaN");
             *n = 0;
-            return 0;
+            return false;
         }
         unsigned ebits = val.get().get_ebits();
         if (biased) {
@@ -1153,7 +1153,7 @@ extern "C" {
                   mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
                  mpfm.exp(val);
         }
-        return 1;
+        return true;
         Z3_CATCH_RETURN(0);
     }
 
@@ -1240,7 +1240,7 @@ extern "C" {
         fpa_util & fu = ctx->fpautil();
         if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0;
+            return false;
         }
         return fu.is_nan(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
@@ -1254,7 +1254,7 @@ extern "C" {
         fpa_util & fu = ctx->fpautil();
         if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0;
+            return false;
         }
         return fu.is_inf(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
@@ -1268,7 +1268,7 @@ extern "C" {
         fpa_util & fu = ctx->fpautil();
         if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0;
+            return false;
         }
         return fu.is_zero(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
@@ -1282,7 +1282,7 @@ extern "C" {
         fpa_util & fu = ctx->fpautil();
         if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0;
+            return false;
         }
         return fu.is_normal(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
@@ -1296,7 +1296,7 @@ extern "C" {
         fpa_util & fu = ctx->fpautil();
         if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0;
+            return false;
         }
         return fu.is_subnormal(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
@@ -1310,7 +1310,7 @@ extern "C" {
         fpa_util & fu = ctx->fpautil();
         if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0;
+            return false;
         }
         return fu.is_positive(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
@@ -1324,7 +1324,7 @@ extern "C" {
         fpa_util & fu = ctx->fpautil();
         if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0;
+            return false;
         }
         return fu.is_negative(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
