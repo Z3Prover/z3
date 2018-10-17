@@ -6,7 +6,9 @@ under the [MIT license](LICENSE.txt).
 If you are not familiar with Z3, you can start [here](https://github.com/Z3Prover/z3/wiki#background).
 
 Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. It provides
-[bindings for several programming languages][4].
+[bindings for several programming languages][4]. 
+Pre-built binaries for releases are available from [here](https://github.com/Z3Prover/z3/releases), 
+and nightly builds from [here](https://github.com/Z3Prover/bin/tree/master/nightly).
 
 See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z3.
 
