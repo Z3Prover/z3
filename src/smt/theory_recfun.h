@@ -121,6 +121,8 @@ namespace smt {
         void assert_case_axioms(case_expansion & e);
         void assert_body_axiom(body_expansion & e);
         void max_depth_conflict(void);
+        literal mk_literal(expr* e);
+        literal mk_eq_lit(expr* l, expr* r);
     protected:
         void push_case_expand(case_expansion&& e) { m_q_case_expand.push_back(e); }
         void push_body_expand(body_expansion&& e) { m_q_body_expand.push_back(e); }

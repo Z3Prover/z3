@@ -52,7 +52,7 @@ namespace smt {
 
     void theory_recfun::setup_params() {
         // obtain max depth via parameters
-        smt_params_helper p(get_context().get_params());
+        smt_params_helper p(ctx().get_params());
         set_max_depth(p.recfun_max_depth());
     }
 
@@ -175,13 +175,11 @@ namespace smt {
         {
             // first literal must be the depth limit one
             app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
-            ctx.internalize(dlimit, false);
-            c.push_back(~ ctx.get_literal(dlimit));
-            SASSERT(ctx.get_assignment(ctx.get_literal(dlimit)) == l_true);
+            c.push_back(~mk_literal(dlimit));
+            SASSERT(ctx.get_assignment(c.back()) == l_true);
         }
         for (auto& kv : m_guards) {
-            expr * g = & kv.get_key();
-            c.push_back(~ ctx.get_literal(g));
+            c.push_back(~ mk_literal(&kv.get_key()));
         }
         TRACEFN("max-depth limit: add clause " << pp_lits(ctx, c));
         SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
@@ -197,12 +195,12 @@ namespace smt {
         if (u().is_case_pred(a)) {
             TRACEFN("assign_case_pred_true "<< mk_pp(e,m()));
             // add to set of local assumptions, for depth-limit purpose
-            {
-                m_guards.insert(e, empty());
-                m().inc_ref(e);
-                insert_ref_map<theory_recfun,guard_set,ast_manager,expr*> trail_elt(m(), m_guards, e);
-                m_trail.push(trail_elt);
-            }
+            SASSERT(!m_guards.contains(e));
+            m_guards.insert(e, empty());
+            m().inc_ref(e);
+            insert_ref_map<theory_recfun,guard_set,ast_manager,expr*> trail_elt(m(), m_guards, e);
+            m_trail.push(trail_elt);
+            
             if (m_guards.size() > get_max_depth()) {
                 // too many body-expansions: depth-limit conflict
                 max_depth_conflict();
@@ -233,27 +231,37 @@ namespace smt {
         return app_ref(u().mk_case_pred(p, args), m());
     }
     
+    literal theory_recfun::mk_literal(expr* e) {
+        ctx().internalize(e, false);
+        literal lit = ctx().get_literal(e);
+        ctx().mark_as_relevant(lit);
+        return lit;
+    }
+
+    literal theory_recfun::mk_eq_lit(expr* l, expr* r) {
+        literal lit = mk_eq(l, r, false);
+        ctx().mark_as_relevant(lit);
+        return lit;
+    }
+
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
         TRACEFN("assert_macro_axiom " << pp_case_expansion(e, m()));
         SASSERT(e.m_def->is_fun_macro());
-        context & ctx = get_context();
         auto & vars = e.m_def->get_vars();
         expr_ref lhs(e.m_lhs, m());
         // substitute `e.args` into the macro RHS
         expr_ref rhs(apply_args(vars, e.m_args, e.m_def->get_macro_rhs()), m());
         TRACEFN("macro expansion yields" << mk_pp(rhs,m()));
         // add unit clause `lhs = rhs`
-        literal l(mk_eq(lhs, rhs, true));
-        ctx.mark_as_relevant(l);
-        TRACEFN("assert_macro_axiom: " << pp_lit(ctx, l));
-        ctx.mk_th_axiom(get_id(), 1, &l);
+        literal lit = mk_eq_lit(lhs, rhs);
+        TRACEFN("assert_macro_axiom: " << pp_lit(ctx(), lit));
+        ctx().mk_th_axiom(get_id(), 1, &lit);
     }
 
     void theory_recfun::assert_case_axioms(case_expansion & e) {
         TRACEFN("assert_case_axioms "<< pp_case_expansion(e,m())
               << " with " << e.m_def->get_cases().size() << " cases");
         SASSERT(e.m_def->is_fun_defined());
-        context & ctx = get_context();
         // add case-axioms for all case-paths
         auto & vars = e.m_def->get_vars();
         for (recfun::case_def const & c : e.m_def->get_cases()) {
@@ -261,24 +269,20 @@ namespace smt {
             literal_vector guards;
             for (auto & g : c.get_guards()) {
                 expr_ref guard = apply_args(vars, e.m_args, g);
-                ctx.internalize(guard, false);
-                guards.push_back(~ctx.get_literal(guard));
+                guards.push_back(~mk_literal(guard));
             }
             app_ref pred_applied = apply_pred(c.get_pred(), e.m_args);
             SASSERT(u().owns_app(pred_applied));
-            ctx.internalize(pred_applied, false);
-            literal concl = ctx.get_literal(pred_applied);
-            ctx.mark_as_relevant(concl);
+            literal concl = mk_literal(pred_applied);
 
             // assert `p(args) <=> And(guards)` (with CNF on the fly)
 
             for (literal g : guards) {
                 literal c[2] = {~ concl, ~g};
-                ctx.mark_as_relevant(g);
-                get_context().mk_th_axiom(get_id(), 2, c);
+                ctx().mk_th_axiom(get_id(), 2, c);
             }
             guards.push_back(concl);
-            get_context().mk_th_axiom(get_id(), guards.size(), guards.c_ptr());
+            ctx().mk_th_axiom(get_id(), guards.size(), guards.c_ptr());
 
             // also body-expand paths that do not depend on any defined fun
             if (c.is_immediate()) {
@@ -290,7 +294,6 @@ namespace smt {
 
     void theory_recfun::assert_body_axiom(body_expansion & e) {
         TRACEFN("assert_body_axioms "<< pp_body_expansion(e,m()));
-        context & ctx = get_context();
         recfun::def & d = *e.m_cdef->get_def();
         auto & vars = d.get_vars();
         auto & args = e.m_args;
@@ -307,16 +310,11 @@ namespace smt {
         literal_vector clause;
         for (auto & g : e.m_cdef->get_guards()) {
             expr_ref guard = apply_args(vars, args, g);
-            ctx.internalize(guard, false);
-            literal l = ~ ctx.get_literal(guard);
-            ctx.mark_as_relevant(l);
-            clause.push_back(l);
+            clause.push_back(~mk_literal(guard));
         }        
-        literal l(mk_eq(lhs, rhs, true));
-        ctx.mark_as_relevant(l);
-        clause.push_back(l);
-        TRACEFN("assert_body_axiom " << pp_lits(ctx, clause));
-        ctx.mk_th_axiom(get_id(), clause.size(), clause.c_ptr());   
+        clause.push_back(mk_eq_lit(lhs, rhs));
+        TRACEFN("assert_body_axiom " << pp_lits(ctx(), clause));
+        ctx().mk_th_axiom(get_id(), clause.size(), clause.c_ptr());   
     }
     
     final_check_status theory_recfun::final_check_eh() {
