@@ -870,7 +870,7 @@ bool ufbv_rewriter::match_subst::match_args(app * lhs, expr * const * args) {
                 m_cache.insert(p);
                 continue;
             }
-            catch (match_args_aux_proc::no_match) {
+            catch (const match_args_aux_proc::no_match &) {
                 return false;
             }
         }

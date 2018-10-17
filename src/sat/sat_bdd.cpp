@@ -87,7 +87,7 @@ namespace sat {
             try {
                 return apply_rec(arg1, arg2, op);
             }
-            catch (mem_out) {
+            catch (const mem_out &) {
                 try_reorder();
                 if (!first) throw;
                 first = false;
@@ -546,7 +546,7 @@ namespace sat {
             try {
                 return bdd(mk_not_rec(b.root), this);
             }
-            catch (mem_out) {
+            catch (const mem_out &) {
                 try_reorder();
                 if (!first) throw;
                 first = false;
@@ -575,7 +575,7 @@ namespace sat {
             try {
                 return bdd(mk_ite_rec(c.root, t.root, e.root), this); 
             }
-            catch (mem_out) {
+            catch (const mem_out &) {
                 try_reorder();
                 if (!first) throw;
                 first = false;

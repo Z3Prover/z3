@@ -706,7 +706,7 @@ namespace opt {
                 quick_for_each_expr(proc, visited, f);
             }
         }
-        catch (is_bv::found) {
+        catch (const is_bv::found &) {
             return false;
         }
         return true;
@@ -737,7 +737,7 @@ namespace opt {
         try {
             quick_for_each_expr(proc, visited, p);
         }
-        catch (is_propositional_fn::found) {
+        catch (const is_propositional_fn::found &) {
             return false;
         }
         return true;

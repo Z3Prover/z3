@@ -195,7 +195,7 @@ bool test(goal const & g, Predicate & proc) {
         for (unsigned i = 0; i < sz; i++)
             quick_for_each_expr(proc, visited, g.form(i));
     }
-    catch (typename Predicate::found) {
+    catch (const typename Predicate::found &) {
         return true;
     }
     return false;

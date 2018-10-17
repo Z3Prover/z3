@@ -62,7 +62,7 @@ namespace qe {
             is_pure_ns::proc v(is_var);
             quick_for_each_expr(v, e);
         }
-        catch (is_pure_ns::found) {
+        catch (const is_pure_ns::found &) {
             return false;
         }
         return true;
