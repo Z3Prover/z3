@@ -277,7 +277,7 @@ namespace z3 {
          */
         sort fpa_rounding_mode();
         /**
-           \breif Sets RoundingMode of FloatingPoints.
+           \brief Sets RoundingMode of FloatingPoints.
          */
         void set_rounding_mode(rounding_mode rm);
         /**
