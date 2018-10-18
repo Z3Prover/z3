@@ -33,7 +33,7 @@ namespace smt {
             stats() { reset(); }
         };
 
-        // one case-expansion of `f(t1…tn)`
+        // one case-expansion of `f(t1...tn)`
         struct case_expansion {
             expr *              m_lhs; // the term to expand
             recfun_def *        m_def;
@@ -64,18 +64,16 @@ namespace smt {
 
         friend std::ostream& operator<<(std::ostream&, pp_case_expansion const &);
 
-        // one body-expansion of `f(t1…tn)` using a `C_f_i(t1…tn)`
+        // one body-expansion of `f(t1...tn)` using a `C_f_i(t1...tn)`
         struct body_expansion {
             recfun_case_def const * m_cdef;
             ptr_vector<expr>        m_args;
 
             body_expansion(recfun_util& u, app * n) : m_cdef(0), m_args() {
                 SASSERT(u.is_case_pred(n));
-                func_decl * d = n->get_decl();
-                const symbol& name = d->get_name();
-                m_cdef = &u.get_case_def(name);
-                for (unsigned i = 0; i < n->get_num_args(); ++i)
-                    m_args.push_back(n->get_arg(i));
+                m_cdef = &u.get_case_def(n->get_name());
+                for (expr * arg : *n) 
+                    m_args.push_back(arg);
             }
             body_expansion(recfun_case_def const & d, ptr_vector<expr> & args) : m_cdef(&d), m_args(args) {}
             body_expansion(body_expansion const & from): m_cdef(from.m_cdef), m_args(from.m_args) {}
@@ -90,11 +88,11 @@ namespace smt {
 
         friend std::ostream& operator<<(std::ostream&, pp_body_expansion const &);
         
-        struct empty{};
 
         typedef trail_stack<theory_recfun>  th_trail_stack;
-        typedef obj_map<expr, empty> guard_set;
+        typedef obj_hashtable<expr> guard_set;
 
+        ast_manager&        m;
         recfun_decl_plugin& m_plugin;
         recfun_util&        m_util;
         stats               m_stats;
@@ -107,7 +105,6 @@ namespace smt {
         vector<literal_vector>      m_q_clauses;
 
         recfun_util & u() const { return m_util; }
-        ast_manager & m() { return get_manager(); }
         bool is_defined(app * f) const { return u().is_defined(f); }
         bool is_case_pred(app * f) const { return u().is_case_pred(f); }
 
@@ -123,6 +120,7 @@ namespace smt {
         void max_depth_conflict(void);
         literal mk_literal(expr* e);
         literal mk_eq_lit(expr* l, expr* r);
+        bool is_standard_order(recfun::vars const& vars) const { return vars.size() == 0 || vars[vars.size()-1]->get_idx() == 0; }
     protected:
         void push_case_expand(case_expansion&& e) { m_q_case_expand.push_back(e); }
         void push_body_expand(body_expansion&& e) { m_q_body_expand.push_back(e); }

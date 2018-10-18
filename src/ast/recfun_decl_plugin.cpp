@@ -23,7 +23,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "util/scoped_ptr_vector.h"
 
-#define DEBUG(x) TRACE("recfun", tout << x << '\n';)
+#define TRACEFN(x) TRACE("recfun", tout << x << '\n';)
 #define VALIDATE_PARAM(m, _pred_) if (!(_pred_)) m.raise_exception("invalid parameter to recfun "  #_pred_);
 
 namespace recfun {
@@ -42,18 +42,18 @@ namespace recfun {
                        sort_ref_vector const & arg_sorts,
                        unsigned num_guards, expr ** guards, expr* rhs)
     : m_pred(m, fid, name, arg_sorts), m_guards(m), m_rhs(expr_ref(rhs,m)), m_def(d) {
-        for (unsigned i=0; i<num_guards; ++i) {
-            m_guards.push_back(expr_ref(guards[i], m));
+        for (unsigned i = 0; i < num_guards; ++i) {
+            m_guards.push_back(guards[i]);
         }
     }
 
     def::def(ast_manager &m, family_id fid, symbol const & s,
-             unsigned arity, sort *const * domain, sort* range)
-        :   m_manager(m), m_name(s),
+             unsigned arity, sort* const * domain, sort* range)
+        :   m(m), m_name(s),
             m_domain(m), m_range(range, m), m_vars(m), m_cases(),
             m_decl(m), m_fid(fid), m_macro(false)
     {
-        for (unsigned i=0; i < arity; ++i)
+        for (unsigned i = 0; i < arity; ++i)
             m_domain.push_back(domain[i]);
 
         SASSERT(arity == get_arity());
@@ -69,8 +69,8 @@ namespace recfun {
             ite_find_p(ast_manager & m) : m(m) {}
             virtual bool operator()(expr * e) { return m.is_ite(e); }
         };
-        ite_find_p p(m());
-        check_pred cp(p, m());
+        ite_find_p p(m);
+        check_pred cp(p, m);
         return cp(e);
     }
 
@@ -108,8 +108,10 @@ namespace recfun {
         ite_lst const *         to_split; // `ite` terms to make a choice on
         unfold_lst const *      to_unfold; // terms yet to unfold
 
-        branch(choice_lst const * path, ite_lst const * to_split, unfold_lst const * to_unfold) : path(path), to_split(to_split), to_unfold(to_unfold) {}
-        branch(branch const & from) : path(from.path), to_split(from.to_split), to_unfold(from.to_unfold) {}
+        branch(choice_lst const * path, ite_lst const * to_split, unfold_lst const * to_unfold) : 
+            path(path), to_split(to_split), to_unfold(to_unfold) {}
+        branch(branch const & from) : 
+            path(from.path), to_split(from.to_split), to_unfold(from.to_unfold) {}
     };
 
     // state for computing cases from the RHS of a functions' definition
@@ -161,14 +163,14 @@ namespace recfun {
     {
         for (; choices != nullptr; choices = choices->next) {
             app * ite = choices->ite;
-            SASSERT(m.is_ite(ite));
+            expr* c = nullptr, *th = nullptr, *el = nullptr;
+            VERIFY(m.is_ite(ite, c, th, el));
 
             // condition to add to the guard
-            expr * cond0 = ite->get_arg(0);
-            conditions.push_back(choices->sign ? cond0 : m.mk_not(cond0));
+            conditions.push_back(choices->sign ? c : m.mk_not(c));
 
             // binding to add to the substitution
-            subst.insert(ite, choices->sign ? ite->get_arg(1) : ite->get_arg(2));
+            subst.insert(ite, choices->sign ? th : el);
         }
     }
 
@@ -183,11 +185,11 @@ namespace recfun {
     }
 
     void def::add_case(std::string & name, unsigned n_conditions, expr ** conditions, expr * rhs, bool is_imm) {
-        case_def c(m(), m_fid, this, name, get_domain(), n_conditions, conditions, rhs);
+        case_def c(m, m_fid, this, name, get_domain(), n_conditions, conditions, rhs);
         c.set_is_immediate(is_imm);
-        DEBUG("add_case " << name << " " << mk_pp(rhs, m())
+        TRACEFN("add_case " << name << " " << mk_pp(rhs, m)
               << " :is_imm " << is_imm
-              << " :guards " << mk_pp_vec(n_conditions, (ast**)conditions, m()));
+              << " :guards " << mk_pp_vec(n_conditions, (ast**)conditions, m));
         m_cases.push_back(c);
     }
 
@@ -197,12 +199,12 @@ namespace recfun {
                             unsigned n_vars, var *const * vars, expr* rhs0)
     {
         if (m_cases.size() != 0) {
-            DEBUG("bug: cases for " << m_name << " has cases already");
+            TRACEFN("bug: " << m_name << " has cases already");
             UNREACHABLE();
         }
         SASSERT(n_vars = m_domain.size());
 
-        DEBUG("compute cases " << mk_pp(rhs0, m()));
+        TRACEFN("compute cases " << mk_pp(rhs0, m));
 
         unsigned case_idx = 0;
         std::string name;
@@ -211,18 +213,18 @@ namespace recfun {
         name.append(m_name.bare_str());
         name.append("_");
 
-        for (unsigned i=0; i<n_vars; ++i)
+        for (unsigned i = 0; i < n_vars; ++i)
             m_vars.push_back(vars[i]);
 
 #if 0
         // simplify `rhs`
-        expr_ref simplified_rhs(m());
+        expr_ref simplified_rhs(m);
         expr* rhs;
         th_rw.reset();
         th_rw(rhs0, simplified_rhs); 
         rhs = simplified_rhs.get();
 
-        DEBUG("simplified into " << mk_pp(rhs, m()));
+        TRACEFN("simplified into " << mk_pp(rhs, m()));
 #else
         expr*  rhs = rhs0;
 #endif
@@ -241,14 +243,14 @@ namespace recfun {
         // rebuilding a `ite`-free RHS on the fly for each path in `rhs`.
         // Each such `ite`-free term is converted into a case_def and added to definition.
 
-        case_state st(m());
+        case_state st(m);
         {
             branch b(nullptr, nullptr, st.mk_unfold_lst(rhs));
             st.push_branch(b);
         }
 
         while (! st.empty()) {
-            DEBUG("main loop iter");
+            TRACEFN("main loop iter");
 
             branch b = st.pop_branch();
 
@@ -264,15 +266,15 @@ namespace recfun {
                     expr * e = stack.back();
                     stack.pop_back();
 
-                    if (m().is_ite(e)) {
+                    if (m.is_ite(e)) {
                         // need to do a case split on `e`, forking the search space
                         b.to_split = st.cons_ite(to_app(e), b.to_split);
-                    } else if (is_app(e)) {
+                    } 
+                    else if (is_app(e)) {
                         // explore arguments
-                        app * a = to_app(e);
-
-                        for (unsigned i=0; i < a->get_num_args(); ++i)
-                            stack.push_back(a->get_arg(i));
+                        for (expr * arg : *to_app(e)) {
+                            stack.push_back(arg);
+                        }
                     } 
                 }
             }
@@ -280,7 +282,8 @@ namespace recfun {
             if (b.to_split != nullptr) {
                 // split one `ite`, which will lead to distinct (sets of) cases
                 app * ite = b.to_split->ite;
-                SASSERT(m().is_ite(ite));
+                expr* c = nullptr, *th = nullptr, *el = nullptr;
+                VERIFY(m.is_ite(ite, c, th, el));
 
                 /* explore both positive choice and negative choice.
                  * each contains a longer path, with `ite` mapping to `true` (resp. `false),
@@ -291,10 +294,11 @@ namespace recfun {
 
                 branch b_pos(st.cons_choice(ite, true, b.path),
                              b.to_split->next,
-                             st.cons_unfold(ite->get_arg(0), ite->get_arg(1), b.to_unfold));
+                             st.cons_unfold(c, th, b.to_unfold));
+
                 branch b_neg(st.cons_choice(ite, false, b.path),
                              b.to_split->next,
-                             st.cons_unfold(ite->get_arg(0), ite->get_arg(2), b.to_unfold));
+                             st.cons_unfold(c, el, b.to_unfold));
 
                 st.push_branch(b_neg);
                 st.push_branch(b_pos);
@@ -302,20 +306,20 @@ namespace recfun {
             else {
                 // leaf of the search tree
 
-                expr_ref_vector conditions_raw(m());
-                expr_substitution subst(m());
-                convert_path(m(), b.path, conditions_raw, subst);
+                expr_ref_vector conditions_raw(m);
+                expr_substitution subst(m);
+                convert_path(m, b.path, conditions_raw, subst);
                 
                 // substitute, to get rid of `ite` terms
-                expr_ref case_rhs = replace_subst(th_rw, m(), subst, rhs);
-                expr_ref_vector conditions(m());
+                expr_ref case_rhs = replace_subst(th_rw, m, subst, rhs);
+                expr_ref_vector conditions(m);
                 for (expr * g : conditions_raw) {
-                    expr_ref g_subst(replace_subst(th_rw, m(), subst, g), m());
+                    expr_ref g_subst(replace_subst(th_rw, m, subst, g), m);
                     conditions.push_back(g_subst);
                 }
 
 
-                unsigned old_name_len = name.size();
+                size_t old_name_len = name.size();
                 {   // TODO: optimize? this does many copies
                     std::ostringstream sout;
                     sout << ((unsigned long) case_idx);
@@ -330,7 +334,7 @@ namespace recfun {
             }
         }
 
-        DEBUG("done analysing " << get_name());
+        TRACEFN("done analysing " << get_name());
     }
 
     /*

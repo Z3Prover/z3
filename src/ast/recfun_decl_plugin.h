@@ -21,10 +21,10 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 
 namespace recfun {
-    class case_def; //<! one possible control path of a function
-    class case_pred; //<! a predicate guarding a given control flow path of a function
-    class util; //<! util for other modules
-    class def; //!< definition of a (recursive) function
+    class case_def;    //<! one possible control path of a function
+    class case_pred;   //<! a predicate guarding a given control flow path of a function
+    class util;        //<! util for other modules
+    class def;         //!< definition of a (recursive) function
     class promise_def; //!< definition to be complete
 
     enum op_kind {
@@ -33,12 +33,12 @@ namespace recfun {
         OP_DEPTH_LIMIT, // predicate enforcing some depth limit
     };
 
-    /*! A predicate `p(t1…tn)`, that, if true, means `f(t1…tn)` is following
+    /*! A predicate `p(t1...tn)`, that, if true, means `f(t1...tn)` is following
         a given path of its control flow and can be unrolled.
 
         For example, `fact n := if n<2 then 1 else n * fact(n-1)` would have two cases,
         and therefore two case predicates `C_fact_0` and `C_fact_1`, where
-        `C_fact_0(t)=true` means `t<2` (first path) and `C_fact_1(t)=true` means `¬(t<2)` (second path).
+        `C_fact_0(t)=true` means `t<2` (first path) and `C_fact_1(t)=true` means `not (t<2)` (second path).
     */
     class case_pred {
         friend class case_def;
@@ -98,7 +98,7 @@ namespace recfun {
         friend class promise_def;
         typedef vector<case_def> cases;
 
-        ast_manager &       m_manager;
+        ast_manager &       m;
         symbol              m_name; //<! name of function
         sort_ref_vector     m_domain; //<! type of arguments
         sort_ref            m_range; //<! return type
@@ -116,7 +116,6 @@ namespace recfun {
         void add_case(std::string & name, unsigned n_conds, expr ** conditions, expr* rhs, bool is_imm = false);
         bool contains_ite(expr* e); // expression contains a test?
     public:
-        ast_manager & m() const { return m_manager; }
         symbol const & get_name() const { return m_name; }
         vars const & get_vars() const { return m_vars; }
         cases & get_cases() { return m_cases; }
@@ -237,9 +236,9 @@ namespace recfun {
 
         ast_manager & m() { return m_manager; }
         th_rewriter & get_th_rewriter() { return m_th_rw; }
-        bool is_case_pred(app * e) const { return is_app_of(e, m_family_id, OP_FUN_CASE_PRED); }
-        bool is_defined(app * e) const { return is_app_of(e, m_family_id, OP_FUN_DEFINED); }
-        bool is_depth_limit(app * e) const { return is_app_of(e, m_family_id, OP_DEPTH_LIMIT); }
+        bool is_case_pred(expr * e) const { return is_app_of(e, m_family_id, OP_FUN_CASE_PRED); }
+        bool is_defined(expr * e) const { return is_app_of(e, m_family_id, OP_FUN_DEFINED); }
+        bool is_depth_limit(expr * e) const { return is_app_of(e, m_family_id, OP_DEPTH_LIMIT); }
         bool owns_app(app * e) const { return e->get_family_id() == m_family_id; }
 
         //<! add a function declaration
