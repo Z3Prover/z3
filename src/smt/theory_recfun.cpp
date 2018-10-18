@@ -106,7 +106,7 @@ namespace smt {
      * body-expand it.
      */
     void theory_recfun::relevant_eh(app * n) {
-        SASSERT(get_context().relevancy());
+        SASSERT(ctx().relevancy());
         if (u().is_defined(n)) {
             TRACEFN("relevant_eh: (defined) " <<  mk_pp(n, m()));        
             case_expansion e(u(), n);
@@ -140,11 +140,10 @@ namespace smt {
     }
 
     void theory_recfun::propagate() {
-        context & ctx = get_context();
 
         for (literal_vector & c : m_q_clauses) {
-            TRACEFN("add axiom " << pp_lits(ctx, c));
-            ctx.mk_th_axiom(get_id(), c.size(), c.c_ptr());
+            TRACEFN("add axiom " << pp_lits(ctx(), c));
+            ctx().mk_th_axiom(get_id(), c.size(), c.c_ptr());
         }
         m_q_clauses.clear();
 
@@ -169,20 +168,19 @@ namespace smt {
 
     void theory_recfun::max_depth_conflict() {
         TRACEFN("max-depth conflict");
-        context & ctx = get_context();
         literal_vector c;
         // make clause `depth_limit => V_{g : guards} ~ g`
         {
             // first literal must be the depth limit one
             app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
             c.push_back(~mk_literal(dlimit));
-            SASSERT(ctx.get_assignment(c.back()) == l_true);
+            SASSERT(ctx().get_assignment(c.back()) == l_true);
         }
         for (auto& kv : m_guards) {
-            c.push_back(~ mk_literal(&kv.get_key()));
+            c.push_back(~ mk_literal(kv.m_key));
         }
-        TRACEFN("max-depth limit: add clause " << pp_lits(ctx, c));
-        SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx.get_assignment(l) == l_false; })); // conflict
+        TRACEFN("max-depth limit: add clause " << pp_lits(ctx(), c));
+        SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx().get_assignment(l) == l_false; })); // conflict
 
         m_q_clauses.push_back(std::move(c));
     }
@@ -222,7 +220,7 @@ namespace smt {
         var_subst subst(m(), true);
         expr_ref new_body(m());
         new_body = subst(e, args.size(), args.c_ptr());
-        get_context().get_rewriter()(new_body); // simplify
+        ctx().get_rewriter()(new_body); // simplify
         return new_body;
     }
     
