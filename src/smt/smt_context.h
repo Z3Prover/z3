@@ -1010,9 +1010,9 @@ namespace smt {
         void restore_theory_vars(enode * r2, enode * r1);
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
-            SASSERT(lhs != rhs);
-            SASSERT(lhs->get_root() != rhs->get_root());
-            m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
+            if (lhs->get_root() != rhs->get_root()) {
+                m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
+            }
         }
 
         void push_new_congruence(enode * n1, enode * n2, bool used_commutativity) {

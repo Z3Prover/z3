@@ -114,6 +114,7 @@ namespace smt2 {
         symbol               m_define_fun_rec;
         symbol               m_define_funs_rec;
         symbol               m_match;
+        symbol               m_case;
         symbol               m_underscore;
 
         typedef std::pair<symbol, expr*> named_expr;
@@ -382,7 +383,9 @@ namespace smt2 {
                 next();
                 return;
             }
-            throw parser_exception(msg);
+            std::ostringstream str;
+            str << msg << " got " << curr_id();
+            throw parser_exception(str.str());
         }
 
         symbol const & curr_id() const { return m_scanner.get_id(); }
@@ -406,6 +409,7 @@ namespace smt2 {
         bool curr_id_is_underscore() const { SASSERT(curr_is_identifier()); return curr_id() == m_underscore; }
         bool curr_id_is_as() const { SASSERT(curr_is_identifier()); return curr_id() == m_as; }
         bool curr_id_is_match() const { SASSERT(curr_is_identifier()); return curr_id() == m_match; }
+        bool curr_id_is_case() const { return curr_id() == m_case; }
         bool curr_id_is_forall() const { SASSERT(curr_is_identifier()); return curr_id() == m_forall; }
         bool curr_id_is_exists() const { SASSERT(curr_is_identifier()); return curr_id() == m_exists; }
         bool curr_id_is_lambda() const { SASSERT(curr_is_identifier()); return curr_id() == m_lambda; }
@@ -1319,7 +1323,13 @@ namespace smt2 {
 
         /**
          * SMT-LIB 2.6 pattern matches are of the form
-         * (match t ((p1 t1) ... (pm+1 tm+1)))         
+         *
+         *   (match t ((p1 t1) ... (pm+1 tm+1)))         
+         *
+         * precursor form is
+         *
+         *   (match t (case p1 t1) (case p2 t2) ... )
+         *
          */
         void push_match_frame() {
             SASSERT(curr_is_identifier());
@@ -1336,21 +1346,42 @@ namespace smt2 {
             sort* srt = m().get_sort(t);
 
             check_lparen_next("pattern bindings should be enclosed in a parenthesis");
-            while (!curr_is_rparen()) {
-                m_env.begin_scope();
-                unsigned num_bindings = m_num_bindings;
-                check_lparen_next("invalid pattern binding, '(' expected");
-                parse_match_pattern(srt);  
-                patterns.push_back(expr_stack().back());
-                expr_stack().pop_back();
-                parse_expr();
-                cases.push_back(expr_stack().back());
-                expr_stack().pop_back();
-                m_num_bindings = num_bindings;
-                m_env.end_scope();
-                check_rparen_next("invalid pattern binding, ')' expected");
+            if (curr_id_is_case()) {
+                while (curr_id_is_case()) {
+                    next();
+                    m_env.begin_scope();
+                    unsigned num_bindings = m_num_bindings;
+                    parse_match_pattern(srt);  
+                    patterns.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    parse_expr();
+                    cases.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    m_num_bindings = num_bindings;
+                    m_env.end_scope();
+                    check_rparen_next("invalid pattern binding, ')' expected");                    
+                    if (curr_is_lparen()) {
+                        next();
+                    }
+                }               
             }
-            next();
+            else {
+                while (!curr_is_rparen()) {
+                    m_env.begin_scope();
+                    unsigned num_bindings = m_num_bindings;
+                    parse_match_pattern(srt);  
+                    patterns.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    check_lparen_next("invalid pattern binding, '(' expected");                    
+                    parse_expr();
+                    cases.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    m_num_bindings = num_bindings;
+                    m_env.end_scope();
+                    check_rparen_next("invalid pattern binding, ')' expected");
+                }
+                next();
+            }
             m_num_expr_frames = num_frames + 1;
             expr_stack().push_back(compile_patterns(t, patterns, cases));
         }
@@ -3013,6 +3044,7 @@ namespace smt2 {
             m_define_fun_rec("define-fun-rec"),
             m_define_funs_rec("define-funs-rec"),
             m_match("match"),
+            m_case("case"),
             m_underscore("_"),
             m_num_open_paren(0),
             m_current_file(filename) {

@@ -3207,7 +3207,7 @@ namespace smt {
             }
             else {
                 set_conflict(b_justification(tmp_clause.first), null_literal);
-            }		
+            }
             VERIFY(!resolve_conflict());
             return l_false;
         next_clause:
@@ -3770,7 +3770,7 @@ namespace smt {
         }
 
         m_stats.m_num_final_checks++;
-		TRACE("final_check_stats", tout << "m_stats.m_num_final_checks = " << m_stats.m_num_final_checks << "\n";);
+        TRACE("final_check_stats", tout << "m_stats.m_num_final_checks = " << m_stats.m_num_final_checks << "\n";);
 
         final_check_status ok = m_qmanager->final_check_eh(false);
         if (ok != FC_DONE)
