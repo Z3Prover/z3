@@ -249,6 +249,11 @@ namespace recfun {
             return m_plugin->get_def(s);
         }
 
+        case_def& get_case_def(expr* e) {
+            SASSERT(is_case_pred(e));
+            return get_case_def(to_app(e)->get_name());
+        }
+
         case_def& get_case_def(symbol const & s) {
             SASSERT(m_plugin->has_case_def(s));
             return m_plugin->get_case_def(s);

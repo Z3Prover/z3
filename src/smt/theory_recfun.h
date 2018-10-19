@@ -70,8 +70,7 @@ namespace smt {
             ptr_vector<expr>        m_args;
 
             body_expansion(recfun_util& u, app * n) : m_cdef(0), m_args() {
-                SASSERT(u.is_case_pred(n));
-                m_cdef = &u.get_case_def(n->get_name());
+                m_cdef = &u.get_case_def(n);
                 m_args.append(n->get_num_args(), n->get_args());
             }
             body_expansion(recfun_case_def const & d, ptr_vector<expr> & args) : m_cdef(&d), m_args(args) {}
@@ -87,16 +86,18 @@ namespace smt {
 
         friend std::ostream& operator<<(std::ostream&, pp_body_expansion const &);
         
-        ast_manager&        m;
-        recfun_decl_plugin& m_plugin;
-        recfun_util&        m_util;
-        stats               m_stats;
-        app_ref_vector      m_guards;  // true case-preds
-        unsigned            m_max_depth; // for fairness and termination
+        ast_manager&           m;
+        recfun_decl_plugin&    m_plugin;
+        recfun_util&           m_util;
+        stats                  m_stats;
+        obj_map<func_decl, ptr_vector<expr> > m_guards;
+        app_ref_vector         m_guard_preds;
+        unsigned_vector        m_guard_preds_lim;
+        unsigned               m_max_depth; // for fairness and termination
 
-        vector<case_expansion>      m_q_case_expand;
-        vector<body_expansion>      m_q_body_expand;
-        vector<literal_vector>      m_q_clauses;
+        vector<case_expansion> m_q_case_expand;
+        vector<body_expansion> m_q_body_expand;
+        vector<literal_vector> m_q_clauses;
 
         recfun_util & u() const { return m_util; }
         bool is_defined(app * f) const { return u().is_defined(f); }
@@ -112,7 +113,7 @@ namespace smt {
         void assert_case_axioms(case_expansion & e);
         void assert_body_axiom(body_expansion & e);
         literal mk_literal(expr* e);
-        void max_depth_conflict();
+        void max_depth_limit(ptr_vector<expr> const& guards);
         literal mk_eq_lit(expr* l, expr* r);
         bool is_standard_order(recfun::vars const& vars) const { return vars.size() == 0 || vars[vars.size()-1]->get_idx() == 0; }
     protected:

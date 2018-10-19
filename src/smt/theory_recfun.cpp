@@ -32,7 +32,7 @@ namespace smt {
           m(m),
           m_plugin(*reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
-          m_guards(m), 
+          m_guard_preds(m),
           m_max_depth(0), 
           m_q_case_expand(), 
           m_q_body_expand()
@@ -41,10 +41,6 @@ namespace smt {
 
     theory_recfun::~theory_recfun() {
         reset_queues();
-        for (expr* g : m_guards) {
-            m.dec_ref(g);
-        }
-        m_guards.reset();
     }
 
     char const * theory_recfun::get_name() const { return "recfun"; }
@@ -112,12 +108,21 @@ namespace smt {
     void theory_recfun::push_scope_eh() {
         TRACEFN("push_scope");
         theory::push_scope_eh();
+        m_guard_preds_lim.push_back(m_guard_preds.size());
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
         TRACEFN("pop_scope " << num_scopes);
         theory::pop_scope_eh(num_scopes);
         reset_queues();
+        
+        // restore guards
+        unsigned new_lim = m_guard_preds_lim.size()-num_scopes;
+        for (unsigned i = new_lim; i < m_guard_preds.size(); ++i) {
+            m_guards[m_guard_preds.get(i)->get_decl()].pop_back();
+        }
+        m_guard_preds.resize(m_guard_preds_lim[new_lim]);
+        m_guard_preds_lim.shrink(new_lim);
     }
     
     void theory_recfun::restart_eh() {
@@ -159,22 +164,20 @@ namespace smt {
         m_q_body_expand.clear();
     }
 
-    void theory_recfun::max_depth_conflict() {
-        TRACEFN("max-depth conflict");
+    void theory_recfun::max_depth_limit(ptr_vector<expr> const& guards) {
+        TRACEFN("max-depth limit");
         literal_vector c;
-        // make clause `depth_limit => V_{g : guards} ~ g`
-        {
-            // first literal must be the depth limit one
-            app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
-            c.push_back(~mk_literal(dlimit));
-            SASSERT(ctx().get_assignment(c.back()) == l_true);
-        }
-        for (expr * g : m_guards) {
-            c.push_back(~ mk_literal(g));
+        // make clause `depth_limit => V_{g : guards of non-recursive cases} g`
+
+        // first literal must be the depth limit one
+        app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
+        c.push_back(~mk_literal(dlimit));
+        SASSERT(ctx().get_assignment(c.back()) == l_false);        
+
+        for (expr * g : guards) {
+            c.push_back(mk_literal(g));
         }
         TRACEFN("max-depth limit: add clause " << pp_lits(ctx(), c));
-       SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx().get_assignment(l) == l_false; })); // conflict
-
         m_q_clauses.push_back(std::move(c));
     }
 
@@ -185,22 +188,11 @@ namespace smt {
     void theory_recfun::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx().bool_var2expr(v);
         if (is_true && u().is_case_pred(e)) {
-            app* a = to_app(e);
             TRACEFN("assign_case_pred_true " << mk_pp(e, m));
-            // add to set of local assumptions, for depth-limit purpose
-            SASSERT(!m_guards.contains(a));
-            m_guards.push_back(a);
-            ctx().push_trail(push_back_vector<context, app_ref_vector>(m_guards));
-            
-            if (m_guards.size() <= get_max_depth()) {
-                // body-expand
-                body_expansion b_e(u(), a);
-                push_body_expand(std::move(b_e));
-            }
-            else {
-                // too many body-expansions: depth-limit conflict
-                max_depth_conflict();
-            }
+            app* a = to_app(e);            
+            // body-expand
+            body_expansion b_e(u(), a);
+            push_body_expand(std::move(b_e));            
         }
     }
 
@@ -297,6 +289,15 @@ namespace smt {
             if (c.is_immediate()) {
                 body_expansion be(c, e.m_args);
                 assert_body_axiom(be);
+
+                // add to set of local assumptions, for depth-limit purpose
+                func_decl* d = pred_applied->get_decl();
+                m_guard_preds.push_back(pred_applied);
+                auto& vec = m_guards.insert_if_not_there2(d, ptr_vector<expr>())->get_data().m_value;
+                vec.push_back(pred_applied);
+                if (vec.size() == get_max_depth()) {
+                    max_depth_limit(vec);
+                }
             }
         }
     }
