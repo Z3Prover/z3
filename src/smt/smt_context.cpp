@@ -3266,6 +3266,18 @@ namespace smt {
         m_assumptions.reset();
     }
 
+    bool context::should_research(lbool r) {
+        if (r != l_false || m_unsat_core.empty()) { 
+            return false;
+        }
+        for (theory* th : m_theory_set) {
+            if (th->should_research(m_unsat_core)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     lbool context::mk_unsat_core(lbool r) {        
         if (r != l_false) return r;
         SASSERT(inconsistent());
@@ -3353,7 +3365,7 @@ namespace smt {
         add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
             TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
-            return check(theory_assumptions.size(), theory_assumptions.c_ptr(), reset_cancel, true);
+            return check(0, nullptr, reset_cancel);
         }
 
         internalize_assertions();
@@ -3407,19 +3419,23 @@ namespace smt {
         }
     }
 
-    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel, bool already_did_theory_assumptions) {
+    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
         expr_ref_vector asms(m_manager, num_assumptions, assumptions);
-        if (!already_did_theory_assumptions) add_theory_assumptions(asms);                
+        add_theory_assumptions(asms);                
         // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
         TRACE("unsat_core_bug", tout << asms << "\n";);        
         internalize_assertions();
         init_assumptions(asms);
         TRACE("before_search", display(tout););
-        lbool r = search();
-        r = mk_unsat_core(r);        
+        lbool r;
+        do {
+            r = search();
+            r = mk_unsat_core(r);        
+        }
+        while (should_research(r));
         r = check_finalize(r);
         return r;
     }
@@ -3435,8 +3451,12 @@ namespace smt {
         internalize_assertions();
         init_assumptions(asms);
         for (auto const& clause : clauses) init_clause(clause);
-        lbool r = search();   
-        r = mk_unsat_core(r);             
+        lbool r;
+        do {
+            r = search();   
+            r = mk_unsat_core(r);             
+        }
+        while (should_research(r));
         r = check_finalize(r);
         return r;           
     }

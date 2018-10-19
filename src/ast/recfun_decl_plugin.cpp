@@ -184,7 +184,8 @@ namespace recfun {
         return res;
     }
 
-    void def::add_case(std::string & name, unsigned n_conditions, expr ** conditions, expr * rhs, bool is_imm) {
+    void def::add_case(std::string & name, unsigned n_conditions, 
+                       expr ** conditions, expr * rhs, bool is_imm) {
         case_def c(m, m_fid, this, name, get_domain(), n_conditions, conditions, rhs);
         c.set_is_immediate(is_imm);
         TRACEFN("add_case " << name << " " << mk_pp(rhs, m)
@@ -202,7 +203,7 @@ namespace recfun {
             TRACEFN("bug: " << m_name << " has cases already");
             UNREACHABLE();
         }
-        SASSERT(n_vars = m_domain.size());
+        SASSERT(n_vars == m_domain.size());
 
         TRACEFN("compute cases " << mk_pp(rhs0, m));
 
@@ -235,7 +236,7 @@ namespace recfun {
         if (m_macro) {
             // constant function or trivial control flow, only one (dummy) case
             name.append("dummy");
-            add_case(name, 0, 0, rhs);
+            add_case(name, 0, nullptr, rhs);
             return;
         }
         

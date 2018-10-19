@@ -1137,6 +1137,8 @@ namespace smt {
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
         lbool mk_unsat_core(lbool result);
+        
+        bool should_research(lbool result);
 
         void validate_unsat_core();
 
@@ -1524,7 +1526,7 @@ namespace smt {
 
         void pop(unsigned num_scopes);
 
-        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
+        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true);
 
         lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 

@@ -72,8 +72,7 @@ namespace smt {
             body_expansion(recfun_util& u, app * n) : m_cdef(0), m_args() {
                 SASSERT(u.is_case_pred(n));
                 m_cdef = &u.get_case_def(n->get_name());
-                for (expr * arg : *n) 
-                    m_args.push_back(arg);
+                m_args.append(n->get_num_args(), n->get_args());
             }
             body_expansion(recfun_case_def const & d, ptr_vector<expr> & args) : m_cdef(&d), m_args(args) {}
             body_expansion(body_expansion const & from): m_cdef(from.m_cdef), m_args(from.m_args) {}
@@ -88,16 +87,11 @@ namespace smt {
 
         friend std::ostream& operator<<(std::ostream&, pp_body_expansion const &);
         
-
-        typedef trail_stack<theory_recfun>  th_trail_stack;
-        typedef obj_hashtable<expr> guard_set;
-
         ast_manager&        m;
         recfun_decl_plugin& m_plugin;
         recfun_util&        m_util;
         stats               m_stats;
-        th_trail_stack      m_trail;
-        guard_set           m_guards; // true case-preds
+        app_ref_vector      m_guards;  // true case-preds
         unsigned            m_max_depth; // for fairness and termination
 
         vector<case_expansion>      m_q_case_expand;
@@ -117,8 +111,8 @@ namespace smt {
         void assert_macro_axiom(case_expansion & e);
         void assert_case_axioms(case_expansion & e);
         void assert_body_axiom(body_expansion & e);
-        void max_depth_conflict(void);
         literal mk_literal(expr* e);
+        void max_depth_conflict();
         literal mk_eq_lit(expr* l, expr* r);
         bool is_standard_order(recfun::vars const& vars) const { return vars.size() == 0 || vars[vars.size()-1]->get_idx() == 0; }
     protected:
@@ -137,7 +131,7 @@ namespace smt {
         void restart_eh() override;
         bool can_propagate() override;
         void propagate() override;
-        lbool validate_unsat_core(expr_ref_vector &) override;
+        bool should_research(expr_ref_vector &) override;
 
         void new_eq_eh(theory_var v1, theory_var v2) override {}
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
@@ -152,6 +146,7 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const override;
         unsigned get_max_depth() const { return m_max_depth; }
         void set_max_depth(unsigned n) { SASSERT(n>0); m_max_depth = n; }
+        void inc_max_depth() { ++m_max_depth; }
     };
 }
 

@@ -32,12 +32,10 @@ namespace smt {
           m(m),
           m_plugin(*reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
-          m_trail(*this),
-          m_guards(), 
+          m_guards(m), 
           m_max_depth(0), 
           m_q_case_expand(), 
-          m_q_body_expand(), 
-          m_q_clauses()
+          m_q_body_expand()
         {
         }
 
@@ -89,11 +87,9 @@ namespace smt {
     void theory_recfun::reset_queues() {
         m_q_case_expand.reset();
         m_q_body_expand.reset();
-        m_q_clauses.reset();
     }
 
     void theory_recfun::reset_eh() {
-        m_trail.reset();
         reset_queues();   
         m_stats.reset();
         theory::reset_eh();
@@ -116,12 +112,10 @@ namespace smt {
     void theory_recfun::push_scope_eh() {
         TRACEFN("push_scope");
         theory::push_scope_eh();
-        m_trail.push_scope();
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
         TRACEFN("pop_scope " << num_scopes);
-        m_trail.pop_scope(num_scopes);
         theory::pop_scope_eh(num_scopes);
         reset_queues();
     }
@@ -131,15 +125,15 @@ namespace smt {
         reset_queues();
         theory::restart_eh();
     }
-
+     
     bool theory_recfun::can_propagate() {
         return ! (m_q_case_expand.empty() &&
                   m_q_body_expand.empty() &&
                   m_q_clauses.empty());
     }
-
+    
     void theory_recfun::propagate() {
-
+ 
         for (literal_vector & c : m_q_clauses) {
             TRACEFN("add axiom " << pp_lits(ctx(), c));
             ctx().mk_th_axiom(get_id(), c);
@@ -179,7 +173,7 @@ namespace smt {
             c.push_back(~ mk_literal(g));
         }
         TRACEFN("max-depth limit: add clause " << pp_lits(ctx(), c));
-        SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx().get_assignment(l) == l_false; })); // conflict
+       SASSERT(std::all_of(c.begin(), c.end(), [&](literal & l) { return ctx().get_assignment(l) == l_false; })); // conflict
 
         m_q_clauses.push_back(std::move(c));
     }
@@ -190,25 +184,22 @@ namespace smt {
      */
     void theory_recfun::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx().bool_var2expr(v);
-        if (!is_true || !is_app(e)) return;
-        app* a = to_app(e);
-        if (u().is_case_pred(a)) {
-            TRACEFN("assign_case_pred_true "<< mk_pp(e,m));
+        if (is_true && u().is_case_pred(e)) {
+            app* a = to_app(e);
+            TRACEFN("assign_case_pred_true " << mk_pp(e, m));
             // add to set of local assumptions, for depth-limit purpose
-            SASSERT(!m_guards.contains(e));
-            m_guards.insert(e);
-            m.inc_ref(e);
-            insert_ref_map<theory_recfun,guard_set,ast_manager,expr*> trail_elt(m, m_guards, e);
-            m_trail.push(trail_elt);
+            SASSERT(!m_guards.contains(a));
+            m_guards.push_back(a);
+            ctx().push_trail(push_back_vector<context, app_ref_vector>(m_guards));
             
-            if (m_guards.size() > get_max_depth()) {
-                // too many body-expansions: depth-limit conflict
-                max_depth_conflict();
-            }
-            else {
+            if (m_guards.size() <= get_max_depth()) {
                 // body-expand
                 body_expansion b_e(u(), a);
                 push_body_expand(std::move(b_e));
+            }
+            else {
+                // too many body-expansions: depth-limit conflict
+                max_depth_conflict();
             }
         }
     }
@@ -238,7 +229,19 @@ namespace smt {
     }
 
     literal theory_recfun::mk_eq_lit(expr* l, expr* r) {
-        literal lit = mk_eq(l, r, false);
+        literal lit;
+        if (m.is_true(r) || m.is_false(r)) {
+            std::swap(l, r);
+        }
+        if (m.is_true(l)) {
+            lit = mk_literal(r);
+        }
+        else if (m.is_false(l)) {
+            lit = ~mk_literal(r);
+        }
+        else {
+            lit = mk_eq(l, r, false);        
+        }
         ctx().mark_as_relevant(lit);
         return lit;
     }
@@ -326,6 +329,21 @@ namespace smt {
     }
     
     final_check_status theory_recfun::final_check_eh() {
+        if (m_guards.size() > get_max_depth()) {
+#if 1
+            return FC_GIVEUP;
+#else
+            for (unsigned i = get_max_depth(); i < m_guards.size(); ++i) {
+                app* a = m_guards.get(i);
+                body_expansion b_e(u(), a);
+                push_body_expand(std::move(b_e));
+            }
+            unsigned new_depth = m_guards.size() + 1;
+            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :new-depth " << new_depth << ")\n");
+            set_max_depth(new_depth);
+            return FC_CONTINUE;
+#endif
+        }
         return FC_DONE;
     }
 
@@ -335,13 +353,16 @@ namespace smt {
         assumptions.push_back(dlimit);
     }
 
-    // if `dlimit` occurs in unsat core, return "unknown"
-    lbool theory_recfun::validate_unsat_core(expr_ref_vector & unsat_core) {
+    // if `dlimit` occurs in unsat core, return 'true'
+    bool theory_recfun::should_research(expr_ref_vector & unsat_core) {
         for (auto & e : unsat_core) {
-            if (u().is_depth_limit(e)) 
-                return l_undef;
+            if (u().is_depth_limit(e)) {
+                unsigned new_depth = (3 * (1 + get_max_depth())) / 2;
+                set_max_depth(new_depth);
+                return true;
+            }
         }
-        return l_false;
+        return false;
     }
 
     void theory_recfun::display(std::ostream & out) const {
