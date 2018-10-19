@@ -45,7 +45,7 @@ namespace smt {
 
     char const * theory_recfun::get_name() const { return "recfun"; }
 
-    void theory_recfun::setup_params() {
+    void theory_recfun::init_search_eh() {
         // obtain max depth via parameters
         smt_params_helper p(ctx().get_params());
         set_max_depth(p.recfun_max_depth());
@@ -330,28 +330,15 @@ namespace smt {
     }
     
     final_check_status theory_recfun::final_check_eh() {
-        if (m_guards.size() > get_max_depth()) {
-#if 1
-            return FC_GIVEUP;
-#else
-            for (unsigned i = get_max_depth(); i < m_guards.size(); ++i) {
-                app* a = m_guards.get(i);
-                body_expansion b_e(u(), a);
-                push_body_expand(std::move(b_e));
-            }
-            unsigned new_depth = m_guards.size() + 1;
-            IF_VERBOSE(2, verbose_stream() << "(smt.recfun :new-depth " << new_depth << ")\n");
-            set_max_depth(new_depth);
-            return FC_CONTINUE;
-#endif
-        }
         return FC_DONE;
     }
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
-        app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
-        TRACEFN("add_theory_assumption " << mk_pp(dlimit.get(), m));
-        assumptions.push_back(dlimit);
+        if (u().has_def()) {
+            app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
+            TRACEFN("add_theory_assumption " << mk_pp(dlimit.get(), m));
+            assumptions.push_back(dlimit);
+        }
     }
 
     // if `dlimit` occurs in unsat core, return 'true'

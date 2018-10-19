@@ -884,7 +884,6 @@ namespace smt {
         TRACE("recfun", tout << "registering theory recfun...\n";);
         theory_recfun * th = alloc(theory_recfun, m_manager);
         m_context.register_plugin(th);
-        th->setup_params();
     }
 
     void setup::setup_dl() {

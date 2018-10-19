@@ -201,6 +201,7 @@ namespace recfun {
             def* mk_def(symbol const& name, unsigned n, sort ** params, sort * range, unsigned n_vars, var ** vars, expr * rhs);
 
             bool has_def(const symbol& s) const { return m_defs.contains(s); }
+            bool has_def() const { return !m_defs.empty(); }
             def const& get_def(const symbol& s) const { return *(m_defs[s]); }
             promise_def get_promise_def(const symbol &s) const { return promise_def(&u(), m_defs[s]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
@@ -240,6 +241,8 @@ namespace recfun {
         bool is_defined(expr * e) const { return is_app_of(e, m_family_id, OP_FUN_DEFINED); }
         bool is_depth_limit(expr * e) const { return is_app_of(e, m_family_id, OP_DEPTH_LIMIT); }
         bool owns_app(app * e) const { return e->get_family_id() == m_family_id; }
+
+        bool has_def() const { return m_plugin->has_def(); }
 
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range);

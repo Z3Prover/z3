@@ -138,16 +138,16 @@ namespace smt {
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
 
+        void set_max_depth(unsigned n) { SASSERT(n>0); m_max_depth = n; }        
+        unsigned get_max_depth() const { return m_max_depth; }
+
     public:
         theory_recfun(ast_manager & m);
-        virtual ~theory_recfun() override;
-        void setup_params(); // read parameters
-        virtual theory * mk_fresh(context * new_ctx) override;
-        virtual void display(std::ostream & out) const override;
-        virtual void collect_statistics(::statistics & st) const override;
-        unsigned get_max_depth() const { return m_max_depth; }
-        void set_max_depth(unsigned n) { SASSERT(n>0); m_max_depth = n; }
-        void inc_max_depth() { ++m_max_depth; }
+        ~theory_recfun() override;
+        void init_search_eh() override;
+        theory * mk_fresh(context * new_ctx) override;
+        void display(std::ostream & out) const override;
+        void collect_statistics(::statistics & st) const override;
     };
 }
 
