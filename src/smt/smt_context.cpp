@@ -3423,15 +3423,16 @@ namespace smt {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
-        expr_ref_vector asms(m_manager, num_assumptions, assumptions);
-        add_theory_assumptions(asms);                
-        // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-        TRACE("unsat_core_bug", tout << asms << "\n";);        
-        internalize_assertions();
-        init_assumptions(asms);
-        TRACE("before_search", display(tout););
         lbool r;
         do {
+            pop_to_base_lvl();
+            expr_ref_vector asms(m_manager, num_assumptions, assumptions);
+            add_theory_assumptions(asms);                
+            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
+            TRACE("unsat_core_bug", tout << asms << "\n";);        
+            internalize_assertions();
+            init_assumptions(asms);
+            TRACE("before_search", display(tout););
             r = search();
             r = mk_unsat_core(r);        
         }
@@ -3444,15 +3445,16 @@ namespace smt {
         if (!check_preamble(true)) return l_undef;
         TRACE("before_search", display(tout););
         setup_context(false);
-        expr_ref_vector asms(cube);
-        add_theory_assumptions(asms);
-        // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-        for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
-        internalize_assertions();
-        init_assumptions(asms);
-        for (auto const& clause : clauses) init_clause(clause);
         lbool r;
         do {
+            pop_to_base_lvl();
+            expr_ref_vector asms(cube);
+            add_theory_assumptions(asms);
+            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
+            for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
+            internalize_assertions();
+            init_assumptions(asms);
+            for (auto const& clause : clauses) init_clause(clause);
             r = search();   
             r = mk_unsat_core(r);             
         }
