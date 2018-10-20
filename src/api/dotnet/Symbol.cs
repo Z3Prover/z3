@@ -83,7 +83,7 @@ namespace Microsoft.Z3
         /// </summary>
         public static bool operator !=(Symbol s1, Symbol s2)
         {
-            return !(s1.NativeObject == s2.NativeObject);
+            return !(s1 == s2);
         }
 
         /// <summary>
