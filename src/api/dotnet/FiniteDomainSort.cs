@@ -17,15 +17,14 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Finite domain sorts.
     /// </summary>
-    [ContractVerification(true)]
     public class FiniteDomainSort : Sort
     {
         /// <summary>
@@ -45,13 +44,13 @@ namespace Microsoft.Z3
         internal FiniteDomainSort(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal FiniteDomainSort(Context ctx, Symbol name, ulong size)
             : base(ctx, Native.Z3_mk_finite_domain_sort(ctx.nCtx, name.NativeObject, size))
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(name != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
 
         }
         #endregion

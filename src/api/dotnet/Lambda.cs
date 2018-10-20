@@ -18,14 +18,14 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Lambda expressions.
     /// </summary>
-    [ContractVerification(true)]
     public class Lambda : ArrayExpr
     {
         /// <summary>
@@ -43,7 +43,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Symbol[]>() != null);
 
                 uint n = NumBound;
                 Symbol[] res = new Symbol[n];
@@ -60,7 +59,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Sort[]>() != null);
 
                 uint n = NumBound;
                 Sort[] res = new Sort[n];
@@ -77,7 +75,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
                 return new BoolExpr(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
             }
@@ -94,17 +91,16 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        [ContractVerification(false)] // F: Clousot ForAll decompilation gets confused below. Setting verification off until I fixed the bug
         internal Lambda(Context ctx, Sort[] sorts, Symbol[] names, Expr body)
             : base(ctx, IntPtr.Zero)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(sorts != null);
-            Contract.Requires(names != null);
-            Contract.Requires(body != null);
-            Contract.Requires(sorts.Length == names.Length);
-            Contract.Requires(Contract.ForAll(sorts, s => s != null));
-            Contract.Requires(Contract.ForAll(names, n => n != null));
+            Debug.Assert(ctx != null);
+            Debug.Assert(sorts != null);
+            Debug.Assert(names != null);
+            Debug.Assert(body != null);
+            Debug.Assert(sorts.Length == names.Length);
+            Debug.Assert(sorts.All(s => s != null));
+            Debug.Assert(names.All(n => n != null));
             Context.CheckContextMatch<Sort>(sorts);
             Context.CheckContextMatch<Symbol>(names);
             Context.CheckContextMatch(body);
@@ -119,14 +115,13 @@ namespace Microsoft.Z3
             
         }
 
-        [ContractVerification(false)] // F: Clousot ForAll decompilation gets confused below. Setting verification off until I fixed the bug
         internal Lambda(Context ctx, Expr[] bound, Expr body)
             : base(ctx, IntPtr.Zero)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(body != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(body != null);
 
-            Contract.Requires(bound != null && bound.Length > 0 && Contract.ForAll(bound, n => n != null));
+            Debug.Assert(bound != null && bound.Length > 0 && bound.All(n => n != null));
 
             Context.CheckContextMatch<Expr>(bound);
             Context.CheckContextMatch(body);
@@ -137,7 +132,7 @@ namespace Microsoft.Z3
         }
 
 
-        internal Lambda(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal Lambda(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
 #if DEBUG
         internal override void CheckNativeObject(IntPtr obj)

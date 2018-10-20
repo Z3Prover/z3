@@ -18,15 +18,14 @@ Notes:
 --*/
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Symbols are used to name several term and type constructors.
     /// </summary>
-    [ContractVerification(true)]
     public class Symbol : Z3Object
     {
         /// <summary>
@@ -113,13 +112,12 @@ namespace Microsoft.Z3
         /// </summary>
         internal protected Symbol(Context ctx, IntPtr obj) : base(ctx, obj) 
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal static Symbol Create(Context ctx, IntPtr obj)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<Symbol>() != null);
+            Debug.Assert(ctx != null);
 
             switch ((Z3_symbol_kind)Native.Z3_get_symbol_kind(ctx.nCtx, obj))
             {

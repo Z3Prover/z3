@@ -17,15 +17,14 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Datatype sorts.
     /// </summary>
-    [ContractVerification(true)]
     public class DatatypeSort : Sort
     {
         /// <summary>
@@ -43,7 +42,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
 
                 uint n = NumConstructors;
                 FuncDecl[] res = new FuncDecl[n];
@@ -60,7 +58,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
 
                 uint n = NumConstructors;
                 FuncDecl[] res = new FuncDecl[n];
@@ -77,7 +74,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl[][]>() != null);
 
                 uint n = NumConstructors;
                 FuncDecl[][] res = new FuncDecl[n][];
@@ -95,14 +91,14 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal DatatypeSort(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal DatatypeSort(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
         internal DatatypeSort(Context ctx, Symbol name, Constructor[] constructors)
             : base(ctx, Native.Z3_mk_datatype(ctx.nCtx, name.NativeObject, (uint)constructors.Length, ArrayToNative(constructors)))
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(name != null);
-            Contract.Requires(constructors != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
+            Debug.Assert(constructors != null);
         }
         #endregion
     };

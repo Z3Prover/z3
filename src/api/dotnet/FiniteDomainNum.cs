@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 #if !FRAMEWORK_LT_4
 using System.Numerics;
@@ -28,7 +28,6 @@ namespace Microsoft.Z3
     /// <summary>
     /// Finite-domain numerals
     /// </summary>
-    [ContractVerification(true)]
     public class FiniteDomainNum : FiniteDomainExpr
     {
         /// <summary>
@@ -109,7 +108,7 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal FiniteDomainNum(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal FiniteDomainNum(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
         #endregion
     }
 }

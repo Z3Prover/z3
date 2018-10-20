@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -45,13 +45,12 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<AST>() != null);
 
                 return new AST(Context, Native.Z3_ast_vector_get(Context.nCtx, NativeObject, i));
             }
             set
             {
-                Contract.Requires(value != null);
+                Debug.Assert(value != null);
 
                 Native.Z3_ast_vector_set(Context.nCtx, NativeObject, i, value.NativeObject);
             }
@@ -73,7 +72,7 @@ namespace Microsoft.Z3
         /// <param name="a">An AST</param>
         public void Push(AST a)
         {
-            Contract.Requires(a != null);
+            Debug.Assert(a != null);
 
             Native.Z3_ast_vector_push(Context.nCtx, NativeObject, a.NativeObject);
         }
@@ -85,8 +84,7 @@ namespace Microsoft.Z3
         /// <returns>A new ASTVector</returns>
         public ASTVector Translate(Context ctx)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<ASTVector>() != null);
+            Debug.Assert(ctx != null);
 
             return new ASTVector(Context, Native.Z3_ast_vector_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
@@ -232,8 +230,8 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal ASTVector(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
-        internal ASTVector(Context ctx) : base(ctx, Native.Z3_mk_ast_vector(ctx.nCtx)) { Contract.Requires(ctx != null); }
+        internal ASTVector(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
+        internal ASTVector(Context ctx) : base(ctx, Native.Z3_mk_ast_vector(ctx.nCtx)) { Debug.Assert(ctx != null); }
 
         internal class DecRefQueue : IDecRefQueue
         {

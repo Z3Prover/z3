@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -26,7 +26,6 @@ namespace Microsoft.Z3
     /// ApplyResult objects represent the result of an application of a 
     /// tactic to a goal. It contains the subgoals that were produced.
     /// </summary>
-    [ContractVerification(true)]
     public class ApplyResult : Z3Object
     {
         /// <summary>
@@ -44,8 +43,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Goal[]>() != null);
-                Contract.Ensures(Contract.Result<Goal[]>().Length == this.NumSubgoals);
 
                 uint n = NumSubgoals;
                 Goal[] res = new Goal[n];
@@ -67,7 +64,7 @@ namespace Microsoft.Z3
         internal ApplyResult(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

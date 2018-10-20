@@ -18,8 +18,8 @@ Notes:
 --*/
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -27,7 +27,6 @@ namespace Microsoft.Z3
     /// <summary>
     /// Named symbols
     /// </summary>
-    [ContractVerification(true)]
     public class StringSymbol : Symbol
     {
         /// <summary>
@@ -38,7 +37,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<string>() != null);
 
                 if (!IsStringSymbol())
                     throw new Z3Exception("String requested from non-String symbol");
@@ -50,13 +48,13 @@ namespace Microsoft.Z3
         internal StringSymbol(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal StringSymbol(Context ctx, string s)
             : base(ctx, Native.Z3_mk_string_symbol(ctx.nCtx, s))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
 #if DEBUG

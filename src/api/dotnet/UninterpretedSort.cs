@@ -18,7 +18,7 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
 
 namespace Microsoft.Z3
 {
@@ -31,13 +31,13 @@ namespace Microsoft.Z3
         internal UninterpretedSort(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal UninterpretedSort(Context ctx, Symbol s)
             : base(ctx, Native.Z3_mk_uninterpreted_sort(ctx.nCtx, s.NativeObject))
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(s != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(s != null);
         }
         #endregion
     }

@@ -17,15 +17,14 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Relation sorts.
     /// </summary>
-    [ContractVerification(true)]
     public class RelationSort : Sort
     {
         /// <summary>
@@ -43,7 +42,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Sort[]>() != null);
 
                 if (m_columnSorts != null)
                     return m_columnSorts;
@@ -62,7 +60,7 @@ namespace Microsoft.Z3
         internal RelationSort(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }

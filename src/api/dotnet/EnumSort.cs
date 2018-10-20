@@ -17,15 +17,14 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Enumeration sorts.
     /// </summary>
-    [ContractVerification(true)]
     public class EnumSort : Sort
     {
         /// <summary>
@@ -35,7 +34,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
                 uint n = Native.Z3_get_datatype_sort_num_constructors(Context.nCtx, NativeObject);
                 FuncDecl[] t = new FuncDecl[n];
                 for (uint i = 0; i < n; i++)
@@ -61,7 +59,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr[]>() != null);
                 FuncDecl[] cds = ConstDecls;
                 Expr[] t = new Expr[cds.Length];
                 for (uint i = 0; i < t.Length; i++)
@@ -87,7 +84,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
                 uint n = Native.Z3_get_datatype_sort_num_constructors(Context.nCtx, NativeObject);
                 FuncDecl[] t = new FuncDecl[n];
                 for (uint i = 0; i < n; i++)
@@ -110,9 +106,9 @@ namespace Microsoft.Z3
         internal EnumSort(Context ctx, Symbol name, Symbol[] enumNames)
             : base(ctx, IntPtr.Zero)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(name != null);
-            Contract.Requires(enumNames != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
+            Debug.Assert(enumNames != null);
 
             int n = enumNames.Length;
             IntPtr[] n_constdecls = new IntPtr[n];

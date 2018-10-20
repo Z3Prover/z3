@@ -16,8 +16,8 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -40,12 +40,12 @@ namespace Microsoft.Z3
         internal FPSort(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal FPSort(Context ctx, uint ebits, uint sbits)
             : base(ctx, Native.Z3_mk_fpa_sort(ctx.nCtx, ebits, sbits))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }    

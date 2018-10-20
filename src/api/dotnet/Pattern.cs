@@ -17,9 +17,9 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -28,7 +28,6 @@ namespace Microsoft.Z3
     /// non-empty.  If the list comprises of more than one term, it is
     /// also called a multi-pattern.
     /// </summary>
-    [ContractVerification(true)]
     public class Pattern : AST
     {
         /// <summary>
@@ -46,7 +45,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr[]>() != null);
 
                 uint n = NumTerms;
                 Expr[] res = new Expr[n];
@@ -68,7 +66,7 @@ namespace Microsoft.Z3
         internal Pattern(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }
