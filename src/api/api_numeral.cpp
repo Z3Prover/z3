@@ -227,6 +227,11 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
+    double Z3_API Z3_get_numeral_double(Z3_context c, Z3_ast a) {
+        Z3_string s = Z3_get_numeral_decimal_string(c, a, 12);
+        return std::stod(std::string(s));
+    }
+
     Z3_string Z3_API Z3_get_numeral_decimal_string(Z3_context c, Z3_ast a, unsigned precision) {
         Z3_TRY;
         LOG_Z3_get_numeral_decimal_string(c, a, precision);

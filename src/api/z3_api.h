@@ -4439,6 +4439,15 @@ extern "C" {
     Z3_string Z3_API Z3_get_numeral_decimal_string(Z3_context c, Z3_ast a, unsigned precision);
 
     /**
+       \brief Return numeral as a double.
+
+       \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST || Z3_is_algebraic_number(c, a)
+
+       def_API('Z3_get_numeral_double', STRING, (_in(CONTEXT), _in(AST)))
+    */
+    double Z3_API Z3_get_numeral_double(Z3_context c, Z3_ast a);
+
+    /**
        \brief Return the numerator (as a numeral AST) of a numeral AST of sort Real.
 
        \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST

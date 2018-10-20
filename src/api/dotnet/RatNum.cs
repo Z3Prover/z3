@@ -93,6 +93,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Returns a double representing the value.
+        /// </summary>
+        public double Double
+        {
+            get { return Native.Z3_get_numeral_double(Context.nCtx, NativeObject); }
+        }
+
+        /// <summary>
         /// Returns a string representation of the numeral.
         /// </summary>        
         public override string ToString()

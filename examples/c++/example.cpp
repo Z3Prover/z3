@@ -835,6 +835,17 @@ void tst_visit() {
     visit(f);
 }
 
+void tst_numeral() {
+    context c;
+    expr x = c.real_val("1/3");
+    double d = 0;
+    if (!x.is_numeral(d)) {
+        std::cout << x << " is not recognized as a numeral\n";
+        return;
+    }
+    std::cout << x << " is " << d << "\n";
+}
+
 void incremental_example1() {
     std::cout << "incremental example1\n";
     context c;
@@ -1212,6 +1223,7 @@ int main() {
         tactic_example9(); std::cout << "\n";
         tactic_qe(); std::cout << "\n";
         tst_visit(); std::cout << "\n";
+        tst_numeral(); std::cout << "\n";
         incremental_example1(); std::cout << "\n";
         incremental_example2(); std::cout << "\n";
         incremental_example3(); std::cout << "\n";
