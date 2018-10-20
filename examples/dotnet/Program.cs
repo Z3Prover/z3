@@ -363,10 +363,10 @@ namespace test_mapi
 
             Console.WriteLine("Model = " + s.Model);
 
-            Console.WriteLine("Interpretation of MyArray:\n" + s.Model.FuncInterp(aex.FuncDecl));
+            //Console.WriteLine("Interpretation of MyArray:\n" + s.Model.ConstInterp(aex.FuncDecl));
             Console.WriteLine("Interpretation of x:\n" + s.Model.ConstInterp(xc));
             Console.WriteLine("Interpretation of f:\n" + s.Model.FuncInterp(fd));
-            Console.WriteLine("Interpretation of MyArray as Term:\n" + s.Model.FuncInterp(aex.FuncDecl));
+            //Console.WriteLine("Interpretation of MyArray as Term:\n" + s.Model.ConstInterp(aex.FuncDecl));
         }
 
         /// <summary>
@@ -2103,7 +2103,7 @@ namespace test_mapi
             if (s.Check() != Status.SATISFIABLE)
                 throw new TestFailedException();
 
-            Console.WriteLine("OK, model: {0}", s.Model.ToString());
+            // Console.WriteLine("OK, model: {0}", s.Model.ToString());
         }
 
 
