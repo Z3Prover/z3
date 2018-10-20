@@ -4443,7 +4443,7 @@ extern "C" {
 
        \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST || Z3_is_algebraic_number(c, a)
 
-       def_API('Z3_get_numeral_double', STRING, (_in(CONTEXT), _in(AST)))
+       def_API('Z3_get_numeral_double', DOUBLE, (_in(CONTEXT), _in(AST)))
     */
     double Z3_API Z3_get_numeral_double(Z3_context c, Z3_ast a);
 
