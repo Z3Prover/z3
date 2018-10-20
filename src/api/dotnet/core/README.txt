@@ -6,6 +6,6 @@ functions, so that the API will compile, but not perform any contract
 checking. To build this using .NET core, run (in this directory):
 
 dotnet restore
-dotnet build core.json
+dotnet build core.csproj -c Release
 
 -- good luck!
