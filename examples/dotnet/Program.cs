@@ -2103,7 +2103,7 @@ namespace test_mapi
             if (s.Check() != Status.SATISFIABLE)
                 throw new TestFailedException();
 
-            // Console.WriteLine("OK, model: {0}", s.Model.ToString());
+            Console.WriteLine("OK, model: {0}", s.Model.ToString());
         }
 
 
