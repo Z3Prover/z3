@@ -118,10 +118,11 @@ namespace smt {
         
         // restore guards
         unsigned new_lim = m_guard_preds_lim.size()-num_scopes;
-        for (unsigned i = new_lim; i < m_guard_preds.size(); ++i) {
+        unsigned start = m_guard_preds_lim[new_lim];
+        for (unsigned i = start; i < m_guard_preds.size(); ++i) {
             m_guards[m_guard_preds.get(i)->get_decl()].pop_back();
         }
-        m_guard_preds.resize(m_guard_preds_lim[new_lim]);
+        m_guard_preds.resize(start);
         m_guard_preds_lim.shrink(new_lim);
     }
     
