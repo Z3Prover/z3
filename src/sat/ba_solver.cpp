@@ -2519,7 +2519,7 @@ namespace sat {
      * ~lit does not occur in clauses
      * ~lit is only in one constraint use list
      * lit == C 
-     * -> ignore assignemnts to ~lit for C
+     * -> ignore assignments to ~lit for C
      * 
      * ~lit does not occur in clauses
      * lit is only in one constraint use list

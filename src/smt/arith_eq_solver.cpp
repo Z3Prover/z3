@@ -492,7 +492,7 @@ bool arith_eq_solver::solve_integer_equations_omega(
             return false;
         }
         else if (r[index].is_zero()) {
-            // Row is trival
+            // Row is trivial
             rows_solved.pop_back();
             continue;
         }

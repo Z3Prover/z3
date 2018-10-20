@@ -332,7 +332,7 @@ namespace datalog {
 
 
         void internalize() {
-            // populate maps (should be bit-sets) of decendants.
+            // populate maps (should be bit-sets) of descendants.
             if (m_internalized) {                
                 return;
             }

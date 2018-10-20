@@ -1097,7 +1097,7 @@ namespace tb {
             m_S1.apply(2, delta, expr_offset(src.get_constraint(), 1), tmp2);
             constraint = m.mk_and(tmp, tmp2);
 
-            // perform trival quantifier-elimination:
+            // perform trivial quantifier-elimination:
             uint_set index_set;
             expr_free_vars fv;
             fv(head);

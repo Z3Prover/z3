@@ -73,7 +73,7 @@ namespace smt {
     class tmp_enode;
 
     /**
-       \brief Aditional data-structure for implementing congruence closure,
+       \brief Additional data-structure for implementing congruence closure,
        equality propagation, and the theory central bus of equalities.
     */
     class enode {

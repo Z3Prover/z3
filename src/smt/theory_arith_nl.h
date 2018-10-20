@@ -1337,7 +1337,7 @@ namespace smt {
     }
 
     /**
-       \brief Diplay a nested form expression
+       \brief Display a nested form expression
     */
     template<typename Ext>
     void theory_arith<Ext>::display_nested_form(std::ostream & out, expr * p) {
@@ -1682,7 +1682,7 @@ namespace smt {
         if (!get_manager().int_real_coercions() && is_mixed_real_integer(r))
             return true; // giving up... see comment above
 
-        TRACE("cross_nested", tout << "cheking problematic row...\n";);
+        TRACE("cross_nested", tout << "checking problematic row...\n";);
 
         rational c = rational::one();
         if (is_integer(r))
@@ -1764,7 +1764,7 @@ namespace smt {
        updated with the fixed variables in m.  A variable is only
        added to dep if it is not already in already_found.
 
-       Return null if the monomial was simplied to 0.
+       Return null if the monomial was simplified to 0.
     */
     template<typename Ext>
     grobner::monomial * theory_arith<Ext>::mk_gb_monomial(rational const & _coeff, expr * m, grobner & gb, v_dependency * & dep, var_set & already_found) {

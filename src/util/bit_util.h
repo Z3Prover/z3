@@ -48,7 +48,7 @@ unsigned ntz(unsigned sz, unsigned const * data);
 /**
    \brief dst <- src
    
-   Trucate if src_sz > dst_sz.
+   Truncate if src_sz > dst_sz.
    Fill range [src_sz, dst_sz) of dst with zeros if dst_sz > src_sz.
 */
 void copy(unsigned src_sz, unsigned const * src, unsigned dst_sz, unsigned * dst);
@@ -87,7 +87,7 @@ void shr(unsigned sz, unsigned const * src, unsigned k, unsigned * dst);
    \brief dst <- src >> k
    Store in dst the result of shifting src k bits to the right.
 
-   Trucate if src_sz > dst_sz.
+   Truncate if src_sz > dst_sz.
    Fill range [src_sz, dst_sz) of dst with zeros if dst_sz > src_sz.
 
    \pre src_sz != 0

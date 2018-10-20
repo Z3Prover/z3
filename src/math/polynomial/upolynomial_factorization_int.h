@@ -195,7 +195,7 @@ namespace upolynomial {
 
                 // the index we are currently trying to fix
                 int current_i = m_current_size - 1;
-                // the value we found as plausable (-1 we didn't find anything)
+                // the value we found as plausible (-1 we didn't find anything)
                 int current_value = -1;
 
                 if (remove_current) {

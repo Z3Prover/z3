@@ -842,7 +842,7 @@ namespace Microsoft.Z3
         public string String { get { return Native.Z3_get_string(Context.nCtx, NativeObject); } }
 
         /// <summary>
-        /// Check whether expression is a concatentation.
+        /// Check whether expression is a concatenation.
         /// </summary>
         /// <returns>a Boolean</returns>
         public bool IsConcat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONCAT; } }

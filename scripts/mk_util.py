@@ -3276,7 +3276,7 @@ class MakeRuleCmd(object):
         needed commands used in Makefile rules
         Note that several of the method are meant for use during ``make
         install`` and ``make uninstall``.  These methods correctly use
-        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
+        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferable
         to writing commands manually which can be error prone.
     """
     @classmethod

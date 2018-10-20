@@ -284,7 +284,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_so
             break;
         } else {
             if ((numeric_traits<T>::precise() == false) || ( numeric_traits<T>::is_zero(slope_at_entering) && this->m_settings.random_next() % 2 == 0)) {
-                // it is not cost benefitial to advance the delta more, so just break to increas the randomness
+                // it is not cost beneficial to advance the delta more, so just break to increase the randomness
                 break;
             }
         }        
@@ -612,7 +612,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
                 return 2; // abort entering
         } else {
             if (refreshed_cost > -m_epsilon_of_reduced_cost)
-                return 2; // abort entiring
+                return 2; // abort entering
         }
         return 1; // go on with this entering
     } else {
@@ -621,7 +621,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
                 return 2; // abort entering
         } else {
             if (refreshed_cost > -m_epsilon_of_reduced_cost)
-                return 2; // abort entiring
+                return 2; // abort entering
         }
     }
     return 0;

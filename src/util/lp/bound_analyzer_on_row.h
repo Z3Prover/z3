@@ -270,7 +270,7 @@ public :
         }
     }
     
-    // // it is the coefficent before the bounded column
+    // // it is the coefficient before the bounded column
     // void provide_evidence(bool coeff_is_pos) {
     //     /*
     //     auto & be = m_ibounds.back();

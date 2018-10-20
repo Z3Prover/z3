@@ -68,7 +68,7 @@ namespace smt {
         
     public:
         /**
-           \brief Return ture if the given enode is attached to a
+           \brief Return true if the given enode is attached to a
            variable of the theory.
            
            \remark The result is not equivalent to
@@ -389,7 +389,7 @@ namespace smt {
            \brief When an eq atom n is created during the search, the default behavior is 
            to make sure that the n->get_arg(0)->get_id() < n->get_arg(1)->get_id().
            This may create some redundant atoms, since some theories/families use different
-           convetions in their simplifiers. For example, arithmetic always force a numeral
+           conventions in their simplifiers. For example, arithmetic always force a numeral
            to be in the right hand side. So, this method should be redefined if the default
            behavior conflicts with a convention used by the theory/family.
         */

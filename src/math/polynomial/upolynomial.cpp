@@ -362,7 +362,7 @@ namespace upolynomial {
         set_size(sz-1, buffer);
     }
 
-    // Divide coeffients of p by their GCD
+    // Divide coefficients of p by their GCD
     void core_manager::normalize(unsigned sz, numeral * p) {
         if (sz == 0)
             return;
@@ -395,7 +395,7 @@ namespace upolynomial {
         }
     }
 
-    // Divide coeffients of p by their GCD
+    // Divide coefficients of p by their GCD
     void core_manager::normalize(numeral_vector & p) {
         normalize(p.size(), p.c_ptr());
     }
@@ -568,7 +568,7 @@ namespace upolynomial {
         SASSERT(!is_alias(p1, buffer)); SASSERT(!is_alias(p2, buffer));
         unsigned d;
         rem(sz1, p1, sz2, p2, d, buffer);
-        // We don't ned to flip the sign if d is odd and leading coefficient of p2 is negative
+        // We don't need to flip the sign if d is odd and leading coefficient of p2 is negative
         if (d % 2 == 0 || (sz2 > 0 && m().is_pos(p2[sz2-1])))
             neg(buffer.size(), buffer.c_ptr());
     }
@@ -2005,7 +2005,7 @@ namespace upolynomial {
                 continue;
             bool pos_a_n_k = m().is_pos(a_n_k);
             if (pos_a_n_k == pos_a_n)
-                continue; // must have oposite signs
+                continue; // must have opposite signs
             unsigned log2_a_n_k = pos_a_n_k ? m().log2(a_n_k) : m().mlog2(a_n_k);
             if (log2_a_n > log2_a_n_k)
                 continue;
@@ -2103,7 +2103,7 @@ namespace upolynomial {
         frame_stack.pop_back();
     }
 
-    // Auxiliar method for isolating the roots of p in the interval (0, 1).
+    // Auxiliary method for isolating the roots of p in the interval (0, 1).
     // The basic idea is to split the interval in: (0, 1/2) and (1/2, 1).
     // This is accomplished by analyzing the roots in the interval (0, 1) of the following polynomials.
     //   p1(x) := 2^n * p(x/2)   where n = sz-1
@@ -2574,10 +2574,10 @@ namespace upolynomial {
        We say an interval (a, b) of a polynomial p is ISOLATING if p has only one root in the
        interval (a, b).
 
-       We say an isolating interval (a, b) of a square free polynomial p is REFINEABLE if
+       We say an isolating interval (a, b) of a square free polynomial p is REFINABLE if
          sign(p(a)) = -sign(p(b))
 
-       Not every isolating interval (a, b) of a square free polynomial p is refineable, because
+       Not every isolating interval (a, b) of a square free polynomial p is refinable, because
        sign(p(a)) or sign(p(b)) may be zero.
 
        Refinable intervals of square free polynomials are useful, because we can increase precision

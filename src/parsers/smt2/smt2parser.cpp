@@ -1987,7 +1987,7 @@ namespace smt2 {
             if (expr_stack().size() == fr->m_expr_spos) {
                 if (!ignore_bad_patterns())
                     throw parser_exception("invalid empty pattern");
-                // ingoring empty pattern
+                // ignoring empty pattern
                 expr_stack().shrink(fr->m_expr_spos);
             }
             else {
@@ -2698,7 +2698,7 @@ namespace smt2 {
                     next();
                 }
                 unsigned spos = sort_stack().size();
-                parse_sorts("Invalid function name. Expecting sort list startig with '(' to disambiguate function name");
+                parse_sorts("Invalid function name. Expecting sort list starting with '(' to disambiguate function name");
                 unsigned domain_size = sort_stack().size() - spos;
                 parse_sort("Invalid function name");
                 func_decl * d = m_ctx.find_func_decl(id, indices.size(), indices.c_ptr(), domain_size, sort_stack().c_ptr() + spos, sort_stack().back());

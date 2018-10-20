@@ -107,7 +107,7 @@ public:
        this method will give preference to the row that occurs first.
        
        \remark The vector r must have at least A.n() capacity
-       The numer of linear independent rows is returned.
+       The number of linear independent rows is returned.
 
        Store the new matrix in B.
     */

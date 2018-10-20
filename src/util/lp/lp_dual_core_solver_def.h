@@ -276,7 +276,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::can_be_breakpo
             bool grawing = m_sign_of_alpha_r * this->m_pivot_row[j] > 0;
             return lower_bound == grawing;
         }
-    case column_type::fixed: // is always dual feasible so we ingore it
+    case column_type::fixed: // is always dual feasible so we ignore it
         return false;
     case column_type::free_column:
         return true;

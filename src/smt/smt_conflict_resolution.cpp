@@ -51,7 +51,7 @@ namespace smt {
     }
 
     /**
-       \brief Mark all enodes in a 'proof' tree brach starting at n
+       \brief Mark all enodes in a 'proof' tree branch starting at n
        n -> ... -> root
     */
     template<bool Set>
