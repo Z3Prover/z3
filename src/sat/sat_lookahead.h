@@ -471,7 +471,7 @@ namespace sat {
         watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
 
-        // new clause managment:
+        // new clause management:
         void add_ternary(literal u, literal v, literal w);
         void propagate_ternary(literal l);
         lbool propagate_ternary(literal l1, literal l2);

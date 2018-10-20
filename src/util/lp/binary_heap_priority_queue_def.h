@@ -76,7 +76,7 @@ template <typename T> void binary_heap_priority_queue<T>::remove(unsigned o) {
         put_at(o_in_heap, m_heap[m_heap_size--]);
         if (m_priorities[m_heap[o_in_heap]] > priority_of_o) {
             fix_heap_under(o_in_heap);
-        } else { // we need to propogate the m_heap[o_in_heap] up
+        } else { // we need to propagate the m_heap[o_in_heap] up
             unsigned i = o_in_heap;
             while (i > 1) {
                 unsigned ip = i >> 1;

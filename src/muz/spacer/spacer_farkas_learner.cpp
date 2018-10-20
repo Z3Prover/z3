@@ -7,8 +7,8 @@ Module Name:
 
 Abstract:
 
-    Proviced abstract interface and some inplementations of algorithms
-    for strenghtning lemmas
+    Provides abstract interface and some implementations of algorithms
+    for strenghtening lemmas
 
 Author:
 
@@ -161,7 +161,7 @@ bool farkas_learner::is_pure_expr(func_decl_set const& symbs, expr* e, ast_manag
    in a clausal version.
 
    NB: the routine is not interpolating, though an interpolating variant would
-   be preferrable because then we can also use it for model propagation.
+   be preferable because then we can also use it for model propagation.
 
    We collect the unit derivable nodes from bs.
    These are the weakenings of bs, besides the

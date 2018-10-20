@@ -219,7 +219,7 @@ namespace api {
         if (m_user_ref_count) {
             // Corner case bug: n may be in m_last_result, and this is the only reference to n.
             // When, we execute reset() it is deleted
-            // To avoid this bug, I bump the reference counter before reseting m_last_result
+            // To avoid this bug, I bump the reference counter before resetting m_last_result
             ast_ref node(n, m());
             m_last_result.reset();
             m_last_result.push_back(std::move(node));

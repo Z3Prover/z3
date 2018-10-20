@@ -226,7 +226,7 @@ namespace Microsoft.SolverFoundation.Plugin.Z3
         }
 
         /// <summary>
-        /// Adds a MSF variable with the coresponding assertion to the Z3 variables.
+        /// Adds a MSF variable with the corresponding assertion to the Z3 variables.
         /// </summary>
         /// <param name="vid">The MSF id of the variable</param>
         internal void AddVariable(int vid)

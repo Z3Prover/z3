@@ -280,7 +280,7 @@ namespace datalog {
             }
         }
 
-        // model convertion: identity function.
+        // model conversion: identity function.
 
         if (instantiated) {
             result->inherit_predicates(source);

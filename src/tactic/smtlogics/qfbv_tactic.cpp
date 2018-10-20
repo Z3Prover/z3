@@ -36,7 +36,7 @@ Notes:
 static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
-    // conservative guassian elimination.
+    // conservative gaussian elimination.
     solve_eq_p.set_uint("solve_eqs_max_occs", 2);
 
     params_ref simp2_p = p;

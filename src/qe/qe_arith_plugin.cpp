@@ -316,7 +316,7 @@ namespace qe {
         void mk_bound_aux(rational const& a, expr* t, rational const& b, expr* s, expr_ref& result) {
             SASSERT(a.is_neg() == b.is_neg());
             expr_ref tt(t, m), ss(s, m), e(m);
-            // hack to fix wierd gcc compilation error
+            // hack to fix weird gcc compilation error
             rational abs_a(a);
             rational abs_b(b);
             if (abs_a.is_neg()) abs_a.neg();

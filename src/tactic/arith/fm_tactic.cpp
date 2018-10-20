@@ -1231,7 +1231,7 @@ class fm_tactic : public tactic {
         }
         
         // An integer variable x may be eliminated, if 
-        //   1- All variables in the contraints it occur are integer.
+        //   1- All variables in the constraints it occur are integer.
         //   2- The coefficient of x in all lower bounds (or all upper bounds) is unit.
         bool can_eliminate(var x) const {
             if (!is_int(x))

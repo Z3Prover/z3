@@ -45,7 +45,7 @@ namespace Microsoft.Z3
 
         private static ArithExpr MkNum(ArithExpr e, double d) { return (ArithExpr)e.Context.MkNumeral(d.ToString(), e.Context.MkRealSort()); }        
 
-        /// <summary> Operator overloading for arithmetical divsion operator (over reals) </summary>
+        /// <summary> Operator overloading for arithmetical division operator (over reals) </summary>
         public static ArithExpr operator /(ArithExpr a, ArithExpr b) { return a.Context.MkDiv(a, b); }
 
         /// <summary> Operator overloading for arithmetical operator </summary>

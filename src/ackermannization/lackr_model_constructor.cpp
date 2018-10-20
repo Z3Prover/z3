@@ -276,7 +276,7 @@ struct lackr_model_constructor::imp {
             SASSERT(a->get_num_args() == 0);
             func_decl * const fd = a->get_decl();
             expr * val = m_abstr_model->get_const_interp(fd);
-            if (val == nullptr) { // TODO: avoid model completetion?
+            if (val == nullptr) { // TODO: avoid model completion?
                 sort * s = fd->get_range();
                 val = m_abstr_model->get_some_value(s);
             }

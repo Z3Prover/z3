@@ -85,7 +85,7 @@ ATOMIC_CMD(get_user_tactics_cmd, "get-user-tactics", "display tactics defined us
 void help_tactic(cmd_context & ctx) {
     std::ostringstream buf;
     buf << "combinators:\n";
-    buf << "- (and-then <tactic>+) executes the given tactics sequencially.\n";
+    buf << "- (and-then <tactic>+) executes the given tactics sequentially.\n";
     buf << "- (or-else <tactic>+) tries the given tactics in sequence until one of them succeeds (i.e., the first that doesn't fail).\n";
     buf << "- (par-or <tactic>+) executes the given tactics in parallel until one of them succeeds (i.e., the first that doesn't fail).\n";
     buf << "- (par-then <tactic1> <tactic2>) executes tactic1 and then tactic2 to every subgoal produced by tactic1. All subgoals are processed in parallel.\n";

@@ -2459,7 +2459,7 @@ namespace Microsoft.Z3
 
         #endregion
 
-        #region Sequence, string and regular expresions
+        #region Sequence, string and regular expressions
 
         /// <summary>
         /// Create the empty sequence.
@@ -3131,7 +3131,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a bit-vector numeral.
         /// </summary>
-        /// <param name="bits">An array of bits representing the bit-vector. Least signficant bit is at position 0.</param>
+        /// <param name="bits">An array of bits representing the bit-vector. Least significant bit is at position 0.</param>
         public BitVecNum MkBV(bool[] bits)
         {
             Contract.Ensures(Contract.Result<BitVecNum>() != null);

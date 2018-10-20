@@ -232,7 +232,7 @@ namespace sat {
         }
         if (m_consumer_ready && (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size()))) {
             // time to update local search with new clauses.
-            // there could be multiple local search engines runing at the same time.
+            // there could be multiple local search engines running at the same time.
             IF_VERBOSE(1, verbose_stream() << "(sat-parallel refresh :from " << m_num_clauses << " :to " << s.m_clauses.size() << ")\n";);
             m_solver_copy = alloc(solver, s.m_params, s.rlimit());
             m_solver_copy->copy(s);

@@ -952,7 +952,7 @@ void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in
     scoped_mpz lower(m), upper(m);
     scoped_mpz mid(m), product(m), diff(m);
     // we have lower <= a.significand <= upper and we need 1.[52+3 bits] in the bounds.
-    // since we comapre upper*upper to a.significand further down, we need a.significand
+    // since we compare upper*upper to a.significand further down, we need a.significand
     // to be of twice the size.
     m.set(lower, 1);
     m.mul2k(lower, sbits+2-1);
@@ -978,7 +978,7 @@ void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in
             }
             else {
                 STRACE("mpf_dbg", tout << "choosing upper" << std::endl;);
-                m.set(o, upper); // chosing upper is like a sticky bit here.
+                m.set(o, upper); // choosing upper is like a sticky bit here.
             }
             break;
         }

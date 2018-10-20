@@ -984,7 +984,7 @@ namespace sat {
         queue             m_queue;
 
         literal_vector m_covered_clause;              // covered clause
-        svector<clause_ante> m_covered_antecedent;    // explainations for literals in covered clause
+        svector<clause_ante> m_covered_antecedent;    // explanations for literals in covered clause
         literal_vector m_intersection;                // current resolution intersection
         literal_vector m_tautology;                   // literals that are used in blocking tautology
         literal_vector m_new_intersection;

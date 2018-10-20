@@ -124,7 +124,7 @@ br_status datatype_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & resul
     //   (= (+ c5 a5) b5)                    <<< NOT SIMPLIFIED WITH RESPECT TO ARITHMETIC
     //   (= (cons a6 nil) (cons b6 nil)))    <<< NOT SIMPLIFIED WITH RESPECT TO DATATYPE theory
     //
-    // Note that asserted_formulas::reduce() applied the simplier many times.
+    // Note that asserted_formulas::reduce() applied the simplifier many times.
     // After the first simplification step we had:
     //  (= a1 b1)
     //  (= (cons a2 (cons a3 (cons (+ a4 1) (cons (+ a5 c5) (cons a6 nil))))))

@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Tactic for purifying quantifier-free formulas that mix QF_NRA and other theories.
-    It is designed to allow cooprating between the nlsat solver and other theories
+    It is designed to allow cooperation between the nlsat solver and other theories
     in a decoupled way.
 
     Let goal be formula F.
@@ -446,7 +446,7 @@ private:
             expr* pred = fresh_preds[i];
             if (mdl->eval(pred, tmp)) {
                 polarity_t pol = m_polarities.find(pred);
-                // if assumptinon literals are used to satisfy NL state,
+                // if assumption literals are used to satisfy NL state,
                 // we have to assume them when satisfying SMT state
                 if (pol != pol_neg && m.is_false(tmp)) {
                     m_asms.push_back(m.mk_not(pred));
@@ -767,7 +767,7 @@ public:
         // then annotate subformulas by polarities,
         // finally extract polynomial inequalities by
         // creating a place-holder predicate inside the
-        // original goal and extracing pure nlsat clauses.
+        // original goal and extracting pure nlsat clauses.
         r.set_interface_var_mode();
         rewrite_goal(r, g); 
         if (!g->unsat_core_enabled()) {

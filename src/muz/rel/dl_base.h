@@ -295,7 +295,7 @@ namespace datalog {
                Precondition: &orig.get_plugin()==this
             */
             virtual base_object * mk_empty(const signature & s, family_id kind) {
-                SASSERT(kind==get_kind()); //if plugin uses multiple kinds, this function needs to be overriden
+                SASSERT(kind==get_kind()); //if plugin uses multiple kinds, this function needs to be overridden
                 return mk_empty(s);
             }
 

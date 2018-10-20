@@ -47,7 +47,7 @@ namespace qe {
         /**
          * \brief Utility that works modulo a background state.
          * - vars
-         *   variables to preferrably project onto (other variables would require quantification to fit interpolation signature)
+         *   variables to preferably project onto (other variables would require quantification to fit interpolation signature)
          * - lits
          *   set of literals to check satisfiability with respect to.
          * - mdl
