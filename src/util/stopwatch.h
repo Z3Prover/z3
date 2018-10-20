@@ -20,7 +20,7 @@ Revision History:
 #ifndef STOPWATCH_H_
 #define STOPWATCH_H_
 
-#if defined(_WINDOWS) || defined(_CYGWIN)
+#if defined(_WINDOWS) || defined(_CYGWIN) || defined(_MINGW)
 
 // Does this redefinition work?
 

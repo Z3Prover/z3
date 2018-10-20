@@ -132,7 +132,7 @@ extern "C" {
                                unsigned num_decls, Z3_sort const types[],
                                Z3_symbol const decl_names[],
                                Z3_ast body) {
-        return Z3_mk_quantifier(c, 1, weight, num_patterns, patterns, num_decls, types, decl_names, body);
+        return Z3_mk_quantifier(c, true, weight, num_patterns, patterns, num_decls, types, decl_names, body);
     }
 
     Z3_ast Z3_API Z3_mk_exists(Z3_context c,
@@ -141,7 +141,7 @@ extern "C" {
                                unsigned num_decls, Z3_sort const types[],
                                Z3_symbol const decl_names[],
                                Z3_ast body) {
-        return Z3_mk_quantifier(c, 0, weight, num_patterns, patterns, num_decls, types, decl_names, body);
+        return Z3_mk_quantifier(c, false, weight, num_patterns, patterns, num_decls, types, decl_names, body);
     }
 
     Z3_ast Z3_API Z3_mk_lambda(Z3_context c,

@@ -1034,7 +1034,7 @@ struct is_pb_probe : public probe {
             
             return true;
         }
-        catch (pb2bv_tactic::non_pb) {
+        catch (const pb2bv_tactic::non_pb &) {
             return false;
         }
     }

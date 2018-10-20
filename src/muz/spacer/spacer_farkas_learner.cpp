@@ -95,7 +95,7 @@ bool farkas_learner::is_pure_expr(func_decl_set const& symbs, expr* e, ast_manag
     is_pure_expr_proc proc(symbs, m);
     try {
         for_each_expr(proc, e);
-    } catch (is_pure_expr_proc::non_pure) {
+    } catch (const is_pure_expr_proc::non_pure &) {
         return false;
     }
     return true;

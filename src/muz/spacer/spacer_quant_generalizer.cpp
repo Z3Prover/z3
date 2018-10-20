@@ -120,7 +120,7 @@ struct index_lt_proc : public std::binary_function<app*, app *, bool> {
             for (expr *e : v)
                 quick_for_each_expr(fn, visited, e);
         }
-        catch (has_nlira_functor::found ) {
+        catch (const has_nlira_functor::found &) {
             return true;
         }
         return false;

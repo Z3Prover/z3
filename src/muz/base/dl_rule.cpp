@@ -422,7 +422,7 @@ namespace datalog {
         try {
             quick_for_each_expr(proc, fml);
         }
-        catch (contains_predicate_proc::found) {
+        catch (const contains_predicate_proc::found &) {
             return true;
         }
         return false;

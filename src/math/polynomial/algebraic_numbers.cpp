@@ -1989,7 +1989,7 @@ namespace algebraic_numbers {
                     TRACE("anum_eval_sign", tout << "all variables are assigned to rationals, value of p: " << r << "\n";);
                     return qm().sign(r);
                 }
-                catch (opt_var2basic::failed) {
+                catch (const opt_var2basic::failed &) {
                     // continue
                 }
 

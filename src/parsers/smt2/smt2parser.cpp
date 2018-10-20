@@ -3084,7 +3084,7 @@ namespace smt2 {
                                            << ": " << ex.msg() << "\")" << std::endl;
                     exit(ex.error_code());
                 }
-                catch (stop_parser_exception) {
+                catch (const stop_parser_exception &) {
                     m_scanner.stop_caching();
                     return !found_errors;
                 }

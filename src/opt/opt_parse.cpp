@@ -323,6 +323,15 @@ struct asymbol {
     asymbol(rational const& r, unsigned l): m_is_num(true), m_num(r), m_line(l) {}
 };
 
+std::ostream& operator<<(std::ostream& out, asymbol const& c) {
+    if (c.m_is_num) {
+        return out << c.m_num;
+    }
+    else {
+        return out << c.m_sym;
+    }
+}
+
 class lp_tokenizer {
     vector<asymbol>    m_tokens;
     unsigned           m_pos;
@@ -416,6 +425,7 @@ private:
                 }
                 if (c == '.') {
                     in.next();
+                    c = in.ch();
                     while (is_num(c) && !in.eof()) {
                         n = n*rational(10) + rational(c - '0');
                         in.next();
@@ -426,6 +436,7 @@ private:
                 if (div > 1) n = n / rational(div);
                 if (neg) n.neg();
                 m_tokens.push_back(asymbol(n, in.line()));
+                IF_VERBOSE(10, verbose_stream() << "num: " << m_tokens.back() << "\n");
                 continue;
             }
             m_buffer.reset();
@@ -445,6 +456,7 @@ private:
             }
             m_buffer.push_back(0);
             m_tokens.push_back(asymbol(symbol(m_buffer.c_ptr()), in.line()));
+            IF_VERBOSE(10, verbose_stream() << "tok: " << m_tokens.back() << "\n");
         }
     }
 
@@ -466,6 +478,7 @@ private:
             is_num(c) ||
             c == '!' ||
             c == '"' ||
+            c == '-' ||
             c == '#' ||
             c == '$' ||
             c == '%' ||
@@ -612,6 +625,7 @@ private:
             name = peek(0);
             tok.next(2);
         }
+        IF_VERBOSE(10, verbose_stream() << name << "\n");
         rational val(0);
         symbol var;
         parse_indicator(var, val);
@@ -624,6 +638,9 @@ private:
     }
 
     void parse_expr(lin_term& terms) {
+        if (is_relation()) {
+            return;
+        }
         bool pos = true;
         if (peek(0) == "-") {
             pos = false;
@@ -693,6 +710,7 @@ private:
         return false;
     }
 
+    bool is_relation() { return peek(0) == "=" || peek(0) == "=<" || peek(0) == ">=" || peek(0) == "=>" || peek(0) == "<="; }
     bool is_section() { return is_general() || is_binary() || is_bounds() || is_end();}
     bool is_bounds() { return peek(0) == "bounds"; }
     bool is_general() { return peek(0) == "general" || peek(0) == "gen" || peek(0) == "generals"; }
@@ -770,6 +788,11 @@ private:
     }
 
     void parse_general() {
+        if (peek(1) == ":" && peek(3) == "=") {
+            symbol const& v = peek(2);        
+            std::cout << "TBD: " << v << "\n";
+            return;
+        }
         symbol const& v = peek(0);        
         bound b;
         m_bounds.find(v, b);        

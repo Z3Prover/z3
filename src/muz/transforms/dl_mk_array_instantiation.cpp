@@ -300,7 +300,7 @@ namespace datalog {
     expr_ref_vector res(m);
 
     svector<unsigned> chosen(arg_correspondance.size(), 0u);
-    while(1)
+    while(true)
     {
       expr_ref_vector new_args(m);
       for(unsigned i=0;i<chosen.size();i++)
