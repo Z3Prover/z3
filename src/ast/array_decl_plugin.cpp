@@ -517,6 +517,7 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 
 void array_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name(ARRAY_SORT_STR, ARRAY_SORT));
+    sort_names.push_back(builtin_name("=>", ARRAY_SORT));
     // TBD: this could easily break users even though it is already used in CVC4: 
     // sort_names.push_back(builtin_name("Set", _SET_SORT));
 }

@@ -40,26 +40,12 @@ namespace recfun {
         and therefore two case predicates `C_fact_0` and `C_fact_1`, where
         `C_fact_0(t)=true` means `t<2` (first path) and `C_fact_1(t)=true` means `not (t<2)` (second path).
     */
-    class case_pred {
-        friend class case_def;
-        symbol                      m_name; //<! symbol for the predicate
-        std::string                 m_name_buf; //<! memory for m_name
-        sort_ref_vector const &     m_domain;
-        func_decl_ref               m_decl; //<! declaration for the predicate
-
-        case_pred(ast_manager & m, family_id fid, std::string const & s, sort_ref_vector const & args);
-    public:
-        symbol const & get_name() const { return m_name; }
-        sort_ref_vector const & get_domain() const { return m_domain; }
-        func_decl * get_decl() const { return m_decl.get(); }
-        unsigned get_arity() const { return m_domain.size(); }
-    };
 
     typedef var_ref_vector vars;
 
     class case_def {
         friend class def;
-        case_pred           m_pred; //<! predicate used for this case
+        func_decl_ref       m_pred; //<! predicate used for this case
         expr_ref_vector     m_guards; //<! conjunction that is equivalent to this case
         expr_ref            m_rhs; //<! if guard is true, `f(t1…tn) = rhs` holds
         def *               m_def; //<! definition this is a part of
@@ -76,8 +62,13 @@ namespace recfun {
 
         void add_guard(expr_ref && e) { m_guards.push_back(e); }
     public:
-        symbol const& get_name() const { return m_pred.get_name(); }
-        case_pred const & get_pred() const { return m_pred; }
+        symbol const& get_name() const { return m_pred->get_name(); }
+
+        app_ref apply_case_predicate(ptr_vector<expr> const & args) const {
+            ast_manager& m = m_pred.get_manager();
+            return app_ref(m.mk_app(m_pred, args.size(), args.c_ptr()), m);
+        }
+
         def * get_def() const { return m_def; }
         expr_ref_vector const & get_guards() const { return m_guards; }
         expr * get_guards_c_ptr() const { return *m_guards.c_ptr(); }
@@ -145,27 +136,6 @@ namespace recfun {
         def * get_def() const { return d; }
     };
 
-    // predicate for limiting unrolling depth, to be used in assumptions and conflicts
-    class depth_limit_pred {
-        friend class util;
-        std::string     m_name_buf;
-        symbol          m_name;
-        unsigned        m_depth;
-        func_decl_ref   m_decl;
-        unsigned        m_refcount;
-
-        void inc_ref() { m_refcount ++; }
-        void dec_ref() { SASSERT(m_refcount > 0); m_refcount --; }
-    public:
-        depth_limit_pred(ast_manager & m, family_id fid, unsigned d);
-        unsigned get_depth() const { return m_depth; }
-        symbol const & get_name() const { return m_name; }
-        func_decl * get_decl() const { return m_decl.get(); }
-    };
-
-    // A reference to `depth_limit_pred`
-    typedef obj_ref<depth_limit_pred, util> depth_limit_pred_ref;
-
     namespace decl {
 
         class plugin : public decl_plugin {
@@ -220,17 +190,15 @@ namespace recfun {
     // Varus utils for recursive functions
     class util {
         friend class decl::plugin;
-
-        typedef map<int, depth_limit_pred *, int_hash, default_eq<int>> depth_limit_map;
         
         ast_manager &           m_manager;
         family_id               m_family_id;
         th_rewriter             m_th_rw;
         decl::plugin *          m_plugin;
-        depth_limit_map         m_dlimit_map;
 
         bool compute_is_immediate(expr * rhs);
         void set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
+
     public:
         util(ast_manager &m, family_id);
         virtual ~util();
@@ -268,26 +236,12 @@ namespace recfun {
         app* mk_fun_defined(def const & d, ptr_vector<expr> const & args) {
             return mk_fun_defined(d, args.size(), args.c_ptr());
         }
-        app* mk_case_pred(case_pred const & p, ptr_vector<expr> const & args) {
-            return m().mk_app(p.get_decl(), args.size(), args.c_ptr());
-        }
 
-        void inc_ref(depth_limit_pred * p) { p->inc_ref(); }
-        void dec_ref(depth_limit_pred * p) {
-            p->dec_ref();
-            if (p->m_refcount == 0) {
-                m_dlimit_map.remove(p->m_depth);
-                dealloc(p);
-            }
-        }
-
-        depth_limit_pred_ref get_depth_limit_pred(unsigned d);
         app_ref mk_depth_limit_pred(unsigned d);
     };
 }
 
 typedef recfun::def recfun_def;
 typedef recfun::case_def recfun_case_def;
-typedef recfun::depth_limit_pred recfun_depth_limit_pred;
 typedef recfun::decl::plugin recfun_decl_plugin;
 typedef recfun::util recfun_util;

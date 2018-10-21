@@ -83,6 +83,7 @@ namespace smt {
     void theory_recfun::reset_queues() {
         m_q_case_expand.reset();
         m_q_body_expand.reset();
+        m_q_clauses.clear();
     }
 
     void theory_recfun::reset_eh() {
@@ -146,7 +147,8 @@ namespace smt {
         }
         m_q_clauses.clear();
 
-        for (case_expansion & e : m_q_case_expand) {
+        for (unsigned i = 0; i < m_q_case_expand.size(); ++i) {
+            case_expansion & e = m_q_case_expand[i];
             if (e.m_def->is_fun_macro()) {
                 // body expand immediately
                 assert_macro_axiom(e);
@@ -159,8 +161,8 @@ namespace smt {
         }
         m_q_case_expand.clear();
 
-        for (body_expansion & e : m_q_body_expand) {
-            assert_body_axiom(e);
+        for (unsigned i = 0; i < m_q_body_expand.size(); ++i) {
+            assert_body_axiom(m_q_body_expand[i]);
         }
         m_q_body_expand.clear();
     }
@@ -173,6 +175,8 @@ namespace smt {
         // first literal must be the depth limit one
         app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
         c.push_back(~mk_literal(dlimit));
+        enable_trace("recfun");
+        TRACE("recfun", ctx().display(tout << c.back() << " " << dlimit << "\n"););
         SASSERT(ctx().get_assignment(c.back()) == l_false);        
 
         for (expr * g : guards) {
@@ -208,12 +212,7 @@ namespace smt {
         ctx().get_rewriter()(new_body); // simplify
         return new_body;
     }
-    
-    app_ref theory_recfun::apply_pred(recfun::case_pred const & p,
-                                      ptr_vector<expr> const & args) {
-        return app_ref(u().mk_case_pred(p, args), m);
-    }
-    
+        
     literal theory_recfun::mk_literal(expr* e) {
         ctx().internalize(e, false);
         literal lit = ctx().get_literal(e);
@@ -246,14 +245,14 @@ namespace smt {
      * 2. add unit clause `f(args) = rhs`
      */
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
+		TRACEFN("case expansion         " << pp_case_expansion(e, m) << "\n");
         SASSERT(e.m_def->is_fun_macro());
         auto & vars = e.m_def->get_vars();
         expr_ref lhs(e.m_lhs, m);
         expr_ref rhs(apply_args(vars, e.m_args, e.m_def->get_macro_rhs()), m);
         literal lit = mk_eq_lit(lhs, rhs);
         ctx().mk_th_axiom(get_id(), 1, &lit);
-        TRACEFN("case expansion         " << pp_case_expansion(e, m) << "\n" <<
-                "macro expansion yields " << mk_pp(rhs,m) << "\n" <<
+        TRACEFN("macro expansion yields " << mk_pp(rhs,m) << "\n" <<
                 "literal                " << pp_lit(ctx(), lit));
     }
 
@@ -272,7 +271,7 @@ namespace smt {
         auto & vars = e.m_def->get_vars();
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
-            app_ref pred_applied = apply_pred(c.get_pred(), e.m_args);
+            app_ref pred_applied = c.apply_case_predicate(e.m_args);
             SASSERT(u().owns_app(pred_applied));
             literal concl = mk_literal(pred_applied);
 
@@ -331,6 +330,11 @@ namespace smt {
     }
     
     final_check_status theory_recfun::final_check_eh() {
+        TRACEFN("final\n");
+        if (can_propagate()) {
+            propagate();
+            return FC_CONTINUE;
+        }
         return FC_DONE;
     }
 

@@ -964,6 +964,7 @@ namespace smt {
             setup_seq_str(st);
             setup_card();
             setup_fpa();
+            setup_recfuns();
             return;
         }
 

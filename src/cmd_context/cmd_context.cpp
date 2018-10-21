@@ -1135,14 +1135,17 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
 
     if (num_args == 0 && range == nullptr) {
         if (fs.more_than_one())
-            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate ", s);
+            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disambiguate ", s);
         func_decl * f = fs.first();
         if (f == nullptr) {
             throw cmd_exception("unknown constant ", s);
         }
-        if (f->get_arity() != 0)
-            throw cmd_exception("invalid function application, missing arguments ", s);
-        result = m().mk_const(f);
+        if (f->get_arity() != 0) {
+            result = array_util(m()).mk_as_array(f);
+        }
+        else {
+            result = m().mk_const(f);
+        }
     }
     else {
         func_decl * f = fs.find(m(), num_args, args, range);

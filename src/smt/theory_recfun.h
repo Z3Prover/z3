@@ -108,7 +108,6 @@ namespace smt {
 
         void reset_queues();
         expr_ref apply_args(recfun::vars const & vars, ptr_vector<expr> const & args, expr * e); //!< substitute variables by args
-        app_ref apply_pred(recfun::case_pred const & p, ptr_vector<expr> const & args); //<! apply predicate to args
         void assert_macro_axiom(case_expansion & e);
         void assert_case_axioms(case_expansion & e);
         void assert_body_axiom(body_expansion & e);

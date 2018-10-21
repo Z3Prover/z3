@@ -1439,6 +1439,12 @@ namespace smt2 {
         // compute match condition and substitution
         // t is shifted by size of subst.
         expr_ref bind_match(expr* t, expr* pattern, expr_ref_vector& subst) {
+            if (m().get_sort(t) != m().get_sort(pattern)) {
+                std::ostringstream str;
+                str << "sorts of pattern " << expr_ref(pattern, m()) << " and term " 
+                    << expr_ref(t, m()) << " are not aligned";
+                throw parser_exception(str.str());
+            }
             expr_ref tsh(m());
             if (is_var(pattern)) {
                 shifter()(t, 1, tsh);
@@ -1894,13 +1900,31 @@ namespace smt2 {
             unsigned num_args    = expr_stack().size() - fr->m_expr_spos;
             unsigned num_indices = m_param_stack.size() - fr->m_param_spos;
             expr_ref t_ref(m());
-            m_ctx.mk_app(fr->m_f,
-                         num_args,
-                         expr_stack().c_ptr() + fr->m_expr_spos,
-                         num_indices,
-                         m_param_stack.c_ptr() + fr->m_param_spos,
-                         fr->m_as_sort ? sort_stack().back() : nullptr,
-                         t_ref);
+            local l;
+            if (m_env.find(fr->m_f, l)) {
+                push_local(l);
+                t_ref = expr_stack().back();
+                for (unsigned i = 0; i < num_args; ++i) {
+                    expr* arg = expr_stack().get(fr->m_expr_spos + i);
+                    expr* args[2] = { t_ref.get(), arg };
+                    m_ctx.mk_app(symbol("select"), 
+                                 2, 
+                                 args,
+                                 0,
+                                 nullptr,
+                                 nullptr,
+                                 t_ref);
+                }
+            }
+            else {
+                m_ctx.mk_app(fr->m_f,
+                             num_args,
+                             expr_stack().c_ptr() + fr->m_expr_spos,
+                             num_indices,
+                             m_param_stack.c_ptr() + fr->m_param_spos,
+                             fr->m_as_sort ? sort_stack().back() : nullptr,
+                             t_ref);
+            }
             expr_stack().shrink(fr->m_expr_spos);
             m_param_stack.shrink(fr->m_param_spos);
             if (fr->m_as_sort)

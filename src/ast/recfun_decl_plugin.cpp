@@ -27,13 +27,7 @@ Revision History:
 #define VALIDATE_PARAM(m, _pred_) if (!(_pred_)) m.raise_exception("invalid parameter to recfun "  #_pred_);
 
 namespace recfun {
-    case_pred::case_pred(ast_manager & m, family_id fid, std::string const & s, sort_ref_vector const & domain)
-        : m_name(), m_name_buf(s), m_domain(domain), m_decl(m)
-    {
-        m_name = symbol(m_name_buf.c_str());
-        func_decl_info info(fid, OP_FUN_CASE_PRED);
-        m_decl = m.mk_func_decl(m_name, domain.size(), domain.c_ptr(), m.mk_bool_sort(), info);
-    }
+
 
     case_def::case_def(ast_manager &m,
                        family_id fid,
@@ -41,21 +35,20 @@ namespace recfun {
                        std::string & name,
                        sort_ref_vector const & arg_sorts,
                        unsigned num_guards, expr ** guards, expr* rhs)
-    : m_pred(m, fid, name, arg_sorts), m_guards(m), m_rhs(expr_ref(rhs,m)), m_def(d) {
-        for (unsigned i = 0; i < num_guards; ++i) {
-            m_guards.push_back(guards[i]);
-        }
+        : m_pred(m),
+          m_guards(m, num_guards, guards), 
+          m_rhs(expr_ref(rhs,m)), 
+          m_def(d) {        
+        func_decl_info info(fid, OP_FUN_CASE_PRED);
+        m_pred = m.mk_func_decl(symbol(name.c_str()), arg_sorts.size(), arg_sorts.c_ptr(), m.mk_bool_sort(), info);
     }
 
     def::def(ast_manager &m, family_id fid, symbol const & s,
              unsigned arity, sort* const * domain, sort* range)
         :   m(m), m_name(s),
-            m_domain(m), m_range(range, m), m_vars(m), m_cases(),
+            m_domain(m, arity, domain), m_range(range, m), m_vars(m), m_cases(),
             m_decl(m), m_fid(fid), m_macro(false)
     {
-        for (unsigned i = 0; i < arity; ++i)
-            m_domain.push_back(domain[i]);
-
         SASSERT(arity == get_arity());
         
         func_decl_info info(fid, OP_FUN_DEFINED);
@@ -199,10 +192,11 @@ namespace recfun {
     void def::compute_cases(is_immediate_pred & is_i, th_rewriter & th_rw,
                             unsigned n_vars, var *const * vars, expr* rhs0)
     {
-        if (m_cases.size() != 0) {
+        if (!m_cases.empty()) {
             TRACEFN("bug: " << m_name << " has cases already");
             UNREACHABLE();
         }
+        SASSERT(m_cases.empty());
         SASSERT(n_vars == m_domain.size());
 
         TRACEFN("compute cases " << mk_pp(rhs0, m));
@@ -343,14 +337,11 @@ namespace recfun {
      */
 
     util::util(ast_manager & m, family_id id)
-    : m_manager(m), m_family_id(id), m_th_rw(m), m_plugin(0), m_dlimit_map() {
+        : m_manager(m), m_family_id(id), m_th_rw(m), m_plugin(0) {
         m_plugin = dynamic_cast<decl::plugin*>(m.get_plugin(m_family_id));
     }
 
     util::~util() {
-        for (auto & kv : m_dlimit_map) {
-            dealloc(kv.m_value);
-        }
     }
 
     def * util::decl_fun(symbol const& name, unsigned n, sort *const * domain, sort * range) {
@@ -361,20 +352,11 @@ namespace recfun {
         d.set_definition(n_vars, vars, rhs);
     }
 
-    // get or create predicate for depth limit
-    depth_limit_pred_ref util::get_depth_limit_pred(unsigned d) {
-        depth_limit_pred * pred = nullptr;
-        if (! m_dlimit_map.find(d, pred)) {
-            pred = alloc(depth_limit_pred, m(), m_family_id, d);
-            m_dlimit_map.insert(d, pred);   
-        }
-        return depth_limit_pred_ref(pred, *this);
-    }
-
     app_ref util::mk_depth_limit_pred(unsigned d) {
-        depth_limit_pred_ref p = get_depth_limit_pred(d);
-        app_ref res(m().mk_const(p->get_decl()), m());
-        return res;
+        parameter p(d);
+        func_decl_info info(m_family_id, OP_DEPTH_LIMIT, 1, &p);
+        func_decl* decl = m().mk_const_decl(symbol("recfun-depth-limit"), m().mk_bool_sort(), info);
+        return app_ref(m().mk_const(decl), m());
     }
 
     // used to know which `app` are from this theory
@@ -407,18 +389,6 @@ namespace recfun {
                     
         is_imm_pred is_i(*u);
         d->compute_cases(is_i, u->get_th_rewriter(), n_vars, vars, rhs);
-    }
-
-    depth_limit_pred::depth_limit_pred(ast_manager & m, family_id fid, unsigned d)
-    : m_name_buf(), m_name(""), m_depth(d), m_decl(m) {
-        // build name, then build decl
-        std::ostringstream tmpname;
-        tmpname << "depth_limit_" << d << std::flush;
-        m_name_buf.append(tmpname.str());
-        m_name = symbol(m_name_buf.c_str());
-        parameter params[1] = { parameter(d) };
-        func_decl_info info(fid, OP_DEPTH_LIMIT, 1, params);
-        m_decl = m.mk_const_decl(m_name, m.mk_bool_sort(), info);
     }
 
     namespace decl {
