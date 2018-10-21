@@ -62,7 +62,6 @@ static bool g_warning_msgs   = true;
 static bool g_use_std_stdout = false;
 static std::ostream* g_error_stream = nullptr;
 static std::ostream* g_warning_stream = nullptr;
-static bool g_show_error_msg_prefix = true;
 
 void send_warnings_to_stdout(bool flag) {
     g_use_std_stdout = flag;
@@ -78,10 +77,6 @@ void set_error_stream(std::ostream* strm) {
 
 void set_warning_stream(std::ostream* strm) {
     g_warning_stream = strm;
-}
-
-void disable_error_msg_prefix() {
-    g_show_error_msg_prefix = false;
 }
 
 void format2ostream(std::ostream & out, char const* msg, va_list args) {

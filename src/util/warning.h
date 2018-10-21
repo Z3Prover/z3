@@ -31,8 +31,6 @@ void set_warning_stream(std::ostream* strm);
 
 void warning_msg(const char * msg, ...);
 
-void disable_error_msg_prefix();
-
 void format2ostream(std::ostream& out, char const* fmt, va_list args);
 
 class warning_displayer {
