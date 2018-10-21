@@ -55,9 +55,9 @@ namespace recfun {
                  family_id fid,
                  def * d,
                  std::string & name,
+                 unsigned case_index,
                  sort_ref_vector const & arg_sorts,
-                 unsigned num_guards,
-                 expr** guards,
+                 expr_ref_vector const& guards,
                  expr* rhs);
 
         void add_guard(expr_ref && e) { m_guards.push_back(e); }
@@ -104,7 +104,7 @@ namespace recfun {
         // compute cases for a function, given its RHS (possibly containing `ite`).
         void compute_cases(is_immediate_pred &, th_rewriter & th_rw,
                            unsigned n_vars, var *const * vars, expr* rhs);
-        void add_case(std::string & name, unsigned n_conds, expr ** conditions, expr* rhs, bool is_imm = false);
+        void add_case(std::string & name, unsigned case_index, expr_ref_vector const& conditions, expr* rhs, bool is_imm = false);
         bool contains_ite(expr* e); // expression contains a test?
     public:
         symbol const & get_name() const { return m_name; }

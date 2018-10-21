@@ -33,26 +33,32 @@ namespace recfun {
                        family_id fid,
                        def * d,
                        std::string & name,
+                       unsigned case_index,
                        sort_ref_vector const & arg_sorts,
-                       unsigned num_guards, expr ** guards, expr* rhs)
+                       expr_ref_vector const& guards, 
+                       expr* rhs)
         : m_pred(m),
-          m_guards(m, num_guards, guards), 
+          m_guards(guards),
           m_rhs(expr_ref(rhs,m)), 
           m_def(d) {        
-        func_decl_info info(fid, OP_FUN_CASE_PRED);
+        parameter p(case_index);
+        func_decl_info info(fid, OP_FUN_CASE_PRED, 1, &p);
         m_pred = m.mk_func_decl(symbol(name.c_str()), arg_sorts.size(), arg_sorts.c_ptr(), m.mk_bool_sort(), info);
     }
 
     def::def(ast_manager &m, family_id fid, symbol const & s,
              unsigned arity, sort* const * domain, sort* range)
         :   m(m), m_name(s),
-            m_domain(m, arity, domain), m_range(range, m), m_vars(m), m_cases(),
-            m_decl(m), m_fid(fid), m_macro(false)
+            m_domain(m, arity, domain), 
+            m_range(range, m), m_vars(m), m_cases(),
+            m_decl(m), 
+            m_fid(fid), 
+            m_macro(false)
     {
         SASSERT(arity == get_arity());
         
         func_decl_info info(fid, OP_FUN_DEFINED);
-        m_decl = m.mk_func_decl(m_name, arity, domain, range, info);
+        m_decl = m.mk_func_decl(s, arity, domain, range, info);
     }
 
     // does `e` contain any `ite` construct?
@@ -101,6 +107,8 @@ namespace recfun {
         ite_lst const *         to_split; // `ite` terms to make a choice on
         unfold_lst const *      to_unfold; // terms yet to unfold
 
+        branch(unfold_lst const * to_unfold):
+            path(nullptr), to_split(nullptr), to_unfold(to_unfold) {}
         branch(choice_lst const * path, ite_lst const * to_split, unfold_lst const * to_unfold) : 
             path(path), to_split(to_split), to_unfold(to_unfold) {}
         branch(branch const & from) : 
@@ -110,14 +118,12 @@ namespace recfun {
     // state for computing cases from the RHS of a functions' definition
     class case_state {
         region              m_reg;
-        ast_manager &       m_manager;
         vector<branch>      m_branches;
 
     public:
-        case_state(ast_manager & m) : m_reg(), m_manager(m), m_branches() {}
+        case_state() : m_reg(), m_branches() {}
         
         bool empty() const { return m_branches.empty(); }
-        ast_manager & m() const { return m_manager; }
         region & reg() { return m_reg; }
 
         branch pop_branch() {
@@ -127,7 +133,6 @@ namespace recfun {
         }
 
         void push_branch(branch const & b) { m_branches.push_back(b); }
-
 
         unfold_lst const * cons_unfold(expr * e, unfold_lst const * next) {
             return new (reg()) unfold_lst{e, next};
@@ -149,7 +154,7 @@ namespace recfun {
     };
 
     //<! build a substitution and a list of conditions from a path
-    void convert_path(ast_manager & m,
+    static void convert_path(ast_manager & m,
                       choice_lst const * choices,
                       expr_ref_vector & conditions /* out */,
                       expr_substitution & subst /* out */)
@@ -168,8 +173,8 @@ namespace recfun {
     }
 
     // substitute `subst` in `e`
-    expr_ref replace_subst(th_rewriter & th_rw, ast_manager & m,
-                           expr_substitution & subst, expr * e) {
+    static expr_ref replace_subst(th_rewriter & th_rw, ast_manager & m,
+                                  expr_substitution & subst, expr * e) {
         th_rw.reset();
         th_rw.set_substitution(&subst);
         expr_ref res(m);
@@ -177,60 +182,43 @@ namespace recfun {
         return res;
     }
 
-    void def::add_case(std::string & name, unsigned n_conditions, 
-                       expr ** conditions, expr * rhs, bool is_imm) {
-        case_def c(m, m_fid, this, name, get_domain(), n_conditions, conditions, rhs);
+    void def::add_case(std::string & name, unsigned case_index, expr_ref_vector const& conditions, expr * rhs, bool is_imm) {
+        case_def c(m, m_fid, this, name, case_index, get_domain(), conditions, rhs);
         c.set_is_immediate(is_imm);
         TRACEFN("add_case " << name << " " << mk_pp(rhs, m)
-              << " :is_imm " << is_imm
-              << " :guards " << mk_pp_vec(n_conditions, (ast**)conditions, m));
+                << " :is_imm " << is_imm
+                << " :guards " << conditions);
         m_cases.push_back(c);
     }
 
 
     // Compute a set of cases, given the RHS
     void def::compute_cases(is_immediate_pred & is_i, th_rewriter & th_rw,
-                            unsigned n_vars, var *const * vars, expr* rhs0)
+                            unsigned n_vars, var *const * vars, expr* rhs)
     {
-        if (!m_cases.empty()) {
-            TRACEFN("bug: " << m_name << " has cases already");
-            UNREACHABLE();
-        }
-        SASSERT(m_cases.empty());
+        VERIFY(m_cases.empty() && "cases cannot already be computed");
         SASSERT(n_vars == m_domain.size());
 
-        TRACEFN("compute cases " << mk_pp(rhs0, m));
+        TRACEFN("compute cases " << mk_pp(rhs, m));
 
         unsigned case_idx = 0;
-        std::string name;
-        
+
+        std::string name;        
         name.append("case_");
         name.append(m_name.bare_str());
         name.append("_");
 
-        for (unsigned i = 0; i < n_vars; ++i)
-            m_vars.push_back(vars[i]);
-
-#if 0
-        // simplify `rhs`
-        expr_ref simplified_rhs(m);
-        expr* rhs;
-        th_rw.reset();
-        th_rw(rhs0, simplified_rhs); 
-        rhs = simplified_rhs.get();
-
-        TRACEFN("simplified into " << mk_pp(rhs, m()));
-#else
-        expr*  rhs = rhs0;
-#endif
+        m_vars.append(n_vars, vars);
         
         // is the function a macro (unconditional body)?
         m_macro = n_vars == 0 || !contains_ite(rhs);
 
+        expr_ref_vector conditions(m);
+
         if (m_macro) {
             // constant function or trivial control flow, only one (dummy) case
             name.append("dummy");
-            add_case(name, 0, nullptr, rhs);
+            add_case(name, 0, conditions, rhs);
             return;
         }
         
@@ -238,11 +226,9 @@ namespace recfun {
         // rebuilding a `ite`-free RHS on the fly for each path in `rhs`.
         // Each such `ite`-free term is converted into a case_def and added to definition.
 
-        case_state st(m);
-        {
-            branch b(nullptr, nullptr, st.mk_unfold_lst(rhs));
-            st.push_branch(b);
-        }
+        case_state st;
+
+        st.push_branch(branch(st.mk_unfold_lst(rhs)));        
 
         while (! st.empty()) {
             TRACEFN("main loop iter");
@@ -301,31 +287,19 @@ namespace recfun {
             else {
                 // leaf of the search tree
 
-                expr_ref_vector conditions_raw(m);
+                conditions.reset();
                 expr_substitution subst(m);
-                convert_path(m, b.path, conditions_raw, subst);
+                convert_path(m, b.path, conditions, subst);
                 
                 // substitute, to get rid of `ite` terms
                 expr_ref case_rhs = replace_subst(th_rw, m, subst, rhs);
-                expr_ref_vector conditions(m);
-                for (expr * g : conditions_raw) {
-                    expr_ref g_subst(replace_subst(th_rw, m, subst, g), m);
-                    conditions.push_back(g_subst);
+                for (unsigned i = 0; i < conditions.size(); ++i) {
+                    conditions[i] = replace_subst(th_rw, m, subst, conditions.get(i));
                 }
-
-
-                size_t old_name_len = name.size();
-                {   // TODO: optimize? this does many copies
-                    std::ostringstream sout;
-                    sout << ((unsigned long) case_idx);
-                    name.append(sout.str());
-                }
-                case_idx ++;
                 
                 // yield new case
                 bool is_imm = is_i(case_rhs);
-                add_case(name, conditions.size(), conditions.c_ptr(), case_rhs, is_imm);
-                name.resize(old_name_len);
+                add_case(name, case_idx++, conditions, case_rhs, is_imm);
             }
         }
 
@@ -466,7 +440,8 @@ namespace recfun {
                 case OP_FUN_DEFINED:
                     return mk_fun_defined_decl(k, num_parameters, parameters, arity, domain, range);
                 default:
-                    UNREACHABLE(); return 0;
+                    UNREACHABLE(); 
+                    return nullptr;
             }
         }
     }
