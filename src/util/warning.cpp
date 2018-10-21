@@ -25,7 +25,6 @@ Revision History:
 #include "util/vector.h"
 
 #ifdef _WINDOWS
-#define PRF sprintf_s
 #define VPRF vsprintf_s
 
 void STD_CALL myInvalidParameterHandler(
@@ -54,7 +53,6 @@ void STD_CALL myInvalidParameterHandler(
 
 
 #else
-#define PRF snprintf
 #define VPRF vsnprintf
 #define BEGIN_ERR_HANDLER() {}
 #define END_ERR_HANDLER() {}
@@ -85,23 +83,6 @@ void set_warning_stream(std::ostream* strm) {
 void disable_error_msg_prefix() {
     g_show_error_msg_prefix = false;
 }
-
-#if 0
-// [Leo]: Do we need this?
-static void string2ostream(std::ostream& out, char const* msg) {
-    svector<char>  buff;
-    buff.resize(10);
-    BEGIN_ERR_HANDLER();                            
-    while (true) {
-        int nc = PRF(buff.c_ptr(), buff.size(), msg);                                                
-        if (nc >= 0 && nc < static_cast<int>(buff.size()))
-            break; // success
-        buff.resize(buff.size()*2 + 1);             
-    }         
-    END_ERR_HANDLER();
-    out << buff.c_ptr();
-}
-#endif
 
 void format2ostream(std::ostream & out, char const* msg, va_list args) {
     svector<char>  buff;
