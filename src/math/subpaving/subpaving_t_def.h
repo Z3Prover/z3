@@ -248,7 +248,7 @@ public:
 
 
 /**
-   \brief Auxiliary static method used to diplay a bound specified by (x, k, lower, open).
+   \brief Auxiliary static method used to display a bound specified by (x, k, lower, open).
 */
 template<typename C>
 void context_t<C>::display(std::ostream & out, numeral_manager & nm, display_var_proc const & proc, var x, numeral & k, bool lower, bool open) {

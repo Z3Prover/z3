@@ -11,7 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
  
  Abstract:
  
-     Horn normal form convertion.
+     Horn normal form conversion.
 
  Author:
  

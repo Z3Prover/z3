@@ -31,7 +31,7 @@ Notes:
 
     This property holds for both eval, that decides on a fixed value
     for constants that have no interpretation in m and for 'peval' 
-    (partial eval) that retuns just the constants that are unfixed.
+    (partial eval) that returns just the constants that are unfixed.
     (in the model evaluator one can control this behavior using a 
     configuration flag)
 
@@ -48,7 +48,7 @@ Notes:
        mc(G) & F_s is SAT  iff G & F is SAT
 
     For a model converter that is a sequence of definitions and removals
-    of functions we can obtain mc(G) by adding back or expanding definitinos
+    of functions we can obtain mc(G) by adding back or expanding definitions
     that are required to interpret G fully in the context of F_s.
 
 --*/

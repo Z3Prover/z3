@@ -256,12 +256,12 @@ namespace upolynomial {
         void derivative(numeral_vector const & p, numeral_vector & d_p) { derivative(p.size(), p.c_ptr(), d_p); }
 
         /**
-           \brief Divide coeffients of p by their GCD
+           \brief Divide coefficients of p by their GCD
         */
         void normalize(unsigned sz, numeral * p);
         
         /**
-           \brief Divide coeffients of p by their GCD
+           \brief Divide coefficients of p by their GCD
         */
         void normalize(numeral_vector & p);
 

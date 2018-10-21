@@ -1100,6 +1100,10 @@ namespace sat {
                 m_restart_threshold = m_config.m_restart_initial;
             }
 
+            if (reached_max_conflicts()) {
+                return l_undef;
+            }
+
             // iff3_finder(*this)();
             simplify_problem();
             if (check_inconsistent()) return l_false;
@@ -1137,7 +1141,7 @@ namespace sat {
 
             }
         }
-        catch (abort_solver) {
+        catch (const abort_solver &) {
             m_reason_unknown = "sat.giveup";
             return l_undef;
         }
@@ -1710,17 +1714,6 @@ namespace sat {
             display(ous);
         }
 #endif
-    }
-
-    unsigned solver::get_hash() const {
-        unsigned result = 0;
-        for (clause* cp : m_clauses) {
-            result = combine_hash(cp->size(), combine_hash(result, cp->id()));
-        }
-        for (clause* cp : m_learned) {
-            result = combine_hash(cp->size(), combine_hash(result, cp->id()));
-        }
-        return result;
     }
 
     bool solver::set_root(literal l, literal r) {

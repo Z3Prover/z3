@@ -1220,7 +1220,7 @@ namespace sat {
         double operator()(literal l) override { return lh.literal_occs(l); }
     };
 
-    // Ternary clause managagement:
+    // Ternary clause management:
 
     void lookahead::add_ternary(literal u, literal v, literal w) {
         SASSERT(u != w && u != v && v != w && ~u != w && ~u != v && ~w != v);
@@ -1377,7 +1377,7 @@ namespace sat {
     }
 
     
-    // new n-ary clause managment
+    // new n-ary clause management
 
     void lookahead::add_clause(clause const& c) {
         SASSERT(c.size() > 3);
@@ -1636,7 +1636,7 @@ namespace sat {
     }
 
     // Sum_{ clause C that contains ~l } 1 
-    // FIXME: counts occurences of ~l; misleading
+    // FIXME: counts occurrences of ~l; misleading
     double lookahead::literal_occs(literal l) {
         double result = m_binary[l.index()].size();
         result += literal_big_occs(l);
@@ -1644,7 +1644,7 @@ namespace sat {
     }
 
     // Sum_{ clause C that contains ~l such that |C| > 2} 1 
-    // FIXME: counts occurences of ~l; misleading
+    // FIXME: counts occurrences of ~l; misleading
     double lookahead::literal_big_occs(literal l) {
         double result = m_nary_count[(~l).index()];
         result += m_ternary_count[(~l).index()];
@@ -1718,7 +1718,7 @@ namespace sat {
                 }
                 // VERIFY(!missed_propagation());
                 if (unsat) {
-                    TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
+                    TRACE("sat", tout << "backtracking and setting " << ~lit << "\n";);
                     lookahead_backtrack();
                     assign(~lit);
                     propagate();

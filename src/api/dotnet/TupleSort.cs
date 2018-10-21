@@ -18,14 +18,13 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Tuple sorts.
     /// </summary>
-    [ContractVerification(true)]
     public class TupleSort : Sort
     {
         /// <summary>
@@ -35,7 +34,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
 
                 return new FuncDecl(Context, Native.Z3_get_tuple_sort_mk_decl(Context.nCtx, NativeObject));
             }
@@ -56,7 +54,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
 
                 uint n = NumFields;
                 FuncDecl[] res = new FuncDecl[n];
@@ -70,8 +67,8 @@ namespace Microsoft.Z3
         internal TupleSort(Context ctx, Symbol name, uint numFields, Symbol[] fieldNames, Sort[] fieldSorts)
             : base(ctx, IntPtr.Zero)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(name != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
 
             IntPtr t = IntPtr.Zero;
             IntPtr[] f = new IntPtr[numFields];

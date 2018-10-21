@@ -16,8 +16,8 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 #if !FRAMEWORK_LT_4
 using System.Numerics;
@@ -28,7 +28,6 @@ namespace Microsoft.Z3
     /// <summary>
     /// Integer Numerals
     /// </summary>
-    [ContractVerification(true)]
     public class IntNum : IntExpr
     {
 
@@ -36,7 +35,7 @@ namespace Microsoft.Z3
         internal IntNum(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
 

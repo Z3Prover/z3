@@ -34,7 +34,7 @@ endif()
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
 set(Z3_VERSION_MINOR 8)
-set(Z3_VERSION_PATCH 0)
+set(Z3_VERSION_PATCH 2)
 set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
@@ -99,7 +99,7 @@ set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
 if (EXISTS "${GIT_DIR}")
   # Try to make CMake configure depend on the current git HEAD so that
   # a re-configure is triggered when the HEAD changes.
-  add_git_dir_dependency("${GIT_DIR}" ADD_GIT_DEP_SUCCESS)
+  add_git_dir_dependency("${CMAKE_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
   if (ADD_GIT_DEP_SUCCESS)
     if (INCLUDE_GIT_HASH)
       get_git_head_hash("${GIT_DIR}" Z3GITHASH)

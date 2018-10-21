@@ -17,17 +17,16 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// The main interaction with Z3 happens via the Context.
     /// </summary>
-    [ContractVerification(true)]
     public class Deprecated 
     {
 

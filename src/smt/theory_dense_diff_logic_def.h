@@ -756,7 +756,7 @@ namespace smt {
        (n_x, k_x) <= (n_y + n_c, k_y + k_c)
        
 
-       The only intersting case is n_x < n_y + n_c and k_x > k_y + k_c. 
+       The only interesting case is n_x < n_y + n_c and k_x > k_y + k_c.
        Using the definition of infinitesimal numbers
        we have:
        

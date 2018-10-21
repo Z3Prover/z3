@@ -74,7 +74,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
 }
 
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-allocate_basis_heading() { // the rest of initilization will be handled by the factorization class
+allocate_basis_heading() { // the rest of initialization will be handled by the factorization class
     init_basis_heading_and_non_basic_columns_vector();
     lp_assert(basis_heading_is_correct());
 }

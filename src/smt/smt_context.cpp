@@ -518,7 +518,7 @@ namespace smt {
             //  2. r1 is interpreted but r2 is not.
             //
             // The second condition is used to enforce the invariant that if a class contain
-            // an interepreted enode then the root is also interpreted.
+            // an interpreted enode then the root is also interpreted.
             if ((r1->get_class_size() > r2->get_class_size() && !r2->is_interpreted()) || r1->is_interpreted()) {
                 SASSERT(!r2->is_interpreted());
                 std::swap(n1, n2);
@@ -529,7 +529,7 @@ namespace smt {
                   " n1: #" << n1->get_owner_id() << "\n";);
 
             // It is necessary to propagate relevancy to other elements of
-            // the equivalence class. This is nessary to enforce the invariant
+            // the equivalence class. This is necessary to enforce the invariant
             // in the field m_parent of the enode class.
             if (is_relevant(r1)) { // && !m_manager.is_eq(r1->get_owner())) !is_eq HACK
                 // NOTE for !is_eq HACK... the !is_eq HACK does not propagate relevancy when two
@@ -4089,7 +4089,7 @@ namespace smt {
       A literal may have been marked relevant within the scope that gets popped during
       conflict resolution. In this case, the literal is no longer marked as relevant after
       the pop. This can cause quantifier instantiation to miss relevant triggers and thereby
-      cause incmpleteness.
+      cause incompleteness.
      */
     void context::record_relevancy(unsigned n, literal const* lits) {
         m_relevant_conflict_literals.reset();
@@ -4303,7 +4303,7 @@ namespace smt {
                 return true;
             }
 
-            // the variabe is shared if the equivalence class of n
+            // the variable is shared if the equivalence class of n
             // contains a parent application.
 
             theory_var_list * l = n->get_th_var_list();

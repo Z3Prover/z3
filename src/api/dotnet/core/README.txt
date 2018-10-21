@@ -6,4 +6,10 @@ functions, so that the API will compile, but not perform any contract
 checking. To build this using .NET core, run (in this directory):
 
 dotnet restore
-dotnet build project.json
+dotnet build core.csproj -c Release
+
+If you are building with the cmake system, you should first
+copy over files that are produced by the compiler into
+this directory. You need to copy over Native.cs and Enumeration.cs
+
+-- good luck!

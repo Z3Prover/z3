@@ -277,7 +277,7 @@ namespace z3 {
          */
         sort fpa_rounding_mode();
         /**
-           \breif Sets RoundingMode of FloatingPoints.
+           \brief Sets RoundingMode of FloatingPoints.
          */
         void set_rounding_mode(rounding_mode rm);
         /**
@@ -291,7 +291,7 @@ namespace z3 {
            \brief Return a tuple constructor.
            \c name is the name of the returned constructor,
            \c n are the number of arguments, \c names and \c sorts are their projected sorts.
-           \c projs is an output paramter. It contains the set of projection functions.
+           \c projs is an output parameter. It contains the set of projection functions.
         */
         func_decl tuple_sort(char const * name, unsigned n, char const * const * names, sort const* sorts, func_decl_vector & projs);
 
@@ -709,6 +709,7 @@ namespace z3 {
         bool is_numeral_u(unsigned& i) const { bool r = 0 != Z3_get_numeral_uint(ctx(), m_ast, &i); check_error(); return r;}
         bool is_numeral(std::string& s) const { if (!is_numeral()) return false; s = Z3_get_numeral_string(ctx(), m_ast); check_error(); return true; }
         bool is_numeral(std::string& s, unsigned precision) const { if (!is_numeral()) return false; s = Z3_get_numeral_decimal_string(ctx(), m_ast, precision); check_error(); return true; }
+        bool is_numeral(double& d) const { if (!is_numeral()) return false; d = Z3_get_numeral_double(ctx(), m_ast); check_error(); return true; }
         /**
            \brief Return true if this expression is an application.
         */

@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -31,12 +31,12 @@ namespace Microsoft.Z3
         internal SeqSort(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal SeqSort(Context ctx)
             : base(ctx, Native.Z3_mk_int_sort(ctx.nCtx))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }

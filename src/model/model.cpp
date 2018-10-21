@@ -312,7 +312,8 @@ void model::collect_occs(top_sort& ts, func_decl* f) {
         func_interp* fi = get_func_interp(f);
         if (fi) {
             e = fi->get_else();
-            collect_occs(ts, e);
+            if (e != nullptr)
+               collect_occs(ts, e);
         }
     }
 }

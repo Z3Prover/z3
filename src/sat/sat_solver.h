@@ -569,8 +569,6 @@ namespace sat {
 
     private:
 
-        unsigned get_hash() const;
-
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
 
         u_map<index_set>       m_antecedents;

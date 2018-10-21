@@ -124,7 +124,7 @@ namespace spacer {
              * We can rewrite (E2) to rewrite (E1) to
              * (BP*Fark(BP)) => (neg(A*Fark(A) + BNP*Fark(BNP) + (neg D)*Fark(D))) (E3)
              * and since we can derive (A*Fark(A) + BNP*Fark(BNP) + (neg D)*Fark(D)) from
-             * A, BNP and D, we also know that it is inconsisent. Therefore
+             * A, BNP and D, we also know that it is inconsistent. Therefore
              * neg(A*Fark(A) + BNP*Fark(BNP) + (neg D)*Fark(D)) is a solution.
              *
              * Finally we also need the following workaround:

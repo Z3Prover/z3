@@ -1883,7 +1883,7 @@ void cmd_context::validate_model() {
                     for_each_expr(contains_underspecified, a);
                     for_each_expr(contains_underspecified, r);
                 }
-                catch (contains_underspecified_op_proc::found) {
+                catch (const contains_underspecified_op_proc::found &) {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *md, 0););

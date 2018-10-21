@@ -16,15 +16,14 @@ Author:
 Notes:
 
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// FloatiungPoint Numerals
     /// </summary>
-    [ContractVerification(true)]
     public class FPNum : FPExpr
     {
         /// <summary>
@@ -175,7 +174,7 @@ namespace Microsoft.Z3
         internal FPNum(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
 

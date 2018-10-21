@@ -4790,7 +4790,7 @@ namespace realclosure {
 
         /**
            \brief Determine the sign of the new rational function value.
-           The idea is to keep refinining the interval until interval of v does not contain 0.
+           The idea is to keep refining the interval until interval of v does not contain 0.
            After a couple of steps we switch to expensive sign determination procedure.
 
            Return false if v is actually zero.
@@ -5474,7 +5474,7 @@ namespace realclosure {
                 }
                 else {
                     // Let sdt be alpha->sdt();
-                    // In pricipal, the signs of the polynomials sdt->qs can be used
+                    // In principal, the signs of the polynomials sdt->qs can be used
                     // to discriminate the roots of new_p. The signs of this polynomials
                     // depend only on alpha, and not on the polynomial used to define alpha
                     // So, in principle, we can reuse m_qs and m_sign_conditions.

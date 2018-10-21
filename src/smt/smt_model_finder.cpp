@@ -177,7 +177,7 @@ namespace smt {
                 try {
                     for_each_expr(*this, m_visited, n);
                 }
-                catch (is_model_value) {
+                catch (const is_model_value &) {
                     return true;
                 }
                 return false;
@@ -2892,7 +2892,7 @@ namespace smt {
                 try {
                     for_each_expr(oc, m_visited, def);
                 }
-                catch (occurs) {
+                catch (const occurs &) {
                     return false;
                 }
                 return true;
@@ -2981,7 +2981,7 @@ namespace smt {
                     try {
                         process(f);
                     }
-                    catch (found_satisfied_subset) {
+                    catch (const found_satisfied_subset &) {
                         set_interp();
                         copy_non_satisfied(qcandidates, new_qs);
                         return true;

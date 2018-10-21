@@ -736,6 +736,12 @@ sig
   (** Create an existential Quantifier. *)
   val mk_exists_const : context -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
+  (** Create a lambda binding. *)
+  val mk_lambda_const : context -> Expr.expr list -> Expr.expr -> quantifier
+
+  (** Create a lambda binding where bound variables are given by symbols and sorts *)
+  val mk_lambda : context -> (Symbol.symbol * Sort.sort) list -> Expr.expr -> quantifier
+
   (** Create a Quantifier. *)
   val mk_quantifier : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
