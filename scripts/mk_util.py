@@ -1875,10 +1875,10 @@ class DotNetCoreDLLComponent(Component):
             out.write(cs_file)
         out.write('\n')
 
-        cscCmdLine = [DOTNET]
+        dotnetCmdLine = [DOTNET]
         if IS_WINDOWS:
             # Using these flags under the mono compiler results in build errors.
-            cscCmdLine.extend( [# What is the motivation for this?
+            dotnetCmdLine.extend( [# What is the motivation for this?
                                 '/noconfig',
                                 '/nostdlib+',
                                 '/reference:mscorlib.dll',
@@ -1903,9 +1903,9 @@ class DotNetCoreDLLComponent(Component):
             print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
             if (self.key_file.find(' ') != -1):
                 self.key_file = '"' + self.key_file + '"'
-            cscCmdLine.append('/keyfile:{}'.format(self.key_file))
+            dotnetCmdLine.append('/keyfile:{}'.format(self.key_file))
 
-        cscCmdLine.extend( ['/unsafe+',
+        dotnetCmdLine.extend( ['/unsafe+',
                             '/nowarn:1701,1702',
                             '/errorreport:prompt',
                             '/warn:4',
@@ -1919,22 +1919,22 @@ class DotNetCoreDLLComponent(Component):
                            ]
                          )
         if DEBUG_MODE:
-            cscCmdLine.extend( ['"/define:DEBUG;TRACE"', # Needs to be quoted due to ``;`` being a shell command separator
+            dotnetCmdLine.extend( ['"/define:DEBUG;TRACE"', # Needs to be quoted due to ``;`` being a shell command separator
                                 '/debug+',
                                 '/debug:full',
                                 '/optimize-'
                                ]
                              )
         else:
-            cscCmdLine.extend(['/optimize+'])
+            dotnetCmdLine.extend(['/optimize+'])
 
         if IS_WINDOWS:
             if VS_X64:
-                cscCmdLine.extend(['/platform:x64'])
+                dotnetCmdLine.extend(['/platform:x64'])
             elif VS_ARM:
-                cscCmdLine.extend(['/platform:arm'])
+                dotnetCmdLine.extend(['/platform:arm'])
             else:
-                cscCmdLine.extend(['/platform:x86'])
+                dotnetCmdLine.extend(['/platform:x86'])
         else:
             # Just use default platform for now.
             # If the dlls are run using mono then it
@@ -1942,10 +1942,10 @@ class DotNetCoreDLLComponent(Component):
             pass
 
         for cs_file in cs_files:
-            cscCmdLine.append('{}'.format(os.path.join(self.to_src_dir, cs_file)))
+            dotnetCmdLine.append('{}'.format(os.path.join(self.to_src_dir, cs_file)))
 
         # Now emit the command line
-        MakeRuleCmd.write_cmd(out, ' '.join(cscCmdLine))
+        MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
 
         # State that the high-level "dotnet" target depends on the .NET bindings
         # dll we just created the build rule for
