@@ -33,7 +33,7 @@ namespace smt {
           m_plugin(*reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
           m_guard_preds(m),
-          m_max_depth(0), 
+          m_max_depth(UINT_MAX), 
           m_q_case_expand(), 
           m_q_body_expand()
         {
@@ -45,10 +45,12 @@ namespace smt {
 
     char const * theory_recfun::get_name() const { return "recfun"; }
 
-    void theory_recfun::init_search_eh() {
-        // obtain max depth via parameters
-        smt_params_helper p(ctx().get_params());
-        set_max_depth(p.recfun_max_depth());
+    unsigned theory_recfun::get_max_depth() {
+        if (m_max_depth == UINT_MAX) {
+            smt_params_helper p(ctx().get_params());
+            set_max_depth(p.recfun_max_depth());
+        }
+        return m_max_depth;
     }
 
     theory* theory_recfun::mk_fresh(context* new_ctx) {
@@ -121,7 +123,7 @@ namespace smt {
         unsigned new_lim = m_guard_preds_lim.size()-num_scopes;
         unsigned start = m_guard_preds_lim[new_lim];
         for (unsigned i = start; i < m_guard_preds.size(); ++i) {
-            m_guards[m_guard_preds.get(i)->get_decl()].pop_back();
+            m_guards[m_guard_preds.get(i)].pop_back();
         }
         m_guard_preds.resize(start);
         m_guard_preds_lim.shrink(new_lim);
@@ -177,7 +179,6 @@ namespace smt {
         c.push_back(~mk_literal(dlimit));
         enable_trace("recfun");
         TRACE("recfun", ctx().display(tout << c.back() << " " << dlimit << "\n"););
-        SASSERT(ctx().get_assignment(c.back()) == l_false);        
 
         for (expr * g : guards) {
             c.push_back(mk_literal(g));
@@ -194,17 +195,17 @@ namespace smt {
         expr* e = ctx().bool_var2expr(v);
         if (is_true && u().is_case_pred(e)) {
             TRACEFN("assign_case_pred_true " << mk_pp(e, m));
-            app* a = to_app(e);            
             // body-expand
-            body_expansion b_e(u(), a);
+            body_expansion b_e(u(), to_app(e));
             push_body_expand(std::move(b_e));            
         }
     }
 
      // replace `vars` by `args` in `e`
-    expr_ref theory_recfun::apply_args(recfun::vars const & vars,
-                                       ptr_vector<expr> const & args,
-                                       expr * e) {
+    expr_ref theory_recfun::apply_args(
+        recfun::vars const & vars,
+        ptr_vector<expr> const & args,
+        expr * e) {
         SASSERT(is_standard_order(vars));
         var_subst subst(m, true);
         expr_ref new_body(m);
@@ -245,14 +246,14 @@ namespace smt {
      * 2. add unit clause `f(args) = rhs`
      */
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
-		TRACEFN("case expansion         " << pp_case_expansion(e, m) << "\n");
+        TRACEFN("case expansion         " << pp_case_expansion(e, m) << "\n");
         SASSERT(e.m_def->is_fun_macro());
         auto & vars = e.m_def->get_vars();
         expr_ref lhs(e.m_lhs, m);
         expr_ref rhs(apply_args(vars, e.m_args, e.m_def->get_macro_rhs()), m);
         literal lit = mk_eq_lit(lhs, rhs);
         ctx().mk_th_axiom(get_id(), 1, &lit);
-        TRACEFN("macro expansion yields " << mk_pp(rhs,m) << "\n" <<
+        TRACEFN("macro expansion yields " << mk_pp(rhs, m) << "\n" <<
                 "literal                " << pp_lit(ctx(), lit));
     }
 
@@ -291,9 +292,10 @@ namespace smt {
                 assert_body_axiom(be);
 
                 // add to set of local assumptions, for depth-limit purpose
-                func_decl* d = pred_applied->get_decl();
+                
+                // func_decl* d = pred_applied->get_decl();
                 m_guard_preds.push_back(pred_applied);
-                auto& vec = m_guards.insert_if_not_there2(d, ptr_vector<expr>())->get_data().m_value;
+                auto& vec = m_guards.insert_if_not_there2(e.m_lhs, ptr_vector<expr>())->get_data().m_value;
                 vec.push_back(pred_applied);
                 if (vec.size() == get_max_depth()) {
                     max_depth_limit(vec);
@@ -322,11 +324,17 @@ namespace smt {
         for (auto & g : e.m_cdef->get_guards()) {
             expr_ref guard = apply_args(vars, args, g);
             clause.push_back(~mk_literal(guard));
+            if (clause.back() == true_literal) {
+                return;
+            }
+            if (clause.back() == false_literal) {
+                clause.pop_back();
+            }
         }        
         clause.push_back(mk_eq_lit(lhs, rhs));
         ctx().mk_th_axiom(get_id(), clause);
         TRACEFN("body   " << pp_body_expansion(e,m));
-        TRACEFN("clause " << pp_lits(ctx(), clause));
+        TRACEFN(pp_lits(ctx(), clause));
     }
     
     final_check_status theory_recfun::final_check_eh() {
@@ -373,7 +381,7 @@ namespace smt {
     }
 
     std::ostream& operator<<(std::ostream & out, theory_recfun::pp_body_expansion const & e) {
-        out << "body_exp(" << e.e.m_cdef->get_name();
+        out << "body_exp(" << e.e.m_cdef->get_decl()->get_name();
         for (auto* t : e.e.m_args) {
             out << " " << mk_pp(t,e.m);
         }

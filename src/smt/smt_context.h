@@ -1639,13 +1639,14 @@ namespace smt {
     };
 
     inline std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {
-        out << "clause{";
+        out << "{";
         bool first = true;
         for (unsigned i = 0; i < pp.len; ++i) {
-            if (first) { first = false; } else { out << " ∨ "; }
+            if (first) { first = false; } else { out << " or\n"; }
             pp.ctx.display_detailed_literal(out, pp.lits[i]);
         }
         return out << "}";
+
     }
 
 };

@@ -15,6 +15,7 @@ Revision History:
 
 --*/
 
+
 #include <functional>
 #include <sstream>
 #include "ast/expr_functors.h"
@@ -29,14 +30,15 @@ Revision History:
 namespace recfun {
 
 
-    case_def::case_def(ast_manager &m,
-                       family_id fid,
-                       def * d,
-                       std::string & name,
-                       unsigned case_index,
-                       sort_ref_vector const & arg_sorts,
-                       expr_ref_vector const& guards, 
-                       expr* rhs)
+    case_def::case_def(
+        ast_manager &m,
+        family_id fid,
+        def * d,
+        std::string & name,
+        unsigned case_index,
+        sort_ref_vector const & arg_sorts,
+        expr_ref_vector const& guards, 
+        expr* rhs)
         : m_pred(m),
           m_guards(guards),
           m_rhs(expr_ref(rhs,m)), 
@@ -52,11 +54,9 @@ namespace recfun {
             m_domain(m, arity, domain), 
             m_range(range, m), m_vars(m), m_cases(),
             m_decl(m), 
-            m_fid(fid), 
-            m_macro(false)
+            m_fid(fid)
     {
-        SASSERT(arity == get_arity());
-        
+        SASSERT(arity == get_arity());        
         func_decl_info info(fid, OP_FUN_DEFINED);
         m_decl = m.mk_func_decl(s, arity, domain, range, info);
     }
@@ -124,7 +124,6 @@ namespace recfun {
         case_state() : m_reg(), m_branches() {}
         
         bool empty() const { return m_branches.empty(); }
-        region & reg() { return m_reg; }
 
         branch pop_branch() {
             branch res = m_branches.back();
@@ -135,7 +134,7 @@ namespace recfun {
         void push_branch(branch const & b) { m_branches.push_back(b); }
 
         unfold_lst const * cons_unfold(expr * e, unfold_lst const * next) {
-            return new (reg()) unfold_lst{e, next};
+            return new (m_reg) unfold_lst{e, next};
         }
         unfold_lst const * cons_unfold(expr * e1, expr * e2, unfold_lst const * next) {
             return cons_unfold(e1, cons_unfold(e2, next));
@@ -145,11 +144,11 @@ namespace recfun {
         }
 
         ite_lst const * cons_ite(app * ite, ite_lst const * next) {
-            return new (reg()) ite_lst{ite, next};
+            return new (m_reg) ite_lst{ite, next};
         }
 
         choice_lst const * cons_choice(app * ite, bool sign, choice_lst const * next) {
-            return new (reg()) choice_lst{ite, sign, next};
+            return new (m_reg) choice_lst{ite, sign, next};
         }
     };
 
@@ -203,21 +202,17 @@ namespace recfun {
 
         unsigned case_idx = 0;
 
-        std::string name;        
-        name.append("case_");
+        std::string name("case-");       
         name.append(m_name.bare_str());
-        name.append("_");
 
         m_vars.append(n_vars, vars);
         
-        // is the function a macro (unconditional body)?
-        m_macro = n_vars == 0 || !contains_ite(rhs);
 
         expr_ref_vector conditions(m);
 
-        if (m_macro) {
+        // is the function a macro (unconditional body)?
+        if (n_vars == 0 || !contains_ite(rhs)) {
             // constant function or trivial control flow, only one (dummy) case
-            name.append("dummy");
             add_case(name, 0, conditions, rhs);
             return;
         }
@@ -311,15 +306,15 @@ namespace recfun {
      */
 
     util::util(ast_manager & m, family_id id)
-        : m_manager(m), m_family_id(id), m_th_rw(m), m_plugin(0) {
-        m_plugin = dynamic_cast<decl::plugin*>(m.get_plugin(m_family_id));
+        : m_manager(m), m_fid(id), m_th_rw(m),
+          m_plugin(dynamic_cast<decl::plugin*>(m.get_plugin(m_fid))) {
     }
 
     util::~util() {
     }
 
     def * util::decl_fun(symbol const& name, unsigned n, sort *const * domain, sort * range) {
-        return alloc(def, m(), m_family_id, name, n, domain, range);
+        return alloc(def, m(), m_fid, name, n, domain, range);
     }
 
     void util::set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs) {
@@ -328,7 +323,7 @@ namespace recfun {
 
     app_ref util::mk_depth_limit_pred(unsigned d) {
         parameter p(d);
-        func_decl_info info(m_family_id, OP_DEPTH_LIMIT, 1, &p);
+        func_decl_info info(m_fid, OP_DEPTH_LIMIT, 1, &p);
         func_decl* decl = m().mk_const_decl(symbol("recfun-depth-limit"), m().mk_bool_sort(), info);
         return app_ref(m().mk_const(decl), m());
     }
@@ -376,13 +371,13 @@ namespace recfun {
             m_defs.reset();
             // m_case_defs does not own its data, no need to deallocate
             m_case_defs.reset();
-            m_util = 0; // force deletion
+            m_util = nullptr; // force deletion
         }
 
         util & plugin::u() const {
             SASSERT(m_manager);
             SASSERT(m_family_id != null_family_id);
-            if (m_util.get() == 0) {
+            if (!m_util.get()) {
                 m_util = alloc(util, *m_manager, m_family_id);
             }
             return *(m_util.get());
@@ -398,7 +393,7 @@ namespace recfun {
         void plugin::set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs) {
             u().set_definition(d, n_vars, vars, rhs);
             for (case_def & c : d.get_def()->get_cases()) {
-                m_case_defs.insert(c.get_name(), &c);
+                m_case_defs.insert(c.get_decl(), &c);
             }
         }
 
@@ -434,7 +429,10 @@ namespace recfun {
         func_decl * plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                          unsigned arity, sort * const * domain, sort * range)
         {
-            switch(k) {
+            UNREACHABLE();
+            // TBD: parameter usage seems inconsistent with other uses.
+            IF_VERBOSE(0, verbose_stream() << "mk-func-decl " << k << "\n");
+            switch (k) {
                 case OP_FUN_CASE_PRED:
                     return mk_fun_pred_decl(num_parameters, parameters, arity, domain, range);
                 case OP_FUN_DEFINED:

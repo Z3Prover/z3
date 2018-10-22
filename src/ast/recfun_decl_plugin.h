@@ -19,6 +19,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "util/obj_hashtable.h"
 
 namespace recfun {
     class case_def;    //<! one possible control path of a function
@@ -62,7 +63,7 @@ namespace recfun {
 
         void add_guard(expr_ref && e) { m_guards.push_back(e); }
     public:
-        symbol const& get_name() const { return m_pred->get_name(); }
+        func_decl* get_decl() const { return m_pred; }
 
         app_ref apply_case_predicate(ptr_vector<expr> const & args) const {
             ast_manager& m = m_pred.get_manager();
@@ -97,7 +98,6 @@ namespace recfun {
         cases               m_cases; //!< possible cases
         func_decl_ref       m_decl; //!< generic declaration
         family_id           m_fid;
-        bool                m_macro;
 
         def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range);
 
@@ -115,11 +115,10 @@ namespace recfun {
         sort_ref const & get_range() const { return m_range; }
         func_decl * get_decl() const { return m_decl.get(); }
 
-        bool is_fun_macro() const { return m_macro; }
+        bool is_fun_macro() const { return m_cases.size() == 1; }
         bool is_fun_defined() const { return !is_fun_macro(); }
 
         expr * get_macro_rhs() const {
-            SASSERT(is_fun_macro());
             return m_cases[0].get_rhs();
         }
     };
@@ -140,7 +139,7 @@ namespace recfun {
 
         class plugin : public decl_plugin {
             typedef map<symbol, def*, symbol_hash_proc, symbol_eq_proc> def_map;
-            typedef map<symbol, case_def*, symbol_hash_proc, symbol_eq_proc> case_def_map;
+            typedef obj_map<func_decl, case_def*> case_def_map;
 
             mutable scoped_ptr<util> m_util;
             def_map                 m_defs; // function->def
@@ -175,8 +174,8 @@ namespace recfun {
             def const& get_def(const symbol& s) const { return *(m_defs[s]); }
             promise_def get_promise_def(const symbol &s) const { return promise_def(&u(), m_defs[s]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
-            bool has_case_def(const symbol& s) const { return m_case_defs.contains(s); }
-            case_def& get_case_def(symbol const& s) { SASSERT(has_case_def(s)); return *(m_case_defs[s]); }
+            bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }
+            case_def& get_case_def(func_decl* f) { SASSERT(has_case_def(f)); return *(m_case_defs[f]); }
             bool is_declared(symbol const& s) const { return m_defs.contains(s); }
         private:
             func_decl * mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
@@ -192,7 +191,7 @@ namespace recfun {
         friend class decl::plugin;
         
         ast_manager &           m_manager;
-        family_id               m_family_id;
+        family_id               m_fid;
         th_rewriter             m_th_rw;
         decl::plugin *          m_plugin;
 
@@ -205,10 +204,10 @@ namespace recfun {
 
         ast_manager & m() { return m_manager; }
         th_rewriter & get_th_rewriter() { return m_th_rw; }
-        bool is_case_pred(expr * e) const { return is_app_of(e, m_family_id, OP_FUN_CASE_PRED); }
-        bool is_defined(expr * e) const { return is_app_of(e, m_family_id, OP_FUN_DEFINED); }
-        bool is_depth_limit(expr * e) const { return is_app_of(e, m_family_id, OP_DEPTH_LIMIT); }
-        bool owns_app(app * e) const { return e->get_family_id() == m_family_id; }
+        bool is_case_pred(expr * e) const { return is_app_of(e, m_fid, OP_FUN_CASE_PRED); }
+        bool is_defined(expr * e) const { return is_app_of(e, m_fid, OP_FUN_DEFINED); }
+        bool is_depth_limit(expr * e) const { return is_app_of(e, m_fid, OP_DEPTH_LIMIT); }
+        bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
 
         bool has_def() const { return m_plugin->has_def(); }
 
@@ -222,17 +221,13 @@ namespace recfun {
 
         case_def& get_case_def(expr* e) {
             SASSERT(is_case_pred(e));
-            return get_case_def(to_app(e)->get_name());
-        }
-
-        case_def& get_case_def(symbol const & s) {
-            SASSERT(m_plugin->has_case_def(s));
-            return m_plugin->get_case_def(s);
+            return m_plugin->get_case_def(to_app(e)->get_decl());
         }
 
         app* mk_fun_defined(def const & d, unsigned n_args, expr * const * args) {
             return m().mk_app(d.get_decl(), n_args, args);
         }
+
         app* mk_fun_defined(def const & d, ptr_vector<expr> const & args) {
             return mk_fun_defined(d, args.size(), args.c_ptr());
         }

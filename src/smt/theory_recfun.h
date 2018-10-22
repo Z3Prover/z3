@@ -90,7 +90,7 @@ namespace smt {
         recfun_decl_plugin&    m_plugin;
         recfun_util&           m_util;
         stats                  m_stats;
-        obj_map<func_decl, ptr_vector<expr> > m_guards;
+        obj_map<expr, ptr_vector<expr> > m_guards;
         app_ref_vector         m_guard_preds;
         unsigned_vector        m_guard_preds_lim;
         unsigned               m_max_depth; // for fairness and termination
@@ -138,12 +138,11 @@ namespace smt {
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
 
         void set_max_depth(unsigned n) { SASSERT(n>0); m_max_depth = n; }        
-        unsigned get_max_depth() const { return m_max_depth; }
+        unsigned get_max_depth();
 
     public:
         theory_recfun(ast_manager & m);
         ~theory_recfun() override;
-        void init_search_eh() override;
         theory * mk_fresh(context * new_ctx) override;
         void display(std::ostream & out) const override;
         void collect_statistics(::statistics & st) const override;

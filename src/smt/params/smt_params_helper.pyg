@@ -97,5 +97,5 @@ def_module_params(module_name='smt',
                           ('lemma_gc_strategy', UINT, 0, 'lemma garbage collection strategy: 0 - fixed, 1 - geometric, 2 - at restart, 3 - none'),
                           ('dt_lazy_splits', UINT, 1, 'How lazy datatype splits are performed: 0- eager, 1- lazy for infinite types, 2- lazy'),
                           ('recfun.native', BOOL, False, 'use native rec-fun solver'),
-                          ('recfun.max_depth', UINT, 50, 'maximum depth of unrolling for recursive functions')
+                          ('recfun.max_depth', UINT, 2, 'maximum depth of unrolling for recursive functions')
                           ))
