@@ -699,7 +699,7 @@ def parse_options():
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
+                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
@@ -733,7 +733,7 @@ def parse_options():
             TRACE = True
         elif opt in ('-.net', '--dotnet'):
             DOTNET_ENABLED = True
-        elif opt in ('--dotnetcore'):
+        elif opt in ('--dotnetcore',):
             DOTNET_ENABLED = True
             DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
