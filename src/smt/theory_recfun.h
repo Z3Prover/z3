@@ -35,11 +35,11 @@ namespace smt {
 
         // one case-expansion of `f(t1...tn)`
         struct case_expansion {
-            expr *              m_lhs; // the term to expand
+            app *              m_lhs; // the term to expand
             recfun_def *        m_def;
             ptr_vector<expr>    m_args;
-            case_expansion(recfun_util& u, app * n) : m_lhs(n), m_def(0), m_args()
-            {
+            case_expansion(recfun_util& u, app * n) : 
+            m_lhs(n), m_def(nullptr), m_args()  {
                 SASSERT(u.is_defined(n));
                 func_decl * d = n->get_decl();
                 const symbol& name = d->get_name();
@@ -66,16 +66,20 @@ namespace smt {
 
         // one body-expansion of `f(t1...tn)` using a `C_f_i(t1...tn)`
         struct body_expansion {
+            app*                    m_lhs;
             recfun_case_def const * m_cdef;
             ptr_vector<expr>        m_args;
 
-            body_expansion(recfun_util& u, app * n) : m_cdef(0), m_args() {
+            body_expansion(recfun_util& u, app * n) : m_lhs(n), m_cdef(0), m_args() {
                 m_cdef = &u.get_case_def(n);
                 m_args.append(n->get_num_args(), n->get_args());
             }
-            body_expansion(recfun_case_def const & d, ptr_vector<expr> & args) : m_cdef(&d), m_args(args) {}
-            body_expansion(body_expansion const & from): m_cdef(from.m_cdef), m_args(from.m_args) {}
-            body_expansion(body_expansion && from) : m_cdef(from.m_cdef), m_args(std::move(from.m_args)) {}
+            body_expansion(app* lhs, recfun_case_def const & d, ptr_vector<expr> & args) : 
+                m_lhs(lhs), m_cdef(&d), m_args(args) {}
+            body_expansion(body_expansion const & from): 
+                m_lhs(from.m_lhs), m_cdef(from.m_cdef), m_args(from.m_args) {}
+            body_expansion(body_expansion && from) : 
+                m_lhs(from.m_lhs), m_cdef(from.m_cdef), m_args(std::move(from.m_args)) {}
         };
 
         struct pp_body_expansion {
@@ -86,14 +90,16 @@ namespace smt {
 
         friend std::ostream& operator<<(std::ostream&, pp_body_expansion const &);
         
-        ast_manager&           m;
-        recfun_decl_plugin&    m_plugin;
-        recfun_util&           m_util;
-        stats                  m_stats;
-        obj_map<expr, ptr_vector<expr> > m_guards;
-        app_ref_vector         m_guard_preds;
-        unsigned_vector        m_guard_preds_lim;
-        unsigned               m_max_depth; // for fairness and termination
+        ast_manager&            m;
+        recfun_decl_plugin&     m_plugin;
+        recfun_util&            m_util;
+        stats                   m_stats;
+
+        // book-keeping for depth of predicates
+        obj_map<expr, unsigned>  m_pred_depth;
+        expr_ref_vector          m_preds;
+        unsigned_vector          m_preds_lim;
+        unsigned                 m_max_depth; // for fairness and termination
 
         vector<case_expansion> m_q_case_expand;
         vector<body_expansion> m_q_body_expand;
@@ -107,14 +113,20 @@ namespace smt {
         bool is_case_pred(enode * e) const { return is_case_pred(e->get_owner()); }
 
         void reset_queues();
-        expr_ref apply_args(recfun::vars const & vars, ptr_vector<expr> const & args, expr * e); //!< substitute variables by args
+        expr_ref apply_args(unsigned depth, recfun::vars const & vars, ptr_vector<expr> const & args, expr * e); //!< substitute variables by args
         void assert_macro_axiom(case_expansion & e);
         void assert_case_axioms(case_expansion & e);
         void assert_body_axiom(body_expansion & e);
         literal mk_literal(expr* e);
-        void max_depth_limit(ptr_vector<expr> const& guards);
+
+        void assert_max_depth_limit(expr* guard);
+        unsigned get_depth(expr* e);
+        void set_depth(unsigned d, expr* e);
+        
         literal mk_eq_lit(expr* l, expr* r);
-        bool is_standard_order(recfun::vars const& vars) const { return vars.size() == 0 || vars[vars.size()-1]->get_idx() == 0; }
+        bool is_standard_order(recfun::vars const& vars) const { 
+            return vars.size() == 0 || vars[vars.size()-1]->get_idx() == 0; 
+        }
     protected:
         void push_case_expand(case_expansion&& e) { m_q_case_expand.push_back(e); }
         void push_body_expand(body_expansion&& e) { m_q_body_expand.push_back(e); }

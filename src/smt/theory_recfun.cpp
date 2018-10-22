@@ -19,6 +19,7 @@ Revision History:
 
 #include "util/stats.h"
 #include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
 #include "smt/theory_recfun.h"
 #include "smt/params/smt_params_helper.hpp"
 
@@ -32,7 +33,7 @@ namespace smt {
           m(m),
           m_plugin(*reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
-          m_guard_preds(m),
+          m_preds(m),
           m_max_depth(UINT_MAX), 
           m_q_case_expand(), 
           m_q_body_expand()
@@ -111,7 +112,7 @@ namespace smt {
     void theory_recfun::push_scope_eh() {
         TRACEFN("push_scope");
         theory::push_scope_eh();
-        m_guard_preds_lim.push_back(m_guard_preds.size());
+        m_preds_lim.push_back(m_preds.size());
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
@@ -119,14 +120,14 @@ namespace smt {
         theory::pop_scope_eh(num_scopes);
         reset_queues();
         
-        // restore guards
-        unsigned new_lim = m_guard_preds_lim.size()-num_scopes;
-        unsigned start = m_guard_preds_lim[new_lim];
-        for (unsigned i = start; i < m_guard_preds.size(); ++i) {
-            m_guards[m_guard_preds.get(i)].pop_back();
+        // restore depth book-keeping
+        unsigned new_lim = m_preds_lim.size()-num_scopes;
+        unsigned start = m_preds_lim[new_lim];
+        for (unsigned i = start; i < m_preds.size(); ++i) {
+            m_pred_depth.remove(m_preds.get(i));
         }
-        m_guard_preds.resize(start);
-        m_guard_preds_lim.shrink(new_lim);
+        m_preds.resize(start);
+        m_preds_lim.shrink(new_lim);
     }
     
     void theory_recfun::restart_eh() {
@@ -169,22 +170,47 @@ namespace smt {
         m_q_body_expand.clear();
     }
 
-    void theory_recfun::max_depth_limit(ptr_vector<expr> const& guards) {
+    /**
+     * make clause `depth_limit => ~guard`
+     * the guard appears at a depth below the current cutoff.
+     */
+    void theory_recfun::assert_max_depth_limit(expr* guard) {
         TRACEFN("max-depth limit");
         literal_vector c;
-        // make clause `depth_limit => V_{g : guards of non-recursive cases} g`
-
-        // first literal must be the depth limit one
         app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
         c.push_back(~mk_literal(dlimit));
-        enable_trace("recfun");
-        TRACE("recfun", ctx().display(tout << c.back() << " " << dlimit << "\n"););
-
-        for (expr * g : guards) {
-            c.push_back(mk_literal(g));
-        }
+        c.push_back(~mk_literal(guard));        
         TRACEFN("max-depth limit: add clause " << pp_lits(ctx(), c));
         m_q_clauses.push_back(std::move(c));
+    }
+
+    /**
+     * retrieve depth associated with predicate or expression.
+     */
+    unsigned theory_recfun::get_depth(expr* e) {
+        unsigned d = 0;
+        m_pred_depth.find(e, d);
+        return d;
+    }
+
+    /**
+     * Update depth of subterms of e with respect to d.
+     */
+    void theory_recfun::set_depth(unsigned d, expr* e) {
+        struct insert_c {
+            theory_recfun& th;
+            unsigned m_depth;
+            insert_c(theory_recfun& th, unsigned d): th(th), m_depth(d) {}
+            void operator()(app* e) {
+                if ((th.u().is_defined(e) || th.u().is_case_pred(e)) && !th.m_pred_depth.contains(e)) {
+                    th.m_pred_depth.insert(e, m_depth);
+                }
+            }
+            void operator()(quantifier*) {}
+            void operator()(var*) {}
+        };
+        insert_c proc(*this, d);
+        for_each_expr(proc, e);
     }
 
     /**
@@ -203,6 +229,7 @@ namespace smt {
 
      // replace `vars` by `args` in `e`
     expr_ref theory_recfun::apply_args(
+        unsigned depth,
         recfun::vars const & vars,
         ptr_vector<expr> const & args,
         expr * e) {
@@ -250,7 +277,8 @@ namespace smt {
         SASSERT(e.m_def->is_fun_macro());
         auto & vars = e.m_def->get_vars();
         expr_ref lhs(e.m_lhs, m);
-        expr_ref rhs(apply_args(vars, e.m_args, e.m_def->get_macro_rhs()), m);
+        unsigned depth = get_depth(e.m_lhs);
+        expr_ref rhs(apply_args(depth, vars, e.m_args, e.m_def->get_macro_rhs()), m);
         literal lit = mk_eq_lit(lhs, rhs);
         ctx().mk_th_axiom(get_id(), 1, &lit);
         TRACEFN("macro expansion yields " << mk_pp(rhs, m) << "\n" <<
@@ -273,13 +301,21 @@ namespace smt {
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
+
+            // cut off cases below max-depth
+            unsigned depth = get_depth(pred_applied);
+            if (depth >= get_max_depth()) {
+                assert_max_depth_limit(pred_applied);
+                continue;
+            }
+
             SASSERT(u().owns_app(pred_applied));
             literal concl = mk_literal(pred_applied);
 
             literal_vector guards;
             guards.push_back(concl);
             for (auto & g : c.get_guards()) {
-                expr_ref ga = apply_args(vars, e.m_args, g);
+                expr_ref ga = apply_args(depth, vars, e.m_args, g);
                 literal guard = mk_literal(ga);
                 guards.push_back(~guard);
                 literal c[2] = {~concl, guard};
@@ -288,18 +324,8 @@ namespace smt {
             ctx().mk_th_axiom(get_id(), guards);
 
             if (c.is_immediate()) {
-                body_expansion be(c, e.m_args);
+                body_expansion be(e.m_lhs, c, e.m_args);
                 assert_body_axiom(be);
-
-                // add to set of local assumptions, for depth-limit purpose
-                
-                // func_decl* d = pred_applied->get_decl();
-                m_guard_preds.push_back(pred_applied);
-                auto& vec = m_guards.insert_if_not_there2(e.m_lhs, ptr_vector<expr>())->get_data().m_value;
-                vec.push_back(pred_applied);
-                if (vec.size() == get_max_depth()) {
-                    max_depth_limit(vec);
-                }
             }
         }
     }
@@ -317,12 +343,13 @@ namespace smt {
         auto & vars = d.get_vars();
         auto & args = e.m_args;
         SASSERT(is_standard_order(vars));
+        unsigned depth = get_depth(e.m_lhs);
         expr_ref lhs(u().mk_fun_defined(d, args), m);
-        expr_ref rhs = apply_args(vars, args, e.m_cdef->get_rhs());
+        expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
 
         literal_vector clause;
         for (auto & g : e.m_cdef->get_guards()) {
-            expr_ref guard = apply_args(vars, args, g);
+            expr_ref guard = apply_args(depth, vars, args, g);
             clause.push_back(~mk_literal(guard));
             if (clause.back() == true_literal) {
                 return;
