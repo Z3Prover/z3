@@ -734,7 +734,6 @@ def parse_options():
         elif opt in ('-.net', '--dotnet'):
             DOTNET_ENABLED = True
         elif opt in ('--dotnetcore',):
-            DOTNET_ENABLED = True
             DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
@@ -893,6 +892,7 @@ def is_dotnet_enabled():
     return DOTNET_ENABLED
 
 def is_dotnet_core_enabled():
+    print("core %s" % DOTNET_CORE_ENABLED)
     return DOTNET_CORE_ENABLED
 
 def is_python_enabled():
@@ -1857,7 +1857,7 @@ class DotNetCoreDLLComponent(Component):
 
     def mk_makefile(self, out):
         global DOTNET_KEY_FILE        
-        if not is_dotnet_enabled():
+        if not is_dotnet_core_enabled():
             return
         cs_fp_files = []
         cs_files    = []
@@ -2008,7 +2008,7 @@ class DotNetCoreDLLComponent(Component):
             flags=' '.join(gacUtilFlags)))
 
     def mk_install(self, out):
-        if not DOTNET_ENABLED:
+        if not is_dotnet_core_enabled():
             return
         self._install_or_uninstall_to_gac(out, install=True)
 
@@ -2872,6 +2872,8 @@ def mk_config():
             if is_dotnet_enabled():
                 print('C# Compiler:    %s' % CSC)
                 print('GAC utility:    %s' % GACUTIL)
+            if is_dotnet_core_enabled():
+                print('C# Compiler:    %s' % DOTNET)
 
     config.close()
 
@@ -3197,6 +3199,8 @@ def mk_bindings(api_files):
         dotnet_output_dir = None
         if is_dotnet_enabled():
           dotnet_output_dir = get_component('dotnet').src_dir
+        elif is_dotnet_core_enabled():
+          dotnet_output_dir = get_component('dotnetcore').src_dir
         java_output_dir = None
         java_package_name = None
         if is_java_enabled():
