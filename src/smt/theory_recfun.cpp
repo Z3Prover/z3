@@ -34,7 +34,7 @@ namespace smt {
           m_plugin(*reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
           m_preds(m),
-          m_max_depth(UINT_MAX), 
+          m_max_depth(2),
           m_q_case_expand(), 
           m_q_body_expand()
         {
@@ -45,14 +45,6 @@ namespace smt {
     }
 
     char const * theory_recfun::get_name() const { return "recfun"; }
-
-    unsigned theory_recfun::get_max_depth() {
-        if (m_max_depth == UINT_MAX) {
-            smt_params_helper p(ctx().get_params());
-            set_max_depth(p.recfun_max_depth());
-        }
-        return m_max_depth;
-    }
 
     theory* theory_recfun::mk_fresh(context* new_ctx) {
         return alloc(theory_recfun, new_ctx->get_manager());
@@ -177,7 +169,7 @@ namespace smt {
     void theory_recfun::assert_max_depth_limit(expr* guard) {
         TRACEFN("max-depth limit");
         literal_vector c;
-        app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
+        app_ref dlimit = m_util.mk_depth_limit_pred(m_max_depth);
         c.push_back(~mk_literal(dlimit));
         c.push_back(~mk_literal(guard));        
         TRACEFN("max-depth limit: add clause " << pp_lits(ctx(), c));
@@ -202,8 +194,10 @@ namespace smt {
             unsigned m_depth;
             insert_c(theory_recfun& th, unsigned d): th(th), m_depth(d) {}
             void operator()(app* e) {
-                if ((th.u().is_defined(e) || th.u().is_case_pred(e)) && !th.m_pred_depth.contains(e)) {
+                if (th.u().is_defined(e) && !th.m_pred_depth.contains(e)) {
                     th.m_pred_depth.insert(e, m_depth);
+                    th.m_preds.push_back(e);
+                    TRACEFN("depth " << m_depth << " : " << mk_pp(e, th.m));
                 }
             }
             void operator()(quantifier*) {}
@@ -238,6 +232,7 @@ namespace smt {
         expr_ref new_body(m);
         new_body = subst(e, args.size(), args.c_ptr());
         ctx().get_rewriter()(new_body); // simplify
+        set_depth(depth + 1, new_body);
         return new_body;
     }
         
@@ -303,8 +298,8 @@ namespace smt {
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
 
             // cut off cases below max-depth
-            unsigned depth = get_depth(pred_applied);
-            if (depth >= get_max_depth()) {
+            unsigned depth = get_depth(e.m_lhs);
+            if (depth >= m_max_depth) {
                 assert_max_depth_limit(pred_applied);
                 continue;
             }
@@ -375,7 +370,7 @@ namespace smt {
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
         if (u().has_def()) {
-            app_ref dlimit = m_util.mk_depth_limit_pred(get_max_depth());
+            app_ref dlimit = m_util.mk_depth_limit_pred(m_max_depth);
             TRACEFN("add_theory_assumption " << mk_pp(dlimit.get(), m));
             assumptions.push_back(dlimit);
         }
@@ -385,8 +380,7 @@ namespace smt {
     bool theory_recfun::should_research(expr_ref_vector & unsat_core) {
         for (auto & e : unsat_core) {
             if (u().is_depth_limit(e)) {
-                unsigned new_depth = (3 * (1 + get_max_depth())) / 2;
-                set_max_depth(new_depth);
+                m_max_depth = (3 * m_max_depth) / 2;
                 return true;
             }
         }
