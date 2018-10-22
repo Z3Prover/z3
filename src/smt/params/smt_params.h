@@ -108,9 +108,6 @@ struct smt_params : public preprocessor_params,
     bool             m_new_core2th_eq;
     bool             m_ematching;
 
-    // TODO: move into its own file?
-    unsigned         m_recfun_max_depth;
-
     // -----------------------------------
     //
     // Case split strategy
@@ -264,7 +261,6 @@ struct smt_params : public preprocessor_params,
         m_display_features(false),
         m_new_core2th_eq(true),
         m_ematching(true),
-        m_recfun_max_depth(50),
         m_case_split_strategy(CS_ACTIVITY_DELAY_NEW),
         m_rel_case_split_order(0),
         m_lookahead_diseq(false),
