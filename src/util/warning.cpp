@@ -93,7 +93,7 @@ void format2ostream(std::ostream & out, char const* msg, va_list args) {
     va_end(args_copy);
 
     // +1 is for NUL termination.
-    buff.resize(msg_len + 1);
+    buff.resize(static_cast<unsigned>(msg_len + 1));
 
     VPRF(buff.c_ptr(), buff.size(), msg, args);
 
