@@ -568,7 +568,7 @@ namespace datalog {
     }
 
     /**
-       In this function we modify the content of table functional columns without reseting indexes.
+       In this function we modify the content of table functional columns without resetting indexes.
        This is ok as long as we do not allow indexing on functional columns.
     */
     void sparse_table::ensure_fact(const table_fact & f) {

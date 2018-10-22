@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    corresponding obj_map with reference count managment.
+    corresponding obj_map with reference count management.
 
 Author:
 

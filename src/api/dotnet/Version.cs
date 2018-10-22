@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -26,7 +26,6 @@ namespace Microsoft.Z3
     /// Version information.
     /// </summary>
     /// <remarks>Note that this class is static.</remarks>
-    [ContractVerification(true)]
     public static class Version
     {
         static Version() { }
@@ -99,7 +98,6 @@ namespace Microsoft.Z3
         /// </summary>
         new public static string ToString()
         {
-            Contract.Ensures(Contract.Result<string>() != null);
 
             uint major = 0, minor = 0, build = 0, revision = 0;
             Native.Z3_get_version(ref major, ref minor, ref build, ref revision);

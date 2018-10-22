@@ -120,7 +120,7 @@ public:
 
        This operation invalidates the line previously retrieved.
 
-       This operatio can be called only if we are not at the end of file.
+       This operation can be called only if we are not at the end of file.
 
        User is free to modify the content of the returned array until the terminating NULL character.
      */
@@ -876,7 +876,7 @@ protected:
 
     /**
        \brief Parse predicate arguments. If \c f==0, they are arguments of a predicate declaration.
-       If parsing a declaration, argumens names are pushed to the \c arg_names vector.
+       If parsing a declaration, argument names are pushed to the \c arg_names vector.
     */
     dtoken parse_args(dtoken tok, func_decl* f, expr_ref_vector& args, svector<symbol> & arg_names) {
         if (tok != TK_LP) {

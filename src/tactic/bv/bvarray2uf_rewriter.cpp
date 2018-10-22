@@ -40,7 +40,7 @@ bvarray2uf_rewriter_cfg::bvarray2uf_rewriter_cfg(ast_manager & m, params_ref con
     m_fmc(nullptr),
     extra_assertions(m) {
     updt_params(p);
-    // We need to make sure that the mananger has the BV and array plugins loaded.
+    // We need to make sure that the manager has the BV and array plugins loaded.
     symbol s_bv("bv");
     if (!m_manager.has_plugin(s_bv))
         m_manager.register_plugin(s_bv, alloc(bv_decl_plugin));

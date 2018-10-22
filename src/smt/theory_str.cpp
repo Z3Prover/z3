@@ -5074,7 +5074,7 @@ namespace smt {
                         }
                     } else {
                         // ------------------------------------------------------------------------------------------------
-                        // subStr doesn't have an eqc contant value
+                        // subStr doesn't have an eqc constant value
                         // however, subStr equals to some concat(arg_1, arg_2, ..., arg_n)
                         // if arg_j is a constant and is not a part of the strConst, it's sure that the contains is false
                         // ** This check is needed here because the "strConst" and "strAst" may not be in a same eqc yet

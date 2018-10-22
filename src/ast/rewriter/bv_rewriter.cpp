@@ -2679,7 +2679,7 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
             }
 
             const unsigned sz = m_util.get_bv_size(rhs);
-            if (sz == 1) { // detect (lhs = N) ? C : D, where N, C, D are 1 bit numberals
+            if (sz == 1) { // detect (lhs = N) ? C : D, where N, C, D are 1 bit numerals
                 numeral rhs_n, e_n, t_n;
                 unsigned rhs_sz, e_sz, t_sz;
                 if (is_numeral(rhs, rhs_n, rhs_sz)

@@ -1073,7 +1073,7 @@ namespace smt {
     /**
        \brief: Create an atom that enforces the inequality v > val
        The arithmetical expression encoding the inequality suffices 
-       for the theory of aritmetic.
+       for the theory of arithmetic.
     */
     template<typename Ext>
     expr_ref theory_arith<Ext>::mk_gt(theory_var v) {
@@ -1146,7 +1146,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::enable_record_conflict(expr* bound) {
         m_params.m_arith_bound_prop = BP_NONE;
-        SASSERT(propagation_mode() == BP_NONE); // bound propagtion rules are not (yet) handled.
+        SASSERT(propagation_mode() == BP_NONE); // bound propagation rules are not (yet) handled.
         if (bound) {
             context& ctx = get_context();
             m_bound_watch = ctx.get_bool_var(bound);

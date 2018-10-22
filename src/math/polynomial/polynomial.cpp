@@ -4052,7 +4052,7 @@ namespace polynomial {
 
         // select a new random value in GF(p) that is not in vals, and store it in r
         void peek_fresh(scoped_numeral_vector const & vals, unsigned p, scoped_numeral & r) {
-            SASSERT(vals.size() < p); // otherwise we cant keep the fresh value
+            SASSERT(vals.size() < p); // otherwise we can't keep the fresh value
             unsigned sz = vals.size();
             while (true) {
                 m().set(r, rand() % p);
@@ -4149,7 +4149,7 @@ namespace polynomial {
                 TRACE("mgcd_detail", tout << "counter: " << counter << "\nidx: " << idx << "\nq: " << q << "\ndeg_q: " << deg_q << "\nmin_deg_q: " <<
                       min_deg_q << "\nnext_x: x" << vars[idx+1] << "\nmax_var(q): " << q_var << "\n";);
                 if (deg_q < min_deg_q) {
-                    TRACE("mgcd_detail", tout << "reseting...\n";);
+                    TRACE("mgcd_detail", tout << "resetting...\n";);
                     counter   = 0;
                     min_deg_q = deg_q;
                     // start from scratch

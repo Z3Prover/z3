@@ -342,6 +342,7 @@
     <Compile Include="ConstructorList.cs" />
     <Compile Include="DatatypeExpr.cs" />
     <Compile Include="DatatypeSort.cs" />
+    <Compile Include="Deprecated.cs" />
     <Compile Include="FiniteDomainExpr.cs" />
     <Compile Include="FiniteDomainNum.cs" />
     <Compile Include="FPExpr.cs" />
@@ -364,6 +365,7 @@
     <Compile Include="IntNum.cs" />
     <Compile Include="IntSort.cs" />
     <Compile Include="IntSymbol.cs" />
+    <Compile Include="Lambda.cs" />
     <Compile Include="ListSort.cs" />
     <Compile Include="Model.cs" />
     <Compile Include="Optimize.cs" />

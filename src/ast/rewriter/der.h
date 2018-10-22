@@ -108,7 +108,7 @@ Revision History:
        apply var_subst using m_map to this child, and store the result in a new children array
   Create a new OR (new body of the quantifier) using the new children
   Then, we create a new quantifier using this new body, and use the function elim_unused_vars to 
-  eliminate the ununsed variables.
+  eliminate the unused variables.
 
   Remark: let us implement the new version inside the class der.
   Use #if 0 ... #endif to comment the old version.

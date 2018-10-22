@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -36,7 +36,7 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal BitVecSort(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal BitVecSort(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
         #endregion
     };
 }

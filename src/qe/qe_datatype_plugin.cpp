@@ -46,7 +46,7 @@ Copyright (c) 2015 Microsoft Corporation
 //   -> \/_i R_C(t_i) & phi[t_i/x]  \/ phi[false, true]
 // 
 //  Justification: 
-//  - We will asume that each of t_i, s_j are constructor terms.
+//  - We will assume that each of t_i, s_j are constructor terms.
 //  - We can assume that x \notin t_i, x \notin s_j, or otherwise use simplification.
 //  - We can assume that x occurs only in equalities or disequalities, or the recognizer, since 
 //    otherwise, we could simplify equalities, or QE does not apply.

@@ -233,7 +233,7 @@ class env {
 
     void check_arity(unsigned num_args, unsigned arity) {
         if (num_args != arity) {
-            throw failure_ex("arity missmatch");
+            throw failure_ex("arity mismatch");
         }
     }
 

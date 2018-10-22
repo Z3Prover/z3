@@ -203,7 +203,7 @@ namespace smt {
 
     static void check_no_arithmetic(static_features const & st, char const * logic) {
         if (st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0) 
-            throw default_exception("Benchmark constains arithmetic, but specified loging does not support it.");
+            throw default_exception("Benchmark constains arithmetic, but specified logic does not support it.");
     }
 
     void setup::setup_QF_UF() {
@@ -519,7 +519,7 @@ namespace smt {
             m_params.m_arith_eq2ineq          = true;
             m_params.m_eliminate_term_ite     = true;
             // if (st.m_num_exprs < 5000 && st.m_num_ite_terms < 50) { // safeguard to avoid high memory consumption
-            // TODO: implement analsysis function to decide where lift ite is too expensive.
+            // TODO: implement analysis function to decide where lift ite is too expensive.
             //    m_params.m_lift_ite           = LI_FULL;
             // }
         } 

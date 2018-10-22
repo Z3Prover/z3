@@ -186,7 +186,7 @@ void square_sparse_matrix<T, X>::init_row_headers() {
 }
 
 template <typename T, typename X>
-void square_sparse_matrix<T, X>::init_column_headers() { // we alway have only square square_sparse_matrix
+void square_sparse_matrix<T, X>::init_column_headers() { // we always have only square square_sparse_matrix
     for (unsigned l = 0; l < m_row_permutation.size(); l++) {
         m_columns.push_back(col_header());
     }

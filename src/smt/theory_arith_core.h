@@ -3128,7 +3128,7 @@ namespace smt {
     //
     // 1) Handling inequalities: (n1, k1) <= (n2, k2)
     //
-    // The only intersting case is n1 < n2 and k1 > k2.
+    // The only interesting case is n1 < n2 and k1 > k2.
     // Using the definition of infinitesimal numbers
     // we have:
     // n1 + k1 * epsilon <= n2 + k2 - epsilon
@@ -3533,7 +3533,7 @@ namespace smt {
     }
 
     /**
-       \brief reset and retrieve built-in explanation hints for arithmetic lemmmas.
+       \brief reset and retrieve built-in explanation hints for arithmetic lemmas.
     */
 
     template<typename Ext>

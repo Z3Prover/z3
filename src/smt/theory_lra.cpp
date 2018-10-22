@@ -3225,7 +3225,7 @@ public:
             theory_var w;
             if (m_solver->is_term(ti.var())) {
                 //w = m_term_index2theory_var.get(m_solver->adjust_term_index(ti.var()), null_theory_var);
-                //if (w == null_theory_var) // if extracing expressions directly from nested term
+                //if (w == null_theory_var) // if extracting expressions directly from nested term
                 lp::lar_term const& term1 = m_solver->get_term(ti.var());
                 rational coeff2 = coeff * ti.coeff();
                 term2coeffs(term1, coeffs, coeff2, offset);

@@ -6,5 +6,5 @@ def_module_params('rcf',
                           ('initial_precision', UINT, 24, "a value k that is the initial interval size (as 1/2^k) when creating transcendentals and approximated division"),
                           ('inf_precision', UINT, 24, "a value k that is the initial interval size (i.e., (0, 1/2^l)) used as an approximation for infinitesimal values"),
                           ('max_precision', UINT, 128, "during sign determination we switch from interval arithmetic to complete methods when the interval size is less than 1/2^k, where k is the max_precision"),
-                          ('lazy_algebraic_normalization', BOOL, True, "during sturm-seq and square-free polynomial computations, only normalize algebraic polynomial expressions when the definining polynomial is monic")
+                          ('lazy_algebraic_normalization', BOOL, True, "during sturm-seq and square-free polynomial computations, only normalize algebraic polynomial expressions when the defining polynomial is monic")
                           ))

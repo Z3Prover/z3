@@ -8,13 +8,13 @@
 # FIXME: All the commented out defines should be removed once
 # we are confident it is correct to not set them.
 set(Z3_MSVC_LEGACY_DEFINES
-  # Don't set `_DEBUG`. The old build sytem sets this but this
+  # Don't set `_DEBUG`. The old build system sets this but this
   # is wrong. MSVC will set this depending on which runtime is being used.
   # See https://msdn.microsoft.com/en-us/library/b0084kay.aspx
   # _DEBUG
 
   # The old build system only set `UNICODE` and `_UNICODE` for x86_64 release.
-  # That seems completly wrong so set it for all configurations.
+  # That seems completely wrong so set it for all configurations.
   # According to https://blogs.msdn.microsoft.com/oldnewthing/20040212-00/?p=40643/
   # `UNICODE` affects Windows headers and `_UNICODE` affects C runtime header files.
   # There is some discussion of this define at https://msdn.microsoft.com/en-us/library/dybsewaf.aspx
@@ -116,7 +116,7 @@ z3_add_cxx_flag("/analyze-" REQUIRED)
 ################################################################################
 
 # By default CMake enables incremental linking for Debug and RelWithDebInfo
-# builds. The old build sytem disables it for all builds so try to do the same
+# builds. The old build system disables it for all builds so try to do the same
 # by changing all configurations if necessary
 string(TOUPPER "${available_build_types}" _build_types_as_upper)
 foreach (_build_type ${_build_types_as_upper})

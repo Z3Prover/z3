@@ -3772,7 +3772,7 @@ extern "C" {
         );
 
     /**
-       \brief Create a lambda expression. It taks an expression \c body that contains bound variables 
+       \brief Create a lambda expression. It takes an expression \c body that contains bound variables
        of the same sorts as the sorts listed in the array \c sorts. The bound variables are de-Bruijn indices created
        using #Z3_mk_bound. The array \c decl_names contains the names that the quantified formula uses for the
        bound variables. Z3 applies the convention that the last element in the \c decl_names and \c sorts array
@@ -4439,6 +4439,15 @@ extern "C" {
     Z3_string Z3_API Z3_get_numeral_decimal_string(Z3_context c, Z3_ast a, unsigned precision);
 
     /**
+       \brief Return numeral as a double.
+
+       \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST || Z3_is_algebraic_number(c, a)
+
+       def_API('Z3_get_numeral_double', DOUBLE, (_in(CONTEXT), _in(AST)))
+    */
+    double Z3_API Z3_get_numeral_double(Z3_context c, Z3_ast a);
+
+    /**
        \brief Return the numerator (as a numeral AST) of a numeral AST of sort Real.
 
        \pre Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST
@@ -4600,7 +4609,7 @@ extern "C" {
     Z3_bool Z3_API Z3_is_quantifier_exists(Z3_context c, Z3_ast a);
 
     /**
-       \brief Determine if ast is a lambda expresion.
+       \brief Determine if ast is a lambda expression.
 
        \pre Z3_get_ast_kind(a) == Z3_QUANTIFIER_AST
 
@@ -5987,7 +5996,7 @@ extern "C" {
     Z3_solver Z3_API Z3_solver_translate(Z3_context source, Z3_solver s, Z3_context target);
 
     /**
-       \brief Ad-hoc method for importing model convertion from solver.
+       \brief Ad-hoc method for importing model conversion from solver.
        
        def_API('Z3_solver_import_model_converter', VOID, (_in(CONTEXT), _in(SOLVER), _in(SOLVER)))
      */
@@ -6206,7 +6215,7 @@ extern "C" {
        The third argument is a vector of variables that may be used for cubing.
        The contents of the vector is only used in the first call. The initial list of variables
        is used in subsequent calls until it returns the unsatisfiable cube. 
-       The vector is modified to contain a set of Autarky variables that occor in clauses that
+       The vector is modified to contain a set of Autarky variables that occur in clauses that
        are affected by the (last literal in the) cube. These variables could be used by a different
        cuber (on a different solver object) for further recursive cubing. 
 

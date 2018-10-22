@@ -118,7 +118,7 @@ namespace sat {
         local_search_config m_config;
 
         // objective function: maximize
-        svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in decending order
+        svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in descending order
                         
         // information about the variable
         int_vector             coefficient_in_ob_constraint; // var! initialized to be 0
@@ -169,8 +169,8 @@ namespace sat {
         
         // unsat constraint stack
         bool            m_is_unsat;
-        unsigned_vector m_unsat_stack;               // store all the unsat constraits
-        unsigned_vector m_index_in_unsat_stack;      // which position is a contraint in the unsat_stack
+        unsigned_vector m_unsat_stack;               // store all the unsat constraints
+        unsigned_vector m_index_in_unsat_stack;      // which position is a constraint in the unsat_stack
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
         bool_var_vector m_goodvar_stack;

@@ -175,7 +175,7 @@ namespace smt {
             }
         }
         m_new_entries.reset();
-        TRACE("new_entries_bug", tout << "[qi:instatiate]\n";);
+        TRACE("new_entries_bug", tout << "[qi:instantiate]\n";);
     }
 
     void qi_queue::display_instance_profile(fingerprint * f, quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned proof_id, unsigned generation) {

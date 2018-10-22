@@ -1412,7 +1412,7 @@ bool theory_seq::is_complex(eq const& e) {
   \brief Decompose ls = rs into Xa = bYc, such that 
    1. 
     - X != Y
-    - |b| <= |X| <= |bY| in currrent model
+    - |b| <= |X| <= |bY| in current model
     - b is non-empty.
    2. X != Y
     - b is empty

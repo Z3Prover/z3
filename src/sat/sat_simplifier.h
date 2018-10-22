@@ -74,7 +74,7 @@ namespace sat {
         // config
         bool                   m_abce; // block clauses using asymmetric added literals
         bool                   m_cce;  // covered clause elimination
-        bool                   m_acce; // cce with asymetric literal addition
+        bool                   m_acce; // cce with asymmetric literal addition
         bool                   m_bca;  // blocked (binary) clause addition. 
         unsigned               m_bce_delay; 
         bool                   m_bce;  // blocked clause elimination
