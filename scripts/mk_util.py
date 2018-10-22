@@ -892,7 +892,6 @@ def is_dotnet_enabled():
     return DOTNET_ENABLED
 
 def is_dotnet_core_enabled():
-    print("core %s" % DOTNET_CORE_ENABLED)
     return DOTNET_CORE_ENABLED
 
 def is_python_enabled():
@@ -1875,75 +1874,22 @@ class DotNetCoreDLLComponent(Component):
             out.write(cs_file)
         out.write('\n')
 
-        dotnetCmdLine = [DOTNET]
-        if IS_WINDOWS:
-            # Using these flags under the mono compiler results in build errors.
-            dotnetCmdLine.extend( [# What is the motivation for this?
-                                '/noconfig',
-                                '/nostdlib+',
-                                '/reference:mscorlib.dll',
-                               ]
-                             )
-
-        # We need to give the assembly a strong name so that it
-        # can be installed into the GAC with ``make install``
-        if not DOTNET_KEY_FILE is None:
-            self.key_file = DOTNET_KEY_FILE
-
-        if not self.key_file is None:
-            if os.path.isfile(self.key_file):
-                self.key_file = os.path.abspath(self.key_file)
-            elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
-                self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
-            else:
-                print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
-                self.key_file = None
-
-        if not self.key_file is None:
-            print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
-            if (self.key_file.find(' ') != -1):
-                self.key_file = '"' + self.key_file + '"'
-            dotnetCmdLine.append('/keyfile:{}'.format(self.key_file))
-
-        dotnetCmdLine.extend( ['/unsafe+',
-                            '/nowarn:1701,1702',
-                            '/errorreport:prompt',
-                            '/warn:4',
-                            '/reference:System.Core.dll',
-                            '/reference:System.dll',
-                            '/reference:System.Numerics.dll',
-                            '/filealign:512', # Why!?
-                            '/out:{}.dll'.format(self.dll_name),
-                            '/target:library',
-                            '/doc:{}.xml'.format(self.dll_name),
-                           ]
-                         )
+        # TBD: can this be replaced by running "dotnet new classlib"?
+        csproj = os.path.join(self.to_src_dir, "core", "core.csproj")
+        dotnetCmdLine = [DOTNET, "build", csproj]
+        
+        # TBD: select build configurations also based on architecture
+        # Debug|x86, Debug|x64, Debug|arm
+        # Release|x86, Release|x64, Release|arm
+        dotnetCmdLine.extend(['-c'])
         if DEBUG_MODE:
-            dotnetCmdLine.extend( ['"/define:DEBUG;TRACE"', # Needs to be quoted due to ``;`` being a shell command separator
-                                '/debug+',
-                                '/debug:full',
-                                '/optimize-'
-                               ]
-                             )
+            dotnetCmdLine.extend(['Debug'])
         else:
-            dotnetCmdLine.extend(['/optimize+'])
+            dotnetCmdLine.extend(['Release'])
 
-        if IS_WINDOWS:
-            if VS_X64:
-                dotnetCmdLine.extend(['/platform:x64'])
-            elif VS_ARM:
-                dotnetCmdLine.extend(['/platform:arm'])
-            else:
-                dotnetCmdLine.extend(['/platform:x86'])
-        else:
-            # Just use default platform for now.
-            # If the dlls are run using mono then it
-            # ignores what the platform is set to anyway.
-            pass
-
-        for cs_file in cs_files:
-            dotnetCmdLine.append('{}'.format(os.path.join(self.to_src_dir, cs_file)))
-
+        path = os.path.abspath(BUILD_DIR)
+        dotnetCmdLine.extend(['-o', path])
+            
         # Now emit the command line
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
 

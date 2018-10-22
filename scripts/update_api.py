@@ -1868,7 +1868,7 @@ def generate_files(api_files,
       mk_dotnet_wrappers(dotnet_file)
       if mk_util.is_verbose():
         print("Generated '{}'".format(dotnet_file.name))
-
+        
   if java_output_dir:
     mk_java(java_output_dir, java_package_name)
 
