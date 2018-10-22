@@ -360,7 +360,6 @@
     <Compile Include="FuncDecl.cs" />
     <Compile Include="FuncInterp.cs" />
     <Compile Include="Goal.cs" />
-    <Compile Include="InterpolationContext.cs" />
     <Compile Include="IntExpr.cs" />
     <Compile Include="IntNum.cs" />
     <Compile Include="IntSort.cs" />
