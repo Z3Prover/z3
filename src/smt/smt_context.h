@@ -1609,6 +1609,22 @@ namespace smt {
         void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_asserted_formulas.insert_macro(f, m, pr, dep); }
     };
 
+    struct enode_eq_pp {
+        context const&          ctx;
+        enode_pair const& p;
+        enode_eq_pp(enode_pair const& p, context const& ctx): ctx(ctx), p(p) {}        
+    };
+
+    std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p);
+
+    struct enode_pp {
+        context const& ctx;
+        enode*   n;
+        enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
+    };
+
+    std::ostream& operator<<(std::ostream& out, enode_pp const& p);
+
 };
 
 #endif /* SMT_CONTEXT_H_ */
