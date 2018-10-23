@@ -2277,10 +2277,14 @@ namespace smt2 {
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
-            if (is_fun) 
-                m_ctx.insert(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
-            else 
-                m_ctx.model_add(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
+            sort* const* sorts = sort_stack().c_ptr() + sort_spos;
+            expr* t = expr_stack().back();
+            if (is_fun) {
+                m_ctx.insert(id, num_vars, sorts, t);
+            }
+            else {
+                m_ctx.model_add(id, num_vars, sorts, t);
+            }
             check_rparen("invalid function/constant definition, ')' expected");
             // restore stacks & env
             symbol_stack().shrink(sym_spos);

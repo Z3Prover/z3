@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include<sstream>
-#include<cstring>
+#include <sstream>
+#include <cstring>
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -1539,6 +1539,20 @@ void ast_manager::compress_ids() {
 
 void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
+}
+
+void ast_manager::raise_exception(std::string const&  msg) {
+    throw ast_exception(msg.c_str());
+}
+
+std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
+    switch (p.get_kind()) {
+    case parameter::PARAM_AST:
+        return out << ast_ref(p.get_ast(), *this);
+    default:
+        return p.display(out);
+    }
+    return out;
 }
 
 

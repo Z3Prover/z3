@@ -50,7 +50,14 @@ namespace smt {
         return alloc(theory_recfun, new_ctx->get_manager());
     }
 
+    void theory_recfun::init_search_eh() {
+        smt_params_helper p(ctx().get_params());
+        m_max_depth = p.recfun_depth();
+    }
+
+
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
+        TRACEFN(mk_pp(atom, m));
         for (expr * arg : *atom) {
             ctx().internalize(arg, false);
         }
@@ -76,7 +83,13 @@ namespace smt {
     }
 
     void theory_recfun::reset_queues() {
+        for (auto* e : m_q_case_expand) {
+            dealloc(e);
+        }
         m_q_case_expand.reset();
+        for (auto* e : m_q_body_expand) {
+            dealloc(e);
+        }
         m_q_body_expand.reset();
         m_q_clauses.clear();
     }
@@ -96,8 +109,7 @@ namespace smt {
         SASSERT(ctx().relevancy());
         if (u().is_defined(n)) {
             TRACEFN("relevant_eh: (defined) " <<  mk_pp(n, m));        
-            case_expansion e(u(), n);
-            push_case_expand(std::move(e));
+            push_case_expand(alloc(case_expansion, u(), n));
         }
     }
 
@@ -114,11 +126,13 @@ namespace smt {
         
         // restore depth book-keeping
         unsigned new_lim = m_preds_lim.size()-num_scopes;
+#if 0
         unsigned start = m_preds_lim[new_lim];
         for (unsigned i = start; i < m_preds.size(); ++i) {
             m_pred_depth.remove(m_preds.get(i));
         }
         m_preds.resize(start);
+#endif
         m_preds_lim.shrink(new_lim);
     }
     
@@ -141,25 +155,31 @@ namespace smt {
             ctx().mk_th_axiom(get_id(), c);
         }
         m_q_clauses.clear();
-
+		
         for (unsigned i = 0; i < m_q_case_expand.size(); ++i) {
-            case_expansion & e = m_q_case_expand[i];
-            if (e.m_def->is_fun_macro()) {
+            case_expansion* e = m_q_case_expand[i];
+            if (e->m_def->is_fun_macro()) {
                 // body expand immediately
-                assert_macro_axiom(e);
+                assert_macro_axiom(*e);
             }
             else {
                 // case expand
-                SASSERT(e.m_def->is_fun_defined());
-                assert_case_axioms(e);                
+                SASSERT(e->m_def->is_fun_defined());
+                assert_case_axioms(*e);                
             }
+            dealloc(e);
+            m_q_case_expand[i] = nullptr;
         }
-        m_q_case_expand.clear();
+        m_stats.m_case_expansions += m_q_case_expand.size();
+        m_q_case_expand.reset();
 
         for (unsigned i = 0; i < m_q_body_expand.size(); ++i) {
-            assert_body_axiom(m_q_body_expand[i]);
+            assert_body_axiom(*m_q_body_expand[i]);
+            dealloc(m_q_body_expand[i]);
+            m_q_body_expand[i] = nullptr;
         }
-        m_q_body_expand.clear();
+        m_stats.m_body_expansions += m_q_body_expand.size();
+        m_q_body_expand.reset();
     }
 
     /**
@@ -167,7 +187,6 @@ namespace smt {
      * the guard appears at a depth below the current cutoff.
      */
     void theory_recfun::assert_max_depth_limit(expr* guard) {
-        TRACEFN("max-depth limit");
         literal_vector c;
         app_ref dlimit = m_util.mk_depth_limit_pred(m_max_depth);
         c.push_back(~mk_literal(dlimit));
@@ -216,8 +235,7 @@ namespace smt {
         if (is_true && u().is_case_pred(e)) {
             TRACEFN("assign_case_pred_true " << mk_pp(e, m));
             // body-expand
-            body_expansion b_e(u(), to_app(e));
-            push_body_expand(std::move(b_e));            
+            push_body_expand(alloc(body_expansion, u(), to_app(e)));          
         }
     }
 
@@ -268,6 +286,7 @@ namespace smt {
      * 2. add unit clause `f(args) = rhs`
      */
     void theory_recfun::assert_macro_axiom(case_expansion & e) {
+        m_stats.m_macro_expansions++;
         TRACEFN("case expansion         " << pp_case_expansion(e, m) << "\n");
         SASSERT(e.m_def->is_fun_macro());
         auto & vars = e.m_def->get_vars();
@@ -381,6 +400,7 @@ namespace smt {
         for (auto & e : unsat_core) {
             if (u().is_depth_limit(e)) {
                 m_max_depth = (3 * m_max_depth) / 2;
+                IF_VERBOSE(1, verbose_stream() << "(smt.recfun :increase-depth " << m_max_depth << ")\n");
                 return true;
             }
         }

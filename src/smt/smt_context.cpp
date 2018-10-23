@@ -1384,7 +1384,10 @@ namespace smt {
                 SASSERT(m_manager.is_eq(n));
                 expr * lhs = n->get_arg(0);
                 expr * rhs = n->get_arg(1);
-                if (val == l_true) {
+                if (m_manager.is_bool(lhs)) {
+                    // no-op
+                }
+                else if (val == l_true) {
                     add_eq(get_enode(lhs), get_enode(rhs), eq_justification(l));
                 }
                 else {

@@ -101,8 +101,8 @@ namespace smt {
         unsigned_vector          m_preds_lim;
         unsigned                 m_max_depth; // for fairness and termination
 
-        vector<case_expansion> m_q_case_expand;
-        vector<body_expansion> m_q_body_expand;
+        ptr_vector<case_expansion> m_q_case_expand;
+        ptr_vector<body_expansion> m_q_body_expand;
         vector<literal_vector> m_q_clauses;
 
         recfun_util & u() const { return m_util; }
@@ -128,8 +128,8 @@ namespace smt {
             return vars.size() == 0 || vars[vars.size()-1]->get_idx() == 0; 
         }
     protected:
-        void push_case_expand(case_expansion&& e) { m_q_case_expand.push_back(e); }
-        void push_body_expand(body_expansion&& e) { m_q_body_expand.push_back(e); }
+        void push_case_expand(case_expansion* e) { m_q_case_expand.push_back(e); }
+        void push_body_expand(body_expansion* e) { m_q_body_expand.push_back(e); }
 
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
@@ -153,7 +153,7 @@ namespace smt {
         theory_recfun(ast_manager & m);
         ~theory_recfun() override;
         theory * mk_fresh(context * new_ctx) override;
-        void init_search_eh() override { m_max_depth = 2; }
+        void init_search_eh() override;
         void display(std::ostream & out) const override;
         void collect_statistics(::statistics & st) const override;
     };

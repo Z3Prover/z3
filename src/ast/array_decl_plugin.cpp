@@ -253,7 +253,10 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
         if (!parameters[i].is_ast() || 
             !is_sort(parameters[i].get_ast()) || 
             !m_manager->compatible_sorts(domain[i+1], to_sort(parameters[i].get_ast()))) {
-            m_manager->raise_exception("domain sort and parameter do not match");
+            std::stringstream strm;
+            strm << "domain sort " << sort_ref(domain[i+1], *m_manager) << " and parameter ";
+            strm << parameter_pp(parameters[i], *m_manager) << " do not match";
+            m_manager->raise_exception(strm.str().c_str());
             UNREACHABLE();
             return nullptr;
         }
@@ -292,8 +295,12 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
             m_manager->raise_exception("expecting sort parameter");
             return nullptr;
         }
-        if (!m_manager->compatible_sorts(to_sort(parameters[i].get_ast()), domain[i+1])) {
-            m_manager->raise_exception("domain sort and parameter do not match");
+        sort* srt1 = to_sort(parameters[i].get_ast());
+        sort* srt2 = domain[i+1];
+        if (!m_manager->compatible_sorts(srt1, srt2)) {
+            std::stringstream strm;
+            strm << "domain sort " << sort_ref(srt2, *m_manager) << " and parameter sort " << sort_ref(srt2, *m_manager) << " do not match";
+            m_manager->raise_exception(strm.str());
             UNREACHABLE();
             return nullptr;
         }
@@ -326,13 +333,13 @@ bool array_decl_plugin::check_set_arguments(unsigned arity, sort * const * domai
         if (domain[i] != domain[0]) {
             std::ostringstream buffer;
             buffer << "arguments " << 1 << " and " << (i+1) << " have different sorts";
-            m_manager->raise_exception(buffer.str().c_str());
+            m_manager->raise_exception(buffer.str());
             return false;
         }
         if (domain[i]->get_family_id() != m_family_id) {
             std::ostringstream buffer;
             buffer << "argument " << (i+1) << " is not of array sort";
-            m_manager->raise_exception(buffer.str().c_str());
+            m_manager->raise_exception(buffer.str());
             return false;
         }
     }
