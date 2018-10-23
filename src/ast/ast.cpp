@@ -1548,7 +1548,8 @@ void ast_manager::raise_exception(std::string const&  msg) {
 std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
     switch (p.get_kind()) {
     case parameter::PARAM_AST:
-        return out << ast_ref(p.get_ast(), *this);
+        std::cout << "ast: " << p.get_ast() << "\n";
+        return out << mk_pp(p.get_ast(), *this);
     default:
         return p.display(out);
     }

@@ -797,9 +797,11 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     if (contains_macro(s, f)) {
         throw cmd_exception("invalid declaration, named expression already defined with this name ", s);
     }
+#if 0
     if (m_builtin_decls.contains(s)) {
         throw cmd_exception("invalid declaration, builtin symbol ", s);
     }
+#endif
     dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
     func_decls & fs = e->get_data().m_value;
     if (!fs.insert(m(), f)) {
@@ -834,9 +836,11 @@ void cmd_context::insert(symbol const & s, psort_decl * p) {
 
 void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
     expr_ref _t(t, m());
+#if 0
     if (m_builtin_decls.contains(s)) {
         throw cmd_exception("invalid macro/named expression, builtin symbol ", s);
     }
+#endif
     if (contains_macro(s, arity, domain)) {
         throw cmd_exception("named expression already defined");
     }
@@ -967,6 +971,15 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
 }
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {
+    if (contains_macro(s)) {
+        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
+    }
+    func_decls fs;
+    if (m_func_decls.find(s, fs)) {
+        if (fs.more_than_one())
+            throw cmd_exception("ambiguous function declaration reference, provide full signature to disumbiguate (<symbol> (<sort>*) <sort>) ", s);
+        return fs.first();
+    }
     builtin_decl d;
     if (m_builtin_decls.find(s, d)) {
         try {
@@ -979,15 +992,6 @@ func_decl * cmd_context::find_func_decl(symbol const & s) const {
         catch (ast_exception &) {
         }
         throw cmd_exception("invalid function declaration reference, must provide signature for builtin symbol ", s);
-    }
-    if (contains_macro(s)) {
-        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
-    }
-    func_decls fs;
-    if (m_func_decls.find(s, fs)) {
-        if (fs.more_than_one())
-            throw cmd_exception("ambiguous function declaration reference, provide full signature to disumbiguate (<symbol> (<sort>*) <sort>) ", s);
-        return fs.first();
     }
     throw cmd_exception("invalid function declaration reference, unknown function ", s);
     return nullptr;
@@ -1013,6 +1017,18 @@ static builtin_decl const & peek_builtin_decl(builtin_decl const & first, family
 
 func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                         unsigned arity, sort * const * domain, sort * range) const {
+
+    if (domain && contains_macro(s, arity, domain))
+        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
+
+    func_decl * f = nullptr;
+    func_decls fs;
+    if (num_indices == 0 && m_func_decls.find(s, fs)) {
+        f = fs.find(arity, domain, range);
+    }
+    if (f) {
+        return f;
+    }
     builtin_decl d;
     if (domain && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
@@ -1037,21 +1053,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
             throw cmd_exception("invalid function declaration reference, invalid builtin reference ", s);
         return f;
     }
-
-    if (domain && contains_macro(s, arity, domain))
-        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
-
-    if (num_indices > 0)
-        throw cmd_exception("invalid indexed function declaration reference, unknown builtin function ", s);
-
-    func_decl * f = nullptr;
-    func_decls fs;
-    if (m_func_decls.find(s, fs)) {
-        f = fs.find(arity, domain, range);
-    }
-    if (f == nullptr)
-        throw cmd_exception("invalid function declaration reference, unknown function ", s);
-    return f;
+    throw cmd_exception("invalid function declaration reference, unknown function ", s);
 }
 
 psort_decl * cmd_context::find_psort_decl(symbol const & s) const {
@@ -1088,29 +1090,6 @@ void cmd_context::mk_const(symbol const & s, expr_ref & result) const {
 
 void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
                          expr_ref & result) const {
-    builtin_decl d;
-    if (m_builtin_decls.find(s, d)) {
-        family_id fid = d.m_fid;
-        decl_kind k   = d.m_decl;
-        // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
-        if (d.m_decl != 0 && num_args > 0) {
-            builtin_decl const & d2 = peek_builtin_decl(d, m().get_sort(args[0])->get_family_id());
-            fid = d2.m_fid;
-            k   = d2.m_decl;
-        }
-        if (num_indices == 0) {
-            result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
-        }
-        else {
-            result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
-        }
-        if (result.get() == nullptr)
-            throw cmd_exception("invalid builtin application ", s);
-        CHECK_SORT(result.get());
-        return;
-    }
-    if (num_indices > 0)
-        throw cmd_exception("invalid use of indexed identifier, unknown builtin function ", s);
     expr* _t;
     if (macros_find(s, num_args, args, _t)) {
         TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
@@ -1126,6 +1105,31 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
 
     func_decls fs;
     if (!m_func_decls.find(s, fs)) {
+
+        builtin_decl d;
+        if (m_builtin_decls.find(s, d)) {
+            family_id fid = d.m_fid;
+            decl_kind k   = d.m_decl;
+            // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
+            if (d.m_decl != 0 && num_args > 0) {
+                builtin_decl const & d2 = peek_builtin_decl(d, m().get_sort(args[0])->get_family_id());
+                fid = d2.m_fid;
+                k   = d2.m_decl;
+            }
+            if (num_indices == 0) {
+                result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
+            }
+            else {
+                result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
+        }
+            if (result.get() == nullptr)
+                throw cmd_exception("invalid builtin application ", s);
+            CHECK_SORT(result.get());
+            return;
+        }
+        if (num_indices > 0)
+            throw cmd_exception("invalid use of indexed identifier, unknown builtin function ", s);
+        
         if (num_args == 0) {
             throw cmd_exception("unknown constant ", s);
         }

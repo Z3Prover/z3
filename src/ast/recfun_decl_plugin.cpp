@@ -1,4 +1,6 @@
 /*++
+Copyright (c) 2017 Microsoft Corporation, Simon Cruanes
+
 Module Name:
 
     recfun_decl_plugin.cpp
@@ -68,8 +70,11 @@ namespace recfun {
             ite_find_p(ast_manager & m) : m(m) {}
             virtual bool operator()(expr * e) { return m.is_ite(e); }
         };
+        // ignore ites under quantifiers.
+        // this is redundant as the code
+        // that unfolds ites uses quantifier-free portion.
         ite_find_p p(m);
-        check_pred cp(p, m);
+        check_pred cp(p, m, false);
         return cp(e);
     }
 
@@ -249,7 +254,9 @@ namespace recfun {
                     else if (is_app(e)) {
                         // explore arguments
                         for (expr * arg : *to_app(e)) {
-                            stack.push_back(arg);
+                            if (contains_ite(arg)) {
+                                stack.push_back(arg);
+                            }
                         }
                     } 
                 }
@@ -298,7 +305,7 @@ namespace recfun {
             }
         }
 
-        TRACEFN("done analysing " << get_name());
+        TRACEFN("done analyzing " << get_name());
     }
 
     /*
@@ -405,42 +412,12 @@ namespace recfun {
             return d.get_def();
         }
 
-        func_decl * plugin::mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
-                                             unsigned arity, sort * const * domain, sort * range)
-        {
-            VALIDATE_PARAM(m(), m().is_bool(range) && num_parameters == 1 && parameters[0].is_ast());
-            func_decl_info info(m_family_id, OP_FUN_CASE_PRED, num_parameters, parameters);
-            info.m_private_parameters = true;
-            return m().mk_func_decl(symbol(parameters[0].get_symbol()), arity, domain, range, info);
-        }
-
-        func_decl * plugin::mk_fun_defined_decl(decl_kind k, unsigned num_parameters,
-                                                parameter const * parameters, 
-                                                unsigned arity, sort * const * domain, sort * range)
-        {
-            VALIDATE_PARAM(m(), num_parameters == 1 && parameters[0].is_ast());
-            func_decl_info info(m_family_id, k, num_parameters, parameters);
-            info.m_private_parameters = true;
-            return m().mk_func_decl(symbol(parameters[0].get_symbol()), arity,
-                                    domain, range, info);
-        }
-
         // generic declaration of symbols
         func_decl * plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                          unsigned arity, sort * const * domain, sort * range)
         {
             UNREACHABLE();
-            // TBD: parameter usage seems inconsistent with other uses.
-            IF_VERBOSE(0, verbose_stream() << "mk-func-decl " << k << "\n");
-            switch (k) {
-                case OP_FUN_CASE_PRED:
-                    return mk_fun_pred_decl(num_parameters, parameters, arity, domain, range);
-                case OP_FUN_DEFINED:
-                    return mk_fun_defined_decl(k, num_parameters, parameters, arity, domain, range);
-                default:
-                    UNREACHABLE(); 
-                    return nullptr;
-            }
+            return nullptr;            
         }
     }
 }

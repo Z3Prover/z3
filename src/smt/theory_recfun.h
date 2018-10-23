@@ -66,20 +66,20 @@ namespace smt {
 
         // one body-expansion of `f(t1...tn)` using a `C_f_i(t1...tn)`
         struct body_expansion {
-            app*                    m_lhs;
+            app*                    m_pred;
             recfun_case_def const * m_cdef;
             ptr_vector<expr>        m_args;
 
-            body_expansion(recfun_util& u, app * n) : m_lhs(n), m_cdef(0), m_args() {
+            body_expansion(recfun_util& u, app * n) : m_pred(n), m_cdef(0), m_args() {
                 m_cdef = &u.get_case_def(n);
                 m_args.append(n->get_num_args(), n->get_args());
             }
-            body_expansion(app* lhs, recfun_case_def const & d, ptr_vector<expr> & args) : 
-                m_lhs(lhs), m_cdef(&d), m_args(args) {}
+            body_expansion(app* pred, recfun_case_def const & d, ptr_vector<expr> & args) : 
+                m_pred(pred), m_cdef(&d), m_args(args) {}
             body_expansion(body_expansion const & from): 
-                m_lhs(from.m_lhs), m_cdef(from.m_cdef), m_args(from.m_args) {}
+                m_pred(from.m_pred), m_cdef(from.m_cdef), m_args(from.m_args) {}
             body_expansion(body_expansion && from) : 
-                m_lhs(from.m_lhs), m_cdef(from.m_cdef), m_args(std::move(from.m_args)) {}
+                m_pred(from.m_pred), m_cdef(from.m_cdef), m_args(std::move(from.m_args)) {}
         };
 
         struct pp_body_expansion {
@@ -122,6 +122,7 @@ namespace smt {
         void assert_max_depth_limit(expr* guard);
         unsigned get_depth(expr* e);
         void set_depth(unsigned d, expr* e);
+        void set_depth_rec(unsigned d, expr* e);
         
         literal mk_eq_lit(expr* l, expr* r);
         bool is_standard_order(recfun::vars const& vars) const { 
@@ -148,6 +149,7 @@ namespace smt {
         void new_eq_eh(theory_var v1, theory_var v2) override {}
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
+        void init(context* ctx) override;
 
     public:
         theory_recfun(ast_manager & m);

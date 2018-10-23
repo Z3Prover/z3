@@ -1,4 +1,6 @@
 /*++
+Copyright (c) 2017 Microsoft Corporation, Simon Cruanes
+
 Module Name:
 
     recfun_decl_plugin.h
@@ -149,40 +151,36 @@ namespace recfun {
             ast_manager & m() { return *m_manager; }
         public:
             plugin();
-            virtual ~plugin() override;
-            virtual void finalize() override;
+            ~plugin() override;
+            void finalize() override;
 
             util & u() const; // build or return util
 
-            virtual bool is_fully_interp(sort * s) const override { return false; } // might depend on unin sorts
+            bool is_fully_interp(sort * s) const override { return false; } // might depend on unin sorts
         
-            virtual decl_plugin * mk_fresh() override { return alloc(plugin); }
+            decl_plugin * mk_fresh() override { return alloc(plugin); }
         
-            virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { UNREACHABLE(); return 0; }
+            sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { 
+                UNREACHABLE(); return nullptr; 
+            }
         
-            virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                             unsigned arity, sort * const * domain, sort * range) override;
-
+            func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+                                     unsigned arity, sort * const * domain, sort * range) override;
+            
             promise_def mk_def(symbol const& name, unsigned n, sort *const * params, sort * range);
-
+            
             void set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
-
+            
             def* mk_def(symbol const& name, unsigned n, sort ** params, sort * range, unsigned n_vars, var ** vars, expr * rhs);
 
             bool has_def(const symbol& s) const { return m_defs.contains(s); }
-            bool has_def() const { return !m_defs.empty(); }
+            bool has_defs() const { return !m_defs.empty(); }
             def const& get_def(const symbol& s) const { return *(m_defs[s]); }
             promise_def get_promise_def(const symbol &s) const { return promise_def(&u(), m_defs[s]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
             bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }
             case_def& get_case_def(func_decl* f) { SASSERT(has_case_def(f)); return *(m_case_defs[f]); }
             bool is_declared(symbol const& s) const { return m_defs.contains(s); }
-        private:
-            func_decl * mk_fun_pred_decl(unsigned num_parameters, parameter const * parameters, 
-                                         unsigned arity, sort * const * domain, sort * range);
-            func_decl * mk_fun_defined_decl(decl_kind k,
-                                            unsigned num_parameters, parameter const * parameters, 
-                                            unsigned arity, sort * const * domain, sort * range);
         };
     }
 
@@ -200,7 +198,7 @@ namespace recfun {
 
     public:
         util(ast_manager &m, family_id);
-        virtual ~util();
+        ~util();
 
         ast_manager & m() { return m_manager; }
         th_rewriter & get_th_rewriter() { return m_th_rw; }
@@ -209,7 +207,7 @@ namespace recfun {
         bool is_depth_limit(expr * e) const { return is_app_of(e, m_fid, OP_DEPTH_LIMIT); }
         bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
 
-        bool has_def() const { return m_plugin->has_def(); }
+        bool has_defs() const { return m_plugin->has_defs(); }
 
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range);

@@ -34,7 +34,7 @@ namespace smt {
           m_plugin(*reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
           m_preds(m),
-          m_max_depth(2),
+          m_max_depth(0),
           m_q_case_expand(), 
           m_q_body_expand()
         {
@@ -50,11 +50,15 @@ namespace smt {
         return alloc(theory_recfun, new_ctx->get_manager());
     }
 
-    void theory_recfun::init_search_eh() {
-        smt_params_helper p(ctx().get_params());
+    void theory_recfun::init(context* ctx) {
+        theory::init(ctx);
+        smt_params_helper p(ctx->get_params());
         m_max_depth = p.recfun_depth();
+        if (m_max_depth < 2) m_max_depth = 2;
     }
 
+    void theory_recfun::init_search_eh() {
+    }
 
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
         TRACEFN(mk_pp(atom, m));
@@ -199,31 +203,35 @@ namespace smt {
      * retrieve depth associated with predicate or expression.
      */
     unsigned theory_recfun::get_depth(expr* e) {
+        SASSERT(u().is_defined(e) || u().is_case_pred(e));
         unsigned d = 0;
         m_pred_depth.find(e, d);
+        TRACEFN("depth " << d << " " << mk_pp(e, m));
         return d;
     }
 
     /**
      * Update depth of subterms of e with respect to d.
      */
-    void theory_recfun::set_depth(unsigned d, expr* e) {
+    void theory_recfun::set_depth_rec(unsigned d, expr* e) {
         struct insert_c {
             theory_recfun& th;
             unsigned m_depth;
             insert_c(theory_recfun& th, unsigned d): th(th), m_depth(d) {}
-            void operator()(app* e) {
-                if (th.u().is_defined(e) && !th.m_pred_depth.contains(e)) {
-                    th.m_pred_depth.insert(e, m_depth);
-                    th.m_preds.push_back(e);
-                    TRACEFN("depth " << m_depth << " : " << mk_pp(e, th.m));
-                }
-            }
+            void operator()(app* e) { th.set_depth(m_depth, e); }
             void operator()(quantifier*) {}
             void operator()(var*) {}
         };
         insert_c proc(*this, d);
         for_each_expr(proc, e);
+    }
+
+    void theory_recfun::set_depth(unsigned depth, expr* e) {        
+        if ((u().is_defined(e) || u().is_case_pred(e)) && !m_pred_depth.contains(e)) {
+            m_pred_depth.insert(e, depth);
+            m_preds.push_back(e);
+            TRACEFN("depth " << depth << " : " << mk_pp(e, m));
+        }
     }
 
     /**
@@ -250,7 +258,7 @@ namespace smt {
         expr_ref new_body(m);
         new_body = subst(e, args.size(), args.c_ptr());
         ctx().get_rewriter()(new_body); // simplify
-        set_depth(depth + 1, new_body);
+        set_depth_rec(depth + 1, new_body);
         return new_body;
     }
         
@@ -312,19 +320,23 @@ namespace smt {
         SASSERT(e.m_def->is_fun_defined());
         // add case-axioms for all case-paths
         auto & vars = e.m_def->get_vars();
+        literal_vector preds;
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
 
             // cut off cases below max-depth
             unsigned depth = get_depth(e.m_lhs);
+            set_depth(depth, pred_applied);
+            SASSERT(u().owns_app(pred_applied));
+            literal concl = mk_literal(pred_applied);
+            preds.push_back(concl);
+
             if (depth >= m_max_depth) {
                 assert_max_depth_limit(pred_applied);
                 continue;
             }
 
-            SASSERT(u().owns_app(pred_applied));
-            literal concl = mk_literal(pred_applied);
 
             literal_vector guards;
             guards.push_back(concl);
@@ -338,10 +350,11 @@ namespace smt {
             ctx().mk_th_axiom(get_id(), guards);
 
             if (c.is_immediate()) {
-                body_expansion be(e.m_lhs, c, e.m_args);
+                body_expansion be(pred_applied, c, e.m_args);
                 assert_body_axiom(be);
             }
         }
+        ctx().mk_th_axiom(get_id(), preds);
     }
 
     /**
@@ -357,7 +370,7 @@ namespace smt {
         auto & vars = d.get_vars();
         auto & args = e.m_args;
         SASSERT(is_standard_order(vars));
-        unsigned depth = get_depth(e.m_lhs);
+        unsigned depth = get_depth(e.m_pred);
         expr_ref lhs(u().mk_fun_defined(d, args), m);
         expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
 
@@ -388,7 +401,7 @@ namespace smt {
     }
 
     void theory_recfun::add_theory_assumptions(expr_ref_vector & assumptions) {
-        if (u().has_def()) {
+        if (u().has_defs()) {
             app_ref dlimit = m_util.mk_depth_limit_pred(m_max_depth);
             TRACEFN("add_theory_assumption " << mk_pp(dlimit.get(), m));
             assumptions.push_back(dlimit);
