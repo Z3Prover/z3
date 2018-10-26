@@ -345,7 +345,7 @@ namespace smt {
             friend class theory_arith;
         public:
             derived_bound(theory_var v, inf_numeral const & val, bound_kind k):bound(v, val, k, false) {}
-            ~derived_bound() override {}
+            virtual ~derived_bound() override {}
             literal_vector const& lits() const { return m_lits; }
             eq_vector const& eqs() const { return m_eqs; }
             bool has_justification() const override { return true; }

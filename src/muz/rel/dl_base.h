@@ -220,7 +220,7 @@ namespace datalog {
         */
         class mutator_fn : public base_fn {
         public:
-            ~mutator_fn() override {}
+            virtual ~mutator_fn() override {}
 
             virtual void operator()(base_object & t) = 0;
 
