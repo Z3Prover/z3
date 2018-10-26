@@ -404,6 +404,10 @@ namespace recfun {
             }
         }
 
+        bool plugin::has_defs() const {
+            return !m_case_defs.empty();            
+        }
+
         def* plugin::mk_def(symbol const& name, unsigned n, sort ** params, sort * range,
                             unsigned n_vars, var ** vars, expr * rhs) {
             SASSERT(! m_defs.contains(name));

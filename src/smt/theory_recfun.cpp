@@ -62,6 +62,9 @@ namespace smt {
 
     bool theory_recfun::internalize_atom(app * atom, bool gate_ctx) {
         TRACEFN(mk_pp(atom, m));
+        if (!u().has_defs()) {
+            return false;
+        }
         for (expr * arg : *atom) {
             ctx().internalize(arg, false);
         }
@@ -76,6 +79,9 @@ namespace smt {
     }
 
     bool theory_recfun::internalize_term(app * term) {
+        if (!u().has_defs()) {
+            return false;
+        }
         for (expr* e : *term) {
             ctx().internalize(e, false);
         }
@@ -111,26 +117,26 @@ namespace smt {
      */
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx().relevancy());
-        if (u().is_defined(n)) {
+        if (u().is_defined(n) && u().has_defs()) {
             TRACEFN("relevant_eh: (defined) " <<  mk_pp(n, m));        
             push_case_expand(alloc(case_expansion, u(), n));
         }
     }
 
     void theory_recfun::push_scope_eh() {
-        TRACEFN("push_scope");
         theory::push_scope_eh();
         m_preds_lim.push_back(m_preds.size());
     }
 
     void theory_recfun::pop_scope_eh(unsigned num_scopes) {
-        TRACEFN("pop_scope " << num_scopes);
         theory::pop_scope_eh(num_scopes);
         reset_queues();
         
         // restore depth book-keeping
         unsigned new_lim = m_preds_lim.size()-num_scopes;
 #if 0
+        // depth tracking of recursive unfolding is 
+        // turned off when enabling this code:
         unsigned start = m_preds_lim[new_lim];
         for (unsigned i = start; i < m_preds.size(); ++i) {
             m_pred_depth.remove(m_preds.get(i));
@@ -337,7 +343,6 @@ namespace smt {
                 continue;
             }
 
-
             literal_vector guards;
             guards.push_back(concl);
             for (auto & g : c.get_guards()) {
@@ -354,6 +359,8 @@ namespace smt {
                 assert_body_axiom(be);
             }
         }
+        // the disjunction of branches is asserted
+        // to close the available cases. 
         ctx().mk_th_axiom(get_id(), preds);
     }
 

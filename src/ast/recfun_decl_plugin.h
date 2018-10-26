@@ -174,7 +174,7 @@ namespace recfun {
             def* mk_def(symbol const& name, unsigned n, sort ** params, sort * range, unsigned n_vars, var ** vars, expr * rhs);
 
             bool has_def(const symbol& s) const { return m_defs.contains(s); }
-            bool has_defs() const { return !m_defs.empty(); }
+            bool has_defs() const;
             def const& get_def(const symbol& s) const { return *(m_defs[s]); }
             promise_def get_promise_def(const symbol &s) const { return promise_def(&u(), m_defs[s]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
@@ -207,6 +207,7 @@ namespace recfun {
         bool is_depth_limit(expr * e) const { return is_app_of(e, m_fid, OP_DEPTH_LIMIT); }
         bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
 
+        //<! don't use native theory if recursive function declarations are not populated with defs
         bool has_defs() const { return m_plugin->has_defs(); }
 
         //<! add a function declaration

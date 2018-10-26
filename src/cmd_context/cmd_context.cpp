@@ -909,7 +909,7 @@ recfun_decl_plugin * cmd_context::get_recfun_plugin() {
 }
 
 
-recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range) {
+recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range) {        
     SASSERT(logic_has_recfun());
     recfun_decl_plugin* p = get_recfun_plugin();
     recfun::promise_def def = p->mk_def(name, arity, domain, range);
@@ -950,13 +950,14 @@ void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& b
 
 
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* rhs) {
-    TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
 
     if (gparams::get_value("smt.recfun.native") != "true") {
         // just use an axiom
         insert_rec_fun_as_axiom(f, binding, ids, rhs);
         return;
     }
+
+    TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
 
     recfun_decl_plugin* p = get_recfun_plugin();
 
