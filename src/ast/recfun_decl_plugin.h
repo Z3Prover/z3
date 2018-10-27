@@ -99,6 +99,7 @@ namespace recfun {
         vars                m_vars; //<! variables of the function
         cases               m_cases; //!< possible cases
         func_decl_ref       m_decl; //!< generic declaration
+        expr_ref            m_rhs;  //!< definition
         family_id           m_fid;
 
         def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range);
@@ -116,13 +117,11 @@ namespace recfun {
         sort_ref_vector const & get_domain() const { return m_domain; }
         sort_ref const & get_range() const { return m_range; }
         func_decl * get_decl() const { return m_decl.get(); }
+        expr * get_rhs() const { return m_rhs; }
 
         bool is_fun_macro() const { return m_cases.size() == 1; }
         bool is_fun_defined() const { return !is_fun_macro(); }
 
-        expr * get_macro_rhs() const {
-            return m_cases[0].get_rhs();
-        }
     };
     
     // definition to be complete (missing RHS)
@@ -180,7 +179,12 @@ namespace recfun {
             def& get_def(func_decl* f) { return *(m_defs[f]); }
             bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }
             case_def& get_case_def(func_decl* f) { SASSERT(has_case_def(f)); return *(m_case_defs[f]); }
-            //bool is_declared(symbol const& s) const { return m_defs.contains(s); }
+
+            func_decl_ref_vector get_rec_funs() {
+                func_decl_ref_vector result(m());
+                for (auto& kv : m_defs) result.push_back(kv.m_key);
+                return result;
+            }
         };
     }
 
@@ -230,6 +234,10 @@ namespace recfun {
 
         app* mk_fun_defined(def const & d, ptr_vector<expr> const & args) {
             return mk_fun_defined(d, args.size(), args.c_ptr());
+        }
+
+        func_decl_ref_vector get_rec_funs() {
+            return m_plugin->get_rec_funs();
         }
 
         app_ref mk_depth_limit_pred(unsigned d);

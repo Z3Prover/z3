@@ -56,6 +56,7 @@ namespace recfun {
             m_domain(m, arity, domain), 
             m_range(range, m), m_vars(m), m_cases(),
             m_decl(m), 
+            m_rhs(m),
             m_fid(fid)
     {
         SASSERT(arity == get_arity());        
@@ -211,7 +212,7 @@ namespace recfun {
         name.append(m_name.bare_str());
 
         m_vars.append(n_vars, vars);
-        
+        m_rhs = rhs;
 
         expr_ref_vector conditions(m);
 

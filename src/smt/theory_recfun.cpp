@@ -306,7 +306,7 @@ namespace smt {
         auto & vars = e.m_def->get_vars();
         expr_ref lhs(e.m_lhs, m);
         unsigned depth = get_depth(e.m_lhs);
-        expr_ref rhs(apply_args(depth, vars, e.m_args, e.m_def->get_macro_rhs()), m);
+        expr_ref rhs(apply_args(depth, vars, e.m_args, e.m_def->get_rhs()), m);
         literal lit = mk_eq_lit(lhs, rhs);
         ctx().mk_th_axiom(get_id(), 1, &lit);
         TRACEFN("macro expansion yields " << mk_pp(rhs, m) << "\n" <<
