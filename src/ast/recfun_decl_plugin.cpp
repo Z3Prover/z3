@@ -312,8 +312,8 @@ namespace recfun {
      * Main manager for defined functions
      */
 
-    util::util(ast_manager & m, family_id id)
-        : m_manager(m), m_fid(id), m_th_rw(m),
+    util::util(ast_manager & m)
+        : m_manager(m), m_fid(m.get_family_id("recfun")), m_th_rw(m),
           m_plugin(dynamic_cast<decl::plugin*>(m.get_plugin(m_fid))) {
     }
 
@@ -385,15 +385,15 @@ namespace recfun {
             SASSERT(m_manager);
             SASSERT(m_family_id != null_family_id);
             if (!m_util.get()) {
-                m_util = alloc(util, *m_manager, m_family_id);
+                m_util = alloc(util, *m_manager);
             }
             return *(m_util.get());
         }
 
         promise_def plugin::mk_def(symbol const& name, unsigned n, sort *const * params, sort * range) {
-            SASSERT(! m_defs.contains(name));
             def* d = u().decl_fun(name, n, params, range);
-            m_defs.insert(name, d);
+            SASSERT(! m_defs.contains(d->get_decl()));
+            m_defs.insert(d->get_decl(), d);
             return promise_def(&u(), d);
         }
         
@@ -410,8 +410,8 @@ namespace recfun {
 
         def* plugin::mk_def(symbol const& name, unsigned n, sort ** params, sort * range,
                             unsigned n_vars, var ** vars, expr * rhs) {
-            SASSERT(! m_defs.contains(name));
             promise_def d = mk_def(name, n, params, range);
+            SASSERT(! m_defs.contains(d.get_def()->get_decl()));
             set_definition(d, n_vars, vars, rhs);
             return d.get_def();
         }

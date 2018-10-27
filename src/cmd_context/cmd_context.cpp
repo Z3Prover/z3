@@ -475,7 +475,6 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_manager(m),
     m_own_manager(m == nullptr),
     m_manager_initialized(false),
-    m_rec_fun_declared(false),
     m_pmanager(nullptr),
     m_sexpr_manager(nullptr),
     m_regular("stdout", std::cout),
@@ -900,20 +899,15 @@ void cmd_context::model_del(func_decl* f) {
 }
 
 
-recfun_decl_plugin * cmd_context::get_recfun_plugin() {
-    ast_manager & m = get_ast_manager();
-    family_id id = m.get_family_id("recfun");
-    recfun_decl_plugin* p = reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(id));
-    SASSERT(p);
-    return p;
+recfun_decl_plugin& cmd_context::get_recfun_plugin() {
+    recfun::util u(get_ast_manager());
+    return u.get_plugin();
 }
 
 
 recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range) {        
     SASSERT(logic_has_recfun());
-    recfun_decl_plugin* p = get_recfun_plugin();
-    recfun::promise_def def = p->mk_def(name, arity, domain, range);
-    return def;
+    return get_recfun_plugin().mk_def(name, arity, domain, range);
 }
 
 // insert a recursive function as a regular quantified axiom
@@ -936,15 +930,6 @@ void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& b
         eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 2, pats);
     }
 
-    //
-    // disable warning given the current way they are used
-    // (Z3 will here silently assume and not check the definitions to be well founded,
-    // and please use HSF for everything else).
-    //
-    if (false && !ids.empty() && !m_rec_fun_declared) {
-        warning_msg("recursive function definitions are assumed well-founded");
-        m_rec_fun_declared = true;
-    }
     assert_expr(eq);
 }
 
@@ -959,7 +944,7 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
 
     TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
 
-    recfun_decl_plugin* p = get_recfun_plugin();
+    recfun_decl_plugin& p = get_recfun_plugin();
 
     var_ref_vector vars(m());
     for (expr* b : binding) {
@@ -967,8 +952,8 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
         vars.push_back(to_var(b));
     }
     
-    recfun::promise_def d = p->get_promise_def(f->get_name());
-    p->set_definition(d, vars.size(), vars.c_ptr(), rhs);
+    recfun::promise_def d = p.get_promise_def(f);
+    p.set_definition(d, vars.size(), vars.c_ptr(), rhs);
 }
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {

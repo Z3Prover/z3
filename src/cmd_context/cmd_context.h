@@ -200,7 +200,6 @@ protected:
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
-    bool                         m_rec_fun_declared;
     pdecl_manager *              m_pmanager;
     sexpr_manager *              m_sexpr_manager;
     check_logic                  m_check_logic;
@@ -308,7 +307,7 @@ protected:
     void erase_macro(symbol const& s);
     bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
 
-    recfun_decl_plugin * get_recfun_plugin();
+    recfun_decl_plugin& get_recfun_plugin();
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = nullptr, symbol const & l = symbol::null);

@@ -140,7 +140,7 @@ namespace recfun {
     namespace decl {
 
         class plugin : public decl_plugin {
-            typedef map<symbol, def*, symbol_hash_proc, symbol_eq_proc> def_map;
+            typedef obj_map<func_decl, def*> def_map;
             typedef obj_map<func_decl, case_def*> case_def_map;
 
             mutable scoped_ptr<util> m_util;
@@ -173,14 +173,14 @@ namespace recfun {
             
             def* mk_def(symbol const& name, unsigned n, sort ** params, sort * range, unsigned n_vars, var ** vars, expr * rhs);
 
-            bool has_def(const symbol& s) const { return m_defs.contains(s); }
+            bool has_def(func_decl* f) const { return m_defs.contains(f); }
             bool has_defs() const;
-            def const& get_def(const symbol& s) const { return *(m_defs[s]); }
-            promise_def get_promise_def(const symbol &s) const { return promise_def(&u(), m_defs[s]); }
-            def& get_def(symbol const& s) { return *(m_defs[s]); }
+            def const& get_def(func_decl* f) const { return *(m_defs[f]); }
+            promise_def get_promise_def(func_decl* f) const { return promise_def(&u(), m_defs[f]); }
+            def& get_def(func_decl* f) { return *(m_defs[f]); }
             bool has_case_def(func_decl* f) const { return m_case_defs.contains(f); }
             case_def& get_case_def(func_decl* f) { SASSERT(has_case_def(f)); return *(m_case_defs[f]); }
-            bool is_declared(symbol const& s) const { return m_defs.contains(s); }
+            //bool is_declared(symbol const& s) const { return m_defs.contains(s); }
         };
     }
 
@@ -197,7 +197,7 @@ namespace recfun {
         void set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
 
     public:
-        util(ast_manager &m, family_id);
+        util(ast_manager &m);
         ~util();
 
         ast_manager & m() { return m_manager; }
@@ -213,9 +213,10 @@ namespace recfun {
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range);
 
-        def& get_def(symbol const & s) {
-            SASSERT(m_plugin->has_def(s));
-            return m_plugin->get_def(s);
+
+        def& get_def(func_decl* f) {
+            SASSERT(m_plugin->has_def(f));
+            return m_plugin->get_def(f);
         }
 
         case_def& get_case_def(expr* e) {
@@ -232,6 +233,8 @@ namespace recfun {
         }
 
         app_ref mk_depth_limit_pred(unsigned d);
+
+        decl::plugin& get_plugin() { return *m_plugin; }
     };
 }
 

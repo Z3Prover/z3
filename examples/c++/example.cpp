@@ -1190,6 +1190,20 @@ void mk_model_example() {
     std::cout << m.eval(a + b < 2)<< std::endl;
 }
 
+void recfun_example() {
+    std::cout << "recfun example\n";
+    context c;    
+    expr x = c.int_const("x");
+    expr y = c.int_const("y");
+    expr b = c.bool_const("b");
+    sort I = c.int_sort();
+    sort B = c.bool_sort();    
+    func_decl f = recfun("f", I, B, I);
+    expr_vector args(c);
+    args.push_back(x); args.push_back(b);
+    c.recdef(f, args, ite(b, x, f(x + 1, !b)));
+    prove(f(x,c.bool_val(false)) > x);
+}
 
 int main() {
 
@@ -1239,6 +1253,7 @@ int main() {
         consequence_example(); std::cout << "\n";
         parse_example(); std::cout << "\n";
         mk_model_example(); std::cout << "\n";
+        recfun_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

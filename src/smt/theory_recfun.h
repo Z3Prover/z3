@@ -42,8 +42,7 @@ namespace smt {
             m_lhs(n), m_def(nullptr), m_args()  {
                 SASSERT(u.is_defined(n));
                 func_decl * d = n->get_decl();
-                const symbol& name = d->get_name();
-                m_def = &u.get_def(name);
+                m_def = &u.get_def(d);
                 m_args.append(n->get_num_args(), n->get_args());
             }
             case_expansion(case_expansion const & from)

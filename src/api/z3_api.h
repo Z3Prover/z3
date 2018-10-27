@@ -2081,6 +2081,7 @@ extern "C" {
                                         Z3_sort range);
 
 
+
     /**
        \brief Create a constant or function application.
 
@@ -2140,6 +2141,48 @@ extern "C" {
        def_API('Z3_mk_fresh_const', AST, (_in(CONTEXT), _in(STRING), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_fresh_const(Z3_context c, Z3_string prefix, Z3_sort ty);
+
+
+    /**
+       \brief Declare a recursive function
+
+       \param c logical context.
+       \param s name of the function.
+       \param domain_size number of arguments. It should be greater than 0.
+       \param domain array containing the sort of each argument. The array must contain domain_size elements. 
+       \param range sort of the constant or the return sort of the function.
+
+       After declaring recursive function, it should be associated with a recursive definition #Z3_mk_rec_def.
+       The function #Z3_mk_app can be used to create a constant or function
+       application.
+
+       \sa Z3_mk_app
+       \sa Z3_mk_rec_def
+
+       def_API('Z3_mk_rec_func_decl', FUNC_DECL, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(SORT)))
+    */
+    Z3_func_decl Z3_API Z3_mk_rec_func_decl(Z3_context c, Z3_symbol s,
+                                        unsigned domain_size, Z3_sort const domain[],
+                                        Z3_sort range);
+
+    /**
+       \brief Define the body of a recursive function.
+       
+       \param c logical context.
+       \param f function declaration.
+       \param n number of arguments to the function
+       \param args constants that are used as arguments to the recursive function in the definition.
+       \param body body of the recursive function
+
+       After declaring a recursive function or a collection of  mutually recursive functions, use 
+       this function to provide the definition for the recursive function.
+
+       \sa Z3_mk_rec_func_decl
+
+       def_API('Z3_add_rec_def', VOID, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT), _in_array(2, AST), _in(AST)))
+     */
+    void Z3_API Z3_add_rec_def(Z3_context c, Z3_func_decl f, unsigned n, Z3_ast args[], Z3_ast body);
+
     /*@}*/
 
     /** @name Propositional Logic and Equality */
