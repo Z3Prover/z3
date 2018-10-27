@@ -495,7 +495,7 @@ namespace smt {
 
         try {
             TRACE("add_eq", tout << "assigning: #" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";);
-            TRACE("add_eq_detail", tout << "assigning\n" << mk_pp(n1->get_owner(), m_manager) << "\n" << mk_pp(n2->get_owner(), m_manager) << "\n";
+            TRACE("add_eq_detail", tout << "assigning\n" << enode_pp(n1, *this) << "\n" << enode_pp(n2, *this) << "\n";
                   tout << "kind: " << js.get_kind() << "\n";);
 
             m_stats.m_num_add_eq++;
@@ -1233,7 +1233,7 @@ namespace smt {
         if (depth == 0)
             return false;
         if (r1->get_num_parents() < SMALL_NUM_PARENTS) {
-            TRACE("is_ext_diseq", tout << mk_bounded_pp(n1->get_owner(), m_manager) << " " << mk_bounded_pp(n2->get_owner(), m_manager) << " " << depth << "\n";);
+            TRACE("is_ext_diseq", tout << enode_pp(n1, *this) << " " << enode_pp(n2, *this) << " " << depth << "\n";);
             for (enode * p1 : enode::parents(r1)) {
                 if (!is_relevant(p1))
                     continue;
@@ -1242,7 +1242,7 @@ namespace smt {
                 if (!p1->is_cgr())
                     continue;
                 func_decl * f     = p1->get_decl();
-                TRACE("is_ext_diseq", tout << "p1: " << mk_bounded_pp(p1->get_owner(), m_manager) << "\n";);
+                TRACE("is_ext_diseq", tout << "p1: " << enode_pp(p1, *this) << "\n";);
                 unsigned num_args = p1->get_num_args();
                 for (enode * p2 : enode::parents(r2)) {
                     if (!is_relevant(p2))
@@ -1251,7 +1251,7 @@ namespace smt {
                         continue;
                     if (!p2->is_cgr())
                         continue;
-                    TRACE("is_ext_diseq", tout << "p2: " << mk_bounded_pp(p2->get_owner(), m_manager) << "\n";);
+                    TRACE("is_ext_diseq", tout << "p2: " << enode_pp(p2, *this) << "\n";);
                     if (p1->get_root() != p2->get_root() && p2->get_decl() == f && p2->get_num_args() == num_args) {
                         unsigned j = 0;
                         for (j = 0; j < num_args; j++) {
@@ -1265,7 +1265,7 @@ namespace smt {
                             break;
                         }
                         if (j == num_args) {
-                            TRACE("is_ext_diseq", tout << "found parents: " << mk_bounded_pp(p1->get_owner(), m_manager) << " " << mk_bounded_pp(p2->get_owner(), m_manager) << "\n";);
+                            TRACE("is_ext_diseq", tout << "found parents: " << enode_pp(p1, *this) << " " << enode_pp(p2, *this) << "\n";);
                             if (is_ext_diseq(p1, p2, depth - 1))
                                 return true;
                         }
@@ -4316,7 +4316,7 @@ namespace smt {
             for (enode * parent : enode::parents(n)) {
                 family_id fid = parent->get_owner()->get_family_id();
                 if (fid != th_id && fid != m_manager.get_basic_family_id()) {
-                    TRACE("is_shared", tout << mk_pp(n->get_owner(), m_manager) << "\nis shared because of:\n" << mk_pp(parent->get_owner(), m_manager) << "\n";);
+                    TRACE("is_shared", tout << enode_pp(n, *this) << "\nis shared because of:\n" << enode_pp(parent, *this) << "\n";);
                     return true;
                 }
             }
