@@ -143,9 +143,8 @@ namespace recfun {
             typedef obj_map<func_decl, case_def*> case_def_map;
 
             mutable scoped_ptr<util> m_util;
-            def_map                 m_defs; // function->def
-            case_def_map            m_case_defs; // case_pred->def
-            svector<symbol>         m_def_block;
+            def_map                  m_defs;       // function->def
+            case_def_map             m_case_defs;  // case_pred->def
             
             ast_manager & m() { return *m_manager; }
         public:
@@ -206,8 +205,11 @@ namespace recfun {
 
         ast_manager & m() { return m_manager; }
         th_rewriter & get_th_rewriter() { return m_th_rw; }
+        decl::plugin& get_plugin() { return *m_plugin; }
+
         bool is_case_pred(expr * e) const { return is_app_of(e, m_fid, OP_FUN_CASE_PRED); }
         bool is_defined(expr * e) const { return is_app_of(e, m_fid, OP_FUN_DEFINED); }
+        bool is_defined(func_decl* f) const { return is_decl_of(f, m_fid, OP_FUN_DEFINED); }
         bool is_depth_limit(expr * e) const { return is_app_of(e, m_fid, OP_DEPTH_LIMIT); }
         bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
 
@@ -242,11 +244,6 @@ namespace recfun {
 
         app_ref mk_depth_limit_pred(unsigned d);
 
-        decl::plugin& get_plugin() { return *m_plugin; }
     };
 }
 
-typedef recfun::def recfun_def;
-typedef recfun::case_def recfun_case_def;
-typedef recfun::decl::plugin recfun_decl_plugin;
-typedef recfun::util recfun_util;

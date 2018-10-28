@@ -20,6 +20,7 @@ Revision History:
 #include "ast/ast_pp_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_smt_pp.h"
+#include "ast/recfun_decl_plugin.h"
 
 void ast_pp_util::collect(expr* e) {
     coll.visit(e);
@@ -49,7 +50,14 @@ void ast_pp_util::display_decls(std::ostream& out) {
             ast_smt2_pp(out, f, m_env) << "\n";
         }
     }
-    SASSERT(coll.get_num_preds() == 0);
+    vector<std::pair<func_decl*, expr*>> recfuns;
+    recfun::util u(m);
+    func_decl_ref_vector funs = u.get_rec_funs();
+    if (funs.empty()) return;
+    for (func_decl * f : funs) {
+        recfuns.push_back(std::make_pair(f, u.get_def(f).get_rhs()));
+    }
+    ast_smt2_pp_recdefs(out, recfuns, m_env);
 }
 
 void ast_pp_util::remove_decl(func_decl* f) {

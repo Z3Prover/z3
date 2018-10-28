@@ -31,7 +31,7 @@ namespace smt {
     theory_recfun::theory_recfun(ast_manager & m)
         : theory(m.mk_family_id("recfun")), 
           m(m),
-          m_plugin(*reinterpret_cast<recfun_decl_plugin*>(m.get_plugin(get_family_id()))),
+          m_plugin(*reinterpret_cast<recfun::decl::plugin*>(m.get_plugin(get_family_id()))),
           m_util(m_plugin.u()), 
           m_preds(m),
           m_max_depth(0),

@@ -307,7 +307,7 @@ protected:
     void erase_macro(symbol const& s);
     bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
 
-    recfun_decl_plugin& get_recfun_plugin();
+    recfun::decl::plugin& get_recfun_plugin();
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = nullptr, symbol const & l = symbol::null);

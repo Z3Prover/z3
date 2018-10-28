@@ -63,7 +63,7 @@ namespace api {
         datalog::dl_decl_util      m_datalog_util;
         fpa_util                   m_fpa_util;
         seq_util                   m_sutil;
-        recfun_util                m_recfun;
+        recfun::util               m_recfun;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -130,7 +130,7 @@ namespace api {
         fpa_util & fpautil() { return m_fpa_util; }
         datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
-        recfun_util& recfun() { return m_recfun; }
+        recfun::util& recfun() { return m_recfun; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }

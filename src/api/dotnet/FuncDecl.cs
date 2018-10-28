@@ -302,6 +302,15 @@ namespace Microsoft.Z3
             Debug.Assert(range != null);
         }
 
+        internal FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range, bool is_rec)
+            : base(ctx, Native.Z3_mk_rec_func_decl(ctx.nCtx, name.NativeObject, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject))
+        {
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
+            Debug.Assert(range != null);
+        }
+
+
 #if DEBUG
         internal override void CheckNativeObject(IntPtr obj)
         {

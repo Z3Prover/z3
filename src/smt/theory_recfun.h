@@ -36,9 +36,9 @@ namespace smt {
         // one case-expansion of `f(t1...tn)`
         struct case_expansion {
             app *              m_lhs; // the term to expand
-            recfun_def *        m_def;
+            recfun::def *       m_def;
             ptr_vector<expr>    m_args;
-            case_expansion(recfun_util& u, app * n) : 
+            case_expansion(recfun::util& u, app * n) : 
             m_lhs(n), m_def(nullptr), m_args()  {
                 SASSERT(u.is_defined(n));
                 func_decl * d = n->get_decl();
@@ -66,14 +66,14 @@ namespace smt {
         // one body-expansion of `f(t1...tn)` using a `C_f_i(t1...tn)`
         struct body_expansion {
             app*                    m_pred;
-            recfun_case_def const * m_cdef;
+            recfun::case_def const * m_cdef;
             ptr_vector<expr>        m_args;
 
-            body_expansion(recfun_util& u, app * n) : m_pred(n), m_cdef(0), m_args() {
+            body_expansion(recfun::util& u, app * n) : m_pred(n), m_cdef(0), m_args() {
                 m_cdef = &u.get_case_def(n);
                 m_args.append(n->get_num_args(), n->get_args());
             }
-            body_expansion(app* pred, recfun_case_def const & d, ptr_vector<expr> & args) : 
+            body_expansion(app* pred, recfun::case_def const & d, ptr_vector<expr> & args) : 
                 m_pred(pred), m_cdef(&d), m_args(args) {}
             body_expansion(body_expansion const & from): 
                 m_pred(from.m_pred), m_cdef(from.m_cdef), m_args(from.m_args) {}
@@ -90,8 +90,8 @@ namespace smt {
         friend std::ostream& operator<<(std::ostream&, pp_body_expansion const &);
         
         ast_manager&            m;
-        recfun_decl_plugin&     m_plugin;
-        recfun_util&            m_util;
+        recfun::decl::plugin&   m_plugin;
+        recfun::util&           m_util;
         stats                   m_stats;
 
         // book-keeping for depth of predicates
@@ -104,7 +104,7 @@ namespace smt {
         ptr_vector<body_expansion> m_q_body_expand;
         vector<literal_vector> m_q_clauses;
 
-        recfun_util & u() const { return m_util; }
+        recfun::util & u() const { return m_util; }
         bool is_defined(app * f) const { return u().is_defined(f); }
         bool is_case_pred(app * f) const { return u().is_case_pred(f); }
 

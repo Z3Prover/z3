@@ -693,7 +693,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
-        register_plugin(symbol("recfun"),   alloc(recfun_decl_plugin), logic_has_recfun());
+        register_plugin(symbol("recfun"),   alloc(recfun::decl::plugin), logic_has_recfun());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
@@ -899,7 +899,7 @@ void cmd_context::model_del(func_decl* f) {
 }
 
 
-recfun_decl_plugin& cmd_context::get_recfun_plugin() {
+recfun::decl::plugin& cmd_context::get_recfun_plugin() {
     recfun::util u(get_ast_manager());
     return u.get_plugin();
 }
@@ -944,7 +944,7 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
 
     TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
 
-    recfun_decl_plugin& p = get_recfun_plugin();
+    recfun::decl::plugin& p = get_recfun_plugin();
 
     var_ref_vector vars(m());
     for (expr* b : binding) {
@@ -2040,7 +2040,7 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
     if (logic != symbol::null)
         out << "(set-logic " << logic << ")" << std::endl;
     // collect uninterpreted function declarations
-    decl_collector decls(m(), false);
+    decl_collector decls(m());
     for (unsigned i = 0; i < num; i++) {
         decls.visit(assertions[i]);
     }
@@ -2071,8 +2071,8 @@ void cmd_context::slow_progress_sample() {
     svector<symbol> labels;
     m_solver->get_labels(labels);
     regular_stream() << "(labels";
-    for (unsigned i = 0; i < labels.size(); i++) {
-        regular_stream() << " " << labels[i];
+    for (symbol const& s : labels) {
+        regular_stream() << " " << s;
     }
     regular_stream() << "))" << std::endl;
 }

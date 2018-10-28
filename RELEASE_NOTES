@@ -1,5 +1,19 @@
 RELEASE NOTES
 
+Version 4.8.3
+=============
+- New features
+  - native handling of recursive function definitions
+  - PB rounding based option for conflict resolution when reasoning about PB constraints.
+
+Version 4.8.2
+=============
+- Post-Release. 
+
+Version 4.8.1
+=============
+- Release. Bug-fix for 4.8.0
+
 Version 4.8.0
 =============
 
