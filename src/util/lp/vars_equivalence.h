@@ -28,6 +28,19 @@ struct hash_svector {
     }
 };
 
+
+struct rat_hash {
+    typedef rational data;
+    unsigned operator()(const rational& x) const { return x.hash(); }
+};
+
+
+struct hash_vector {
+    size_t operator()(const vector<rational> & v) const {
+        return vector_hash<rat_hash>()(v);
+    }
+};
+
 struct vars_equivalence {
     
     struct equiv {
