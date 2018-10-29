@@ -30,26 +30,34 @@ struct solver::imp {
 
     typedef lp::lar_base_constraint lpcon;
     
-    struct mono_index_with_sign {
+    struct index_with_sign {
         unsigned m_i; // the monomial index
         rational m_sign; // the monomial sign: -1 or 1
-        mono_index_with_sign(unsigned i, rational sign) : m_i(i), m_sign(sign) {}
-        mono_index_with_sign() {}
+        index_with_sign(unsigned i, rational sign) : m_i(i), m_sign(sign) {}
+        index_with_sign() {}
+        bool operator==(const index_with_sign& b) {
+            return m_i == b.m_i && m_sign == b.m_sign;
+        }
     };
-    
+
     //fields    
     vars_equivalence                                       m_vars_equivalence;
     vector<monomial>                                       m_monomials;
     // maps the vector of the rooted monomial vars to the list of the indices of monomials having the same rooted monomial
     std::unordered_map<svector<lpvar>,
-                       vector<mono_index_with_sign>,
+                       vector<index_with_sign>,
                        hash_svector>
                                                            m_rooted_monomials;
+
+    std::unordered_map<vector<rational>,
+                       vector<index_with_sign>,
+                       hash_vector>
+                                                           m_abs_vals_to_monomials;
     // this field is used for the push/pop operations
     unsigned_vector                                        m_monomials_counts;
     lp::lar_solver&                                        m_lar_solver;
     std::unordered_map<lpvar, unsigned_vector>             m_monomials_containing_var;
-
+    
     // monomial.var()  -> monomial index
     u_map<unsigned>                                        m_var_to_its_monomial;
     lp::explanation *                                      m_expl;
@@ -68,15 +76,38 @@ struct solver::imp {
     void add(lpvar v, unsigned sz, lpvar const* vs) {
         m_monomials.push_back(monomial(v, sz, vs));
         m_var_to_its_monomial.insert(v, m_monomials.size() - 1);
+        TRACE("nla_solver", print_monomial(m_monomials.back(), tout););
     }
     
     void push() {
         m_monomials_counts.push_back(m_monomials.size());
     }
-    
+
+    void deregister_monomial_from_abs_vals(const monomial & m, unsigned i){
+        int sign;
+        auto key = get_sorted_abs_vals_from_mon(m, sign);
+        SASSERT(m_abs_vals_to_monomials.find(key)->second.back() == index_with_sign(i, rational(sign)));
+        m_abs_vals_to_monomials.find(key)->second.pop_back();
+    }
+
+    void deregister_monomial_from_rooted_monomials (const monomial & m, unsigned i){
+        rational sign = rational(1);
+        svector<lpvar> vars = reduce_monomial_to_rooted(m.vars(), sign);
+        NOT_IMPLEMENTED_YET();
+    }
+
+    void deregister_monomial_from_tables(const monomial & m, unsigned i){
+        deregister_monomial_from_abs_vals(m, i);  
+        deregister_monomial_from_rooted_monomials(m, i);     
+    }
+     
     void pop(unsigned n) {
         if (n == 0) return;
-        m_monomials.shrink(m_monomials_counts[m_monomials_counts.size() - n]);
+        unsigned new_size = m_monomials_counts[m_monomials_counts.size() - n];
+        for (unsigned i = m_monomials.size(); i-- > new_size; ){
+            deregister_monomial_from_tables(m_monomials[i], i);
+        }
+        m_monomials.shrink(new_size);
         m_monomials_counts.shrink(m_monomials_counts.size() - n);       
     }
 
@@ -118,6 +149,19 @@ struct solver::imp {
             if (k + 1 < m.size()) out << "*";
         }
         return out;
+    }
+
+    std::ostream& print_monomial_with_vars(const monomial& m, std::ostream& out) const {
+        out << m_lar_solver.get_variable_name(m.var()) << " = ";
+        for (unsigned k = 0; k < m.size(); k++) {
+            out << m_lar_solver.get_variable_name(m.vars()[k]);
+            if (k + 1 < m.size()) out << "*";
+        }
+        out << '\n';
+        for (unsigned k = 0; k < m.size(); k++) {
+            print_var(m.vars()[k], out);
+        }
+       return out;
     }
 
     std::ostream& print_explanation(std::ostream& out) const {
@@ -178,7 +222,7 @@ struct solver::imp {
         mk_ineq(j, cmp, rational::zero());
     }
     
-    // the monomials should be equal by modulo sign, but they are not equal in the model by modulo sign
+    // the monomials should be equal by modulo sign but this is not so the model
     void fill_explanation_and_lemma_sign(const monomial& a, const monomial & b, rational const& sign) {
         expl_set expl;
         SASSERT(sign == 1 || sign == -1);
@@ -214,7 +258,7 @@ struct solver::imp {
 
     // Replaces definition m_v = v1* .. * vn by
     // m_v = coeff * w1 * ... * wn, where w1, .., wn are canonical
-    // representative under current equations.
+    // representatives, that is the roots of the equivalence tree, under current equations.
     // 
     monomial_coeff canonize_monomial(monomial const& m) const {
         rational sign = rational(1);
@@ -223,10 +267,81 @@ struct solver::imp {
     }
 
     bool list_contains_one_to_refine(const std::unordered_set<unsigned> & to_refine_set,
-                                     const vector<mono_index_with_sign>& list_of_mon_indices) {
+                                     const vector<index_with_sign>& list_of_mon_indices) {
         for (const auto& p : list_of_mon_indices) {
             if (to_refine_set.find(p.m_i) != to_refine_set.end())
                 return true;
+        }
+        return false;
+    }
+
+
+    // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
+    // but it is not the case in the model
+    void generate_sign_lemma(const vector<rational>& abs_vals, unsigned i, unsigned k, const rational& sign) {
+        SASSERT(sign == rational(1) || sign == rational(-1));
+        SASSERT(m_lemma->empty());
+        TRACE("nla_solver", tout << "mon i=" << i << " = "; print_monomial_with_vars(m_monomials[i],tout);
+              tout << '\n';
+              tout << "mon k=" << k << " = "; print_monomial_with_vars(m_monomials[k],tout);
+              tout << '\n';
+              tout << "abs_vals="; print_vector(abs_vals, tout);
+              );
+        std::unordered_map<rational, vector<index_with_sign>> map;
+        for (const rational& v : abs_vals) {
+            map[v] = vector<index_with_sign>();
+        }
+  
+        for (unsigned j : m_monomials[i]) {
+            rational v = vvr(j);
+            int s;
+            if (v.is_pos()) {
+                s = 1;
+            } else {
+                s = -1;
+                v = -v; 
+            };
+            // v = abs(vvr(j))
+            auto it = map.find(v);
+            SASSERT(it != map.end());
+            it->second.push_back(index_with_sign(j, rational(s)));
+        } 
+
+        for (unsigned j : m_monomials[k]) {
+            rational v = vvr(j);
+            rational s;
+            if (v.is_pos()) {
+                s = rational(1);
+            } else {
+                s = -rational(1);
+                v = -v;
+            };
+            // v = abs(vvr(j))
+            auto it = map.find(v);
+            SASSERT(it != map.end());
+            index_with_sign & ins = it->second.back();
+            if (j != ins.m_i) {
+                s *= ins.m_sign;
+                mk_ineq(j, -s, ins.m_i, lp::lconstraint_kind::NE);
+            }
+            it->second.pop_back();
+        } 
+
+        mk_ineq(m_monomials[i].var(), sign, m_monomials[k].var(), lp::lconstraint_kind::EQ);        
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
+    }
+    
+    bool basic_sign_lemma_on_a_bucket_of_abs_vals(const vector<rational>& abs_vals, const vector<index_with_sign>& list){   
+        rational sign = list[0].m_sign;
+        rational val =  vvr(m_monomials[list[0].m_i].var());
+        
+        for (unsigned i = 1; i < list.size(); i++) {
+            rational other_sign = list[i].m_sign;
+            rational other_val =  vvr(m_monomials[list[i].m_i].var());
+            if (val * sign != other_val * other_sign) {
+                generate_sign_lemma(abs_vals, list[0].m_i, list[i].m_i, sign * other_sign);
+                return true;
+            }
         }
         return false;
     }
@@ -235,33 +350,11 @@ struct solver::imp {
      * \brief <generate lemma by using the fact that -ab = (-a)b) and
      -ab = a(-b)
     */
-    bool basic_sign_lemma(const unsigned_vector& to_refine) {
-        if (m_vars_equivalence.empty()) {
-            return false;
+    bool basic_sign_lemma() {
+        for (const auto & p : m_abs_vals_to_monomials){
+            if (basic_sign_lemma_on_a_bucket_of_abs_vals(p.first, p.second))
+                return true;
         }
-        std::unordered_set<unsigned> to_refine_set;
-        for (unsigned i : to_refine)
-            to_refine_set.insert(i);
-        for (auto it : m_rooted_monomials) {
-            const auto & list = it.second;
-            if (!list_contains_one_to_refine(to_refine_set, list))
-                continue;
-            const auto & m0 = list[0];
-           
-            rational val = vvr(m_monomials[m0.m_i].var()) * m0.m_sign;
-            // every other monomial in the list has to have the same value up to the sign
-            for (unsigned i = 1; i < list.size(); i++) {
-                const auto & mi = list[i];
-                rational other_val = vvr(m_monomials[mi.m_i].var()) * mi.m_sign;
-                if (val != other_val) {
-                    fill_explanation_and_lemma_sign(m_monomials[m0.m_i],
-                                                    m_monomials[mi.m_i],
-                                                    m0.m_sign * mi.m_sign);
-                    return true;
-                }
-            }
-        }
-        
         return false;
     }
 
@@ -332,7 +425,7 @@ struct solver::imp {
             return false;
         }
 
-        const mono_index_with_sign & mi = *(it->second.begin());
+        const index_with_sign & mi = *(it->second.begin());
         sign = mi.m_sign;
         m = m_monomials[mi.m_i];
         return true;
@@ -363,7 +456,7 @@ struct solver::imp {
                 return false;
             }
 
-            const mono_index_with_sign & mi = *(it->second.begin());
+            const index_with_sign & mi = *(it->second.begin());
             sign = mi.m_sign;
             m = m_imp.m_monomials[mi.m_i];
             return true;
@@ -571,7 +664,7 @@ struct solver::imp {
 
     // use basic multiplication properties to create a lemma
     bool basic_lemma(unsigned_vector & to_refine) {
-        if (basic_sign_lemma(to_refine))
+        if (basic_sign_lemma())
             return true;
 
         for (unsigned i : to_refine) {
@@ -651,34 +744,75 @@ struct solver::imp {
         m_vars_equivalence.create_tree();
     }
 
-    void register_key_mono_in_min_monomials(monomial_coeff const& mc, unsigned i) {
-        mono_index_with_sign ms(i, mc.coeff());
+    void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i) {
+        index_with_sign ms(i, mc.coeff());
         auto it = m_rooted_monomials.find(mc.vars());
         if (it == m_rooted_monomials.end()) {
-            vector<mono_index_with_sign> v;
+            vector<index_with_sign> v;
             v.push_back(ms);
-            // v is a vector containing a single mono_index_with_sign
+            // v is a vector containing a single index_with_sign
             m_rooted_monomials.emplace(mc.vars(), v);
         } 
         else {
             it->second.push_back(ms);
         }
     }
+
+    vector<rational> get_sorted_abs_vals_from_mon(const monomial& m, int & sign) {
+        sign = 1;
+        vector<rational> abs_vals;
+        for (lpvar j : m) {
+            const rational v = vvr(j);
+            abs_vals.push_back(abs(v));
+            if (v.is_neg()) {
+                sign = -sign;
+            }
+        }
+        std::sort(abs_vals.begin(), abs_vals.end());
+        return abs_vals;
+    }
     
-    void register_monomial_in_min_map(unsigned i) {
+    void register_monomial_in_abs_vals(unsigned i) {
+        const monomial & m = m_monomials[i];
+        int sign;
+        vector<rational> abs_vals = get_sorted_abs_vals_from_mon(m, sign);
+        index_with_sign ms(i, rational(sign));
+        auto it = m_abs_vals_to_monomials.find(abs_vals);
+        
+        if (it == m_abs_vals_to_monomials.end()) {
+            
+            TRACE("nla_solver",
+                  print_monomial_with_vars(m, tout););
+            vector<index_with_sign> v;
+            v.push_back(ms);
+            // v is a vector containing a single index_with_sign
+            m_abs_vals_to_monomials.emplace(abs_vals, v);
+        } 
+        else {
+            TRACE("nla_solver",
+                  tout << "key="; print_vector(it->first, tout);
+                  print_monomial_with_vars(m, tout););
+            it->second.push_back(ms);
+        }
+        
+    }
+    
+    void register_monomial_in_tables(unsigned i) {
+        register_monomial_in_abs_vals(i);
         monomial_coeff mc = canonize_monomial(m_monomials[i]);
-        register_key_mono_in_min_monomials(mc, i);        
+        register_key_mono_in_rooted_monomials(mc, i);        
     }
 
-    void create_rooted_monomials_map() {
+    void register_monomials_in_tables() {
+        m_abs_vals_to_monomials.clear();
         for (unsigned i = 0; i < m_monomials.size(); i++) 
-            register_monomial_in_min_map(i);
+            register_monomial_in_tables(i);
     }
     
     void init_search() {
         map_vars_to_monomials_and_constraints();
         init_vars_equivalence();
-        create_rooted_monomials_map();
+        register_monomials_in_tables();
         m_expl->clear();
         m_lemma->clear();
     }
