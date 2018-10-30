@@ -80,6 +80,7 @@ struct solver::imp {
     }
     
     void push() {
+        TRACE("nla_solver",);
         m_monomials_counts.push_back(m_monomials.size());
     }
 
@@ -102,6 +103,7 @@ struct solver::imp {
     }
      
     void pop(unsigned n) {
+        TRACE("nla_solver",);
         if (n == 0) return;
         unsigned new_size = m_monomials_counts[m_monomials_counts.size() - n];
         for (unsigned i = m_monomials.size(); i-- > new_size; ){
@@ -327,7 +329,7 @@ struct solver::imp {
             it->second.pop_back();
         } 
 
-        mk_ineq(m_monomials[i].var(), sign, m_monomials[k].var(), lp::lconstraint_kind::EQ);        
+        mk_ineq(m_monomials[i].var(), -sign, m_monomials[k].var(), lp::lconstraint_kind::EQ);        
         TRACE("nla_solver", print_explanation_and_lemma(tout););
     }
     
@@ -382,12 +384,12 @@ struct solver::imp {
             if (j == m.var()) {
                 is_monomial = true;
                 print_monomial(m, out);
-                out << " = " << m_lar_solver.get_column_value(j);;
+                out << " = " << vvr(j);;
                 break;
             }
         }
         if (!is_monomial)
-            out << m_lar_solver.get_variable_name(j) << " = " << m_lar_solver.get_column_value(j);
+            out << m_lar_solver.get_variable_name(j) << " = " << vvr(j);
         out <<";";
         return out;
     }    
@@ -714,7 +716,6 @@ struct solver::imp {
     void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
         if (t->size() != 2)
             return;
-        TRACE("nla_solver", tout << "term size = 2";);
         bool seen_minus = false;
         bool seen_plus = false;
         lpvar i = -1, j;
@@ -989,6 +990,7 @@ void solver::test_factorization() {
 
     
 }
+
 void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial() {
     test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0();
     test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1();
@@ -1050,6 +1052,7 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
     
 }
+
 void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
@@ -1273,58 +1276,53 @@ void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     
 }
 
-void solver::test_basic_sign_lemma_with_constraints() {
+void solver::test_basic_sign_lemma() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
-        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+        bde = 7, acd = 8;
     lpvar lp_a = s.add_var(a, true);
     lpvar lp_b = s.add_var(b, true);
     lpvar lp_c = s.add_var(c, true);
     lpvar lp_d = s.add_var(d, true);
     lpvar lp_e = s.add_var(e, true);
-    lpvar lp_abcde = s.add_var(abcde, true);
-    lpvar lp_ac = s.add_var(ac, true);
     lpvar lp_bde = s.add_var(bde, true);
     lpvar lp_acd = s.add_var(acd, true);
-    lpvar lp_be = s.add_var(be, true);
     
     reslimit l;
     params_ref p;
     solver nla(s, l, p);
+    // create monomial abcde
+    vector<unsigned> vec;
+
+    vec.push_back(lp_b);
+    vec.push_back(lp_d);
+    vec.push_back(lp_e);
+
+    nla.add_monomial(lp_bde, vec.size(), vec.begin());
+    vec.clear();
+
+    vec.push_back(lp_a);
+    vec.push_back(lp_c);
+    vec.push_back(lp_d);
+
+    nla.add_monomial(lp_acd, vec.size(), vec.begin());
+
+    // make the products bde = -acd according to the model
     
-    // make bde = -acd
-    
-    
-    vector<std::pair<rational, lpvar>> t;
-    
-    // b + a = 0
-    t.push_back(std::make_pair(rational(1), lp_a));  t.push_back(std::make_pair(rational(1), lp_b)); 
-    lpvar b_plus_a = s.add_term(t);
-    s.add_var_bound(b_plus_a, lp::lconstraint_kind::GE, rational::zero());
-    s.add_var_bound(b_plus_a, lp::lconstraint_kind::LE, rational::zero());
-    t.clear();
-    // now b = -a
+    // b = -a
+    s.set_column_value(lp_a, rational(7));
+    s.set_column_value(lp_b, rational(-7));
     
     // e - c = 0
-    t.push_back(std::make_pair(-rational(1), lp_c));  t.push_back(std::make_pair(rational(1), lp_e)); 
-    lpvar e_min_c = s.add_term(t);
-    s.add_var_bound(e_min_c, lp::lconstraint_kind::GE, rational::zero());
-    s.add_var_bound(e_min_c, lp::lconstraint_kind::LE, rational::zero());    
-    t.clear();
-    // now e = c
-    s.set_column_value(lp_bde, lp::impq(rational(0)));
-    s.set_column_value(lp_acd, lp::impq(rational(1)));
-    create_abcde(nla,
-                 lp_a,
-                 lp_b,
-                 lp_c,
-                 lp_d,
-                 lp_e,
-                 lp_abcde,
-                 lp_ac,
-                 lp_bde,
-                 lp_acd,
-                 lp_be);
+    s.set_column_value(lp_e, rational(4));
+    s.set_column_value(lp_c, rational(4));
+
+    s.set_column_value(lp_d, rational(6));
+
+    //    make bde != -acd according to the model
+    s.set_column_value(lp_bde, lp::impq(rational(5)));
+    s.set_column_value(lp_acd, lp::impq(rational(3)));
+   
     vector<ineq> lemma;
     lp::explanation exp;
     
