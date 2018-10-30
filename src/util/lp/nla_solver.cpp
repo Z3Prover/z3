@@ -1199,17 +1199,9 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     lp::explanation exp;
 
 
-    // set all vars to 1
-    s.set_column_value(lp_a, rational(1));
     s.set_column_value(lp_b, rational(1));
-    s.set_column_value(lp_c, rational(1));
     s.set_column_value(lp_d, rational(1));
     s.set_column_value(lp_e, rational(1));
-    s.set_column_value(lp_abcde, rational(1));
-    s.set_column_value(lp_ac, rational(1));
-    s.set_column_value(lp_bde, rational(1));
-    s.set_column_value(lp_acd, rational(1));
-    s.set_column_value(lp_be, rational(1));
 
     // set bde to zero
     s.set_column_value(lp_bde, rational(0));
@@ -1217,10 +1209,33 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
     nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
+
+    ineq i0(lp::lconstraint_kind::EQ, lp::lar_term(), rational(0));
+    i0.m_term.add_coeff_var(lp_b);
+    ineq i1(lp::lconstraint_kind::EQ, lp::lar_term(), rational(0));
+    i1.m_term.add_coeff_var(lp_d);
+    ineq i2(lp::lconstraint_kind::EQ, lp::lar_term(), rational(0));
+    i2.m_term.add_coeff_var(lp_e);
+    bool found0 = false;
+    bool found1 = false;
+    bool found2 = false;
+
+    for (const auto& k : lemma){
+        if (k == i0) {
+            found0 = true;
+        } else if (k == i1) {
+            found1 = true;
+        } else if (k == i2){
+            found2 = true;
+        }
+    }
+
+    SASSERT(found0 && found1 && found2);
     
 }
 
 void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
+    std::cout << "test_basic_lemma_for_mon_neutral_from_monomial_to_factors\n";
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
@@ -1265,15 +1280,29 @@ void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     s.set_column_value(lp_acd, rational(1));
     s.set_column_value(lp_be, rational(1));
 
-    // set bde te 2, b to minus 2
+    // set bde to 2, b to minus 2
     s.set_column_value(lp_bde, rational(2));
     s.set_column_value(lp_b, - rational(2));
-    // we have bde = -b, therefore d = +-1 and c = +-1
-    
+    // we have bde = -b, therefore d = +-1 and e = +-1
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
     nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
-    
+    ineq i0(lp::lconstraint_kind::EQ, lp::lar_term(), rational(1));
+    i0.m_term.add_coeff_var(lp_b);
+    ineq i1(lp::lconstraint_kind::EQ, lp::lar_term(), -rational(1));
+    i1.m_term.add_coeff_var(lp_b);
+    bool found0 = false;
+    bool found1 = false;
+
+    for (const auto& k : lemma){
+        if (k == i0) {
+            found0 = true;
+        } else if (k == i1) {
+            found1 = true;
+        }
+    }
+
+    SASSERT(found0 && found1);
 }
 
 void solver::test_basic_sign_lemma() {
@@ -1327,8 +1356,13 @@ void solver::test_basic_sign_lemma() {
     lp::explanation exp;
     
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-    
+
+    lp::lar_term t;
+    t.add_coeff_var(lp_bde);
+    t.add_coeff_var(lp_acd);
+    ineq q(lp::lconstraint_kind::EQ, t, rational(0));
+   
     nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
-    
+    SASSERT(q == lemma.back());
 }
 }
