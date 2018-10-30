@@ -1558,6 +1558,9 @@ public:
 
     // Equivalent to throw ast_exception(msg)
     Z3_NORETURN void raise_exception(char const * msg);
+    Z3_NORETURN void raise_exception(std::string const& msg) { raise_exception(msg.c_str()); }
+
+    std::ostream& display(std::ostream& out, parameter const& p);
 
     bool is_format_manager() const { return m_format_manager == nullptr; }
 
@@ -2568,6 +2571,16 @@ public:
     inc_ref_proc(ast_manager & m):m_manager(m) {}
     void operator()(AST * n) { m_manager.inc_ref(n); }
 };
+
+struct parameter_pp {
+    parameter const& p;
+    ast_manager& m;
+    parameter_pp(parameter const& p, ast_manager& m): p(p), m(m) {}
+};
+
+inline std::ostream& operator<<(std::ostream& out, parameter_pp const& pp) {
+    return pp.m.display(out, pp.p);
+}
 
 
 #endif /* AST_H_ */
