@@ -2501,15 +2501,6 @@ public:
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); }
 };
 
-struct parameter_pp {
-    parameter const& p;
-    ast_manager& m;
-    parameter_pp(parameter const& p, ast_manager& m): p(p), m(m) {}
-};
-
-inline std::ostream& operator<<(std::ostream& out, parameter_pp const& pp) {
-    return pp.m.display(out, pp.p);
-}
 
 typedef ast_ref_fast_mark<1> ast_ref_fast_mark1;
 typedef ast_ref_fast_mark<2> ast_ref_fast_mark2;
