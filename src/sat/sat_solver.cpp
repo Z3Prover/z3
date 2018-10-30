@@ -68,6 +68,7 @@ namespace sat {
         m_simplifications         = 0;
         m_ext                     = nullptr;
         m_cuber                   = nullptr;
+        m_local_search            = nullptr;
         m_mc.set_solver(this);
     }
 
@@ -758,9 +759,9 @@ namespace sat {
         m_not_l    = not_l;
     }
 
-    void solver::assign_core(literal l, justification j) {
+    void solver::assign_core(literal l, unsigned lvl, justification j) {
         SASSERT(value(l) == l_undef);
-        TRACE("sat_assign_core", tout << l << " " << j << " level: " << scope_lvl() << "\n";);
+        TRACE("sat_assign_core", tout << l << " " << j << " level: " << lvl << "\n";);
         if (at_base_lvl()) {
             if (m_config.m_drat) m_drat.add(l, !j.is_none());
             j = justification(); // erase justification for level 0
@@ -768,7 +769,7 @@ namespace sat {
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
         bool_var v = l.var();
-        m_level[v]                 = scope_lvl();
+        m_level[v]                 = lvl;
         m_justification[v]         = j;
         m_phase[v]                 = static_cast<phase>(l.sign());
         m_assigned_since_gc[v]     = true;
@@ -876,7 +877,7 @@ namespace sat {
                         return false;
                     case l_undef:
                         m_stats.m_bin_propagate++;
-                        assign_core(l1, justification(not_l));
+                        assign_core(l1, scope_lvl(), justification(not_l));
                         break;
                     case l_true:
                         break; // skip
@@ -891,11 +892,11 @@ namespace sat {
                     val2 = value(l2);
                     if (val1 == l_false && val2 == l_undef) {
                         m_stats.m_ter_propagate++;
-                        assign_core(l2, justification(l1, not_l));
+                        assign_core(l2, scope_lvl(), justification(l1, not_l));
                     }
                     else if (val1 == l_undef && val2 == l_false) {
                         m_stats.m_ter_propagate++;
-                        assign_core(l1, justification(l2, not_l));
+                        assign_core(l1, scope_lvl(), justification(l2, not_l));
                     }
                     else if (val1 == l_false && val2 == l_false) {
                         CONFLICT_CLEANUP();
@@ -958,7 +959,7 @@ namespace sat {
                         it2++;
                         m_stats.m_propagate++;
                         c.mark_used();
-                        assign_core(c[0], justification(cls_off));
+                        assign_core(c[0], scope_lvl(), justification(cls_off));
 #ifdef UPDATE_GLUE
                         if (update && c.is_learned() && c.glue() > 2) {
                             unsigned glue;
@@ -1036,7 +1037,7 @@ namespace sat {
                 literal l(v, false);
                 if (mdl[v] != l_true) l.neg();
                 push();
-                assign_core(l, justification());
+                assign_core(l, scope_lvl(), justification());
             }
             mk_model();
             break;
@@ -1154,13 +1155,16 @@ namespace sat {
 
     lbool solver::do_local_search(unsigned num_lits, literal const* lits) {
         scoped_limits scoped_rl(rlimit());
-        local_search srch;
+        SASSERT(!m_local_search);
+        m_local_search = alloc(local_search);
+        local_search& srch = *m_local_search;
         srch.config().set_config(m_config);
         srch.import(*this, false);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, nullptr);
         m_model = srch.get_model();
-        // srch.collect_statistics(m_aux_stats);
+        m_local_search = nullptr;
+        dealloc(&srch);
         return r;
     }
 
@@ -3373,6 +3377,7 @@ namespace sat {
         m_asymm_branch.collect_statistics(st);
         m_probing.collect_statistics(st);
         if (m_ext) m_ext->collect_statistics(st);
+        if (m_local_search) m_local_search->collect_statistics(st);
         st.copy(m_aux_stats);
     }
 

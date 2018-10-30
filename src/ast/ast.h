@@ -2586,6 +2586,16 @@ public:
     void operator()(AST * n) { m_manager.inc_ref(n); }
 };
 
+struct parameter_pp {
+    parameter const& p;
+    ast_manager& m;
+    parameter_pp(parameter const& p, ast_manager& m): p(p), m(m) {}
+};
+
+inline std::ostream& operator<<(std::ostream& out, parameter_pp const& pp) {
+    return pp.m.display(out, pp.p);
+}
+
 
 #endif /* AST_H_ */
 

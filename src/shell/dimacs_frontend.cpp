@@ -178,21 +178,21 @@ unsigned read_dimacs(char const * file_name) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        parse_dimacs(in, solver);
+        parse_dimacs(in, *g_solver);
     }
     else {
-        parse_dimacs(std::cin, solver);
+        parse_dimacs(std::cin, *g_solver);
     }
-    IF_VERBOSE(20, solver.display_status(verbose_stream()););
+    IF_VERBOSE(20, g_solver->display_status(verbose_stream()););
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, limit);
-    if (p.get_bool("dimacs.core", false)) {
-        g_solver = &solver2;        
+    sat::solver solver2( p, limit);
+    if (p.get_bool("dimacs.core", false)) {        
         sat::literal_vector assumptions;
         track_clauses(solver, solver2, assumptions, tracking_clauses);
-        r = g_solver->check(assumptions.size(), assumptions.c_ptr());
+        g_solver = &solver2;        
+        r = solver2.check(assumptions.size(), assumptions.c_ptr());
     }
     else {
         r = g_solver->check();

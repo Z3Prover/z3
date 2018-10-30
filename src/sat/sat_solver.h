@@ -163,6 +163,7 @@ namespace sat {
         bool                    m_par_syncing_clauses;
 
         class lookahead*        m_cuber;
+        class local_search*     m_local_search;
 
         statistics              m_aux_stats;
 
@@ -305,11 +306,11 @@ namespace sat {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
             switch (value(l)) {
             case l_false: set_conflict(j, ~l); break;
-            case l_undef: assign_core(l, j); break;
+            case l_undef: assign_core(l, scope_lvl(), j); break;
             case l_true:  return;
             }
         }
-        void assign_core(literal l, justification jst);
+        void assign_core(literal l, unsigned lvl, justification jst);
         void set_conflict(justification c, literal not_l);
         void set_conflict(justification c) { set_conflict(c, null_literal); }
         lbool status(clause const & c) const;        

@@ -86,6 +86,7 @@ namespace sat {
             m_local_search_mode = local_search_mode::gsat;
         else
             m_local_search_mode = local_search_mode::wsat;
+        m_local_search_dbg_flips = p.local_search_dbg_flips();
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_lookahead_simplify = p.lookahead_simplify();

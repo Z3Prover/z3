@@ -1557,6 +1557,16 @@ std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
 }
 
 
+std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
+    switch (p.get_kind()) {
+    case parameter::PARAM_AST:
+        return out << mk_pp(p.get_ast(), *this);
+    default:
+        return p.display(out);
+    }
+    return out;
+}
+
 void ast_manager::copy_families_plugins(ast_manager const & from) {
     TRACE("copy_families_plugins",
           tout << "target:\n";

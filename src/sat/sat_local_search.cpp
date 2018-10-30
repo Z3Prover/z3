@@ -553,6 +553,7 @@ namespace sat {
         PROGRESS(tries, total_flips);
         
         for (tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
+            ++m_stats.m_num_restarts;
             for (step = 0; step < m_max_steps && !m_unsat_stack.empty(); ++step) {
                 pick_flip_walksat();
                 if (m_unsat_stack.size() < m_best_unsat) {
@@ -621,7 +622,6 @@ namespace sat {
             walksat();
             break;
         }
-
 
         // remove unit clauses from assumptions.
         m_constraints.shrink(num_constraints() - sz);
@@ -779,8 +779,11 @@ namespace sat {
     }
 
     void local_search::flip_walksat(bool_var flipvar) {
+        ++m_stats.m_num_flips;
         VERIFY(!is_unit(flipvar));
         m_vars[flipvar].m_value = !cur_solution(flipvar);
+        m_vars[flipvar].m_flips++;
+        m_vars[flipvar].m_slow_break.update(abs(m_vars[flipvar].m_slack_score));
 
         bool flip_is_true = cur_solution(flipvar);
         coeff_vector const& truep = m_vars[flipvar].m_watch[flip_is_true];
@@ -1061,6 +1064,19 @@ namespace sat {
     std::ostream& local_search::display(std::ostream& out, unsigned v, var_info const& vi) const {
         return out << "v" << v << " := " << (vi.m_value?"true":"false") << " bias: " << vi.m_bias << "\n";
     }
+
+    void local_search::collect_statistics(statistics& st) const {
+        if (m_config.dbg_flips()) {
+            unsigned i = 0;
+            for (var_info const& vi : m_vars) {
+                IF_VERBOSE(0, verbose_stream() << "flips: " << i << " " << vi.m_flips << " " << vi.m_slow_break  << "\n");               
+                ++i;
+            }
+        }
+        st.update("local-search-flips", m_stats.m_num_flips);
+        st.update("local-search-restarts", m_stats.m_num_restarts);
+    }
+
 
     bool local_search::check_goodvar() {
         unsigned g = 0;
