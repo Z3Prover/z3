@@ -4455,7 +4455,6 @@ namespace smt {
             }
         }
         recfun::util u(m);
-        recfun::decl::plugin& p = u.get_plugin();
         func_decl_ref_vector recfuns = u.get_rec_funs();
         for (func_decl* f : recfuns) {
             auto& def = u.get_def(f);
@@ -4464,7 +4463,6 @@ namespace smt {
             func_interp* fi = alloc(func_interp, m, f->get_arity());
             // reverse argument order so that variable 0 starts at the beginning.
             expr_ref_vector subst(m);
-            unsigned idx = 0;
             for (unsigned i = 0; i < f->get_arity(); ++i) {
                 subst.push_back(m.mk_var(i, f->get_domain(i)));
             }

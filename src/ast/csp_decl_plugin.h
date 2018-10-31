@@ -63,7 +63,7 @@ Revision History:
 
 
 --*/
-#pragma once;
+#pragma once
 #include "ast/ast.h"
 
 enum js_sort_kind {

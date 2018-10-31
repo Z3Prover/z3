@@ -130,7 +130,6 @@ namespace smt {
 
     void theory_jobscheduler::new_eq_eh(theory_var v1, theory_var v2) {
         enode* e1 = get_enode(v1);
-        enode* e2 = get_enode(v2);
         enode* root = e1->get_root();
         unsigned r;
         if (u.is_resource(root->get_owner(), r)) {
@@ -712,7 +711,7 @@ namespace smt {
 
             time_t start_lb = std::numeric_limits<time_t>::max();
             time_t runtime_lb = std::numeric_limits<time_t>::max();
-            time_t end_ub = 0, runtime_ub = 0;
+            time_t end_ub = 0; // , runtime_ub = 0;
             for (job_resource const& jr : ji.m_resources) {
                 unsigned r = jr.m_resource_id;
                 res_info const& ri = m_resources[r];
@@ -784,6 +783,7 @@ namespace smt {
     // resource(j) = r => start(j) <= end[idx]  || start[idx+1] <= start(j);
     void theory_jobscheduler::assert_job_not_in_gap(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq) {
         job_resource const& jr = get_job_resource(j, r);
+        (void) jr;
         vector<res_available>& available = m_resources[r].m_available;        
         SASSERT(resource_available(jr, available[idx]));
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
@@ -795,6 +795,7 @@ namespace smt {
     void theory_jobscheduler::assert_job_non_preemptable(unsigned j, unsigned r, unsigned idx, unsigned idx1, literal eq) {
         vector<res_available>& available = m_resources[r].m_available;        
         job_resource const& jr = get_job_resource(j, r);
+        (void) jr;
         SASSERT(resource_available(jr, available[idx]));
         literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
         literal l3 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);

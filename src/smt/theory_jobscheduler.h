@@ -18,7 +18,7 @@ Author:
 Revision History:
 
 --*/
-#pragma once;
+#pragma once
 
 #include "util/uint_set.h"
 #include "ast/csp_decl_plugin.h"

@@ -1060,9 +1060,9 @@ namespace sat {
     uint64_t ba_solver::get_coeff(literal lit) const {
         int64_t c1 = get_coeff(lit.var());
         SASSERT(c1 < 0 == lit.sign());
-        uint64_t c = static_cast<uint64_t>(std::abs(c1));
-        m_overflow |= c != c1;
-        return c;
+        int64_t c = std::abs(c1);
+        m_overflow |= (c != c1);
+        return static_cast<uint64_t>(c);
     }
 
     ba_solver::wliteral ba_solver::get_wliteral(bool_var v) {
@@ -1630,7 +1630,7 @@ namespace sat {
                 mark_visited(v);
                 if (s().is_marked(v)) {
                     int64_t c = get_coeff(v);
-                    if (c == 0 || (c < 0 == consequent.sign())) {
+                    if (c == 0 || ((c < 0) == consequent.sign())) {
                         s().reset_mark(v);
                         --m_num_marks;
                     }
@@ -3538,7 +3538,7 @@ namespace sat {
                 }
                 ++m_stats.m_num_big_strengthenings;
                 p.set_removed();
-                constraint* c = add_pb_ge(null_literal, wlits, b, p.learned());
+                add_pb_ge(null_literal, wlits, b, p.learned());
                 return;
             }
         }
