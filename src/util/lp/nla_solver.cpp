@@ -1143,25 +1143,37 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     lp::explanation exp;
 
 
-    // set all vars to 1
+    // set vars
     s.set_column_value(lp_a, rational(1));
-    s.set_column_value(lp_b, rational(1));
+    s.set_column_value(lp_b, rational(0));
     s.set_column_value(lp_c, rational(1));
     s.set_column_value(lp_d, rational(1));
     s.set_column_value(lp_e, rational(1));
-    s.set_column_value(lp_abcde, rational(1));
+    s.set_column_value(lp_abcde, rational(0));
     s.set_column_value(lp_ac, rational(1));
-    s.set_column_value(lp_bde, rational(1));
+    s.set_column_value(lp_bde, rational(0));
     s.set_column_value(lp_acd, rational(1));
     s.set_column_value(lp_be, rational(1));
 
-    // set b to zero
-    s.set_column_value(lp_b, rational(0));
-
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-    
     nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
-    
+    SASSERT(lemma.size() == 2);
+    ineq i0(lp::lconstraint_kind::NE, lp::lar_term(), rational(0));
+    i0.m_term.add_coeff_var(lp_b);
+    ineq i1(lp::lconstraint_kind::EQ, lp::lar_term(), rational(0));
+    i1.m_term.add_coeff_var(lp_be);
+    bool found0 = false;
+    bool found1 = false;
+
+    for (const auto& k : lemma){
+        if (k == i0) {
+            found0 = true;
+        } else if (k == i1) {
+            found1 = true;
+        }
+    }
+
+    SASSERT(found0 && found1);
 }
 
 void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
