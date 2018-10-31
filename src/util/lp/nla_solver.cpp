@@ -153,6 +153,10 @@ struct solver::imp {
         return out;
     }
 
+    std::ostream& print_monomial(unsigned i, std::ostream& out) const {
+        return print_monomial(m_monomials[i], out);
+    }
+
     std::ostream& print_monomial_with_vars(const monomial& m, std::ostream& out) const {
         out << m_lar_solver.get_variable_name(m.var()) << " = ";
         for (unsigned k = 0; k < m.size(); k++) {
@@ -283,7 +287,8 @@ struct solver::imp {
     void generate_sign_lemma(const vector<rational>& abs_vals, unsigned i, unsigned k, const rational& sign) {
         SASSERT(sign == rational(1) || sign == rational(-1));
         SASSERT(m_lemma->empty());
-        TRACE("nla_solver", tout << "mon i=" << i << " = "; print_monomial_with_vars(m_monomials[i],tout);
+        TRACE("nla_solver",
+              tout << "mon i=" << i << " = "; print_monomial_with_vars(m_monomials[i],tout);
               tout << '\n';
               tout << "mon k=" << k << " = "; print_monomial_with_vars(m_monomials[k],tout);
               tout << '\n';
@@ -479,6 +484,7 @@ struct solver::imp {
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
     bool basic_lemma_for_mon_zero_from_monomial_to_factor(unsigned i_mon, const factorization& f) {
+        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f););
         lpvar mon_var = m_monomials[i_mon].var();
         if (!vvr(mon_var).is_zero() )
             return false;
@@ -490,6 +496,8 @@ struct solver::imp {
         }
         expl_set e;
         add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
+
         return true;
     }
 
@@ -509,9 +517,15 @@ struct solver::imp {
         add_explanation_of_factorization(i_mon, f, e);
         set_expl(e);
     }
-    
+
+    void trace_print_monomial_and_factorization(unsigned i_mon, const factorization& f) const {
+        tout << "mon = ";
+        print_monomial(i_mon, tout);
+        tout << "\nfact = "; print_factorization(f, tout);
+    }
     // x = 0 or y = 0 -> xy = 0
     bool basic_lemma_for_mon_zero_from_factors_to_monomial(unsigned i_mon, const factorization& f) {
+        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f););
         if (vvr(m_monomials[i_mon].var()).is_zero())
             return false;
         unsigned zero_j = -1;
@@ -531,6 +545,7 @@ struct solver::imp {
 
         expl_set e;
         add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
         return true;
     }
 
@@ -544,6 +559,8 @@ struct solver::imp {
     // use the fact that
     // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1
     bool basic_lemma_for_mon_neutral_monomial_to_factor(unsigned i_mon, const factorization& f) {
+        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f););
+
         // todo : consider the case of just two factors
         lpvar mon_var = m_monomials[i_mon].var();
         const auto & mv = vvr(mon_var);
@@ -590,6 +607,7 @@ struct solver::imp {
         mk_ineq(not_one_j, lp::lconstraint_kind::EQ, -rational(1));
         expl_set e;
         add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
+        TRACE("nla_solver", print_explanation_and_lemma(tout); );
         return true;
     }
 
@@ -629,7 +647,8 @@ struct solver::imp {
                     mk_ineq(j, lp::lconstraint_kind::NE, -rational(1));   
                 } 
             }
-            mk_ineq(m_monomials[i_mon].var(), lp::lconstraint_kind::EQ, rational(sign));   
+            mk_ineq(m_monomials[i_mon].var(), lp::lconstraint_kind::EQ, rational(sign));
+            TRACE("nla_solver", print_explanation_and_lemma(tout););
             return true;
         }
         
@@ -641,6 +660,7 @@ struct solver::imp {
             } 
         }
         mk_ineq(m_monomials[i_mon].var(), -rational(sign), not_one_j,lp::lconstraint_kind::EQ);   
+        TRACE("nla_solver", print_explanation_and_lemma(tout););
         return true;
     }
     
@@ -656,6 +676,8 @@ struct solver::imp {
     // for the given monomial
     bool basic_lemma_for_mon(unsigned i_mon) {
         for (auto factorization : factorization_factory_imp(i_mon, *this)) {
+            if (factorization.is_empty())
+                continue;
             if (basic_lemma_for_mon_zero(i_mon, factorization) ||
                 basic_lemma_for_mon_neutral(i_mon, factorization))
                 return true;
@@ -997,9 +1019,12 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial() {
 }
 
 void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
+    std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0\n";
+    // enable_trace("nla_solver");
+    TRACE("nla_solver",);
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
-        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+        abcde = 5, ac = 6, bde = 7;
     lpvar lp_a = s.add_var(a, true);
     lpvar lp_b = s.add_var(b, true);
     lpvar lp_c = s.add_var(c, true);
@@ -1008,53 +1033,67 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     lpvar lp_abcde = s.add_var(abcde, true);
     lpvar lp_ac = s.add_var(ac, true);
     lpvar lp_bde = s.add_var(bde, true);
-    lpvar lp_acd = s.add_var(acd, true);
-    lpvar lp_be = s.add_var(be, true);
     
     reslimit l;
     params_ref p;
     solver nla(s, l, p);
-    
-    create_abcde(nla,
-                 lp_a,
-                 lp_b,
-                 lp_c,
-                 lp_d,
-                 lp_e,
-                 lp_abcde,
-                 lp_ac,
-                 lp_bde,
-                 lp_acd,
-                 lp_be);
+    svector<lpvar> v; v.push_back(lp_b);v.push_back(lp_d);v.push_back(lp_e);
+    nla.add_monomial(lp_bde, v.size(), v.begin());
+    v.clear();
+    v.push_back(lp_a);v.push_back(lp_b);v.push_back(lp_c);v.push_back(lp_d);v.push_back(lp_e);
+    nla.add_monomial(lp_abcde, v.size(), v.begin());
+    v.clear();
+    v.push_back(lp_a);v.push_back(lp_c);
+    nla.add_monomial(lp_ac, v.size(), v.begin());
+     
     vector<ineq> lemma;
     lp::explanation exp;
 
-
-    // set all vars to 1
-    s.set_column_value(lp_a, rational(1));
-    s.set_column_value(lp_b, rational(1));
-    s.set_column_value(lp_c, rational(1));
-    s.set_column_value(lp_d, rational(1));
-    s.set_column_value(lp_e, rational(1));
-    s.set_column_value(lp_abcde, rational(1));
-    s.set_column_value(lp_ac, rational(1));
-    s.set_column_value(lp_bde, rational(1));
-    s.set_column_value(lp_acd, rational(1));
-    s.set_column_value(lp_be, rational(1));
-
-    // set bde to 9, and d to 2, and abcde to 2
-    s.set_column_value(lp_bde, rational(9));
-    s.set_column_value(lp_d, rational(2));
+    // set abcde = ac * bde
+    // ac = 1, bde = 3 -> abcde = bde, but we have abcde set to 2
+    s.set_column_value(lp_a, rational(4));
+    s.set_column_value(lp_b, rational(4));
+    s.set_column_value(lp_c, rational(4));
+    s.set_column_value(lp_d, rational(4));
+    s.set_column_value(lp_e, rational(4));
     s.set_column_value(lp_abcde, rational(2));
+    s.set_column_value(lp_ac, rational(1));
+    s.set_column_value(lp_bde, rational(3));
+
     
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
     nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
+
+    ineq i0(lp::lconstraint_kind::NE, lp::lar_term(), rational(1));
+    i0.m_term.add_coeff_var(lp_ac);
+    ineq i1(lp::lconstraint_kind::EQ, lp::lar_term(), rational(0));
+    i1.m_term.add_coeff_var(lp_bde);
+    i1.m_term.add_coeff_var(-rational(1), lp_abcde);
+    ineq i2(lp::lconstraint_kind::EQ, lp::lar_term(), rational(0));
+    i2.m_term.add_coeff_var(lp_abcde);
+    i2.m_term.add_coeff_var(-rational(1), lp_bde);
+    bool found0 = false;
+    bool found1 = false;
+    bool found2 = false;
+    for (const auto& k : lemma){
+        if (k == i0) {
+            found0 = true;
+        } else if (k == i1) {
+            found1 = true;
+        } else if (k == i2) {
+            found2 = true;
+        } 
+    }
+
+    SASSERT(found0 && (found1 || found2));
+
     
 }
 
 void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1\n";
+    TRACE("nla_solver",);
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
          bde = 7;
@@ -1097,7 +1136,6 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     bool found1 = false;
     bool found2 = false;
     bool found3 = false;
-
     for (const auto& k : lemma){
         if (k == i0) {
             found0 = true;
@@ -1112,6 +1150,7 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     }
 
     SASSERT(found0 && found1 && found2 && found3);
+
 }
 
 void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
@@ -1382,5 +1421,16 @@ void solver::test_basic_sign_lemma() {
    
     nla.m_imp->print_explanation_and_lemma(std::cout << "expl & lemma: ");
     SASSERT(q == lemma.back());
+    ineq i0(lp::lconstraint_kind::EQ, lp::lar_term(), rational(0));
+    i0.m_term.add_coeff_var(lp_bde);
+    i0.m_term.add_coeff_var(rational(1), lp_acd);
+    bool found = false;
+    for (const auto& k : lemma){
+        if (k == i0) {
+            found = true;
+        } 
+    }
+
+    SASSERT(found);
 }
 }

@@ -30,6 +30,9 @@ class factorization {
     svector<lpvar>         m_vars;
     rational               m_sign;
 public:
+    factorization(){
+        TRACE("nla_solver",);
+    }
     bool is_empty() const { return m_vars.empty(); }
     svector<lpvar> & vars() { return m_vars; }
     const svector<lpvar> & vars() const { return m_vars; }
