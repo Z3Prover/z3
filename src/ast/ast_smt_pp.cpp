@@ -980,14 +980,6 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
         }
     }
 
-    for (unsigned i = 0; i < decls.get_num_preds(); ++i) {
-        func_decl* d = decls.get_pred_decls()[i];
-        if (!(*m_is_declared)(d)) {
-            smt_printer p(strm, m, ql, rn, m_logic, true, true, m_simplify_implies, 0);
-            p(d);
-            strm << "\n";
-        }
-    }
 #endif
 
     for (expr* a : m_assumptions) {

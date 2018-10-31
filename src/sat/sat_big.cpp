@@ -22,7 +22,8 @@ Revision History:
 namespace sat {
 
     big::big(random_gen& rand): 
-        m_rand(rand) {
+        m_rand(rand),
+        m_include_cardinality(false) {
     }
 
     void big::init(solver& s, bool learned) {
@@ -42,22 +43,22 @@ namespace sat {
                     m_roots[v.index()] = false;
                     edges.push_back(v);
                 }
-#if 0
-                if (w.is_ext_constraint() && 
+                if (m_include_cardinality && 
+                    w.is_ext_constraint() && 
                     s.m_ext && 
-                    learned && 
+                    learned && // cannot (yet) observe if ext constraints are learned
                     !seen_idx.contains(w.get_ext_constraint_idx()) &&
                     s.m_ext->is_extended_binary(w.get_ext_constraint_idx(), r)) {
                     seen_idx.insert(w.get_ext_constraint_idx(), true);
-                    for (unsigned i = 0; i < r.size(); ++i) {
-                        literal u = r[i]; 
-                        for (unsigned j = i + 1; j < r.size(); ++j) {
-                            // add ~r[i] -> r[j]
-                            literal v = r[j];
-                            literal u = ~r[j];
+                    for (unsigned i = 0; i < std::min(4u, r.size()); ++i) {
+                        shuffle<literal>(r.size(), r.c_ptr(), m_rand);
+                        literal u = r[0];
+                        for (unsigned j = 1; j < r.size(); ++j) {
+                            literal v = ~r[j];
+                            // add u -> v
                             m_roots[v.index()] = false;
                             m_dag[u.index()].push_back(v);
-                            // add ~r[j] -> r[i]
+                            // add ~v -> ~u
                             v.neg();
                             u.neg();
                             m_roots[u.index()] = false;
@@ -65,7 +66,6 @@ namespace sat {
                         }
                     }
                 }
-#endif
             }
         }
         done_adding_edges();
@@ -266,6 +266,16 @@ namespace sat {
             u = next(u, v);
         }
         return out << v;
+    }
+
+    literal big::get_root(literal l) {
+        literal r = l;
+        do {
+            l = r;
+            r = m_root[l.index()];
+        }
+        while (r != l);
+        return r;
     }
 
     void big::display(std::ostream& out) const {

@@ -533,6 +533,34 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Creates a new recursive function declaration.
+        /// </summary>
+        public FuncDecl MkRecFuncDecl(string name, Sort[] domain, Sort range)
+        {
+            Debug.Assert(range != null);
+            Debug.Assert(domain.All(d => d != null));
+
+            CheckContextMatch<Sort>(domain);
+            CheckContextMatch(range);
+            return new FuncDecl(this, MkSymbol(name), domain, range, true);
+        }
+
+        /// <summary>
+        /// Bind a definition to a recursive function declaration.
+	/// The function must have previously been created using
+	/// MkRecFuncDecl. The body may contain recursive uses of the function or
+	/// other mutually recursive functions. 
+        /// </summary>
+	public void AddRecDef(FuncDecl f, Expr[] args, Expr body) 
+	{
+	    CheckContextMatch(f);
+	    CheckContextMatch<Expr>(args);
+	    CheckContextMatch(body);
+            IntPtr[] argsNative = AST.ArrayToNative(args);
+	    Native.Z3_add_rec_def(nCtx, f.NativeObject, (uint)args.Length, argsNative, body.NativeObject);
+	}	
+
+        /// <summary>
         /// Creates a new function declaration.
         /// </summary>
         public FuncDecl MkFuncDecl(string name, Sort domain, Sort range)

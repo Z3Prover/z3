@@ -25,6 +25,7 @@ Revision History:
 #include "sat/sat_solver.h"
 #include "sat/sat_lookahead.h"
 #include "sat/sat_unit_walk.h"
+#include "sat/sat_big.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
 
@@ -41,8 +42,11 @@ namespace sat {
             unsigned m_num_bin_subsumes;
             unsigned m_num_clause_subsumes;
             unsigned m_num_pb_subsumes;
+            unsigned m_num_big_strengthenings;
             unsigned m_num_cut;
             unsigned m_num_gc;
+            unsigned m_num_overflow;
+            unsigned m_num_lemmas;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -57,6 +61,7 @@ namespace sat {
         class card;
         class pb;
         class xr;
+        class pb_base;
 
         class constraint {
         protected:
@@ -104,6 +109,7 @@ namespace sat {
             card const& to_card() const;
             pb const&  to_pb() const;
             xr const& to_xr() const;
+            pb_base const& to_pb_base() const; 
             bool is_card() const { return m_tag == card_t; }
             bool is_pb() const { return m_tag == pb_t; }
             bool is_xr() const { return m_tag == xr_t; }
@@ -118,7 +124,7 @@ namespace sat {
         };
 
         friend std::ostream& operator<<(std::ostream& out, constraint const& c);
-
+        
         // base class for pb and cardinality constraints
         class pb_base : public constraint {
         protected:
@@ -204,12 +210,18 @@ namespace sat {
     protected:
 
         struct ineq {
-            literal_vector    m_lits;
-            svector<uint64_t> m_coeffs;
+            svector<wliteral> m_wlits;
             uint64_t          m_k;
             ineq(): m_k(0) {}
-            void reset(uint64_t k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
-            void push(literal l, uint64_t c) { m_lits.push_back(l); m_coeffs.push_back(c); }
+            unsigned size() const { return m_wlits.size(); }
+            literal lit(unsigned i) const { return m_wlits[i].second; }
+            unsigned coeff(unsigned i) const { return m_wlits[i].first; }
+            void reset(uint64_t k) { m_wlits.reset(); m_k = k; }
+            void push(literal l, unsigned c) { m_wlits.push_back(wliteral(c,l)); }
+            unsigned bv_coeff(bool_var v) const;
+            void divide(unsigned c);
+            void weaken(unsigned i);
+            bool contains(literal l) const { for (auto wl : m_wlits) if (wl.second == l) return true; return false; }
         };
 
         solver*                m_solver;
@@ -273,7 +285,8 @@ namespace sat {
 
         // simplification routines
 
-        svector<bool>             m_visited;
+        svector<unsigned>             m_visited;
+        unsigned                      m_visited_ts;
         vector<svector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
         bool                      m_simplify_change;
@@ -292,9 +305,11 @@ namespace sat {
         void binary_subsumption(card& c1, literal lit);
         void clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses);
         void card_subsumption(card& c1, literal lit);
-        void mark_visited(literal l) { m_visited[l.index()] = true; }
-        void unmark_visited(literal l) { m_visited[l.index()] = false; }
-        bool is_marked(literal l) const { return m_visited[l.index()] != 0; }
+        void init_visited();
+        void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
+        void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
+        bool is_visited(bool_var v) const { return is_visited(literal(v, false)); }
+        bool is_visited(literal l) const { return m_visited[l.index()] == m_visited_ts; }
         unsigned get_num_unblocked_bin(literal l);
         literal get_min_occurrence_literal(card const& c);
         void init_use_lists();
@@ -302,6 +317,9 @@ namespace sat {
         unsigned set_non_external();
         unsigned elim_pure();
         bool elim_pure(literal lit);
+        void unit_strengthen();
+        void unit_strengthen(big& big, constraint& cs);
+        void unit_strengthen(big& big, pb_base& p);
         void subsumption(constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
@@ -396,10 +414,23 @@ namespace sat {
         lbool eval(model const& m, pb const& p) const;
         double get_reward(pb const& p, literal_occs_fun& occs) const;
 
+        // RoundingPb conflict resolution
+        lbool resolve_conflict_rs();
+        void round_to_one(ineq& ineq, bool_var v);
+        void round_to_one(bool_var v);
+        void divide(unsigned c);
+        void resolve_on(literal lit);
+        void resolve_with(ineq const& ineq);
+        void reset_marks(unsigned idx);
+        void mark_variables(ineq const& ineq);
+
+        void bail_resolve_conflict(unsigned idx);        
+
         // access solver
         inline lbool value(bool_var v) const { return value(literal(v, false)); }
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
         inline lbool value(model const& m, literal l) const { return l.sign() ? ~m[l.var()] : m[l.var()]; }
+        inline bool is_false(literal lit) const { return l_false == value(lit); }
 
         inline unsigned lvl(literal lit) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(lit); }
         inline unsigned lvl(bool_var v) const { return m_lookahead || m_unit_walk ? 0 : m_solver->lvl(v); }
@@ -426,9 +457,11 @@ namespace sat {
 
         mutable bool m_overflow;
         void reset_active_var_set();
-        void normalize_active_coeffs();
+        bool test_and_set_active(bool_var v);
         void inc_coeff(literal l, unsigned offset);
         int64_t get_coeff(bool_var v) const;
+        uint64_t get_coeff(literal lit) const;
+        wliteral get_wliteral(bool_var v);
         unsigned get_abs_coeff(bool_var v) const;       
         int   get_int_coeff(bool_var v) const;
         unsigned get_bound() const;
@@ -436,6 +469,7 @@ namespace sat {
 
         literal get_asserting_literal(literal conseq);
         void process_antecedent(literal l, unsigned offset);
+        void process_antecedent(literal l) { process_antecedent(l, 1); }
         void process_card(card& c, unsigned offset);
         void cut();
         bool create_asserting_lemma();
@@ -446,6 +480,7 @@ namespace sat {
         bool validate_conflict(pb const& p) const;
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
+        bool validate_ineq(ineq const& ineq) const;
         bool validate_unit_propagation(card const& c, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal_vector const& r, literal alit) const;
@@ -464,12 +499,17 @@ namespace sat {
 
         ineq m_A, m_B, m_C;
         void active2pb(ineq& p);
+        constraint* active2lemma();
         constraint* active2constraint();
         constraint* active2card();
+        void active2wlits();
+        void active2wlits(svector<wliteral>& wlits);
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
+        void constraint2pb(constraint& cnstr, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
+        unsigned get_coeff(ineq const& pb, literal lit);
 
-        void display(std::ostream& out, ineq& p, bool values = false) const;
+        void display(std::ostream& out, ineq const& p, bool values = false) const;
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xr const& c, bool values) const;

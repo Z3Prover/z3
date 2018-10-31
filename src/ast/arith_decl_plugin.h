@@ -361,6 +361,9 @@ public:
     app * mk_int(int i) {
         return mk_numeral(rational(i), true);
     }
+    app * mk_int(rational const& r) {
+        return mk_numeral(r, true);
+    }
     app * mk_real(int i) {
         return mk_numeral(rational(i), false);
     }

@@ -707,6 +707,10 @@ public:
     func_decl * get_decl() const { return m_decl; }
     family_id get_family_id() const { return get_decl()->get_family_id(); }
     decl_kind get_decl_kind() const { return get_decl()->get_decl_kind(); }
+    symbol const& get_name() const { return get_decl()->get_name(); }
+    unsigned get_num_parameters() const { return get_decl()->get_num_parameters(); }
+    parameter const& get_parameter(unsigned idx) const { return get_decl()->get_parameter(idx); }
+    parameter const* get_parameters() const { return get_decl()->get_parameters(); }
     bool is_app_of(family_id fid, decl_kind k) const { return get_family_id() == fid && get_decl_kind() == k; }
     unsigned get_num_args() const { return m_num_args; }
     expr * get_arg(unsigned idx) const { SASSERT(idx < m_num_args); return m_args[idx]; }
@@ -1558,7 +1562,7 @@ public:
 
     // Equivalent to throw ast_exception(msg)
     Z3_NORETURN void raise_exception(char const * msg);
-    Z3_NORETURN void raise_exception(std::string const& msg) { raise_exception(msg.c_str()); }
+    Z3_NORETURN void raise_exception(std::string const& s);
 
     std::ostream& display(std::ostream& out, parameter const& p);
 
@@ -1632,7 +1636,7 @@ public:
     bool are_distinct(expr * a, expr * b) const;
 
     bool contains(ast * a) const { return m_ast_table.contains(a); }
-
+    
     bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     func_decl* get_rec_fun_decl(quantifier* q) const;
@@ -2496,6 +2500,7 @@ public:
 
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); }
 };
+
 
 typedef ast_ref_fast_mark<1> ast_ref_fast_mark1;
 typedef ast_ref_fast_mark<2> ast_ref_fast_mark2;

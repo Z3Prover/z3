@@ -50,18 +50,14 @@ void decl_collector::visit_func(func_decl * n) {
     if (!m_visited.is_marked(n)) {
         family_id fid = n->get_family_id();
         if (fid == null_family_id) {
-            if (m_sep_preds && is_bool(n->get_range()))
-                m_preds.push_back(n);
-            else
-                m_decls.push_back(n);
+            m_decls.push_back(n);
         }
         m_visited.mark(n, true);
     }
 }
 
-decl_collector::decl_collector(ast_manager & m, bool preds):
+decl_collector::decl_collector(ast_manager & m):
     m_manager(m),
-    m_sep_preds(preds),
     m_dt_util(m) {
     m_basic_fid = m_manager.get_basic_family_id();
     m_dt_fid = m_dt_util.get_family_id();

@@ -79,6 +79,7 @@ namespace api {
         m_datalog_util(m()),
         m_fpa_util(m()),
         m_sutil(m()),
+        m_recfun(m()),
         m_last_result(m()),
         m_ast_trail(m()),
         m_pmanager(m_limit) {

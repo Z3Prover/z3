@@ -37,6 +37,7 @@ Revision History:
 #include "model/model_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_translation.h"
+#include "ast/recfun_decl_plugin.h"
 
 namespace smt {
 
@@ -1384,7 +1385,10 @@ namespace smt {
                 SASSERT(m_manager.is_eq(n));
                 expr * lhs = n->get_arg(0);
                 expr * rhs = n->get_arg(1);
-                if (val == l_true) {
+                if (m_manager.is_bool(lhs)) {
+                    // no-op
+                }
+                else if (val == l_true) {
                     add_eq(get_enode(lhs), get_enode(rhs), eq_justification(l));
                 }
                 else {
@@ -3207,7 +3211,7 @@ namespace smt {
             }
             else {
                 set_conflict(b_justification(tmp_clause.first), null_literal);
-            }		
+            }
             VERIFY(!resolve_conflict());
             return l_false;
         next_clause:
@@ -3264,6 +3268,18 @@ namespace smt {
         for (literal lit : m_assumptions) 
             get_bdata(lit.var()).m_assumption = false;
         m_assumptions.reset();
+    }
+
+    bool context::should_research(lbool r) {
+        if (r != l_false || m_unsat_core.empty()) { 
+            return false;
+        }
+        for (theory* th : m_theory_set) {
+            if (th->should_research(m_unsat_core)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     lbool context::mk_unsat_core(lbool r) {        
@@ -3353,7 +3369,7 @@ namespace smt {
         add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
             TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
-            return check(theory_assumptions.size(), theory_assumptions.c_ptr(), reset_cancel, true);
+            return check(0, nullptr, reset_cancel);
         }
 
         internalize_assertions();
@@ -3407,19 +3423,24 @@ namespace smt {
         }
     }
 
-    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel, bool already_did_theory_assumptions) {
+    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
         if (!check_preamble(reset_cancel)) return l_undef;
         SASSERT(at_base_level());
         setup_context(false);
-        expr_ref_vector asms(m_manager, num_assumptions, assumptions);
-        if (!already_did_theory_assumptions) add_theory_assumptions(asms);                
-        // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-        TRACE("unsat_core_bug", tout << asms << "\n";);        
-        internalize_assertions();
-        init_assumptions(asms);
-        TRACE("before_search", display(tout););
-        lbool r = search();
-        r = mk_unsat_core(r);        
+        lbool r;
+        do {
+            pop_to_base_lvl();
+            expr_ref_vector asms(m_manager, num_assumptions, assumptions);
+            add_theory_assumptions(asms);                
+            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
+            TRACE("unsat_core_bug", tout << asms << "\n";);        
+            internalize_assertions();
+            init_assumptions(asms);
+            TRACE("before_search", display(tout););
+            r = search();
+            r = mk_unsat_core(r);        
+        }
+        while (should_research(r));
         r = check_finalize(r);
         return r;
     }
@@ -3428,15 +3449,20 @@ namespace smt {
         if (!check_preamble(true)) return l_undef;
         TRACE("before_search", display(tout););
         setup_context(false);
-        expr_ref_vector asms(cube);
-        add_theory_assumptions(asms);
-        // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-        for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
-        internalize_assertions();
-        init_assumptions(asms);
-        for (auto const& clause : clauses) init_clause(clause);
-        lbool r = search();   
-        r = mk_unsat_core(r);             
+        lbool r;
+        do {
+            pop_to_base_lvl();
+            expr_ref_vector asms(cube);
+            add_theory_assumptions(asms);
+            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
+            for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
+            internalize_assertions();
+            init_assumptions(asms);
+            for (auto const& clause : clauses) init_clause(clause);
+            r = search();   
+            r = mk_unsat_core(r);             
+        }
+        while (should_research(r));
         r = check_finalize(r);
         return r;           
     }
@@ -3770,7 +3796,7 @@ namespace smt {
         }
 
         m_stats.m_num_final_checks++;
-		TRACE("final_check_stats", tout << "m_stats.m_num_final_checks = " << m_stats.m_num_final_checks << "\n";);
+        TRACE("final_check_stats", tout << "m_stats.m_num_final_checks = " << m_stats.m_num_final_checks << "\n";);
 
         final_check_status ok = m_qmanager->final_check_eh(false);
         if (ok != FC_DONE)
@@ -4427,6 +4453,26 @@ namespace smt {
                 fi->set_else(bodyr);
                 m_model->register_decl(f, fi);
             }
+        }
+        recfun::util u(m);
+        recfun::decl::plugin& p = u.get_plugin();
+        func_decl_ref_vector recfuns = u.get_rec_funs();
+        for (func_decl* f : recfuns) {
+            auto& def = u.get_def(f);
+            expr* rhs = def.get_rhs();
+            if (!rhs) continue;
+            func_interp* fi = alloc(func_interp, m, f->get_arity());
+            // reverse argument order so that variable 0 starts at the beginning.
+            expr_ref_vector subst(m);
+            unsigned idx = 0;
+            for (unsigned i = 0; i < f->get_arity(); ++i) {
+                subst.push_back(m.mk_var(i, f->get_domain(i)));
+            }
+            var_subst sub(m, true);
+            expr_ref bodyr = sub(rhs, subst.size(), subst.c_ptr());
+
+            fi->set_else(bodyr);
+            m_model->register_decl(f, fi);
         }
     }
 

@@ -311,6 +311,13 @@ namespace z3 {
         func_decl function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & range);
         func_decl function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & d5, sort const & range);
 
+        func_decl recfun(symbol const & name, unsigned arity, sort const * domain, sort const & range);
+        func_decl recfun(char const * name, unsigned arity, sort const * domain, sort const & range);
+        func_decl recfun(char const * name, sort const & domain, sort const & range);
+        func_decl recfun(char const * name, sort const & d1, sort const & d2, sort const & range);
+
+        void      recdef(func_decl, expr_vector const& args, expr const& body);
+
         expr constant(symbol const & name, sort const & s);
         expr constant(char const * name, sort const & s);
         expr bool_const(char const * name);
@@ -2815,6 +2822,37 @@ namespace z3 {
         return func_decl(*this, f);
     }
 
+    inline func_decl context::recfun(symbol const & name, unsigned arity, sort const * domain, sort const & range) {
+        array<Z3_sort> args(arity);
+        for (unsigned i = 0; i < arity; i++) {
+            check_context(domain[i], range);
+            args[i] = domain[i];
+        }
+        Z3_func_decl f = Z3_mk_rec_func_decl(m_ctx, name, arity, args.ptr(), range);
+        check_error();
+        return func_decl(*this, f);
+
+    }
+
+    inline func_decl context::recfun(char const * name, unsigned arity, sort const * domain, sort const & range) {
+        return recfun(str_symbol(name), arity, domain, range);
+    }
+
+    inline func_decl context::recfun(char const * name, sort const& d1, sort const & range) {
+        return recfun(str_symbol(name), 1, &d1, range);
+    }
+
+    inline func_decl context::recfun(char const * name, sort const& d1, sort const& d2, sort const & range) {
+        sort dom[2] = { d1, d2 };
+        return recfun(str_symbol(name), 2, dom, range);
+    }
+
+    void context::recdef(func_decl f, expr_vector const& args, expr const& body) {
+        check_context(f, args); check_context(f, body);
+        array<Z3_ast> vars(args);
+        Z3_add_rec_def(f.ctx(), f, vars.size(), vars.ptr(), body);
+    }
+
     inline expr context::constant(symbol const & name, sort const & s) {
         Z3_ast r = Z3_mk_const(m_ctx, name, s);
         check_error();
@@ -2974,6 +3012,19 @@ namespace z3 {
     }
     inline func_decl function(std::string const& name, sort_vector const& domain, sort const& range) {
         return range.ctx().function(name.c_str(), domain, range);
+    }
+
+    inline func_decl recfun(symbol const & name, unsigned arity, sort const * domain, sort const & range) {
+        return range.ctx().recfun(name, arity, domain, range);
+    }
+    inline func_decl recfun(char const * name, unsigned arity, sort const * domain, sort const & range) {
+        return range.ctx().recfun(name, arity, domain, range);
+    }
+    inline func_decl recfun(char const * name, sort const& d1, sort const & range) {
+        return range.ctx().recfun(name, d1, range);
+    }
+    inline func_decl recfun(char const * name, sort const& d1, sort const& d2, sort const & range) {
+        return range.ctx().recfun(name, d1, d2, range);
     }
 
     inline expr select(expr const & a, expr const & i) {

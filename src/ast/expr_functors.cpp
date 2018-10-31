@@ -69,7 +69,11 @@ void check_pred::visit(expr* e) {
         case AST_QUANTIFIER: {
             quantifier* q = to_quantifier(e);
             expr* arg = q->get_expr();
-            if (m_visited.is_marked(arg)) {
+            if (!m_check_quantifiers) {
+                todo.pop_back();
+                m_visited.mark(e, true);
+            }
+            else if (m_visited.is_marked(arg)) {
                 todo.pop_back();
                 if (m_pred_holds.is_marked(arg)) {
                     m_pred_holds.mark(e, true);

@@ -28,6 +28,7 @@ Revision History:
 #include "smt/theory_array_full.h"
 #include "smt/theory_bv.h"
 #include "smt/theory_datatype.h"
+#include "smt/theory_recfun.h"
 #include "smt/theory_dummy.h"
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
@@ -35,6 +36,7 @@ Revision History:
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
+#include "smt/theory_jobscheduler.h"
 
 namespace smt {
 
@@ -119,6 +121,8 @@ namespace smt {
             setup_UFLRA();
         else if (m_logic == "LRA")
             setup_LRA();
+        else if (m_logic == "CSP")
+            setup_CSP();
         else if (m_logic == "QF_FP")
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
@@ -196,6 +200,8 @@ namespace smt {
                 setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
+            else if (m_logic == "CSP")
+                setup_CSP();
             else 
                 setup_unknown(st);
         }
@@ -217,6 +223,7 @@ namespace smt {
     void setup::setup_QF_DT() {
         setup_QF_UF();
         setup_datatypes();
+        setup_recfuns();
     }
 
     void setup::setup_QF_BVRE() {
@@ -873,6 +880,12 @@ namespace smt {
         m_context.register_plugin(alloc(theory_datatype, m_manager, m_params));
     }
 
+    void setup::setup_recfuns() {
+        TRACE("recfun", tout << "registering theory recfun...\n";);
+        theory_recfun * th = alloc(theory_recfun, m_manager);
+        m_context.register_plugin(th);
+    }
+
     void setup::setup_dl() {
         m_context.register_plugin(mk_theory_dl(m_manager));
     }
@@ -916,6 +929,11 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_seq, m_manager, m_params));
     }
 
+    void setup::setup_CSP() {
+        setup_unknown();
+        m_context.register_plugin(alloc(smt::theory_jobscheduler, m_manager));
+    }
+
     void setup::setup_unknown() {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
@@ -926,6 +944,7 @@ namespace smt {
         setup_arrays();
         setup_bv();
         setup_datatypes();
+        setup_recfuns();
         setup_dl();
         setup_seq_str(st);
         setup_card();
@@ -945,6 +964,7 @@ namespace smt {
             setup_seq_str(st);
             setup_card();
             setup_fpa();
+            setup_recfuns();
             return;
         }
 

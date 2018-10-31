@@ -859,6 +859,10 @@ namespace smt {
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr);
 
+        void mk_th_axiom(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
+            mk_th_axiom(tid, ls.size(), ls.c_ptr(), num_params, params);
+        }
+
         /*
          * Provide a hint to the core solver that the specified literals form a "theory case split".
          * The core solver will enforce the condition that exactly one of these literals can be
@@ -1010,9 +1014,9 @@ namespace smt {
         void restore_theory_vars(enode * r2, enode * r1);
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
-            SASSERT(lhs != rhs);
-            SASSERT(lhs->get_root() != rhs->get_root());
-            m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
+            if (lhs->get_root() != rhs->get_root()) {
+                m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
+            }
         }
 
         void push_new_congruence(enode * n1, enode * n2, bool used_commutativity) {
@@ -1133,6 +1137,8 @@ namespace smt {
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
         lbool mk_unsat_core(lbool result);
+        
+        bool should_research(lbool result);
 
         void validate_unsat_core();
 
@@ -1242,6 +1248,11 @@ namespace smt {
 
     public:
         bool can_propagate() const;
+
+        // Retrieve arithmetic values. 
+        bool get_arith_lo(expr* e, rational& lo, bool& strict);
+        bool get_arith_up(expr* e, rational& up, bool& strict);
+        bool get_arith_value(expr* e, rational& value);
 
         // -----------------------------------
         //
@@ -1515,7 +1526,7 @@ namespace smt {
 
         void pop(unsigned num_scopes);
 
-        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
+        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true);
 
         lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 
@@ -1609,6 +1620,34 @@ namespace smt {
         void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_asserted_formulas.insert_macro(f, m, pr, dep); }
     };
 
+    struct pp_lit {
+        context & ctx;
+        literal lit;
+        pp_lit(context & ctx, literal lit) : ctx(ctx), lit(lit) {}
+    };
+
+    inline std::ostream & operator<<(std::ostream & out, pp_lit const & pp) {
+        return pp.ctx.display_detailed_literal(out, pp.lit);
+    }
+
+    struct pp_lits {
+        context & ctx;
+        literal const *lits;
+        unsigned len;
+        pp_lits(context & ctx, unsigned len, literal const *lits) : ctx(ctx), lits(lits), len(len) {}
+        pp_lits(context & ctx, literal_vector const& ls) : ctx(ctx), lits(ls.c_ptr()), len(ls.size()) {}
+    };
+
+    inline std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {
+        out << "{";
+        bool first = true;
+        for (unsigned i = 0; i < pp.len; ++i) {
+            if (first) { first = false; } else { out << " or\n"; }
+            pp.ctx.display_detailed_literal(out, pp.lits[i]);
+        }
+        return out << "}";
+
+    }
     struct enode_eq_pp {
         context const&          ctx;
         enode_pair const& p;

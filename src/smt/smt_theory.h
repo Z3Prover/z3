@@ -195,6 +195,15 @@ namespace smt {
         }
 
         /**
+           \brief This method is called from the smt_context when an unsat core is generated.
+           The theory may tell the solver to perform iterative deepening by invalidating
+           this unsat core and increasing some resource constraints.
+        */
+        virtual bool should_research(expr_ref_vector & unsat_core) {
+            return false;
+        }
+
+        /**
            \brief This method is invoked before the search starts.
         */
         virtual void init_search_eh() {
@@ -294,6 +303,8 @@ namespace smt {
             SASSERT(m_context);
             return *m_context;
         }
+
+        context & ctx() const { return get_context(); }
         
         ast_manager & get_manager() const {
             SASSERT(m_manager);

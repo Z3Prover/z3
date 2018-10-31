@@ -114,6 +114,7 @@ namespace smt2 {
         symbol               m_define_fun_rec;
         symbol               m_define_funs_rec;
         symbol               m_match;
+        symbol               m_case;
         symbol               m_underscore;
 
         typedef std::pair<symbol, expr*> named_expr;
@@ -382,7 +383,9 @@ namespace smt2 {
                 next();
                 return;
             }
-            throw parser_exception(msg);
+            std::ostringstream str;
+            str << msg << " got " << curr_id();
+            throw parser_exception(str.str());
         }
 
         symbol const & curr_id() const { return m_scanner.get_id(); }
@@ -406,6 +409,7 @@ namespace smt2 {
         bool curr_id_is_underscore() const { SASSERT(curr_is_identifier()); return curr_id() == m_underscore; }
         bool curr_id_is_as() const { SASSERT(curr_is_identifier()); return curr_id() == m_as; }
         bool curr_id_is_match() const { SASSERT(curr_is_identifier()); return curr_id() == m_match; }
+        bool curr_id_is_case() const { return curr_id() == m_case; }
         bool curr_id_is_forall() const { SASSERT(curr_is_identifier()); return curr_id() == m_forall; }
         bool curr_id_is_exists() const { SASSERT(curr_is_identifier()); return curr_id() == m_exists; }
         bool curr_id_is_lambda() const { SASSERT(curr_is_identifier()); return curr_id() == m_lambda; }
@@ -625,8 +629,6 @@ namespace smt2 {
                 args.push_back(u);
                 next();
             }
-            if (args.empty())
-                throw parser_exception("invalid indexed sort, index expected");
             sort * r = d->instantiate(pm(), args.size(), args.c_ptr());
             if (r == nullptr)
                 throw parser_exception("invalid sort application");
@@ -1321,7 +1323,13 @@ namespace smt2 {
 
         /**
          * SMT-LIB 2.6 pattern matches are of the form
-         * (match t ((p1 t1) ... (pm+1 tm+1)))         
+         *
+         *   (match t ((p1 t1) ... (pm+1 tm+1)))         
+         *
+         * precursor form is
+         *
+         *   (match t (case p1 t1) (case p2 t2) ... )
+         *
          */
         void push_match_frame() {
             SASSERT(curr_is_identifier());
@@ -1338,21 +1346,42 @@ namespace smt2 {
             sort* srt = m().get_sort(t);
 
             check_lparen_next("pattern bindings should be enclosed in a parenthesis");
-            while (!curr_is_rparen()) {
-                m_env.begin_scope();
-                unsigned num_bindings = m_num_bindings;
-                check_lparen_next("invalid pattern binding, '(' expected");
-                parse_match_pattern(srt);  
-                patterns.push_back(expr_stack().back());
-                expr_stack().pop_back();
-                parse_expr();
-                cases.push_back(expr_stack().back());
-                expr_stack().pop_back();
-                m_num_bindings = num_bindings;
-                m_env.end_scope();
-                check_rparen_next("invalid pattern binding, ')' expected");
+            if (curr_id_is_case()) {
+                while (curr_id_is_case()) {
+                    next();
+                    m_env.begin_scope();
+                    unsigned num_bindings = m_num_bindings;
+                    parse_match_pattern(srt);  
+                    patterns.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    parse_expr();
+                    cases.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    m_num_bindings = num_bindings;
+                    m_env.end_scope();
+                    check_rparen_next("invalid pattern binding, ')' expected");                    
+                    if (curr_is_lparen()) {
+                        next();
+                    }
+                }               
             }
-            next();
+            else {
+                while (!curr_is_rparen()) {
+                    m_env.begin_scope();
+                    unsigned num_bindings = m_num_bindings;
+                    parse_match_pattern(srt);  
+                    patterns.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    check_lparen_next("invalid pattern binding, '(' expected");                    
+                    parse_expr();
+                    cases.push_back(expr_stack().back());
+                    expr_stack().pop_back();
+                    m_num_bindings = num_bindings;
+                    m_env.end_scope();
+                    check_rparen_next("invalid pattern binding, ')' expected");
+                }
+                next();
+            }
             m_num_expr_frames = num_frames + 1;
             expr_stack().push_back(compile_patterns(t, patterns, cases));
         }
@@ -1410,6 +1439,12 @@ namespace smt2 {
         // compute match condition and substitution
         // t is shifted by size of subst.
         expr_ref bind_match(expr* t, expr* pattern, expr_ref_vector& subst) {
+            if (m().get_sort(t) != m().get_sort(pattern)) {
+                std::ostringstream str;
+                str << "sorts of pattern " << expr_ref(pattern, m()) << " and term " 
+                    << expr_ref(t, m()) << " are not aligned";
+                throw parser_exception(str.str());
+            }
             expr_ref tsh(m());
             if (is_var(pattern)) {
                 shifter()(t, 1, tsh);
@@ -1520,11 +1555,22 @@ namespace smt2 {
             check_identifier("invalid indexed identifier, symbol expected");
             symbol r = curr_id();
             next();
-            unsigned num_indices = 0;
             while (!curr_is_rparen()) {
                 if (curr_is_int()) {
-                    unsigned u = curr_unsigned();
-                    m_param_stack.push_back(parameter(u));
+                    if (!curr_numeral().is_unsigned()) {
+                        m_param_stack.push_back(parameter(curr_numeral()));                       
+                    }
+                    else {
+                        m_param_stack.push_back(parameter(curr_unsigned()));
+                    }
+                    next();
+                }
+                else if (curr_is_float()) {
+                    m_param_stack.push_back(parameter(curr_numeral()));
+                    next();
+                }
+                else if (curr_is_keyword()) {
+                    m_param_stack.push_back(parameter(curr_id()));
                     next();
                 }
                 else if (curr_is_identifier() || curr_is_lparen()) {
@@ -1533,10 +1579,7 @@ namespace smt2 {
                 else {
                     throw parser_exception("invalid indexed identifier, integer, identifier or '(' expected");
                 }
-                num_indices++;
             }
-            if (num_indices == 0)
-                throw parser_exception("invalid indexed identifier, index expected");
             next();
             return r;
         }
@@ -1857,13 +1900,31 @@ namespace smt2 {
             unsigned num_args    = expr_stack().size() - fr->m_expr_spos;
             unsigned num_indices = m_param_stack.size() - fr->m_param_spos;
             expr_ref t_ref(m());
-            m_ctx.mk_app(fr->m_f,
-                         num_args,
-                         expr_stack().c_ptr() + fr->m_expr_spos,
-                         num_indices,
-                         m_param_stack.c_ptr() + fr->m_param_spos,
-                         fr->m_as_sort ? sort_stack().back() : nullptr,
-                         t_ref);
+            local l;
+            if (m_env.find(fr->m_f, l)) {
+                push_local(l);
+                t_ref = expr_stack().back();
+                for (unsigned i = 0; i < num_args; ++i) {
+                    expr* arg = expr_stack().get(fr->m_expr_spos + i);
+                    expr* args[2] = { t_ref.get(), arg };
+                    m_ctx.mk_app(symbol("select"), 
+                                 2, 
+                                 args,
+                                 0,
+                                 nullptr,
+                                 nullptr,
+                                 t_ref);
+                }
+            }
+            else {
+                m_ctx.mk_app(fr->m_f,
+                             num_args,
+                             expr_stack().c_ptr() + fr->m_expr_spos,
+                             num_indices,
+                             m_param_stack.c_ptr() + fr->m_param_spos,
+                             fr->m_as_sort ? sort_stack().back() : nullptr,
+                             t_ref);
+            }
             expr_stack().shrink(fr->m_expr_spos);
             m_param_stack.shrink(fr->m_param_spos);
             if (fr->m_as_sort)
@@ -2216,10 +2277,14 @@ namespace smt2 {
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
-            if (is_fun) 
-                m_ctx.insert(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
-            else 
-                m_ctx.model_add(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
+            sort* const* sorts = sort_stack().c_ptr() + sort_spos;
+            expr* t = expr_stack().back();
+            if (is_fun) {
+                m_ctx.insert(id, num_vars, sorts, t);
+            }
+            else {
+                m_ctx.model_add(id, num_vars, sorts, t);
+            }
             check_rparen("invalid function/constant definition, ')' expected");
             // restore stacks & env
             symbol_stack().shrink(sym_spos);
@@ -2311,7 +2376,7 @@ namespace smt2 {
             next();
         }
 
-        void parse_rec_fun_decl(func_decl_ref& f, expr_ref_vector& bindings, svector<symbol>& ids) {
+        recfun::promise_def parse_rec_fun_decl(func_decl_ref& f, expr_ref_vector& bindings, svector<symbol>& ids) {
             SASSERT(m_num_bindings == 0);
             check_identifier("invalid function/constant definition, symbol expected");
             symbol id = curr_id();
@@ -2322,7 +2387,8 @@ namespace smt2 {
             unsigned num_vars  = parse_sorted_vars();
             SASSERT(num_vars == m_num_bindings);
             parse_sort("Invalid recursive function definition");
-            f = m().mk_func_decl(id, num_vars, sort_stack().c_ptr() + sort_spos, sort_stack().back());
+            recfun::promise_def pdef = m_ctx.decl_rec_fun(id, num_vars, sort_stack().c_ptr() + sort_spos, sort_stack().back());
+            f = pdef.get_def()->get_decl();
             bindings.append(num_vars, expr_stack().c_ptr() + expr_spos);
             ids.append(num_vars, symbol_stack().c_ptr() + sym_spos);
             symbol_stack().shrink(sym_spos);
@@ -2330,6 +2396,7 @@ namespace smt2 {
             expr_stack().shrink(expr_spos);
             m_env.end_scope();
             m_num_bindings = 0;
+            return pdef;
         }
 
         void parse_rec_fun_bodies(func_decl_ref_vector const& decls, vector<expr_ref_vector> const& bindings, vector<svector<symbol> >const & ids) {
@@ -3005,6 +3072,7 @@ namespace smt2 {
             m_define_fun_rec("define-fun-rec"),
             m_define_funs_rec("define-funs-rec"),
             m_match("match"),
+            m_case("case"),
             m_underscore("_"),
             m_num_open_paren(0),
             m_current_file(filename) {

@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include<sstream>
-#include<cstring>
+#include <sstream>
+#include <cstring>
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -1360,7 +1360,8 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_proof_mode(disable_proofs ? PGM_DISABLED : src.m_proof_mode),
     m_trace_stream(src.m_trace_stream),
     m_trace_stream_owner(false),
-    m_rec_fun(":rec-fun") {
+    m_rec_fun(":rec-fun"),
+    m_lambda_def(":lambda-def") {
     SASSERT(!src.is_format_manager());
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
@@ -1539,6 +1540,10 @@ void ast_manager::compress_ids() {
 
 void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
+}
+
+void ast_manager::raise_exception(std::string const&  msg) {
+    throw ast_exception(msg.c_str());
 }
 
 

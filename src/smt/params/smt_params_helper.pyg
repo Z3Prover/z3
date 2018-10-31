@@ -95,5 +95,7 @@ def_module_params(module_name='smt',
                           ('core.extend_patterns.max_distance', UINT, UINT_MAX, 'limits the distance of a pattern-extended unsat core'),
                           ('core.extend_nonlocal_patterns', BOOL, False, 'extend unsat cores with literals that have quantifiers with patterns that contain symbols which are not in the quantifier\'s body'),
                           ('lemma_gc_strategy', UINT, 0, 'lemma garbage collection strategy: 0 - fixed, 1 - geometric, 2 - at restart, 3 - none'),
-                          ('dt_lazy_splits', UINT, 1, 'How lazy datatype splits are performed: 0- eager, 1- lazy for infinite types, 2- lazy')
+                          ('dt_lazy_splits', UINT, 1, 'How lazy datatype splits are performed: 0- eager, 1- lazy for infinite types, 2- lazy'),
+                          ('recfun.native', BOOL, True, 'use native rec-fun solver'),
+                          ('recfun.depth', UINT, 2, 'initial depth for maxrec expansion')
                           ))

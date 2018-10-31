@@ -32,6 +32,7 @@ Notes:
 #include "ast/ast.h"
 #include "ast/ast_printer.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "tactic/generic_model_converter.h"
 #include "solver/solver.h"
 #include "solver/progress_callback.h"
@@ -199,7 +200,6 @@ protected:
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
-    bool                         m_rec_fun_declared;
     pdecl_manager *              m_pmanager;
     sexpr_manager *              m_sexpr_manager;
     check_logic                  m_check_logic;
@@ -291,6 +291,7 @@ protected:
     bool logic_has_array() const;
     bool logic_has_datatype() const;
     bool logic_has_fpa() const;
+    bool logic_has_recfun() const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}
@@ -306,6 +307,7 @@ protected:
     void erase_macro(symbol const& s);
     bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
 
+    recfun::decl::plugin& get_recfun_plugin();
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = nullptr, symbol const & l = symbol::null);
@@ -384,12 +386,14 @@ public:
     void insert(probe_info * p) { tactic_manager::insert(p); }
     void insert_user_tactic(symbol const & s, sexpr * d);
     void insert_aux_pdecl(pdecl * p);
-    void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     void model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t);
     void model_del(func_decl* f);
+    void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
+    void insert_rec_fun_as_axiom(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                unsigned arity, sort * const * domain, sort * range) const;
+    recfun::promise_def decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range);
     psort_decl * find_psort_decl(symbol const & s) const;
     cmd * find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;

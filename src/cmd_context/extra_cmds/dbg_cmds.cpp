@@ -91,6 +91,11 @@ UNARY_CMD(pp_shared_cmd, "dbg-pp-shared", "<term>", "display shared subterms of 
     ctx.regular_stream() << ")" << std::endl;
 });
 
+UNARY_CMD(assert_not_cmd, "assert-not", "<term>", "assert negation", CPK_EXPR, expr *, {
+    expr_ref ne(ctx.m().mk_not(arg), ctx.m());
+    ctx.assert_expr(ne);
+});
+
 UNARY_CMD(num_shared_cmd, "dbg-num-shared", "<term>", "return the number of shared subterms", CPK_EXPR, expr *, {
     shared_occs s(ctx.m());
     s(arg);
@@ -537,6 +542,7 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(shift_vars_cmd));
     ctx.insert(alloc(pp_shared_cmd));
     ctx.insert(alloc(num_shared_cmd));
+    ctx.insert(alloc(assert_not_cmd));
     ctx.insert(alloc(size_cmd));
     ctx.insert(alloc(subst_cmd));
     ctx.insert(alloc(bool_rewriter_cmd));

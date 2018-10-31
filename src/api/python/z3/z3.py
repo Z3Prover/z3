@@ -1,4 +1,5 @@
 
+
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 #
@@ -798,6 +799,49 @@ def Function(name, *sig):
 
 def _to_func_decl_ref(a, ctx):
     return FuncDeclRef(a, ctx)
+
+def RecFunction(name, *sig):
+    """Create a new Z3 recursive with the given sorts."""
+    sig = _get_args(sig)
+    if __debug__:
+        _z3_assert(len(sig) > 0, "At least two arguments expected")
+    arity = len(sig) - 1
+    rng   = sig[arity]
+    if __debug__:
+        _z3_assert(is_sort(rng), "Z3 sort expected")
+    dom   = (Sort * arity)()
+    for i in range(arity):
+        if __debug__:
+            _z3_assert(is_sort(sig[i]), "Z3 sort expected")
+        dom[i] = sig[i].ast
+    ctx = rng.ctx
+    return FuncDeclRef(Z3_mk_rec_func_decl(ctx.ref(), to_symbol(name, ctx), arity, dom, rng.ast), ctx)
+
+def RecAddDefinition(f, args, body):
+    """Set the body of a recursive function.
+       Recursive definitions are only unfolded during search.
+    >>> ctx = Context()
+    >>> fac = RecFunction('fac', IntSort(ctx), IntSort(ctx))
+    >>> n = Int('n', ctx)
+    >>> RecAddDefinition(fac, n, If(n == 0, 1, n*fac(n-1)))
+    >>> simplify(fac(5))
+    fac(5)
+    >>> s = Solver(ctx=ctx)
+    >>> s.add(fac(n) < 3)
+    >>> s.check()
+    sat
+    >>> s.model().eval(fac(5))
+    120
+    """
+    if is_app(args):
+       args = [args]
+    ctx = body.ctx
+    args = _get_args(args)
+    n = len(args)
+    _args = (Ast * n)()
+    for i in range(n):
+        _args[i] = args[i].ast
+    Z3_add_rec_def(ctx.ref(), f.ast, n, _args, body.ast)
 
 #########################################
 #
@@ -6511,8 +6555,8 @@ class Solver(Z3PPObject):
         >>> s.add(x > 0, x < 2)
         >>> s.check()
         sat
-        >>> s.model()
-        [x = 1]
+        >>> s.model().eval(x)
+        1
         >>> s.add(x < 1)
         >>> s.check()
         unsat
