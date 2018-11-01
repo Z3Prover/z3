@@ -4460,6 +4460,11 @@ namespace smt {
             auto& def = u.get_def(f);
             expr* rhs = def.get_rhs();
             if (!rhs) continue;
+            if (f->get_arity() == 0) {
+                m_model->register_decl(f, rhs);
+                continue;
+            }			
+
             func_interp* fi = alloc(func_interp, m, f->get_arity());
             // reverse argument order so that variable 0 starts at the beginning.
             expr_ref_vector subst(m);
