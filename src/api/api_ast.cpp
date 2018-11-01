@@ -33,6 +33,7 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/recfun_replace.h"
 #include "ast/pp.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
@@ -156,7 +157,8 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);            
             return;
         }
-        p.set_definition(pd, n, _vars.c_ptr(), abs_body);
+        recfun_replace replace(m);
+        p.set_definition(replace, pd, n, _vars.c_ptr(), abs_body);
         Z3_CATCH;
     }
 

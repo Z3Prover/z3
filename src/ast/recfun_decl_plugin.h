@@ -20,7 +20,6 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
-#include "ast/rewriter/th_rewriter.h"
 #include "util/obj_hashtable.h"
 
 namespace recfun {
@@ -45,6 +44,13 @@ namespace recfun {
     */
 
     typedef var_ref_vector vars;
+
+    class replace {
+    public:
+        virtual void reset() = 0;
+        virtual void insert(expr* d, expr* r) = 0;
+        virtual expr_ref operator()(expr* e) = 0;
+    };
 
     class case_def {
         friend class def;
@@ -105,7 +111,7 @@ namespace recfun {
         def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range);
 
         // compute cases for a function, given its RHS (possibly containing `ite`).
-        void compute_cases(is_immediate_pred &, th_rewriter & th_rw,
+        void compute_cases(replace& subst, is_immediate_pred &, 
                            unsigned n_vars, var *const * vars, expr* rhs);
         void add_case(std::string & name, unsigned case_index, expr_ref_vector const& conditions, expr* rhs, bool is_imm = false);
         bool contains_ite(expr* e); // expression contains a test?
@@ -129,7 +135,7 @@ namespace recfun {
         friend class util;
         util * u;
         def * d;
-        void set_definition(unsigned n_vars, var * const * vars, expr * rhs); // call only once
+        void set_definition(replace& r, unsigned n_vars, var * const * vars, expr * rhs); // call only once
     public:
         promise_def(util * u, def * d) : u(u), d(d) {}
         promise_def(promise_def const & from) : u(from.u), d(from.d) {}
@@ -167,9 +173,9 @@ namespace recfun {
             
             promise_def mk_def(symbol const& name, unsigned n, sort *const * params, sort * range);
             
-            void set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
+            void set_definition(replace& r, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
             
-            def* mk_def(symbol const& name, unsigned n, sort ** params, sort * range, unsigned n_vars, var ** vars, expr * rhs);
+            def* mk_def(replace& subst, symbol const& name, unsigned n, sort ** params, sort * range, unsigned n_vars, var ** vars, expr * rhs);
 
             bool has_def(func_decl* f) const { return m_defs.contains(f); }
             bool has_defs() const;
@@ -193,18 +199,16 @@ namespace recfun {
         
         ast_manager &           m_manager;
         family_id               m_fid;
-        th_rewriter             m_th_rw;
         decl::plugin *          m_plugin;
 
         bool compute_is_immediate(expr * rhs);
-        void set_definition(promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
+        void set_definition(replace& r, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
 
     public:
         util(ast_manager &m);
         ~util();
 
         ast_manager & m() { return m_manager; }
-        th_rewriter & get_th_rewriter() { return m_th_rw; }
         decl::plugin& get_plugin() { return *m_plugin; }
 
         bool is_case_pred(expr * e) const { return is_app_of(e, m_fid, OP_FUN_CASE_PRED); }

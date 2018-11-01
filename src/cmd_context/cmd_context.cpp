@@ -39,6 +39,7 @@ Notes:
 #include "ast/well_sorted.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/recfun_replace.h"
 #include "model/model_evaluator.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
@@ -953,7 +954,8 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     }
     
     recfun::promise_def d = p.get_promise_def(f);
-    p.set_definition(d, vars.size(), vars.c_ptr(), rhs);
+    recfun_replace replace(m());
+    p.set_definition(replace, d, vars.size(), vars.c_ptr(), rhs);
 }
 
 func_decl * cmd_context::find_func_decl(symbol const & s) const {

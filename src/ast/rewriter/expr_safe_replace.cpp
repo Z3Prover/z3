@@ -19,7 +19,6 @@ Revision History:
 --*/
 
 #include "ast/rewriter/expr_safe_replace.h"
-#include "ast/rewriter/rewriter.h"
 #include "ast/ast_pp.h"
 
 
