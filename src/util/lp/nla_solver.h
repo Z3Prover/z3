@@ -24,6 +24,8 @@ Revision History:
 #include "util/params.h"
 #include "nlsat/nlsat_solver.h"
 #include "util/lp/lar_solver.h"
+#include "util/lp/monomial.h"
+
 namespace nla {
 struct ineq {
     lp::lconstraint_kind m_cmp;
@@ -36,7 +38,7 @@ struct ineq {
 };
 
 typedef vector<ineq> lemma;
-
+typedef vector<monomial> polynomial;
 // nonlinear integer incremental linear solver
 class solver {
     struct imp;
