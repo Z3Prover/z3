@@ -1538,7 +1538,8 @@ public:
             }
             enode* n2 = get_enode(other);
             if (n1->get_root() != n2->get_root()) {
-                TRACE("arith", tout << enode_eq_pp(enode_pair(n1, n2), ctx());
+                TRACE("arith", tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
+                      tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
                       tout << "v" << v << " = " << "v" << other << "\n";);
                 m_assume_eq_candidates.push_back(std::make_pair(v, other));
                 result = true;
@@ -2040,6 +2041,32 @@ public:
 
     nla::lemma m_lemma;
  
+    lp::lar_term mk_term(nla::polynomial const& poly) {
+        lp::lar_term term;
+        for (auto const& mon : poly) {
+            SASSERT(!mon.empty());
+            if (mon.size() == 1) {
+                term.add_coeff_var(mon.get_coeff(), mon[0]);
+            }
+            else {
+                // create the expression corresponding to the product.
+                // internalize it.
+                // extract the theory var representing the product.
+                // convert the theory var back to lp::var_index
+                expr_ref_vector mul(m);
+                for (lp::var_index v : mon) {
+                    theory_var w = m_var_index2theory_var[v];
+                    mul.push_back(get_enode(w)->get_owner());
+                }
+                app_ref t(a.mk_mul(mul.size(), mul.c_ptr()), m);
+                VERIFY(internalize_term(t));
+                theory_var w = ctx().get_enode(t)->get_th_var(get_id());
+                term.add_coeff_var(mon.get_coeff(), m_theory_var2var_index[w]);
+            }
+        }
+        return term;
+    }
+
     lbool check_aftermath_nla(lbool r) {
         switch (r) {
         case l_false: {            
@@ -2058,6 +2085,8 @@ public:
                 }
                 TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
                 app_ref atom(m);
+                // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
+                // then term is used instead of ineq.m_term
                 if (is_eq) {
                     atom = mk_eq(ineq.m_term, ineq.m_rs);
                 }
@@ -3066,15 +3095,15 @@ public:
                                 get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
 
                     TRACE("arith",
-                          for (literal c : m_core) {
-                              ctx().display_detailed_literal(tout, c);
+                          for (unsigned i = 0; i <  m_core.size(); ++i) {
+                              ctx().display_detailed_literal(tout, m_core[i]);
                               tout << "\n";
                           } 
-                          for (enode_pair const& p : m_eqs) {
-                              tout << enode_eq_pp(p, ctx());
+                          for (unsigned i = 0; i < m_eqs.size(); ++i) {
+                              tout << mk_pp(m_eqs[i].first->get_owner(), m) << " = " << mk_pp(m_eqs[i].second->get_owner(), m) << "\n";
                           } 
                           tout << " ==> ";
-                          tout << enode_pp(x, ctx()) << " = " << enode_pp(y, ctx()) << "\n";
+                          tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n";
                           );
 
                     // parameters are TBD.
@@ -3666,7 +3695,8 @@ public:
                 break;
             }
             case equality_source: 
-                out << enode_eq_pp(m_equalities[idx], ctx());
+                out << mk_pp(m_equalities[idx].first->get_owner(), m) << " = " 
+                    << mk_pp(m_equalities[idx].second->get_owner(), m) << "\n"; 
                 break;
             case definition_source: {
                 theory_var v = m_definitions[idx];
