@@ -1701,8 +1701,19 @@ void lar_solver::push_and_register_term(lar_term* t) {
     m_terms.push_back(t);
 }
 
+
 // terms
+bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>> & coeffs) {
+    for (const auto & p : coeffs) {
+        if (p.second >= m_var_register.size()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs) {
+    lp_assert(all_vars_are_registered(coeffs));
     if (strategy_is_undecided())
         return add_term_undecided(coeffs);
 
