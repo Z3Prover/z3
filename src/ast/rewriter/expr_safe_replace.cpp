@@ -19,6 +19,7 @@ Revision History:
 --*/
 
 #include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 
 

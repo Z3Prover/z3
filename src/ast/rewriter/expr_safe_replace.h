@@ -23,7 +23,6 @@ Revision History:
 #define EXPR_SAFE_REPLACE_H_
 
 #include "ast/ast.h"
-#include "ast/rewriter/var_subst.h"
 
 class expr_safe_replace {
     ast_manager& m;

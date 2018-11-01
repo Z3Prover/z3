@@ -34,8 +34,8 @@ class recfun_replace : public recfun::replace {
 public:
     recfun_replace(ast_manager& m): m(m), m_replace(m) {}
     void reset() override { m_replace.reset(); }
-    void insert(expr* s, expr* t) { m_replace.insert(s, t); }
-    expr_ref operator()(expr* e) { expr_ref r(m); m_replace(e, r); return r; }
+    void insert(expr* s, expr* t) override { m_replace.insert(s, t); }
+    expr_ref operator()(expr* e) override { expr_ref r(m); m_replace(e, r); return r; }
 };
 
 #endif /* RECFUN_REPLACE_H_ */
