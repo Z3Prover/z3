@@ -176,6 +176,8 @@ public:
 
 
     // terms
+    bool all_vars_are_registered(const vector<std::pair<mpq, var_index>> & coeffs);
+
     var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs);
 
     var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs);
