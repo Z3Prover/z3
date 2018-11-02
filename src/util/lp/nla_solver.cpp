@@ -484,7 +484,7 @@ struct solver::imp {
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
     bool basic_lemma_for_mon_zero_from_monomial_to_factor(unsigned i_mon, const factorization& f) {
-        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f););
+        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f, tout););
         lpvar mon_var = m_monomials[i_mon].var();
         if (!vvr(mon_var).is_zero() )
             return false;
@@ -518,14 +518,14 @@ struct solver::imp {
         set_expl(e);
     }
 
-    void trace_print_monomial_and_factorization(unsigned i_mon, const factorization& f) const {
-        tout << "mon = ";
-        print_monomial(i_mon, tout);
-        tout << "\nfact = "; print_factorization(f, tout);
+    void trace_print_monomial_and_factorization(unsigned i_mon, const factorization& f, std::ostream& out) const {
+        out << "mon = ";
+        print_monomial(i_mon, out);
+        out << "\nfact = "; print_factorization(f, out);
     }
     // x = 0 or y = 0 -> xy = 0
     bool basic_lemma_for_mon_zero_from_factors_to_monomial(unsigned i_mon, const factorization& f) {
-        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f););
+        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f, tout););
         if (vvr(m_monomials[i_mon].var()).is_zero())
             return false;
         unsigned zero_j = -1;
@@ -559,7 +559,7 @@ struct solver::imp {
     // use the fact that
     // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1
     bool basic_lemma_for_mon_neutral_monomial_to_factor(unsigned i_mon, const factorization& f) {
-        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f););
+        TRACE("nla_solver", trace_print_monomial_and_factorization(i_mon, f, tout););
 
         // todo : consider the case of just two factors
         lpvar mon_var = m_monomials[i_mon].var();

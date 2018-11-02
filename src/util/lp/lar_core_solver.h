@@ -100,7 +100,7 @@ public:
 
     void calculate_pivot_row(unsigned i);
 
-    void print_pivot_row(std::ostream & out, unsigned row_index) const  { // remove later debug !!!!
+    void print_pivot_row(std::ostream & out, unsigned row_index) const  {
         for (unsigned j : m_r_solver.m_pivot_row.m_index) {
             if (numeric_traits<mpq>::is_pos(m_r_solver.m_pivot_row.m_data[j]))
                 out << "+";
