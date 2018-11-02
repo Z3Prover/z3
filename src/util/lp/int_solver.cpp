@@ -612,6 +612,7 @@ bool int_solver::ext_gcd_test(const row_strip<mpq> & row,
                               mpq const & least_coeff, 
                               mpq const & lcm_den,
                               mpq const & consts) {
+    TRACE("ext_gcd_test", tout << "row = "; m_lar_solver->print_row(row, tout););
     mpq gcds(0);
     mpq l(consts);
     mpq u(consts);
@@ -620,6 +621,7 @@ bool int_solver::ext_gcd_test(const row_strip<mpq> & row,
     unsigned j;
     for (const auto & c : row) {
         j = c.var();
+        TRACE("ext_gcd_test", tout << "col = "; m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_bound_info(j, tout););
         const mpq & a = c.coeff();
         if (m_lar_solver->column_is_fixed(j))
             continue;
