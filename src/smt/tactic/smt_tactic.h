@@ -27,17 +27,15 @@ Notes:
 class tactic;
 class filter_model_converter;
 
-tactic * mk_smt_tactic(params_ref const & p = params_ref());
+tactic * mk_smt_tactic(ast_manager& m, params_ref const & p = params_ref(), symbol const& logic = symbol::null);
 // syntax sugar for using_params(mk_smt_tactic(), p) where p = (:auto_config, auto_config)
-tactic * mk_smt_tactic_using(bool auto_config = true, params_ref const & p = params_ref());
+tactic * mk_smt_tactic_using(ast_manager& m, bool auto_config = true, params_ref const & p = params_ref());
 
-tactic * mk_psmt_tactic(ast_manager& m, params_ref const& p, symbol const& logic = symbol::null);
-tactic * mk_psmt_tactic_using(ast_manager& m, bool auto_config, params_ref const& p, symbol const& logic = symbol::null);
 tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p);
 
 
 /*
-  ADD_TACTIC("smt", "apply a SAT based SMT solver.", "mk_smt_tactic(p)") 
+  ADD_TACTIC("smt", "apply a SAT based SMT solver.", "mk_smt_tactic(m, p)") 
   ADD_TACTIC("psmt", "builtin strategy for SMT tactic in parallel.", "mk_parallel_smt_tactic(m, p)")
 */
 #endif

@@ -17,12 +17,10 @@ Notes:
 
 --*/
 #include "ast/ast_pp.h"
+#include "model/model_v2_pp.h"
 #include "tactic/tactical.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/sat_solver.h"
-#include "solver/parallel_tactic.h"
-#include "solver/parallel_params.hpp"
-#include "model/model_v2_pp.h"
 
 class sat_tactic : public tactic {
 

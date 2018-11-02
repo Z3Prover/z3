@@ -105,7 +105,7 @@ static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
 static tactic * mk_qfnia_smt_solver(ast_manager& m, params_ref const& p) {
     params_ref simp_p = p;
     simp_p.set_bool("som", true); // expand into sums of monomials
-    return and_then(using_params(mk_simplify_tactic(m), simp_p), mk_smt_tactic());
+    return and_then(using_params(mk_simplify_tactic(m), simp_p), mk_smt_tactic(m));
 }
 
 tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {

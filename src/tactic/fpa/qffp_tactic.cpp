@@ -94,11 +94,11 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                            using_params(mk_simplify_tactic(m, p), simp_p),
                            cond(mk_is_propositional_probe(),
                                 cond(mk_produce_proofs_probe(),
-                                     mk_smt_tactic(p), // `sat' does not support proofs.
+                                     mk_smt_tactic(m, p), // `sat' does not support proofs.
                                      mk_sat_tactic(m, p)),
                                 cond(mk_is_fp_qfnra_probe(),
                                      mk_qfnra_tactic(m, p),
-                                     mk_smt_tactic(p))));
+                                     mk_smt_tactic(m, p))));
 
     st->updt_params(p);
     return st;
