@@ -343,33 +343,30 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
-        TRACE("sat", tout << "bin " << l1 << " " << l2 << "\n";);
         if (find_binary_watch(get_wlist(~l1), ~l2)) {
-            TRACE("sat", tout << "unit " << l1 << "\n";);
             assign(l1, justification());
             return;
         }
         if (find_binary_watch(get_wlist(~l2), ~l1)) {
-            TRACE("sat", tout << "unit " << l2 << "\n";);
             assign(l2, justification());
             return;
         }
         watched* w0 = find_binary_watch(get_wlist(~l1), l2);
         if (w0) {
-            TRACE("sat", tout << "watched " << l1 << "\n";);
             if (w0->is_learned() && !learned) {
                 w0->set_learned(false);
                 w0 = find_binary_watch(get_wlist(~l2), l1);            
                 VERIFY(w0);
                 w0->set_learned(false);                        
             }
-            propagate_bin_clause(l1, l2);
+            if (propagate_bin_clause(l1, l2) && !learned && !at_base_lvl() && !at_search_lvl()) {
+                m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
+            }
             return;
         }
         if (m_config.m_drat) 
             m_drat.add(l1, l2, learned);
         if (propagate_bin_clause(l1, l2)) {
-            TRACE("sat", tout << "propagated\n";);
             if (at_base_lvl())
                 return;
             if (!learned && !at_search_lvl()) 
@@ -975,12 +972,12 @@ namespace sat {
                                 }
                             }
                             if (max_index != 1) {
-                                IF_VERBOSE(0, verbose_stream() << "swap watch for: " << c[1] << " " << c[max_index] << "\n");
+                                IF_VERBOSE(2, verbose_stream() << "swap watch for: " << c[1] << " " << c[max_index] << "\n");
                                 std::swap(c[1], c[max_index]);
                                 it2--;
                                 m_watches[(~c[1]).index()].push_back(watched(c[0], cls_off));                                
                             }
-                            IF_VERBOSE(0, verbose_stream() << "lower assignment level " << assign_level << " " << scope_lvl());
+                            IF_VERBOSE(2, verbose_stream() << "lower assignment level " << assign_level << " " << scope_lvl());
                         }
                         assign_core(c[0], assign_level, justification(cls_off));
 #ifdef UPDATE_GLUE
