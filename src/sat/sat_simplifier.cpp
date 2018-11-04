@@ -2142,15 +2142,15 @@ namespace sat {
     }
 
     void simplifier::collect_statistics(statistics & st) const {
-        st.update("subsumed", m_num_subsumed);
-        st.update("subsumption resolution", m_num_sub_res);
-        st.update("elim literals", m_num_elim_lits);
-        st.update("bce",  m_num_bce);
-        st.update("cce",  m_num_cce);
-        st.update("acce", m_num_acce);
-        st.update("abce", m_num_abce);
-        st.update("bca",  m_num_bca);
-        st.update("ate",  m_num_ate);
+        st.update("sat subsumed", m_num_subsumed);
+        st.update("sat subsumption resolution", m_num_sub_res);
+        st.update("sat elim literals", m_num_elim_lits);
+        st.update("sat bce",  m_num_bce);
+        st.update("sat cce",  m_num_cce);
+        st.update("sat acce", m_num_acce);
+        st.update("sat abce", m_num_abce);
+        st.update("sat bca",  m_num_bca);
+        st.update("sat ate",  m_num_ate);
     }
 
     void simplifier::reset_statistics() {

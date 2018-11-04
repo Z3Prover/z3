@@ -155,6 +155,9 @@ namespace sat {
 
         m_force_cleanup   = p.force_cleanup();
 
+        m_backtrack_scopes = p.backtrack_scopes();
+        m_backtrack_init_conflicts = p.backtrack_conflicts();
+
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();

@@ -502,8 +502,8 @@ namespace sat {
     }
     
     void asymm_branch::collect_statistics(statistics & st) const {
-        st.update("elim literals", m_elim_literals);
-        st.update("tr", m_tr);
+        st.update("sat elim literals", m_elim_literals);
+        st.update("sat tr", m_tr);
     }
 
     void asymm_branch::reset_statistics() {

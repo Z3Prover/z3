@@ -149,11 +149,16 @@ namespace sat {
 
         bool               m_force_cleanup;
 
+        // backtracking
+        unsigned           m_backtrack_scopes;
+        unsigned           m_backtrack_init_conflicts;
 
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
+
+        // drat proofs
         bool               m_drat;
         symbol             m_drat_file;
         bool               m_drat_check_unsat;

@@ -70,6 +70,8 @@ namespace sat {
         unsigned m_elim_var_res;
         unsigned m_elim_var_bdd;
         unsigned m_units;
+        unsigned m_backtracks;
+        unsigned m_backjumps;
         stats() { reset(); }
         void reset();
         void collect_statistics(statistics & st) const;
@@ -116,7 +118,8 @@ namespace sat {
         svector<char>           m_lit_mark;
         svector<char>           m_eliminated;
         svector<char>           m_external;
-        svector<unsigned>       m_level; 
+        svector<unsigned>       m_level;
+        literal_vector          m_replay_assign;
         // branch variable selection:
         svector<unsigned>       m_activity;
         unsigned                m_activity_inc;
@@ -487,6 +490,7 @@ namespace sat {
         unsigned       m_conflict_lvl;
         literal_vector m_lemma;
         literal_vector m_ext_antecedents;
+        bool use_backjumping(unsigned num_scopes);
         bool resolve_conflict();
         bool resolve_conflict_core();
         void learn_lemma_and_backjump();
@@ -526,7 +530,7 @@ namespace sat {
         void pop(unsigned num_scopes);
         void pop_reinit(unsigned num_scopes);
 
-        void unassign_vars(unsigned old_sz);
+        void unassign_vars(unsigned old_sz, unsigned new_lvl);
         void reinit_clauses(unsigned old_sz);
 
         literal_vector m_user_scope_literals;
