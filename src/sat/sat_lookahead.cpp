@@ -2279,7 +2279,7 @@ namespace sat {
         for (unsigned i = 0; i < m_trail.size() && !m_s.inconsistent(); ++i) {
             literal lit = m_trail[i];
             if (m_s.value(lit) == l_undef && !m_s.was_eliminated(lit.var())) {
-                m_s.assign(lit, justification());
+                m_s.assign_scoped(lit);
                 ++num_units;
             }
         }        

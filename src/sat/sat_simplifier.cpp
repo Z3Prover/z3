@@ -343,7 +343,7 @@ namespace sat {
                 break;
             }
             if (sz == 1) {
-                s.assign(c[0], justification());
+                s.assign_unit(c[0]);
                 s.del_clause(c);
                 continue;
             }
@@ -648,7 +648,7 @@ namespace sat {
 
     inline void simplifier::propagate_unit(literal l) {
         unsigned old_trail_sz = s.m_trail.size();
-        s.assign(l, justification());
+        s.assign_scoped(l);
         s.propagate_core(false); // must not use propagate(), since s.m_clauses is not in a consistent state.
         if (s.inconsistent())
             return;

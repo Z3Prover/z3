@@ -124,7 +124,7 @@ namespace sat {
                     s.del_clause(c);
                 }
                 else if (new_sz == 1) {
-                    s.assign(c[0], justification());
+                    s.assign_unit(c[0]);
                     s.del_clause(c);
                 }
                 else {

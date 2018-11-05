@@ -305,14 +305,17 @@ namespace sat {
         unsigned init_trail_size() const { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
         literal  trail_literal(unsigned i) const { return m_trail[i]; }
         literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
-        void assign(literal l, justification j) {
+        void assign(literal l, justification j, unsigned level) {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
             switch (value(l)) {
             case l_false: set_conflict(j, ~l); break;
-            case l_undef: assign_core(l, scope_lvl(), j); break;
+            case l_undef: assign_core(l, level, j); break;
             case l_true:  return;
             }
         }
+        // void assign(literal l, justification j) { assign(l, j, scope_lvl()); }
+        void assign_unit(literal l) { assign(l, justification(), 0); }
+        void assign_scoped(literal l) { assign(l, justification(), scope_lvl()); }
         void assign_core(literal l, unsigned lvl, justification jst);
         void set_conflict(justification c, literal not_l);
         void set_conflict(justification c) { set_conflict(c, null_literal); }

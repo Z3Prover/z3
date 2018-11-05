@@ -220,7 +220,7 @@ namespace sat {
 
     inline std::ostream & operator<<(std::ostream & out, mem_stat const & m) {
         double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        out << " :memory " << std::fixed << std::setprecision(2) << mem;
+        out << std::setw(4) << std::fixed << std::setprecision(2) << mem;
         return out;
     }
 

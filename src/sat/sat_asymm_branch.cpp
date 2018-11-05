@@ -358,7 +358,7 @@ namespace sat {
     bool asymm_branch::propagate_literal(clause const& c, literal l) {
         SASSERT(!s.inconsistent());
         TRACE("asymm_branch_detail", tout << "assigning: " << l << "\n";);
-        s.assign(l, justification());
+        s.assign_scoped(l);
         s.propagate_core(false); // must not use propagate(), since check_missed_propagation may fail for c
         return s.inconsistent();
     }
@@ -417,7 +417,7 @@ namespace sat {
             return false;
         case 1:
             TRACE("asymm_branch", tout << "produced unit clause: " << c[0] << "\n";);
-            s.assign(c[0], justification());
+            s.assign_unit(c[0]);
             s.propagate_core(false); 
             scoped_d.del_clause();
             return false; // check_missed_propagation() may fail, since m_clauses is not in a consistent state.

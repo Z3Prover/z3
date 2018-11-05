@@ -47,7 +47,7 @@ namespace sat {
                     literal l2 = it->get_literal();
                     literal r2 = norm(roots, l2);
                     if (r1 == r2) {
-                        m_solver.assign(r1, justification());
+                        m_solver.assign_unit(r1);
                         if (m_solver.inconsistent())
                             return;
                         // consume unit
@@ -162,7 +162,7 @@ namespace sat {
             SASSERT(j >= 1);
             switch (j) {
             case 1:
-                m_solver.assign(c[0], justification());
+                m_solver.assign_unit(c[0]);
                 m_solver.del_clause(c);
                 break;
             case 2:

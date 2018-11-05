@@ -444,7 +444,7 @@ namespace sat {
         inline void assign(literal l, justification j) { 
             if (m_lookahead) m_lookahead->assign(l); 
             else if (m_unit_walk) m_unit_walk->assign(l);
-            else m_solver->assign(l, j); 
+            else m_solver->assign(l, j, m_solver->scope_lvl()); 
         }
         inline void set_conflict(justification j, literal l) { 
             if (m_lookahead) m_lookahead->set_conflict(); 

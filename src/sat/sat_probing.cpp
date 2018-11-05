@@ -65,7 +65,7 @@ namespace sat {
         if (implied_lits) {
             for (literal lit : *implied_lits) {
                 if (m_assigned.contains(lit)) {
-                    s.assign(lit, justification());
+                    s.assign_scoped(lit);
                     m_num_assigned++;
                 }
             }
@@ -73,14 +73,14 @@ namespace sat {
         else {
             m_to_assert.reset();
             s.push();
-            s.assign(l, justification());
+            s.assign_scoped(l);
             m_counter--;
             unsigned old_tr_sz = s.m_trail.size();
             s.propagate(false);
             if (s.inconsistent()) {
                 // ~l must be true
                 s.pop(1);
-                s.assign(~l, justification());
+                s.assign_scoped(~l);
                 s.propagate(false);
                 return false;
             }
@@ -96,7 +96,7 @@ namespace sat {
             s.pop(1);
 
             for (literal l : m_to_assert) {
-                s.assign(l, justification());
+                s.assign_scoped(l);
                 m_num_assigned++;
             }
         }
@@ -111,13 +111,13 @@ namespace sat {
         m_counter--;
         s.push();
         literal l(v, false);
-        s.assign(l, justification());
+        s.assign_scoped(l);
         unsigned old_tr_sz = s.m_trail.size();
         s.propagate(false);
         if (s.inconsistent()) {
             // ~l must be true
             s.pop(1);
-            s.assign(~l, justification());
+            s.assign_scoped(~l);
             s.propagate(false);
             m_num_assigned++;
             return;
