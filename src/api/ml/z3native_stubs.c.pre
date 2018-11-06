@@ -11,6 +11,7 @@ extern "C" {
 #include <caml/alloc.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
+#include <caml/threads.h>
 
 #ifdef Custom_tag
 #include <caml/custom.h>
