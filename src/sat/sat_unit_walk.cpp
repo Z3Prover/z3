@@ -90,10 +90,13 @@ namespace sat {
             propagate();
             while (inconsistent() && !m_decisions.empty()) {
                 update_max_trail();
-                ++m_conflicts;
+                ++s.m_stats.m_conflict;
                 pop();
                 propagate();
-                if (m_conflicts >= m_max_conflicts) {
+                if (pqueue().depth() > m_decisions.size()) {
+                    push_priority();
+                }
+                if (s.m_stats.m_conflict >= m_max_conflicts) {
                     reinit_propagation();
                 }
             }
@@ -111,21 +114,31 @@ namespace sat {
         d2.t = 1.0;
         d2.f = 1.0;
         m_phase_tf.resize(s.num_vars(), d2);
+        for (unsigned v = 0; v < s.num_vars(); ++v) {            
+            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef)
+                pqueue().add(v);
+        }
         push_priority();
         IF_VERBOSE(1, verbose_stream() << "num vars: " << s.num_vars() << "\n";);
     }
 
     void unit_walk::push_priority() {
-        m_ls.import(s, true);
         unsigned prefix_length = 0;
-        unsigned sz = m_priorities.size();
-        if (sz == m_decisions.size()) {
+        IF_VERBOSE(0, verbose_stream() << pqueue().depth() << " " << m_decisions.size() << "\n");
+        if (pqueue().depth() > m_decisions.size()) {
+            pqueue().dec_depth();
+            prefix_length = m_trail.size();
+            SASSERT(pqueue().depth() == m_decisions.size());
+        }
+        else if (pqueue().depth() == m_decisions.size()) {
             prefix_length = m_trail.size();
         }
         else {
-            literal last = m_decisions[sz];
+            literal last = m_decisions[pqueue().depth()];
             while (m_trail[prefix_length++] != last) {}
+            pqueue().inc_depth();
         }
+        m_ls.import(s, true);
         m_ls.rlimit().push(1);
         lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
         m_ls.rlimit().pop();
@@ -133,13 +146,7 @@ namespace sat {
         if (is_sat == l_true) {
             IF_VERBOSE(0, verbose_stream() << "missed case of SAT\n");
         }
-
-        m_priorities.push_back(var_priority());
         
-        for (unsigned v = 0; v < s.num_vars(); ++v) {            
-            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef)
-                pqueue().add(v);
-        }
         struct compare_break {
             local_search& ls;
             compare_break(local_search& ls): ls(ls) {}
@@ -150,6 +157,7 @@ namespace sat {
         };
         compare_break cb(m_ls);
         std::sort(pqueue().begin(), pqueue().end(), cb);
+        pqueue().rewind();
         TRACE("sat",
               for (bool_var v : pqueue()) {
                   tout << v << " " << m_ls.break_count(v) << "\n";
@@ -186,13 +194,13 @@ namespace sat {
 
     void unit_walk::reinit_propagation() {
         IF_VERBOSE(0, verbose_stream() << "reinit-propagation\n");
-        m_max_conflicts += 10000;
+        m_max_conflicts += m_conflict_offset ;
+        m_conflict_offset = (3*m_conflict_offset)/2;
         if (s.m_par && s.m_par->copy_solver(s)) {
             IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
         }
-        if (m_priorities.size() < m_decisions.size()) {
-            pqueue().rewind(); // we will stop using this priority queue for a while.
+        if (pqueue().depth() < m_decisions.size()) {
             push_priority();
         }
     }
@@ -217,7 +225,8 @@ namespace sat {
         }
         m_flips = 0;
         m_trail.reset();
-        m_conflicts = 0;
+        s.m_stats.m_conflict = 0;
+        m_conflict_offset = 10000;
         m_decisions.reset();
         m_qhead = 0;
         m_inconsistent = false;
@@ -375,19 +384,12 @@ namespace sat {
                    << " :branches " << m_decisions.size()
                    << " :decisions " << s.m_stats.m_decision
                    << " :propagations " << s.m_stats.m_propagate
-                   << " :conflicts " << m_conflicts 
+                   << " :conflicts " << s.m_stats.m_conflict 
                    << ")\n";);        
     }
 
     literal unit_walk::choose_literal() {
         return m_trail[m_qhead++];
-#if 0
-        SASSERT(m_qhead < m_trail.size());
-        unsigned idx = m_rand(m_trail.size() - m_qhead);
-        std::swap(m_trail[m_qhead], m_trail[m_qhead + idx]);
-        literal lit = m_trail[m_qhead++];
-        return lit;
-#endif
     }
 
     void unit_walk::set_conflict(literal l1, literal l2) {
@@ -407,7 +409,7 @@ namespace sat {
     }
 
     void unit_walk::pop() {
-        if (m_decisions.empty()) return;
+        SASSERT (!m_decisions.empty());
         literal dlit = m_decisions.back();
         literal lit;
         do {
@@ -421,11 +423,7 @@ namespace sat {
         m_inconsistent = false;
         m_qhead = m_trail.size();
         assign(~dlit);
-        if (m_priorities.size() == m_decisions.size()) {
-            m_priorities.pop_back();
-        }
         m_decisions.pop_back();
-        SASSERT(m_priorities.size() <= m_decisions.size());
     }
     
 };

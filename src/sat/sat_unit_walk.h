@@ -32,9 +32,13 @@ namespace sat {
             svector<bool_var> m_vars;
             unsigned_vector   m_lim;
             unsigned          m_head;
+            unsigned          m_depth;
         public:
+            void rewind() { m_head = 0; for (unsigned& l : m_lim) l = 0; }
+            unsigned depth() const { return m_depth; }
+            void inc_depth() { ++m_depth; }
+            void dec_depth() { --m_depth; }
             void reset() { m_vars.reset(); m_lim.reset(); m_head = 0; }
-            void rewind() { m_head = 0; }
             void add(bool_var v) { m_vars.push_back(v); }
             bool_var next(solver& s);
             void push() { m_lim.push_back(m_head); }
@@ -50,7 +54,7 @@ namespace sat {
         random_gen        m_rand;
         svector<bool>     m_phase;
         svector<double2>  m_phase_tf;
-        vector<var_priority> m_priorities;
+        var_priority      m_priorities;
 
         // settings
         unsigned          m_max_conflicts;
@@ -63,7 +67,7 @@ namespace sat {
         literal_vector    m_trail;
         bool              m_inconsistent;
         literal_vector    m_decisions;
-        unsigned          m_conflicts;
+        unsigned          m_conflict_offset;
 
         void pop();
         void init_runs();
@@ -81,7 +85,7 @@ namespace sat {
         void set_conflict(clause const& c);
         inline lbool value(literal lit) { return s.value(lit); }
         void log_status();
-        var_priority& pqueue() { return m_priorities.back(); }
+        var_priority& pqueue() { return m_priorities; }
     public:
 
         unit_walk(solver& s);
