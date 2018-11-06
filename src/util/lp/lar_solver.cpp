@@ -1614,6 +1614,10 @@ void lar_solver::register_new_ext_var_index(unsigned ext_v, bool is_int) {
     m_var_register.add_var(ext_v, is_int);
 }
 
+bool lar_solver::external_is_used(unsigned v) const {
+    return m_var_register.external_is_used(v);
+}
+
 void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
     register_new_ext_var_index(ext_j, is_int);
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
