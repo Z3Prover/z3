@@ -368,6 +368,13 @@ class theory_lra::imp {
         reset_variable_values();
         m_theory_var2var_index.reset();
         m_solver = alloc(lp::lar_solver); 
+
+        // initialize 0, 1 variables:
+        get_one(true);
+        get_one(false);
+        get_zero(true);
+        get_zero(false);
+
         lp_params lp(ctx().get_params());
         m_solver->settings().set_resource_limit(m_resource_limit);
         m_solver->settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lp.simplex_strategy());
@@ -408,7 +415,6 @@ class theory_lra::imp {
         TRACE("arith", tout << "add " << cnst << "\n";);
         mk_enode(cnst);
         theory_var v = mk_var(cnst);
-        ctx().push_trail(value_trail<smt::context, lp::var_index>(var));
         var = m_solver->add_var(v, true);
         m_theory_var2var_index.setx(v, var, UINT_MAX);
         m_var_index2theory_var.setx(var, v, UINT_MAX);
@@ -630,8 +636,7 @@ class theory_lra::imp {
                 vars.push_back(register_theory_var_in_lar_solver(mk_var(n)));
             }
         }
-        SASSERT(theory_var_is_registered_in_lar_solver(v));
-        TRACE("arith", tout << "v" << v << "(" << register_theory_var_in_lar_solver(v) << ") := " << mk_pp(t, m) << " " << _has_var << "\n";);
+        TRACE("arith", tout << "v" << v << " := " << mk_pp(t, m) << " " << _has_var << "\n";);
         if (!_has_var) {
             m_switcher.add_monomial(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
         }
@@ -883,7 +888,7 @@ class theory_lra::imp {
             init_left_side(st);
             theory_var v = mk_var(term);
             lp::var_index vi = m_theory_var2var_index.get(v, UINT_MAX);
-            TRACE("arith", tout << mk_pp(term, m) << " v" << v << "\n";);
+            TRACE("arith", tout << mk_pp(term, m) << " v" << v << " vi " << vi << "\n";);
             if (vi == UINT_MAX) {
                 rational const& offset = st.offset();
                 if (!offset.is_zero()) {
