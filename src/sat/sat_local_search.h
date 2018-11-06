@@ -159,8 +159,6 @@ namespace sat {
         inline int  time_stamp(bool_var v) const { return m_vars[v].m_time_stamp; }
         inline int  cscc(bool_var v) const { return m_vars[v].m_cscc; }
         inline void inc_cscc(bool_var v) { m_vars[v].m_cscc++; }
-
-        inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
         
         inline void set_best_unsat();
         /* TBD: other scores */
@@ -308,6 +306,10 @@ namespace sat {
         void set_phase(bool_var v, lbool f);
 
         bool get_phase(bool_var v) const { return is_true(v); }
+
+        inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
+
+        double break_count(bool_var v) const { return m_vars[v].m_slow_break; }
 
         model& get_model() { return m_model; }
 

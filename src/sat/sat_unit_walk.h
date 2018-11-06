@@ -20,6 +20,7 @@ Revision History:
 #define SAT_UNIT_WALK_H_
 
 #include "sat/sat_solver.h"
+#include "sat_local_search.h"
 
 namespace sat {
 
@@ -27,17 +28,31 @@ namespace sat {
         struct double2 {
             double t, f;
         };
+        class var_priority {
+            svector<bool_var> m_vars;
+            unsigned_vector   m_lim;
+            unsigned          m_head;
+        public:
+            void reset() { m_vars.reset(); m_lim.reset(); m_head = 0; }
+            void rewind() { m_head = 0; }
+            void add(bool_var v) { m_vars.push_back(v); }
+            bool_var next(solver& s);
+            void push() { m_lim.push_back(m_head); }
+            void pop() { m_head = m_lim.back(); m_lim.pop_back(); }    
+            bool_var const* begin() const { return m_vars.begin(); }
+            bool_var const* end() const { return m_vars.end(); }
+            bool_var* begin() { return m_vars.begin(); }
+            bool_var* end() { return m_vars.end(); }
+        };
+
         solver&           s;
+        local_search      m_ls;
         random_gen        m_rand;
         svector<bool>     m_phase;
-        svector<double2> m_phase_tf;
-        indexed_uint_set  m_freevars;
-        unsigned          m_runs;
-        unsigned          m_periods;
+        svector<double2>  m_phase_tf;
+        vector<var_priority> m_priorities;
 
         // settings
-        unsigned          m_max_runs;
-        unsigned          m_max_periods;
         unsigned          m_max_conflicts;
         bool              m_sticky_phase;
 
@@ -50,13 +65,14 @@ namespace sat {
         literal_vector    m_decisions;
         unsigned          m_conflicts;
 
-        void push();
-        void backtrack();
+        void pop();
         void init_runs();
+        void push_priority();
         void init_phase();
         void init_propagation();
+        void reinit_propagation();
+        void update_max_trail();
         void flip_phase(literal l); 
-        lbool unit_propagation();
         void propagate();
         void propagate(literal lit);
         literal choose_literal();
@@ -65,6 +81,7 @@ namespace sat {
         void set_conflict(clause const& c);
         inline lbool value(literal lit) { return s.value(lit); }
         void log_status();
+        var_priority& pqueue() { return m_priorities.back(); }
     public:
 
         unit_walk(solver& s);

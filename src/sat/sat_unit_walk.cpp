@@ -31,20 +31,30 @@ Author:
 
 Revision History:
 
+    2018-11-5:
+      change reinitialization to use local search with limited timeouts to find phase and ordering of variables.
+
 --*/
 
 #include "sat_unit_walk.h"
 
+
 namespace sat {
+
+    bool_var unit_walk::var_priority::next(solver& s) {
+        while (m_head < m_vars.size()) {
+            bool_var v = m_vars[m_head++];
+            unsigned idx = literal(v, false).index();
+            if (s.m_assignment[idx] == l_undef)
+                return v;            
+        }
+        return null_bool_var;
+    }
 
     unit_walk::unit_walk(solver& s):
         s(s)
     {
-        m_runs = 0;
-        m_periods = 0;
-        m_max_runs = UINT_MAX;
-        m_max_periods = 5000; // UINT_MAX; // TBD configure
-        m_max_conflicts = 100;
+        m_max_conflicts = 10000;
         m_sticky_phase = s.get_config().m_phase_sticky;
         m_flips = 0;
     }                        
@@ -63,48 +73,37 @@ namespace sat {
     lbool unit_walk::operator()() {
         scoped_set_unit_walk _scoped_set(this, s);
         init_runs();
-        for (m_runs = 0; m_runs < m_max_runs || m_max_runs == UINT_MAX; ++m_runs) {
-            init_propagation();
-            init_phase();
-            for (m_periods = 0; m_periods < m_max_periods || m_max_periods == UINT_MAX; ++m_periods) {
-                if (!s.rlimit().inc()) return l_undef;
-                lbool r = unit_propagation();
-                if (r != l_undef) return r;                
-            }        
-        }
-        return l_undef;
-    }
-
-    lbool unit_walk::unit_propagation() {
-        init_propagation();     
-        while (!m_freevars.empty() && !inconsistent()) {
-            bool_var v = m_freevars.begin()[m_rand(m_freevars.size())];
+        init_propagation();
+        init_phase();
+        while (!inconsistent()) {
+            if (!s.rlimit().inc()) {
+                return l_undef;
+            }
+            bool_var v = pqueue().next(s);
+            if (v == null_bool_var) {
+                return l_true;
+            }
             literal lit(v, !m_phase[v]);
             ++s.m_stats.m_decision;
             m_decisions.push_back(lit);
             assign(lit);
             propagate();
             while (inconsistent() && !m_decisions.empty()) {
+                update_max_trail();
                 ++m_conflicts;
-                backtrack();
+                pop();
                 propagate();
-            }
-            if (m_conflicts >= m_max_conflicts && !m_freevars.empty()) {
-                set_conflict();
-                break;
+                if (m_conflicts >= m_max_conflicts) {
+                    reinit_propagation();
+                }
             }
         }
-        if (!inconsistent()) {
-            log_status();
-            IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk sat)\n";);
-            s.mk_model();
-            return l_true;
-        }
-        return l_undef;
+        return l_false;
     }
 
+
     void unit_walk::init_runs() {
-        m_freevars.reset();
+        m_max_trail = 0;
         m_trail.reset();
         m_decisions.reset();
         m_phase.resize(s.num_vars());
@@ -112,18 +111,62 @@ namespace sat {
         d2.t = 1.0;
         d2.f = 1.0;
         m_phase_tf.resize(s.num_vars(), d2);
-        for (unsigned i = 0; i < s.num_vars(); ++i) {
-            literal l(i, false);
-            if (!s.was_eliminated(l.var()) && s.m_assignment[l.index()] == l_undef)
-                m_freevars.insert(l.var());
+        push_priority();
+        IF_VERBOSE(1, verbose_stream() << "num vars: " << s.num_vars() << "\n";);
+    }
+
+    void unit_walk::push_priority() {
+        m_ls.import(s, true);
+        unsigned prefix_length = 0;
+        unsigned sz = m_priorities.size();
+        if (sz == m_decisions.size()) {
+            prefix_length = m_trail.size();
         }
-        IF_VERBOSE(1, verbose_stream() << "num vars: " << s.num_vars() << " free vars: " << m_freevars.size() << "\n";);
+        else {
+            literal last = m_decisions[sz];
+            while (m_trail[prefix_length++] != last) {}
+        }
+        m_ls.rlimit().push(10000);
+        lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
+        m_ls.rlimit().pop();
+        TRACE("sat", tout << "result of running bounded local search " << is_sat << "\n";);
+        if (is_sat == l_true) {
+            IF_VERBOSE(0, verbose_stream() << "missed case of SAT\n");
+        }
+
+        m_priorities.push_back(var_priority());
+        
+        for (unsigned v = 0; v < s.num_vars(); ++v) {            
+            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef)
+                pqueue().add(v);
+        }
+        struct compare_break {
+            local_search& ls;
+            compare_break(local_search& ls): ls(ls) {}
+            int operator()(bool_var v, bool_var w) const {
+                double diff = ls.break_count(v) - ls.break_count(w);
+                return diff > 0 ? -1 : (diff < 0 ? 1 : 0);
+            }
+        };
+        compare_break cb(m_ls);
+        std::sort(pqueue().begin(), pqueue().end(), cb);
+        TRACE("sat",
+              for (bool_var v : pqueue()) {
+                  tout << v << " " << m_ls.break_count(v) << "\n";
+              });
+        
+        for (bool_var v : pqueue()) {
+            if (m_ls.cur_solution(v)) 
+                m_phase_tf[v].t += 1;
+            else
+                m_phase_tf[v].f += 1;
+        }
+        init_phase();
     }
 
     void unit_walk::init_phase() {
-        m_max_trail = 0;
         if (m_sticky_phase) {
-            for (bool_var v : m_freevars) {
+            for (bool_var v : pqueue()) {
                 if (s.m_phase[v] == POS_PHASE) {
                     m_phase[v] = true;
                 }
@@ -136,8 +179,27 @@ namespace sat {
             }
         }
         else {
-            for (bool_var v : m_freevars) 
+            for (bool_var v : pqueue()) 
                 m_phase[v] = (m_rand(2) == 0); 
+        }
+    }
+
+    void unit_walk::reinit_propagation() {
+        m_max_conflicts += 10000;
+        if (s.m_par && s.m_par->copy_solver(s)) {
+            IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk fresh copy)\n";);
+            if (s.get_extension()) s.get_extension()->set_unit_walk(this);
+        }
+        if (m_priorities.size() < m_decisions.size()) {
+            pqueue().rewind(); // we will stop using this priority queue for a while.
+            push_priority();
+        }
+    }
+
+    void unit_walk::update_max_trail() {
+        if (m_max_trail == 0 || m_trail.size() > m_max_trail) {
+            m_max_trail = m_trail.size();
+            log_status();
         }
     }
 
@@ -148,14 +210,9 @@ namespace sat {
             init_runs();
             init_phase();
         }
-        if (m_max_trail == 0 || m_trail.size() > m_max_trail) {
-            m_max_trail = m_trail.size();
-            log_status();
-        }
         for (literal lit : m_trail) {
             s.m_assignment[lit.index()] = l_undef;
             s.m_assignment[(~lit).index()] = l_undef;
-            m_freevars.insert(lit.var());
         }
         m_flips = 0;
         m_trail.reset();
@@ -293,7 +350,6 @@ namespace sat {
         s.m_assignment[lit.index()] = l_true;
         s.m_assignment[(~lit).index()] = l_false;
         m_trail.push_back(lit);
-        m_freevars.remove(lit.var());
         if (s.get_extension() && s.is_external(lit.var())) {
             s.get_extension()->asserted(lit);       
         } 
@@ -316,19 +372,20 @@ namespace sat {
     void unit_walk::log_status() {
         IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk :trail " << m_max_trail 
                    << " :branches " << m_decisions.size()
-                   << " :free " << m_freevars.size() 
-                   << " :periods " << m_periods                    
                    << " :decisions " << s.m_stats.m_decision
                    << " :propagations " << s.m_stats.m_propagate
                    << ")\n";);        
     }
 
     literal unit_walk::choose_literal() {
+        return m_trail[m_qhead++];
+#if 0
         SASSERT(m_qhead < m_trail.size());
         unsigned idx = m_rand(m_trail.size() - m_qhead);
         std::swap(m_trail[m_qhead], m_trail[m_qhead + idx]);
         literal lit = m_trail[m_qhead++];
         return lit;
+#endif
     }
 
     void unit_walk::set_conflict(literal l1, literal l2) {
@@ -347,7 +404,7 @@ namespace sat {
         m_inconsistent = true; 
     }
 
-    void unit_walk::backtrack() {
+    void unit_walk::pop() {
         if (m_decisions.empty()) return;
         literal dlit = m_decisions.back();
         literal lit;
@@ -356,14 +413,17 @@ namespace sat {
             lit = m_trail.back(); 
             s.m_assignment[lit.index()] = l_undef;
             s.m_assignment[(~lit).index()] = l_undef;
-            m_freevars.insert(lit.var());            
             m_trail.pop_back();
         }
         while (lit != dlit);
         m_inconsistent = false;
-        m_decisions.pop_back();
         m_qhead = m_trail.size();
         assign(~dlit);
+        if (m_priorities.size() == m_decisions.size()) {
+            m_priorities.pop_back();
+        }
+        m_decisions.pop_back();
+        SASSERT(m_priorities.size() <= m_decisions.size());
     }
     
 };
