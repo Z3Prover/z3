@@ -34,11 +34,12 @@ namespace sat {
             unsigned          m_head;
             unsigned          m_depth;
         public:
+            var_priority() { m_depth = 0; m_head = 0; }
             void rewind() { m_head = 0; for (unsigned& l : m_lim) l = 0; }
             unsigned depth() const { return m_depth; }
             void inc_depth() { ++m_depth; }
             void dec_depth() { --m_depth; }
-            void reset() { m_vars.reset(); m_lim.reset(); m_head = 0; }
+            void reset() { m_vars.reset(); m_lim.reset(); m_head = 0; m_depth = 0; }
             void add(bool_var v) { m_vars.push_back(v); }
             bool_var next(solver& s);
             void push() { m_lim.push_back(m_head); }
@@ -71,7 +72,7 @@ namespace sat {
 
         void pop();
         void init_runs();
-        void push_priority();
+        void update_priority();
         void init_phase();
         void init_propagation();
         void reinit_propagation();

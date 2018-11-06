@@ -221,10 +221,6 @@ namespace sat {
         void init_scores();
         void init_goodvars();
         
-        bool_var pick_var_gsat();
-
-        void flip_gsat(bool_var v);
-
         void pick_flip_walksat();
 
         void flip_walksat(bool_var v);
@@ -235,15 +231,9 @@ namespace sat {
 
         void walksat();
 
-        void gsat();
-
         void unsat(unsigned c);
 
         void sat(unsigned c);
-
-        bool tie_breaker_sat(bool_var v1, bool_var v2);
-
-        bool tie_breaker_ccd(bool_var v1, bool_var v2);
 
         void set_parameters();
 
@@ -256,6 +246,10 @@ namespace sat {
         void verify_unsat_stack() const;
 
         void verify_constraint(constraint const& c) const;
+
+        void verify_slack(constraint const& c) const;
+
+        void verify_slack() const;
 
         unsigned constraint_value(constraint const& c) const;
 
@@ -304,6 +298,8 @@ namespace sat {
         void import(solver& s, bool init);        
 
         void set_phase(bool_var v, lbool f);
+
+        void set_bias(bool_var v, lbool f);
 
         bool get_phase(bool_var v) const { return is_true(v); }
 

@@ -8,6 +8,7 @@ Module Name:
 Abstract:
 
     unit walk local search procedure.
+
     A variant of UnitWalk. Hirsch and Kojevinkov, SAT 2001.
     This version uses a trail to reset assignments and integrates directly with the 
     watch list structure. Thus, assignments are not delayed and we avoid treating
@@ -16,11 +17,9 @@ Abstract:
     It uses standard DPLL approach for backracking, flipping the last decision literal that
     lead to a conflict. It restarts after evern 100 conflicts.
 
-    It does not attempt to add conflict clauses or alternate with
-    walksat.
+    It does not attempt to add conflict clauses 
 
-    It can receive conflict clauses from a concurrent CDCL solver and does not
-    create its own conflict clauses.
+    It can receive conflict clauses from a concurrent CDCL solver 
 
     The phase of variables is optionally sticky between rounds. We use a decay rate
     to compute stickiness of a variable.
@@ -94,7 +93,7 @@ namespace sat {
                 pop();
                 propagate();
                 if (pqueue().depth() > m_decisions.size()) {
-                    push_priority();
+                    update_priority();
                 }
                 if (s.m_stats.m_conflict >= m_max_conflicts) {
                     reinit_propagation();
@@ -118,13 +117,12 @@ namespace sat {
             if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef)
                 pqueue().add(v);
         }
-        push_priority();
-        IF_VERBOSE(1, verbose_stream() << "num vars: " << s.num_vars() << "\n";);
+        m_ls.import(s, true);
+        update_priority();
     }
 
-    void unit_walk::push_priority() {
+    void unit_walk::update_priority() {
         unsigned prefix_length = 0;
-        IF_VERBOSE(0, verbose_stream() << pqueue().depth() << " " << m_decisions.size() << "\n");
         if (pqueue().depth() > m_decisions.size()) {
             pqueue().dec_depth();
             prefix_length = m_trail.size();
@@ -138,13 +136,21 @@ namespace sat {
             while (m_trail[prefix_length++] != last) {}
             pqueue().inc_depth();
         }
-        m_ls.import(s, true);
+        log_status();
+        IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk :update-priority " << pqueue().depth() << ")\n");
+        for (unsigned v = 0; v < s.num_vars(); ++v) {
+            m_ls.set_bias(v, static_cast<lbool>(s.m_assignment[v]));
+        }
         m_ls.rlimit().push(1);
         lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
         m_ls.rlimit().pop();
+
         TRACE("sat", tout << "result of running bounded local search " << is_sat << "\n";);
         if (is_sat == l_true) {
             IF_VERBOSE(0, verbose_stream() << "missed case of SAT\n");
+        }
+        if (is_sat == l_false) {
+            IF_VERBOSE(0, verbose_stream() << "could backtrack here\n");
         }
         
         struct compare_break {
@@ -152,16 +158,13 @@ namespace sat {
             compare_break(local_search& ls): ls(ls) {}
             int operator()(bool_var v, bool_var w) const {
                 double diff = ls.break_count(v) - ls.break_count(w);
-                return diff > 0 ? -1 : (diff < 0 ? 1 : 0);
+                return diff > 0;
             }
         };
         compare_break cb(m_ls);
         std::sort(pqueue().begin(), pqueue().end(), cb);
         pqueue().rewind();
-        TRACE("sat",
-              for (bool_var v : pqueue()) {
-                  tout << v << " " << m_ls.break_count(v) << "\n";
-              });
+        // assert variables are sorted from highest to lowest value.
         
         for (bool_var v : pqueue()) {
             if (m_ls.cur_solution(v)) 
@@ -192,16 +195,15 @@ namespace sat {
         }
     }
 
-    void unit_walk::reinit_propagation() {
-        IF_VERBOSE(0, verbose_stream() << "reinit-propagation\n");
+    void unit_walk::reinit_propagation() {        
         m_max_conflicts += m_conflict_offset ;
         m_conflict_offset = (3*m_conflict_offset)/2;
         if (s.m_par && s.m_par->copy_solver(s)) {
-            IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk fresh copy)\n";);
+            IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
         }
         if (pqueue().depth() < m_decisions.size()) {
-            push_priority();
+            update_priority();
         }
     }
 
@@ -214,7 +216,7 @@ namespace sat {
 
     void unit_walk::init_propagation() {
         if (s.m_par && s.m_par->copy_solver(s)) {
-            IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk fresh copy)\n";);
+            IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
             init_runs();
             init_phase();
@@ -380,8 +382,10 @@ namespace sat {
     }
 
     void unit_walk::log_status() {
-        IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk :trail " << m_max_trail 
-                   << " :branches " << m_decisions.size()
+        IF_VERBOSE(1, verbose_stream() 
+                   << "(sat.unit-walk"
+                   << " :trail " << m_trail.size()
+                   << " :depth " << m_decisions.size()
                    << " :decisions " << s.m_stats.m_decision
                    << " :propagations " << s.m_stats.m_propagate
                    << " :conflicts " << s.m_stats.m_conflict 
