@@ -1715,7 +1715,7 @@ extern "C" {
     unsigned Z3_API Z3_param_descrs_size(Z3_context c, Z3_param_descrs p);
 
     /**
-       \brief Return the number of parameters in the given parameter description set.
+       \brief Return the name of the parameter at index \c i.
 
        \pre i < Z3_param_descrs_size(c, p)
 
