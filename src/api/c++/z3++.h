@@ -2847,7 +2847,7 @@ namespace z3 {
         return recfun(str_symbol(name), 2, dom, range);
     }
 
-    void context::recdef(func_decl f, expr_vector const& args, expr const& body) {
+    inline void context::recdef(func_decl f, expr_vector const& args, expr const& body) {
         check_context(f, args); check_context(f, body);
         array<Z3_ast> vars(args);
         Z3_add_rec_def(f.ctx(), f, vars.size(), vars.ptr(), body);
