@@ -72,10 +72,10 @@ namespace sat {
 
         void pop();
         void init_runs();
-        void update_priority();
+        lbool update_priority();
         void init_phase();
         void init_propagation();
-        void reinit_propagation();
+        void refresh_solver();
         void update_max_trail();
         void flip_phase(literal l); 
         void propagate();

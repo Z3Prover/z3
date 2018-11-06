@@ -189,7 +189,8 @@ namespace sat {
         unsigned_vector m_index_in_unsat_stack;      // which position is a constraint in the unsat_stack
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
-        bool_var_vector m_goodvar_stack;
+        bool_var_vector  m_goodvar_stack;
+        bool             m_initializing;
 
 
         // information about solution

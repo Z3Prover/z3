@@ -47,6 +47,11 @@ namespace sat {
             if (s.m_assignment[idx] == l_undef)
                 return v;            
         }
+        for (bool_var v : m_vars) {
+            if (s.m_assignment[literal(v, false).index()] == l_undef) {
+                std::cout << "unassigned: " << v << "\n";
+            }
+        }
         return null_bool_var;
     }
 
@@ -74,35 +79,64 @@ namespace sat {
         init_runs();
         init_propagation();
         init_phase();
-        while (!inconsistent()) {
+        while (true) {
             if (!s.rlimit().inc()) {
+                log_status();
                 return l_undef;
             }
             bool_var v = pqueue().next(s);
             if (v == null_bool_var) {
+                log_status();
                 return l_true;
             }
             literal lit(v, !m_phase[v]);
             ++s.m_stats.m_decision;
             m_decisions.push_back(lit);
+            pqueue().push();
             assign(lit);
             propagate();
             while (inconsistent() && !m_decisions.empty()) {
                 update_max_trail();
                 ++s.m_stats.m_conflict;
                 pop();
+                pqueue().pop();
                 propagate();
-                if (pqueue().depth() > m_decisions.size()) {
-                    update_priority();
-                }
-                if (s.m_stats.m_conflict >= m_max_conflicts) {
-                    reinit_propagation();
+            }
+            if (inconsistent()) {
+                log_status();
+                return l_false;
+            }
+            bool do_reinit = s.m_stats.m_conflict >= m_max_conflicts;
+            if (do_reinit || pqueue().depth() > m_decisions.size() || pqueue().depth() <= 10) {                
+                switch (update_priority()) {
+                case l_true: return l_true;
+                case l_false: break; // TBD
+                default: break;
                 }
             }
+            if (do_reinit) {
+                refresh_solver();
+            }
         }
-        return l_false;
     }
 
+    void unit_walk::pop() {
+        SASSERT (!m_decisions.empty());
+        literal dlit = m_decisions.back();
+        literal lit;
+        do {
+            SASSERT(!m_trail.empty());
+            lit = m_trail.back(); 
+            s.m_assignment[lit.index()] = l_undef;
+            s.m_assignment[(~lit).index()] = l_undef;
+            m_trail.pop_back();
+        }
+        while (lit != dlit);
+        m_inconsistent = false;
+        m_qhead = m_trail.size();
+        assign(~dlit);
+        m_decisions.pop_back();
+    }
 
     void unit_walk::init_runs() {
         m_max_trail = 0;
@@ -114,17 +148,20 @@ namespace sat {
         d2.f = 1.0;
         m_phase_tf.resize(s.num_vars(), d2);
         for (unsigned v = 0; v < s.num_vars(); ++v) {            
-            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef)
+            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
                 pqueue().add(v);
+            }
         }
         m_ls.import(s, true);
         update_priority();
     }
 
-    void unit_walk::update_priority() {
+    lbool unit_walk::update_priority() {
         unsigned prefix_length = 0;
         if (pqueue().depth() > m_decisions.size()) {
-            pqueue().dec_depth();
+            while (pqueue().depth() > m_decisions.size()) {
+                pqueue().dec_depth();
+            }
             prefix_length = m_trail.size();
             SASSERT(pqueue().depth() == m_decisions.size());
         }
@@ -138,8 +175,8 @@ namespace sat {
         }
         log_status();
         IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk :update-priority " << pqueue().depth() << ")\n");
-        for (unsigned v = 0; v < s.num_vars(); ++v) {
-            m_ls.set_bias(v, static_cast<lbool>(s.m_assignment[v]));
+        for (literal lit : m_trail) {
+            m_ls.set_bias(lit.var(), lit.sign() ? l_false : l_true);
         }
         m_ls.rlimit().push(1);
         lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
@@ -147,10 +184,9 @@ namespace sat {
 
         TRACE("sat", tout << "result of running bounded local search " << is_sat << "\n";);
         if (is_sat == l_true) {
-            IF_VERBOSE(0, verbose_stream() << "missed case of SAT\n");
-        }
-        if (is_sat == l_false) {
-            IF_VERBOSE(0, verbose_stream() << "could backtrack here\n");
+            for (unsigned v = 0; v < s.num_vars(); ++v) {
+                s.m_assignment[v] = m_ls.get_phase(v) ? l_true : l_false;
+            } 
         }
         
         struct compare_break {
@@ -173,6 +209,7 @@ namespace sat {
                 m_phase_tf[v].f += 1;
         }
         init_phase();
+        return is_sat;
     }
 
     void unit_walk::init_phase() {
@@ -195,15 +232,12 @@ namespace sat {
         }
     }
 
-    void unit_walk::reinit_propagation() {        
+    void unit_walk::refresh_solver() {
         m_max_conflicts += m_conflict_offset ;
         m_conflict_offset = (3*m_conflict_offset)/2;
         if (s.m_par && s.m_par->copy_solver(s)) {
             IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
-        }
-        if (pqueue().depth() < m_decisions.size()) {
-            update_priority();
         }
     }
 
@@ -410,24 +444,6 @@ namespace sat {
 
     void unit_walk::set_conflict() {
         m_inconsistent = true; 
-    }
-
-    void unit_walk::pop() {
-        SASSERT (!m_decisions.empty());
-        literal dlit = m_decisions.back();
-        literal lit;
-        do {
-            SASSERT(!m_trail.empty());
-            lit = m_trail.back(); 
-            s.m_assignment[lit.index()] = l_undef;
-            s.m_assignment[(~lit).index()] = l_undef;
-            m_trail.pop_back();
-        }
-        while (lit != dlit);
-        m_inconsistent = false;
-        m_qhead = m_trail.size();
-        assign(~dlit);
-        m_decisions.pop_back();
     }
     
 };

@@ -27,6 +27,7 @@ namespace sat {
 
     void local_search::init() {
 
+        m_initializing = true;
         m_unsat_stack.reset();
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
             add_clause(1, m_assumptions.c_ptr() + i);
@@ -55,6 +56,7 @@ namespace sat {
         }
 
         set_parameters();
+        m_initializing = false;
     }
 
     void local_search::init_cur_solution() {
@@ -359,10 +361,10 @@ namespace sat {
         bool_var v = lit.var();
         if (is_unit(lit)) return;
         SASSERT(!m_units.contains(v));
-        if (m_vars[v].m_value == lit.sign()) {
+        if (m_vars[v].m_value == lit.sign() && !m_initializing) {
             flip_walksat(v);
         }
-        SASSERT(m_vars[v].m_value == !lit.sign());
+        m_vars[v].m_value = !lit.sign();
         m_vars[v].m_bias  = lit.sign() ? 0 : 100;
         m_vars[v].m_unit  = true;
         m_units.push_back(v);
@@ -375,6 +377,7 @@ namespace sat {
     }
 
     void local_search::import(solver& s, bool _init) {        
+        m_initializing = true;
         m_is_pb = false;
         m_vars.reset();
         m_constraints.reset();
@@ -511,6 +514,7 @@ namespace sat {
         if (_init) {
             init();
         }
+        m_initializing = false;
     }
     
     local_search::~local_search() {
@@ -866,8 +870,8 @@ namespace sat {
 
     void local_search::set_bias(bool_var v, lbool f) {
         switch (f) {
-        case l_true: m_vars[v].m_bias = 90;
-        case l_false: m_vars[v].m_bias = 10;
+        case l_true: m_vars[v].m_bias = 99; break;
+        case l_false: m_vars[v].m_bias = 1; break;
         default: break;
         }
 
