@@ -163,6 +163,8 @@ public:
 
     void register_new_ext_var_index(unsigned ext_v, bool is_int);
 
+    bool external_is_used(unsigned) const;
+    
     bool term_is_int(const lar_term * t) const;
 
     bool var_is_int(var_index v) const;
