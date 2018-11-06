@@ -408,6 +408,7 @@ class theory_lra::imp {
         TRACE("arith", tout << "add " << cnst << "\n";);
         mk_enode(cnst);
         theory_var v = mk_var(cnst);
+        ctx().push_trail(value_trail<smt::context, lp::var_index>(var));
         var = m_solver->add_var(v, true);
         m_theory_var2var_index.setx(v, var, UINT_MAX);
         m_var_index2theory_var.setx(var, v, UINT_MAX);
