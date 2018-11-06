@@ -126,7 +126,7 @@ namespace sat {
             literal last = m_decisions[sz];
             while (m_trail[prefix_length++] != last) {}
         }
-        m_ls.rlimit().push(10000);
+        m_ls.rlimit().push(1);
         lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
         m_ls.rlimit().pop();
         TRACE("sat", tout << "result of running bounded local search " << is_sat << "\n";);
@@ -185,6 +185,7 @@ namespace sat {
     }
 
     void unit_walk::reinit_propagation() {
+        IF_VERBOSE(0, verbose_stream() << "reinit-propagation\n");
         m_max_conflicts += 10000;
         if (s.m_par && s.m_par->copy_solver(s)) {
             IF_VERBOSE(1, verbose_stream() << "(sat-unit-walk fresh copy)\n";);
@@ -374,6 +375,7 @@ namespace sat {
                    << " :branches " << m_decisions.size()
                    << " :decisions " << s.m_stats.m_decision
                    << " :propagations " << s.m_stats.m_propagate
+                   << " :conflicts " << m_conflicts 
                    << ")\n";);        
     }
 

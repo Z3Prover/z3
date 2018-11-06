@@ -313,7 +313,6 @@ namespace sat {
             case l_true:  return;
             }
         }
-        // void assign(literal l, justification j) { assign(l, j, scope_lvl()); }
         void assign_unit(literal l) { assign(l, justification(), 0); }
         void assign_scoped(literal l) { assign(l, justification(), scope_lvl()); }
         void assign_core(literal l, unsigned lvl, justification jst);

@@ -151,7 +151,6 @@ namespace sat {
 
     void local_search::reinit() {
 
-        IF_VERBOSE(1, verbose_stream() << "(sat-local-search reinit)\n";);
         if (true || !m_is_pb) {
             //
             // the following methods does NOT converge for pseudo-boolean

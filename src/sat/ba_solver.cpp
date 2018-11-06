@@ -403,14 +403,14 @@ namespace sat {
         else if (true_val >= p.k()) {
             if (p.lit() != null_literal) {
                 IF_VERBOSE(100, display(verbose_stream() << "assign true literal ", p, true););
-                s().assign_unit(p.lit());
+                s().assign_scoped(p.lit());
             }        
             remove_constraint(p, "is true");
         }
         else if (slack + true_val < p.k()) {
             if (p.lit() != null_literal) {
                 IF_VERBOSE(100, display(verbose_stream() << "assign false literal ", p, true););
-                s().assign_unit(~p.lit());
+                s().assign_scoped(~p.lit());
             }
             else {
                 IF_VERBOSE(0, verbose_stream() << "unsat during simplification\n";);
@@ -820,7 +820,7 @@ namespace sat {
 
         if (k == 0) {
             if (p.lit() != null_literal) {
-                s().assign_unit(p.lit());
+                s().assign_scoped(p.lit());
             }
             remove_constraint(p, "recompiled to true");
             return;
@@ -847,7 +847,7 @@ namespace sat {
                     s().set_conflict(justification());
                 }
                 else {
-                    s().assign_unit(~p.lit());
+                    s().assign_scoped(~p.lit());
                 }
                 remove_constraint(p, "recompiled to false");
                 return;
@@ -3430,7 +3430,7 @@ namespace sat {
         if (value(lit) == l_undef && !m_cnstr_use_list[lit.index()].empty() && 
             use_count(~lit) == 0 && get_num_unblocked_bin(~lit) == 0) {
             IF_VERBOSE(100, verbose_stream() << "pure literal: " << lit << "\n";);
-            s().assign_unit(lit);
+            s().assign_scoped(lit);
             return true;
         }
         return false;
@@ -3863,7 +3863,7 @@ namespace sat {
         if (lit == null_literal) {
             for (literal l : lits) {
                 if (value(l) == l_undef) {
-                    s().assign_unit(l);
+                    s().assign_scoped(l);
                 }
             }
         }
@@ -4561,9 +4561,9 @@ namespace sat {
         ineq notC = negate(m_B);
         literal l3 = translate_to_sat(s0, translation, notC);
         if (l3 == null_literal) return true;
-        s0.assign_unit(l1);
-        s0.assign_unit(l2);
-        s0.assign_unit(l3);
+        s0.assign_scoped(l1);
+        s0.assign_scoped(l2);
+        s0.assign_scoped(l3);
         lbool is_sat = s0.check();
         TRACE("ba", s0.display(tout << "trying sat encoding"););
         if (is_sat == l_false) return true;
