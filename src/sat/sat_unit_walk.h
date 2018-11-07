@@ -72,6 +72,7 @@ namespace sat {
         unsigned          m_conflict_offset;
 
         void pop();
+        void pop_decision();
         void init_runs();
         lbool update_priority();
         void init_phase();

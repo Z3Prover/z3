@@ -4430,10 +4430,10 @@ namespace sat {
         st.update("sat gc clause", m_gc_clause);
         st.update("sat del clause", m_del_clause);
         st.update("sat conflicts", m_conflict);
-        st.update("sat propagations", m_propagate);
+        st.update("sat propagations nary", m_propagate);
         st.update("sat decisions", m_decision);
-        st.update("sat binary propagations", m_bin_propagate);
-        st.update("sat ternary propagations", m_ter_propagate);
+        st.update("sat propagations bin", m_bin_propagate);
+        st.update("sat propagations tern", m_ter_propagate);
         st.update("sat restarts", m_restart);
         st.update("sat minimized lits", m_minimized_lits);
         st.update("sat dyn subsumption resolution", m_dyn_sub_res);

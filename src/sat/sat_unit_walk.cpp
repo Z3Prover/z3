@@ -113,7 +113,7 @@ namespace sat {
                 return l_false;
             }
             bool do_reinit = s.m_stats.m_conflict >= m_max_conflicts;
-            if (do_reinit || pqueue().depth() > m_decisions.size() || pqueue().depth() <= 10) {                
+            if (do_reinit || pqueue().depth() > m_decisions.size()) { //  || pqueue().depth() <= 10
                 switch (update_priority()) {
                 case l_true: return l_true;
                 case l_false: break; // TBD
@@ -129,6 +129,14 @@ namespace sat {
     void unit_walk::pop() {
         SASSERT (!m_decisions.empty());
         literal dlit = m_decisions.back();
+        pop_decision();
+        m_inconsistent = false;
+        assign(~dlit);
+    }
+
+    void unit_walk::pop_decision() {
+        SASSERT (!m_decisions.empty());
+        literal dlit = m_decisions.back();
         literal lit;
         do {
             SASSERT(!m_trail.empty());
@@ -138,9 +146,7 @@ namespace sat {
             m_trail.pop_back();
         }
         while (lit != dlit);
-        m_inconsistent = false;
         m_qhead = m_trail.size();
-        assign(~dlit);
         m_decisions.pop_back();
     }
 
@@ -215,25 +221,24 @@ namespace sat {
                 m_phase_tf[v].f += 1;
         }
         init_phase();
-#if 0
+
         // restart
         bool_var v = pqueue().peek(s);
         if (is_sat == l_undef && v != null_bool_var) {
             unsigned num_levels = 0;
-            while (m_decisions.size() > 5) {
+            while (m_decisions.size() > 0) {
                 bool_var w = m_decisions.back().var();
                 if (m_ls.break_count(w) >= m_ls.break_count(v)) {
                     break;
                 }
                 ++num_levels;
-                m_decisions.pop_back();
+                pop_decision();
                 if (pqueue().depth() > m_decisions.size()) {
                     pqueue().pop();                
                 }                
             }
             IF_VERBOSE(0, verbose_stream() << "backtrack levels " << num_levels << "\n");
         }
-#endif
         return is_sat;
     }
 
@@ -259,7 +264,7 @@ namespace sat {
 
     void unit_walk::refresh_solver() {
         m_max_conflicts += m_conflict_offset ;
-        m_conflict_offset = (3*m_conflict_offset)/2;
+        m_conflict_offset += 10000;
         if (s.m_par && s.m_par->copy_solver(s)) {
             IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
