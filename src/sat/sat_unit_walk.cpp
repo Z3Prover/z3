@@ -40,24 +40,30 @@ Revision History:
 
 namespace sat {
 
-    bool_var unit_walk::var_priority::next(solver& s) {
+    bool_var unit_walk::var_priority::peek(solver& s) {
         while (m_head < m_vars.size()) {
-            bool_var v = m_vars[m_head++];
+            bool_var v = m_vars[m_head];
             unsigned idx = literal(v, false).index();
             if (s.m_assignment[idx] == l_undef)
                 return v;            
+            ++m_head;
         }
         for (bool_var v : m_vars) {
             if (s.m_assignment[literal(v, false).index()] == l_undef) {
-                std::cout << "unassigned: " << v << "\n";
+                IF_VERBOSE(0, verbose_stream() << "unassigned: " << v << "\n");
             }
         }
         return null_bool_var;
     }
 
+    bool_var unit_walk::var_priority::next(solver& s) {
+        bool_var v = peek(s);
+        ++m_head;
+        return v;
+    }
+
     unit_walk::unit_walk(solver& s):
-        s(s)
-    {
+        s(s) {
         m_max_conflicts = 10000;
         m_sticky_phase = s.get_config().m_phase_sticky;
         m_flips = 0;
@@ -209,6 +215,25 @@ namespace sat {
                 m_phase_tf[v].f += 1;
         }
         init_phase();
+#if 0
+        // restart
+        bool_var v = pqueue().peek(s);
+        if (is_sat == l_undef && v != null_bool_var) {
+            unsigned num_levels = 0;
+            while (m_decisions.size() > 5) {
+                bool_var w = m_decisions.back().var();
+                if (m_ls.break_count(w) >= m_ls.break_count(v)) {
+                    break;
+                }
+                ++num_levels;
+                m_decisions.pop_back();
+                if (pqueue().depth() > m_decisions.size()) {
+                    pqueue().pop();                
+                }                
+            }
+            IF_VERBOSE(0, verbose_stream() << "backtrack levels " << num_levels << "\n");
+        }
+#endif
         return is_sat;
     }
 

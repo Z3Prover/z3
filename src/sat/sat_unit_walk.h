@@ -42,6 +42,7 @@ namespace sat {
             void reset() { m_vars.reset(); m_lim.reset(); m_head = 0; m_depth = 0; }
             void add(bool_var v) { m_vars.push_back(v); }
             bool_var next(solver& s);
+            bool_var peek(solver& s);
             void push() { m_lim.push_back(m_head); }
             void pop() { m_head = m_lim.back(); m_lim.pop_back(); }    
             bool_var const* begin() const { return m_vars.begin(); }

@@ -240,7 +240,6 @@ protected:
 
     svector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
-    scoped_ptr<solver_factory>   m_interpolating_solver_factory;
     ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
     ref<opt_wrapper>             m_opt;
@@ -315,7 +314,6 @@ public:
     void set_cancel(bool f);
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
-    solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }
     opt_wrapper*  get_opt();
     void          set_opt(opt_wrapper* o);
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
@@ -341,14 +339,12 @@ public:
     void set_random_seed(unsigned s) { m_random_seed = s; }
     bool produce_models() const;
     bool produce_proofs() const;
-    bool produce_interpolants() const;
     bool produce_unsat_cores() const;
     bool well_sorted_check_enabled() const;
     bool validate_model_enabled() const;
     void set_produce_models(bool flag);
     void set_produce_unsat_cores(bool flag);
     void set_produce_proofs(bool flag);
-    void set_produce_interpolants(bool flag);
     void set_produce_unsat_assumptions(bool flag) { m_produce_unsat_assumptions = flag; }
     bool produce_assignments() const { return m_produce_assignments; }
     bool produce_unsat_assumptions() const { return m_produce_unsat_assumptions; }
@@ -364,7 +360,6 @@ public:
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
 
     void set_solver_factory(solver_factory * s);
-    void set_interpolating_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;

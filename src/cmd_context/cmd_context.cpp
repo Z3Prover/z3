@@ -560,25 +560,12 @@ void cmd_context::set_produce_proofs(bool f) {
     m_params.m_proof = f;
 }
 
-void cmd_context::set_produce_interpolants(bool f) {
-    // can only be set before initialization
-    // FIXME currently synonym for produce_proofs
-    // also sets the default solver to be simple smt
-    SASSERT(!has_manager());
-    m_params.m_proof = f;
-    // set_solver_factory(mk_smt_solver_factory());
-}
 
 bool cmd_context::produce_models() const {
     return m_params.m_model;
 }
 
 bool cmd_context::produce_proofs() const {
-    return m_params.m_proof;
-}
-
-bool cmd_context::produce_interpolants() const {
-    // FIXME currently synonym for produce_proofs
     return m_params.m_proof;
 }
 
@@ -1887,28 +1874,17 @@ void cmd_context::validate_model() {
         if (invalid_model) {
             throw cmd_exception("an invalid model was generated");
         }
+        IF_VERBOSE(1, verbose_stream() << "model validated\n");
     }
 }
-
-// FIXME: really interpolants_enabled ought to be a parameter to the solver factory,
-// but this is a global change, so for now, we use an alternate solver factory
-// for interpolation
 
 void cmd_context::mk_solver() {
     bool proofs_enabled, models_enabled, unsat_core_enabled;
     params_ref p;
     m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
-    if (produce_interpolants() && m_interpolating_solver_factory) {
-        m_solver = (*m_interpolating_solver_factory)(m(), p, true /* must have proofs */, models_enabled, unsat_core_enabled, m_logic);
-    }
-    else
-        m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
+    m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
 }
 
-void cmd_context::set_interpolating_solver_factory(solver_factory * f) {
-  SASSERT(!has_manager());
-  m_interpolating_solver_factory   = f;
-}
 
 void cmd_context::set_solver_factory(solver_factory * f) {
     m_solver_factory   = f;
