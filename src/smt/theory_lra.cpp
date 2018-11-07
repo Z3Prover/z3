@@ -2973,9 +2973,11 @@ public:
         else {
             ci = m_solver->add_var_bound(vi, k, b.get_value());
         }
+        if (m_solver->get_status() == lp::lp_status::INFEASIBLE) {
+            return;
+        }
         TRACE("arith", tout << "v" << b.get_var() << "\n";);
         add_ineq_constraint(ci, literal(bv, !is_true));
-
         propagate_eqs(vi, ci, k, b);
     }
 
