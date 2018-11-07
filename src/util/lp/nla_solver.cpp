@@ -839,12 +839,26 @@ struct solver::imp {
         m_expl->clear();
         m_lemma->clear();
     }
+
+    bool order_lemma(const unsigned_vector& to_refine) {
+        return false;
+    }
+
+    bool monotonicity_lemma(const unsigned_vector& to_refine) {
+        return false;
+    }
+
+    bool tangent_lemma(const unsigned_vector& to_refine) {
+        return false;
+    }
     
     lbool check(lp::explanation & exp, lemma& l) {
         TRACE("nla_solver", tout << "check of nla";);
         m_expl =   &exp;
         m_lemma =  &l;
-        lp_assert(m_lar_solver.get_status() == lp::lp_status::OPTIMAL);
+       
+        if (m_lar_solver.get_status() != lp::lp_status::OPTIMAL)
+            return l_undef;
         unsigned_vector to_refine;
         for (unsigned i = 0; i < m_monomials.size(); i++) {
             if (!check_monomial(m_monomials[i]))
@@ -857,13 +871,28 @@ struct solver::imp {
         TRACE("nla_solver", tout << "to_refine.size() = " << to_refine.size() << std::endl;);
         
         init_search();
-        
-        if (basic_lemma(to_refine)) {
-            return l_false;
-        }
-        
-        return l_undef;
+        for (int search_level = 0; search_level < 3; search_level++) {
+            if (search_level == 0) {
+                if (basic_lemma(to_refine)) {
+                    return l_false;
+                }
+            } else if (search_level == 1) {
+                if (order_lemma(to_refine)) {
+                    return l_false;
+                }
+            } else { // search_level == 3
+                if (monotonicity_lemma(to_refine)) {
+                    return l_false;
+                }
+                                
+                if (tangent_lemma(to_refine)) {
+                    return l_false;
+                }
+            }
     }
+    
+    return l_undef;
+}
     
     void test_factorization(unsigned mon_index, unsigned number_of_factorizations) {
         vector<ineq> lemma;
