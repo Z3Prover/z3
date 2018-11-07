@@ -2238,7 +2238,9 @@ public:
           }*/
 
         lbool lbl = make_feasible();
-            
+        if (m.canceled())
+            return;
+        
         switch(lbl) {
         case l_false:
             TRACE("arith", tout << "propagation conflict\n";);
