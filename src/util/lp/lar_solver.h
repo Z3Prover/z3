@@ -216,15 +216,6 @@ public:
     // this fills the last row of A_d and sets the basis column: -1 in the last column of the row
     void fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls);
 
-    void update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind);
-
-    void update_upper_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci, explanation &);
-    
-    void update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
-    void update_lower_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
-
-    void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
-
     //end of init region
 
 

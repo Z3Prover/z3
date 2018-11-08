@@ -2287,7 +2287,7 @@ public:
         int new_num_of_p = m_solver->settings().st().m_num_of_implied_bounds;
         (void)new_num_of_p;
         CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
-        if (m_solver->get_status() == lp::lp_status::INFEASIBLE) {
+        if (is_infeasible()) {
             set_conflict();
         }
         else {
@@ -2945,7 +2945,7 @@ public:
     }
 
     void assert_bound(bool_var bv, bool is_true, lp_api::bound& b) {
-        if (m_solver->get_status() == lp::lp_status::INFEASIBLE) {
+        if (is_infeasible()) {
             return;
         }
         scoped_internalize_state st(*this);
@@ -2978,8 +2978,8 @@ public:
         else {
             ci = m_solver->add_var_bound(vi, k, b.get_value(), m_explanation);
         }
-        if (m_solver->get_status() == lp::lp_status::INFEASIBLE) {
-            NOT_IMPLEMENTED_YET();
+        if (is_infeasible()) {
+            set_conflict1();
             return;
         }
         TRACE("arith", tout << "v" << b.get_var() << "\n";);
