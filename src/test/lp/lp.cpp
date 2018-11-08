@@ -2681,7 +2681,8 @@ void test_term() {
 
     vector<std::pair<mpq, var_index>> term_one;
     term_one.push_back(std::make_pair(mpq(1), one));
-    solver.add_constraint(term_one, lconstraint_kind::EQ, mpq(0));
+    explanation e;
+    solver.add_constraint(term_one, lconstraint_kind::EQ, mpq(0), e);
 
     vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
@@ -2693,13 +2694,13 @@ void test_term() {
     ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
     ls.push_back(std::pair<mpq, var_index>(mpq(1), y));
     ls.push_back(std::pair<mpq, var_index>(mpq(1), z));
-    
-    solver.add_constraint(ls, lconstraint_kind::EQ, mpq(0));
+
+    solver.add_constraint(ls, lconstraint_kind::EQ, mpq(0), e);
     ls.clear();
     ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
-    solver.add_constraint(ls, lconstraint_kind::LT, mpq(0));
+    solver.add_constraint(ls, lconstraint_kind::LT, mpq(0), e);
     ls.push_back(std::pair<mpq, var_index>(mpq(2), y));
-    solver.add_constraint(ls, lconstraint_kind::GT, mpq(0));
+    solver.add_constraint(ls, lconstraint_kind::GT, mpq(0), e);
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
@@ -2716,6 +2717,7 @@ void test_term() {
 
 void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
     lar_solver solver;
+    explanation e;
     var_index x = solver.add_var(0, false);
     var_index y = solver.add_var(1, false);
     solver.add_var_bound(x, LE, mpq(-1));
@@ -2724,10 +2726,11 @@ void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
     
     ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
     ls.push_back(std::pair<mpq, var_index>(mpq(1), y));
-    solver.add_constraint(ls, GE, mpq(1));
+
+    solver.add_constraint(ls, GE, mpq(1), e);
     ls.pop_back();
     ls.push_back(std::pair<mpq, var_index>(- mpq(1), y));
-    solver.add_constraint(ls, lconstraint_kind::GE, mpq(0));
+    solver.add_constraint(ls, lconstraint_kind::GE, mpq(0), e);
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
@@ -2771,7 +2774,7 @@ void test_bound_propagation_one_small_sample1() {
     coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), c));
     ls.add_constraint(coeffs, LE, zero_of_type<mpq>());
     vector<implied_bound> ev;
-    ls.add_var_bound(a, LE, mpq(1));
+    ls.add_var_bound(a, LE, mpq(1), e);
     ls.solve();
     my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
@@ -2822,9 +2825,10 @@ void test_bound_propagation_one_row() {
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
     c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
-    ls.add_constraint(c, EQ, one_of_type<mpq>());
+    explanation e;
+    ls.add_constraint(c, EQ, one_of_type<mpq>(), e);
     vector<implied_bound> ev;
-    ls.add_var_bound(x0, LE, mpq(1));
+    ls.add_var_bound(x0, LE, mpq(1), e);
     ls.solve();
     my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
@@ -2836,11 +2840,12 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
     c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
-    ls.add_constraint(c, EQ, one_of_type<mpq>());
+    explanation e;
+    ls.add_constraint(c, EQ, one_of_type<mpq>(), e);
     vector<implied_bound> ev;
-    ls.add_var_bound(x0, GE, mpq(-3));
-    ls.add_var_bound(x0, LE, mpq(3));
-    ls.add_var_bound(x0, LE, mpq(1));
+    ls.add_var_bound(x0, GE, mpq(-3), e);
+    ls.add_var_bound(x0, LE, mpq(3), e);
+    ls.add_var_bound(x0, LE, mpq(1), e);
     ls.solve();
     my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
@@ -2852,9 +2857,10 @@ void test_bound_propagation_one_row_mixed() {
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
     c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
-    ls.add_constraint(c, EQ, one_of_type<mpq>());
+    explanation e;
+    ls.add_constraint(c, EQ, one_of_type<mpq>(), e);
     vector<implied_bound> ev;
-    ls.add_var_bound(x1, LE, mpq(1));
+    ls.add_var_bound(x1, LE, mpq(1), e);
     ls.solve();
     my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
@@ -2869,15 +2875,16 @@ void test_bound_propagation_two_rows() {
     c.push_back(std::pair<mpq, var_index>(mpq(1), x));
     c.push_back(std::pair<mpq, var_index>(mpq(2), y));
     c.push_back(std::pair<mpq, var_index>(mpq(3), z));
-    ls.add_constraint(c, GE, one_of_type<mpq>());
+    explanation e;
+    ls.add_constraint(c, GE, one_of_type<mpq>(), e);
     c.clear();
     c.push_back(std::pair<mpq, var_index>(mpq(3), x));
     c.push_back(std::pair<mpq, var_index>(mpq(2), y));
     c.push_back(std::pair<mpq, var_index>(mpq(y), z));
-    ls.add_constraint(c, GE, one_of_type<mpq>());
-    ls.add_var_bound(x, LE, mpq(2));
+    ls.add_constraint(c, GE, one_of_type<mpq>(), e);
+    ls.add_var_bound(x, LE, mpq(2), e);
     vector<implied_bound> ev;
-    ls.add_var_bound(y, LE, mpq(1));
+    ls.add_var_bound(y, LE, mpq(1), e);
     ls.solve();
     my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
@@ -2890,14 +2897,15 @@ void test_total_case_u() {
     unsigned y = ls.add_var(1, false);
     unsigned z = ls.add_var(2, false);
     vector<std::pair<mpq, var_index>> c;
+    explanation e;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x));
     c.push_back(std::pair<mpq, var_index>(mpq(2), y));
     c.push_back(std::pair<mpq, var_index>(mpq(3), z));
-    ls.add_constraint(c, LE, one_of_type<mpq>());
-    ls.add_var_bound(x, GE, zero_of_type<mpq>());
-    ls.add_var_bound(y, GE, zero_of_type<mpq>());
+    ls.add_constraint(c, LE, one_of_type<mpq>(), e);
+    ls.add_var_bound(x, GE, zero_of_type<mpq>(), e);
+    ls.add_var_bound(y, GE, zero_of_type<mpq>(), e);
     vector<implied_bound> ev;
-    ls.add_var_bound(z, GE, zero_of_type<mpq>());
+    ls.add_var_bound(z, GE, zero_of_type<mpq>(), e);
     ls.solve();
     my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
@@ -2916,15 +2924,16 @@ void test_total_case_l(){
     unsigned y = ls.add_var(1, false);
     unsigned z = ls.add_var(2, false);
     vector<std::pair<mpq, var_index>> c;
+    explanation e;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x));
     c.push_back(std::pair<mpq, var_index>(mpq(2), y));
     c.push_back(std::pair<mpq, var_index>(mpq(3), z));
-    ls.add_constraint(c, GE, one_of_type<mpq>());
-    ls.add_var_bound(x, LE, one_of_type<mpq>());
-    ls.add_var_bound(y, LE, one_of_type<mpq>());
+    ls.add_constraint(c, GE, one_of_type<mpq>(), e);
+    ls.add_var_bound(x, LE, one_of_type<mpq>(), e);
+    ls.add_var_bound(y, LE, one_of_type<mpq>(), e);
     ls.settings().presolve_with_double_solver_for_lar = true;
     vector<implied_bound> ev;
-    ls.add_var_bound(z, LE, zero_of_type<mpq>());
+    ls.add_var_bound(z, LE, zero_of_type<mpq>(), e);
     ls.solve();
     my_bound_propagator bp(ls);
     ls.propagate_bounds_for_touched_rows(bp);
@@ -3506,8 +3515,9 @@ void test_maximize_term() {
     term_ls.push_back(std::pair<mpq, var_index>(mpq(2), y));
     
     unsigned term_2x_pl_2y = solver.add_term(term_ls);
-    solver.add_var_bound(term_x_min_y,  LE, zero_of_type<mpq>());
-    solver.add_var_bound(term_2x_pl_2y, LE, mpq(5));
+    explanation e;
+    solver.add_var_bound(term_x_min_y,  LE, zero_of_type<mpq>(), e);
+    solver.add_var_bound(term_2x_pl_2y, LE, mpq(5), e);
     solver.find_feasible_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
     solver.print_constraints(std::cout);
