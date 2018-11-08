@@ -386,17 +386,17 @@ namespace lp {
             return ret;
         }
         
-        void add_constraint_to_solver(lar_solver * solver, formula_constraint & fc, explanation& e) {
+        void add_constraint_to_solver(lar_solver * solver, formula_constraint & fc) {
             vector<std::pair<mpq, var_index>> ls;
             for (auto & it : fc.m_coeffs) {
                 ls.push_back(std::make_pair(it.first, solver->add_var(register_name(it.second), false)));
             }
-            solver->add_constraint(ls, fc.m_kind, fc.m_right_side, e);
+            solver->add_constraint(ls, fc.m_kind, fc.m_right_side);
         }
-        explanation e;
+
         void fill_lar_solver(lar_solver * solver) {
             for (formula_constraint & fc : m_constraints)
-                add_constraint_to_solver(solver, fc, e);
+                add_constraint_to_solver(solver, fc);
         }
 
 
