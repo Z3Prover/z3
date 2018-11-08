@@ -99,6 +99,7 @@ class lar_solver : public column_namer {
     int_set                                             m_columns_with_changed_bound;
     int_set                                             m_rows_with_changed_bounds;
     int_set                                             m_basic_columns_with_changed_cost;
+    stacked_value<int>                                  m_infeasible_column; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     const var_index                                     m_terms_start_index;
@@ -189,21 +190,25 @@ public:
 
     void add_basic_var_to_core_fields();
 
-    constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side, explanation&) ;
+    constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) ;
 
-    void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, explanation&);
-    void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, explanation&);
-    void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, explanation&);
-    void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, explanation&);
-    void update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, explanation&);
-    void update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, explanation&);
-    void update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index, explanation&);
+    void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
+    void update_column_type_and_bound_with_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
+    void update_column_type_and_bound_with_no_ub(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
+    void update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
+    void update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
+    void update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
+    void update_bound_with_no_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
 
-    void add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci, explanation&);
+    void add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);
 
+    void set_infeasible_column(unsigned j) {
+        set_status(lp_status::INFEASIBLE);
+        m_infeasible_column = j;
+    }
 
     void add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
-                                                            lconstraint_kind kind, const mpq & right_side, explanation&);
+                                                            lconstraint_kind kind, const mpq & right_side);
 
     void decide_on_strategy_and_adjust_initial_state();
 
@@ -303,6 +308,9 @@ public:
     
     lp_status solve();
 
+    void fill_explanation_from_infeasible_column(explanation & evidence) const;
+
+    
     unsigned get_total_iterations() const;
     // see http://research.microsoft.com/projects/z3/smt07.pdf
     // This method searches for a feasible solution with as many different values of variables, reverenced in vars, as it can find
@@ -436,7 +444,7 @@ public:
 
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side);
 
-    constraint_index add_constraint(const vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, const mpq& right_side_parm, explanation &);
+    constraint_index add_constraint(const vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, const mpq& right_side_parm);
     bool all_constraints_hold() const;
     bool constraint_holds(const lar_base_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const;
     bool the_relations_are_of_same_type(const vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) const;
