@@ -422,8 +422,9 @@ class theory_lra::imp {
         m_theory_var2var_index.setx(v, var, UINT_MAX);
         m_var_index2theory_var.setx(var, v, UINT_MAX);
         m_var_trail.push_back(v);
-        add_def_constraint(m_solver->add_var_bound(var, lp::GE, rational(c)));
-        add_def_constraint(m_solver->add_var_bound(var, lp::LE, rational(c)));
+        lp::explanation e;
+        add_def_constraint(m_solver->add_var_bound(var, lp::GE, rational(c), e));
+        add_def_constraint(m_solver->add_var_bound(var, lp::LE, rational(c), e));
         return var;
     }
 
@@ -799,7 +800,15 @@ class theory_lra::imp {
         m_definitions.setx(index, v, null_theory_var);
         ++m_stats.m_add_rows;
     }
-        
+
+    void process_conflict() {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    bool is_infeasible() const {
+        return m_solver->get_status() == lp::lp_status::INFEASIBLE;
+    }
+    
     void internalize_eq(theory_var v1, theory_var v2) {  
         app_ref term(m.mk_fresh_const("eq", a.mk_real()), m);
         scoped_internalize_state st(*this);
@@ -809,8 +818,14 @@ class theory_lra::imp {
         st.coeffs().push_back(rational::minus_one());
         theory_var z = internalize_linearized_def(term, st);      
         lp::var_index vi = register_theory_var_in_lar_solver(z);
-        add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero()));
-        add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero()));
+        add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero(), m_explanation));
+        if (is_infeasible()) {
+            process_conflict(); // exit here?
+        }
+        add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero(), m_explanation));
+        if (is_infeasible()) {
+            process_conflict();
+        }
         TRACE("arith", 
               {
                   expr*  o1 = get_enode(v1)->get_owner();
@@ -1226,10 +1241,12 @@ public:
                                           get_enode(w)->get_owner())));
         theory_var z = internalize_def(term);
         lp::var_index vi = register_theory_var_in_lar_solver(z);
-        add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero()));
-        add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero()));
-        add_def_constraint(m_solver->add_var_bound(register_theory_var_in_lar_solver(v), lp::GE, rational::zero()));
-        add_def_constraint(m_solver->add_var_bound(register_theory_var_in_lar_solver(v), lp::LT, abs(r)));
+        lp::explanation e;
+        add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero(), e));
+        add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero(), e));
+        add_def_constraint(m_solver->add_var_bound(register_theory_var_in_lar_solver(v), lp::GE, rational::zero(), e));
+        add_def_constraint(m_solver->add_var_bound(register_theory_var_in_lar_solver(v), lp::LT, abs(r), e));
+        SASSERT(m_solver->get_status() != lp::lp_status::INFEASIBLE);
         TRACE("arith", m_solver->print_constraints(tout << term << "\n"););
     }
 
@@ -2971,12 +2988,13 @@ public:
         lp::constraint_index ci;
         if (is_int && !is_true) {
             rational bound = b.get_value(false).get_rational();
-            ci = m_solver->add_var_bound(vi, k, bound);
+            ci = m_solver->add_var_bound(vi, k, bound, m_explanation);
         }
         else {
-            ci = m_solver->add_var_bound(vi, k, b.get_value());
+            ci = m_solver->add_var_bound(vi, k, b.get_value(), m_explanation);
         }
         if (m_solver->get_status() == lp::lp_status::INFEASIBLE) {
+            NOT_IMPLEMENTED_YET();
             return;
         }
         TRACE("arith", tout << "v" << b.get_var() << "\n";);
