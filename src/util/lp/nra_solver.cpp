@@ -118,7 +118,7 @@ typedef nla::variable_map_type variable_map_type;
             case l_true: 
                 break;
             case l_false: 
-                ex.reset();
+                ex.clear();
                 m_nlsat->get_core(core);
                 for (auto c : core) {
                     unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
