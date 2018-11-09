@@ -1990,7 +1990,7 @@ public:
         if (!check_idiv_bounds()) {
             return l_false;
         }
-        m_explanation.reset();
+        m_explanation.clear();
         switch (m_lia->check()) {
         case lp::lia_move::sat:
             lia_check = l_true;
@@ -2162,7 +2162,7 @@ public:
         if (!m_nra && !m_nla) return l_true;
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
-        m_explanation.reset();
+        m_explanation.clear();
         lbool r = m_nra? m_nra->check(m_explanation): m_nla->check(m_explanation, m_lemma);
         return m_nra? check_aftermath_nra(r) : check_aftermath_nla(r);
     }
