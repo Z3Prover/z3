@@ -149,7 +149,7 @@ namespace sat {
             }
             if (j == 0) {
                 // empty clause
-                m_solver.set_conflict(justification());
+                m_solver.set_conflict(justification(0));
                 for (; it != end; ++it) {
                     *it2 = *it;
                     it2++;

@@ -118,7 +118,6 @@ namespace sat {
         svector<char>           m_lit_mark;
         svector<char>           m_eliminated;
         svector<char>           m_external;
-        svector<unsigned>       m_level;
         literal_vector          m_replay_assign;
         // branch variable selection:
         svector<unsigned>       m_activity;
@@ -283,7 +282,7 @@ namespace sat {
         // -----------------------
     public:
         bool inconsistent() const { return m_inconsistent; }
-        unsigned num_vars() const { return m_level.size(); }
+        unsigned num_vars() const { return m_justification.size(); }
         unsigned num_clauses() const;
         void num_binary(unsigned& given, unsigned& learned) const;
         unsigned num_restarts() const { return m_restarts; }
@@ -300,22 +299,22 @@ namespace sat {
         bool  at_base_lvl() const { return m_scope_lvl == 0; }
         lbool value(literal l) const { return static_cast<lbool>(m_assignment[l.index()]); }
         lbool value(bool_var v) const { return static_cast<lbool>(m_assignment[literal(v, false).index()]); }
-        unsigned lvl(bool_var v) const { return m_level[v]; }
-        unsigned lvl(literal l) const { return m_level[l.var()]; }
+        unsigned lvl(bool_var v) const { return m_justification[v].level(); }
+        unsigned lvl(literal l) const { return m_justification[l.var()].level(); }
         unsigned init_trail_size() const { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
         literal  trail_literal(unsigned i) const { return m_trail[i]; }
         literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
-        void assign(literal l, justification j, unsigned level) {
-            TRACE("sat_assign", tout << l << " previous value: " << value(l) << " level: " << level << "\n";);
+        void assign(literal l, justification j) {
+            TRACE("sat_assign", tout << l << " previous value: " << value(l) << " j: " << j << "\n";);
             switch (value(l)) {
             case l_false: set_conflict(j, ~l); break;
-            case l_undef: assign_core(l, level, j); break;
+            case l_undef: assign_core(l, j); break;
             case l_true:  return;
             }
         }
-        void assign_unit(literal l) { assign(l, justification(), 0); }
-        void assign_scoped(literal l) { assign(l, justification(), scope_lvl()); }
-        void assign_core(literal l, unsigned lvl, justification jst);
+        void assign_unit(literal l) { assign(l, justification(0)); }
+        void assign_scoped(literal l) { assign(l, justification(scope_lvl())); }
+        void assign_core(literal l, justification jst);
         void set_conflict(justification c, literal not_l);
         void set_conflict(justification c) { set_conflict(c, null_literal); }
         lbool status(clause const & c) const;        
@@ -496,7 +495,13 @@ namespace sat {
         bool resolve_conflict();
         bool resolve_conflict_core();
         void learn_lemma_and_backjump();
-        unsigned get_max_lvl(literal consequent, justification js);
+        inline unsigned update_max_level(literal lit, unsigned lvl2, bool& unique_max) {
+            unsigned lvl1 = lvl(lit);
+            if (lvl1 < lvl2) return lvl2;
+            unique_max = lvl1 > lvl2;
+            return lvl1;
+        }
+        unsigned get_max_lvl(literal consequent, justification js, bool& unique_max);
         void process_antecedent(literal antecedent, unsigned & num_marks);
         void resolve_conflict_for_unsat_core();
         void process_antecedent_for_unsat_core(literal antecedent);

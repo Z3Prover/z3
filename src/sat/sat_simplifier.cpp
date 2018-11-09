@@ -336,7 +336,7 @@ namespace sat {
             }
             unsigned sz = c.size();
             if (sz == 0) {
-                s.set_conflict(justification());
+                s.set_conflict(justification(0));
                 for (; it != end; ++it, ++it2) {
                     *it2 = *it;                  
                 }
@@ -689,7 +689,7 @@ namespace sat {
         switch (c.size()) {
         case 0:
             TRACE("elim_lit", tout << "clause is empty\n";);
-            s.set_conflict(justification());
+            s.set_conflict(justification(0));
             return;
         case 1:
             TRACE("elim_lit", tout << "clause became unit: " << c[0] << "\n";);
@@ -877,7 +877,7 @@ namespace sat {
                 }
                 unsigned sz = c.size();
                 if (sz == 0) {
-                    s.set_conflict(justification());
+                    s.set_conflict(justification(0));
                     return;
                 }
                 if (sz == 1) {
@@ -2026,7 +2026,7 @@ namespace sat {
                     continue; // clause is already satisfied.
                 switch (m_new_cls.size()) {
                 case 0:
-                    s.set_conflict(justification());
+                    s.set_conflict(justification(0));
                     break;
                 case 1:
                     propagate_unit(m_new_cls[0]);
@@ -2143,7 +2143,7 @@ namespace sat {
 
     void simplifier::collect_statistics(statistics & st) const {
         st.update("sat subsumed", m_num_subsumed);
-        st.update("sat subsumption resolution", m_num_sub_res);
+        st.update("sat subs resolution", m_num_sub_res);
         st.update("sat elim literals", m_num_elim_lits);
         st.update("sat bce",  m_num_bce);
         st.update("sat cce",  m_num_cce);

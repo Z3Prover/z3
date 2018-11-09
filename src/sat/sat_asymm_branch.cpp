@@ -84,11 +84,11 @@ namespace sat {
             if (s.m_inconsistent)
                 break;
             unsigned num_elim = m_elim_literals + m_tr - elim;
-            IF_VERBOSE(1, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
+            IF_VERBOSE(2, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
             if (num_elim == 0)
                 break;
         }        
-        IF_VERBOSE(1, if (m_elim_learned_literals > eliml0) 
+        IF_VERBOSE(2, if (m_elim_learned_literals > eliml0) 
                           verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
         return m_elim_literals > elim0;
     }
@@ -98,7 +98,7 @@ namespace sat {
         unsigned elim = m_elim_literals;
         process(nullptr, s.m_clauses);
         s.propagate(false); 
-        IF_VERBOSE(1, if (m_elim_learned_literals > eliml0) 
+        IF_VERBOSE(2, if (m_elim_learned_literals > eliml0) 
                           verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
         return m_elim_literals > elim;
     }
@@ -413,7 +413,7 @@ namespace sat {
 
         switch(new_sz) {
         case 0:
-            s.set_conflict(justification());
+            s.set_conflict(justification(0));
             return false;
         case 1:
             TRACE("asymm_branch", tout << "produced unit clause: " << c[0] << "\n";);

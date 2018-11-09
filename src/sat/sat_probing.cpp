@@ -259,7 +259,7 @@ namespace sat {
     }
 
     void probing::collect_statistics(statistics & st) const {
-        st.update("probing assigned", m_num_assigned);
+        st.update("sat probing assigned", m_num_assigned);
     }
 
     void probing::reset_statistics() {

@@ -325,7 +325,7 @@ namespace sat {
         SASSERT(validate_conflict(c));
         if (c.is_xr() && value(lit) == l_true) lit.neg();
         SASSERT(value(lit) == l_false);
-        set_conflict(justification::mk_ext_justification(c.index()), ~lit);
+        set_conflict(justification::mk_ext_justification(s().scope_lvl(), c.index()), ~lit);
         SASSERT(inconsistent());
     }
 
@@ -350,7 +350,7 @@ namespace sat {
                 ps.push_back(drat::premise(drat::s_ext(), c.lit())); // null_literal case.
                 drat_add(lits, ps);
             }
-            assign(lit, justification::mk_ext_justification(c.index()));
+            assign(lit, justification::mk_ext_justification(s().scope_lvl(), c.index()));
             break;
         }
     }
@@ -414,7 +414,7 @@ namespace sat {
             }
             else {
                 IF_VERBOSE(0, verbose_stream() << "unsat during simplification\n";);
-                s().set_conflict(justification());
+                s().set_conflict(justification(0));
             }
             remove_constraint(p, "is false");
         }
@@ -844,7 +844,7 @@ namespace sat {
             p.update_max_sum();
             if (p.max_sum() < k) {
                 if (p.lit() == null_literal) {
-                    s().set_conflict(justification());
+                    s().set_conflict(justification(0));
                 }
                 else {
                     s().assign_scoped(~p.lit());
@@ -1172,7 +1172,8 @@ namespace sat {
         literal consequent = s().m_not_l;
         justification js = s().m_conflict;
         TRACE("ba", tout << consequent << " " << js << "\n";);
-        m_conflict_lvl = s().get_max_lvl(consequent, js);
+        bool unique_max;
+        m_conflict_lvl = s().get_max_lvl(consequent, js, unique_max);
         if (m_conflict_lvl == 0) {
             return l_undef;
         }
@@ -1507,7 +1508,8 @@ namespace sat {
         m_bound = 0;
         literal consequent = s().m_not_l;
         justification js = s().m_conflict;
-        m_conflict_lvl = s().get_max_lvl(consequent, js);
+        bool unique_max;
+        m_conflict_lvl = s().get_max_lvl(consequent, js, unique_max);
         if (m_conflict_lvl == 0) {
             return l_undef;
         }
@@ -1730,7 +1732,7 @@ namespace sat {
         }        
         if (m_lemma[0] == null_literal) {
             if (m_lemma.size() == 1) {
-                s().set_conflict(justification());
+                s().set_conflict(justification(0));
             }
             TRACE("ba", tout << "no asserting literal\n";);
             return false;

@@ -178,7 +178,7 @@ namespace sat {
                             l2_idx = s[j];
                             j--;
                             if (to_literal(l2_idx) == ~l) {
-                                m_solver.set_conflict(justification());
+                                m_solver.set_conflict(justification(0));
                                 return 0;
                             }
                             if (m_solver.is_external(to_literal(l2_idx).var())) {

@@ -120,7 +120,7 @@ namespace sat {
                        if (c.size() > 0) tout << "unit: " << c[0] << "\n";
                        s.display_watches(tout););
                 if (new_sz == 0) {
-                    s.set_conflict(justification());
+                    s.set_conflict(justification(0));
                     s.del_clause(c);
                 }
                 else if (new_sz == 1) {

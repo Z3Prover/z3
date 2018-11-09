@@ -170,7 +170,7 @@ namespace sat{
             if (v0 == 39063) IF_VERBOSE(0, verbose_stream() << "bdd: " << c << "\n");
             switch (c.size()) {
             case 0:
-                s.set_conflict(justification());
+                s.set_conflict(justification(0));
                 break;
             case 1: 
                 simp.propagate_unit(c[0]);
