@@ -519,9 +519,9 @@ struct solver::imp {
     }
 
     void trace_print_monomial_and_factorization(unsigned i_mon, const factorization& f, std::ostream& out) const {
-        out << "mon = ";
-        print_monomial(i_mon, out);
-        out << "\nfact = "; print_factorization(f, out);
+        print_monomial(i_mon, out << "mon:  ") << "\n";
+        out << "value: " << vvr(m_monomials[i_mon].var()) << "\n";
+        print_factorization(f, out << "fact: ") << "\n";
     }
     // x = 0 or y = 0 -> xy = 0
     bool basic_lemma_for_mon_zero_from_factors_to_monomial(unsigned i_mon, const factorization& f) {
@@ -840,11 +840,64 @@ struct solver::imp {
         m_lemma->clear();
     }
 
-    bool order_lemma(const unsigned_vector& to_refine) {
+    bool order_lemma_on_factor(const factorization& f, unsigned k, int sign) {
         return false;
     }
 
+    bool order_lemma_on_factorization(unsigned i_mon, const factorization& f) {
+        for (unsigned k = 0; k < f.size(); k++) {
+            const rational & v = vvr(f[k]);
+            if (v.is_zero())
+                continue;
+
+            int sign = ((v.is_pos() && f.sign().is_pos()) || (v.is_neg() && f.sign().is_neg()))? 1 : -1;
+            
+            if (order_lemma_on_factor(f, k, sign)) { 
+                return true;
+            }
+        }
+        return false;
+    }
+    bool order_lemma_on_monomial(unsigned i_mon) {
+        for (auto factorization : factorization_factory_imp(i_mon, *this)) {
+            if (factorization.is_empty())
+                continue;
+            if (order_lemma_on_factorization(i_mon, factorization))
+                return true;
+        }
+        return false;
+    }
+    
+    bool order_lemma(const unsigned_vector& to_refine) {
+        for (unsigned i_mon : to_refine) {
+            if (order_lemma_on_monomial(i_mon)) {
+                return true;
+            } 
+        }
+        return false;
+    }
+
+    bool monotonicity_lemma_on_factorization(unsigned i_mon, const factorization& factorization) {
+        return false;
+    }
+    
+    bool monotonicity_lemma_on_monomial(unsigned i_mon) {
+        for (auto factorization : factorization_factory_imp(i_mon, *this)) {
+            if (factorization.is_empty())
+                continue;
+            if (monotonicity_lemma_on_factorization(i_mon, factorization))
+                return true;
+        }
+        return false;
+    }
+    
     bool monotonicity_lemma(const unsigned_vector& to_refine) {
+        for (unsigned i_mon : to_refine) {
+            if (monotonicity_lemma_on_monomial(i_mon)) {
+                return true;
+            } 
+        }
+        
         return false;
     }
 
@@ -857,16 +910,20 @@ struct solver::imp {
         m_expl =   &exp;
         m_lemma =  &l;
        
-        if (m_lar_solver.get_status() != lp::lp_status::OPTIMAL)
+        if (m_lar_solver.get_status() != lp::lp_status::OPTIMAL) {
+            TRACE("nla_solver", tout << "unknown\n";);
             return l_undef;
+        }
+
         unsigned_vector to_refine;
         for (unsigned i = 0; i < m_monomials.size(); i++) {
             if (!check_monomial(m_monomials[i]))
                 to_refine.push_back(i);
         }
 
-        if (to_refine.empty())
+        if (to_refine.empty()) {
             return l_true;
+        }
 
         TRACE("nla_solver", tout << "to_refine.size() = " << to_refine.size() << std::endl;);
         
