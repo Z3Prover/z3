@@ -844,6 +844,10 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     return BR_FAILED;
 }
 
+//  (str.replace s t t') is the string obtained by replacing the first occurrence 
+//  of t in s, if any, by t'. Note that if t is empty, the result is to prepend
+//  t' to s; also, if t does not occur in s then the result is s.
+
 br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result) {
     zstring s1, s2, s3;
     if (m_util.str.is_string(a, s1) && m_util.str.is_string(b, s2) && 
@@ -855,7 +859,7 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         result = a;
         return BR_DONE;
     }
-    if (m_util.str.is_string(b, s2) && s2.length() == 0) {
+    if (m_util.str.is_empty(b)) {
         result = m_util.str.mk_concat(c, a);
         return BR_REWRITE1;
     }

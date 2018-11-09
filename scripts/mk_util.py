@@ -1859,14 +1859,11 @@ class DotNetCoreDLLComponent(Component):
         if not is_dotnet_core_enabled():
             return
         cs_fp_files = []
-        cs_files    = []
         for cs_file in get_cs_files(self.src_dir):
             cs_fp_files.append(os.path.join(self.to_src_dir, cs_file))
-            cs_files.append(cs_file)
         if self.assembly_info_dir != '.':
             for cs_file in get_cs_files(os.path.join(self.src_dir, self.assembly_info_dir)):
                 cs_fp_files.append(os.path.join(self.to_src_dir, self.assembly_info_dir, cs_file))
-                cs_files.append(os.path.join(self.assembly_info_dir, cs_file))
         dllfile = '%s.dll' % self.dll_name
         out.write('%s: %s$(SO_EXT)' % (dllfile, get_component(Z3_DLL_COMPONENT).dll_name))
         for cs_file in cs_fp_files:
@@ -1874,7 +1871,6 @@ class DotNetCoreDLLComponent(Component):
             out.write(cs_file)
         out.write('\n')
 
-        # TBD: can this be replaced by running "dotnet new classlib"?
         csproj = os.path.join(self.to_src_dir, "core", "core.csproj")
         dotnetCmdLine = [DOTNET, "build", csproj]
         
