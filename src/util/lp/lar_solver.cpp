@@ -304,7 +304,9 @@ lp_status lar_solver::solve() {
 }
 
 void lar_solver::fill_explanation_from_infeasible_column(explanation & evidence) const{
-
+    lp_assert(static_cast<int>(get_column_type(m_infeasible_column)) >= static_cast<int>(column_type::boxed));
+    lp_assert(!m_mpq_lar_core_solver.m_r_solver.column_is_feasible(m_infeasible_column));
+    
     // this is the case when the lower bound is in conflict with the upper one
     const ul_pair & ul =  m_columns_to_ul_pairs[m_infeasible_column];
     evidence.push_justification(ul.upper_bound_witness(),  numeric_traits<mpq>::one());
@@ -1960,6 +1962,8 @@ void lar_solver::update_column_type_and_bound_with_no_ub(unsigned j, lp::lconstr
 
 void lar_solver::update_bound_with_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lp_assert(column_has_lower_bound(j) && column_has_upper_bound(j));
+    lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::boxed ||
+              m_mpq_lar_core_solver.m_column_types[j] == column_type::fixed);
 
     mpq y_of_bound(0);
     switch (kind) {
@@ -2003,17 +2007,20 @@ void lar_solver::update_bound_with_ub_lb(var_index j, lconstraint_kind kind, con
             set_upper_bound_witness(j, ci);
             set_lower_bound_witness(j, ci);
             m_mpq_lar_core_solver.m_r_upper_bounds[j] = m_mpq_lar_core_solver.m_r_lower_bounds[j] = v;
-            m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
             break;
 	}
 
     default:
         lp_unreachable();
     }
+    if (m_mpq_lar_core_solver.m_r_upper_bounds[j] == m_mpq_lar_core_solver.m_r_lower_bounds[j]) {
+        m_mpq_lar_core_solver.m_column_types[j] = column_type::fixed;
+    }
 }
 void lar_solver::update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lp_assert(column_has_lower_bound(j) && !column_has_upper_bound(j));
-
+    lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::lower_bound);
+    
     mpq y_of_bound(0);
     switch (kind) {
     case LT:
@@ -2065,7 +2072,7 @@ void lar_solver::update_bound_with_no_ub_lb(var_index j, lconstraint_kind kind, 
 
 void lar_solver::update_bound_with_ub_no_lb(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lp_assert(!column_has_lower_bound(j) && column_has_upper_bound(j));
-
+    lp_assert(m_mpq_lar_core_solver.m_column_types[j] == column_type::upper_bound);
     mpq y_of_bound(0);
     switch (kind) {
     case LT:
