@@ -26,8 +26,7 @@ Notes:
 namespace sat {
 
     void local_search::init() {
-
-        m_initializing = true;
+        flet<bool> _init(m_initializing, true);
         m_unsat_stack.reset();
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
             add_clause(1, m_assumptions.c_ptr() + i);
@@ -47,16 +46,8 @@ namespace sat {
                     vi.m_value = (0 == (m_rand() % 2));
         }
 
-        m_best_solution.resize(num_vars() + 1, false);
         m_index_in_unsat_stack.resize(num_constraints(), 0);
-        coefficient_in_ob_constraint.resize(num_vars() + 1, 0);
-
-        for (auto const& c : ob_constraint) {
-            coefficient_in_ob_constraint[c.var_id] = c.coefficient;
-        }
-
         set_parameters();
-        m_initializing = false;
     }
 
     void local_search::init_cur_solution() {
@@ -163,11 +154,9 @@ namespace sat {
         m_vars.back().m_score = INT_MIN;
         m_vars.back().m_conf_change = false;       
         m_vars.back().m_slack_score = INT_MIN;
-        m_vars.back().m_cscc = 0;
         m_vars.back().m_time_stamp = m_max_steps + 1;
         for (unsigned i = 0; i < num_vars(); ++i) {
             m_vars[i].m_time_stamp = 0;
-            m_vars[i].m_cscc = 1;
             m_vars[i].m_conf_change = true;
             m_vars[i].m_in_goodvar_stack = false;
             m_vars[i].m_score = 0;
@@ -231,31 +220,7 @@ namespace sat {
             constraint const& c = m_constraints[m_unsat_stack[0]];
             IF_VERBOSE(2, display(verbose_stream() << "single unsat:", c));
         }
-    }
-    
-    void local_search::calculate_and_update_ob() {
-        unsigned i, v;
-        int objective_value = 0;
-        for (i = 0; i < ob_constraint.size(); ++i) {
-            v = ob_constraint[i].var_id;
-            if (cur_solution(v))
-                objective_value += ob_constraint[i].coefficient;
-        }
-        if (objective_value > m_best_objective_value) {
-            m_best_solution.reset();
-            for (unsigned v = 0; v < num_vars(); ++v) {
-                m_best_solution.push_back(cur_solution(v));
-            }
-            m_best_objective_value = objective_value;
-        }
-    }
-
-    bool local_search::all_objectives_are_met() const {
-        for (auto const& ob : ob_constraint) {
-            if (!cur_solution(ob.var_id)) return false;
-        }
-        return true;
-    }
+    }    
     
     void local_search::verify_solution() const {
         IF_VERBOSE(0, verbose_stream() << "verifying solution\n");
@@ -274,23 +239,22 @@ namespace sat {
         }
     }
 
+    bool local_search::verify_goodvar() const {
+        unsigned g = 0;
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            if (conf_change(v) && score(v) > 0) {
+                ++g;
+            }
+        }
+        return g == m_goodvar_stack.size();
+    }
+
     unsigned local_search::constraint_coeff(constraint const& c, literal l) const {
         for (auto const& pb : m_vars[l.var()].m_watch[is_pos(l)]) {
             if (pb.m_constraint_id == c.m_id) return pb.m_coeff;
         }
         UNREACHABLE();
         return 0;
-    }
-
-
-    unsigned local_search::constraint_value(constraint const& c) const {
-        unsigned value = 0;
-        for (literal t : c) {
-            if (is_true(t)) {
-                value += constraint_coeff(c, t);
-            }
-        }
-        return value;
     }
 
     void local_search::verify_constraint(constraint const& c) const {
@@ -310,6 +274,16 @@ namespace sat {
         for (constraint const& c : m_constraints) {
             verify_slack(c);
         }
+    }
+
+    unsigned local_search::constraint_value(constraint const& c) const {
+        unsigned value = 0;
+        for (literal t : c) {
+            if (is_true(t)) {
+                value += constraint_coeff(c, t);
+            }
+        }
+        return value;
     }
     
     void local_search::add_clause(unsigned sz, literal const* c) {
@@ -377,7 +351,7 @@ namespace sat {
     }
 
     void local_search::import(solver& s, bool _init) {        
-        m_initializing = true;
+        flet<bool> linit(m_initializing, true);
         m_is_pb = false;
         m_vars.reset();
         m_constraints.reset();
@@ -514,15 +488,11 @@ namespace sat {
         if (_init) {
             init();
         }
-        m_initializing = false;
     }
     
     local_search::~local_search() {
     }
     
-    void local_search::add_soft(bool_var v, int weight) {
-        ob_constraint.push_back(ob_term(v, weight));
-    }
 
     lbool local_search::check() {
         return check(0, nullptr);
@@ -593,7 +563,7 @@ namespace sat {
         if (m_is_unsat) {
             result = l_false;
         }
-        else if (m_unsat_stack.empty() && all_objectives_are_met()) {
+        else if (m_unsat_stack.empty()) {
             verify_solution();
             extract_model();
             result = l_true;
@@ -840,26 +810,6 @@ namespace sat {
         st.update("local-search-restarts", m_stats.m_num_restarts);
     }
 
-
-    bool local_search::check_goodvar() {
-        unsigned g = 0;
-        for (unsigned v = 0; v < num_vars(); ++v) {
-            if (conf_change(v) && score(v) > 0) {
-                ++g;
-                if (!already_in_goodvar_stack(v))
-                    std::cout << "3\n";
-            }
-        }
-        if (g == m_goodvar_stack.size())
-            return true;
-        else {
-            if (g < m_goodvar_stack.size())
-                std::cout << "1\n";
-            else
-                std::cout << "2\n"; // delete too many
-            return false;
-        }
-    }
 
     void local_search::set_phase(bool_var v, lbool f) {
         unsigned& bias = m_vars[v].m_bias;

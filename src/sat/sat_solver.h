@@ -306,7 +306,7 @@ namespace sat {
         literal  trail_literal(unsigned i) const { return m_trail[i]; }
         literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
         void assign(literal l, justification j, unsigned level) {
-            TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
+            TRACE("sat_assign", tout << l << " previous value: " << value(l) << " level: " << level << "\n";);
             switch (value(l)) {
             case l_false: set_conflict(j, ~l); break;
             case l_undef: assign_core(l, level, j); break;

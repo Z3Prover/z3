@@ -149,8 +149,8 @@ namespace sat {
         m_status.push_back(st);
         m_proof.push_back(&c); 
         if (st == status::deleted) {
-            del_watch(c, c[0]);
-            del_watch(c, c[1]);
+            if (n > 0) del_watch(c, c[0]);
+            if (n > 1) del_watch(c, c[1]);
             return;
         }
         unsigned num_watch = 0;
@@ -212,18 +212,20 @@ namespace sat {
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) {            
             assign_propagate(~c[i]);
         }
-        if (!m_inconsistent) {
-            DEBUG_CODE(validate_propagation(););
-        }
-        for (unsigned i = 0; i < m_units.size(); ++i) {
-            SASSERT(m_assignment[m_units[i].var()] != l_undef);
-        }
+        DEBUG_CODE(
+            if (!m_inconsistent) {
+                validate_propagation();
+            }
+            for (literal u : m_units) {
+                SASSERT(m_assignment[u.var()] != l_undef);
+            });
 
         for (unsigned i = num_units; i < m_units.size(); ++i) {
             m_assignment[m_units[i].var()] = l_undef;
         }
-        m_units.resize(num_units);
+        m_units.shrink(num_units);
         bool ok = m_inconsistent;
+        IF_VERBOSE(9, verbose_stream() << "is-drup " << m_inconsistent << "\n");
         m_inconsistent = false;
         return ok;
     }
@@ -426,12 +428,14 @@ namespace sat {
         }
     }
     void drat::add(literal l, bool learned) {
+        TRACE("sat", tout << "add: " << l << " " << (learned?"l":"t") << "\n";);
         declare(l);
         status st = get_status(learned);
         if (m_out) dump(1, &l, st);
         if (m_check) append(l, st);
     }
     void drat::add(literal l1, literal l2, bool learned) {
+        TRACE("sat", tout << "add: " << l1 << " " << l2 << " " << (learned?"l":"t") << "\n";);
         declare(l1);
         declare(l2);
         literal ls[2] = {l1, l2};
