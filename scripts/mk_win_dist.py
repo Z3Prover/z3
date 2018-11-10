@@ -258,7 +258,7 @@ def cp_vs_runtime(x64):
         platform = "x86"
     vcdir = os.environ['VCINSTALLDIR']
     path  = '%sredist\\%s' % (vcdir, platform)
-    VS_RUNTIME_FILES = []
+    vs_runtime_files = []
     for root, dirs, files in os.walk(path):
         for filename in files:
             if fnmatch(filename, '*.dll'):
@@ -266,10 +266,11 @@ def cp_vs_runtime(x64):
                     if pat.match(filename):
                         fname = os.path.join(root, filename)
                         if not os.path.isdir(fname):
-                            VS_RUNTIME_FILES.append(fname)
-
+                            vs_runtime_files.append(fname)
+    if not vs_runtime_files:
+        raise MKException("Did not find any runtime files to include")       
     bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
-    for f in VS_RUNTIME_FILES:
+    for f in vs_runtime_files:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
             print("Copied '%s' to '%s'" % (f, bin_dist_path))
