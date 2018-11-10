@@ -1092,7 +1092,7 @@ public:
     void reset();
 
     std::ostream& display(std::ostream& out) const;
-    void display_certificate(std::ostream& out) const {NOT_IMPLEMENTED_YET();}
+    void display_certificate(std::ostream& out) const;
 
     pob& get_root() const {return m_pob_queue.get_root();}
     void set_query(func_decl* q) {m_query_pred = q;}

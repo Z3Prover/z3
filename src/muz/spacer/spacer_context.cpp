@@ -2366,6 +2366,10 @@ void context::updt_params() {
     }
 }
 
+void context::display_certificate(std::ostream& out) const {
+    proof_ref pr = get_proof();
+    out << pr;
+}
 
 void context::reset()
 {
