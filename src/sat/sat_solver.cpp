@@ -920,7 +920,7 @@ namespace sat {
                     if (c[0] == not_l)
                         std::swap(c[0], c[1]);
                     CTRACE("propagate_bug", c[1] != not_l, tout << "l: " << l << " " << c << "\n";);
-                    if (c.was_removed() || c[1] != not_l) {
+                    if (c.was_removed() || c.size() == 1 || c[1] != not_l) {
                         // Remark: this method may be invoked when the watch lists are not in a consistent state,
                         // and may contain dead/removed clauses, or clauses with removed literals.
                         // See: method propagate_unit at sat_simplifier.cpp

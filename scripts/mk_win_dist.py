@@ -267,7 +267,7 @@ def cp_vs_runtime(x64):
     # we use a "check_root" filter to find some hopefully suitable
     # redistributable.
     def check_root(root):
-        return platform in root and "CRT" in root and "onecore" not in root and "debug" not in root
+        return platform in root and ("CRT" in root or "MP" in root) and "onecore" not in root and "debug" not in root
     for root, dirs, files in os.walk(path):
         for filename in files:
             if fnmatch(filename, '*.dll') and check_root(root):
