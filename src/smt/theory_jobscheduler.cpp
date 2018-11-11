@@ -315,7 +315,7 @@ namespace smt {
 
     /**
      *  For time interval [t0, t1] the end-time can be computed as a function 
-     *  of start time based on reource load availability.
+     *  of start time based on resource load availability.
      * 
      *  r = resource(j) & t1 >= start(j) >= t0 => end(j) = start(j) + ect(j, r, t0) - t0
      */
@@ -672,7 +672,7 @@ namespace smt {
     }
 
     /*
-     * Initialze the state based on the set of jobs and resources added.
+     * Initialize the state based on the set of jobs and resources added.
      * Ensure that the availability slots for each resource is sorted by time.
      *
      * For each resource j:

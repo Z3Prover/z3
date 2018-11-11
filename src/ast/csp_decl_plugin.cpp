@@ -104,7 +104,7 @@ func_decl * csp_decl_plugin::mk_func_decl(
         if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-job-resource expects should be an integer");
         if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-job-resource expects should be an integer");
         if (domain[4] != m_int_sort) m_manager->raise_exception("5th argument of add-job-resource expects should be an integer");
-        if (domain[5] != m_alist_sort) m_manager->raise_exception("6th argument of add-job-resource should be an a list of properties");
+        if (domain[5] != m_alist_sort) m_manager->raise_exception("6th argument of add-job-resource should be a list of properties");
         name = symbol("add-job-resource");
         rng = m_alist_sort;
         break;
@@ -115,7 +115,7 @@ func_decl * csp_decl_plugin::mk_func_decl(
         if (domain[2] != m_int_sort) m_manager->raise_exception("3rd argument of add-resource-available expects should be an integer");
         if (domain[3] != m_int_sort) m_manager->raise_exception("4th argument of add-resource-available expects should be an integer");
         if (domain[4] != m_int_sort) m_manager->raise_exception("5th argument of add-resource-available expects should be an integer");
-        if (domain[5] != m_alist_sort) m_manager->raise_exception("6th argument of add-resource-available should be an a list of properties");
+        if (domain[5] != m_alist_sort) m_manager->raise_exception("6th argument of add-resource-available should be a list of properties");
         name = symbol("add-resource-available");
         rng = m_alist_sort;
         break;
