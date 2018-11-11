@@ -2366,11 +2366,6 @@ void context::updt_params() {
     }
 }
 
-void context::display_certificate(std::ostream& out) const {
-    proof_ref pr = get_proof();
-    out << pr;
-}
-
 void context::reset()
 {
     TRACE("spacer", tout << "\n";);
@@ -2747,7 +2742,7 @@ lbool context::solve(unsigned from_lvl)
     if (m_last_result == l_true) {
         m_stats.m_cex_depth = get_cex_depth ();
     }
- 
+
     if (m_params.print_statistics ()) {
         statistics st;
         collect_statistics (st);
@@ -2931,10 +2926,6 @@ expr_ref context::get_answer()
     }
 }
 
-/**
-   \brief Retrieve satisfying assignment with explanation.
-*/
-expr_ref context::mk_sat_answer() {return get_ground_sat_answer();}
 
 
 expr_ref context::mk_unsat_answer() const
@@ -2957,8 +2948,7 @@ proof_ref context::get_ground_refutation() {
     ground_sat_answer_op op(*this);
     return op(*m_query);
 }
-expr_ref context::get_ground_sat_answer()
-{
+expr_ref context::get_ground_sat_answer() const {
     if (m_last_result != l_true) {
         IF_VERBOSE(0, verbose_stream()
                    << "Sat answer unavailable when result is false\n";);
@@ -3084,6 +3074,20 @@ expr_ref context::get_ground_sat_answer()
     TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
 
     return expr_ref(m.mk_and(cex.size(), cex.c_ptr()), m);
+}
+
+void context::display_certificate(std::ostream &out) const {
+    switch(m_last_result) {
+    case l_false:
+        out << mk_pp(mk_unsat_answer(), m);
+        break;
+    case l_true:
+        out << mk_pp(mk_sat_answer(), m);
+        break;
+    case l_undef:
+        out << "unknown";
+        break;
+    }
 }
 
 ///this is where everything starts
