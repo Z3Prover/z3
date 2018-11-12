@@ -28,6 +28,15 @@ struct hash_svector {
     }
 };
 
+struct index_with_sign {
+    unsigned m_i; // the index
+    rational m_sign; // the sign: -1 or 1
+    index_with_sign(unsigned i, rational sign) : m_i(i), m_sign(sign) {}
+    index_with_sign() {}
+    bool operator==(const index_with_sign& b) {
+        return m_i == b.m_i && m_sign == b.m_sign;
+    }
+};
 
 struct rat_hash {
     typedef rational data;
@@ -60,6 +69,8 @@ struct vars_equivalence {
         }
     };
 
+   
+    
     // The map from the variables to m_equivs indices
     // m_tree is a spanning tree of the graph of equivs represented by m_equivs
     std::unordered_map<unsigned, unsigned> m_tree;  
@@ -70,6 +81,25 @@ struct vars_equivalence {
         m_equivs.clear();
         m_tree.clear();
     }
+    // it also returns (j, 1)
+    vector<index_with_sign> get_equivalent_vars(lpvar j) const {
+        // it is just a place holder, see if we need something more substantial
+        vector<index_with_sign> ret;
+        ret.push_back(index_with_sign(j, rational(1)));
+        return ret; 
+        /*
+        vector<index_with_sign> ret;
+        std::unordered_set<unsigned> returned;
+        std::unordered_set<unsigned> processed;
+        ret.push_back(std::make_pair(j, 1));
+        returned.insert(j);
+        processed.insert(j);
+        std::queue<unsigned> q;
+        q.enqueue(j);
+        
+        */
+        
+    } 
 
     unsigned size() const { return static_cast<unsigned>(m_tree.size()); }
 

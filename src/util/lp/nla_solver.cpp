@@ -30,15 +30,7 @@ struct solver::imp {
 
     typedef lp::lar_base_constraint lpcon;
     
-    struct index_with_sign {
-        unsigned m_i; // the monomial index
-        rational m_sign; // the monomial sign: -1 or 1
-        index_with_sign(unsigned i, rational sign) : m_i(i), m_sign(sign) {}
-        index_with_sign() {}
-        bool operator==(const index_with_sign& b) {
-            return m_i == b.m_i && m_sign == b.m_sign;
-        }
-    };
+   
 
     //fields    
     vars_equivalence                                       m_vars_equivalence;
@@ -839,8 +831,30 @@ struct solver::imp {
         m_expl->clear();
         m_lemma->clear();
     }
+    bool order_lemma_on_factor_equiv_and_other_mon(unsigned o_i_mon, unsigned e_j, unsigned i_mon, const factorization& f, unsigned k, const rational& sign) {
+        NOT_IMPLEMENTED_YET();
+        return false;
+    }
+    // here e_j is equivalent to f[k],
+    // f is a factorization of m_monomials[i_mon]
+    bool order_lemma_on_factor_and_equiv(unsigned e_j, unsigned i_mon, const factorization& f, unsigned k, const rational& sign) {
+        lpvar j = f[k];
+        for (unsigned i : m_monomials_containing_var[j]) {
+            if (order_lemma_on_factor_equiv_and_other_mon(i, e_j, i_mon, f, k, sign)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-    bool order_lemma_on_factor(const factorization& f, unsigned k, int sign) {
+    
+    bool order_lemma_on_factor(unsigned i_mon, const factorization& f, unsigned k, int sign) {
+        lpvar j = f[k];
+        for (const index_with_sign& p : m_vars_equivalence.get_equivalent_vars(j)) {
+            if (order_lemma_on_factor_and_equiv(p.m_i, i_mon, f, k, sign * p.m_sign)) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -852,12 +866,13 @@ struct solver::imp {
 
             int sign = ((v.is_pos() && f.sign().is_pos()) || (v.is_neg() && f.sign().is_neg()))? 1 : -1;
             
-            if (order_lemma_on_factor(f, k, sign)) { 
+            if (order_lemma_on_factor(i_mon, f, k, sign)) { 
                 return true;
             }
         }
         return false;
     }
+
     bool order_lemma_on_monomial(unsigned i_mon) {
         for (auto factorization : factorization_factory_imp(i_mon, *this)) {
             if (factorization.is_empty())
@@ -910,8 +925,8 @@ struct solver::imp {
         m_expl =   &exp;
         m_lemma =  &l;
        
-        if (m_lar_solver.get_status() != lp::lp_status::OPTIMAL) {
-            TRACE("nla_solver", tout << "unknown\n";);
+        if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
+            TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << lp_status_to_string(m_lar_solver.get_status()) << "\n";);
             return l_undef;
         }
 
