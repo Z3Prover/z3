@@ -64,6 +64,26 @@ namespace smt2 {
             next();
         }
     }
+    
+    void scanner::read_multiline_comment() {
+        SASSERT(curr() == '|');
+        next();
+        while (true) {
+            char c = curr();
+            if (m_at_eof)
+                return;
+            if (c == '\n') {
+                new_line();
+                next();
+                continue;
+            }
+            next();
+            if (c == '|' && curr() == '#') {
+                next();
+                return;
+            }
+        }
+    }
 
     scanner::token scanner::read_quoted_symbol() {
         SASSERT(curr() == '|');
@@ -235,6 +255,10 @@ namespace smt2 {
                 throw scanner_exception("invalid empty bit-vector literal", m_line, m_spos);
             return BV_TOKEN;
         }
+        else if ('|') {
+            read_multiline_comment();
+            return NULL_TOKEN;
+        }
         else {
             throw scanner_exception("invalid bit-vector literal, expecting 'x' or 'b'", m_line, m_spos);
         }
@@ -295,6 +319,8 @@ namespace smt2 {
     scanner::token scanner::scan() {
         while (true) {
             signed char c = curr();
+            token t;
+            
             m_pos = m_spos;
 
             if (m_at_eof)
@@ -329,7 +355,9 @@ namespace smt2 {
             case '0':
                 return read_number();
             case '#':
-                return read_bv_literal();
+                t = read_bv_literal();
+                if (t == NULL_TOKEN) break;
+                return t;
             case '-':
                 if (m_smtlib2_compliant)
                     return read_symbol();
