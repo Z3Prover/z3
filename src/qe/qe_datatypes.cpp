@@ -77,6 +77,7 @@ namespace qe {
             ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
             for (unsigned i = 0; i < acc.size(); ++i) {
                 arg = m.mk_fresh_const(acc[i]->get_name().str().c_str(), acc[i]->get_range());
+                vars.push_back(arg);
                 model.register_decl(arg->get_decl(), m_val->get_arg(i));
                 args.push_back(arg);
             }

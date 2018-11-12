@@ -1515,11 +1515,11 @@ namespace z3 {
         Z3_ast r;
         if (a.is_int()) {
             expr zero = a.ctx().int_val(0);
-            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, zero);
+            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, -a);
         }
         else if (a.is_real()) {
             expr zero = a.ctx().real_val(0);
-            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, zero);
+            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, -a);
         }
         else {
             r = Z3_mk_fpa_abs(a.ctx(), a); 
