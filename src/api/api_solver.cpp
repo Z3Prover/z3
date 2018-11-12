@@ -183,8 +183,12 @@ extern "C" {
         }
         else if (ext && std::string("dimacs") == ext) {
             ast_manager& m = to_solver_ref(s)->get_manager();
+            std::stringstream err;
             sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
-            parse_dimacs(is, solver);
+            if (!parse_dimacs(is, err, solver)) {
+                SET_ERROR_CODE(Z3_PARSER_ERROR, err.str().c_str());
+                return;
+            }
             sat2goal s2g;
             ref<sat2goal::mc> mc;
             atom2bool_var a2b(m);

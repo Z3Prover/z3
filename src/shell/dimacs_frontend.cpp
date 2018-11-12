@@ -136,7 +136,7 @@ void verify_solution(char const * file_name) {
         std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
         exit(ERR_OPEN_FILE);
     }
-    parse_dimacs(in, solver);
+    parse_dimacs(in, std::cerr, solver);
     
     sat::model const & m = g_solver->get_model();
     for (unsigned i = 1; i < m.size(); i++) {
@@ -178,10 +178,10 @@ unsigned read_dimacs(char const * file_name) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        parse_dimacs(in, solver);
+        parse_dimacs(in, std::cerr, solver);
     }
     else {
-        parse_dimacs(std::cin, solver);
+        parse_dimacs(std::cin, std::cerr, solver);
     }
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
     
