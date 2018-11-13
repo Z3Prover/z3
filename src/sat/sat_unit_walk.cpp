@@ -98,6 +98,7 @@ namespace sat {
             literal lit(v, !m_phase[v]);
             ++s.m_stats.m_decision;
             m_decisions.push_back(lit);
+            // IF_VERBOSE(0, verbose_stream() << "push " << lit << " " << m_decisions.size() << "\n");
             pqueue().push();
             assign(lit);
             propagate();
@@ -137,6 +138,7 @@ namespace sat {
     void unit_walk::pop_decision() {
         SASSERT (!m_decisions.empty());
         literal dlit = m_decisions.back();
+        // IF_VERBOSE(0, verbose_stream() << "pop " << dlit << " " << m_decisions.size() << "\n");
         literal lit;
         do {
             SASSERT(!m_trail.empty());
@@ -155,16 +157,15 @@ namespace sat {
         m_trail.reset();
         m_decisions.reset();
         m_phase.resize(s.num_vars());
-        double2 d2;
-        d2.t = 1.0;
-        d2.f = 1.0;
-        m_phase_tf.resize(s.num_vars(), d2);
+        m_phase_tf.resize(s.num_vars(), ema(1e-5));
+        pqueue().reset();
         for (unsigned v = 0; v < s.num_vars(); ++v) {            
             if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
                 pqueue().add(v);
             }
         }
         m_ls.import(s, true);
+        m_rand.set_seed(s.rand()());
         update_priority();
     }
 
@@ -187,14 +188,26 @@ namespace sat {
         }
         log_status();
         IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk :update-priority " << pqueue().depth() << ")\n");
+        for (unsigned v = 0; v < s.num_vars(); ++v) {
+            m_ls.set_bias(v, m_phase_tf[v] >= 50 ? l_true : l_false);
+        }
         for (literal lit : m_trail) {
             m_ls.set_bias(lit.var(), lit.sign() ? l_false : l_true);
         }
-        m_ls.rlimit().push(1);
+        m_ls.rlimit().push(2);
         lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
         m_ls.rlimit().pop();
 
         TRACE("sat", tout << "result of running bounded local search " << is_sat << "\n";);
+        IF_VERBOSE(0, verbose_stream() << "result of running local search " << is_sat << "\n";);
+        if (is_sat != l_undef) {
+            while (!m_decisions.empty()) {
+                pop_decision();
+            }
+            while (!pqueue().empty()) {
+                pqueue().pop();
+            }
+        }
         if (is_sat == l_true) {
             for (unsigned v = 0; v < s.num_vars(); ++v) {
                 s.m_assignment[v] = m_ls.get_phase(v) ? l_true : l_false;
@@ -215,10 +228,10 @@ namespace sat {
         // assert variables are sorted from highest to lowest value.
         
         for (bool_var v : pqueue()) {
-            if (m_ls.cur_solution(v)) 
-                m_phase_tf[v].t += 1;
+            if (m_ls.cur_solution(v))                 
+                m_phase_tf[v].update(100);
             else
-                m_phase_tf[v].f += 1;
+                m_phase_tf[v].update(0);
         }
         init_phase();
 
@@ -228,7 +241,7 @@ namespace sat {
             unsigned num_levels = 0;
             while (m_decisions.size() > 0) {
                 bool_var w = m_decisions.back().var();
-                if (m_ls.break_count(w) >= m_ls.break_count(v)) {
+                if (num_levels >= 15 && m_ls.break_count(w) >= m_ls.break_count(v)) {
                     break;
                 }
                 ++num_levels;
@@ -252,7 +265,7 @@ namespace sat {
                     m_phase[v] = false;
                 }
                 else {
-                    m_phase[v] = m_rand(100 * static_cast<unsigned>(m_phase_tf[v].t + m_phase_tf[v].f)) <= 100 * m_phase_tf[v].t;
+                    m_phase[v] = m_rand(100) <= m_phase_tf[v];
                 }
             }
         }
@@ -264,10 +277,12 @@ namespace sat {
 
     void unit_walk::refresh_solver() {
         m_max_conflicts += m_conflict_offset ;
-        m_conflict_offset += 10000;
+        m_conflict_offset += 100; // 00;
         if (s.m_par && s.m_par->copy_solver(s)) {
             IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
+            init_runs();
+            init_phase();
         }
     }
 
@@ -302,6 +317,20 @@ namespace sat {
         while (m_qhead < m_trail.size() && !inconsistent()) 
             propagate(choose_literal());            
         // IF_VERBOSE(1, verbose_stream() << m_trail.size() << " " << inconsistent() << "\n";);
+    }
+
+    std::ostream& unit_walk::display(std::ostream& out) const {
+        unsigned i = 0;
+        out << "num decisions: " << m_decisions.size() << "\n";
+        for (literal lit : m_trail) {
+            if (i < m_decisions.size() && m_decisions[i] == lit) {
+                out << "d " << i << ": ";
+                ++i;
+            }
+            out << lit << "\n";
+        }
+        s.display(verbose_stream());
+        return out;
     }
 
     void unit_walk::propagate(literal l) {
@@ -422,7 +451,9 @@ namespace sat {
     }
 
     void unit_walk::assign(literal lit) {
-        SASSERT(value(lit) == l_undef);
+        VERIFY(value(lit) == l_undef);
+        //VERIFY(!m_trail.contains(lit));
+        //VERIFY(!m_trail.contains(~lit));
         s.m_assignment[lit.index()] = l_true;
         s.m_assignment[(~lit).index()] = l_false;
         m_trail.push_back(lit);
@@ -439,9 +470,7 @@ namespace sat {
         bool_var v = l.var();
         m_phase[v] = !m_phase[v]; 
         if (m_sticky_phase) {
-            m_phase_tf[v].f *= 0.98;
-            m_phase_tf[v].t *= 0.98;
-            if (m_phase[v]) m_phase_tf[v].t += 1; else m_phase_tf[v].f += 1;
+            if (m_phase[v]) m_phase_tf[v].update(100); else m_phase_tf[v].update(0);
         }
     }
 

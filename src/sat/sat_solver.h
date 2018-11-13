@@ -225,6 +225,8 @@ namespace sat {
         void mk_clause(literal l1, literal l2, bool learned = false);
         void mk_clause(literal l1, literal l2, literal l3, bool learned = false);        
 
+        random_gen& rand() { return m_rand; }
+
     protected:
         inline clause_allocator& cls_allocator() { return m_cls_allocator[m_cls_allocator_idx]; }
         inline clause_allocator const& cls_allocator() const { return m_cls_allocator[m_cls_allocator_idx]; }

@@ -20,14 +20,17 @@ Revision History:
 #define SAT_UNIT_WALK_H_
 
 #include "sat/sat_solver.h"
-#include "sat_local_search.h"
+#include "sat/sat_local_search.h"
+#include "util/ema.h"
 
 namespace sat {
 
     class unit_walk {
+#if 0
         struct double2 {
             double t, f;
         };
+#endif
         class var_priority {
             svector<bool_var> m_vars;
             unsigned_vector   m_lim;
@@ -45,6 +48,7 @@ namespace sat {
             bool_var peek(solver& s);
             void push() { m_lim.push_back(m_head); }
             void pop() { m_head = m_lim.back(); m_lim.pop_back(); }    
+            bool empty() const { return m_lim.empty(); }
             bool_var const* begin() const { return m_vars.begin(); }
             bool_var const* end() const { return m_vars.end(); }
             bool_var* begin() { return m_vars.begin(); }
@@ -55,7 +59,7 @@ namespace sat {
         local_search      m_ls;
         random_gen        m_rand;
         svector<bool>     m_phase;
-        svector<double2>  m_phase_tf;
+        svector<ema>      m_phase_tf;
         var_priority      m_priorities;
 
         // settings
