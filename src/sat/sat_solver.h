@@ -524,7 +524,8 @@ namespace sat {
         bool implied_by_marked(literal lit);
         void reset_unmark(unsigned old_size);
         void updt_lemma_lvl_set();
-        void minimize_lemma();
+        bool minimize_lemma(unsigned glue);
+        bool minimize_lemma_binres(unsigned glue);
         void reset_lemma_var_marks();
         void dyn_sub_res();
 
