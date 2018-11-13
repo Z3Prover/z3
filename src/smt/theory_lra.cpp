@@ -412,7 +412,6 @@ class theory_lra::imp {
             return var;
         }
         app_ref cnst(a.mk_numeral(rational(c), is_int), m);
-        TRACE("arith", tout << "add " << cnst << "\n";);
         mk_enode(cnst);
         theory_var v = mk_var(cnst);
         var = m_solver->add_var(v, true);
@@ -421,6 +420,7 @@ class theory_lra::imp {
         m_var_trail.push_back(v);
         add_def_constraint(m_solver->add_var_bound(var, lp::GE, rational(c)));
         add_def_constraint(m_solver->add_var_bound(var, lp::LE, rational(c)));
+        TRACE("arith", tout << "add " << cnst << ", var = " << var << "\n";);
         return var;
     }
 
@@ -782,7 +782,7 @@ class theory_lra::imp {
         m_constraint_sources.setx(index, inequality_source, null_source);
         m_inequalities.setx(index, lit, null_literal);
         ++m_stats.m_add_rows;
-        TRACE("arith", m_solver->print_constraint(index, tout) << "\n";);
+        TRACE("arith", m_solver->print_constraint(index, tout) << " m_stats.m_add_rows = " << m_stats.m_add_rows << "\n";);
     }
 
     void add_def_constraint(lp::constraint_index index) {
@@ -1696,7 +1696,7 @@ public:
                 
             return st;
         case l_false:
-            set_conflict();
+            get_infeasibility_explanation_and_set_conflict();
             return FC_CONTINUE;
         case l_undef:
             TRACE("arith", tout << "check feasiable is undef\n";);
@@ -2010,8 +2010,7 @@ public:
         if (!check_idiv_bounds()) {
             return l_false;
         }
-        m_explanation.clear();
-        switch (m_lia->check()) {
+        switch (m_lia->check(&m_explanation)) {
         case lp::lia_move::sat:
             lia_check = l_true;
             break;
@@ -2044,11 +2043,11 @@ public:
                 m.trace_stream() << "[end-of-instance]\n";
             }
             IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n");
-            TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_lia->get_explanation(), m_lia->is_upper()););
+            TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_explanation, m_lia->is_upper()););
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            for (auto const& ev : m_lia->get_explanation()) {
+            for (auto const& ev : m_explanation) {
                 if (!ev.first.is_zero()) { 
                     set_evidence(ev.second);
                 }
@@ -2064,9 +2063,8 @@ public:
         case lp::lia_move::conflict:
             TRACE("arith", tout << "conflict\n";);
             // ex contains unsat core
-            set_conflict1();
-            lia_check = l_false;
-            break;
+            set_conflict();
+            return l_false;
         case lp::lia_move::undef:
             TRACE("arith", tout << "lia undef\n";);
             lia_check = l_undef;
@@ -2085,7 +2083,7 @@ public:
         m_a2 = alloc(scoped_anum, m_nra->am());
         switch (r) {
         case l_false:
-            set_conflict1();
+            set_conflict();
             break;
         case l_true:
             m_use_nra_model = true;
@@ -2258,7 +2256,7 @@ public:
         switch(lbl) {
         case l_false:
             TRACE("arith", tout << "propagation conflict\n";);
-            set_conflict();
+            get_infeasibility_explanation_and_set_conflict();
             break;
         case l_true:
             propagate_basic_bounds();
@@ -2285,7 +2283,7 @@ public:
         (void)new_num_of_p;
         CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
         if (is_infeasible()) {
-            set_conflict();
+            get_infeasibility_explanation_and_set_conflict();
         }
         else {
             for (unsigned i = 0; !m.canceled() && !ctx().inconsistent() && i < bp.m_ibounds.size(); ++i) {
@@ -3224,13 +3222,13 @@ public:
         }
     }
 
-    void set_conflict() {
+    void get_infeasibility_explanation_and_set_conflict() {
         m_explanation.clear();
         m_solver->get_infeasibility_explanation(m_explanation);
-        set_conflict1();
+        set_conflict();
     }
 
-    void set_conflict1() {
+    void set_conflict() {
         literal_vector core;
         set_conflict_or_lemma(core, true);
     }

@@ -3520,7 +3520,8 @@ void test_maximize_term() {
         std::cout<< "v[" << p.first << "] = " << p.second << std::endl;
     }
     std::cout << "calling int_solver\n";
-    lia_move lm = i_solver.check();
+    explanation ex;
+    lia_move lm = i_solver.check(&ex);
     VERIFY(lm == lia_move::sat);
     impq term_max;
     lp_status st = solver.maximize_term(term_2x_pl_2y, term_max);

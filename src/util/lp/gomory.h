@@ -27,7 +27,7 @@ class gomory {
     class imp;
     imp                  *m_imp;
 public :
-    gomory(lar_term & t, mpq & k, explanation& ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& s);
+    gomory(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& s);
     lia_move create_cut();
     ~gomory();
 };
