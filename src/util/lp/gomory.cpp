@@ -26,7 +26,7 @@ namespace lp {
 class gomory::imp {
     lar_term   &          m_t; // the term to return in the cut
     mpq        &          m_k; // the right side of the cut
-    explanation&          m_ex; // the conflict explanation
+    explanation*          m_ex; // the conflict explanation
     unsigned              m_inf_col; // a basis column which has to be an integer but has a non integral value
     const row_strip<mpq>& m_row;
     const int_solver&     m_int_solver;
@@ -58,7 +58,7 @@ class gomory::imp {
             new_a = m_fj <= m_one_minus_f ? m_fj / m_one_minus_f : ((1 - m_fj) / m_f);
             lp_assert(new_a.is_pos());
             m_k.addmul(new_a, lower_bound(j).x);
-            m_ex.push_justification(column_lower_bound_constraint(j));            
+            m_ex->push_justification(column_lower_bound_constraint(j));            
         }
         else {
             lp_assert(at_upper(j));
@@ -66,7 +66,7 @@ class gomory::imp {
             new_a = - (m_fj <= m_f ? m_fj / m_f  : ((1 - m_fj) / m_one_minus_f));
             lp_assert(new_a.is_neg());
             m_k.addmul(new_a, upper_bound(j).x);
-            m_ex.push_justification(column_upper_bound_constraint(j));
+            m_ex->push_justification(column_upper_bound_constraint(j));
         }
         m_t.add_coeff_var(new_a, j);
         m_lcm_den = lcm(m_lcm_den, denominator(new_a));
@@ -85,7 +85,7 @@ class gomory::imp {
             }
             m_k.addmul(new_a, lower_bound(j).x); // is it a faster operation than
             // k += lower_bound(j).x * new_a;  
-            m_ex.push_justification(column_lower_bound_constraint(j));
+            m_ex->push_justification(column_lower_bound_constraint(j));
         }
         else {
             lp_assert(at_upper(j));
@@ -96,7 +96,7 @@ class gomory::imp {
                 new_a =   a / m_one_minus_f; 
             }
             m_k.addmul(new_a, upper_bound(j).x); //  k += upper_bound(j).x * new_a; 
-            m_ex.push_justification(column_upper_bound_constraint(j));
+            m_ex->push_justification(column_upper_bound_constraint(j));
         }
         TRACE("gomory_cut_detail_real", tout << a << "*v" << j << " k: " << m_k << "\n";);
         m_t.add_coeff_var(new_a, j);
@@ -314,7 +314,7 @@ public:
         return lia_move::cut;
     }
 
-    imp(lar_term & t, mpq & k, explanation& ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& int_slv ) :
+    imp(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& int_slv ) :
         m_t(t),
         m_k(k),
         m_ex(ex),
@@ -331,7 +331,7 @@ lia_move gomory::create_cut() {
     return m_imp->create_cut();
 }
 
-gomory::gomory(lar_term & t, mpq & k, explanation& ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& s) {
+gomory::gomory(lar_term & t, mpq & k, explanation* ex, unsigned basic_inf_int_j, const row_strip<mpq>& row, const int_solver& s) {
     m_imp = alloc(imp, t, k, ex, basic_inf_int_j, row, s);
 }
 
