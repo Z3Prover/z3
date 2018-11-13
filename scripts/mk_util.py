@@ -2357,7 +2357,7 @@ class DotNetExampleComponent(ExampleComponent):
         ExampleComponent.__init__(self, name, path)
 
     def is_example(self):
-        return is_dotnet_enabled()
+        return is_dotnet_enabled() or is_dotnet_core_enabled()
 
     def mk_makefile(self, out):
         if is_dotnet_enabled():
@@ -2385,6 +2385,8 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(os.path.join(relative_path, csfile))
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+        if is_dotnet_core_enabled():
+            print("TBD: build script for dotnet_example on core")
 
 class JavaExampleComponent(ExampleComponent):
     def __init__(self, name, path):
