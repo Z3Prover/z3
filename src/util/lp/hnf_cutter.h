@@ -186,7 +186,7 @@ public:
 
     bool overflow() const { return m_overflow; }
     
-    lia_move create_cut(lar_term& t, mpq& k, explanation& ex, bool & upper, const vector<mpq> & x0) {
+    lia_move create_cut(lar_term& t, mpq& k, explanation* ex, bool & upper, const vector<mpq> & x0) {
         // we suppose that x0 has at least one non integer element 
         (void)x0;
 

@@ -382,9 +382,9 @@ lia_move int_solver::make_hnf_cut() {
               );
         lp_assert(current_solution_is_inf_on_cut());
         settings().st().m_hnf_cuts++;
-        m_ex.clear();        
+        m_ex->clear();        
         for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
-             m_ex.push_justification(i);
+             m_ex->push_justification(i);
         }
     } 
     return r;
@@ -412,7 +412,8 @@ lia_move int_solver::check() {
 
     m_t.clear();
     m_k.reset();
-    m_ex.clear();
+    m_ex = e;
+    m_ex->clear();
     m_upper = false;
     lia_move r;
 
@@ -596,8 +597,8 @@ bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, uns
 void int_solver::add_to_explanation_from_fixed_or_boxed_column(unsigned j) {
     constraint_index lc, uc;
     m_lar_solver->get_bound_constraint_witnesses_for_column(j, lc, uc);
-    m_ex.push_justification(lc);
-    m_ex.push_justification(uc);
+    m_ex->push_justification(lc);
+    m_ex->push_justification(uc);
 }
 void int_solver::fill_explanation_from_fixed_columns(const row_strip<mpq> & row) {
     for (const auto & c : row) {

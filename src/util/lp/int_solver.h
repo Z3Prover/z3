@@ -41,7 +41,7 @@ public:
     unsigned            m_number_of_calls;
     lar_term            m_t; // the term to return in the cut
     mpq                 m_k; // the right side of the cut
-    explanation         m_ex; // the conflict explanation
+    explanation         *m_ex; // the conflict explanation
     bool                m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
     hnf_cutter          m_hnf_cutter;
     // methods
@@ -49,10 +49,9 @@ public:
 
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
-    lia_move check();
+    lia_move check(explanation *);
     lar_term const& get_term() const { return m_t; }
     mpq const& get_offset() const { return m_k; }
-    explanation const& get_explanation() const { return m_ex; }
     bool is_upper() const { return m_upper; }
     lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
