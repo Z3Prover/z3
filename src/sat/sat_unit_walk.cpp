@@ -35,7 +35,8 @@ Revision History:
 
 --*/
 
-#include "sat_unit_walk.h"
+#include "sat/sat_unit_walk.h"
+#include "util/luby.h"
 
 
 namespace sat {
@@ -53,7 +54,17 @@ namespace sat {
                 IF_VERBOSE(0, verbose_stream() << "unassigned: " << v << "\n");
             }
         }
+        IF_VERBOSE(0, verbose_stream() << "(sat.unit-walk sat)\n");
         return null_bool_var;
+    }
+
+    void unit_walk::var_priority::set_vars(solver& s) {
+        m_vars.reset();
+        for (unsigned v = 0; v < s.num_vars(); ++v) {            
+            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
+                add(v);
+            }
+        }
     }
 
     bool_var unit_walk::var_priority::next(solver& s) {
@@ -153,17 +164,15 @@ namespace sat {
     }
 
     void unit_walk::init_runs() {
+        m_luby_index = 0;
+        m_restart_threshold = 1000;
         m_max_trail = 0;
         m_trail.reset();
         m_decisions.reset();
         m_phase.resize(s.num_vars());
         m_phase_tf.resize(s.num_vars(), ema(1e-5));
         pqueue().reset();
-        for (unsigned v = 0; v < s.num_vars(); ++v) {            
-            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
-                pqueue().add(v);
-            }
-        }
+        pqueue().set_vars(s);
         m_ls.import(s, true);
         m_rand.set_seed(s.rand()());
         update_priority();
@@ -194,19 +203,14 @@ namespace sat {
         for (literal lit : m_trail) {
             m_ls.set_bias(lit.var(), lit.sign() ? l_false : l_true);
         }
-        m_ls.rlimit().push(2);
-        lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
+        m_ls.rlimit().push(std::max(1u, pqueue().depth()));
+        lbool is_sat = m_ls.check(0, m_trail.c_ptr(), nullptr);
         m_ls.rlimit().pop();
 
         TRACE("sat", tout << "result of running bounded local search " << is_sat << "\n";);
         IF_VERBOSE(0, verbose_stream() << "result of running local search " << is_sat << "\n";);
         if (is_sat != l_undef) {
-            while (!m_decisions.empty()) {
-                pop_decision();
-            }
-            while (!pqueue().empty()) {
-                pqueue().pop();
-            }
+            restart();
         }
         if (is_sat == l_true) {
             for (unsigned v = 0; v < s.num_vars(); ++v) {
@@ -237,9 +241,9 @@ namespace sat {
 
         // restart
         bool_var v = pqueue().peek(s);
-        if (is_sat == l_undef && v != null_bool_var) {
+        if (is_sat == l_undef && v != null_bool_var && false) {
             unsigned num_levels = 0;
-            while (m_decisions.size() > 0) {
+            while (m_decisions.size() > 0 && num_levels <= 50) {
                 bool_var w = m_decisions.back().var();
                 if (num_levels >= 15 && m_ls.break_count(w) >= m_ls.break_count(v)) {
                     break;
@@ -284,11 +288,35 @@ namespace sat {
             init_runs();
             init_phase();
         }
+        if (should_restart()) {
+            restart();
+        }
+    }
+
+    bool unit_walk::should_restart() {
+        if (s.m_stats.m_conflict >= m_restart_threshold) {
+            m_restart_threshold = s.get_config().m_restart_initial * get_luby(m_luby_index);
+            ++m_luby_index;
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    void unit_walk::restart() {
+        IF_VERBOSE(1, verbose_stream() << "restart\n");
+        while (!m_decisions.empty()) {
+            pop_decision();
+        }
+        pqueue().reset();
     }
 
     void unit_walk::update_max_trail() {
         if (m_max_trail == 0 || m_trail.size() > m_max_trail) {
             m_max_trail = m_trail.size();
+            m_restart_threshold += 10000;
+            m_max_conflicts = s.m_stats.m_conflict + 20000;
             log_status();
         }
     }

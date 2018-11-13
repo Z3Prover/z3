@@ -42,10 +42,11 @@ namespace sat {
             unsigned depth() const { return m_depth; }
             void inc_depth() { ++m_depth; }
             void dec_depth() { --m_depth; }
-            void reset() { m_vars.reset(); m_lim.reset(); m_head = 0; m_depth = 0; }
+            void reset() { m_lim.reset(); m_head = 0; m_depth = 0; }
             void add(bool_var v) { m_vars.push_back(v); }
             bool_var next(solver& s);
             bool_var peek(solver& s);
+            void set_vars(solver& s);
             void push() { m_lim.push_back(m_head); }
             void pop() { m_head = m_lim.back(); m_lim.pop_back(); }    
             bool empty() const { return m_lim.empty(); }
@@ -61,6 +62,8 @@ namespace sat {
         svector<bool>     m_phase;
         svector<ema>      m_phase_tf;
         var_priority      m_priorities;
+        unsigned          m_luby_index;
+        unsigned          m_restart_threshold;
 
         // settings
         unsigned          m_max_conflicts;
@@ -75,6 +78,8 @@ namespace sat {
         literal_vector    m_decisions;
         unsigned          m_conflict_offset;
 
+        bool should_restart();
+        void restart();
         void pop();
         void pop_decision();
         void init_runs();
