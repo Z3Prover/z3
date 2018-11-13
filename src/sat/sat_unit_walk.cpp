@@ -160,6 +160,7 @@ namespace sat {
         m_phase_tf.resize(s.num_vars(), ema(1e-5));
         pqueue().reset();
         for (unsigned v = 0; v < s.num_vars(); ++v) {            
+            m_phase_tf[v].update(50);
             if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
                 pqueue().add(v);
             }
