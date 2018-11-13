@@ -36,6 +36,8 @@ struct index_with_sign {
     bool operator==(const index_with_sign& b) {
         return m_i == b.m_i && m_sign == b.m_sign;
     }
+    unsigned var() const { return m_i; }
+    const rational& sign() const { return m_sign; }
 };
 
 struct rat_hash {

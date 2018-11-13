@@ -831,12 +831,36 @@ struct solver::imp {
         m_expl->clear();
         m_lemma->clear();
     }
+
+    bool order_lemma_on_factor_equiv_and_other_mon_factor(unsigned i_f,
+                                                   unsigned o_i_mon, unsigned e_j, unsigned i_mon, const factorization& f, unsigned k, const rational& sign) {
+        return false;
+    }    
+    
     bool order_lemma_on_factor_equiv_and_other_mon(unsigned o_i_mon, unsigned e_j, unsigned i_mon, const factorization& f, unsigned k, const rational& sign) {
-        NOT_IMPLEMENTED_YET();
+        if (o_i_mon == i_mon) return false;
+        const monomial & o_m = m_monomials[o_i_mon];
+        svector<lpvar> o_key;
+        for (unsigned j : o_m) {
+            if (j != e_j) {
+                o_key.push_back(j);
+            }
+        }
+
+        rational o_sign(1);
+        o_key = reduce_monomial_to_rooted(o_key, o_sign);
+        auto it = m_rooted_monomials.find(o_key);
+        if (it == m_rooted_monomials.end())
+            return false;
+        for (const index_with_sign& i_s : it->second) {
+            if (order_lemma_on_factor_equiv_and_other_mon_factor(i_s.var(), o_i_mon, e_j, i_mon, f, k, sign * o_sign * i_s.sign()))
+                return true;
+        }
         return false;
     }
-    // here e_j is equivalent to f[k],
+
     // f is a factorization of m_monomials[i_mon]
+    // here e_j is equivalent to f[k],
     bool order_lemma_on_factor_and_equiv(unsigned e_j, unsigned i_mon, const factorization& f, unsigned k, const rational& sign) {
         lpvar j = f[k];
         for (unsigned i : m_monomials_containing_var[j]) {
