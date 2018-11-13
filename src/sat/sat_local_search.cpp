@@ -197,9 +197,9 @@ namespace sat {
             return false;
         }
         if (unit) {
-            for (literal lit : m_prop_queue) {
-                VERIFY(is_true(lit));
-                add_unit(lit);
+            for (literal lit2 : m_prop_queue) {
+                VERIFY(is_true(lit2));
+                add_unit(lit2, lit);
             }
         }
         return true;
@@ -293,7 +293,7 @@ namespace sat {
     // ~c <= k
     void local_search::add_cardinality(unsigned sz, literal const* c, unsigned k) {
         if (sz == 1 && k == 0) {
-            add_unit(c[0]);
+            add_unit(c[0], null_literal);
             return;
         }
         if (k == 1 && sz == 2) {
@@ -318,7 +318,7 @@ namespace sat {
     // c * coeffs <= k
     void local_search::add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k) {
         if (sz == 1 && k == 0) {     
-            add_unit(~c[0]);
+            add_unit(~c[0], null_literal);
             return;
         }
         unsigned id = m_constraints.size();
@@ -331,7 +331,7 @@ namespace sat {
         }
     }
 
-    void local_search::add_unit(literal lit) {
+    void local_search::add_unit(literal lit, literal exp) {
         bool_var v = lit.var();
         if (is_unit(lit)) return;
         SASSERT(!m_units.contains(v));
@@ -341,6 +341,7 @@ namespace sat {
         m_vars[v].m_value = !lit.sign();
         m_vars[v].m_bias  = lit.sign() ? 0 : 100;
         m_vars[v].m_unit  = true;
+        m_vars[v].m_explain = exp;
         m_units.push_back(v);
         DEBUG_CODE(verify_unsat_stack(););
     }
@@ -357,14 +358,13 @@ namespace sat {
         m_constraints.reset();
         m_units.reset();
         m_unsat_stack.reset();
-
         m_vars.reserve(s.num_vars());
+        m_config.set_config(s.get_config());
+
         if (m_config.phase_sticky()) {
             unsigned v = 0;
             for (var_info& vi : m_vars) {
-                if (!vi.m_unit) 
-                    vi.m_bias = s.m_phase[v] == POS_PHASE ? 100 : 0;
-                ++v;
+                vi.m_bias = s.m_phase[v++] == POS_PHASE ? 98 : 2;
             }
         }
 
@@ -693,7 +693,7 @@ namespace sat {
             if (is_true(lit)) { 
                 flip_walksat(best_var);
             }
-            add_unit(~lit);
+            add_unit(~lit, null_literal);
             if (!propagate(~lit)) {
                 IF_VERBOSE(0, verbose_stream() << "unsat\n");
                 m_is_unsat = true;
@@ -795,7 +795,9 @@ namespace sat {
     }
     
     std::ostream& local_search::display(std::ostream& out, unsigned v, var_info const& vi) const {
-        return out << "v" << v << " := " << (vi.m_value?"true":"false") << " bias: " << vi.m_bias << "\n";
+        out << "v" << v << " := " << (vi.m_value?"true":"false") << " bias: " << vi.m_bias;
+        if (vi.m_unit) out << " u " << vi.m_explain;
+        return out << "\n";
     }
 
     void local_search::collect_statistics(statistics& st) const {

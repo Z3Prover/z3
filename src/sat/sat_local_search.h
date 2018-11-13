@@ -36,6 +36,16 @@ namespace sat {
         local_search_mode m_mode;
         bool              m_phase_sticky;
         bool              m_dbg_flips;
+
+        friend class local_search;
+
+        void set_config(config const& cfg) {
+            m_mode         = cfg.m_local_search_mode;
+            m_random_seed  = cfg.m_random_seed;
+            m_phase_sticky = cfg.m_phase_sticky;
+            m_dbg_flips    = cfg.m_local_search_dbg_flips;
+        }
+
     public:
         local_search_config() {
             m_random_seed = 0;
@@ -54,12 +64,6 @@ namespace sat {
         void set_random_seed(unsigned s) { m_random_seed = s;  }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
 
-        void set_config(config const& cfg) {
-            m_mode         = cfg.m_local_search_mode;
-            m_random_seed  = cfg.m_random_seed;
-            m_phase_sticky = cfg.m_phase_sticky;
-            m_dbg_flips    = cfg.m_local_search_dbg_flips;
-        }
     };
 
 
@@ -87,6 +91,7 @@ namespace sat {
             unsigned m_bias;                     // bias for current solution in percentage.
                                                  // if bias is 0, then value is always false, if 100, then always true
             bool m_unit;                         // is this a unit literal
+            literal m_explain;                   // explanation for unit assignment
             bool m_conf_change;                  // whether its configure changes since its last flip
             bool m_in_goodvar_stack;
             int  m_score;
@@ -216,7 +221,7 @@ namespace sat {
         void print_info(std::ostream& out);
         void extract_model();
         void add_clause(unsigned sz, literal const* c);
-        void add_unit(literal lit);
+        void add_unit(literal lit, literal explain);
         std::ostream& display(std::ostream& out) const;
         std::ostream& display(std::ostream& out, constraint const& c) const;
         std::ostream& display(std::ostream& out, unsigned v, var_info const& vi) const;
