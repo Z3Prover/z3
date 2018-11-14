@@ -61,6 +61,7 @@ PATTERN_COMPONENT='pattern'
 UTIL_COMPONENT='util'
 API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
+DOTNET_CORE_COMPONENT='dotnetcore'
 JAVA_COMPONENT='java'
 ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
@@ -453,6 +454,10 @@ def check_dotnet():
     r = exec_cmd([GACUTIL, '/l', 'hello' ])
     if r != 0:
         raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
+
+def check_dotnet_core():
+    # TBD: check DOTNET
+    pass
 
 def check_ml():
     t = TempFile('hello.ml')
@@ -2357,7 +2362,7 @@ class DotNetExampleComponent(ExampleComponent):
         ExampleComponent.__init__(self, name, path)
 
     def is_example(self):
-        return is_dotnet_enabled()
+        return is_dotnet_enabled() or is_dotnet_core_enabled()
 
     def mk_makefile(self, out):
         if is_dotnet_enabled():
@@ -2385,6 +2390,8 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(os.path.join(relative_path, csfile))
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+        if is_dotnet_core_enabled():
+            print("TBD: build script for dotnet_example on core")
 
 class JavaExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -3172,6 +3179,9 @@ def mk_bindings(api_files):
         if is_dotnet_enabled():
             check_dotnet()
             mk_z3consts_dotnet(api_files)
+        if  is_dotnet_core_enabled():
+            check_dotnet_core()
+            mk_z3consts_dotnet(api_files)
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
@@ -3190,6 +3200,8 @@ def mk_z3consts_py(api_files):
 # Extract enumeration types from z3_api.h, and add .Net definitions
 def mk_z3consts_dotnet(api_files):
     dotnet = get_component(DOTNET_COMPONENT)
+    if not dotnet:
+       dotnet = get_component(DOTNET_CORE_COMPONENT)
     full_path_api_files = []
     for api_file in api_files:
         api_file_c = dotnet.find_file(api_file, dotnet.name)
