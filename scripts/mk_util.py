@@ -455,6 +455,10 @@ def check_dotnet():
     if r != 0:
         raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
 
+def check_dotnet_core():
+    # TBD: check DOTNET
+    pass
+
 def check_ml():
     t = TempFile('hello.ml')
     t.add('print_string "Hello world!\n";;')
@@ -3172,8 +3176,11 @@ def mk_bindings(api_files):
         if is_ml_enabled():
             check_ml()
             mk_z3consts_ml(api_files)
-        if is_dotnet_enabled():
+        if is_dotnet_enabled()
             check_dotnet()
+            mk_z3consts_dotnet(api_files)
+        if  is_dotnetcore_enabled():
+            check_dotnet_core()
             mk_z3consts_dotnet(api_files)
 
 # Extract enumeration types from API files, and add python definitions.
