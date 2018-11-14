@@ -149,6 +149,10 @@ struct solver::imp {
         return print_monomial(m_monomials[i], out);
     }
 
+    std::ostream& print_monomial_with_vars(unsigned i, std::ostream& out) const {
+        return print_monomial_with_vars(m_monomials[i], tout);
+    }
+
     std::ostream& print_monomial_with_vars(const monomial& m, std::ostream& out) const {
         out << m_lar_solver.get_variable_name(m.var()) << " = ";
         for (unsigned k = 0; k < m.size(); k++) {
@@ -162,6 +166,7 @@ struct solver::imp {
        return out;
     }
 
+    
     std::ostream& print_explanation(std::ostream& out) const {
         for (auto &p : *m_expl) {
             m_lar_solver.print_constraint(p.second, out);
@@ -877,6 +882,7 @@ struct solver::imp {
     }
 
     bool order_lemma_on_factorization(unsigned i_mon, const factorization& f) {
+        TRACE("nla_solver", print_factorization(f, tout););
         for (unsigned k = 0; k < f.size(); k++) {
             const rational & v = vvr(f[k]);
             if (v.is_zero())
@@ -892,6 +898,7 @@ struct solver::imp {
     }
 
     bool order_lemma_on_monomial(unsigned i_mon) {
+        TRACE("nla_solver", print_monomial_with_vars(i_mon, tout););
         for (auto factorization : factorization_factory_imp(i_mon, *this)) {
             if (factorization.is_empty())
                 continue;
