@@ -2391,7 +2391,41 @@ class DotNetExampleComponent(ExampleComponent):
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
         if is_dotnet_core_enabled():
-            print("TBD: build script for dotnet_example on core")
+            proj_name = 'dotnet_example.csproj'
+            out.write('_ex_%s:' % self.name)
+            for csfile in get_cs_files(self.ex_dir):
+                out.write(' ')
+                out.write(os.path.join(self.to_ex_dir, csfile))
+            out.write('\n')
+            out.write('\t@echo "<Project Sdk=\\"Microsoft.NET.Sdk\\">" > %s\n' % proj_name)
+            out.write('\t@echo "  <PropertyGroup>" >> %s\n' % proj_name)
+            out.write('\t@echo "    <OutputType>Exe</OutputType>" >> %s\n' % proj_name)
+            out.write('\t@echo "    <TargetFramework>netcoreapp2.0</TargetFramework>" >> %s\n' % proj_name)
+            out.write('\t@echo "    <PlatformTarget>')
+            if VS_X64:
+                out.write('x64')
+            elif VS_ARM:
+                out.write('ARM')
+            else:
+                out.write('x86')
+            out.write('</PlatformTarget>" >> %s\n' % proj_name)
+            out.write('\t@echo "  </PropertyGroup>" >> %s\n' % proj_name)
+            out.write('\t@echo "  <ItemGroup>" >> %s\n' % proj_name)
+            out.write('\t@echo "    <Compile Include=\\"%s/*.cs\\" />" >> %s\n' % (self.to_ex_dir, proj_name))
+            out.write('\t@echo "    <Reference Include=\\"Microsoft.Z3\\">" >> %s\n' % proj_name)
+            out.write('\t@echo "      <HintPath>Microsoft.Z3.dll</HintPath>" >> %s\n' % proj_name)
+            out.write('\t@echo "    </Reference>" >> %s\n' % proj_name)
+            out.write('\t@echo "  </ItemGroup>" >> %s\n' % proj_name)
+            out.write('\t@echo "</Project>" >> %s\n' % proj_name)
+
+            dotnetCmdLine = [DOTNET, "build", proj_name]
+            dotnetCmdLine.extend(['-c'])
+            if DEBUG_MODE:
+                dotnetCmdLine.extend(['Debug'])
+            else:
+                dotnetCmdLine.extend(['Release'])
+            MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
+            out.write('\n')
 
 class JavaExampleComponent(ExampleComponent):
     def __init__(self, name, path):
