@@ -561,6 +561,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     zstring s;
     rational pos, len;
 
+    TRACE("seq", tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << " " << mk_pp(c, m()) << "\n";);
     bool constantBase = m_util.str.is_string(a, s);
     bool constantPos = m_autil.is_numeral(b, pos);
     bool constantLen = m_autil.is_numeral(c, len);
@@ -599,6 +600,10 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         SASSERT(_len > 0);
         expr_ref_vector as(m()), bs(m());
         m_util.str.get_concat(a, as);
+        if (as.empty()) {
+            result = a;
+            return BR_DONE;
+        }
         for (unsigned i = 0; i < as.size() && _len > 0; ++i) {
             if (m_util.str.is_unit(as[i].get())) {
                 if (_pos == 0) {
@@ -613,7 +618,12 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
                 return BR_FAILED;
             }
         }
-        result = m_util.str.mk_concat(bs);
+        if (bs.empty()) {
+            result = m_util.str.mk_empty(m().get_sort(a));
+        }
+        else {
+            result = m_util.str.mk_concat(bs);
+        }
         return BR_DONE;
     }
 
