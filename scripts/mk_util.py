@@ -1839,6 +1839,7 @@ class DotNetCoreDLLComponent(Component):
         self.key_file = default_key_file
 
     def mk_pkg_config_file(self):
+        # TBD revise
         """
             Create pkgconfig file for the dot net bindings. These
             are needed by Monodevelop.
