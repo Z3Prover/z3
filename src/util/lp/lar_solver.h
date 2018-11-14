@@ -91,7 +91,7 @@ class lar_solver : public column_namer {
     lp_settings                                         m_settings;
     lp_status                                           m_status;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
-    var_register m_var_register;
+    var_register                                        m_var_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     vector<lar_base_constraint*>                        m_constraints;
     stacked_value<unsigned>                             m_constraint_count;
@@ -262,6 +262,8 @@ public:
 
     var_index local2external(var_index idx) const { return m_var_register.local_to_external(idx); }
 
+    unsigned number_of_vars() const { return m_var_register.size(); }
+    
     var_index external2local(unsigned j) const {
         var_index local_j;
         lp_assert(m_var_register.external_is_used(j, local_j));
