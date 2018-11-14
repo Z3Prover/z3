@@ -2407,7 +2407,7 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write('\t@echo %s%s%s %s %s\n' % (echo_ex_qu, msg, echo_ex_qu, echo_dir, proj_name))
 
             out.write('\n')
-            mk_echo('<Project Sdk="Microsoft.NET.Sdk">')
+            mk_echo('<Project Sdk="Microsoft.NET.Sdk">', True)
             mk_echo('  <PropertyGroup>')
             mk_echo('    <OutputType>Exe</OutputType>')
             mk_echo('    <TargetFramework>netcoreapp2.0</TargetFramework>')
