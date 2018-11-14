@@ -456,6 +456,8 @@ def check_dotnet():
         raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
 
 def check_dotnet_core():
+    if not IS_WINDOWS:
+        return
     r = exec_cmd([DOTNET, '--help'])
     if r != 0:
         raise MKException('Failed testing dotnet. Make sure to install and configure dotnet core utilities')
