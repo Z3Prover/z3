@@ -72,35 +72,32 @@ struct vars_equivalence {
     };
 
    
+    //fields
     
     // The map from the variables to m_equivs indices
     // m_tree is a spanning tree of the graph of equivs represented by m_equivs
-    std::unordered_map<unsigned, unsigned> m_tree;  
+    std::unordered_map<unsigned, unsigned>       m_tree;  
     // If m_tree[v] == -1 then the variable is a root.
     // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), that k is the parent of v
-    vector<equiv>                     m_equivs;         // all equivalences extracted from constraints
+    vector<equiv>                                m_equivs;         // all equivalences extracted from constraints
+    std::unordered_map<rational,unsigned_vector> m_vars_by_abs_values;
+
     void clear() {
         m_equivs.clear();
         m_tree.clear();
     }
     // it also returns (j, 1)
-    vector<index_with_sign> get_equivalent_vars(lpvar j) const {
-        // it is just a place holder, see if we need something more substantial
+    vector<index_with_sign> get_equivalent_vars(lpvar j, std::function<rational(lpvar)> vvr) const {
         vector<index_with_sign> ret;
-        ret.push_back(index_with_sign(j, rational(1)));
+        
+        rational val = vvr(j);
+        for (lpvar j : m_vars_by_abs_values.find(abs(val))->second) {
+            if (val.is_pos())
+                ret.push_back(index_with_sign(j, rational(1)));
+            else
+                ret.push_back(index_with_sign(j, rational(-1)));
+        }
         return ret; 
-        /*
-        vector<index_with_sign> ret;
-        std::unordered_set<unsigned> returned;
-        std::unordered_set<unsigned> processed;
-        ret.push_back(std::make_pair(j, 1));
-        returned.insert(j);
-        processed.insert(j);
-        std::queue<unsigned> q;
-        q.enqueue(j);
-        
-        */
-        
     } 
 
     unsigned size() const { return static_cast<unsigned>(m_tree.size()); }
@@ -194,5 +191,16 @@ struct vars_equivalence {
             add_equiv_exp(j, exp);
     }
 
+    void register_var(unsigned j, const rational& val) {
+        rational v = abs(val);
+        auto it = m_vars_by_abs_values.find(v);
+        if (it == m_vars_by_abs_values.end()) {
+            unsigned_vector uv;
+            uv.push_back(j);
+            m_vars_by_abs_values[val] = uv;
+        } else {
+            it->second.push_back(j);
+        }
+    }
 }; // end of vars_equivalence
 }

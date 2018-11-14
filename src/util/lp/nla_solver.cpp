@@ -756,6 +756,9 @@ struct solver::imp {
         m_vars_equivalence.clear();
         collect_equivs();
         m_vars_equivalence.create_tree();
+        for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
+            m_vars_equivalence.register_var(j, vvr(j));
+        }
     }
 
     void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i) {
@@ -873,7 +876,9 @@ struct solver::imp {
     
     bool order_lemma_on_factor(unsigned i_mon, const factorization& f, unsigned k, int sign) {
         lpvar j = f[k];
-        for (const index_with_sign& p : m_vars_equivalence.get_equivalent_vars(j)) {
+        TRACE("nla_solver", tout << "k = " << k << ", j = " << j; );
+        for (const index_with_sign& p : m_vars_equivalence.get_equivalent_vars(j, [this](unsigned h) {return vvr(h);})) {
+            TRACE("nla_solver", tout << "p.var() = " << p.var() << ", p.sign() = " << p.sign(); );
             if (order_lemma_on_factor_and_equiv(p.m_i, i_mon, f, k, sign * p.m_sign)) {
                 return true;
             }
@@ -888,7 +893,7 @@ struct solver::imp {
             if (v.is_zero())
                 continue;
 
-            int sign = ((v.is_pos() && f.sign().is_pos()) || (v.is_neg() && f.sign().is_neg()))? 1 : -1;
+            int sign = (v.is_pos() == f.sign().is_pos())? 1 : -1;
             
             if (order_lemma_on_factor(i_mon, f, k, sign)) { 
                 return true;
