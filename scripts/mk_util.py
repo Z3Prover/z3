@@ -3176,7 +3176,7 @@ def mk_bindings(api_files):
         if is_ml_enabled():
             check_ml()
             mk_z3consts_ml(api_files)
-        if is_dotnet_enabled()
+        if is_dotnet_enabled():
             check_dotnet()
             mk_z3consts_dotnet(api_files)
         if  is_dotnetcore_enabled():
