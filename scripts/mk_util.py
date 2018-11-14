@@ -61,6 +61,7 @@ PATTERN_COMPONENT='pattern'
 UTIL_COMPONENT='util'
 API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
+DOTNET_CORE_COMPONENT='dotnetcore'
 JAVA_COMPONENT='java'
 ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
@@ -3192,6 +3193,8 @@ def mk_z3consts_py(api_files):
 # Extract enumeration types from z3_api.h, and add .Net definitions
 def mk_z3consts_dotnet(api_files):
     dotnet = get_component(DOTNET_COMPONENT)
+    if not dotnet:
+       dotnet = get_component(DOTNET_CORE_COMPONENT)
     full_path_api_files = []
     for api_file in api_files:
         api_file_c = dotnet.find_file(api_file, dotnet.name)
