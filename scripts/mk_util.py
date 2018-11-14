@@ -3179,7 +3179,7 @@ def mk_bindings(api_files):
         if is_dotnet_enabled():
             check_dotnet()
             mk_z3consts_dotnet(api_files)
-        if  is_dotnetcore_enabled():
+        if  is_dotnet_core_enabled():
             check_dotnet_core()
             mk_z3consts_dotnet(api_files)
 
