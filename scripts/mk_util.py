@@ -1891,6 +1891,15 @@ class DotNetCoreDLLComponent(Component):
         else:
             dotnetCmdLine.extend(['Release'])
 
+        if IS_WINDOWS:
+            runtime = "win-" + ("x64" if VS_X64 else "x86")
+        elif IS_LINUX:
+            runtime = "linux-x64" if LINUX_X64 else ""
+        elif IS_OSX:
+            runtime = "osx-x64" if LINUX_X64 else ""
+        if runtime != "":
+            dotnetCmdLine.extend(['-r', runtime])
+
         path = os.path.abspath(BUILD_DIR)
         dotnetCmdLine.extend(['-o', path])
             
