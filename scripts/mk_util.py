@@ -456,7 +456,11 @@ def check_dotnet():
         raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
 
 def check_dotnet_core():
-    # TBD: check DOTNET
+    if not IS_WINDOWS:
+        return
+    r = exec_cmd([DOTNET, '--help'])
+    if r != 0:
+        raise MKException('Failed testing dotnet. Make sure to install and configure dotnet core utilities')
     pass
 
 def check_ml():
@@ -559,6 +563,11 @@ def set_version(major, minor, build, revision):
 
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+
+def get_version_string(n):
+    if n == 3:
+        return "{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD)
+    return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_REVISION)
 
 def build_static_lib():
     return STATIC_LIB
@@ -1637,11 +1646,7 @@ class DotNetDLLComponent(Component):
         pkg_config_template = os.path.join(self.src_dir, '{}.pc.in'.format(self.gac_pkg_name()))
         substitutions = { 'PREFIX': PREFIX,
                           'GAC_PKG_NAME': self.gac_pkg_name(),
-                          'VERSION': "{}.{}.{}.{}".format(
-                              VER_MAJOR,
-                              VER_MINOR,
-                              VER_BUILD,
-                              VER_REVISION)
+                          'VERSION': get_version_string(4)
                         }
         pkg_config_output = os.path.join(BUILD_DIR,
                                        self.build_dir,
@@ -1836,29 +1841,14 @@ class DotNetCoreDLLComponent(Component):
         self.assembly_info_dir = assembly_info_dir
         self.key_file = default_key_file
 
-    def mk_pkg_config_file(self):
+    def mk_nuget_config_file(self):
+        # TBD revise
         """
-            Create pkgconfig file for the dot net bindings. These
+            Create nuget file for the dot net bindings. These
             are needed by Monodevelop.
         """
-        pkg_config_template = os.path.join(self.src_dir, '{}.pc.in'.format(self.gac_pkg_name()))
-        substitutions = { 'PREFIX': PREFIX,
-                          'GAC_PKG_NAME': self.gac_pkg_name(),
-                          'VERSION': "{}.{}.{}.{}".format(
-                              VER_MAJOR,
-                              VER_MINOR,
-                              VER_BUILD,
-                              VER_REVISION)
-                        }
-        pkg_config_output = os.path.join(BUILD_DIR,
-                                       self.build_dir,
-                                       '{}.pc'.format(self.gac_pkg_name()))
-
-        # FIXME: Why isn't the build directory available?
-        mk_dir(os.path.dirname(pkg_config_output))
-        # Configure file that will be installed by ``make install``.
-        configure_file(pkg_config_template, pkg_config_output, substitutions)
-
+        return
+    
     def mk_makefile(self, out):
         global DOTNET_KEY_FILE        
         if not is_dotnet_core_enabled():
@@ -1876,17 +1866,55 @@ class DotNetCoreDLLComponent(Component):
             out.write(cs_file)
         out.write('\n')
 
-        csproj = os.path.join(self.to_src_dir, "core", "core.csproj")
+        if VS_X64:
+            platform = 'x64'
+        elif VS_ARM:
+            platform = 'ARM'
+        else:
+            platform = 'x86'
+
+        version = get_version_string(3)
+
+        core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp1.0</TargetFramework>
+    <PlatformTarget>%s</PlatformTarget>    
+    <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
+    <DebugType>portable</DebugType>
+    <AssemblyName>Microsoft.Z3</AssemblyName>
+    <OutputType>Library</OutputType>
+    <PackageId>Microsoft.Z3</PackageId>
+    <PackageTargetFallback>$(PackageTargetFallback);dnxcore50</PackageTargetFallback>
+    <RuntimeFrameworkVersion>1.0.4</RuntimeFrameworkVersion>
+    <Version>%s</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+    <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
+    <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
+    <PackageTags>smt constraint solver theorem prover</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\%s\*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
+  </ItemGroup>
+
+</Project>""" % (platform, version, self.to_src_dir)
+
+        mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
+        csproj = os.path.join('dotnet', 'z3.csproj')
+        with open(os.path.join(BUILD_DIR, csproj), 'w') as ous:
+            ous.write(core_csproj_str)
+
         dotnetCmdLine = [DOTNET, "build", csproj]
         
-        # TBD: select build configurations also based on architecture
-        # Debug|x86, Debug|x64, Debug|arm
-        # Release|x86, Release|x64, Release|arm
         dotnetCmdLine.extend(['-c'])
         if DEBUG_MODE:
             dotnetCmdLine.extend(['Debug'])
         else:
             dotnetCmdLine.extend(['Release'])
+
 
         path = os.path.abspath(BUILD_DIR)
         dotnetCmdLine.extend(['-o', path])
@@ -1899,8 +1927,8 @@ class DotNetCoreDLLComponent(Component):
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, dllfile))
 
-        # Create pkg-config file
-        self.mk_pkg_config_file()
+        # Create nuget file
+        self.mk_nuget_config_file()
         return
 
     def main_component(self):
@@ -1914,8 +1942,8 @@ class DotNetCoreDLLComponent(Component):
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
-            shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
-                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
+                        '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             if DEBUG_MODE:
                 shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
                             '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
@@ -1925,8 +1953,8 @@ class DotNetCoreDLLComponent(Component):
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
-            shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
-                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
+                        '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
     def mk_install_deps(self, out):
         if not is_dotnet_core_enabled():
@@ -1937,6 +1965,7 @@ class DotNetCoreDLLComponent(Component):
         return "{}.Sharp".format(self.dll_name)
 
     def _install_or_uninstall_to_gac(self, out, install):
+        # TBD revise for nuget
         gacUtilFlags = ['/package {}'.format(self.gac_pkg_name()),
                         '/root',
                         '{}{}'.format(MakeRuleCmd.install_root(), INSTALL_LIB_DIR)
@@ -1955,6 +1984,7 @@ class DotNetCoreDLLComponent(Component):
             flags=' '.join(gacUtilFlags)))
 
     def mk_install(self, out):
+        # TBD revise for nuget
         if not is_dotnet_core_enabled():
             return
         self._install_or_uninstall_to_gac(out, install=True)
@@ -1966,6 +1996,7 @@ class DotNetCoreDLLComponent(Component):
         MakeRuleCmd.install_files(out, pkg_config_output, INSTALL_PKGCONFIG_DIR)
 
     def mk_uninstall(self, out):
+        # TBD revise for nuget
         if not is_dotnet_core_enabled():
             return
         self._install_or_uninstall_to_gac(out, install=False)
@@ -2397,36 +2428,32 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(' ')
                 out.write(os.path.join(self.to_ex_dir, csfile))
 
-            def mk_echo(msg, first = False):
-                echo_ex_qu = '' if IS_WINDOWS else '"'
-                echo_in_qu = '"' if IS_WINDOWS else '\\"'
-                echo_esc = '^' if IS_WINDOWS else ''
-                echo_dir = '>' if first else '>>'
-
-                msg = msg.replace('"', echo_in_qu).replace('<', echo_esc + '<').replace('>', echo_esc + '>')
-                out.write('\t@echo %s%s%s %s %s\n' % (echo_ex_qu, msg, echo_ex_qu, echo_dir, proj_name))
-
-            out.write('\n')
-            mk_echo('<Project Sdk="Microsoft.NET.Sdk">', True)
-            mk_echo('  <PropertyGroup>')
-            mk_echo('    <OutputType>Exe</OutputType>')
-            mk_echo('    <TargetFramework>netcoreapp2.0</TargetFramework>')
+            proj_path = os.path.join(BUILD_DIR, proj_name)
             if VS_X64:
                 platform = 'x64'
             elif VS_ARM:
                 platform = 'ARM'
             else:
                 platform = 'x86'
-            mk_echo('    <PlatformTarget>%s</PlatformTarget>' % platform)
-            mk_echo('  </PropertyGroup>')
-            mk_echo('  <ItemGroup>')
-            mk_echo('    <Compile Include="%s/*.cs" />' % self.to_ex_dir)
-            mk_echo('    <Reference Include="Microsoft.Z3">')
-            mk_echo('      <HintPath>Microsoft.Z3.dll</HintPath>')
-            mk_echo('    </Reference>')
-            mk_echo('  </ItemGroup>')
-            mk_echo('</Project>')
 
+            dotnet_proj_str = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <PlatformTarget>%s</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="%s/*.cs" />
+    <Reference Include="Microsoft.Z3">
+      <HintPath>Microsoft.Z3.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>""" % (platform, self.to_ex_dir)
+
+            with open(proj_path, 'w') as ous:
+                ous.write(dotnet_proj_str)
+
+            out.write('\n')
             dotnetCmdLine = [DOTNET, "build", proj_name]
             dotnetCmdLine.extend(['-c'])
             if DEBUG_MODE:
