@@ -2428,7 +2428,8 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(' ')
                 out.write(os.path.join(self.to_ex_dir, csfile))
 
-            proj_path = os.path.join(BUILD_DIR, proj_name)
+            mk_dir(os.path.join(BUILD_DIR, 'dotnet_example'))
+            csproj = os.path.join('dotnet_example', proj_name)
             if VS_X64:
                 platform = 'x64'
             elif VS_ARM:
@@ -2443,18 +2444,18 @@ class DotNetExampleComponent(ExampleComponent):
     <PlatformTarget>%s</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="%s/*.cs" />
+    <Compile Include="..\%s/*.cs" />
     <Reference Include="Microsoft.Z3">
-      <HintPath>Microsoft.Z3.dll</HintPath>
+      <HintPath>..\Microsoft.Z3.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>""" % (platform, self.to_ex_dir)
 
-            with open(proj_path, 'w') as ous:
+            with open(os.path.join(BUILD_DIR, csproj), 'w') as ous:
                 ous.write(dotnet_proj_str)
 
             out.write('\n')
-            dotnetCmdLine = [DOTNET, "build", proj_name]
+            dotnetCmdLine = [DOTNET, "build", csproj]
             dotnetCmdLine.extend(['-c'])
             if DEBUG_MODE:
                 dotnetCmdLine.extend(['Debug'])
