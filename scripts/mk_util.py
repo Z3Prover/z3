@@ -1829,7 +1829,7 @@ class DotNetDLLComponent(Component):
         MakeRuleCmd.remove_installed_files(out, pkg_config_file)
 
 
-# TBD: retool the following for 'dotnet build'
+# build for dotnet core
 class DotNetCoreDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
         Component.__init__(self, name, path, deps)
@@ -1841,15 +1841,9 @@ class DotNetCoreDLLComponent(Component):
         self.assembly_info_dir = assembly_info_dir
         self.key_file = default_key_file
 
-    def mk_nuget_config_file(self):
-        # TBD revise
-        """
-            Create nuget file for the dot net bindings. These
-            are needed by Monodevelop.
-        """
-        return
     
     def mk_makefile(self, out):
+        # TBD: handle keyfile
         global DOTNET_KEY_FILE        
         if not is_dotnet_core_enabled():
             return
@@ -1915,26 +1909,20 @@ class DotNetCoreDLLComponent(Component):
         else:
             dotnetCmdLine.extend(['Release'])
 
-
         path = os.path.abspath(BUILD_DIR)
         dotnetCmdLine.extend(['-o', path])
             
-        # Now emit the command line
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
 
-        # State that the high-level "dotnet" target depends on the .NET bindings
-        # dll we just created the build rule for
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, dllfile))
 
-        # Create nuget file
-        self.mk_nuget_config_file()
-        return
 
     def main_component(self):
         return is_dotnet_core_enabled()
     
     def has_assembly_info(self):
+        # TBD: is this required for dotnet core given that version numbers are in z3.csproj file?
         return True
 
     def mk_win_dist(self, build_path, dist_path):
@@ -1957,51 +1945,13 @@ class DotNetCoreDLLComponent(Component):
                         '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
     def mk_install_deps(self, out):
-        if not is_dotnet_core_enabled():
-            return
-        out.write('%s' % self.name)
-
-    def gac_pkg_name(self):
-        return "{}.Sharp".format(self.dll_name)
-
-    def _install_or_uninstall_to_gac(self, out, install):
-        # TBD revise for nuget
-        gacUtilFlags = ['/package {}'.format(self.gac_pkg_name()),
-                        '/root',
-                        '{}{}'.format(MakeRuleCmd.install_root(), INSTALL_LIB_DIR)
-                       ]
-        if install:
-            install_or_uninstall_flag = '-i'
-        else:
-            # Note need use ``-us`` here which takes an assembly file name
-            # rather than ``-u`` which takes an assembly display name (e.g.
-            #  )
-            install_or_uninstall_flag = '-us'
-        MakeRuleCmd.write_cmd(out, '{gacutil} {install_or_uninstall_flag} {assembly_name}.dll -f {flags}'.format(
-            gacutil=GACUTIL,
-            install_or_uninstall_flag=install_or_uninstall_flag,
-            assembly_name=self.dll_name,
-            flags=' '.join(gacUtilFlags)))
+        pass
 
     def mk_install(self, out):
-        # TBD revise for nuget
-        if not is_dotnet_core_enabled():
-            return
-        self._install_or_uninstall_to_gac(out, install=True)
-
-        # Install pkg-config file. Monodevelop needs this to find Z3
-        pkg_config_output = os.path.join(self.build_dir,
-                                         '{}.pc'.format(self.gac_pkg_name()))
-        MakeRuleCmd.make_install_directory(out, INSTALL_PKGCONFIG_DIR)
-        MakeRuleCmd.install_files(out, pkg_config_output, INSTALL_PKGCONFIG_DIR)
+        pass
 
     def mk_uninstall(self, out):
-        # TBD revise for nuget
-        if not is_dotnet_core_enabled():
-            return
-        self._install_or_uninstall_to_gac(out, install=False)
-        pkg_config_file = os.path.join('lib','pkgconfig','{}.pc'.format(self.gac_pkg_name()))
-        MakeRuleCmd.remove_installed_files(out, pkg_config_file)
+        pass
 
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
