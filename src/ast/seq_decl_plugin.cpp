@@ -899,7 +899,7 @@ bool seq_decl_plugin::are_distinct(app* a, app* b) const {
     }
     if (is_app_of(a, m_family_id, OP_SEQ_UNIT) && 
         is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
-        return true;
+        return m_manager->are_distinct(a->get_arg(0), b->get_arg(0));
     }
     if (is_app_of(a, m_family_id, OP_SEQ_EMPTY) && 
         is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
