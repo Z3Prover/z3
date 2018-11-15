@@ -2436,7 +2436,7 @@ class DotNetExampleComponent(ExampleComponent):
             else:
                 platform = 'x86'
 
-            dotnet_proj_str = """xemacs<Project Sdk="Microsoft.NET.Sdk">
+            dotnet_proj_str = """<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
