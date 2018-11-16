@@ -73,6 +73,7 @@ def parse_options():
                                                                    'force',
                                                                    'nojava',
                                                                    'nodotnet',
+                                                                   'dotnetcore',
                                                                    'dotnet-key=',
                                                                    'githash',
                                                                    'nopython'
@@ -194,9 +195,8 @@ def mk_dist_dir():
     build_path = BUILD_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name())
     mk_dir(dist_path)
-    name = get_z3_name()
     if DOTNET_CORE_ENABLED:
-        mk_util.DOTNET_CORE_ENABLED = DOTNET_ENABLED
+        mk_util.DOTNET_CORE_ENABLED = True
     else:
         mk_util.DOTNET_ENABLED = DOTNET_ENABLED
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
