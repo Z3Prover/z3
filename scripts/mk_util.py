@@ -1872,14 +1872,13 @@ class DotNetCoreDLLComponent(Component):
         core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp1.0</TargetFramework>
+    <TargetFramework>netstandard1.4</TargetFramework>
     <PlatformTarget>%s</PlatformTarget>    
     <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
     <DebugType>portable</DebugType>
     <AssemblyName>Microsoft.Z3</AssemblyName>
     <OutputType>Library</OutputType>
     <PackageId>Microsoft.Z3</PackageId>
-    <PackageTargetFallback>$(PackageTargetFallback);dnxcore50</PackageTargetFallback>
     <RuntimeFrameworkVersion>1.0.4</RuntimeFrameworkVersion>
     <Version>%s</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

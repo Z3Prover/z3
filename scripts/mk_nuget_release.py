@@ -67,10 +67,10 @@ def unpack():
             mk_dir("out/runtimes/%s" % dst)
             shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/." % dst)
             if "win" in f:
-                mk_dir("out/lib/netstandard1.0/")
+                mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll"]:
                     zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
-                    shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.0/%s" % b)
+                    shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
 def create_nuget_spec():
     mk_project.init_version()
