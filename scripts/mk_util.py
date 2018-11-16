@@ -668,6 +668,7 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
         print("  --optimize                    generate optimized code during linking.")
+    print("  --dotnetcore                  generate .NET platform bindings.")
     print("  --dotnet                      generate .NET bindings.")
     print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
     print("  --java                        generate Java bindings.")
@@ -1627,6 +1628,23 @@ class PythonInstallComponent(Component):
     def mk_makefile(self, out):
         return
 
+def set_key_file(self):
+    global DOTNET_KEY_FILE
+    # We need to give the assembly a strong name so that it
+    # can be installed into the GAC with ``make install``
+    if not DOTNET_KEY_FILE is None:
+       self.key_file = DOTNET_KEY_FILE
+
+    if not self.key_file is None:
+       if os.path.isfile(self.key_file):
+           self.key_file = os.path.abspath(self.key_file)
+       elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
+           self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
+       else:
+           print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
+           self.key_file = None
+    
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
         Component.__init__(self, name, path, deps)
@@ -1688,19 +1706,7 @@ class DotNetDLLComponent(Component):
                                ]
                              )
 
-        # We need to give the assembly a strong name so that it
-        # can be installed into the GAC with ``make install``
-        if not DOTNET_KEY_FILE is None:
-            self.key_file = DOTNET_KEY_FILE
-
-        if not self.key_file is None:
-            if os.path.isfile(self.key_file):
-                self.key_file = os.path.abspath(self.key_file)
-            elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
-                self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
-            else:
-                print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
-                self.key_file = None
+        set_key_file(self)
 
         if not self.key_file is None:
             print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
@@ -1843,8 +1849,6 @@ class DotNetCoreDLLComponent(Component):
 
     
     def mk_makefile(self, out):
-        # TBD: handle keyfile
-        global DOTNET_KEY_FILE        
         if not is_dotnet_core_enabled():
             return
         cs_fp_files = []
@@ -1859,6 +1863,11 @@ class DotNetCoreDLLComponent(Component):
             out.write(' ')
             out.write(cs_file)
         out.write('\n')
+        
+        set_key_file(self)
+        key = ""
+        if not self.key_file is None:
+            key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
 
         if VS_X64:
             platform = 'x64'
@@ -1887,13 +1896,14 @@ class DotNetCoreDLLComponent(Component):
     <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
     <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
     <PackageTags>smt constraint solver theorem prover</PackageTags>
+    %s
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\%s\*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
   </ItemGroup>
 
-</Project>""" % (platform, version, self.to_src_dir)
+</Project>""" % (platform, version, key, self.to_src_dir)
 
         mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
         csproj = os.path.join('dotnet', 'z3.csproj')

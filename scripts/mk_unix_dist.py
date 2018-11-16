@@ -186,7 +186,11 @@ def mk_dist_dir():
     build_path = BUILD_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name())
     mk_dir(dist_path)
-    mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    name = get_z3_name()
+    if "x64" in name or "mac" in name:
+        mk_util.DOTNET_CORE_ENABLED = DOTNET_ENABLED
+    else:
+        mk_util.DOTNET_ENABLED = DOTNET_ENABLED
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
