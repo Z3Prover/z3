@@ -23,6 +23,7 @@ VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
 DOTNET_ENABLED=True
+DOTNET_CORE_ENABLED=False
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
 GIT_HASH=False
@@ -55,6 +56,7 @@ def display_help():
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
+    print("  --dotnetcore                  build for dotnet core.")
     print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
@@ -88,6 +90,8 @@ def parse_options():
             FORCE_MK = True
         elif opt == '--nodotnet':
             DOTNET_ENABLED = False
+        elif opt == '--dotnetcore':
+            DOTNET_CORE_ENABLED = True
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
@@ -108,7 +112,11 @@ def check_build_dir(path):
 def mk_build_dir(path):
     if not check_build_dir(path) or FORCE_MK:
         opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path, "--staticlib"]
-        if DOTNET_ENABLED:
+        if DOTNET_CORE_ENABLED:
+            opts.append('--dotnetcore')
+            if not DOTNET_KEY_FILE is None:
+                opts.append('--dotnet-key=' + DOTNET_KEY_FILE)            
+        elif DOTNET_ENABLED:
             opts.append('--dotnet')
             if not DOTNET_KEY_FILE is None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
@@ -187,7 +195,7 @@ def mk_dist_dir():
     dist_path = os.path.join(DIST_DIR, get_z3_name())
     mk_dir(dist_path)
     name = get_z3_name()
-    if "x64" in name or "mac" in name:
+    if DOTNET_CORE_ENABLED:
         mk_util.DOTNET_CORE_ENABLED = DOTNET_ENABLED
     else:
         mk_util.DOTNET_ENABLED = DOTNET_ENABLED
