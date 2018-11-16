@@ -7,9 +7,12 @@
 ############################################
 from mk_util import *
 
+def init_version():
+    set_version(4, 8, 3, 0)
+    
 # Z3 Project definition
 def init_project_def():
-    set_version(4, 8, 3, 0)
+    init_version()
     add_lib('util', [], includes2install = ['z3_version.h'])
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('sat', ['util'])
