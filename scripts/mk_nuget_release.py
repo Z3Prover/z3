@@ -54,7 +54,7 @@ def unpack():
 
 def main():
     mk_dir("packages")
-#   download_installs()
+    download_installs()
 #    create_nuget_dir()
     unpack()
 #    create_nuget_package()

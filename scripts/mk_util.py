@@ -1909,7 +1909,7 @@ class DotNetCoreDLLComponent(Component):
         else:
             dotnetCmdLine.extend(['Release'])
 
-        path = os.path.abspath(BUILD_DIR)
+        path = os.path.join(os.path.abspath(BUILD_DIR), ".")
         dotnetCmdLine.extend(['-o', path])
             
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
@@ -3170,7 +3170,8 @@ def mk_bindings(api_files):
         if is_dotnet_enabled():
           dotnet_output_dir = get_component('dotnet').src_dir
         elif is_dotnet_core_enabled():
-          dotnet_output_dir = get_component('dotnetcore').src_dir
+          dotnet_output_dir = os.path.join(BUILD_DIR, 'dotnet')
+          mk_dir(dotnet_output_dir)
         java_output_dir = None
         java_package_name = None
         if is_java_enabled():
@@ -3199,10 +3200,10 @@ def mk_bindings(api_files):
             mk_z3consts_ml(api_files)
         if is_dotnet_enabled():
             check_dotnet()
-            mk_z3consts_dotnet(api_files)
+            mk_z3consts_dotnet(api_files, dotnet_output_dir)
         if  is_dotnet_core_enabled():
             check_dotnet_core()
-            mk_z3consts_dotnet(api_files)
+            mk_z3consts_dotnet(api_files, dotnet_output_dir)
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
@@ -3219,7 +3220,7 @@ def mk_z3consts_py(api_files):
         print("Generated '{}".format(generated_file))
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
-def mk_z3consts_dotnet(api_files):
+def mk_z3consts_dotnet(api_files, output_dir):
     dotnet = get_component(DOTNET_COMPONENT)
     if not dotnet:
        dotnet = get_component(DOTNET_CORE_COMPONENT)
@@ -3228,7 +3229,7 @@ def mk_z3consts_dotnet(api_files):
         api_file_c = dotnet.find_file(api_file, dotnet.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
         full_path_api_files.append(api_file)
-    generated_file = mk_genfile_common.mk_z3consts_dotnet_internal(full_path_api_files, dotnet.src_dir)
+    generated_file = mk_genfile_common.mk_z3consts_dotnet_internal(full_path_api_files, output_dir)
     if VERBOSE:
         print("Generated '{}".format(generated_file))
 
