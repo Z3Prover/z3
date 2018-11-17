@@ -841,7 +841,7 @@ public:
     }
 
     void verify_core(exprs const& core) {
-        if (!gparams::get_ref().get_bool("model_validate", false)) return;
+        return;
         IF_VERBOSE(3, verbose_stream() << "verify core " << s().check_sat(core.size(), core.c_ptr()) << "\n";);                
         ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
         _solver->assert_expr(s().get_assertions());
@@ -852,7 +852,7 @@ public:
     }
 
     void verify_assumptions() {
-        if (!gparams::get_ref().get_bool("model_validate", false)) return;
+        return;
         IF_VERBOSE(1, verbose_stream() << "verify assumptions\n";);        
         ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
         _solver->assert_expr(s().get_assertions());
@@ -863,7 +863,7 @@ public:
     }
 
     void verify_assignment() {
-        if (!gparams::get_ref().get_bool("model_validate", false)) return;
+        return;
         IF_VERBOSE(1, verbose_stream() << "verify assignment\n";);        
         ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
         _solver->assert_expr(s().get_assertions());

@@ -1557,6 +1557,7 @@ namespace opt {
     }
 
     void context::validate_model() {
+        return;
         if (!gparams::get_ref().get_bool("model_validate", false)) return;
         expr_ref_vector fmls(m);
         get_hard_constraints(fmls);
