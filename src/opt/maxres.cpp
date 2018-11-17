@@ -108,6 +108,7 @@ private:
     bool             m_pivot_on_cs;            // prefer smaller correction set to core.
     bool             m_dump_benchmarks;        // display benchmarks (into wcnf format)
 
+    
 
     std::string      m_trace_id;
     typedef ptr_vector<expr> exprs;
@@ -152,6 +153,14 @@ public:
             (m.is_not(l, l) && is_uninterp_const(l));
     }    
 
+    void add(expr_ref_vector const& es) {
+        for (expr* e : es) add(e);
+    }
+
+    void add(expr* e) {
+        s().assert_expr(e);
+    }
+
     void add_soft(expr* e, rational const& w) {
         TRACE("opt", tout << mk_pp(e, m) << " |-> " << w << "\n";);
         expr_ref asum(m), fml(m);
@@ -168,7 +177,7 @@ public:
         else {
             asum = mk_fresh_bool("soft");
             fml = m.mk_iff(asum, e);
-            s().assert_expr(fml);
+            add(fml);
         }
         new_assumption(asum, w);
     }
@@ -194,11 +203,8 @@ public:
         if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
             TRACE("opt_verbose", 
-                  display_vec(tout, m_asms);
-                  s().display(tout);
-                  tout << "\n";
-                  display(tout);
-                  );
+                  s().display(tout << m_asms << "\n") << "\n";
+                  display(tout););
             is_sat = check_sat_hill_climb(m_asms);
             if (m.canceled()) {
                 return l_undef;
@@ -206,8 +212,7 @@ public:
             switch (is_sat) {
             case l_true: 
                 CTRACE("opt", !m_model->is_true(m_asms), 
-                       tout << *m_model;
-                       tout << "assumptions: ";
+                       tout << *m_model << "assumptions: ";
                        for (expr* a : m_asms) tout << mk_pp(a, m) << " -> " << (*m_model)(a) << " ";
                        tout << "\n";);
                 SASSERT(m_model->is_true(m_asms));
@@ -320,6 +325,7 @@ public:
 
     void found_optimum() {
         IF_VERBOSE(1, verbose_stream() << "found optimum\n";);
+        verify_assumptions();
         m_lower.reset();
         for (soft& s : m_soft) {
             s.is_true = m_model->is_true(s.s);
@@ -348,7 +354,14 @@ public:
         st.update("maxres-correction-sets", m_stats.m_num_cs);
     }
 
-    lbool get_cores(vector<exprs>& cores) {
+    struct weighted_core {
+        exprs    m_core;
+        rational m_weight;
+        weighted_core(exprs const& c, rational const& w):
+            m_core(c), m_weight(w) {}
+    };
+
+    lbool get_cores(vector<weighted_core>& cores) {
         // assume m_s is unsat.
         lbool is_sat = l_false;
         cores.reset();
@@ -361,7 +374,7 @@ public:
             get_mus_model(mdl);
             is_sat = minimize_core(_core);
             core.append(_core.size(), _core.c_ptr());
-            // verify_core(core);
+            verify_core(core);
             ++m_stats.m_num_cores;
             if (is_sat != l_true) {
                 IF_VERBOSE(100, verbose_stream() << "(opt.maxres minimization failed)\n";);
@@ -373,13 +386,16 @@ public:
                 m_lower = m_upper;
                 return l_true;
             }
+
+            
             // 1. remove all core literals from m_asms
             // 2. re-add literals of higher weight than min-weight.
             // 3. 'core' stores the core literals that are
             //    re-encoded as assumptions, afterwards
+            cores.push_back(weighted_core(core, core_weight(core)));
+
             remove_soft(core, m_asms);
-            split_core(core);
-            cores.push_back(core);
+            split_core(core);  
 
             if (core.size()  >= m_max_core_size) break;
             if (cores.size() >= m_max_num_cores) break;
@@ -456,7 +472,7 @@ public:
     }
 
     lbool process_unsat() {
-        vector<exprs> cores;
+        vector<weighted_core> cores;
         lbool is_sat = get_cores(cores);
         if (is_sat != l_true) {
             return is_sat;
@@ -478,9 +494,9 @@ public:
         return result;
     }
 
-    void process_unsat(vector<exprs> const& cores) {
+    void process_unsat(vector<weighted_core> const& cores) {
         for (auto const & c : cores) {
-            process_unsat(c);
+            process_unsat(c.m_core, c.m_weight);
         }
     }
 
@@ -491,16 +507,15 @@ public:
         }
     }
     
-    void process_unsat(exprs const& core) {
+    void process_unsat(exprs const& core, rational w) {
         IF_VERBOSE(3, verbose_stream() << "(maxres cs model valid: " << (m_csmodel.get() != nullptr) << " cs size:" << m_correction_set_size << " core: " << core.size() << ")\n";);
         expr_ref fml(m);
         SASSERT(!core.empty());
-        rational w = core_weight(core);
         TRACE("opt", display_vec(tout << "minimized core: ", core););
-        IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););
+        IF_VERBOSE(10, display_vec(verbose_stream() << "core: ", core););        
         max_resolve(core, w);
         fml = mk_not(m, mk_and(m, core.size(), core.c_ptr()));
-        s().assert_expr(fml);
+        add(fml);
         m_lower += w;
         if (m_st == s_primal_dual) {
             m_lower = std::min(m_lower, m_upper);
@@ -636,10 +651,10 @@ public:
             else {
                 dd = mk_fresh_bool("d");
                 fml = m.mk_implies(dd, d);
-                s().assert_expr(fml);
+                add(fml);
                 m_defs.push_back(fml);
                 fml = m.mk_implies(dd, b_i);
-                s().assert_expr(fml);
+                add(fml);
                 m_defs.push_back(fml);
                 fml = m.mk_and(d, b_i);
                 update_model(dd, fml);
@@ -650,7 +665,7 @@ public:
             fml = m.mk_implies(asum, cls);
             update_model(asum, cls);
             new_assumption(asum, w);
-            s().assert_expr(fml);
+            add(fml);
             m_defs.push_back(fml);
         }
     }
@@ -682,7 +697,7 @@ public:
                 d = mk_fresh_bool("d");
                 fml = m.mk_implies(d, cls);
                 update_model(d, cls);
-                s().assert_expr(fml);
+                add(fml);
                 m_defs.push_back(fml);
                 
             }
@@ -691,10 +706,10 @@ public:
             }
             asum = mk_fresh_bool("a");
             fml = m.mk_implies(asum, b_i1);
-            s().assert_expr(fml);
+            add(fml);
             m_defs.push_back(fml);
             fml = m.mk_implies(asum, cls);
-            s().assert_expr(fml);
+            add(fml);
             m_defs.push_back(fml);
             new_assumption(asum, w);
 
@@ -702,7 +717,7 @@ public:
             update_model(asum, fml);
         }
         fml = m.mk_or(cs.size(), cs.c_ptr());
-        s().assert_expr(fml);
+        add(fml);
     }
 
     void update_assignment(model_ref & mdl) {
@@ -747,7 +762,7 @@ public:
             s.is_true = m_model->is_true(s.s);
         }
        
-        // DEBUG_CODE(verify_assignment(););
+        verify_assignment();
 
         m_upper = upper;
         
@@ -768,7 +783,7 @@ public:
         }            
         fml = u.mk_lt(nsoft.size(), weights.c_ptr(), nsoft.c_ptr(), m_upper);
         TRACE("opt", tout << "block upper bound " << fml << "\n";);;
-        s().assert_expr(fml); 
+        add(fml); 
     }
 
     void remove_soft(exprs const& core, expr_ref_vector& asms) {
@@ -819,40 +834,50 @@ public:
     void commit_assignment() override {
         if (m_found_feasible_optimum) {
             TRACE("opt", tout << "Committing feasible solution\n" << m_defs << " " << m_asms;);
-            s().assert_expr(m_defs);
-            s().assert_expr(m_asms);
+            add(m_defs);
+            add(m_asms);
         }
         // else: there is only a single assignment to these soft constraints.
     }
 
     void verify_core(exprs const& core) {
-        IF_VERBOSE(3, verbose_stream() << "verify core\n";);                
-        ref<solver> smt_solver = mk_smt_solver(m, m_params, symbol());
-        smt_solver->assert_expr(s().get_assertions());
-        smt_solver->assert_expr(core);
-        lbool is_sat = smt_solver->check_sat(0, nullptr);
-        if (is_sat == l_true) {
-            IF_VERBOSE(0, verbose_stream() << "not a core\n";);
-        }        
+        if (!gparams::get_ref().get_bool("model_validate", false)) return;
+        IF_VERBOSE(3, verbose_stream() << "verify core " << s().check_sat(core.size(), core.c_ptr()) << "\n";);                
+        ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
+        _solver->assert_expr(s().get_assertions());
+        _solver->assert_expr(core);
+        lbool is_sat = _solver->check_sat(0, nullptr);
+        IF_VERBOSE(0, verbose_stream() << "core status (l_false:) " << is_sat << "\n");
+        VERIFY(is_sat == l_false);
+    }
+
+    void verify_assumptions() {
+        if (!gparams::get_ref().get_bool("model_validate", false)) return;
+        IF_VERBOSE(1, verbose_stream() << "verify assumptions\n";);        
+        ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
+        _solver->assert_expr(s().get_assertions());
+        _solver->assert_expr(m_asms);
+        lbool is_sat = _solver->check_sat(0, nullptr);
+        IF_VERBOSE(1, verbose_stream() << "assignment status (l_true) " << is_sat << "\n";);               
+        VERIFY(is_sat == l_true);
     }
 
     void verify_assignment() {
+        if (!gparams::get_ref().get_bool("model_validate", false)) return;
         IF_VERBOSE(1, verbose_stream() << "verify assignment\n";);        
-        ref<solver> smt_solver = mk_smt_solver(m, m_params, symbol());
-        smt_solver->assert_expr(s().get_assertions());
+        ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
+        _solver->assert_expr(s().get_assertions());
         expr_ref n(m);
         for (soft& s : m_soft) {
             n = s.s;
             if (!s.is_true) {
                 n = mk_not(m, n);
             }
-            smt_solver->assert_expr(n);
+            _solver->assert_expr(n);
         }
-        lbool is_sat = smt_solver->check_sat(0, nullptr);
-        if (is_sat == l_false) {
-            IF_VERBOSE(0, verbose_stream() << "assignment is infeasible\n";);
-        }
-        IF_VERBOSE(1, verbose_stream() << "verified\n";);        
+        lbool is_sat = _solver->check_sat(0, nullptr);
+        IF_VERBOSE(1, verbose_stream() << "assignment status (l_true) " << is_sat << "\n");
+        VERIFY(is_sat == l_true);
     }
 };
 

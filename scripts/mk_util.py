@@ -456,7 +456,9 @@ def check_dotnet():
         raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
 
 def check_dotnet_core():
-    # TBD: check DOTNET
+    # r = exec_cmd([DOTNET])
+    # if r != 0:
+    #   raise ...
     pass
 
 def check_ml():
