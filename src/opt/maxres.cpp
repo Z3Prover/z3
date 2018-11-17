@@ -405,7 +405,7 @@ public:
 
         TRACE("opt", 
               tout << "sat: " << is_sat << " num cores: " << cores.size() << "\n";
-              for (auto const& c : cores) display_vec(tout, c);
+              for (auto const& c : cores) display_vec(tout, c.m_core);
               tout << "num assumptions: " << m_asms.size() << "\n";);
         
         return is_sat;
