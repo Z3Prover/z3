@@ -2173,6 +2173,22 @@ public class Context implements AutoCloseable {
     {
         checkContextMatch(t);
         return (ReExpr) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
+    }
+
+    /**
+     * Create the empty regular expression.
+     */
+    public ReExpr mkEmptyRe(Sort s) 
+    {
+	return (ReExpr) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
+    }
+
+    /**
+     * Create the full regular expression.
+     */
+    public ReExpr mkFullRe(Sort s) 
+    {
+	return (ReExpr) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
     }    
     
     /**
