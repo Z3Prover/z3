@@ -208,7 +208,7 @@ def mk_dist_dir(x64):
         build_path = BUILD_X86_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
-    mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    mk_util.DOTNET_CORE_ENABLED = DOTNET_ENABLED
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED

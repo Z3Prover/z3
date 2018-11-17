@@ -34,7 +34,8 @@ void tst_sat_lookahead(char ** argv, int argc, int& i) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        parse_dimacs(in, solver);
+        if (!parse_dimacs(in, std::cerr, solver))
+            return;
     }
    
     sat::lookahead lh(solver);

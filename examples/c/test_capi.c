@@ -379,6 +379,7 @@ void assert_comm_axiom(Z3_context ctx, Z3_solver s, Z3_func_decl f)
     Z3_sort t;
     Z3_symbol f_name, t_name;
     Z3_ast_vector q;
+    unsigned i;
 
     t = Z3_get_range(ctx, f);
 
@@ -399,7 +400,7 @@ void assert_comm_axiom(Z3_context ctx, Z3_solver s, Z3_func_decl f)
                            1, &t_name, &t,
                            1, &f_name, &f);
     printf("assert axiom:\n%s\n", Z3_ast_vector_to_string(ctx, q));
-    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, q); ++i) {
+    for (i = 0; i < Z3_ast_vector_size(ctx, q); ++i) {
         Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, q, i));
     }
 }
@@ -1644,6 +1645,7 @@ void parser_example2()
     Z3_symbol         names[2];
     Z3_func_decl decls[2];
     Z3_ast_vector f;
+    unsigned i;
 
     printf("\nparser_example2\n");
     LOG_MSG("parser_example2");
@@ -1668,7 +1670,7 @@ void parser_example2()
                            2, names, decls);
     printf("formula: %s\n", Z3_ast_vector_to_string(ctx, f));
     printf("assert axiom:\n%s\n", Z3_ast_vector_to_string(ctx, f));
-    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, f); ++i) {
+    for (i = 0; i < Z3_ast_vector_size(ctx, f); ++i) {
         Z3_solver_assert(ctx, s, Z3_ast_vector_get(ctx, f, i));
     }
     check(ctx, s, Z3_L_TRUE);

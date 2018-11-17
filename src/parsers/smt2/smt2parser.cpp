@@ -346,7 +346,8 @@ namespace smt2 {
         // consume garbage
         // return true if managed to recover from the error...
         bool sync_after_error() {
-            while (true) {
+            unsigned num_errors = 0;
+            while (num_errors < 100) {
                 try {
                     while (curr_is_rparen())
                         next();
@@ -374,8 +375,10 @@ namespace smt2 {
                 catch (scanner_exception & ex) {
                     SASSERT(ex.has_pos());
                     error(ex.line(), ex.pos(), ex.msg());
+                    ++num_errors;
                 }
             }
+            return false;
         }
 
         void check_next(scanner::token t, char const * msg) {
@@ -3117,7 +3120,7 @@ namespace smt2 {
 
         bool operator()() {
             m_num_bindings    = 0;
-            bool found_errors = false;
+            unsigned found_errors = 0;
 
             try {
                 scan_core();
@@ -3126,7 +3129,7 @@ namespace smt2 {
                 error(ex.msg());
                 if (!sync_after_error())
                     return false;
-                found_errors = true;
+                found_errors++;
             }
 
             while (true) {
@@ -3138,7 +3141,7 @@ namespace smt2 {
                             parse_cmd();
                             break;
                         case scanner::EOF_TOKEN:
-                            return !found_errors;
+                            return found_errors == 0;
                         default:
                             throw parser_exception("invalid command, '(' expected");
                             break;
