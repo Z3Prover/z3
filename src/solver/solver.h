@@ -146,6 +146,8 @@ public:
     
     lbool check_sat(app_ref_vector const& asms) { return check_sat(asms.size(), (expr* const*)asms.c_ptr()); }
 
+    lbool check_sat() { return check_sat(0, nullptr); }
+
     /**
        \brief Check satisfiability modulo a cube and a clause.
 

@@ -239,6 +239,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Evaluate expression to a double, assuming it is a numeral already.
+        /// </summary>
+        public double Double(Expr t) {
+            var r = Eval(t, true);
+            return Native.Z3_get_numeral_double(Context.nCtx, r.NativeObject);
+        }
+
+        /// <summary>
         /// The number of uninterpreted sorts that the model has an interpretation for.
         /// </summary>    
         public uint NumSorts { get { return Native.Z3_model_get_num_sorts(Context.nCtx, NativeObject); } }

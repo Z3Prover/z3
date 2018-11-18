@@ -5579,7 +5579,7 @@ extern "C" {
        \brief Convert a goal into a DIMACS formatted string.
        The goal must be in CNF. You can convert a goal to CNF
        by applying the tseitin-cnf tactic. Bit-vectors are not automatically
-       converted to Booleans either, so the caller intends to 
+       converted to Booleans either, so if the caller intends to
        preserve satisfiability, it should apply bit-blasting tactics.
        Quantifiers and theory atoms will not be encoded.
 

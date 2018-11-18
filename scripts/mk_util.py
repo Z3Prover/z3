@@ -461,7 +461,6 @@ def check_dotnet_core():
     r = exec_cmd([DOTNET, '--help'])
     if r != 0:
         raise MKException('Failed testing dotnet. Make sure to install and configure dotnet core utilities')
-    pass
 
 def check_ml():
     t = TempFile('hello.ml')
