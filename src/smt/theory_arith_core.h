@@ -503,7 +503,7 @@ namespace smt {
                   tout << "lower: " << lower << "\n";
                   tout << "upper: " << upper << "\n";);
 
-            mk_axiom(eqz, eq,    true);
+            mk_axiom(eqz, eq,    false);
             mk_axiom(eqz, lower, false);
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
