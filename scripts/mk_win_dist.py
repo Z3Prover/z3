@@ -220,7 +220,7 @@ def mk_dist_dir(x64):
     if DOTNET_CORE_ENABLED:
        mk_util.DOTNET_CORE_ENABLED = True
     else:
-       mk_util.DOTNET_CORE_ENABLED = DOTNET_ENABLED
+       mk_util.DOTNET_ENABLED = DOTNET_ENABLED
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
