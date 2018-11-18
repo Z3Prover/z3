@@ -65,7 +65,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_KEY_FILE
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -93,6 +93,7 @@ def parse_options():
             DOTNET_ENABLED = False
         elif opt == '--dotnetcore':
             DOTNET_CORE_ENABLED = True
+            DOTNET_ENABLED = False
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
@@ -195,10 +196,8 @@ def mk_dist_dir():
     build_path = BUILD_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name())
     mk_dir(dist_path)
-    if DOTNET_CORE_ENABLED:
-        mk_util.DOTNET_CORE_ENABLED = True
-    else:
-        mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    mk_util.DOTNET_CORE_ENABLED = DOTNET_CORE_ENABLED
+    mk_util.DOTNET_ENABLED = DOTNET_ENABLED    
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
