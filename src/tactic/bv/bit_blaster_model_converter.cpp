@@ -72,10 +72,8 @@ struct bit_blaster_model_converter : public model_converter {
         }
         TRACE("blaster_mc",
               tout << "bits that should not be included in the model:\n";
-              obj_hashtable<func_decl>::iterator it  = bits.begin();
-              obj_hashtable<func_decl>::iterator end = bits.end();
-              for (; it != end; ++it) {
-                  tout << (*it)->get_name() << " ";
+              for (func_decl* f : bits) {
+                  tout << f->get_name() << " ";
               }
               tout << "\n";);
 

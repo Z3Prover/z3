@@ -491,13 +491,21 @@ namespace smt {
                 if (!it->is_dead()) {
                     unsigned rid = it->m_row_id;
                     row & r = m_rows[rid];
-                    if (is_base(r.get_base_var()))
+                    theory_var v = r.get_base_var();
+                    if (v == null_theory_var) {
+                        // skip
+                    }
+                    else if (is_base(v)) {
                         return it;
+                    }
                     else if (quasi_base_rid == -1)
                         quasi_base_rid = rid;
                 }
             }
-            SASSERT(quasi_base_rid != -1); // since c.size() != 0
+            if (quasi_base_rid == -1) {
+                return nullptr;
+            }
+			
             quasi_base_row2base_row(quasi_base_rid);
             // There is no guarantee that v is still a variable of row quasi_base_rid.
 

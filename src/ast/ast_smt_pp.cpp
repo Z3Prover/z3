@@ -811,8 +811,6 @@ public:
                 m_out << ")";
             }
             m_out << "(";
-            m_out << m_renaming.get_symbol(d->name(), false);
-            m_out << " ";
             bool first_constr = true;
             for (datatype::constructor* f : *d) {
                 if (!first_constr) m_out << " "; else first_constr = false;

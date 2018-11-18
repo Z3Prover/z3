@@ -17,15 +17,16 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/core/simplify_tactic.h"
-#include "tactic/bv/bit_blaster_tactic.h"
-#include "sat/tactic/sat_tactic.h"
 #include "tactic/fpa/fpa2bv_tactic.h"
-#include "smt/tactic/smt_tactic.h"
+#include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
-#include "ackermannization/ackermannize_bv_tactic.h"
 #include "tactic/arith/probe_arith.h"
+#include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/smtlogics/qfnra_tactic.h"
+#include "sat/tactic/sat_tactic.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "smt/tactic/smt_tactic.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
 
 #include "tactic/fpa/qffp_tactic.h"
 
@@ -95,7 +96,7 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                            cond(mk_is_propositional_probe(),
                                 cond(mk_produce_proofs_probe(),
                                      mk_smt_tactic(m, p), // `sat' does not support proofs.
-                                     mk_sat_tactic(m, p)),
+                                     mk_psat_tactic(m, p)),
                                 cond(mk_is_fp_qfnra_probe(),
                                      mk_qfnra_tactic(m, p),
                                      mk_smt_tactic(m, p))));

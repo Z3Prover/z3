@@ -1715,7 +1715,7 @@ extern "C" {
     unsigned Z3_API Z3_param_descrs_size(Z3_context c, Z3_param_descrs p);
 
     /**
-       \brief Return the number of parameters in the given parameter description set.
+       \brief Return the name of the parameter at given index \c i.
 
        \pre i < Z3_param_descrs_size(c, p)
 
@@ -5579,7 +5579,7 @@ extern "C" {
        \brief Convert a goal into a DIMACS formatted string.
        The goal must be in CNF. You can convert a goal to CNF
        by applying the tseitin-cnf tactic. Bit-vectors are not automatically
-       converted to Booleans either, so the caller intends to 
+       converted to Booleans either, so if the caller intends to
        preserve satisfiability, it should apply bit-blasting tactics.
        Quantifiers and theory atoms will not be encoded.
 

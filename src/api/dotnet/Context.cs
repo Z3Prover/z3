@@ -932,6 +932,26 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create an expression representing <c>t1 xor t2 xor t3 ... </c>.
+        /// </summary>
+        public BoolExpr MkXor(IEnumerable<BoolExpr> ts)
+        {
+            Debug.Assert(ts != null);
+            Debug.Assert(ts.All(a => a != null));
+            CheckContextMatch<BoolExpr>(ts);
+            BoolExpr r = null;
+            foreach (var t in ts) {
+                if (r == null) 
+                   r = t;
+                else
+                   r = MkXor(r, t);
+            }
+            if (r == null) 
+               r = MkTrue();
+            return r;
+        }
+
+        /// <summary>
         /// Create an expression representing <c>t[0] and t[1] and ...</c>.
         /// </summary>
         public BoolExpr MkAnd(params BoolExpr[] t)

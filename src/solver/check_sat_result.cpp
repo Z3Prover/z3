@@ -36,6 +36,7 @@ void check_sat_result::set_reason_unknown(event_handler& eh) {
     }
 }
 
+
 simple_check_sat_result::simple_check_sat_result(ast_manager & m):
     m_core(m),
     m_proof(m) {

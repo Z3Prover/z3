@@ -541,9 +541,9 @@ namespace smt {
         bool process_atoms() const;
         unsigned get_num_conflicts() const { return m_num_conflicts; }
         var_kind get_var_kind(theory_var v) const { return m_data[v].kind(); }
-        bool is_base(theory_var v) const { return get_var_kind(v) == BASE; }
-        bool is_quasi_base(theory_var v) const { return get_var_kind(v) == QUASI_BASE; }
-        bool is_non_base(theory_var v) const { return get_var_kind(v) == NON_BASE; }
+        bool is_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == BASE; }
+        bool is_quasi_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == QUASI_BASE; }
+        bool is_non_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == NON_BASE; }
         void set_var_kind(theory_var v, var_kind k) { m_data[v].m_kind = k; }
         unsigned get_var_row(theory_var v) const { SASSERT(!is_non_base(v)); return m_data[v].m_row_id; }
         void set_var_row(theory_var v, unsigned r_id) { m_data[v].m_row_id = r_id; }

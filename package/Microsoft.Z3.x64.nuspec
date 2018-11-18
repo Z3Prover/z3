@@ -3,20 +3,20 @@
     <metadata>
         <id>Microsoft.Z3.x64</id>
         <version>$(releaseVersion)</version>
-		<copyright>© Microsoft Corporation. All rights reserved.</copyright>
-		<authors>Microsoft</authors>
-		<owners>Microsoft,Z3Prover</owners>
-		<iconUrl>$(iconUrlFromReleaseCommit)</iconUrl>
-		<projectUrl>https://github.com/Z3Prover/z3</projectUrl>
-		<licenseUrl>$(licenseUrlFromReleaseCommit)</licenseUrl>
-		<repository
-			type="git"
-			url="https://github.com/Z3Prover/z3.git"
-			branch="master"
-			commit="$(releaseCommitHash)"
-		/>
-		<requireLicenseAcceptance>true</requireLicenseAcceptance>
-		<description>Z3 is a constraint/SMT solver and theorem prover from Microsoft Research.</description>
-		<tags>smt constraint solver theorem prover</tags>
+        <copyright>© Microsoft Corporation. All rights reserved.</copyright>
+        <authors>Microsoft</authors>
+        <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/$(releaseCommitHash)/package/icon.jpg</iconUrl>
+        <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
+        <licenseUrl>https://raw.githubusercontent.com/Z3Prover/z3/$(releaseCommitHash)/LICENSE.txt</licenseUrl>
+        <repository
+            type="git"
+            url="https://github.com/Z3Prover/z3.git"
+            branch="master"
+            commit="$(releaseCommitHash)"
+        />
+        <requireLicenseAcceptance>true</requireLicenseAcceptance>
+        <description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</description>
+        <tags>smt constraint solver theorem prover</tags>
+        <language>en</language>
     </metadata>
 </package>
