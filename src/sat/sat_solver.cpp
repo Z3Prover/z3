@@ -547,7 +547,7 @@ namespace sat {
     void solver::defrag_clauses() {
         if (memory_pressure()) return;
         pop(scope_lvl());
-        IF_VERBOSE(1, verbose_stream() << "(sat-defrag)\n");
+        IF_VERBOSE(2, verbose_stream() << "(sat-defrag)\n");
         clause_allocator& alloc = m_cls_allocator[!m_cls_allocator_idx];
         ptr_vector<clause> new_clauses, new_learned;
         for (clause* c : m_clauses) c->unmark_used();
@@ -1913,16 +1913,18 @@ namespace sat {
         if (m_conflicts_since_init >= m_restart_next_out) {
             if (0 == m_restart_next_out) {
                 m_restart_next_out = 1;
-                IF_VERBOSE(1, verbose_stream() << "(sat.stats :conflicts :decisions :restarts :clauses (all/bin) :learned (all/bin) :units :gc :mem :time)\n");
+                IF_VERBOSE(1, verbose_stream() << "(sat.stats :conflicts :decisions :restarts :clauses  :learned :units :gc :mem :time)\n");
+                IF_VERBOSE(1, verbose_stream() << "(sat.stats                                 (all/bin) (all/bin)                     )\n");
             }
-            else {
-                m_restart_next_out *= 2;
-            }
+            m_restart_next_out = (3*m_restart_next_out)/2 + 1;
+            
             IF_VERBOSE(1,
-                       verbose_stream() << "(sat.stats " << std::setw(10) << m_stats.m_conflict << std::setw(11) << m_stats.m_decision
+                       verbose_stream() << "(sat.stats " 
+                       << std::setw(10) << m_stats.m_conflict 
+                       << std::setw(11) << m_stats.m_decision
                        << std::setw(10) << m_stats.m_restart 
                        << mk_stat(*this)
-                       << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
+                       << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
         }
         IF_VERBOSE(30, display_status(verbose_stream()););
         pop_reinit(restart_level(to_base));
