@@ -1906,7 +1906,7 @@ namespace smt {
             }
         }
 
-        TRACE("decide", tout << "case split pos: " << is_pos << " p" << var << "\n"
+        TRACE("decide", tout << "case split " << (is_pos?"pos":"neg") << " p" << var << "\n"
               << "activity: " << get_activity(var) << "\n";);
 
         assign(literal(var, !is_pos), b_justification::mk_axiom(), true);

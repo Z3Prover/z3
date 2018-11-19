@@ -317,6 +317,12 @@ namespace smt {
         internalize(n, gate_ctx);
     }
 
+    void context::ensure_internalized(expr* e) {
+        if (!e_internalized(e)) {
+            internalize(e, false);
+        }
+    }
+
     /**
        \brief Internalize the given expression into the logical context.
        

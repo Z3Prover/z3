@@ -1595,12 +1595,45 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     return BR_REWRITE3;
 }
 
+/**
+ * t = (concat (unit (nth t 0)) (unit (nth t 1)) (unit (nth t 2)) .. (unit (nth t k-1)))
+ * ->
+ * (length t) = k
+ */
+bool seq_rewriter::reduce_nth_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+    if (ls.size() == 1 && !rs.empty()) {
+        expr* l = ls.get(0);
+        for (unsigned i = 0; i < rs.size(); ++i) {
+            unsigned k = 0;
+            expr* ru = nullptr, *r = nullptr;
+            if (m_util.str.is_unit(rs.get(i), ru) && m_util.str.is_nth(ru, r, k) && k == i && r == l) {
+                continue;
+            }
+            return false;
+        }
+        arith_util a(m());
+        lhs.push_back(m_util.str.mk_length(l));
+        rhs.push_back(a.mk_int(rs.size()));
+        ls.reset();
+        rs.reset();
+        return true;
+    }
+    else if (rs.size() == 1 && !ls.empty()) {
+        return reduce_nth_eq(rs, ls, rhs, lhs);
+    }
+    return false;
+}
+
 bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change) {
     expr* a, *b;
     zstring s;
     bool lchange = false;
     SASSERT(lhs.empty());
     TRACE("seq", tout << ls << "\n"; tout << rs << "\n";);
+    if (reduce_nth_eq(ls, rs, lhs, rhs)) {
+        change = true;
+        return true;
+    }
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {

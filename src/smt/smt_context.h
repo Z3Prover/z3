@@ -843,6 +843,9 @@ namespace smt {
 
         void add_lit_occs(clause * cls);
     public:
+
+        void ensure_internalized(expr* e);
+
         void internalize(expr * n, bool gate_ctx);
 
         void internalize(expr * n, bool gate_ctx, unsigned generation);
