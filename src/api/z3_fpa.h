@@ -229,7 +229,7 @@ extern "C" {
         \param s target sort
         \param negative indicates whether the result should be negative
 
-        When \c negative is true, -oo will be generated instead of +oo.
+        When \c negative is \c true, -oo will be generated instead of +oo.
 
         def_API('Z3_mk_fpa_inf', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
@@ -242,7 +242,7 @@ extern "C" {
         \param s target sort
         \param negative indicates whether the result should be negative
 
-        When \c negative is true, -zero will be generated instead of +zero.
+        When \c negative is \c true, -zero will be generated instead of +zero.
 
         def_API('Z3_mk_fpa_zero', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */

@@ -55,6 +55,8 @@ extern "C" {
     /**
        \brief Assert hard constraint to the optimization context.
 
+       \sa Z3_optimize_assert_soft
+
        def_API('Z3_optimize_assert', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     void Z3_API Z3_optimize_assert(Z3_context c, Z3_optimize o, Z3_ast a);
@@ -67,6 +69,8 @@ extern "C" {
        \param weight - a positive weight, penalty for violating soft constraint
        \param id - optional identifier to group soft constraints
 
+       \sa Z3_optimize_assert
+
        def_API('Z3_optimize_assert_soft', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(STRING), _in(SYMBOL)))
     */
     unsigned Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id);
@@ -76,6 +80,9 @@ extern "C" {
        \param c - context
        \param o - optimization context
        \param t - arithmetical term
+
+       \sa Z3_optimize_minimize
+
        def_API('Z3_optimize_maximize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     unsigned Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t);
@@ -85,6 +92,8 @@ extern "C" {
        \param c - context
        \param o - optimization context
        \param t - arithmetical term
+
+       \sa Z3_optimize_maximize
 
        def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */

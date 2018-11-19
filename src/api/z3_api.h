@@ -1751,6 +1751,7 @@ extern "C" {
        NB. Not all integers can be passed to this function.
        The legal range of unsigned integers is 0 to 2^30-1.
 
+       \sa Z3_get_symbol_int
        \sa Z3_mk_string_symbol
 
        def_API('Z3_mk_int_symbol', SYMBOL, (_in(CONTEXT), _in(INT)))
@@ -1762,6 +1763,7 @@ extern "C" {
 
        Symbols are used to name several term and type constructors.
 
+       \sa Z3_get_symbol_string
        \sa Z3_mk_int_symbol
 
        def_API('Z3_mk_string_symbol', SYMBOL, (_in(CONTEXT), _in(STRING)))
@@ -5950,9 +5952,9 @@ extern "C" {
        on how it is used and how its parameters are set.
 
        If the solver is used in a non incremental way (i.e. no calls to
-       `Z3_solver_push()` or `Z3_solver_pop()`, and no calls to
-       `Z3_solver_assert()` or `Z3_solver_assert_and_track()` after checking
-       satisfiability without an intervening `Z3_solver_reset()`) then solver1
+       #Z3_solver_push() or #Z3_solver_pop(), and no calls to
+       #Z3_solver_assert() or #Z3_solver_assert_and_track() after checking
+       satisfiability without an intervening #Z3_solver_reset()) then solver1
        will be used. This solver will apply Z3's "default" tactic.
 
        The "default" tactic will attempt to probe the logic used by the
@@ -5986,13 +5988,13 @@ extern "C" {
 
        This is equivalent to applying the "smt" tactic.
 
-       Unlike `Z3_mk_solver()` this solver
+       Unlike #Z3_mk_solver() this solver
          - Does not attempt to apply any logic specific tactics.
          - Does not change its behaviour based on whether it used
            incrementally/non-incrementally.
 
        Note that these differences can result in very different performance
-       compared to `Z3_mk_solver()`.
+       compared to #Z3_mk_solver().
 
        The function #Z3_solver_get_model retrieves a model if the
        assertions is satisfiable (i.e., the result is \c
@@ -6194,6 +6196,8 @@ extern "C" {
        The function #Z3_solver_get_proof retrieves a proof if proof
        generation was enabled when the context was created, and the
        assertions are unsatisfiable (i.e., the result is \c Z3_L_FALSE).
+
+       \sa Z3_solver_check_assumptions
 
        def_API('Z3_solver_check', INT, (_in(CONTEXT), _in(SOLVER)))
     */
