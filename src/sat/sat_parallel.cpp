@@ -285,17 +285,6 @@ namespace sat {
         return copied;
     }
 
-    void parallel::set_phase(local_search& s) {
-        #pragma omp critical (par_solver)
-        {
-            m_consumer_ready = true;
-            m_phase.reserve(s.num_vars(), l_undef);
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
-                m_phase[i] = s.get_phase(i) ? l_true : l_false;
-            }
-            m_num_clauses = s.num_non_binary_clauses();
-        }
-    }
 
     bool parallel::copy_solver(solver& s) {
         bool copied = false;
