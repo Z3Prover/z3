@@ -3889,7 +3889,7 @@ extern "C" {
     /**
        \brief Return the symbol name.
 
-       \pre Z3_get_symbol_string(s) == Z3_STRING_SYMBOL
+       \pre Z3_get_symbol_kind(s) == Z3_STRING_SYMBOL
 
        \warning The returned buffer is statically allocated by Z3. It will
        be automatically deallocated when #Z3_del_context is invoked.
