@@ -80,11 +80,11 @@ extern "C" {
         LOG_Z3_model_has_interp(c, m, a);
         CHECK_NON_NULL(m, 0);
         if (to_model_ref(m)->has_interpretation(to_func_decl(a))) {
-            return Z3_TRUE;
+            return true;
         } else {
-            return Z3_FALSE;
+            return false;
         }
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_func_interp Z3_API Z3_model_get_func_interp(Z3_context c, Z3_model m, Z3_func_decl f) {
@@ -162,15 +162,15 @@ extern "C" {
         LOG_Z3_model_eval(c, m, t, model_completion, v);
         if (v) *v = nullptr;
         RESET_ERROR_CODE();
-        CHECK_NON_NULL(m, Z3_FALSE);
-        CHECK_IS_EXPR(t, Z3_FALSE);
+        CHECK_NON_NULL(m, false);
+        CHECK_IS_EXPR(t, false);
         model * _m = to_model_ref(m);
         expr_ref result(mk_c(c)->m());
-        model::scoped_model_completion _scm(*_m, model_completion == Z3_TRUE);
+        model::scoped_model_completion _scm(*_m, model_completion);
         result = (*_m)(to_expr(t));
         mk_c(c)->save_ast_trail(result.get());
         *v = of_ast(result.get());
-        RETURN_Z3_model_eval Z3_TRUE;
+        RETURN_Z3_model_eval true;
         Z3_CATCH_RETURN(0);
     }
 
@@ -230,7 +230,7 @@ extern "C" {
         LOG_Z3_is_as_array(c, a);
         RESET_ERROR_CODE();
         return a && is_expr(to_ast(a)) && is_app_of(to_expr(a), mk_c(c)->get_array_fid(), OP_AS_ARRAY);
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
     
     Z3_func_decl Z3_API Z3_get_as_array_func_decl(Z3_context c, Z3_ast a) {

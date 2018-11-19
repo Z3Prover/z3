@@ -138,7 +138,7 @@ extern "C" {
        Each conjunct encodes values of the bound variables of the query that are satisfied.
        In PDR mode, the returned answer is a single conjunction.
 
-       When used in Datalog mode the previous call to Z3_fixedpoint_query must have returned Z3_L_TRUE.
+       When used in Datalog mode the previous call to #Z3_fixedpoint_query must have returned Z3_L_TRUE.
        When used with the PDR engine, the previous call must have been either Z3_L_TRUE or Z3_L_FALSE.
 
        def_API('Z3_fixedpoint_get_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
@@ -308,7 +308,7 @@ extern "C" {
 
        \param c - context.
        \param f - fixedpoint context.
-       \param s - string containing SMT2 specification.
+       \param s - path to file containing SMT2 specification.
 
        def_API('Z3_fixedpoint_from_file', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
