@@ -69,8 +69,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_seq_sort(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().is_seq(to_sort(s));
-        return result?true:false;
+        return mk_c(c)->sutil().is_seq(to_sort(s));
         Z3_CATCH_RETURN(false);
     }
 
@@ -78,8 +77,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_re_sort(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().is_re(to_sort(s));
-        return result?true:false;
+        return mk_c(c)->sutil().is_re(to_sort(s));
         Z3_CATCH_RETURN(false);
     }
 
@@ -87,8 +85,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_string_sort(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().is_string(to_sort(s));
-        return result?true:false;
+        return mk_c(c)->sutil().is_string(to_sort(s));
         Z3_CATCH_RETURN(false);
     }
 
@@ -96,8 +93,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_string(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().str.is_string(to_expr(s));
-        return result?true:false;
+        return mk_c(c)->sutil().str.is_string(to_expr(s));
         Z3_CATCH_RETURN(false);
     }
 

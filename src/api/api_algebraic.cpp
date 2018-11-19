@@ -83,7 +83,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_is_value(c, a);
         RESET_ERROR_CODE();
-        return Z3_algebraic_is_value_core(c, a) ? true : false;
+        return Z3_algebraic_is_value_core(c, a);
         Z3_CATCH_RETURN(false);
     }
 
@@ -283,7 +283,7 @@ extern "C" {
                 r = _am.IRAT_PRED(av, bv);                              \
             }                                                           \
         }                                                               \
-        return r ? true : false;
+        return r;
 
 
     Z3_bool Z3_API Z3_algebraic_lt(Z3_context c, Z3_ast a, Z3_ast b) {

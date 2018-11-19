@@ -188,7 +188,7 @@ extern "C" {
         CHECK_IS_EXPR(a, "");
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok == true) {
+        if (ok) {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
@@ -252,8 +252,8 @@ extern "C" {
             am.display_decimal(buffer, n, precision);
             return mk_c(c)->mk_external_string(buffer.str());
         }
-        Z3_bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok == true) {
+        bool ok = Z3_get_numeral_rational(c, a, r);
+        if (ok) {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
@@ -271,7 +271,7 @@ extern "C" {
         CHECK_IS_EXPR(a, false);
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok == true) {
+        if (ok) {
             rational n = numerator(r);
             rational d = denominator(r);
             if (n.is_int64() && d.is_int64()) {
@@ -340,7 +340,7 @@ extern "C" {
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, v, r);
         SASSERT(u);
-        if (ok == true && r.is_uint64()) {
+        if (ok && r.is_uint64()) {
             *u = r.get_uint64();
             return ok;
         }
@@ -360,7 +360,7 @@ extern "C" {
         }
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, v, r);
-        if (ok == true && r.is_int64()) {
+        if (ok && r.is_int64()) {
             *i = r.get_int64();
             return ok;
         }

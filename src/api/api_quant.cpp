@@ -347,7 +347,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_quantifier_forall(c, a);
         RESET_ERROR_CODE();
-        return ::is_forall(to_ast(a)) ? true : false;
+        return ::is_forall(to_ast(a));
         Z3_CATCH_RETURN(false);
     }
 
@@ -355,7 +355,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_quantifier_exists(c, a);
         RESET_ERROR_CODE();
-        return ::is_exists(to_ast(a))  ? true : false;
+        return ::is_exists(to_ast(a));
         Z3_CATCH_RETURN(false);
     }
 
@@ -363,7 +363,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_lambda(c, a);
         RESET_ERROR_CODE();
-        return ::is_lambda(to_ast(a))  ? true : false;
+        return ::is_lambda(to_ast(a));
         Z3_CATCH_RETURN(false);
     }
 
