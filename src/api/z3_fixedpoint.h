@@ -308,7 +308,7 @@ extern "C" {
 
        \param c - context.
        \param f - fixedpoint context.
-       \param s - string containing SMT2 specification.
+       \param s - path to file containing SMT2 specification.
 
        def_API('Z3_fixedpoint_from_file', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
