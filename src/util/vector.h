@@ -28,6 +28,7 @@ Revision History:
 #include<algorithm>
 #include<type_traits>
 #include<memory.h>
+#include<functional>
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/z3_exception.h"
@@ -228,6 +229,21 @@ public:
         m_data = nullptr;
         std::swap(m_data, source.m_data);
         return *this;
+    }
+
+    vector&& filter(std::function<bool(T)>& predicate) {
+        vector result;
+        for (auto& t : *this)
+            if (predicate(t)) result.push_back(t);
+        return result;
+    }
+
+    template <typename S>
+    vector<S>&& map(std::function<S(T)>& f) {
+        vector<S> result;
+        for (auto& t : *this)
+            result.push_back(f(t));
+        return result;
     }
 
     void reset() { 
