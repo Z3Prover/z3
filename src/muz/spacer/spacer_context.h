@@ -1007,7 +1007,10 @@ class context {
                          const vector<bool>& reach_pred_used,
                          pob_ref_buffer &out);
 
-    expr_ref mk_sat_answer();
+    /**
+       \brief Retrieve satisfying assignment with explanation.
+    */
+    expr_ref mk_sat_answer() const {return get_ground_sat_answer();}
     expr_ref mk_unsat_answer() const;
     unsigned get_cex_depth ();
 
@@ -1083,7 +1086,7 @@ public:
      * get bottom-up (from query) sequence of ground predicate instances
      * (for e.g. P(0,1,0,0,3)) that together form a ground derivation to query
      */
-    expr_ref get_ground_sat_answer ();
+    expr_ref get_ground_sat_answer () const;
     proof_ref get_ground_refutation();
     void get_rules_along_trace (datalog::rule_ref_vector& rules);
 
@@ -1092,7 +1095,7 @@ public:
     void reset();
 
     std::ostream& display(std::ostream& out) const;
-    void display_certificate(std::ostream& out) const {NOT_IMPLEMENTED_YET();}
+    void display_certificate(std::ostream& out) const;
 
     pob& get_root() const {return m_pob_queue.get_root();}
     void set_query(func_decl* q) {m_query_pred = q;}

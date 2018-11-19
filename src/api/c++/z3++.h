@@ -28,6 +28,9 @@ Notes:
 #include<z3.h>
 #include<limits.h>
 
+#undef min
+#undef max
+
 /**
    \defgroup cppapi C++ API
 
@@ -1478,9 +1481,51 @@ namespace z3 {
     inline expr nand(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_bvnand(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr nor(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_bvnor(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr xnor(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_bvxnor(a.ctx(), a, b); return expr(a.ctx(), r); }
-    inline expr min(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_fpa_min(a.ctx(), a, b); return expr(a.ctx(), r); }
-    inline expr max(expr const& a, expr const& b) { check_context(a, b); Z3_ast r = Z3_mk_fpa_max(a.ctx(), a, b); return expr(a.ctx(), r); }
-    inline expr abs(expr const & a) { Z3_ast r = Z3_mk_fpa_abs(a.ctx(), a); return expr(a.ctx(), r); }
+    inline expr min(expr const& a, expr const& b) { 
+        check_context(a, b); 
+        Z3_ast r;
+        if (a.is_arith()) {
+            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, b), b, a);
+        }
+        else if (a.is_bv()) {
+            r = Z3_mk_ite(a.ctx(), Z3_mk_bvuge(a.ctx(), a, b), b, a);
+        }
+        else {
+            assert(a.is_fpa());
+            r = Z3_mk_fpa_min(a.ctx(), a, b); 
+        }
+        return expr(a.ctx(), r); 
+    }
+    inline expr max(expr const& a, expr const& b) { 
+        check_context(a, b); 
+        Z3_ast r;
+        if (a.is_arith()) {
+            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, b), a, b);
+        }
+        else if (a.is_bv()) {
+            r = Z3_mk_ite(a.ctx(), Z3_mk_bvuge(a.ctx(), a, b), a, b);
+        }
+        else {
+            assert(a.is_fpa());
+            r = Z3_mk_fpa_max(a.ctx(), a, b); 
+        }
+        return expr(a.ctx(), r); 
+    }
+    inline expr abs(expr const & a) { 
+        Z3_ast r;
+        if (a.is_int()) {
+            expr zero = a.ctx().int_val(0);
+            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, -a);
+        }
+        else if (a.is_real()) {
+            expr zero = a.ctx().real_val(0);
+            r = Z3_mk_ite(a.ctx(), Z3_mk_ge(a.ctx(), a, zero), a, -a);
+        }
+        else {
+            r = Z3_mk_fpa_abs(a.ctx(), a); 
+        }
+        return expr(a.ctx(), r); 
+    }
     inline expr sqrt(expr const & a, expr const& rm) {
         check_context(a, rm);
         assert(a.is_fpa());
@@ -2847,7 +2892,7 @@ namespace z3 {
         return recfun(str_symbol(name), 2, dom, range);
     }
 
-    void context::recdef(func_decl f, expr_vector const& args, expr const& body) {
+    inline void context::recdef(func_decl f, expr_vector const& args, expr const& body) {
         check_context(f, args); check_context(f, body);
         array<Z3_ast> vars(args);
         Z3_add_rec_def(f.ctx(), f, vars.size(), vars.ptr(), body);

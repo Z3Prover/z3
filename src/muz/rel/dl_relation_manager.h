@@ -263,7 +263,7 @@ namespace datalog {
         }
 
         /**
-            \brief Return an operation that is a composition of a join an a project operation.
+            \brief Return an operation that is a composition of a join and a project operation.
         */
         relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
                 unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
@@ -433,7 +433,7 @@ namespace datalog {
         }
 
         /**
-            \brief Return an operation that is a composition of a join an a project operation.
+            \brief Return an operation that is a composition of a join and a project operation.
 
             This operation is equivalent to the two operations performed separately, unless functional 
             columns are involved.

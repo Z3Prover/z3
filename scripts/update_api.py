@@ -1328,6 +1328,13 @@ def mk_ml(ml_src_dir, ml_output_dir):
 
     mk_z3native_stubs_c(ml_src_dir, ml_output_dir)
 
+z3_long_funs = frozenset([
+    'Z3_solver_check',
+    'Z3_solver_check_assumptions',
+    'Z3_simplify',
+    'Z3_simplify_ex',
+    ])
+
 def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
     ml_wrapperf = os.path.join(ml_output_dir, 'z3native_stubs.c')
     ml_wrapper = open(ml_wrapperf, 'w')
@@ -1491,6 +1498,10 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                 ml_wrapper.write('  assert(_iter == Val_emptylist);\n\n')
             i = i + 1
 
+        release_caml_gc= name in z3_long_funs
+        if release_caml_gc:
+            ml_wrapper.write('\n  caml_release_runtime_system();\n')
+
         ml_wrapper.write('\n  /* invoke Z3 function */\n  ')
         if result != VOID:
             ts = type2str(result)
@@ -1498,6 +1509,7 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                 ml_wrapper.write('z3rv_m = ')
             else:
                 ml_wrapper.write('z3rv = ')
+
 
         # invoke procedure
         ml_wrapper.write('%s(' % name)
@@ -1515,6 +1527,9 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                 ml_wrapper.write('_a%i' % i)
             i = i + 1
         ml_wrapper.write(');\n')
+
+        if release_caml_gc:
+            ml_wrapper.write('\n  caml_acquire_runtime_system();\n')
 
         if have_context and name not in Unwrapped:
             ml_wrapper.write('  ec = Z3_get_error_code(ctx_p->ctx);\n')

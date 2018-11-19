@@ -692,31 +692,35 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
     fout.write('#include "cmd_context/tactic_cmds.h"\n')
     fout.write('#include "cmd_context/cmd_context.h"\n')
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
-    probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
+    probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')   
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
-        with open(h_file, 'r') as fin:
-            for line in fin:
-                if tactic_pat.match(line):
-                    if not added_include:
-                        added_include = True                        
-                        fout.write('#include "%s"\n' % path_after_src(h_file))
-                    try:
-                        eval(line.strip('\n '), eval_globals, None)
-                    except Exception as e:
-                        _logger.error("Failed processing ADD_TACTIC command at '{}'\n{}".format(
-                            fullname, line))
-                        raise e
-                if probe_pat.match(line):
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include "%s"\n' % path_after_src(h_file))
-                    try:
-                        eval(line.strip('\n '), eval_globals, None)
-                    except Exception as e:
-                        _logger.error("Failed processing ADD_PROBE command at '{}'\n{}".format(
-                            fullname, line))
-                        raise e
+        try:
+            with open(h_file, 'r') as fin:
+                for line in fin:
+                    if tactic_pat.match(line):
+                        if not added_include:
+                            added_include = True                        
+                            fout.write('#include "%s"\n' % path_after_src(h_file))
+                        try:
+                            eval(line.strip('\n '), eval_globals, None)
+                        except Exception as e:
+                            _logger.error("Failed processing ADD_TACTIC command at '{}'\n{}".format(
+                                fullname, line))
+                            raise e
+                    if probe_pat.match(line):
+                        if not added_include:
+                            added_include = True
+                            fout.write('#include "%s"\n' % path_after_src(h_file))
+                        try:
+                            eval(line.strip('\n '), eval_globals, None)
+                        except Exception as e:
+                            _logger.error("Failed processing ADD_PROBE command at '{}'\n{}".format(
+                                fullname, line))
+                            raise e
+        except e:
+           _loggeer.error("Failed to read file {}\n".format(h_file))
+           raise e
     # First pass will just generate the tactic factories
     fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, CODE) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, [](ast_manager &m, const params_ref &p) { return CODE; }))\n')
     fout.write('#define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))\n')

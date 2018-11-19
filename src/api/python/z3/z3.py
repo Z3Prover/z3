@@ -6164,6 +6164,10 @@ class ModelRef(Z3PPObject):
     def __deepcopy__(self):
         return self.translate(self.ctx)
 
+def Model(ctx = None):
+    ctx = _get_ctx(ctx)
+    return ModelRef(Z3_mk_model(ctx.ref()), ctx)
+
 def is_as_array(n):
     """Return true if n is a Z3 expression of the form (_ as-array f)."""
     return isinstance(n, ExprRef) and Z3_is_as_array(n.ctx.ref(), n.as_ast())

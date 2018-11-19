@@ -231,6 +231,11 @@ public:
 
     bool is_arith_expr(expr const * n) const { return is_app(n) && to_app(n)->get_family_id() == m_afid; }
     bool is_irrational_algebraic_numeral(expr const * n) const;
+    bool is_unsigned(expr const * n, unsigned& u) const { 
+        rational val;
+        bool is_int = true;
+        return is_numeral(n, val, is_int) && is_int && val.is_unsigned(), u = val.get_unsigned(), true; 
+    }
     bool is_numeral(expr const * n, rational & val, bool & is_int) const;
     bool is_numeral(expr const * n, rational & val) const { bool is_int; return is_numeral(n, val, is_int); }
     bool is_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_NUM); }

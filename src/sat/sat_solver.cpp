@@ -937,7 +937,7 @@ namespace sat {
                     if (c[0] == not_l)
                         std::swap(c[0], c[1]);
                     CTRACE("propagate_bug", c[1] != not_l, tout << "l: " << l << " " << c << "\n";);
-                    if (c.was_removed() || c[1] != not_l) {
+                    if (c.was_removed() || c.size() == 1 || c[1] != not_l) {
                         // Remark: this method may be invoked when the watch lists are not in a consistent state,
                         // and may contain dead/removed clauses, or clauses with removed literals.
                         // See: method propagate_unit at sat_simplifier.cpp
@@ -1913,16 +1913,18 @@ namespace sat {
         if (m_conflicts_since_init >= m_restart_next_out) {
             if (0 == m_restart_next_out) {
                 m_restart_next_out = 1;
-                IF_VERBOSE(1, verbose_stream() << "(sat.stats :conflicts :decisions :restarts :clauses (all/bin) :learned (all/bin) :units :gc :mem :time)\n");
+                IF_VERBOSE(1, verbose_stream() << "(sat.stats :conflicts :decisions :restarts :clauses  :learned :units :gc :mem :time)\n");
+                IF_VERBOSE(1, verbose_stream() << "(sat.stats                                 (all/bin) (all/bin)                     )\n");
             }
-            else {
-                m_restart_next_out *= 2;
-            }
+            m_restart_next_out = (3*m_restart_next_out)/2 + 1;
+            
             IF_VERBOSE(1,
-                       verbose_stream() << "(sat.stats " << std::setw(10) << m_stats.m_conflict << std::setw(11) << m_stats.m_decision
+                       verbose_stream() << "(sat.stats " 
+                       << std::setw(10) << m_stats.m_conflict 
+                       << std::setw(11) << m_stats.m_decision
                        << std::setw(10) << m_stats.m_restart 
                        << mk_stat(*this)
-                       << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
+                       << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
         }
         IF_VERBOSE(30, display_status(verbose_stream()););
         pop_reinit(restart_level(to_base));

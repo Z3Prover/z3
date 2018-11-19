@@ -537,6 +537,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_REPLACE]   = alloc(psig, m, "seq.replace",  1, 3, seq3A, seqA);
     m_sigs[OP_SEQ_INDEX]     = alloc(psig, m, "seq.indexof",  1, 3, seq2AintT, intT);
     m_sigs[OP_SEQ_AT]        = alloc(psig, m, "seq.at",       1, 2, seqAintT, seqA);
+    m_sigs[OP_SEQ_NTH]       = alloc(psig, m, "seq.nth",      1, 2, seqAintT, A);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
     m_sigs[OP_RE_STAR]       = alloc(psig, m, "re.*",         1, 1, &reA, reA);
@@ -805,6 +806,10 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case _OP_STRING_CHARAT:
         return mk_str_fun(k, arity, domain, range, OP_SEQ_AT);
 
+    case OP_SEQ_NTH:
+        match(*m_sigs[k], arity, domain, range, rng);
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+
     case OP_SEQ_EXTRACT:
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_SUBSTR);
     case _OP_STRING_SUBSTR:
@@ -899,7 +904,7 @@ bool seq_decl_plugin::are_distinct(app* a, app* b) const {
     }
     if (is_app_of(a, m_family_id, OP_SEQ_UNIT) && 
         is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
-        return true;
+        return m_manager->are_distinct(a->get_arg(0), b->get_arg(0));
     }
     if (is_app_of(a, m_family_id, OP_SEQ_EMPTY) && 
         is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
@@ -956,6 +961,17 @@ bool seq_util::str::is_string(expr const* n, zstring& s) const {
         return false;
     }
 }
+
+bool seq_util::str::is_nth(expr const* n, expr*& s, unsigned& idx) const {
+    expr* i = nullptr;
+    if (!is_nth(n, s, i)) return false;
+    return arith_util(m).is_unsigned(i, idx);
+}
+
+app* seq_util::str::mk_nth(expr* s, unsigned i) {
+    return mk_nth(s, arith_util(m).mk_int(i));
+}
+
 
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {

@@ -41,6 +41,7 @@ enum seq_op_kind {
     OP_SEQ_EXTRACT,
     OP_SEQ_REPLACE,
     OP_SEQ_AT,
+    OP_SEQ_NTH,
     OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
     OP_SEQ_TO_RE,
@@ -249,6 +250,8 @@ public:
         app* mk_suffix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
         app* mk_index(expr* a, expr* b, expr* i) { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
         app* mk_unit(expr* u) { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
+        app* mk_nth(expr* s, expr* i) { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
+        app* mk_nth(expr* s, unsigned i);
         app* mk_char(zstring const& s, unsigned idx);
         app* mk_itos(expr* i) { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
         app* mk_stoi(expr* s) { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
@@ -269,6 +272,8 @@ public:
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
         bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
+        bool is_nth(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH); }
+        bool is_nth(expr const* n, expr*& s, unsigned& idx) const;
         bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
         bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
         bool is_prefix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
@@ -293,6 +298,7 @@ public:
         MATCH_TERNARY(is_extract);
         MATCH_BINARY(is_contains);
         MATCH_BINARY(is_at);
+        MATCH_BINARY(is_nth);
         MATCH_BINARY(is_index);
         MATCH_TERNARY(is_index);
         MATCH_TERNARY(is_replace);

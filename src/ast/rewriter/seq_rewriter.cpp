@@ -561,6 +561,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     zstring s;
     rational pos, len;
 
+    TRACE("seq", tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << " " << mk_pp(c, m()) << "\n";);
     bool constantBase = m_util.str.is_string(a, s);
     bool constantPos = m_autil.is_numeral(b, pos);
     bool constantLen = m_autil.is_numeral(c, len);
@@ -599,6 +600,10 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         SASSERT(_len > 0);
         expr_ref_vector as(m()), bs(m());
         m_util.str.get_concat(a, as);
+        if (as.empty()) {
+            result = a;
+            return BR_DONE;
+        }
         for (unsigned i = 0; i < as.size() && _len > 0; ++i) {
             if (m_util.str.is_unit(as[i].get())) {
                 if (_pos == 0) {
@@ -613,7 +618,12 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
                 return BR_FAILED;
             }
         }
-        result = m_util.str.mk_concat(bs);
+        if (bs.empty()) {
+            result = m_util.str.mk_empty(m().get_sort(a));
+        }
+        else {
+            result = m_util.str.mk_concat(bs);
+        }
         return BR_DONE;
     }
 
@@ -844,6 +854,10 @@ br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result
     return BR_FAILED;
 }
 
+//  (str.replace s t t') is the string obtained by replacing the first occurrence 
+//  of t in s, if any, by t'. Note that if t is empty, the result is to prepend
+//  t' to s; also, if t does not occur in s then the result is s.
+
 br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result) {
     zstring s1, s2, s3;
     if (m_util.str.is_string(a, s1) && m_util.str.is_string(b, s2) && 
@@ -855,7 +869,7 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         result = a;
         return BR_DONE;
     }
-    if (m_util.str.is_string(b, s2) && s2.length() == 0) {
+    if (m_util.str.is_empty(b)) {
         result = m_util.str.mk_concat(c, a);
         return BR_REWRITE1;
     }
@@ -1581,12 +1595,45 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     return BR_REWRITE3;
 }
 
+/**
+ * t = (concat (unit (nth t 0)) (unit (nth t 1)) (unit (nth t 2)) .. (unit (nth t k-1)))
+ * ->
+ * (length t) = k
+ */
+bool seq_rewriter::reduce_nth_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+    if (ls.size() == 1 && !rs.empty()) {
+        expr* l = ls.get(0);
+        for (unsigned i = 0; i < rs.size(); ++i) {
+            unsigned k = 0;
+            expr* ru = nullptr, *r = nullptr;
+            if (m_util.str.is_unit(rs.get(i), ru) && m_util.str.is_nth(ru, r, k) && k == i && r == l) {
+                continue;
+            }
+            return false;
+        }
+        arith_util a(m());
+        lhs.push_back(m_util.str.mk_length(l));
+        rhs.push_back(a.mk_int(rs.size()));
+        ls.reset();
+        rs.reset();
+        return true;
+    }
+    else if (rs.size() == 1 && !ls.empty()) {
+        return reduce_nth_eq(rs, ls, rhs, lhs);
+    }
+    return false;
+}
+
 bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change) {
     expr* a, *b;
     zstring s;
     bool lchange = false;
     SASSERT(lhs.empty());
     TRACE("seq", tout << ls << "\n"; tout << rs << "\n";);
+    if (reduce_nth_eq(ls, rs, lhs, rhs)) {
+        change = true;
+        return true;
+    }
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {

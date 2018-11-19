@@ -15,11 +15,9 @@
  |       +-- Microsoft.Z3.x64.targets
  |       +-- libz3.dll
  ```
- 4. Open the nuspec file and fill in the appropriate macro values (note that for all URLs, preserve link integrity by linking to a specific commit):
+ 4. Open the nuspec file and fill in the appropriate macro values:
     * $(releaseVersion) - the Z3 version being released in this package
-    * $(iconUrlFromReleaseCommit) - URL for the Z3 icon file
-    * $(licenseUrlFromReleaseCommit) - URL for the Z3 repo license
-    * $(releaseCommitHash) - hash of the release commit
+    * $(releaseCommitHash) - hash of the release commit (there are several of these)
  5. Run `nuget pack Microsoft.Z3.x64\Microsoft.Z3.x64.nuspec`
  6. Test the resulting nupkg file (described below) then submit the package for signing before uploading to NuGet.org
 

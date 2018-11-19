@@ -238,10 +238,10 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        parse_dimacs(in, solver);
+        if (!parse_dimacs(in, std::cerr, solver)) return;
     }
     else {
-        parse_dimacs(std::cin, solver);
+        if (!parse_dimacs(std::cin, std::cerr, solver)) return;
     }
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
     
