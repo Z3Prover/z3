@@ -321,6 +321,8 @@ public:
         return result;
     }
 
+#if 0
+    // TBD: not sure why some compilers complain here.
     ref_vector& filter_update(std::function<bool(T)>& predicate) {
         unsigned j = 0;
         for (auto& t : *this)
@@ -329,6 +331,7 @@ public:
         shrink(j);
         return *this;
     }
+#endif
 
     template <typename S>
     vector<S> mapv_pure(std::function<S(T)>& f) const {
