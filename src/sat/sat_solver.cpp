@@ -955,6 +955,8 @@ namespace sat {
                     VERIFY(c[1] == not_l);
                     literal * l_it  = c.begin() + 2;
                     literal * l_end = c.end();
+                    unsigned assign_level = curr_level;
+                    unsigned max_index = 1;
                     for (; l_it != l_end; ++l_it) {
                         if (value(*l_it) != l_false) {
                             c[1]  = *l_it;
@@ -965,8 +967,6 @@ namespace sat {
                         }
                     }
                     SASSERT(value(c[0]) == l_false || value(c[0]) == l_undef);
-                    unsigned assign_level = curr_level;
-                    unsigned max_index = 1;
                     if (assign_level != scope_lvl()) {
                         for (unsigned i = 2; i < c.size(); ++i) {
                             unsigned level = lvl(c[i]);
