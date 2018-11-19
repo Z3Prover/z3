@@ -35,7 +35,6 @@ def download_installs():
         name = asset['name']
         print("Downloading ", url)
         sys.stdout.flush()
-        continue
         urllib.request.urlretrieve(url, "packages/%s" % name)
 
 os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
