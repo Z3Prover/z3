@@ -94,7 +94,7 @@ namespace sat {
         if (ext) ext->set_solver(this);
     }
 
-    void solver::copy(solver const & src) {
+    void solver::copy(solver const & src, bool copy_learned) {
         pop_to_base_level();
         del_clauses(m_clauses);
         del_clauses(m_learned);
@@ -183,7 +183,7 @@ namespace sat {
             // copy high quality lemmas
             unsigned num_learned = 0;
             for (clause* c : src.m_learned) {
-                if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8)) {
+                if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8) || copy_learned) {
                     buffer.reset();
                     for (literal l : *c) buffer.push_back(l);
                     clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), true);
@@ -547,7 +547,7 @@ namespace sat {
     void solver::defrag_clauses() {
         if (memory_pressure()) return;
         pop(scope_lvl());
-        IF_VERBOSE(1, verbose_stream() << "(sat-defrag)\n");
+        IF_VERBOSE(2, verbose_stream() << "(sat-defrag)\n");
         clause_allocator& alloc = m_cls_allocator[!m_cls_allocator_idx];
         ptr_vector<clause> new_clauses, new_learned;
         for (clause* c : m_clauses) c->unmark_used();
@@ -2454,8 +2454,11 @@ namespace sat {
             return;
         }
         
+        bool minimized = false;
+        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
         if (m_config.m_minimize_lemmas) {
-            minimize_lemma();
+            // minimized = minimize_lemma_binres(glue);
+            minimized = minimize_lemma(glue);
             reset_lemma_var_marks();
             if (m_config.m_dyn_sub_res)
                 dyn_sub_res();
@@ -2484,7 +2487,9 @@ namespace sat {
             }
         }
         
-        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
+        if (minimized) {
+            glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
+        }
         m_fast_glue_avg.update(glue);
         m_slow_glue_avg.update(glue);
     
@@ -2982,27 +2987,61 @@ namespace sat {
     }
 
     /**
+       \brief Minimize lemma using binary resolution
+    */
+    bool solver::minimize_lemma_binres(unsigned glue) {
+        if (m_lemma.size() >= 30 || glue >= 6) {
+            return false;
+        }
+        SASSERT(!m_lemma.empty());
+        SASSERT(m_unmark.empty());
+        unsigned sz   = m_lemma.size();
+        unsigned num_reduced = 0;
+        for (unsigned i = 1; i < sz; ++i) {
+            mark_lit(m_lemma[i]);            
+        }
+        watch_list const& wlist = get_wlist(m_lemma[0]);
+        for (watched const& w : wlist) {
+            if (w.is_binary_clause() && is_marked_lit(w.get_literal())) {
+                unmark_lit(~w.get_literal());
+                num_reduced++;
+            }
+        }
+        if (num_reduced > 0) {
+            unsigned j = 1;
+            for (unsigned i = 1; i < sz; ++i) {
+                if (is_marked_lit(m_lemma[i])) {
+                    m_lemma[j++] = m_lemma[i];
+                    unmark_lit(m_lemma[i]);
+                }
+            }
+            m_lemma.shrink(j);
+        }
+
+        return num_reduced > 0;
+    }
+
+    /**
        \brief Minimize the number of literals in m_lemma. The main idea is to remove
        literals that are implied by other literals in m_lemma and/or literals
        assigned at level 0.
     */
-    void solver::minimize_lemma() {
+    bool solver::minimize_lemma(unsigned glue) {
+        if (m_lemma.size() >= 30 || glue >= 6) {
+            return false;
+        }
         SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
-        //m_unmark.reset();
         updt_lemma_lvl_set();
 
         unsigned sz   = m_lemma.size();
         unsigned i    = 1; // the first literal is the FUIP
         unsigned j    = 1;
-        //bool drop = false;
-        //unsigned bound = sz/5+10;
         for (; i < sz; i++) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
                 TRACE("sat", tout << "drop: " << l << "\n";);
                 m_unmark.push_back(l.var());
-                //drop = true;
             }
             else {
                 if (j != i) {
@@ -3010,17 +3049,12 @@ namespace sat {
                 }
                 j++;
             }
-#if 0
-            if (!drop && i >= bound) {
-                j = sz;
-                break;
-            }
-#endif
         }
 
         reset_unmark(0);
         m_lemma.shrink(j);
         m_stats.m_minimized_lits += sz - j;
+        return j != sz;
     }
 
     /**
@@ -4451,9 +4485,9 @@ namespace sat {
     }
 
     void stats::collect_statistics(statistics & st) const {
-        st.update("sat mk 2ary clause", m_mk_bin_clause);
-        st.update("sat mk 3ary clause", m_mk_ter_clause);
-        st.update("sat mk nary clause", m_mk_clause);
+        st.update("sat mk clause 2ary", m_mk_bin_clause);
+        st.update("sat mk clause 3ary", m_mk_ter_clause);
+        st.update("sat mk clause nary", m_mk_clause);
         st.update("sat mk var", m_mk_var);
         st.update("sat gc clause", m_gc_clause);
         st.update("sat del clause", m_del_clause);

@@ -212,7 +212,7 @@ namespace sat {
            
            \pre the model converter of src and this must be empty
         */
-        void copy(solver const & src);
+        void copy(solver const & src, bool copy_learned = false);
         
         // -----------------------
         //
@@ -526,7 +526,8 @@ namespace sat {
         bool implied_by_marked(literal lit);
         void reset_unmark(unsigned old_size);
         void updt_lemma_lvl_set();
-        void minimize_lemma();
+        bool minimize_lemma(unsigned glue);
+        bool minimize_lemma_binres(unsigned glue);
         void reset_lemma_var_marks();
         void dyn_sub_res();
 
