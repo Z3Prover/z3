@@ -186,6 +186,7 @@ public:
             std::swap(m_nodes[i], m_nodes[sz-i-1]);
         }
     }
+
 };
 
 template<typename T, typename TManager>
@@ -304,6 +305,31 @@ public:
     
     // prevent abuse:
     ref_vector & operator=(ref_vector const & other) = delete;
+
+    ref_vector&& filter(std::function<bool(T)>& predicate) {
+        ref_vector result(m());
+        for (auto& t : *this)
+            if (predicate(t)) result.push_back(t);
+        return result;
+    }
+
+    template <typename S>
+    vector<S>&& map(std::function<S(T)>& f) {
+        vector<S> result;
+        for (auto& t : *this)
+            result.push_back(f(t));
+        return result;
+    }
+
+    ref_vector&& map(std::function<T(T)>& f) {
+        ref_vector result(m());
+        for (auto& t : *this)
+            result.push_back(f(t));
+        return result;
+    }
+
+
+
 };
 
 template<typename T>
