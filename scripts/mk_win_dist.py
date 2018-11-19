@@ -104,6 +104,7 @@ def parse_options():
             DOTNET_ENABLED = False
         elif opt == '--dotnetcore':
             DOTNET_CORE_ENABLED = True
+            DOTNET_ENABLED = False
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
