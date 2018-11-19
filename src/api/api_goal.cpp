@@ -87,7 +87,7 @@ extern "C" {
         LOG_Z3_goal_inconsistent(c, g);
         RESET_ERROR_CODE();
         return to_goal_ref(g)->inconsistent();
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     unsigned Z3_API Z3_goal_depth(Z3_context c, Z3_goal g) {
@@ -141,7 +141,7 @@ extern "C" {
         LOG_Z3_goal_is_decided_sat(c, g);
         RESET_ERROR_CODE();
         return to_goal_ref(g)->is_decided_sat();
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
     
     Z3_bool Z3_API Z3_goal_is_decided_unsat(Z3_context c, Z3_goal g) {
@@ -149,7 +149,7 @@ extern "C" {
         LOG_Z3_goal_is_decided_unsat(c, g);
         RESET_ERROR_CODE();
         return to_goal_ref(g)->is_decided_unsat();
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_model Z3_API Z3_goal_convert_model(Z3_context c, Z3_goal g, Z3_model m) {

@@ -382,7 +382,7 @@ unsigned get_num_disabled_soft_constraints(Z3_context ctx, Z3_model m, unsigned 
     Z3_ast t = Z3_mk_true(ctx);
     for (i = 0; i < num_soft_cnstrs; i++) {
         Z3_ast val;
-        if (Z3_model_eval(ctx, m, aux_vars[i], 1, &val) == Z3_TRUE) {
+        if (Z3_model_eval(ctx, m, aux_vars[i], 1, &val) == true) {
             // printf("%s", Z3_ast_to_string(ctx, aux_vars[i]));
             // printf(" -> %s\n", Z3_ast_to_string(ctx, val));
             if (Z3_is_eq_ast(ctx, val, t)) {

@@ -662,7 +662,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
 //    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
 //    //TEST_NO_UNDERFLOW;
 //    Z3_solver_assert(ctx, s, test_udfl);
-//    ENSURE(Z3_check(ctx) == Z3_TRUE);
+//    ENSURE(Z3_check(ctx) == true);
 //    Z3_solver_pop(ctx, s, 1);
 //
 //    Z3_del_config(cfg);
