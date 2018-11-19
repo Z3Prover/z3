@@ -3,8 +3,12 @@ RELEASE NOTES
 Version 4.8.3
 =============
 - New features
-  - native handling of recursive function definitions
+  - Native handling of recursive function definitions, thanks to Simon Cruanes
   - PB rounding based option for conflict resolution when reasoning about PB constraints.
+  - Access to numeral constants as a double from the native API.
+
+- Notes
+  - fixes several bugs discovered since the 4.8.1 release.
 
 Version 4.8.2
 =============
