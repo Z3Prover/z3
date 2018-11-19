@@ -80,7 +80,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
-            return Z3_FALSE;
+            return false;
         }
         return to_stats_ref(s).is_uint(idx);
         Z3_CATCH_RETURN(0);
@@ -92,10 +92,10 @@ extern "C" {
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
-            return Z3_FALSE;
+            return false;
         }
         return !to_stats_ref(s).is_uint(idx);
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
     
     unsigned Z3_API Z3_stats_get_uint_value(Z3_context c, Z3_stats s, unsigned idx) {

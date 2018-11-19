@@ -205,17 +205,17 @@ extern "C" {
             *out = 0;
         }
         if (Z3_get_sort_kind(c, s) != Z3_FINITE_DOMAIN_SORT) {
-            return Z3_FALSE;
+            return false;
         }
         if (!out) {
-            return Z3_FALSE;
+            return false;
         }
         // must start logging here, since function uses Z3_get_sort_kind above
         LOG_Z3_get_finite_domain_sort_size(c, s, out);
         RESET_ERROR_CODE();  
         VERIFY(mk_c(c)->datalog_util().try_get_size(to_sort(s), *out));
-        return Z3_TRUE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return true;
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_fixedpoint Z3_API Z3_mk_fixedpoint(Z3_context c) {

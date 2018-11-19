@@ -1435,7 +1435,7 @@ extern "C" {
     /**
        \brief Get a global (or module) parameter.
 
-       Returns \c Z3_FALSE if the parameter value does not exist.
+       Returns \c false if the parameter value does not exist.
 
        \sa Z3_global_param_set
 
@@ -3953,7 +3953,7 @@ extern "C" {
     unsigned Z3_API Z3_get_bv_sort_size(Z3_context c, Z3_sort t);
 
     /**
-        \brief Store the size of the sort in \c r. Return Z3_FALSE if the call failed.
+        \brief Store the size of the sort in \c r. Return \c false if the call failed.
         That is, Z3_get_sort_kind(s) == Z3_FINITE_DOMAIN_SORT
 
         def_API('Z3_get_finite_domain_sort_size', BOOL, (_in(CONTEXT), _in(SORT), _out(UINT64)))
@@ -4518,7 +4518,7 @@ extern "C" {
        \param num numerator.
        \param den denominator.
 
-       Return \c Z3_TRUE if the numeral value fits in 64 bit numerals, \c Z3_FALSE otherwise.
+       Return \c true if the numeral value fits in 64 bit numerals, \c false otherwise.
 
        \pre Z3_get_ast_kind(a) == Z3_NUMERAL_AST
 
@@ -4528,7 +4528,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine int. Return \c true if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4540,7 +4540,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine unsigned int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine unsigned int. Return \c true if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4552,7 +4552,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine \c uint64_t int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine \c uint64_t int. Return \c true if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4564,7 +4564,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine \c int64_t int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine \c int64_t int. Return \c true if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4576,7 +4576,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit as a rational number as machine \c int64_t int. Return Z3_TRUE if the call succeeded.
+       the value can fit as a rational number as machine \c int64_t int. Return \c true if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4853,12 +4853,12 @@ extern "C" {
 
     /**
        \brief Evaluate the AST node \c t in the given model.
-       Return \c Z3_TRUE if succeeded, and store the result in \c v.
+       Return \c true if succeeded, and store the result in \c v.
 
-       If \c model_completion is Z3_TRUE, then Z3 will assign an interpretation for any constant or function that does
+       If \c model_completion is \c true, then Z3 will assign an interpretation for any constant or function that does
        not have an interpretation in \c m. These constants and functions were essentially don't cares.
 
-       If \c model_completion is Z3_FALSE, then Z3 will not assign interpretations to constants for functions that do
+       If \c model_completion is \c false, then Z3 will not assign interpretations to constants for functions that do
        not have interpretations in \c m. Evaluation behaves as the identify function in this case.
 
        The evaluation may fail for the following reasons:
@@ -4995,7 +4995,7 @@ extern "C" {
     /**
        \brief The \ccode{(_ as-array f)} AST node is a construct for assigning interpretations for arrays in Z3.
        It is the array such that forall indices \c i we have that \ccode{(select (_ as-array f) i)} is equal to \ccode{(f i)}.
-       This procedure returns Z3_TRUE if the \c a is an \c as-array AST node.
+       This procedure returns \c true if the \c a is an \c as-array AST node.
 
        Z3 current solvers have minimal support for \c as_array nodes.
 
@@ -6370,7 +6370,7 @@ extern "C" {
     Z3_string Z3_API Z3_stats_get_key(Z3_context c, Z3_stats s, unsigned idx);
 
     /**
-       \brief Return Z3_TRUE if the given statistical data is a unsigned integer.
+       \brief Return \c true if the given statistical data is a unsigned integer.
 
        \pre idx < Z3_stats_size(c, s)
 
@@ -6379,7 +6379,7 @@ extern "C" {
     Z3_bool Z3_API Z3_stats_is_uint(Z3_context c, Z3_stats s, unsigned idx);
 
     /**
-       \brief Return Z3_TRUE if the given statistical data is a double.
+       \brief Return \c true if the given statistical data is a double.
 
        \pre idx < Z3_stats_size(c, s)
 

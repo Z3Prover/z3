@@ -146,7 +146,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_is_numeral_ast(c, a);
         RESET_ERROR_CODE();        
-        CHECK_IS_EXPR(a, Z3_FALSE);
+        CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
         return
             mk_c(c)->autil().is_numeral(e) ||
@@ -154,29 +154,29 @@ extern "C" {
             mk_c(c)->fpautil().is_numeral(e) ||
             mk_c(c)->fpautil().is_rm_numeral(e) ||
             mk_c(c)->datalog_util().is_numeral_ext(e);
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_get_numeral_rational(Z3_context c, Z3_ast a, rational& r) {
         Z3_TRY;
         // This function is not part of the public API
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(a, Z3_FALSE);
+        CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
         if (mk_c(c)->autil().is_numeral(e, r)) {
-            return Z3_TRUE;
+            return true;
         }
         unsigned bv_size;
         if (mk_c(c)->bvutil().is_numeral(e, r, bv_size)) {
-            return Z3_TRUE;
+            return true;
         }
         uint64_t v;
         if (mk_c(c)->datalog_util().is_numeral(e, v)) {
             r = rational(v, rational::ui64());
-            return Z3_TRUE;
+            return true;
         }
-        return Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return false;
+        Z3_CATCH_RETURN(false);
     }
 
 
@@ -188,7 +188,7 @@ extern "C" {
         CHECK_IS_EXPR(a, "");
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok == Z3_TRUE) {
+        if (ok == true) {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
@@ -253,7 +253,7 @@ extern "C" {
             return mk_c(c)->mk_external_string(buffer.str());
         }
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok == Z3_TRUE) {
+        if (ok == true) {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
@@ -268,24 +268,24 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_small(c, a, num, den);
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(a, Z3_FALSE);
+        CHECK_IS_EXPR(a, false);
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok == Z3_TRUE) {
+        if (ok == true) {
             rational n = numerator(r);
             rational d = denominator(r);
             if (n.is_int64() && d.is_int64()) {
                 *num = n.get_int64();
                 *den = d.get_int64();
-                return Z3_TRUE;
+                return true;
             }
             else {
-                return Z3_FALSE;
+                return false;
             }
         }
         SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-        return Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return false;
+        Z3_CATCH_RETURN(false);
     }
 
 
@@ -294,18 +294,18 @@ extern "C" {
         // This function invokes Z3_get_numeral_int64, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_int(c, v, i);
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(v, Z3_FALSE);
+        CHECK_IS_EXPR(v, false);
         if (!i) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return Z3_FALSE;
+            return false;
         }
         int64_t l;
         if (Z3_get_numeral_int64(c, v, &l) && l >= INT_MIN && l <= INT_MAX) {
             *i = static_cast<int>(l);
-            return Z3_TRUE;
+            return true;
         }
-        return Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return false;
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_get_numeral_uint(Z3_context c, Z3_ast v, unsigned* u) {
@@ -313,18 +313,18 @@ extern "C" {
         // This function invokes Z3_get_numeral_uint64, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_uint(c, v, u);
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(v, Z3_FALSE);
+        CHECK_IS_EXPR(v, false);
         if (!u) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return Z3_FALSE;
+            return false;
         }
         uint64_t l;
         if (Z3_get_numeral_uint64(c, v, &l) && (l <= 0xFFFFFFFF)) {
             *u = static_cast<unsigned>(l);
-            return Z3_TRUE;
+            return true;
         }
-        return Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return false;
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, uint64_t* u) {
@@ -332,20 +332,20 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_uint64(c, v, u);
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(v, Z3_FALSE);
+        CHECK_IS_EXPR(v, false);
         if (!u) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return Z3_FALSE;
+            return false;
         }
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, v, r);
         SASSERT(u);
-        if (ok == Z3_TRUE && r.is_uint64()) {
+        if (ok == true && r.is_uint64()) {
             *u = r.get_uint64();
             return ok;
         }
-        return Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return false;
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_get_numeral_int64(Z3_context c, Z3_ast v, int64_t* i) {
@@ -353,19 +353,19 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_int64(c, v, i);
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(v, Z3_FALSE);
+        CHECK_IS_EXPR(v, false);
         if (!i) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return Z3_FALSE;
+            return false;
         }
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, v, r);
-        if (ok == Z3_TRUE && r.is_int64()) {
+        if (ok == true && r.is_int64()) {
             *i = r.get_int64();
             return ok;
         }
-        return Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return false;
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_get_numeral_rational_int64(Z3_context c, Z3_ast v, int64_t* num, int64_t* den) {
@@ -373,14 +373,14 @@ extern "C" {
         // This function invokes Z3_get_numeral_rational, but it is still ok to add LOG command here because it does not return a Z3 object.
         LOG_Z3_get_numeral_rational_int64(c, v, num, den);
         RESET_ERROR_CODE();
-        CHECK_IS_EXPR(v, Z3_FALSE);
+        CHECK_IS_EXPR(v, false);
         if (!num || !den) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return Z3_FALSE;
+            return false;
         }
         rational r;
         Z3_bool ok = Z3_get_numeral_rational(c, v, r);
-        if (ok != Z3_TRUE) {
+        if (ok != true) {
             return ok;
         }
         rational n = numerator(r);
@@ -390,8 +390,8 @@ extern "C" {
             *den = d.get_int64();
             return ok;
         }
-        return Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return false;
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_ast Z3_API Z3_mk_bv_numeral(Z3_context c, unsigned sz, Z3_bool const* bits) {

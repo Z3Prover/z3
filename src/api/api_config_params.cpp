@@ -57,13 +57,13 @@ extern "C" {
         try {
             g_Z3_global_param_get_buffer = gparams::get_value(param_id);
             *param_value = g_Z3_global_param_get_buffer.c_str();
-            return Z3_TRUE;
+            return true;
         }
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
             // Just throw a warning.
             warning_msg("%s", ex.msg());
-            return Z3_FALSE;
+            return false;
         }
     }
 

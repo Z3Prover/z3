@@ -1243,7 +1243,7 @@ extern "C" {
             return false;
         }
         return fu.is_nan(to_expr(t));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t) {
@@ -1257,7 +1257,7 @@ extern "C" {
             return false;
         }
         return fu.is_inf(to_expr(t));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t) {
@@ -1271,7 +1271,7 @@ extern "C" {
             return false;
         }
         return fu.is_zero(to_expr(t));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t) {
@@ -1285,7 +1285,7 @@ extern "C" {
             return false;
         }
         return fu.is_normal(to_expr(t));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t) {
@@ -1299,7 +1299,7 @@ extern "C" {
             return false;
         }
         return fu.is_subnormal(to_expr(t));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t) {
@@ -1313,7 +1313,7 @@ extern "C" {
             return false;
         }
         return fu.is_positive(to_expr(t));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t) {
@@ -1327,7 +1327,7 @@ extern "C" {
             return false;
         }
         return fu.is_negative(to_expr(t));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
 };
