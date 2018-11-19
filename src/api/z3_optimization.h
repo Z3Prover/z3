@@ -252,7 +252,7 @@ extern "C" {
 
        \param c - context.
        \param o - optimize context.
-       \param s - string containing SMT2 specification.
+       \param s - path to file containing SMT2 specification.
 
        def_API('Z3_optimize_from_file', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(STRING)))
     */
