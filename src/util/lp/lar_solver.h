@@ -158,6 +158,8 @@ public:
 
     var_index add_var(unsigned ext_j, bool is_integer);
 
+    var_index add_named_var(unsigned ext_j, bool is_integer, std::string);
+
     void register_new_ext_var_index(unsigned ext_v, bool is_int);
 
     bool external_is_used(unsigned) const;
@@ -487,6 +489,8 @@ public:
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
 
     std::string get_variable_name(var_index vi) const;
+
+    void set_variable_name(var_index vi, std::string);
 
     // ********** print region start
     std::ostream& print_constraint(constraint_index ci, std::ostream & out) const;

@@ -1273,6 +1273,9 @@ void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<var_in
     }
 }
 
+void lar_solver::set_variable_name(var_index vi, std::string name) {
+    m_var_register.set_name(vi, name);
+}
 
 std::string lar_solver::get_variable_name(var_index j) const {
     if (j >= m_terms_start_index) 
@@ -1280,6 +1283,11 @@ std::string lar_solver::get_variable_name(var_index j) const {
     if (j >= m_var_register.size())
         return std::string("_s") + T_to_string(j);
 
+    std::string s = m_var_register.get_name(j);
+    if (!s.empty()) {
+        return s;
+    }
+    
     return std::string("v") + T_to_string(m_var_register.local_to_external(j));
 }
 
@@ -1589,6 +1597,11 @@ bool lar_solver::strategy_is_undecided() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::undecided;
 }
 
+var_index lar_solver::add_named_var(unsigned ext_j, bool is_int, std::string name) {
+    var_index j = add_var(ext_j,is_int);
+    m_var_register.set_name(j, name);
+    return j;
+}
 var_index lar_solver::add_var(unsigned ext_j, bool is_int) {
     TRACE("add_var", tout << "adding var " << ext_j << (is_int? " int" : " nonint") << std::endl;);
     var_index local_j;
