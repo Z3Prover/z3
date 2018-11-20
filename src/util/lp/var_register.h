@@ -21,21 +21,38 @@ namespace lp  {
 class ext_var_info {
     unsigned m_external_j; // the internal index
     bool m_is_integer;
+    std::string m_name;
 public:
     ext_var_info() {}
     ext_var_info(unsigned j): ext_var_info(j, true) {}
     ext_var_info(unsigned j , bool is_int) : m_external_j(j), m_is_integer(is_int) {}
+    ext_var_info(unsigned j , bool is_int, std::string name) : m_external_j(j), m_is_integer(is_int), m_name(name) {}
+    
     unsigned external_j() const { return m_external_j;}
     bool is_integer() const {return m_is_integer;}
+    void set_name(std::string name) { m_name = name; }
+    std::string get_name() const { return m_name; }
 };
 
 class var_register {
     svector<ext_var_info> m_local_to_external;
     std::unordered_map<unsigned, unsigned> m_external_to_local;
 public:
+
+    
+    
     unsigned add_var(unsigned user_var) {
         return add_var(user_var, true);
     }    
+
+    void set_name(unsigned j, std::string name) {
+        m_local_to_external[j].set_name(name);
+    }
+
+    std::string get_name(unsigned j) const {
+        return m_local_to_external[j].get_name();
+    }
+
     unsigned add_var(unsigned user_var, bool is_int) {
         auto t = m_external_to_local.find(user_var);
         if (t != m_external_to_local.end()) {
