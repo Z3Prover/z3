@@ -65,7 +65,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_is_seq_sort(Z3_context c, Z3_sort s) {
+    bool Z3_API Z3_is_seq_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
         LOG_Z3_is_seq_sort(c, s);
         RESET_ERROR_CODE();
@@ -73,7 +73,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_re_sort(Z3_context c, Z3_sort s) {
+    bool Z3_API Z3_is_re_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
         LOG_Z3_is_re_sort(c, s);
         RESET_ERROR_CODE();
@@ -81,7 +81,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s) {
+    bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
         LOG_Z3_is_string_sort(c, s);
         RESET_ERROR_CODE();
@@ -89,7 +89,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_string(Z3_context c, Z3_ast s) {
+    bool Z3_API Z3_is_string(Z3_context c, Z3_ast s) {
         Z3_TRY;
         LOG_Z3_is_string(c, s);
         RESET_ERROR_CODE();

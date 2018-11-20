@@ -233,7 +233,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_inf', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_inf(Z3_context c, Z3_sort s, Z3_bool negative);
+    Z3_ast Z3_API Z3_mk_fpa_inf(Z3_context c, Z3_sort s, bool negative);
 
     /**
         \brief Create a floating-point zero of sort s.
@@ -246,7 +246,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_zero', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_zero(Z3_context c, Z3_sort s, Z3_bool negative);
+    Z3_ast Z3_API Z3_mk_fpa_zero(Z3_context c, Z3_sort s, bool negative);
 
     /**
         \brief Create an expression of FloatingPoint sort from three bit-vector expressions.
@@ -332,7 +332,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_int_uint', AST, (_in(CONTEXT), _in(BOOL), _in(INT), _in(UINT), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(Z3_context c, Z3_bool sgn, signed exp, unsigned sig, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(Z3_context c, bool sgn, signed exp, unsigned sig, Z3_sort ty);
 
     /**
         \brief Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
@@ -349,7 +349,7 @@ extern "C" {
 
         def_API('Z3_mk_fpa_numeral_int64_uint64', AST, (_in(CONTEXT), _in(BOOL), _in(INT64), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, int64_t exp, uint64_t sig, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, bool sgn, int64_t exp, uint64_t sig, Z3_sort ty);
 
     /**
         \brief Floating-point absolute value
@@ -830,7 +830,7 @@ extern "C" {
 
         def_API('Z3_fpa_is_numeral_nan', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t);
+    bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t);
 
     /**
         \brief Checks whether a given floating-point numeral is a +oo or -oo.
@@ -840,7 +840,7 @@ extern "C" {
 
         def_API('Z3_fpa_is_numeral_inf', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t);
+    bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t);
 
     /**
         \brief Checks whether a given floating-point numeral is +zero or -zero.
@@ -850,7 +850,7 @@ extern "C" {
 
         def_API('Z3_fpa_is_numeral_zero', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t);
+    bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t);
 
     /**
         \brief Checks whether a given floating-point numeral is normal.
@@ -860,7 +860,7 @@ extern "C" {
 
         def_API('Z3_fpa_is_numeral_normal', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t);
+    bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t);
 
     /**
         \brief Checks whether a given floating-point numeral is subnormal.
@@ -870,7 +870,7 @@ extern "C" {
 
         def_API('Z3_fpa_is_numeral_subnormal', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t);
+    bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t);
 
     /**
         \brief Checks whether a given floating-point numeral is positive.
@@ -880,7 +880,7 @@ extern "C" {
 
         def_API('Z3_fpa_is_numeral_positive', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t);
+    bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t);
 
     /**
         \brief Checks whether a given floating-point numeral is negative.
@@ -890,7 +890,7 @@ extern "C" {
 
         def_API('Z3_fpa_is_numeral_negative', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t);
+    bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t);
 
     /**
         \brief Retrieves the sign of a floating-point literal as a bit-vector expression.
@@ -928,7 +928,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_sign', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn);
+    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn);
 
     /**
         \brief Return the significand value of a floating-point numeral as a string.
@@ -956,7 +956,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_significand_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, uint64_t * n);
+    bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, uint64_t * n);
 
     /**
         \brief Return the exponent value of a floating-point numeral as a string.
@@ -970,7 +970,7 @@ extern "C" {
 
     def_API('Z3_fpa_get_numeral_exponent_string', STRING, (_in(CONTEXT), _in(AST), _in(BOOL)))
     */
-    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t, Z3_bool biased);
+    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t, bool biased);
 
     /**
         \brief Return the exponent value of a floating-point numeral as a signed 64-bit integer
@@ -985,7 +985,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _in(BOOL)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, int64_t * n, Z3_bool biased);
+    bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, int64_t * n, bool biased);
 
     /**
         \brief Retrieves the exponent of a floating-point literal as a bit-vector expression.
@@ -999,7 +999,7 @@ extern "C" {
 
         def_API('Z3_fpa_get_numeral_exponent_bv', AST, (_in(CONTEXT), _in(AST), _in(BOOL)))
     */
-    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t, Z3_bool biased);
+    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t, bool biased);
 
     /**
         \brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.

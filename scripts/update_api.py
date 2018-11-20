@@ -61,7 +61,7 @@ def is_obj(ty):
     return ty >= FIRST_OBJ_ID
 
 Type2Str = { VOID : 'void', VOID_PTR : 'void*', INT : 'int', UINT : 'unsigned', INT64 : 'int64_t', UINT64 : 'uint64_t', DOUBLE : 'double',
-             FLOAT : 'float', STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'Z3_bool', SYMBOL : 'Z3_symbol',
+             FLOAT : 'float', STRING : 'Z3_string', STRING_PTR : 'Z3_string_ptr', BOOL : 'bool', SYMBOL : 'Z3_symbol',
              PRINT_MODE : 'Z3_ast_print_mode', ERROR_CODE : 'Z3_error_code'
              }
 
@@ -1227,7 +1227,7 @@ def ml_has_plus_type(ts):
 def ml_unwrap(t, ts, s):
     if t == STRING:
         return '(' + ts + ') String_val(' + s + ')'
-    elif t == BOOL or (type2str(t) == 'Z3_bool'):
+    elif t == BOOL or (type2str(t) == 'bool'):
         return '(' + ts + ') Bool_val(' + s + ')'
     elif t == INT or t == PRINT_MODE or t == ERROR_CODE:
         return '(' + ts + ') Int_val(' + s + ')'
@@ -1248,7 +1248,7 @@ def ml_unwrap(t, ts, s):
 def ml_set_wrap(t, d, n):
     if t == VOID:
         return d + ' = Val_unit;'
-    elif t == BOOL or (type2str(t) == 'Z3_bool'):
+    elif t == BOOL or (type2str(t) == 'bool'):
         return d + ' = Val_bool(' + n + ');'
     elif t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE:
         return d + ' = Val_int(' + n + ');'
@@ -1263,7 +1263,7 @@ def ml_set_wrap(t, d, n):
         return '*(' + pts + '*)Data_custom_val(' + d + ') = ' + n + ';'
 
 def ml_alloc_and_store(t, lhs, rhs):
-    if t == VOID or t == BOOL or t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE or t == INT64 or t == UINT64 or t == DOUBLE or t == STRING or (type2str(t) == 'Z3_bool'):
+    if t == VOID or t == BOOL or t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE or t == INT64 or t == UINT64 or t == DOUBLE or t == STRING or (type2str(t) == 'bool'):
         return ml_set_wrap(t, lhs, rhs)
     else:
         pts = ml_plus_type(type2str(t))

@@ -363,7 +363,7 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_toggle_warning_messages(Z3_bool enabled) {
+    void Z3_API Z3_toggle_warning_messages(bool enabled) {
         LOG_Z3_toggle_warning_messages(enabled);
         enable_warning_messages(enabled != 0);
     }
