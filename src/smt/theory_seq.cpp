@@ -389,11 +389,11 @@ bool theory_seq::branch_binary_variable(eq const& e) {
         return true;
     }
     if (!get_length(x, lenX)) {
-        enforce_length(ensure_enode(x));
+        enforce_length(x);
         return true;
     }
     if (!get_length(y, lenY)) {
-        enforce_length(ensure_enode(y));
+        enforce_length(y);
         return true;
     }
     if (lenX + rational(xs.size()) != lenY + rational(ys.size())) {
@@ -469,7 +469,7 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
     rational lenX;
     if (!get_length(X, lenX)) {
         TRACE("seq", tout << "enforce length on " << mk_pp(X, m) << "\n";);
-        enforce_length(ensure_enode(X));
+        enforce_length(X);
         return;
     }
     if (lenX > rational(units.size())) {
@@ -642,13 +642,13 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     rational lenX, lenY1, lenY2;
     context& ctx = get_context();
     if (!get_length(x, lenX)) {
-        enforce_length(ensure_enode(x));
+        enforce_length(x);
     }
     if (!get_length(y1, lenY1)) {
-        enforce_length(ensure_enode(y1));
+        enforce_length(y1);
     }
     if (!get_length(y2, lenY2)) {
-        enforce_length(ensure_enode(y2));
+        enforce_length(y2);
     }
 
     SASSERT(!xs.empty() && !ys.empty());
@@ -758,13 +758,13 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
     rational lenX, lenY1, lenY2;
     context& ctx = get_context();
     if (!get_length(x, lenX)) {
-        enforce_length(ensure_enode(x));
+        enforce_length(x);
     }
     if (!get_length(y1, lenY1)) {
-        enforce_length(ensure_enode(y1));
+        enforce_length(y1);
     }
     if (!get_length(y2, lenY2)) {
-        enforce_length(ensure_enode(y2));
+        enforce_length(y2);
     }
     SASSERT(!xs.empty() && !ys.empty());
     unsigned_vector indexes = overlap2(xs, ys);
@@ -832,16 +832,16 @@ bool theory_seq::branch_quat_variable(eq const& e) {
     rational lenX1, lenX2, lenY1, lenY2;
     context& ctx = get_context();
     if (!get_length(x1_l, lenX1)) {
-        enforce_length(ensure_enode(x1_l));
+        enforce_length(x1_l);
     }
     if (!get_length(y1_l, lenY1)) {
-        enforce_length(ensure_enode(y1_l));
+        enforce_length(y1_l);
     }
     if (!get_length(x2, lenX2)) {
-        enforce_length(ensure_enode(x2));
+        enforce_length(x2);
     }
     if (!get_length(y2, lenY2)) {
-        enforce_length(ensure_enode(y2));
+        enforce_length(y2);
     }
     SASSERT(!xs.empty() && !ys.empty());
     
@@ -1532,7 +1532,7 @@ bool theory_seq::enforce_length(expr_ref_vector const& es, vector<rational> & le
             len.push_back(val);
         }
         else {
-            enforce_length(ensure_enode(e));
+            enforce_length(e);
             all_have_length = false;
         }
     }
@@ -1555,10 +1555,10 @@ bool theory_seq::branch_variable() {
 
 #if 0
         if (!has_length(e.ls())) {
-            enforce_length(ensure_enode(e.ls()));
+            enforce_length(e.ls());
         }
         if (!has_length(e.rs())) {
-            enforce_length(ensure_enode(e.rs()));
+            enforce_length(e.rs());
         }
 #endif
     }
@@ -2172,9 +2172,8 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
     if (!linearize(dep, eqs, lits)) 
         return;
     TRACE("seq",
-          tout << "assert:";
-          ctx.display_detailed_literal(tout, lit);
-          tout << " <- "; ctx.display_literals_verbose(tout, lits);
+          ctx.display_detailed_literal(tout << "assert:", lit);
+          ctx.display_literals_verbose(tout << " <- ", lits);
           if (!lits.empty()) tout << "\n"; display_deps(tout, dep););
     justification* js =
         ctx.mk_justification(
@@ -2241,10 +2240,10 @@ void theory_seq::enforce_length_coherence(enode* n1, enode* n2) {
         return;
     }
     if (has_length(o1) && !has_length(o2)) {
-        enforce_length(n2);
+        enforce_length(o2);
     }
     else if (has_length(o2) && !has_length(o1)) {
-        enforce_length(n1);
+        enforce_length(o1);
     }
 }
 
@@ -3100,13 +3099,36 @@ bool theory_seq::solve_nc(unsigned idx) {
         m_new_propagation = true;
         return true;
     }
+
+    if (m.is_and(c)) {
+        enode_pair_vector eqs;
+        literal_vector lits;
+        if (!linearize(deps, eqs, lits)) {
+            return false;
+        }
+        for (enode_pair const& p : eqs) {
+            lits.push_back(~mk_eq(p.first->get_owner(), p.second->get_owner(), false));
+        }
+        for (expr* arg : *to_app(c)) {
+            if (m.is_eq(arg, e1, e2)) {
+                lits.push_back(~mk_eq(e1, e2, false));
+            }
+            else {
+                lits.push_back(~mk_literal(arg));
+            }
+        }
+        TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()) << "\n";);
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        return true;
+    }
     
     expr* a = nullptr, *b = nullptr;
     context& ctx = get_context();
     if (m_util.str.is_contains(c, a, b)) {
-        enforce_length(ctx.get_enode(a));
-        enforce_length(ctx.get_enode(b));
+        enforce_length(a);
+        enforce_length(b);
     }
+
     
     return false;
 }
@@ -3324,7 +3346,8 @@ void theory_seq::add_length(expr* e) {
 /*
   ensure that all elements in equivalence class occur under an application of 'length'
 */
-void theory_seq::enforce_length(enode* n) {
+void theory_seq::enforce_length(expr* e) {
+    enode* n = ensure_enode(e);
     enode* n1 = n;
     do {
         expr* o = n->get_owner();
@@ -4169,8 +4192,7 @@ void theory_seq::deque_axiom(expr* n) {
         add_length_axiom(n);
     }
     else if (m_util.str.is_empty(n) && !has_length(n) && !m_length.empty()) {
-        ensure_enode(n);
-        enforce_length(get_context().get_enode(n));
+        enforce_length(n);
     }
     else if (m_util.str.is_index(n)) {
         add_indexof_axiom(n);
@@ -4955,9 +4977,7 @@ literal theory_seq::mk_seq_eq(expr* a, expr* b) {
 
 literal theory_seq::mk_preferred_eq(expr* a, expr* b) {
     context& ctx = get_context();
-    ctx.ensure_internalized(a);
-    ctx.ensure_internalized(b);
-    ctx.assume_eq(ctx.get_enode(a), ctx.get_enode(b));
+    ctx.assume_eq(ensure_enode(a), ensure_enode(b));
     literal lit = mk_eq(a, b, false);
     ctx.force_phase(lit);
     return lit;
@@ -5376,7 +5396,7 @@ void theory_seq::relevant_eh(app* n) {
 
     expr* arg;
     if (m_util.str.is_length(n, arg) && !has_length(arg) && get_context().e_internalized(arg)) {
-        enforce_length(get_context().get_enode(arg));
+        enforce_length(arg);
     }
 }
 
