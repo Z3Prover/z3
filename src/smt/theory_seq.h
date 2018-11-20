@@ -600,8 +600,6 @@ namespace smt {
         bool add_accept2step(expr* acc, bool& change);       
         bool add_step2accept(expr* step, bool& change);
         bool add_prefix2prefix(expr* e, bool& change);
-        bool add_suffix2suffix(expr* e, bool& change);
-        bool add_contains2contains(expr* e, bool& change);
         void propagate_not_prefix(expr* e);
         void propagate_not_prefix2(expr* e);
         void propagate_not_suffix(expr* e);

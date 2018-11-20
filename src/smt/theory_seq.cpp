@@ -1968,11 +1968,6 @@ bool theory_seq::is_post(expr* e, expr*& s, expr*& i) {
 
 expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
     return expr_ref(m_util.str.mk_nth(s, idx), m);
-#if 0
-    sort* char_sort = nullptr;
-    VERIFY(m_util.is_seq(m.get_sort(s), char_sort));
-    return mk_skolem(m_nth, s, idx, nullptr, nullptr, char_sort);
-#endif
 }
 
 expr_ref theory_seq::mk_sk_ite(expr* c, expr* t, expr* e) {
@@ -5187,24 +5182,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             propagate_eq(lit, f, e2, true);
         }
         else {
-#if 1
             propagate_not_suffix(e);
-
-#else
-            // lit => e1 != empty
-            propagate_non_empty(lit, e1);
-
-            // lit => e1 = first ++ (unit last)
-            expr_ref f1 = mk_first(e1);
-            expr_ref f2 = mk_last(e1);
-            f = mk_concat(f1, m_util.str.mk_unit(f2));
-            propagate_eq(lit, e1, f, true);
-
-            TRACE("seq", tout << "suffix: " << f << " = " << mk_pp(e1, m) << "\n";);
-            if (add_suffix2suffix(e, change)) {
-                add_atom(e);
-            }
-#endif
         }
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
@@ -5231,15 +5209,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         }
         else if (!canonizes(false, e)) {
             propagate_non_empty(lit, e2);
-#if 1
             dependency* dep = m_dm.mk_leaf(assumption(lit));
             m_ncs.push_back(nc(expr_ref(e, m), dep));
-#else
-            propagate_lit(0, 1, &lit, ~mk_literal(m_util.str.mk_prefix(e2, e1)));
-            if (add_contains2contains(e, change)) {
-                add_atom(e);
-            }
-#endif
         }
     }
     else if (is_accept(e)) {
@@ -5866,69 +5837,6 @@ bool theory_seq::add_prefix2prefix(expr* e, bool& change) {
     return false;
 }
 
-/*
-  !suffix(e1, e2) -> e2 = emp \/ last(e1) != last(e2) \/ !suffix(first(e1), first(e2))
- */
-bool theory_seq::add_suffix2suffix(expr* e, bool& change) {
-    context& ctx = get_context();
-    expr* e1 = nullptr, *e2 = nullptr;
-    VERIFY(m_util.str.is_suffix(e, e1, e2));
-    SASSERT(ctx.get_assignment(e) == l_false);
-    if (canonizes(false, e)) {
-        return false;
-    }
-
-    literal e2_is_emp = mk_eq_empty(e2);
-    switch (ctx.get_assignment(e2_is_emp)) {
-    case l_true:
-        return false; // done
-    case l_undef:        
-        ctx.force_phase(e2_is_emp);
-        return true;  // retry
-    case l_false:
-        break;
-    }
-    expr_ref first2 = mk_first(e2);
-    expr_ref last2  = mk_last(e2);
-    expr_ref conc2 = mk_concat(first2, m_util.str.mk_unit(last2));
-    propagate_eq(~e2_is_emp, e2, conc2, true);
-
-    literal e1_is_emp = mk_eq_empty(e1);
-    switch (ctx.get_assignment(e1_is_emp)) {
-    case l_true:
-        return false; // done
-    case l_undef:
-        ctx.force_phase(e1_is_emp);
-        return true;  // retry
-    case l_false:
-        break;
-    }
-    expr_ref first1 = mk_first(e1);
-    expr_ref last1  = mk_last(e1);
-    expr_ref conc1 = mk_concat(first1, m_util.str.mk_unit(last1));
-    propagate_eq(~e1_is_emp, e1, conc1, true);
-
-
-    literal last_eq = mk_eq(last1, last2, false);
-    switch (ctx.get_assignment(last_eq)) {
-    case l_false:
-        return false; // done
-    case l_undef:
-        ctx.force_phase(~last_eq);
-        return true;
-    case l_true:
-        break;
-    }
-
-    change = true;
-    literal_vector lits;
-    lits.push_back(~ctx.get_literal(e));
-    lits.push_back(~e2_is_emp);
-    lits.push_back(last_eq);
-    propagate_lit(nullptr, lits.size(), lits.c_ptr(), ~mk_literal(m_util.str.mk_suffix(first1, first2)));
-    TRACE("seq", tout << mk_pp(e, m) << " saturate\n";);
-    return false;
-}
 
 bool theory_seq::canonizes(bool sign, expr* e) {
     context& ctx = get_context();
@@ -5947,42 +5855,6 @@ bool theory_seq::canonizes(bool sign, expr* e) {
         TRACE("seq", display(tout););
         return true;
     }
-    return false;
-}
-
-/*
-   !contains(e1, e2) -> !prefix(e2, e1)
-   !contains(e1, e2) -> e1 = emp \/ !contains(tail(e1), e2)
- */
-
-bool theory_seq::add_contains2contains(expr* e, bool& change) {
-    context& ctx = get_context();
-    expr* e1 = nullptr, *e2 = nullptr;
-    VERIFY(m_util.str.is_contains(e, e1, e2));
-    SASSERT(ctx.get_assignment(e) == l_false);
-    if (canonizes(false, e)) {
-        return false;
-    }
-    
-    literal e1_is_emp = mk_eq_empty(e1);
-    switch (ctx.get_assignment(e1_is_emp)) {
-    case l_true:
-        return false; // done
-    case l_undef:
-        ctx.force_phase(e1_is_emp);
-        return true;  // retry
-    default:
-        break;
-    }
-    change = true;
-    expr_ref head(m), tail(m), conc(m);
-    mk_decompose(e1, head, tail);
-    
-    conc = mk_concat(head, tail);
-    propagate_eq(~e1_is_emp, e1, conc, true);
-
-    literal lits[2] = { ~ctx.get_literal(e), ~e1_is_emp };
-    propagate_lit(nullptr, 2, lits, ~mk_literal(m_util.str.mk_contains(tail, e2)));
     return false;
 }
 
@@ -6010,12 +5882,6 @@ bool theory_seq::propagate_automata() {
         }
         else if (m_util.str.is_prefix(e)) {
             reQ = add_prefix2prefix(e, change);
-        }
-        else if (m_util.str.is_suffix(e)) {
-            reQ = add_suffix2suffix(e, change);
-        }
-        else if (m_util.str.is_contains(e)) {
-            reQ = add_contains2contains(e, change);
         }
         if (reQ) {
             re_add.push_back(e);
