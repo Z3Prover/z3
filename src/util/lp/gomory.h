@@ -14,8 +14,6 @@ Author:
     Lev Nachmanson (levnach)
 
 Revision History:
-
-
 --*/
 #pragma once
 #include "util/lp/lar_term.h"
