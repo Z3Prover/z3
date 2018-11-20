@@ -8,9 +8,9 @@ void const_iterator_mon::init_vars_by_the_mask(unsigned_vector & k_vars, unsigne
     k_vars.push_back(m_ff->m_cmon.vars().back()); 
     for (unsigned j = 0; j < m_mask.size(); j++) {
         if (m_mask[j]) {
-            k_vars.push_back(m_ff->m_cmon[j]);
+            k_vars.push_back(m_ff->m_cmon.vars()[j]);
         } else {
-            j_vars.push_back(m_ff->m_cmon[j]);
+            j_vars.push_back(m_ff->m_cmon.vars()[j]);
         }
     }
 }

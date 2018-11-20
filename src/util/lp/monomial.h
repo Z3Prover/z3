@@ -49,17 +49,14 @@ namespace nla {
      *  represents definition m_v = coeff* v1*v2*...*vn, 
      *  where m_vs = [v1, v2, .., vn]
      */
-    class monomial_coeff : public monomial {
+    class monomial_coeff  {
+        svector<lp::var_index> m_vs;
         rational m_coeff;
     public:
-        monomial_coeff(monomial const& eq, rational const& coeff):
-            monomial(eq), m_coeff(coeff) {}
-
-        monomial_coeff(lp::var_index v, const svector<lp::var_index> &vs, rational const& coeff):
-            monomial(v, vs),
-            m_coeff(coeff) {}
+        monomial_coeff(const svector<lp::var_index>& vs, rational const& coeff): m_vs(vs), m_coeff(coeff) {}
 
         rational const& coeff() const { return m_coeff; }
+        const svector<lp::var_index> & vars() const { return m_vs; } 
     };
 
 }

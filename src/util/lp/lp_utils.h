@@ -58,6 +58,21 @@ bool contains(const std::unordered_map<A, B> & map, const A& key) {
 
 namespace lp {
 
+template <typename K> 
+bool is_non_decreasing(const K& v) {
+    auto a = v.begin();
+    if (a == v.end())
+        return true; // v is empty
+    auto b = v.begin();
+    b++;
+    for (; b != v.end(); a++, b++) {
+        if (*a > *b)
+            return false;
+    }
+    return true; 
+}
+
+
 template <typename T>
 void print_linear_combination_of_column_indices_only(const T & coeffs, std::ostream & out) {
     bool first = true;
