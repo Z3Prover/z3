@@ -4751,6 +4751,8 @@ extern "C" {
         The returned AST is simplified using algebraic simplification rules,
         such as constant propagation (propagating true/false over logical connectives).
 
+        \sa Z3_simplify_ex
+
         def_API('Z3_simplify', AST, (_in(CONTEXT), _in(AST)))
     */
     Z3_ast Z3_API Z3_simplify(Z3_context c, Z3_ast a);
@@ -4762,6 +4764,10 @@ extern "C" {
         This procedure is similar to #Z3_simplify, but the behavior of the simplifier
         can be configured using the given parameter set.
 
+        \sa Z3_simplify
+        \sa Z3_simplify_get_help
+        \sa Z3_simplify_get_param_descrs
+
         def_API('Z3_simplify_ex', AST, (_in(CONTEXT), _in(AST), _in(PARAMS)))
     */
     Z3_ast Z3_API Z3_simplify_ex(Z3_context c, Z3_ast a, Z3_params p);
@@ -4769,12 +4775,18 @@ extern "C" {
     /**
        \brief Return a string describing all available parameters.
 
+        \sa Z3_simplify_ex
+        \sa Z3_simplify_get_param_descrs
+
        def_API('Z3_simplify_get_help', STRING, (_in(CONTEXT),))
     */
     Z3_string Z3_API Z3_simplify_get_help(Z3_context c);
 
     /**
        \brief Return the parameter description set for the simplify procedure.
+
+        \sa Z3_simplify_ex
+        \sa Z3_simplify_get_help
 
        def_API('Z3_simplify_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT),))
     */
@@ -6050,6 +6062,9 @@ extern "C" {
     /**
        \brief Return a string describing all solver available parameters.
 
+       \sa Z3_solver_get_param_descrs
+       \sa Z3_solver_set_params
+
        def_API('Z3_solver_get_help', STRING, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_string Z3_API Z3_solver_get_help(Z3_context c, Z3_solver s);
@@ -6057,12 +6072,18 @@ extern "C" {
     /**
        \brief Return the parameter description set for the given solver object.
 
+       \sa Z3_solver_get_help
+       \sa Z3_solver_set_params
+
        def_API('Z3_solver_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_param_descrs Z3_API Z3_solver_get_param_descrs(Z3_context c, Z3_solver s);
 
     /**
        \brief Set the given solver using the given parameters.
+
+       \sa Z3_solver_get_help
+       \sa Z3_solver_get_param_descrs
 
        def_API('Z3_solver_set_params', VOID, (_in(CONTEXT), _in(SOLVER), _in(PARAMS)))
     */
@@ -6087,6 +6108,7 @@ extern "C" {
 
        The solver contains a stack of assertions.
 
+       \sa Z3_solver_get_num_scopes
        \sa Z3_solver_pop
 
        def_API('Z3_solver_push', VOID, (_in(CONTEXT), _in(SOLVER)))
@@ -6096,6 +6118,7 @@ extern "C" {
     /**
        \brief Backtrack \c n backtracking points.
 
+       \sa Z3_solver_get_num_scopes
        \sa Z3_solver_push
 
        \pre n <= Z3_solver_get_num_scopes(c, s)
@@ -6106,6 +6129,9 @@ extern "C" {
 
     /**
        \brief Remove all assertions from the solver.
+
+       \sa Z3_solver_assert
+       \sa Z3_solver_assert_and_track
 
        def_API('Z3_solver_reset', VOID, (_in(CONTEXT), _in(SOLVER)))
     */
@@ -6127,6 +6153,9 @@ extern "C" {
        The functions #Z3_solver_check and #Z3_solver_check_assumptions should be
        used to check whether the logical context is consistent or not.
 
+       \sa Z3_solver_assert_and_track
+       \sa Z3_solver_reset
+
        def_API('Z3_solver_assert', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST)))
     */
     void Z3_API Z3_solver_assert(Z3_context c, Z3_solver s, Z3_ast a);
@@ -6143,6 +6172,9 @@ extern "C" {
        \pre \c a must be a Boolean expression
        \pre \c p must be a Boolean constant (aka variable).
 
+       \sa Z3_solver_assert
+       \sa Z3_solver_reset
+
        def_API('Z3_solver_assert_and_track', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST), _in(AST)))
     */
     void Z3_API Z3_solver_assert_and_track(Z3_context c, Z3_solver s, Z3_ast a, Z3_ast p);
@@ -6150,12 +6182,18 @@ extern "C" {
     /**
        \brief load solver assertions from a file.
 
+       \sa Z3_solver_from_string
+       \sa Z3_solver_to_string
+
        def_API('Z3_solver_from_file', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
     */
     void Z3_API Z3_solver_from_file(Z3_context c, Z3_solver s, Z3_string file_name);
 
     /**
        \brief load solver assertions from a string.
+
+       \sa Z3_solver_from_file
+       \sa Z3_solver_to_string
 
        def_API('Z3_solver_from_string', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
     */
@@ -6322,6 +6360,9 @@ extern "C" {
 
     /**
        \brief Convert a solver into a string.
+
+       \sa Z3_solver_from_file
+       \sa Z3_solver_from_string
 
        def_API('Z3_solver_to_string', STRING, (_in(CONTEXT), _in(SOLVER)))
     */
