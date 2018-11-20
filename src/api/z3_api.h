@@ -2154,12 +2154,12 @@ extern "C" {
        \param domain array containing the sort of each argument. The array must contain domain_size elements. 
        \param range sort of the constant or the return sort of the function.
 
-       After declaring recursive function, it should be associated with a recursive definition #Z3_mk_rec_def.
+       After declaring recursive function, it should be associated with a recursive definition #Z3_add_rec_def.
        The function #Z3_mk_app can be used to create a constant or function
        application.
 
        \sa Z3_mk_app
-       \sa Z3_mk_rec_def
+       \sa Z3_add_rec_def
 
        def_API('Z3_mk_rec_func_decl', FUNC_DECL, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(SORT)))
     */
