@@ -3064,29 +3064,26 @@ bool theory_seq::solve_ne(unsigned idx) {
 
 bool theory_seq::solve_nc(unsigned idx) {
     nc const& n = m_ncs[idx];
-
     dependency* deps = n.deps();    
+    context& ctx = get_context();
     expr_ref c = canonize(n.contains(), deps);
+    expr* a = nullptr, *b = nullptr;
 
     CTRACE("seq", c != n.contains(), tout << n.contains() << " => " << c << "\n";);
+
     
     if (m.is_true(c)) {
         literal_vector lits;
         set_conflict(deps, lits);
         return true;
     }
+
     if (m.is_false(c)) {
         return true;
     }
-    if (c != n.contains()) {
-        m_ncs.push_back(nc(c, deps));
-        m_new_propagation = true;
-        return true;
-    }
 
-    expr* e1 = nullptr, *e2 = nullptr;
-    if (m.is_eq(c, e1, e2)) {
-        literal eq = mk_eq(e1, e2, false);
+    if (m.is_eq(c, a, b)) {
+        literal eq = mk_eq(a, b, false);
         propagate_lit(deps, 0, nullptr, ~eq);
         return true;
     }
@@ -3110,8 +3107,8 @@ bool theory_seq::solve_nc(unsigned idx) {
             lits.push_back(~mk_eq(p.first->get_owner(), p.second->get_owner(), false));
         }
         for (expr* arg : *to_app(c)) {
-            if (m.is_eq(arg, e1, e2)) {
-                lits.push_back(~mk_eq(e1, e2, false));
+            if (m.is_eq(arg, a, b)) {
+                lits.push_back(~mk_eq(a, b, false));
             }
             else {
                 lits.push_back(~mk_literal(arg));
@@ -3121,14 +3118,23 @@ bool theory_seq::solve_nc(unsigned idx) {
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         return true;
     }
-    
-    expr* a = nullptr, *b = nullptr;
-    context& ctx = get_context();
-    if (m_util.str.is_contains(c, a, b)) {
+
+    if (m_util.str.is_contains(n.contains(), a, b)) {
         enforce_length(a);
         enforce_length(b);
     }
 
+    rational la, lb;
+    if (get_length(a, la) && get_length(b, lb) && la < lb) {
+        // if len(a) < len(b), then a cannot contain b.
+        return true;
+    }
+    
+    if (c != n.contains()) {
+        m_ncs.push_back(nc(c, deps));
+        m_new_propagation = true;
+        return true;
+    }
     
     return false;
 }
