@@ -220,7 +220,7 @@ extern "C" {
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).lt(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
@@ -229,7 +229,7 @@ extern "C" {
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).gt(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
@@ -238,7 +238,7 @@ extern "C" {
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).le(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
@@ -247,7 +247,7 @@ extern "C" {
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).ge(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
@@ -256,7 +256,7 @@ extern "C" {
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).eq(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_bool Z3_API Z3_rcf_neq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
@@ -265,7 +265,7 @@ extern "C" {
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).neq(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, Z3_bool compact, Z3_bool html) {

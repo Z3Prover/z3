@@ -173,6 +173,9 @@ namespace sat {
         m_phase_tf.resize(s.num_vars(), ema(1e-5));
         pqueue().reset();
         pqueue().set_vars(s);
+        for (unsigned v = 0; v < s.num_vars(); ++v) {            
+            m_phase_tf[v].update(50);
+        }
         m_ls.import(s, true);
         m_rand.set_seed(s.rand()());
         update_priority();

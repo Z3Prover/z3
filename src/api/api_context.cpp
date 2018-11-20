@@ -440,7 +440,6 @@ extern "C" {
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h) {
         RESET_ERROR_CODE();    
         mk_c(c)->set_error_handler(h);
-        // [Leo]: using exception handling, we don't need global error handlers anymore
     }
 
     void Z3_API Z3_set_error(Z3_context c, Z3_error_code e) {

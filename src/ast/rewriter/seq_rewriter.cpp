@@ -677,8 +677,22 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     }
     // check if subsequence of a is in b.
     expr_ref_vector as(m()), bs(m());
-    m_util.str.get_concat(a, as);
-    m_util.str.get_concat(b, bs);
+    if (m_util.str.is_string(a, c)) {
+        for (unsigned i = 0; i < c.length(); ++i) {
+            as.push_back(m_util.str.mk_unit(m_util.str.mk_char(c, i)));
+        }
+    }
+    else {
+        m_util.str.get_concat(a, as);
+    }
+    if (m_util.str.is_string(b, d)) {
+        for (unsigned i = 0; i < d.length(); ++i) {
+            bs.push_back(m_util.str.mk_unit(m_util.str.mk_char(d, i)));
+        }
+    }
+    else {
+        m_util.str.get_concat(b, bs);
+    }
     bool all_values = true;
     TRACE("seq", tout << mk_pp(a, m()) << " contains " << mk_pp(b, m()) << "\n";);
    

@@ -2038,7 +2038,7 @@ namespace z3 {
             Z3_ast r = 0;
             Z3_bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
             check_error();
-            if (status == Z3_FALSE && ctx().enable_exceptions())
+            if (status == false && ctx().enable_exceptions())
                 Z3_THROW(exception("failed to evaluate expression"));
             return expr(ctx(), r);
         }

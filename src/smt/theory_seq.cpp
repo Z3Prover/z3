@@ -3093,13 +3093,21 @@ bool theory_seq::solve_nc(unsigned idx) {
     }
 
     if (m.is_or(c)) {
-        for (unsigned i = 0; i < to_app(c)->get_num_args(); ++i) {
-            expr_ref ci(to_app(c)->get_arg(i), m);
+        for (expr* arg : *to_app(c)) {
+            expr_ref ci(arg, m);
             m_ncs.push_back(nc(ci, deps));
         }
         m_new_propagation = true;
         return true;
     }
+    
+    expr* a = nullptr, *b = nullptr;
+    context& ctx = get_context();
+    if (m_util.str.is_contains(c, a, b)) {
+        enforce_length(ctx.get_enode(a));
+        enforce_length(ctx.get_enode(b));
+    }
+    
     return false;
 }
 

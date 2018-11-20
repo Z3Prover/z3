@@ -10608,7 +10608,6 @@ namespace smt {
         std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
         int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map, var_eq_concat_map);
         if (conflictInDep == -1) {
-            // return Z3_TRUE;
             return FC_DONE;
         }
 

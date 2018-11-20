@@ -134,42 +134,42 @@ extern "C" {
     Z3_rcf_num Z3_API Z3_rcf_power(Z3_context c, Z3_rcf_num a, unsigned k);
 
     /**
-       \brief Return Z3_TRUE if a < b
+       \brief Return \c true if a < b
 
        def_API('Z3_rcf_lt', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a > b
+       \brief Return \c true if a > b
 
        def_API('Z3_rcf_gt', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a <= b
+       \brief Return \c true if a <= b
 
        def_API('Z3_rcf_le', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a >= b
+       \brief Return \c true if a >= b
 
        def_API('Z3_rcf_ge', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a == b
+       \brief Return \c true if a == b
 
        def_API('Z3_rcf_eq', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a != b
+       \brief Return \c true if a != b
 
        def_API('Z3_rcf_neq', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
