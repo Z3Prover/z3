@@ -344,16 +344,36 @@ struct solver::imp {
         mk_ineq(m_monomials[i].var(), -sign, m_monomials[k].var(), lp::lconstraint_kind::EQ);        
         TRACE("nla_solver", print_lemma(tout););
     }
+
+
+    static int rat_sign(const rational& r) {
+        return r.is_pos()? 1 : ( r.is_neg()? -1 : 0);
+    }
+
+    int vars_sign(const svector<lpvar>& v) {
+        int sign = 1;
+        for (lpvar j : v) {
+            sign *= rat_sign(vvr(j));
+            if (sign == 0) 
+                return 0;
+        }
+        return sign;
+    }
     
-    bool basic_sign_lemma_on_a_bucket_of_abs_vals(const vector<rational>& abs_vals, const vector<index_with_sign>& list){   
-        rational sign = list[0].m_sign;
-        rational val =  vvr(m_monomials[list[0].m_i].var());
+    
+    bool basic_sign_lemma_on_a_bucket_of_abs_vals(const vector<rational>& abs_vals, const unsigned_vector& list){
+        rational val =  vvr(m_monomials[list[0]].var());
+        int sign = vars_sign(m_monomials[list[0]].vars());
+        if (sign == 0) {
+            return false;
+        }
         
         for (unsigned i = 1; i < list.size(); i++) {
-            rational other_sign = list[i].m_sign;
-            rational other_val =  vvr(m_monomials[list[i].m_i].var());
-            if (val * sign != other_val * other_sign) {
-                generate_sign_lemma(abs_vals, list[0].m_i, list[i].m_i, sign * other_sign);
+            rational rsign = rational(vars_sign(m_monomials[list[i]].vars()) * sign);
+            SASSERT(!rsign.is_zero());
+            rational other_val =  vvr(m_monomials[list[i]].var());
+            if (val * rsign != other_val) {
+                generate_sign_lemma(abs_vals, list[0], list[i], rsign);
                 return true;
             }
         }
@@ -920,6 +940,7 @@ struct solver::imp {
                                                       unsigned i_bd_equiv,
                                                       unsigned i_bd,
                                                       unsigned d, unsigned i_ac, const factorization& ac, unsigned k) {
+        return false;
     }
         
 
@@ -931,6 +952,8 @@ struct solver::imp {
     bool order_lemma_on_factor_equiv_and_other_mon_eq(unsigned i_bd_equiv,
                                                      unsigned i_bd,
                                                      unsigned d, unsigned i_ac, const factorization& ac, unsigned k) {
+        return false;
+        /*
         TRACE("nla_solver", tout << "i_bd_equiv = "; print_monomial_with_vars(i_bd_equiv, tout); );
         rational abs_d = abs(vvr(d));
         for (unsigned k = 0; k < m_monomials[i_bd_equiv].size(); k++) {
@@ -947,7 +970,7 @@ struct solver::imp {
                     return true;
             }
         }
-        return false;
+        return false;*/
     }    
 
     
