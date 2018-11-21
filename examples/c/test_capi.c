@@ -241,7 +241,7 @@ void check(Z3_context ctx, Z3_solver s, Z3_lbool expected_result)
 
    The context \c ctx is not modified by this function.
 */
-void prove(Z3_context ctx, Z3_solver s, Z3_ast f, Z3_bool is_valid)
+void prove(Z3_context ctx, Z3_solver s, Z3_ast f, bool is_valid)
 {
     Z3_model m = 0;
     Z3_ast   not_f;
@@ -639,7 +639,7 @@ void display_model(Z3_context c, FILE * out, Z3_model m)
         Z3_symbol name;
         Z3_func_decl cnst = Z3_model_get_const_decl(c, m, i);
         Z3_ast a, v;
-        Z3_bool ok;
+        bool ok;
         name = Z3_get_decl_name(c, cnst);
         display_symbol(c, out, name);
         fprintf(out, " = ");
@@ -2304,7 +2304,7 @@ typedef struct {
     // IMPORTANT: the fields m_answer_literals, m_retracted and m_num_answer_literals must be saved/restored
     // if push/pop operations are performed on m_context.
     Z3_ast     m_answer_literals[MAX_RETRACTABLE_ASSERTIONS];
-    Z3_bool    m_retracted[MAX_RETRACTABLE_ASSERTIONS]; // true if the assertion was retracted.
+    bool       m_retracted[MAX_RETRACTABLE_ASSERTIONS]; // true if the assertion was retracted.
     unsigned   m_num_answer_literals;
 } Z3_ext_context_struct;
 
@@ -2872,7 +2872,7 @@ void mk_model_example() {
                                   /*num_args=*/2,
                                   /*args=*/addArgs);
         Z3_ast aPlusBEval = NULL;
-        Z3_bool aPlusBEvalSuccess =
+        bool aPlusBEvalSuccess =
             Z3_model_eval(ctx, m, aPlusB,
                           /*model_completion=*/false, &aPlusBEval);
         if (aPlusBEvalSuccess != true) {
@@ -2882,7 +2882,7 @@ void mk_model_example() {
 
         {
             int aPlusBValue = 0;
-            Z3_bool getAPlusBValueSuccess =
+            bool getAPlusBValueSuccess =
                 Z3_get_numeral_int(ctx, aPlusBEval, &aPlusBValue);
             if (getAPlusBValueSuccess != true) {
                 printf("Failed to get integer value for a+b\n");
@@ -2906,7 +2906,7 @@ void mk_model_example() {
                                     /*num_args=*/3,
                                     /*args=*/arrayAddArgs);
         Z3_ast arrayAddEval = NULL;
-        Z3_bool arrayAddEvalSuccess =
+        bool arrayAddEvalSuccess =
             Z3_model_eval(ctx, m, arrayAdd,
                           /*model_completion=*/false, &arrayAddEval);
         if (arrayAddEvalSuccess != true) {
@@ -2915,7 +2915,7 @@ void mk_model_example() {
         }
         {
             int arrayAddValue = 0;
-            Z3_bool getArrayAddValueSuccess =
+            bool getArrayAddValueSuccess =
                 Z3_get_numeral_int(ctx, arrayAddEval, &arrayAddValue);
             if (getArrayAddValueSuccess != true) {
                 printf("Failed to get integer value for c[0] + c[1] + c[2]\n");

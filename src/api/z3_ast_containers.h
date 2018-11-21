@@ -138,7 +138,7 @@ extern "C" {
 
     def_API('Z3_ast_map_contains', BOOL, (_in(CONTEXT), _in(AST_MAP), _in(AST)))
     */
-    Z3_bool Z3_API Z3_ast_map_contains(Z3_context c, Z3_ast_map m, Z3_ast k);
+    bool Z3_API Z3_ast_map_contains(Z3_context c, Z3_ast_map m, Z3_ast k);
 
     /**
     \brief Return the value associated with the key \c k.

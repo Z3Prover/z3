@@ -214,7 +214,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_lt(c, a, b);
         RESET_ERROR_CODE();
@@ -223,7 +223,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_gt(c, a, b);
         RESET_ERROR_CODE();
@@ -232,7 +232,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_le(c, a, b);
         RESET_ERROR_CODE();
@@ -241,7 +241,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_ge(c, a, b);
         RESET_ERROR_CODE();
@@ -250,7 +250,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_eq(c, a, b);
         RESET_ERROR_CODE();
@@ -259,7 +259,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_neq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_neq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_neq(c, a, b);
         RESET_ERROR_CODE();
@@ -268,7 +268,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, Z3_bool compact, Z3_bool html) {
+    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, bool compact, bool html) {
         Z3_TRY;
         LOG_Z3_rcf_num_to_string(c, a, compact, html);
         RESET_ERROR_CODE();
