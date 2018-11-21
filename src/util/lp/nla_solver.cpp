@@ -901,15 +901,52 @@ struct solver::imp {
         m_lemma->clear();
     }
 
+    static svector<lpvar> extract_all_but(const svector<lpvar> & vars, unsigned k) {
+        static svector<lpvar> ret;
+        for (unsigned j = 0; j < vars.size(); j++) {
+            if (j == k)
+                continue;
+            ret.push_back(vars[j]);
+        }
+        return ret;
+    }
+
     // a > b && c == d => ac > bd
     // ac is a factorization of m_monomials[i_mon]
     // ac[k] plays the role of c
     // d = +-c
+    // i_bd_equiv is a candidate for bd
+    bool order_lemma_on_factor_equiv_and_other_mon_eq(unsigned b,
+                                                      unsigned i_bd_equiv,
+                                                      unsigned i_bd,
+                                                      unsigned d, unsigned i_ac, const factorization& ac, unsigned k) {
+    }
+        
 
-    bool order_lemma_on_factor_equiv_and_other_mon_factor(unsigned i_f,
-                                                   unsigned o_i_mon, unsigned e_j, unsigned i_mon, const factorization& f, unsigned k) {
-        TRACE("nla_solver", tout << "i_f = "; print_monomial_with_vars(i_f, tout); );
-        NOT_IMPLEMENTED_YET();
+    // a > b && c == d => ac > bd
+    // ac is a factorization of m_monomials[i_mon]
+    // ac[k] plays the role of c
+    // d = +-c
+    // i_bd_equiv is a candidate for bd
+    bool order_lemma_on_factor_equiv_and_other_mon_eq(unsigned i_bd_equiv,
+                                                     unsigned i_bd,
+                                                     unsigned d, unsigned i_ac, const factorization& ac, unsigned k) {
+        TRACE("nla_solver", tout << "i_bd_equiv = "; print_monomial_with_vars(i_bd_equiv, tout); );
+        rational abs_d = abs(vvr(d));
+        for (unsigned k = 0; k < m_monomials[i_bd_equiv].size(); k++) {
+            if (abs(vvr(m_monomials[i_bd_equiv][k])) != abs_d)
+                continue;
+            svector<lpvar> b = extract_all_but(m_monomials[i_bd_equiv].vars(), k);
+            std::sort(b.begin(), b.end());
+            auto it = m_rooted_monomials_map.find(b);
+            if (it == m_rooted_monomials_map.end())
+                return false;
+            
+            for (const index_with_sign& s : it->second) {
+                if (order_lemma_on_factor_equiv_and_other_mon_eq_b(s.var(), i_bd, d, i_bd, d, i_ac, ac, k))
+                    return true;
+            }
+        }
         return false;
     }    
 
@@ -922,16 +959,15 @@ struct solver::imp {
         if (i_bd == i_ac) {
             return false;
         }
-        TRACE("nla_solver", );
+
         const monomial & m_bd = m_monomials[i_bd];
         monomial_coeff m_bd_rooted = canonize_monomial(m_bd);
         TRACE("nla_solver", tout << "i_bd monomial = "; print_monomial(m_bd, tout); );
-        TRACE("nla_solver", );
         auto it = m_rooted_monomials_map.find(m_bd_rooted.vars());
         if (it == m_rooted_monomials_map.end())
             return false;
-        for (const index_with_sign& i_s : it->second) {
-            if (order_lemma_on_factor_equiv_and_other_mon_factor(i_s.var(), i_bd, d, i_ac, ac, k))
+        for (const index_with_sign& s : it->second) {
+            if (order_lemma_on_factor_equiv_and_other_mon_eq(s.var(), i_bd, d, i_ac, ac, k))
                 return true;
         }
         return false;
