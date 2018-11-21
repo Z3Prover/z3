@@ -82,9 +82,8 @@ struct vars_equivalence {
     vector<equiv>                                m_equivs;         // all equivalences extracted from constraints
     std::unordered_map<rational,unsigned_vector> m_vars_by_abs_values;
     std::unordered_map<vector<rational>,
-                       vector<index_with_sign>,
-                       hash_vector>
-                                                 m_monomials_by_abs_vals;
+                       unsigned_vector,
+                       hash_vector>              m_monomials_by_abs_vals;
 
     std::function<rational(lpvar)> m_vvr;
 
@@ -93,7 +92,7 @@ struct vars_equivalence {
     vars_equivalence(std::function<rational(lpvar)> vvr) : m_vvr(vvr) {}
     
     const std::unordered_map<vector<rational>,
-                       vector<index_with_sign>,
+                             unsigned_vector,
                              hash_vector>& monomials_by_abs_values() const {
         return m_monomials_by_abs_vals;
     }
@@ -223,7 +222,7 @@ struct vars_equivalence {
     void deregister_monomial_from_abs_vals(const monomial & m, unsigned i){
         int sign;
         auto key = get_sorted_abs_vals_from_mon(m, sign);
-        SASSERT(m_monomials_by_abs_vals.find(key)->second.back() == index_with_sign(i, rational(sign)));
+        SASSERT(m_monomials_by_abs_vals.find(key)->second.back() == i);
         m_monomials_by_abs_vals.find(key)->second.pop_back();
     }
 
@@ -244,17 +243,15 @@ struct vars_equivalence {
     void register_monomial_in_abs_vals(unsigned i, const monomial & m ) {
         int sign;
         vector<rational> abs_vals = get_sorted_abs_vals_from_mon(m, sign);
-        index_with_sign ms(i, rational(sign));
         auto it = m_monomials_by_abs_vals.find(abs_vals);
-        
         if (it == m_monomials_by_abs_vals.end()) {
-            vector<index_with_sign> v;
-            v.push_back(ms);
+            unsigned_vector v;
+            v.push_back(i);
             // v is a vector containing a single index_with_sign
             m_monomials_by_abs_vals.emplace(abs_vals, v);
         } 
         else {
-            it->second.push_back(ms);
+            it->second.push_back(i);
         }
         
     }
