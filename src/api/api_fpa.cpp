@@ -232,7 +232,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_inf(Z3_context c, Z3_sort s, Z3_bool negative) {
+    Z3_ast Z3_API Z3_mk_fpa_inf(Z3_context c, Z3_sort s, bool negative) {
         Z3_TRY;
         LOG_Z3_mk_fpa_inf(c, s, negative);
         RESET_ERROR_CODE();
@@ -249,7 +249,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_zero(Z3_context c, Z3_sort s, Z3_bool negative) {
+    Z3_ast Z3_API Z3_mk_fpa_zero(Z3_context c, Z3_sort s, bool negative) {
         Z3_TRY;
         LOG_Z3_mk_fpa_inf(c, s, negative);
         RESET_ERROR_CODE();
@@ -338,7 +338,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(Z3_context c, Z3_bool sgn, signed exp, unsigned sig, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int_uint(Z3_context c, bool sgn, signed exp, unsigned sig, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_fpa_numeral_int64_uint64(c, sgn, exp, sig, ty);
         RESET_ERROR_CODE();
@@ -358,7 +358,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, Z3_bool sgn, int64_t exp, uint64_t sig, Z3_sort ty) {
+    Z3_ast Z3_API Z3_mk_fpa_numeral_int64_uint64(Z3_context c, bool sgn, int64_t exp, uint64_t sig, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_fpa_numeral_int64_uint64(c, sgn, exp, sig, ty);
         RESET_ERROR_CODE();
@@ -905,7 +905,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn) {
+    bool Z3_API Z3_fpa_get_numeral_sign(Z3_context c, Z3_ast t, int * sgn) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_sign(c, t, sgn);
         RESET_ERROR_CODE();
@@ -1035,7 +1035,7 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, uint64_t * n) {
+    bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, uint64_t * n) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_significand_uint64(c, t, n);
         RESET_ERROR_CODE();
@@ -1072,7 +1072,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t, Z3_bool biased) {
+    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t, bool biased) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_exponent_string(c, t, biased);
         RESET_ERROR_CODE();
@@ -1113,7 +1113,7 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, int64_t * n, Z3_bool biased) {
+    bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, int64_t * n, bool biased) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_exponent_int64(c, t, n, biased);
         RESET_ERROR_CODE();
@@ -1157,7 +1157,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t, Z3_bool biased) {
+    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t, bool biased) {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_exponent_bv(c, t, biased);
         RESET_ERROR_CODE();
@@ -1232,7 +1232,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_is_numeral_nan(c, t);
         RESET_ERROR_CODE();
@@ -1246,7 +1246,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_is_numeral_inf(c, t);
         RESET_ERROR_CODE();
@@ -1260,7 +1260,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_is_numeral_zero(c, t);
         RESET_ERROR_CODE();
@@ -1274,7 +1274,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_is_numeral_normal(c, t);
         RESET_ERROR_CODE();
@@ -1288,7 +1288,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_is_numeral_subnormal(c, t);
         RESET_ERROR_CODE();
@@ -1302,7 +1302,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_is_numeral_positive(c, t);
         RESET_ERROR_CODE();
@@ -1316,7 +1316,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_fpa_is_numeral_negative(c, t);
         RESET_ERROR_CODE();

@@ -23,6 +23,8 @@ data = json.loads(urllib.request.urlopen("https://api.github.com/repos/Z3Prover/
 
 version_str = data['tag_name']
 
+print(version_str)
+
 def mk_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
@@ -31,15 +33,15 @@ def download_installs():
     for asset in data['assets']:
         url = asset['browser_download_url']
         name = asset['name']
-        if "x64" not in name:
-            continue
         print("Downloading ", url)
         sys.stdout.flush()
         urllib.request.urlretrieve(url, "packages/%s" % name)
 
-os_info = {"ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
+os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
            'ubuntu-16' : ('so', 'ubuntu.16.04-x64'),
-           'win' : ('dll', 'win-x64'),
+           'x64-win' : ('dll', 'win-x64'),
+           'x86-win' : ('dll', 'win-x86'),
+           'osx' : ('dylib', 'macos'),
            'debian' : ('so', 'debian.8-x64') }
 
 def classify_package(f):
@@ -50,22 +52,26 @@ def classify_package(f):
     return None
         
 def unpack():
+    shutil.rmtree("out")
     # unzip files in packages
     # out
     # +- runtimes
     #    +- win-x64
+    #    +- win-x86
     #    +- ubuntu.16.04-x64
     #    +- ubuntu.14.04-x64
     #    +- debian.8-x64
+    #    +- macos
     # +
-    for f in os.listdir("packages"):        
-        if f.endswith("zip") and "x64" in f and classify_package(f):
-            print(f)
-            os_name, package_dir, ext, dst = classify_package(f)                        
-            zip_ref = zipfile.ZipFile("packages/%s" % f, 'r')
+    for f in os.listdir("packages"):
+        print(f)
+        if f.endswith(".zip") and classify_package(f):
+            os_name, package_dir, ext, dst = classify_package(f)
+            path = os.path.abspath(os.path.join("packages", f))
+            zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract("%s/bin/libz3.%s" % (package_dir, ext), "tmp")
             mk_dir("out/runtimes/%s" % dst)
-            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/." % dst)
+            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/." % dst, "/y")
             if "win" in f:
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll"]:
@@ -73,11 +79,10 @@ def unpack():
                     shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
 def create_nuget_spec():
-    mk_project.init_version()
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
-        <id>Microsoft.Z3.x64</id>
+        <id>Microsoft.Z3</id>
         <version>%s</version>
         <authors>Microsoft</authors>
         <description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</description>
@@ -96,9 +101,9 @@ def create_nuget_spec():
     </metadata>
 </package>"""
 
-    with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
-        f.write(contents % mk_util.get_version_string(3))
-
+    with open("out/Microsoft.Z3.nuspec", 'w') as f:
+        f.write(contents % version_str[3:])
+        
 def create_nuget_package():
     subprocess.call(["nuget", "pack"], cwd="out")
 

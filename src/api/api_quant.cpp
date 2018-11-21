@@ -26,7 +26,7 @@ extern "C" {
 
     Z3_ast Z3_API Z3_mk_quantifier(
         Z3_context c,
-        Z3_bool is_forall,
+        bool is_forall,
         unsigned weight,
         unsigned num_patterns, Z3_pattern const patterns[],
         unsigned num_decls, Z3_sort const sorts[],
@@ -50,7 +50,7 @@ extern "C" {
 
     Z3_ast mk_quantifier_ex_core(
         Z3_context c,
-        Z3_bool is_forall,
+        bool is_forall,
         unsigned weight,
         Z3_symbol quantifier_id,
         Z3_symbol skolem_id,
@@ -109,7 +109,7 @@ extern "C" {
 
     Z3_ast Z3_API Z3_mk_quantifier_ex(
         Z3_context c,
-        Z3_bool is_forall,
+        bool is_forall,
         unsigned weight,
         Z3_symbol quantifier_id,
         Z3_symbol skolem_id,
@@ -201,7 +201,7 @@ extern "C" {
 
 
     Z3_ast Z3_API Z3_mk_quantifier_const_ex(Z3_context c,
-                                            Z3_bool is_forall,
+                                            bool is_forall,
                                             unsigned weight,
                                             Z3_symbol quantifier_id,
                                             Z3_symbol skolem_id,
@@ -283,7 +283,7 @@ extern "C" {
     }
 
     Z3_ast Z3_API Z3_mk_quantifier_const(Z3_context c,
-                                         Z3_bool is_forall,
+                                         bool is_forall,
                                          unsigned weight,
                                          unsigned num_bound,
                                          Z3_app const bound[],
@@ -343,7 +343,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_is_quantifier_forall(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_is_quantifier_forall(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_is_quantifier_forall(c, a);
         RESET_ERROR_CODE();
@@ -351,7 +351,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_quantifier_exists(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_is_quantifier_exists(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_is_quantifier_exists(c, a);
         RESET_ERROR_CODE();
@@ -359,7 +359,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_lambda(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_is_lambda(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_is_lambda(c, a);
         RESET_ERROR_CODE();

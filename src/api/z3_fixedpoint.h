@@ -253,6 +253,9 @@ extern "C" {
     /**
        \brief Set parameters on fixedpoint context.
 
+       \sa Z3_fixedpoint_get_help
+       \sa Z3_fixedpoint_get_param_descrs
+
        def_API('Z3_fixedpoint_set_params', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(PARAMS)))
     */
     void Z3_API Z3_fixedpoint_set_params(Z3_context c, Z3_fixedpoint f, Z3_params p);
@@ -260,12 +263,18 @@ extern "C" {
     /**
        \brief Return a string describing all fixedpoint available parameters.
 
+       \sa Z3_fixedpoint_get_param_descrs
+       \sa Z3_fixedpoint_set_params
+
        def_API('Z3_fixedpoint_get_help', STRING, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
     Z3_string Z3_API Z3_fixedpoint_get_help(Z3_context c, Z3_fixedpoint f);
 
     /**
        \brief Return the parameter description set for the given fixedpoint object.
+
+       \sa Z3_fixedpoint_get_help
+       \sa Z3_fixedpoint_set_params
 
        def_API('Z3_fixedpoint_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
@@ -277,6 +286,9 @@ extern "C" {
        \param f - fixedpoint context.
        \param num_queries - number of additional queries to print.
        \param queries - additional queries.
+
+       \sa Z3_fixedpoint_from_file
+       \sa Z3_fixedpoint_from_string
 
        def_API('Z3_fixedpoint_to_string', STRING, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2, AST)))
     */
@@ -295,6 +307,9 @@ extern "C" {
        \param f - fixedpoint context.
        \param s - string containing SMT2 specification.
 
+       \sa Z3_fixedpoint_from_file
+       \sa Z3_fixedpoint_to_string
+
        def_API('Z3_fixedpoint_from_string', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
     Z3_ast_vector Z3_API Z3_fixedpoint_from_string(Z3_context c,
@@ -309,6 +324,9 @@ extern "C" {
        \param c - context.
        \param f - fixedpoint context.
        \param s - path to file containing SMT2 specification.
+
+       \sa Z3_fixedpoint_from_string
+       \sa Z3_fixedpoint_to_string
 
        def_API('Z3_fixedpoint_from_file', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
