@@ -4822,6 +4822,7 @@ void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
 
 /*
   0 <= i <= len(s) => s = xe & i = len(x)    
+  i < 0 => len(e) = 0
  */
 void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     expr_ref x(mk_skolem(m_pre, s, i), m);
@@ -4833,6 +4834,7 @@ void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     literal i_le_s = mk_simplified_literal(m_autil.mk_le(mk_sub(i, ls), zero));
     add_axiom(~i_ge_0, ~i_le_s, mk_seq_eq(s, xe));
     add_axiom(~i_ge_0, ~i_le_s, mk_eq(i, lx, false));
+    add_axiom(i_ge_0, mk_eq(zero, m_util.str.mk_length(e), false));
 }
 
 
