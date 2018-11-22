@@ -196,23 +196,28 @@ namespace smt {
 
         class nc {
             expr_ref                 m_contains;
+            literal                  m_len_gt;
             dependency*              m_dep;
         public:
-            nc(expr_ref const& c, dependency* dep):
+            nc(expr_ref const& c, literal len_gt, dependency* dep):
                 m_contains(c), 
+                m_len_gt(len_gt),
                 m_dep(dep) {}
             nc(nc const& other):
                 m_contains(other.m_contains), 
+                m_len_gt(other.m_len_gt),
                 m_dep(other.m_dep) {}
             nc& operator=(nc const& other) {
                 if (this != &other) {
                     m_contains = other.m_contains;
                     m_dep = other.m_dep;
+                    m_len_gt = other.m_len_gt;
                 }
                 return *this;
             }
             dependency* deps() const { return m_dep; }
             expr_ref const& contains() const { return m_contains; }
+            literal len_gt() const { return m_len_gt; }
         };
 
         class apply {

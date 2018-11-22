@@ -3077,6 +3077,10 @@ bool theory_seq::solve_nc(unsigned idx) {
         return true;
     }
 
+    if (false && ctx.get_assignment(n.len_gt()) == l_true) {
+        return true;
+    }
+
     if (m.is_eq(c, a, b)) {
         literal eq = mk_eq(a, b, false);
         propagate_lit(deps, 0, nullptr, ~eq);
@@ -3086,7 +3090,7 @@ bool theory_seq::solve_nc(unsigned idx) {
     if (m.is_or(c)) {
         for (expr* arg : *to_app(c)) {
             expr_ref ci(arg, m);
-            m_ncs.push_back(nc(ci, deps));
+            m_ncs.push_back(nc(ci, n.len_gt(), deps));
         }
         m_new_propagation = true;
         return true;
@@ -3113,20 +3117,9 @@ bool theory_seq::solve_nc(unsigned idx) {
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         return true;
     }
-
-    if (m_util.str.is_contains(n.contains(), a, b)) {
-        enforce_length(a);
-        enforce_length(b);
-    }
-
-    rational la, lb;
-    if (get_length(a, la) && get_length(b, lb) && la < lb) {
-        // if len(a) < len(b), then a cannot contain b.
-        return true;
-    }
     
     if (c != n.contains()) {
-        m_ncs.push_back(nc(c, deps));
+        m_ncs.push_back(nc(c, n.len_gt(), deps));
         m_new_propagation = true;
         return true;
     }
@@ -3600,8 +3593,8 @@ void theory_seq::display(std::ostream & out) const {
 
     if (!m_ncs.empty()) {
         out << "Non contains:\n";
-        for (unsigned i = 0; i < m_ncs.size(); ++i) {
-            display_nc(out, m_ncs[i]);
+        for (auto const& nc : m_ncs) {
+            display_nc(out, nc);
         }
     }
 
@@ -3651,15 +3644,14 @@ void theory_seq::display_deps(std::ostream& out, literal_vector const& lits, eno
     context& ctx = get_context();
     smt2_pp_environment_dbg env(m);
     params_ref p;
-    for (unsigned i = 0; i < eqs.size(); ++i) {
+    for (auto const& eq : eqs) {
         out << "  (= ";
-        ast_smt2_pp(out, eqs[i].first->get_owner(), env, p, 5);
+        ast_smt2_pp(out, eq.first->get_owner(), env, p, 5);
         out << "\n     ";
-        ast_smt2_pp(out, eqs[i].second->get_owner(), env, p, 5);
+        ast_smt2_pp(out, eq.second->get_owner(), env, p, 5);
         out << ")\n";
     }
-    for (unsigned i = 0; i < lits.size(); ++i) {
-        literal l = lits[i];        
+    for (literal l : lits) {
         if (l == true_literal) {
             out << "   true";
         }
@@ -3768,9 +3760,9 @@ public:
     }
 
     void add_buffer(svector<unsigned>& sbuffer, zstring const& zs) {
-        for (unsigned l = 0; l < zs.length(); ++l) {
-            sbuffer.push_back(zs[l]);
-        }        
+        for (unsigned ch : zs) {
+            sbuffer.push_back(ch);
+        }
     }
 
     app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
@@ -3966,9 +3958,9 @@ bool theory_seq::canonize(expr* e, expr_ref_vector& es, dependency*& eqs) {
 
 bool theory_seq::canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs) {
     bool change = false;
-    for (unsigned i = 0; i < es.size(); ++i) {
-        change = canonize(es[i], result, eqs) || change;
-        SASSERT(!m_util.str.is_concat(es[i]) || change);
+    for (expr* e : es) {
+        change = canonize(e, result, eqs) || change;
+        SASSERT(!m_util.str.is_concat(e) || change);
     }
     return change;
 }
@@ -5210,7 +5202,9 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         else if (!canonizes(false, e)) {
             propagate_non_empty(lit, e2);
             dependency* dep = m_dm.mk_leaf(assumption(lit));
-            m_ncs.push_back(nc(expr_ref(e, m), dep));
+            literal len_gt = mk_simplified_literal(m_autil.mk_le(m_autil.mk_sub(m_util.str.mk_length(e1), m_util.str.mk_length(e2)), 
+                                                                 m_autil.mk_int(-1)));
+            m_ncs.push_back(nc(expr_ref(e, m), len_gt, dep));
         }
     }
     else if (is_accept(e)) {

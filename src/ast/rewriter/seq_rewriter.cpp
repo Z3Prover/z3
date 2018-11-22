@@ -764,11 +764,6 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE2;
     }    
 
-    expr* x, *y, *z;
-    if (m_util.str.is_extract(b, x, y, z) && x == a) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
     bool all_units = true;
     for (unsigned i = 0; i < bs.size(); ++i) { 
         all_units = m_util.str.is_unit(bs[i].get());
