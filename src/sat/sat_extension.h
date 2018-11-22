@@ -80,6 +80,7 @@ namespace sat {
         virtual void init_use_list(ext_use_list& ul) = 0;
         virtual bool is_blocked(literal l, ext_constraint_idx) = 0;
         virtual bool check_model(model const& m) const = 0;
+        virtual unsigned max_var(unsigned w) const = 0;
     };
 
 };

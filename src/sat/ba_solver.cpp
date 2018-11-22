@@ -64,6 +64,13 @@ namespace sat {
         return static_cast<xr const&>(*this);
     }
 
+    unsigned ba_solver::constraint::fold_max_var(unsigned w) const {
+        if (lit() != null_literal) w = std::max(w, lit().var());
+        for (unsigned i = 0; i < size(); ++i) w = std::max(w, get_lit(i).var());
+        return w;
+    }
+
+
     std::ostream& operator<<(std::ostream& out, ba_solver::constraint const& cnstr) {
         if (cnstr.lit() != null_literal) out << cnstr.lit() << " == ";
         switch (cnstr.tag()) {
@@ -2659,6 +2666,16 @@ namespace sat {
             break;
         }
         c.set_psm(r);
+    }
+    
+    unsigned ba_solver::max_var(unsigned w) const {
+        for (constraint* cp : m_constraints) {
+            w = cp->fold_max_var(w);
+        }
+        for (constraint* cp : m_learned) {
+            w = cp->fold_max_var(w);
+        }
+        return w;
     }
 
     void ba_solver::gc() {
