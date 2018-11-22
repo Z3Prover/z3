@@ -196,23 +196,28 @@ namespace smt {
 
         class nc {
             expr_ref                 m_contains;
+            literal                  m_len_gt;
             dependency*              m_dep;
         public:
-            nc(expr_ref const& c, dependency* dep):
+            nc(expr_ref const& c, literal len_gt, dependency* dep):
                 m_contains(c), 
+                m_len_gt(len_gt),
                 m_dep(dep) {}
             nc(nc const& other):
                 m_contains(other.m_contains), 
+                m_len_gt(other.m_len_gt),
                 m_dep(other.m_dep) {}
             nc& operator=(nc const& other) {
                 if (this != &other) {
                     m_contains = other.m_contains;
                     m_dep = other.m_dep;
+                    m_len_gt = other.m_len_gt;
                 }
                 return *this;
             }
             dependency* deps() const { return m_dep; }
             expr_ref const& contains() const { return m_contains; }
+            literal len_gt() const { return m_len_gt; }
         };
 
         class apply {
@@ -530,7 +535,7 @@ namespace smt {
 
         bool has_length(expr *e) const { return m_length.contains(e); }
         void add_length(expr* e);
-        void enforce_length(enode* n);
+        void enforce_length(expr* n);
         bool enforce_length(expr_ref_vector const& es, vector<rational>& len);
         void enforce_length_coherence(enode* n1, enode* n2);
 
@@ -552,6 +557,7 @@ namespace smt {
         literal mk_simplified_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
+        literal mk_preferred_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
@@ -599,8 +605,6 @@ namespace smt {
         bool add_accept2step(expr* acc, bool& change);       
         bool add_step2accept(expr* step, bool& change);
         bool add_prefix2prefix(expr* e, bool& change);
-        bool add_suffix2suffix(expr* e, bool& change);
-        bool add_contains2contains(expr* e, bool& change);
         void propagate_not_prefix(expr* e);
         void propagate_not_prefix2(expr* e);
         void propagate_not_suffix(expr* e);

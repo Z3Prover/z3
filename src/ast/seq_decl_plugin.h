@@ -41,6 +41,7 @@ enum seq_op_kind {
     OP_SEQ_EXTRACT,
     OP_SEQ_REPLACE,
     OP_SEQ_AT,
+    OP_SEQ_NTH,
     OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
     OP_SEQ_TO_RE,
@@ -243,6 +244,9 @@ public:
         expr* mk_concat(unsigned n, expr* const* es) const { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
         expr* mk_concat(expr_ref_vector const& es) const { return mk_concat(es.size(), es.c_ptr()); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
+        app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
+        app* mk_nth(expr* s, unsigned i) const;
+
         app* mk_substr(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
         app* mk_contains(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
         app* mk_prefix(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }
@@ -270,6 +274,8 @@ public:
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
         bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
+        bool is_nth(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH); }
+        bool is_nth(expr const* n, expr*& s, unsigned& idx) const;
         bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
         bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
         bool is_prefix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
@@ -294,6 +300,7 @@ public:
         MATCH_TERNARY(is_extract);
         MATCH_BINARY(is_contains);
         MATCH_BINARY(is_at);
+        MATCH_BINARY(is_nth);
         MATCH_BINARY(is_index);
         MATCH_TERNARY(is_index);
         MATCH_TERNARY(is_replace);

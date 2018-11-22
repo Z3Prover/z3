@@ -42,7 +42,7 @@ class RC2:
         return name
 
     def print_cost(self):
-        print("max cost", self.max_cost, "min cost", self.min_cost)
+        print("cost [", self.min_cost, ":", self.max_cost, "]")
 
     def update_max_cost(self):
         self.max_cost = min(self.max_cost, self.get_cost())
@@ -141,6 +141,9 @@ def main(file):
     cost, falses = rc2.from_file(file)
     print(cost)
     print(s.statistics())
+
+if len(sys.argv) > 1:
+   main(sys.argv[1])
 
 # main(<myfile>)
     

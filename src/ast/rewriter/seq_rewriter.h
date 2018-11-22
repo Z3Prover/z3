@@ -170,6 +170,8 @@ public:
 
     bool reduce_contains(expr* a, expr* b, expr_ref_vector& disj);
 
+    bool reduce_nth_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs);
+
     void add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& lhs, expr_ref_vector& rhs);
 
 
