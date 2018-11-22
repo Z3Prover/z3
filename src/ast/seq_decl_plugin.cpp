@@ -987,6 +987,11 @@ void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {
     }
 }
 
+app* seq_util::str::mk_is_empty(expr* s) const {
+    return m.mk_eq(mk_empty(get_sort(s)), s);
+}
+
+
 app* seq_util::re::mk_loop(expr* r, unsigned lo) {
     parameter param(lo);
     return m.mk_app(m_fid, OP_RE_LOOP, 1, &param, 1, &r);

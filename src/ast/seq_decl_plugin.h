@@ -252,6 +252,7 @@ public:
         app* mk_char(zstring const& s, unsigned idx) const;
         app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
         app* mk_stoi(expr* s) const { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
+        app* mk_is_empty(expr* s) const;
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
 

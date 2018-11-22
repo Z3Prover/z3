@@ -694,7 +694,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     }
 
     if (as.empty()) {
-        result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
+        result = m_util.str.mk_is_empty(b);
         return BR_REWRITE2;
     }
 
@@ -729,7 +729,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     for (; offs < as.size() && cannot_contain_prefix(as[offs].get(), b0); ++offs) {}
     for (; sz > offs && cannot_contain_suffix(as.get(sz-1), bL); --sz) {}
     if (offs == sz) {
-        result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
+        result = m_util.str.mk_is_empty(b);
         return BR_REWRITE2;
     }
     if (offs > 0 || sz < as.size()) {
@@ -914,25 +914,23 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             }
         }        
     }
-    m_util.str.get_concat(a, as);
-    m_util.str.get_concat(b, bs);
+    m_util.str.get_concat_units(a, as);
+    m_util.str.get_concat_units(b, bs);
     unsigned i = 0;
     expr_ref_vector eqs(m());
     for (; i < as.size() && i < bs.size(); ++i) {
-        expr* a = as[i].get(), *b = bs[i].get();
-        if (a == b) {
+        expr* ai = as.get(i), *bi = bs.get(i);
+        if (m().are_equal(ai, bi)) {
             continue;
         }
-        if (m_util.str.is_unit(a) && m_util.str.is_unit(b)) {
-            eqs.push_back(m().mk_eq(a, b));
-            continue;
-        }
-        if (m().is_value(a) && m().is_value(b) && m_util.str.is_string(a) && m_util.str.is_string(b)) {
-            TRACE("seq", tout << mk_pp(a, m()) << " != " << mk_pp(b, m()) << "\n";);
+        if (m().are_distinct(ai, bi)) {
             result = m().mk_false();
             return BR_DONE;
         }
-
+        if (m_util.str.is_unit(ai) && m_util.str.is_unit(bi)) {
+            eqs.push_back(m().mk_eq(ai, bi));
+            continue;
+        }
         break;
     }
     if (i == as.size()) {
@@ -943,7 +941,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     SASSERT(i < as.size());
     if (i == bs.size()) {
         for (unsigned j = i; j < as.size(); ++j) {
-            eqs.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j].get()));
+            eqs.push_back(m_util.str.mk_is_empty(as.get(j)));
         }
         result = mk_and(eqs);
         TRACE("seq", tout << result << "\n";);
@@ -953,13 +951,13 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         SASSERT(i < as.size() && i < bs.size());
         a = m_util.str.mk_concat(as.size() - i, as.c_ptr() + i);
         b = m_util.str.mk_concat(bs.size() - i, bs.c_ptr() + i); 
-        result = m_util.str.mk_prefix(a, b);
+        eqs.push_back(m_util.str.mk_prefix(a, b));
+        result = mk_and(eqs);
         TRACE("seq", tout << result << "\n";);
-        return BR_DONE;
+        return BR_REWRITE3;
     }
-    else {
-        return BR_FAILED;
-    }
+
+    return BR_FAILED;    
 }
 
 br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
@@ -973,7 +971,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     if (m_util.str.is_empty(b)) {
-        result = m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), a);
+        result = m_util.str.mk_is_empty(a);
         return BR_REWRITE3;
     }
 
@@ -1039,36 +1037,48 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
             }            
         }
     }
-    expr_ref_vector as(m()), bs(m());
-    m_util.str.get_concat(a, as);
-    m_util.str.get_concat(b, bs);
-    bool change = false;
-    while (as.size() > 0 && bs.size() > 0 && as.back() == bs.back()) {
-        as.pop_back();
-        bs.pop_back();
-        change = true;
-    }
-    if (as.size() > 0 && bs.size() > 0 && m().is_value(as.back()) && m().is_value(bs.back())) {
-        result = m().mk_false();
-        return BR_DONE;
-    }
-    if (change) {
-        // suffix("", bs) <- true
-        if (as.empty()) {
-            result = m().mk_true();
+    expr_ref_vector as(m()), bs(m()), eqs(m());
+    m_util.str.get_concat_units(a, as);
+    m_util.str.get_concat_units(b, bs);
+    unsigned i = 1, sza = as.size(), szb = bs.size();
+    for (; i <= sza && i <= szb; ++i) {
+        expr* ai = as.get(sza-i), *bi = bs.get(szb-i);
+        if (m().are_equal(ai, bi)) {
+            continue;
+        }
+        if (m().are_distinct(ai, bi)) {
+            result = m().mk_false();
             return BR_DONE;
         }
-        // suffix(as, "") iff as = ""
-        if (bs.empty()) {            
-            for (unsigned j = 0; j < as.size(); ++j) {
-                bs.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j].get()));
-            }
-            result = mk_and(bs);
-            return BR_REWRITE3;
+        if (m_util.str.is_unit(ai) && m_util.str.is_unit(bi)) {
+            eqs.push_back(m().mk_eq(ai, bi));
+            continue;
         }
-        result = m_util.str.mk_suffix(m_util.str.mk_concat(as.size(), as.c_ptr()),
-                                     m_util.str.mk_concat(bs.size(), bs.c_ptr()));
-        return BR_DONE;
+        break;
+    }
+    if (i > sza) {
+        result = mk_and(eqs);
+        TRACE("seq", tout << result << "\n";);
+        return BR_REWRITE3;
+    }
+    if (i > szb) {
+        for (unsigned j = i; j <= sza; ++j) {
+            expr* aj = as.get(sza-j);
+            eqs.push_back(m_util.str.mk_is_empty(aj));
+        }
+        result = mk_and(eqs);
+        TRACE("seq", tout << result << "\n";);
+        return BR_REWRITE3;
+    }
+
+    if (i > 1) {
+        SASSERT(i <= sza && i <= szb);
+        a = m_util.str.mk_concat(sza - i + 1, as.c_ptr());
+        b = m_util.str.mk_concat(szb - i + 1, bs.c_ptr());
+        eqs.push_back(m_util.str.mk_suffix(a, b));
+        result = mk_and(eqs);
+        TRACE("seq", tout << result << "\n";);
+        return BR_REWRITE3;
     }
 
     return BR_FAILED;
@@ -1226,7 +1236,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         TRACE("seq", tout << seq << "\n";);
               
         if (seq.empty()) {
-            result = m().mk_eq(a, m_util.str.mk_empty(m().get_sort(a)));
+            result = m_util.str.mk_is_empty(a);
         }
         else {
             result = m().mk_eq(a, m_util.str.mk_concat(seq));
@@ -1888,7 +1898,7 @@ bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
         disj.push_back(m_util.str.mk_contains(m_util.str.mk_concat(m_lhs.size() - i, m_lhs.c_ptr() + i), b));
         return true;
     }
-    disj.push_back(m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b))));
+    disj.push_back(m_util.str.mk_is_empty(b));
     return true;
 }
 
