@@ -1241,7 +1241,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         else {
             result = m().mk_eq(a, m_util.str.mk_concat(seq));
         }
-        return BR_REWRITE_FULL;
+        return BR_REWRITE3;
     }
 
     if (!is_sequence(a, seq)) {
@@ -1569,7 +1569,7 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
         return BR_FAILED;
     }
     for (unsigned i = 0; i < lhs.size(); ++i) {
-        res.push_back(m().mk_eq(lhs[i].get(), rhs[i].get()));
+        res.push_back(m().mk_eq(lhs.get(i), rhs.get(i)));
     }
     result = mk_and(res);
     return BR_REWRITE3;
