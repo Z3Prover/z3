@@ -2036,7 +2036,7 @@ namespace z3 {
         expr eval(expr const & n, bool model_completion=false) const {
             check_context(*this, n);
             Z3_ast r = 0;
-            Z3_bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
+            bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
             check_error();
             if (status == false && ctx().enable_exceptions())
                 Z3_THROW(exception("failed to evaluate expression"));
@@ -2112,8 +2112,8 @@ namespace z3 {
         }
         unsigned size() const { return Z3_stats_size(ctx(), m_stats); }
         std::string key(unsigned i) const { Z3_string s = Z3_stats_get_key(ctx(), m_stats, i); check_error(); return s; }
-        bool is_uint(unsigned i) const { Z3_bool r = Z3_stats_is_uint(ctx(), m_stats, i); check_error(); return r != 0; }
-        bool is_double(unsigned i) const { Z3_bool r = Z3_stats_is_double(ctx(), m_stats, i); check_error(); return r != 0; }
+        bool is_uint(unsigned i) const { bool r = Z3_stats_is_uint(ctx(), m_stats, i); check_error(); return r != 0; }
+        bool is_double(unsigned i) const { bool r = Z3_stats_is_double(ctx(), m_stats, i); check_error(); return r != 0; }
         unsigned uint_value(unsigned i) const { unsigned r = Z3_stats_get_uint_value(ctx(), m_stats, i); check_error(); return r; }
         double double_value(unsigned i) const { double r = Z3_stats_get_double_value(ctx(), m_stats, i); check_error(); return r; }
         friend std::ostream & operator<<(std::ostream & out, stats const & s);
@@ -2934,7 +2934,7 @@ namespace z3 {
     inline expr context::bv_val(uint64_t n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_unsigned_int64(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(char const * n, unsigned sz) { sort s = bv_sort(sz); Z3_ast r = Z3_mk_numeral(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::bv_val(unsigned n, bool const* bits) {
-        array<Z3_bool> _bits(n);
+        array<bool> _bits(n);
         for (unsigned i = 0; i < n; ++i) _bits[i] = bits[i] ? 1 : 0;
         Z3_ast r = Z3_mk_bv_numeral(m_ctx, n, _bits.ptr()); check_error(); return expr(*this, r);
     }

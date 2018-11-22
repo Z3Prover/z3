@@ -444,13 +444,24 @@ struct goal2sat::imp {
         convert_to_wlits(t, lits, wlits);        
     }
 
+    void push_result(bool root, sat::literal lit, unsigned num_args) {
+        if (root) {
+            m_result_stack.reset();
+            mk_clause(lit);                
+        }
+        else {
+            m_result_stack.shrink(m_result_stack.size() - num_args);
+            m_result_stack.push_back(lit);
+        }
+    }
+
     void convert_pb_ge(app* t, bool root, bool sign) {
         rational k = pb.get_k(t);
         check_unsigned(k);                
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
         unsigned sz = m_result_stack.size();
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             unsigned k1 = k.get_unsigned();
             if (sign) {
@@ -467,8 +478,7 @@ struct goal2sat::imp {
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            m_result_stack.shrink(sz - t->get_num_args());
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }
     }
 
@@ -483,7 +493,7 @@ struct goal2sat::imp {
         }
         check_unsigned(k);
         unsigned sz = m_result_stack.size();
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             unsigned k1 = k.get_unsigned();
             if (sign) {
@@ -500,19 +510,19 @@ struct goal2sat::imp {
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            m_result_stack.shrink(sz - t->get_num_args());
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }
     }
 
     void convert_pb_eq(app* t, bool root, bool sign) {
-        IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
+        //IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
         rational k = pb.get_k(t);
         SASSERT(k.is_unsigned());
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
-        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
-        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
+        bool base_assert = (root && !sign && m_solver.num_user_scopes() == 0);
+        sat::bool_var v1 = base_assert ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v2 = base_assert ? sat::null_bool_var : m_solver.mk_var(true);
         m_ext->add_pb_ge(v1, wlits, k.get_unsigned());        
         k.neg();
         for (wliteral& wl : wlits) {
@@ -521,7 +531,7 @@ struct goal2sat::imp {
         }
         check_unsigned(k);
         m_ext->add_pb_ge(v2, wlits, k.get_unsigned());
-        if (root && !sign) {
+        if (base_assert) {
             m_result_stack.reset();
         }
         else {
@@ -532,13 +542,8 @@ struct goal2sat::imp {
             mk_clause(~l, l2);
             mk_clause(~l1, ~l2, l);
             m_cache.insert(t, l);
-            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
             if (sign) l.neg();
-            m_result_stack.push_back(l);
-            if (root) {
-                m_result_stack.reset();
-                mk_clause(l);
-            }
+            push_result(root, l, t->get_num_args());
         }
     }
 
@@ -547,7 +552,7 @@ struct goal2sat::imp {
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
         convert_pb_args(t->get_num_args(), lits);
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             m_ext->add_at_least(sat::null_bool_var, lits, k.get_unsigned());
         }
@@ -558,8 +563,7 @@ struct goal2sat::imp {
             m_cache.insert(t, lit);
             if (sign) lit.neg();
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            m_result_stack.shrink(sz - t->get_num_args());
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }
     }
 
@@ -571,7 +575,7 @@ struct goal2sat::imp {
         for (sat::literal& l : lits) {
             l.neg();
         }
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             m_ext->add_at_least(sat::null_bool_var, lits, lits.size() - k.get_unsigned());
         }
@@ -580,9 +584,8 @@ struct goal2sat::imp {
             sat::literal lit(v, false);
             m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
             m_cache.insert(t, lit);
-            m_result_stack.shrink(sz - t->get_num_args());
             if (sign) lit.neg();
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }        
     }
 
@@ -610,13 +613,8 @@ struct goal2sat::imp {
             mk_clause(~l, l2);
             mk_clause(~l1, ~l2, l);
             m_cache.insert(t, l);
-            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
             if (sign) l.neg();
-            m_result_stack.push_back(l);
-            if (root) {
-                mk_clause(l);
-                m_result_stack.reset();
-            }
+            push_result(root, l, t->get_num_args());
         }
     }
 

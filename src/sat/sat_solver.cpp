@@ -3430,17 +3430,19 @@ namespace sat {
     }
 
     void solver::gc_var(bool_var v) {
-        if (v > 0) {
-            bool_var w = max_var(m_learned, v-1);
-            w = max_var(m_clauses, w);
-            w = max_var(true, w);
-            w = max_var(false, w);
-            v = m_mc.max_var(w);
-            for (literal lit : m_trail) {
-                if (lit.var() > w) w = lit.var();
-            }
-            v = std::max(v, w + 1);
+        bool_var w = max_var(m_learned, v);
+        w = max_var(m_clauses, w);
+        w = max_var(true, w);
+        w = max_var(false, w);
+        v = m_mc.max_var(w);
+        for (literal lit : m_trail) {
+            w = std::max(w, lit.var());
         }
+        if (m_ext) {
+            w = m_ext->max_var(w);
+        }
+        v = w + 1;
+        
         // v is an index of a variable that does not occur in solver state.
         if (v < m_justification.size()) {
             for (bool_var i = v; i < m_justification.size(); ++i) {

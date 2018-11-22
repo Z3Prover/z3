@@ -3760,8 +3760,8 @@ public:
     }
 
     void add_buffer(svector<unsigned>& sbuffer, zstring const& zs) {
-        for (unsigned ch : zs) {
-            sbuffer.push_back(ch);
+        for (unsigned i = 0; i < zs.length(); ++i) {
+            sbuffer.push_back(zs[i]);
         }
     }
 
@@ -4858,6 +4858,8 @@ void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
 
 /*
   0 <= i <= len(s) => s = xe & i = len(x)    
+  i < 0 => len(e) = 0
+  i > len(s) => len(e) = 0
  */
 void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     expr_ref x(mk_skolem(m_pre, s, i), m);
@@ -4865,10 +4867,13 @@ void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     expr_ref ls(m_util.str.mk_length(s), m);
     expr_ref zero(m_autil.mk_int(0), m);
     expr_ref xe = mk_concat(x, e);
+    literal le_is_0 = mk_eq(zero, m_util.str.mk_length(e), false);
     literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
     literal i_le_s = mk_simplified_literal(m_autil.mk_le(mk_sub(i, ls), zero));
     add_axiom(~i_ge_0, ~i_le_s, mk_seq_eq(s, xe));
     add_axiom(~i_ge_0, ~i_le_s, mk_eq(i, lx, false));
+    add_axiom(i_ge_0, le_is_0);
+    add_axiom(i_le_s, le_is_0);
 }
 
 

@@ -74,7 +74,7 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_bool Z3_API Z3_stats_is_uint(Z3_context c, Z3_stats s, unsigned idx) {
+    bool Z3_API Z3_stats_is_uint(Z3_context c, Z3_stats s, unsigned idx) {
         Z3_TRY;
         LOG_Z3_stats_is_uint(c, s, idx);
         RESET_ERROR_CODE();
@@ -86,7 +86,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_bool Z3_API Z3_stats_is_double(Z3_context c, Z3_stats s, unsigned idx) {
+    bool Z3_API Z3_stats_is_double(Z3_context c, Z3_stats s, unsigned idx) {
         Z3_TRY;
         LOG_Z3_stats_is_double(c, s, idx);
         RESET_ERROR_CODE();

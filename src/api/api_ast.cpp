@@ -73,7 +73,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_is_eq_sort(Z3_context c, Z3_sort s1, Z3_sort s2) {
+    bool Z3_API Z3_is_eq_sort(Z3_context c, Z3_sort s1, Z3_sort s2) {
         RESET_ERROR_CODE();
         return s1 == s2;
     }
@@ -88,12 +88,12 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_is_eq_ast(Z3_context c, Z3_ast s1, Z3_ast s2) {
+    bool Z3_API Z3_is_eq_ast(Z3_context c, Z3_ast s1, Z3_ast s2) {
         RESET_ERROR_CODE();
         return s1 == s2;
     }
 
-    Z3_bool Z3_API Z3_is_eq_func_decl(Z3_context c, Z3_func_decl s1, Z3_func_decl s2) {
+    bool Z3_API Z3_is_eq_func_decl(Z3_context c, Z3_func_decl s1, Z3_func_decl s2) {
         RESET_ERROR_CODE();
         return s1 == s2;
     }
@@ -308,7 +308,7 @@ extern "C" {
         return to_sort(s)->get_id();
     }
 
-    Z3_bool Z3_API Z3_is_well_sorted(Z3_context c, Z3_ast t) {
+    bool Z3_API Z3_is_well_sorted(Z3_context c, Z3_ast t) {
         Z3_TRY;
         LOG_Z3_is_well_sorted(c, t);
         RESET_ERROR_CODE();
@@ -383,7 +383,7 @@ extern "C" {
         return to_ast(a)->hash();
     }
 
-    Z3_bool Z3_API Z3_is_app(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_is_app(Z3_context c, Z3_ast a) {
         LOG_Z3_is_app(c, a);
         RESET_ERROR_CODE();
         return a != nullptr && is_app(reinterpret_cast<ast*>(a));

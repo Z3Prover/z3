@@ -25,7 +25,7 @@ Revision History:
 
 extern "C" {
 
-    Z3_goal Z3_API Z3_mk_goal(Z3_context c, Z3_bool models, Z3_bool unsat_cores, Z3_bool proofs) {
+    Z3_goal Z3_API Z3_mk_goal(Z3_context c, bool models, bool unsat_cores, bool proofs) {
         Z3_TRY;
         LOG_Z3_mk_goal(c, models, unsat_cores, proofs);
         RESET_ERROR_CODE();
@@ -82,7 +82,7 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_bool Z3_API Z3_goal_inconsistent(Z3_context c, Z3_goal g) {
+    bool Z3_API Z3_goal_inconsistent(Z3_context c, Z3_goal g) {
         Z3_TRY;
         LOG_Z3_goal_inconsistent(c, g);
         RESET_ERROR_CODE();
@@ -136,7 +136,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
     
-    Z3_bool Z3_API Z3_goal_is_decided_sat(Z3_context c, Z3_goal g) {
+    bool Z3_API Z3_goal_is_decided_sat(Z3_context c, Z3_goal g) {
         Z3_TRY;
         LOG_Z3_goal_is_decided_sat(c, g);
         RESET_ERROR_CODE();
@@ -144,7 +144,7 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
     
-    Z3_bool Z3_API Z3_goal_is_decided_unsat(Z3_context c, Z3_goal g) {
+    bool Z3_API Z3_goal_is_decided_unsat(Z3_context c, Z3_goal g) {
         Z3_TRY;
         LOG_Z3_goal_is_decided_unsat(c, g);
         RESET_ERROR_CODE();

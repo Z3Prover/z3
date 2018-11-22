@@ -306,24 +306,31 @@ public:
     // prevent abuse:
     ref_vector & operator=(ref_vector const & other) = delete;
 
-    bool containsp(std::function<bool(T)>& predicate) const {
-        for (auto const& t : *this)
+    bool forall(std::function<bool(T*)>& predicate) const {
+        for (T* t : *this)
+            if (!predicate(t)) 
+                return false;
+        return true;
+    }
+
+    bool exists(std::function<bool(T*)>& predicate) const {
+        for (T* t : *this)
             if (predicate(t)) 
                 return true;
         return false;
     }
 
-    ref_vector filter_pure(std::function<bool(T)>& predicate) const {
+    ref_vector filter_pure(std::function<bool(T*)>& predicate) const {
         ref_vector result(m());
-        for (auto& t : *this)
+        for (T* t : *this)
             if (predicate(t)) 
                 result.push_back(t);
         return result;
     }
 
 #if 0
-    // TBD: not sure why some compilers complain here.
-    ref_vector& filter_update(std::function<bool(T)>& predicate) {
+    // TBD: 
+    ref_vector& filter_update(std::function<bool(T*)>& predicate) {
         unsigned j = 0;
         for (auto& t : *this)
             if (predicate(t)) 
@@ -334,23 +341,23 @@ public:
 #endif
 
     template <typename S>
-    vector<S> mapv_pure(std::function<S(T)>& f) const {
+    vector<S> mapv_pure(std::function<S(T*)>& f) const {
         vector<S> result;
-        for (auto& t : *this)
+        for (T* t : *this)
             result.push_back(f(t));
         return result;
     }
 
-    ref_vector map_pure(std::function<T(T)>& f) const {
+    ref_vector map_pure(std::function<T*(T*)>& f) const {
         ref_vector result(m());
-        for (auto& t : *this)
+        for (T* t : *this)
             result.push_back(f(t));
         return result;
     }
 
-    ref_vector& map_update(std::function<T(T)>& f)  {
+    ref_vector& map_update(std::function<T*(T*)>& f)  {
         unsigned j = 0;
-        for (auto& t : *this)
+        for (T* t : *this)
             set(j++, f(t));
         return *this;
     }

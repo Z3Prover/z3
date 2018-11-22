@@ -292,8 +292,10 @@ void memory::deallocate(void * p) {
 void * memory::allocate(size_t s) {
     s = s + sizeof(size_t); // we allocate an extra field!
     void * r = malloc(s);
-    if (r == 0) 
+    if (r == 0) {
         throw_out_of_memory();
+        return nullptr;
+    }
     *(static_cast<size_t*>(r)) = s;
     g_memory_thread_alloc_size += s;
     g_memory_thread_alloc_count += 1;
@@ -317,8 +319,10 @@ void* memory::reallocate(void *p, size_t s) {
     }
 
     void *r = realloc(real_p, s);
-    if (r == 0)
+    if (r == 0) {
         throw_out_of_memory();
+        return nullptr;
+    }
     *(static_cast<size_t*>(r)) = s;
     return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
 }
@@ -361,8 +365,10 @@ void * memory::allocate(size_t s) {
     if (counts_exceeded)
         throw_alloc_counts_exceeded();
     void * r = malloc(s);
-    if (r == nullptr)
+    if (r == nullptr) {
         throw_out_of_memory();
+        return nullptr;
+    }
     *(static_cast<size_t*>(r)) = s;
     return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
 }
@@ -389,8 +395,10 @@ void* memory::reallocate(void *p, size_t s) {
     if (counts_exceeded)
         throw_alloc_counts_exceeded();
     void *r = realloc(real_p, s);
-    if (r == nullptr)
+    if (r == nullptr) {
         throw_out_of_memory();
+        return nullptr;
+    }
     *(static_cast<size_t*>(r)) = s;
     return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
 }

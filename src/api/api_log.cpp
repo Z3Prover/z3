@@ -33,8 +33,8 @@ extern "C" {
         }
     }
 
-    Z3_bool Z3_API Z3_open_log(Z3_string filename) {
-        Z3_bool res = true;
+    bool Z3_API Z3_open_log(Z3_string filename) {
+        bool res = true;
 
 #ifdef Z3_LOG_SYNC
         #pragma omp critical (z3_log)

@@ -595,8 +595,7 @@ unsigned get_node_hash(ast const * n) {
     return 0;
 }
 
-void ast_table::erase(ast * n) {
-    // Customized erase method
+void ast_table::push_erase(ast * n) {
     // It uses two important properties:
     // 1. n is known to be in the table.
     // 2. operator== can be used instead of compare_nodes (big savings)
@@ -604,35 +603,58 @@ void ast_table::erase(ast * n) {
     unsigned h    = n->hash();
     unsigned idx  = h & mask;
     cell * c      = m_table + idx;
-    SASSERT(!c->is_free());
     cell * prev = nullptr;
     while (true) {
+        SASSERT(!c->is_free());
+        cell * next = c->m_next;
         if (c->m_data == n) {
             m_size--;
             if (prev == nullptr) {
-                cell * next = c->m_next;
                 if (next == nullptr) {
                     m_used_slots--;
+                    push_recycle_cell(c);
                     c->mark_free();
                     SASSERT(c->is_free());
                 }
                 else {
                     *c = *next;
-                    recycle_cell(next);
+                    next->m_data = n;
+                    push_recycle_cell(next);
                 }
             }
             else {
-                prev->m_next = c->m_next;
-                recycle_cell(c);
+                prev->m_next = next;
+                push_recycle_cell(c);
             }
             return;
         }
         CHS_CODE(m_collisions++;);
         prev = c;
-        c = c->m_next;
+        c = next;
         SASSERT(c);
     }
 }
+
+ast* ast_table::pop_erase() {
+    cell* c = m_tofree_cell;
+    if (c == nullptr) {
+        return nullptr;
+    }
+    if (c->is_free()) {
+        // cell was marked free, should not be recycled.
+        c->unmark_free();
+        m_tofree_cell = c->m_next;
+        c->mark_free();
+    }
+    else {
+        // cell should be recycled with m_free_cell
+        m_tofree_cell = c->m_next;
+        recycle_cell(c);
+    }        
+    return c->m_data;
+}
+
+
 
 // -----------------------------------
 //
@@ -1827,21 +1849,17 @@ ast * ast_manager::register_node_core(ast * n) {
 
 void ast_manager::delete_node(ast * n) {
     TRACE("delete_node_bug", tout << mk_ll_pp(n, *this) << "\n";);
-    ptr_buffer<ast> worklist;
-    worklist.push_back(n);
 
-    while (!worklist.empty()) {
-        n = worklist.back();
-        worklist.pop_back();
+    SASSERT(m_ast_table.contains(n));
+    m_ast_table.push_erase(n);
+
+    while ((n = m_ast_table.pop_erase())) {
 
         TRACE("ast", tout << "Deleting object " << n->m_id << " " << n << "\n";);
         CTRACE("del_quantifier", is_quantifier(n), tout << "deleting quantifier " << n->m_id << " " << n << "\n";);
         TRACE("mk_var_bug", tout << "del_ast: " << n->m_id << "\n";);
         TRACE("ast_delete_node", tout << mk_bounded_pp(n, *this) << "\n";);
 
-        SASSERT(m_ast_table.contains(n));
-        m_ast_table.erase(n);
-        SASSERT(!m_ast_table.contains(n));
         SASSERT(!m_debug_ref_count || !m_debug_free_indices.contains(n->m_id));
 
 #ifdef RECYCLE_FREE_AST_INDICES
@@ -1860,29 +1878,35 @@ void ast_manager::delete_node(ast * n) {
                 dealloc(info);
             }
             break;
-        case AST_FUNC_DECL:
-            if (to_func_decl(n)->m_info != nullptr && !m_debug_ref_count) {
-                func_decl_info * info = to_func_decl(n)->get_info();
+        case AST_FUNC_DECL: {
+            func_decl* f = to_func_decl(n);
+            if (f->m_info != nullptr && !m_debug_ref_count) {
+                func_decl_info * info = f->get_info();
                 info->del_eh(*this);
                 dealloc(info);
             }
-            dec_array_ref(worklist, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
-            dec_ref(worklist, to_func_decl(n)->get_range());
+            push_dec_array_ref(f->get_arity(), f->get_domain());
+            push_dec_ref(f->get_range());
             break;
-        case AST_APP:
-            dec_ref(worklist, to_app(n)->get_decl());
-            dec_array_ref(worklist, to_app(n)->get_num_args(), to_app(n)->get_args());
+        }
+        case AST_APP: {
+            app* a = to_app(n);
+            push_dec_ref(a->get_decl());
+            push_dec_array_ref(a->get_num_args(), a->get_args());
             break;
+        }
         case AST_VAR:
-            dec_ref(worklist, to_var(n)->get_sort());
+            push_dec_ref(to_var(n)->get_sort());
             break;
-        case AST_QUANTIFIER:
-            dec_array_ref(worklist, to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
-            dec_ref(worklist, to_quantifier(n)->get_expr());
-            dec_ref(worklist, to_quantifier(n)->get_sort());
-            dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
-            dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
+        case AST_QUANTIFIER: {
+            quantifier* q = to_quantifier(n);
+            push_dec_array_ref(q->get_num_decls(), q->get_decl_sorts());
+            push_dec_ref(q->get_expr());
+            push_dec_ref(q->get_sort());
+            push_dec_array_ref(q->get_num_patterns(), q->get_patterns());
+            push_dec_array_ref(q->get_num_no_patterns(), q->get_no_patterns());
             break;
+        }
         default:
             break;
         }

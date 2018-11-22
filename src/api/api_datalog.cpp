@@ -199,7 +199,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t * out) {
+    bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t * out) {
         Z3_TRY;
         if (out) {
             *out = 0;

@@ -75,7 +75,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_model_has_interp(Z3_context c, Z3_model m, Z3_func_decl a) {
+    bool Z3_API Z3_model_has_interp(Z3_context c, Z3_model m, Z3_func_decl a) {
         Z3_TRY;
         LOG_Z3_model_has_interp(c, m, a);
         CHECK_NON_NULL(m, 0);
@@ -157,7 +157,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
     
-    Z3_bool Z3_API Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, Z3_bool model_completion, Z3_ast * v) {
+    bool Z3_API Z3_model_eval(Z3_context c, Z3_model m, Z3_ast t, bool model_completion, Z3_ast * v) {
         Z3_TRY;
         LOG_Z3_model_eval(c, m, t, model_completion, v);
         if (v) *v = nullptr;
@@ -225,7 +225,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
     
-    Z3_bool Z3_API Z3_is_as_array(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_is_as_array(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_is_as_array(c, a);
         RESET_ERROR_CODE();

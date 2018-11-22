@@ -338,7 +338,11 @@ namespace smt {
             literal concl = mk_literal(pred_applied);
             preds.push_back(concl);
 
-            if (depth >= m_max_depth) {
+            if (c.is_immediate()) {
+                body_expansion be(pred_applied, c, e.m_args);
+                assert_body_axiom(be);
+            }
+            else if (depth >= m_max_depth) {
                 assert_max_depth_limit(pred_applied);
                 continue;
             }
@@ -354,10 +358,6 @@ namespace smt {
             }
             ctx().mk_th_axiom(get_id(), guards);
 
-            if (c.is_immediate()) {
-                body_expansion be(pred_applied, c, e.m_args);
-                assert_body_axiom(be);
-            }
         }
         // the disjunction of branches is asserted
         // to close the available cases. 
@@ -386,6 +386,7 @@ namespace smt {
             expr_ref guard = apply_args(depth, vars, args, g);
             clause.push_back(~mk_literal(guard));
             if (clause.back() == true_literal) {
+                TRACEFN("body " << pp_body_expansion(e,m) << "\n" << clause << "\n" << guard);
                 return;
             }
             if (clause.back() == false_literal) {

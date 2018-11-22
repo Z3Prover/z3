@@ -62,7 +62,7 @@ extern "C" {
     /**
        \brief Add a Boolean parameter \c k with value \c v to the parameter set \c p.
     */
-    void Z3_API Z3_params_set_bool(Z3_context c, Z3_params p, Z3_symbol k, Z3_bool v) {
+    void Z3_API Z3_params_set_bool(Z3_context c, Z3_params p, Z3_symbol k, bool v) {
         Z3_TRY;
         LOG_Z3_params_set_bool(c, p, k, v);
         RESET_ERROR_CODE();

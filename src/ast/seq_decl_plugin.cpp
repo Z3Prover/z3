@@ -938,16 +938,16 @@ app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort
     return m.mk_app(f, n, args);
 }
 
-app* seq_util::str::mk_string(zstring const& s) { return u.seq.mk_string(s); }
+app* seq_util::str::mk_string(zstring const& s) const { 
+    return u.seq.mk_string(s); 
+}
 
-
-
-app*  seq_util::str::mk_char(zstring const& s, unsigned idx) {
+app*  seq_util::str::mk_char(zstring const& s, unsigned idx) const {
     bv_util bvu(m);
     return bvu.mk_numeral(s[idx], s.num_bits());
 }
 
-app*  seq_util::str::mk_char(char ch) {
+app*  seq_util::str::mk_char(char ch) const {
     zstring s(ch, zstring::ascii);
     return mk_char(s, 0);
 }
@@ -968,10 +968,9 @@ bool seq_util::str::is_nth(expr const* n, expr*& s, unsigned& idx) const {
     return arith_util(m).is_unsigned(i, idx);
 }
 
-app* seq_util::str::mk_nth(expr* s, unsigned i) {
+app* seq_util::str::mk_nth(expr* s, unsigned i) const {
     return mk_nth(s, arith_util(m).mk_int(i));
 }
-
 
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
@@ -984,6 +983,29 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
         es.push_back(e);
     }
 }
+
+void seq_util::str::get_concat_units(expr* e, expr_ref_vector& es) const {
+    expr* e1, *e2;
+    while (is_concat(e, e1, e2)) {
+        get_concat_units(e1, es);
+        e = e2;
+    }
+    zstring s;
+    if (is_string(e, s)) {
+        unsigned sz = s.length();
+        for (unsigned j = 0; j < sz; ++j) {
+            es.push_back(mk_unit(mk_char(s, j)));
+        }        
+    }
+    else if (!is_empty(e)) {
+        es.push_back(e);
+    }
+}
+
+app* seq_util::str::mk_is_empty(expr* s) const {
+    return m.mk_eq(s, mk_empty(get_sort(s)));
+}
+
 
 app* seq_util::re::mk_loop(expr* r, unsigned lo) {
     parameter param(lo);
