@@ -2292,6 +2292,26 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     return true;
 }
 
+bool theory_seq::solve_nth_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependency* deps) {
+    if (ls.size() != 1) return false;
+    expr_ref l(ls.get(0), m);
+    for (unsigned i = 0; i < rs.size(); ++i) {
+        unsigned k = 0;
+        expr* ru = nullptr, *r = nullptr;
+        if (m_util.str.is_unit(rs.get(i), ru) && m_util.str.is_nth(ru, r, k) && k == i && r == l) {
+            continue;
+        }
+        return false;
+    }
+    add_solution(l, mk_concat(rs, m.get_sort(l)), deps);
+    expr_ref r(m_autil.mk_int(rs.size()), m);
+    ls.reset();
+    rs.reset();
+    ls.push_back(m_util.str.mk_length(l));
+    rs.push_back(r);
+    return true;
+}
+
 bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* deps) {
     if (l.size() == 1 && is_var(l[0]) && !occurs(l[0], r) && add_solution(l[0], mk_concat(r, m.get_sort(l[0])), deps)) {
         return true;
@@ -2445,6 +2465,12 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
     if (!ctx.inconsistent() && solve_binary_eq(ls, rs, deps)) {
         TRACE("seq", tout << "binary\n";);
         return true;
+    }
+    if (!ctx.inconsistent() && solve_nth_eq(ls, rs, deps)) {
+        change = true;
+    }
+    if (!ctx.inconsistent() && solve_nth_eq(rs, ls, deps)) {
+        change = true;
     }
     if (!ctx.inconsistent() && change) {
         // The propagation step from arithmetic state (e.g. length offset) to length constraints
