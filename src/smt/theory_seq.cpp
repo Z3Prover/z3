@@ -2292,9 +2292,30 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     return true;
 }
 
-bool theory_seq::solve_nth_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependency* deps) {
-    if (ls.size() != 1) return false;
-    expr_ref l(ls.get(0), m);
+bool theory_seq::solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
+    expr* e = nullptr;
+    if (ls.size() == 1 && rs.empty() && m_util.str.is_itos(ls[0], e)) {
+        literal lit = mk_simplified_literal(m_autil.mk_le(e, m_autil.mk_int(-1)));
+        propagate_lit(dep, 0, nullptr, lit);
+        return true;
+    } 
+    if (rs.size() == 1 && ls.empty() && m_util.str.is_itos(rs[0], e)) {
+        literal lit = mk_simplified_literal(m_autil.mk_le(e, m_autil.mk_int(-1)));
+        propagate_lit(dep, 0, nullptr, lit);
+        return true;
+    } 
+    return false;
+}
+
+bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
+    if (ls.size() != 1 || rs.size() <= 1) {
+        return false;
+    }
+    expr* l = ls.get(0);
+    rational val;
+    if (!get_length(l, val) || val != rational(rs.size())) {
+        return false;
+    }
     for (unsigned i = 0; i < rs.size(); ++i) {
         unsigned k = 0;
         expr* ru = nullptr, *r = nullptr;
@@ -2303,12 +2324,7 @@ bool theory_seq::solve_nth_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependen
         }
         return false;
     }
-    add_solution(l, mk_concat(rs, m.get_sort(l)), deps);
-    expr_ref r(m_autil.mk_int(rs.size()), m);
-    ls.reset();
-    rs.reset();
-    ls.push_back(m_util.str.mk_length(l));
-    rs.push_back(r);
+    add_solution(l, mk_concat(rs, m.get_sort(l)), dep);
     return true;
 }
 
@@ -2467,10 +2483,13 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
         return true;
     }
     if (!ctx.inconsistent() && solve_nth_eq(ls, rs, deps)) {
-        change = true;
+        return true;
     }
     if (!ctx.inconsistent() && solve_nth_eq(rs, ls, deps)) {
-        change = true;
+        return true;
+    }
+    if (!ctx.inconsistent() && solve_itos(rs, ls, deps)) {
+        return true;
     }
     if (!ctx.inconsistent() && change) {
         // The propagation step from arithmetic state (e.g. length offset) to length constraints
@@ -3433,7 +3452,7 @@ bool theory_seq::add_stoi_val_axiom(expr* e) {
     }
     if (!m_stoi_axioms.contains(val)) {
         m_stoi_axioms.insert(val);
-        if (!val.is_minus_one()) {
+        if (!val.is_neg()) {
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
             expr_ref n1(arith_util(m).mk_numeral(val, true), m);
             literal eq1 = mk_preferred_eq(e, n1);
