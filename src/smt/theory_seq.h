@@ -620,9 +620,7 @@ namespace smt {
         bool add_reject2reject(expr* rej, bool& change);
         bool add_accept2step(expr* acc, bool& change);       
         bool add_step2accept(expr* step, bool& change);
-        bool add_prefix2prefix(expr* e, bool& change);
         void propagate_not_prefix(expr* e);
-        void propagate_not_prefix2(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
