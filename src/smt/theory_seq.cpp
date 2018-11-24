@@ -3431,14 +3431,17 @@ void theory_seq::add_stoi_axiom(expr* e) {
     literal l = mk_simplified_literal(m_autil.mk_ge(e, m_autil.mk_int(-1)));
     add_axiom(l);    
     
-    // stoi(s) >= 0 <=> s in (0-9)+
-    expr_ref num_re(m);
-    num_re = m_util.re.mk_range(m_util.str.mk_string(symbol("0")), m_util.str.mk_string(symbol("9")));
-    num_re = m_util.re.mk_plus(num_re);
-    app_ref in_re(m_util.re.mk_in_re(s, num_re), m);
-    literal ge0 = mk_simplified_literal(m_autil.mk_ge(e, m_autil.mk_int(0)));
-    add_axiom(~ge0, mk_literal(in_re));
-    add_axiom(ge0, ~mk_literal(in_re));
+}
+
+void theory_seq::ensure_digit_axiom() {
+
+    if (m_stoi_axioms.empty() && m_itos_axioms.empty()) {
+        bv_util bv(m);
+        for (unsigned i = 0; i < 10; ++i) {
+            expr_ref cnst(bv.mk_numeral(rational('0'+i), bv.mk_sort(8)), m);
+            add_axiom(mk_eq(digit2int(cnst), m_autil.mk_int(i), false));
+        }
+    }
 }
 
 bool theory_seq::add_stoi_val_axiom(expr* e) {
@@ -3447,54 +3450,16 @@ bool theory_seq::add_stoi_val_axiom(expr* e) {
     rational val;
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
     VERIFY(m_util.str.is_stoi(e, n));    
-    if (!get_num_value(e, val)) {
+
+    if (m_util.str.is_itos(n)) {
         return false;
     }
-    if (!m_stoi_axioms.contains(val)) {
-        m_stoi_axioms.insert(val);
-        if (!val.is_neg()) {
-            app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
-            expr_ref n1(arith_util(m).mk_numeral(val, true), m);
-            literal eq1 = mk_preferred_eq(e, n1);
-            literal eq2 = mk_preferred_eq(n, e1);
-            add_axiom(~eq1, eq2);
-            add_axiom(~eq2, eq1);
-            m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_stoi_axioms, val));
-            m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
-            return true;
-        }
-    }
-    if (upper_bound(n, val) && get_length(n, val) && val.is_pos() && !m_stoi_axioms.contains(val)) {
-        zstring s;
-        SASSERT(val.is_unsigned());
-        unsigned sz = val.get_unsigned();
-        expr_ref len1(m), len2(m), ith_char(m), num(m), coeff(m);
-        expr_ref_vector nums(m);
-        len1 = m_util.str.mk_length(n);
-        len2 = m_autil.mk_int(sz);
-        literal lit = mk_eq(len1, len2, false);
-        literal_vector lits;
-        lits.push_back(~lit);
-        for (unsigned i = 0; i < sz; ++i) {
-            ith_char = mk_nth(n, m_autil.mk_int(i));
-            lits.push_back(~is_digit(ith_char));
-            nums.push_back(digit2int(ith_char));
-        }        
-        rational c(1);
-        for (unsigned i = sz; i-- > 0; c *= rational(10)) {
-            coeff = m_autil.mk_numeral(c, true);
-            nums[i] = m_autil.mk_mul(coeff, nums[i].get());
-        }
-        num = m_autil.mk_add(nums.size(), nums.c_ptr());
-        ctx.get_rewriter()(num);
-        lits.push_back(mk_preferred_eq(e, num));
-        ++m_stats.m_add_axiom;
-        m_new_propagation = true;
-        for (literal lit : lits) {
-            ctx.mark_as_relevant(lit);
-        }
-        TRACE("seq", ctx.display_literals_verbose(tout, lits); tout << "\n";);
-        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+
+    enforce_length(n);
+
+    if (get_length(n, val) && val.is_pos() && val.is_unsigned() && !m_stoi_axioms.contains(val)) {
+        ensure_digit_axiom();
+        add_si_axiom(n, e, val.get_unsigned());        
         m_stoi_axioms.insert(val);
         m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_stoi_axioms, val));
         m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
@@ -3515,16 +3480,6 @@ literal theory_seq::is_digit(expr* ch) {
     add_axiom(~lo, ~hi, isd);
     add_axiom(~isd, lo);
     add_axiom(~isd, hi);
-#if 1
-    for (unsigned i = 0; i < 10; ++i) {
-        expr_ref cnst(bv.mk_numeral(rational('0'+i), bv.mk_sort(8)), m);
-        add_axiom(mk_eq(digit2int(cnst), m_autil.mk_int(i), false));
-    }
-#else
-    for (unsigned i = 0; i < 10; ++i) {
-        add_axiom(~mk_eq(ch, bv.mk_numeral(rational('0'+i), bv.mk_sort(8)), false), mk_preferred_eq(d2i, m_autil.mk_int(i)));
-    }
-#endif
     return isd;
 }
 
@@ -3553,13 +3508,45 @@ void theory_seq::add_itos_axiom(expr* e) {
     app_ref stoi(m_util.str.mk_stoi(e), m);
     add_axiom(~ge0, mk_preferred_eq(stoi, n));
 
-    // n >= 0 => itos(n) in (0-9)+
-    expr_ref num_re(m);
-    num_re = m_util.re.mk_range(m_util.str.mk_string(symbol("0")), m_util.str.mk_string(symbol("9")));
-    num_re = m_util.re.mk_plus(num_re);
-    app_ref in_re(m_util.re.mk_in_re(e, num_re), m);
-    add_axiom(~ge0, mk_literal(in_re));
 }
+
+
+// n >= 0 & len(e) = k => is_digit(e_i) for i = 0..k-1
+// n >= 0 & len(e) = k => n = sum 10^i*digit(e_i)
+// n < 0  & len(e) = k => \/_i ~is_digit(e_i) for i = 0..k-1
+
+void theory_seq::add_si_axiom(expr* e, expr* n, unsigned k) {
+    context& ctx = get_context();
+    zstring s;
+    expr_ref ith_char(m), num(m), coeff(m);
+    expr_ref_vector nums(m), chars(m);
+    literal len_eq_k = mk_preferred_eq(m_util.str.mk_length(e), m_autil.mk_int(k));
+    literal ge0 = mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0)));
+    literal_vector digits;
+    digits.push_back(~len_eq_k);
+    digits.push_back(ge0);
+    for (unsigned i = 0; i < k; ++i) {
+        ith_char = mk_nth(e, m_autil.mk_int(i));
+        literal isd = is_digit(ith_char);
+        add_axiom(~len_eq_k, ~ge0, isd);
+        chars.push_back(m_util.str.mk_unit(ith_char));
+        nums.push_back(digit2int(ith_char));
+    }        
+    ++m_stats.m_add_axiom;
+    ctx.mk_th_axiom(get_id(), digits.size(), digits.c_ptr());
+    rational c(1);
+    for (unsigned i = k; i-- > 0; c *= rational(10)) {
+        coeff = m_autil.mk_int(c);
+        nums[i] = m_autil.mk_mul(coeff, nums.get(i));
+    }
+    num = m_autil.mk_add(nums.size(), nums.c_ptr());
+    ctx.get_rewriter()(num);
+    m_new_propagation = true;
+    add_axiom(~len_eq_k, ~ge0, mk_preferred_eq(n, num));
+
+    add_axiom(~len_eq_k, ~ge0, mk_preferred_eq(e, m_util.str.mk_concat(chars)));
+}
+
 
 bool theory_seq::add_itos_val_axiom(expr* e) {
     context& ctx = get_context();
@@ -3569,24 +3556,21 @@ bool theory_seq::add_itos_val_axiom(expr* e) {
     VERIFY(m_util.str.is_itos(e, n));
     bool change = false;
 
-    if (get_num_value(n, val) && !val.is_neg() && !m_itos_axioms.contains(val)) {
-        m_itos_axioms.insert(val);
-        app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
-        expr_ref n1(arith_util(m).mk_numeral(val, true), m);
-        
-        // itos(n) = "25" <=> n = 25
-        literal eq1 = mk_eq(n1, n , false);
-        literal eq2 = mk_eq(e, e1, false);
-        add_axiom(~eq1, eq2);
-        add_axiom(~eq2, eq1);
-        ctx.force_phase(eq1);
-        ctx.force_phase(eq2);
-        
-        m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
-        m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));        
-        change = true;        
+    if (m_util.str.is_stoi(n)) {
+        return false;
     }
-    return change;
+    enforce_length(e);
+
+    if (get_length(e, val) && val.is_pos() && !m_itos_axioms.contains(val) && val.is_unsigned()) {
+        add_si_axiom(e, n, val.get_unsigned());
+        ensure_digit_axiom();
+        m_itos_axioms.insert(val);
+        m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
+        m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
+        return true;
+    }
+
+    return false;
 }
 
 void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
@@ -5553,8 +5537,6 @@ bool theory_seq::add_accept2step(expr* acc, bool& change) {
         return false;
     }
     SASSERT(m_autil.is_numeral(idx));
-    eautomaton::moves mvs;
-    aut->get_moves_from(src, mvs);
 
     expr_ref len(m_util.str.mk_length(e), m);
     literal_vector lits;
@@ -5572,29 +5554,40 @@ bool theory_seq::add_accept2step(expr* acc, bool& change) {
             break;
         }
     }
+
+    eautomaton::moves mvs;
+    aut->get_moves_from(src, mvs);
     bool has_undef = false;
     int start = ctx.get_random_value();
+    TRACE("seq", tout << mvs.size() << "\n";);
     for (unsigned i = 0; i < mvs.size(); ++i) {
         unsigned j = (i + start) % mvs.size();
         eautomaton::move mv = mvs[j];
         expr_ref nth = mk_nth(e, idx);
         expr_ref acc = mv.t()->accept(nth);
+        TRACE("seq", tout << j << ": " << acc << "\n";);
         step = mk_step(e, idx, re, src, mv.dst(), acc);
-        lits.push_back(mk_literal(step));
-        switch (ctx.get_assignment(lits.back())) {
+        literal slit = mk_literal(step);
+        literal tlit = mk_literal(acc);
+        add_axiom(~slit, tlit);
+        lits.push_back(slit);
+        switch (ctx.get_assignment(slit)) {
         case l_true:
             return false;
         case l_undef:
-            //ctx.force_phase(lits.back());
-            //return true;
+            ctx.mark_as_relevant(slit);
+            // ctx.force_phase(slit);
+            // return true;
+            // std::cout << mk_pp(step, m) << " is undef\n";
             has_undef = true;
-            break;
+            break;            
         default:
             break;
         }
     }
     change = true;
     if (has_undef && mvs.size() == 1) {
+        TRACE("seq", tout << "has single move\n";);
         literal lit = lits.back();
         lits.pop_back();
         for (unsigned i = 0; i < lits.size(); ++i) {
@@ -5604,6 +5597,7 @@ bool theory_seq::add_accept2step(expr* acc, bool& change) {
         return false;
     }
     if (has_undef) {
+        TRACE("seq", tout << "has undef\n";);
         return true;
     }
     TRACE("seq", ctx.display_literals_verbose(tout, lits); tout << "\n";);
@@ -5617,14 +5611,15 @@ bool theory_seq::add_accept2step(expr* acc, bool& change) {
 
 
 /**
+   step(s, idx, re, i, j, t) => t
    acc(s, idx, re, i) & step(s, idx, re, i, j, t) => acc(s, idx + 1, re, j)
 */
 
 bool theory_seq::add_step2accept(expr* step, bool& change) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(step) == l_true);
-    expr* re = nullptr, *_acc = nullptr, *s = nullptr, *idx = nullptr, *i = nullptr, *j = nullptr;
-    VERIFY(is_step(step, s, idx, re, i, j, _acc));
+    expr* re = nullptr, *t = nullptr, *s = nullptr, *idx = nullptr, *i = nullptr, *j = nullptr;
+    VERIFY(is_step(step, s, idx, re, i, j, t));
     literal acc1 = mk_accept(s, idx,  re, i);
     switch (ctx.get_assignment(acc1)) {
     case l_false:
