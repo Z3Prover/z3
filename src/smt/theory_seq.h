@@ -259,6 +259,18 @@ namespace smt {
             }
         };
 
+
+        class replay_is_axiom : public apply {
+            expr_ref m_e;
+        public:
+            replay_is_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
+            ~replay_is_axiom() override {}
+            void operator()(theory_seq& th) override {
+                th.check_int_string(m_e);
+                m_e.reset();
+            }
+        };
+
         class push_replay : public trail<theory_seq> {
             apply* m_apply;
         public:
@@ -321,8 +333,7 @@ namespace smt {
         unsigned                   m_axioms_head; // index of first axiom to add.
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
-        rational_set        m_itos_axioms;
-        rational_set        m_stoi_axioms;
+        obj_hashtable<expr> m_si_axioms;
         obj_hashtable<expr> m_length;             // is length applied
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
@@ -544,6 +555,7 @@ namespace smt {
         // model-check the functions that convert integers to strings and the other way.
         void add_int_string(expr* e);
         bool check_int_string();
+        bool check_int_string(expr* e);
 
         expr_ref add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
