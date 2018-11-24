@@ -577,6 +577,7 @@ namespace smt {
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
+        expr_ref mk_len(expr* s) const { return expr_ref(m_util.str.mk_length(s), m); }
         enode* ensure_enode(expr* a);
         
         dependency* mk_join(dependency* deps, literal lit);
@@ -606,18 +607,11 @@ namespace smt {
         bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
             return is_acc_rej(m_accept, acc, s, idx, re, i, aut);
         }
-        literal mk_reject(expr* s, expr* idx, expr* re, expr* state);
-        literal mk_reject(expr* s, expr* idx, expr* re, unsigned i) { return mk_reject(s, idx, re, m_autil.mk_int(i)); }
-        bool is_reject(expr* rej) const {  return is_skolem(m_reject, rej); }
-        bool is_reject(expr* rej, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_reject, rej, s, idx, re, i, aut);
-        }
         bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
         expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* acc);
         bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_step(expr* e) const;
         void propagate_step(literal lit, expr* n);
-        bool add_reject2reject(expr* rej, bool& change);
         bool add_accept2step(expr* acc, bool& change);       
         bool add_step2accept(expr* step, bool& change);
         void propagate_not_prefix(expr* e);
@@ -632,13 +626,13 @@ namespace smt {
         void new_eq_eh(dependency* dep, enode* n1, enode* n2);
 
         // diagnostics
-        void display_equations(std::ostream& out) const;
-        void display_equation(std::ostream& out, eq const& e) const;
-        void display_disequations(std::ostream& out) const;
-        void display_disequation(std::ostream& out, ne const& e) const;
-        void display_deps(std::ostream& out, dependency* deps) const;
-        void display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
-        void display_nc(std::ostream& out, nc const& nc) const;
+        std::ostream& display_equations(std::ostream& out) const;
+        std::ostream& display_equation(std::ostream& out, eq const& e) const;
+        std::ostream& display_disequations(std::ostream& out) const;
+        std::ostream& display_disequation(std::ostream& out, ne const& e) const;
+        std::ostream& display_deps(std::ostream& out, dependency* deps) const;
+        std::ostream& display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
+        std::ostream& display_nc(std::ostream& out, nc const& nc) const;
     public:
         theory_seq(ast_manager& m, theory_seq_params const & params);
         ~theory_seq() override;
