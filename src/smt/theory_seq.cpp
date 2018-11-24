@@ -3519,9 +3519,8 @@ void theory_seq::add_itos_axiom(expr* e) {
     VERIFY(m_util.str.is_itos(e, n));
 
     // itos(n) = "" <=> n < 0
-    app_ref e1(m_util.str.mk_empty(m.get_sort(e)), m);
     expr_ref zero(arith_util(m).mk_int(0), m);
-    literal eq1 = mk_eq(e1, e, false);
+    literal eq1 = mk_literal(m_util.str.mk_is_empty(e));
     literal ge0 = mk_literal(m_autil.mk_ge(n, zero));
     // n >= 0 => itos(n) != ""
     // itos(n) = "" or n >= 0
@@ -3849,8 +3848,13 @@ public:
                     std::ostringstream strm;
                     arith_util arith(th.m);
                     VERIFY(arith.is_numeral(values[j++], val));
-                    if (val.is_neg()) strm << "-";
-                    strm << abs(val);
+                    
+                    if (val.is_neg()) {
+                        strm << "";
+                    }
+                    else {
+                        strm << val;
+                    }
                     zstring zs(strm.str().c_str());
                     add_buffer(sbuffer, zs);
                     break;
