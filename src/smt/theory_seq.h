@@ -289,6 +289,16 @@ namespace smt {
             }
         };
 
+        struct s_in_re {
+            literal     m_lit;
+            expr*       m_s;
+            expr*       m_re;
+            eautomaton* m_aut;
+            bool        m_active;
+            s_in_re(literal l, expr*s, expr* re, eautomaton* aut):
+                m_lit(l), m_s(s), m_re(re), m_aut(aut), m_active(true) {}
+        };
+
         void erase_index(unsigned idx, unsigned i);
 
         struct stats {
@@ -353,11 +363,10 @@ namespace smt {
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
         expr_ref_vector                m_res;
+        unsigned                       m_max_unfolding_depth;
+        literal                        m_max_unfolding_lit;
+        vector<s_in_re>                m_s_in_re;
 
-        // queue of asserted atoms
-        ptr_vector<expr>               m_atoms;
-        unsigned_vector                m_atoms_lim;
-        unsigned                       m_atoms_qhead;
         bool                           m_new_solution;     // new solution added
         bool                           m_new_propagation;  // new propagation to core
         re2automaton                   m_mk_aut;
@@ -378,6 +387,8 @@ namespace smt {
         void pop_scope_eh(unsigned num_scopes) override;
         void restart_eh() override;
         void relevant_eh(app* n) override;
+        bool should_research(expr_ref_vector &) override;
+        void add_theory_assumptions(expr_ref_vector & assumptions) override;
         theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), m_params); }
         char const * get_name() const override { return "seq"; }
         theory_var mk_var(enode* n) override;
@@ -579,7 +590,7 @@ namespace smt {
         expr_ref mk_add(expr* a, expr* b);
         expr_ref mk_len(expr* s) const { return expr_ref(m_util.str.mk_length(s), m); }
         enode* ensure_enode(expr* a);
-        
+        enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         dependency* mk_join(dependency* deps, literal lit);
         dependency* mk_join(dependency* deps, literal_vector const& lits);
 
@@ -604,25 +615,24 @@ namespace smt {
         literal mk_accept(expr* s, expr* idx, expr* re, expr* state);
         literal mk_accept(expr* s, expr* idx, expr* re, unsigned i) { return mk_accept(s, idx, re, m_autil.mk_int(i)); }
         bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
-        bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_accept, acc, s, idx, re, i, aut);
-        }
-        bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
-        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* acc);
+        bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
+        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
         bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_step(expr* e) const;
-        void propagate_step(literal lit, expr* n);
-        bool add_accept2step(expr* acc, bool& change);       
-        bool add_step2accept(expr* step, bool& change);
+        bool is_max_unfolding(expr* e) const { return is_skolem(symbol("seq.max_unfolding_depth"), e); }
+        expr_ref mk_max_unfolding_depth() { 
+            return mk_skolem(symbol("seq.max_unfolding_depth"), 
+                             m_autil.mk_int(m_max_unfolding_depth), 
+                             nullptr, nullptr, nullptr, m.mk_bool_sort());
+        }
         void propagate_not_prefix(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
         void propagate_non_empty(literal lit, expr* s);
         bool propagate_is_conc(expr* e, expr* conc);
-        void propagate_acc_rej_length(literal lit, expr* acc_rej);
-        bool propagate_automata();
-        void add_atom(expr* e);
+        void propagate_step(literal lit, expr* n);
+        void propagate_accept(literal lit, expr* e);
         void new_eq_eh(dependency* dep, enode* n1, enode* n2);
 
         // diagnostics

@@ -146,6 +146,7 @@ class seq_decl_plugin : public decl_plugin {
     sort*            m_string;
     sort*            m_char;
     sort*            m_re;
+    bool             m_has_re;
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -197,6 +198,8 @@ public:
     app* mk_string(symbol const& s);
     app* mk_string(zstring const& s);
 
+    bool has_re() const { return m_has_re; }
+
 };
 
 class seq_util {
@@ -220,6 +223,8 @@ public:
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
+
+    bool has_re() const { return seq.has_re(); }
 
     class str {
         seq_util&    u;
