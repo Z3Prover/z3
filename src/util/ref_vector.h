@@ -307,8 +307,8 @@ public:
     ref_vector & operator=(ref_vector const & other) = delete;
 
     bool operator==(ref_vector const& other) const {
-        if (other.size() != size()) return false;
-        for (unsigned i = size(); i-- > 0; ) {
+        if (other.size() != this->size()) return false;
+        for (unsigned i = this->size(); i-- > 0; ) {
             if (other[i] != (*this)[i]) return false;
         }
         return true;
