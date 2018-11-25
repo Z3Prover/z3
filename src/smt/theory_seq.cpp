@@ -1169,40 +1169,41 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
 bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const& rs, int & offset) {
     context& ctx = get_context();
 
-    if (ls.size() == 0 || rs.size() == 0)
+    if (ls.empty() || rs.empty()) 
         return false;
     expr* l_fst = ls[0];
     expr* r_fst = rs[0];
     if (!is_var(l_fst) || !is_var(r_fst)) 
         return false;
 
+    expr_ref len_l_fst = mk_len(l_fst);
+    if (!ctx.e_internalized(len_l_fst)) 
+        return false;
+    enode * root1 = ctx.get_enode(len_l_fst)->get_root();
+
     expr_ref len_r_fst = mk_len(r_fst);
-    enode * root2;
     if (!ctx.e_internalized(len_r_fst))
         return false;
-    else
-        root2 = ctx.get_enode(len_r_fst)->get_root();
+    enode* root2 = ctx.get_enode(len_r_fst)->get_root();
 
-    expr_ref len_l_fst = mk_len(l_fst);
-    if (ctx.e_internalized(len_l_fst)) {
-        enode * root1 = ctx.get_enode(len_l_fst)->get_root();
-        if (root1 == root2) {
-            TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
-            offset = 0;
-            return true;
-        }
-        obj_map<enode, int> tmp;
-        if (!m_autil.is_numeral(root1->get_owner()) && !m_autil.is_numeral(root2->get_owner())) {
-            if (m_len_offset.find(root1, tmp) && tmp.find(root2, offset)) {
-                TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
-                return true;
-            }
-            else if (m_len_offset.find(root2, tmp) && tmp.find(root1, offset)) {
-                offset = -offset;
-                TRACE("seq", tout << "(" << mk_pp(r_fst, m) << ", " << mk_pp(l_fst,m) << ")\n";);
-                return true;
-            }
-        }
+    if (root1 == root2) {
+        TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
+        offset = 0;
+        return true;
+    }
+
+    if (m_autil.is_numeral(root1->get_owner()) || m_autil.is_numeral(root2->get_owner())) 
+        return false;
+
+    obj_map<enode, int> tmp;
+    if (m_len_offset.find(root1, tmp) && tmp.find(root2, offset)) {
+        TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
+        return true;
+    }
+    if (m_len_offset.find(root2, tmp) && tmp.find(root1, offset)) {
+        offset = -offset;
+        TRACE("seq", tout << "(" << mk_pp(r_fst, m) << ", " << mk_pp(l_fst,m) << ")\n";);
+        return true;
     }
     return false;
 }
@@ -1229,7 +1230,6 @@ bool theory_seq::len_based_split() {
             }
         }
     }
-    std::function<bool(eq const&)> split = [&](eq const& e) { return len_based_split(e); };
 
     for (auto const& e : m_eqs) {
         if (len_based_split(e)) {
