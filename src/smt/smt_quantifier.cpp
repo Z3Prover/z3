@@ -110,17 +110,20 @@ namespace smt {
            equivalence class are in the log and up-to-date.
         */
         void log_justification_to_root(std::ostream & log, enode *en, obj_hashtable<enode> &already_visited) {
-            enode *root = en->get_root();
+            enode* root = en->get_root();
             for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
-                if (already_visited.find(it) == already_visited.end()) already_visited.insert(it);
-                else break;
+                if (already_visited.contains(it)) 
+                    break;
+                already_visited.insert(it);
 
                 if (!it->m_proof_is_logged) {
                     log_single_justification(log, it, already_visited);
                     it->m_proof_is_logged = true;
-                } else if (it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
+                } 
+                else if (it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
 
-                    // When the justification of an argument changes m_proof_is_logged is not reset => We need to check if the proofs of all arguments are logged.
+                    // When the justification of an argument changes m_proof_is_logged 
+                    // is not reset => We need to check if the proofs of all arguments are logged.
                     const unsigned num_args = it->get_num_args();
                     enode *target = it->get_trans_justification().m_target;
 
@@ -128,7 +131,7 @@ namespace smt {
                         log_justification_to_root(log, it->get_arg(i), already_visited);
                         log_justification_to_root(log, target->get_arg(i), already_visited);
                     }
-                    it->m_proof_is_logged = true;
+                    SASSERT(it->m_proof_is_logged);
                 }
             }
             if (!root->m_proof_is_logged) {
