@@ -5509,7 +5509,8 @@ void theory_seq::propagate_step(literal lit, expr* step) {
 
     rational lo;
     rational _idx;
-    if (lower_bound(s, lo) && lo.is_unsigned() && m_autil.is_numeral(idx, _idx) && lo >= _idx) {
+    VERIFY(m_autil.is_numeral(idx, _idx));
+    if (lower_bound(s, lo) && lo.is_unsigned() && lo >= _idx) {
         // skip
     }
     else {
@@ -5580,6 +5581,7 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
 }
 
 bool theory_seq::should_research(expr_ref_vector & unsat_core) {
+    TRACE("seq", tout << unsat_core << " " << m_util.has_re() << "\n";);
     if (!m_util.has_re()) {
         return false;
     }
