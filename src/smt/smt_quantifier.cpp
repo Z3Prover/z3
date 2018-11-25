@@ -26,7 +26,7 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/mam.h"
 #include "smt/qi_queue.h"
-#include <unordered_set>
+#include "util/obj_hashtable.h"
 
 namespace smt {
 
@@ -109,7 +109,7 @@ namespace smt {
            \brief Ensures that all relevant proof steps to explain why the enode is equal to the root of its
            equivalence class are in the log and up-to-date.
         */
-        void log_justification_to_root(std::ostream & log, enode *en, std::unordered_set<enode *> &already_visited) {
+        void log_justification_to_root(std::ostream & log, enode *en, obj_hashtable<enode> &already_visited) {
             enode *root = en->get_root();
             for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
                 if (already_visited.find(it) == already_visited.end()) already_visited.insert(it);
@@ -141,7 +141,7 @@ namespace smt {
           \brief Logs a single equality explanation step and, if necessary, recursively calls log_justification_to_root to log
           equalities needed by the step (e.g. argument equalities for congruence steps).
         */
-        void log_single_justification(std::ostream & out, enode *en, std::unordered_set<enode *> &already_visited) {
+        void log_single_justification(std::ostream & out, enode *en, obj_hashtable<enode> &already_visited) {
             smt::literal lit;
             unsigned num_args;
             enode *target = en->get_trans_justification().m_target;
@@ -208,7 +208,7 @@ namespace smt {
                 if (has_trace_stream()) {
                     std::ostream & out = trace_stream();
 
-                    std::unordered_set<enode *> already_visited;
+                    obj_hashtable<enode> already_visited;
 
                     // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
                     // is used. We need to make sure that all of these equalities appear in the log.
