@@ -345,7 +345,8 @@ seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_charc_sym("Char"),
                                     m_string(nullptr),
                                     m_char(nullptr),
-                                    m_re(nullptr) {}
+                                    m_re(nullptr),
+                                    m_has_re(false) {}
 
 void seq_decl_plugin::finalize() {
     for (unsigned i = 0; i < m_sigs.size(); ++i)
