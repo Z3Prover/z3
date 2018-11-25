@@ -293,13 +293,6 @@ static tactic * mk_seq_smt_tactic(params_ref const & p) {
     return alloc(smt_tactic, p);
 }
 
-static tactic * mk_seq_smt_tactic_using(bool auto_config, params_ref const & _p) {
-    params_ref p = _p;
-    p.set_bool("auto_config", auto_config);
-    tactic * r = mk_seq_smt_tactic(p);
-    TRACE("smt_tactic", tout << "auto_config: " << auto_config << "\nr: " << r << "\np: " << p << "\n";);
-    return using_params(r, p);
-}
 
 tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
     return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);

@@ -460,7 +460,6 @@ struct goal2sat::imp {
         check_unsigned(k);                
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
-        unsigned sz = m_result_stack.size();
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             unsigned k1 = k.get_unsigned();
@@ -492,7 +491,6 @@ struct goal2sat::imp {
             k += rational(wl.first);
         }
         check_unsigned(k);
-        unsigned sz = m_result_stack.size();
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             unsigned k1 = k.get_unsigned();
@@ -550,7 +548,6 @@ struct goal2sat::imp {
     void convert_at_least_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
-        unsigned sz = m_result_stack.size();
         convert_pb_args(t->get_num_args(), lits);
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
@@ -570,7 +567,6 @@ struct goal2sat::imp {
     void convert_at_most_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
-        unsigned sz = m_result_stack.size();
         convert_pb_args(t->get_num_args(), lits);
         for (sat::literal& l : lits) {
             l.neg();
