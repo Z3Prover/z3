@@ -306,6 +306,18 @@ public:
     // prevent abuse:
     ref_vector & operator=(ref_vector const & other) = delete;
 
+    bool operator==(ref_vector const& other) const {
+        if (other.size() != size()) return false;
+        for (unsigned i = size(); i-- > 0; ) {
+            if (other[i] != (*this)[i]) return false;
+        }
+        return true;
+    }
+
+    bool operator!=(ref_vector const& other) const {
+        return !(*this == other);
+    }
+
     bool forall(std::function<bool(T*)>& predicate) const {
         for (T* t : *this)
             if (!predicate(t)) 

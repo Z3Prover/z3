@@ -495,6 +495,9 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_ternary_variable1() {
+
+    //std::function<bool(eq const& e)> branch = [&](eq const& e) { return branch_ternary_variable(e) || branch_ternary_variable2(e); };
+    //return m_eqs.exists(branch);
     for (auto const& e : m_eqs) {
         if (branch_ternary_variable(e) || branch_ternary_variable2(e)) {
             return true;
@@ -1085,73 +1088,53 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
     expr* r_fst = find_fst_non_empty_var(rs);
     if (!r_fst) return false;
     expr_ref len_r_fst = mk_len(r_fst);
+    expr_ref len_l_fst(m);
     enode * root2;
-    if (!ctx.e_internalized(len_r_fst))
+    if (!ctx.e_internalized(len_r_fst)) {
         return false;
-    else
-        root2 = get_root(len_r_fst);
+    }
+    if (l_fst) {
+        len_l_fst = mk_len(l_fst);
+    }
+
+    root2 = get_root(len_r_fst);
 
     // Offset = 0, No change
-    if (l_fst) {
-        expr_ref len_l_fst = mk_len(l_fst);
-        if (ctx.e_internalized(len_l_fst)) {
-            enode * root1 = get_root(len_l_fst);
-            if (root1 == root2) {
-                TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
-                return false;
-            }
-        }
+    if (l_fst && get_root(len_l_fst) == root2) {
+        TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
+        return false;
     }
 
     // Offset = 0, Changed
-    {
-        for (unsigned i = 0; i < idx; ++i) {
-            eq const& e = m_eqs[i];
-            if (e.ls().size() == ls.size()) {
-                bool flag = true;
-                for (unsigned j = 0; j < ls.size(); ++j)
-                    if (e.ls().get(j) != ls.get(j)) {
-                        flag = false;
-                        break;
-                    }
-                if (flag) {
-                    expr* nl_fst = nullptr;
-                    if (e.rs().size()>1 && is_var(e.rs().get(0)))
-                        nl_fst = e.rs().get(0);
-                    if (nl_fst && nl_fst != r_fst) {
-                        expr_ref len_nl_fst = mk_len(nl_fst);
-                        if (ctx.e_internalized(len_nl_fst)) {
-                            enode * root1 = get_root(len_nl_fst);
-                            if (root1 == root2) {
-                                res.reset();
-                                res.append(e.rs().size(), e.rs().c_ptr());
-                                deps = m_dm.mk_join(e.dep(), deps);
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
+
+    for (unsigned i = 0; i < idx; ++i) {
+        eq const& e = m_eqs[i];
+        if (e.ls() != ls) continue;
+        expr* nl_fst = nullptr;
+        if (e.rs().size() > 1 && is_var(e.rs().get(0)))
+            nl_fst = e.rs().get(0);
+        if (nl_fst && nl_fst != r_fst && root2 == get_root(mk_len(nl_fst))) {
+            res.reset();
+            res.append(e.rs().size(), e.rs().c_ptr());
+            deps = m_dm.mk_join(e.dep(), deps);
+            return true;
         }
     }
     // Offset != 0, No change
-    if (l_fst) {
-        expr_ref len_l_fst = mk_len(l_fst);
-        if (ctx.e_internalized(len_l_fst)) {
-            enode * root1 = get_root(len_l_fst);
-            obj_map<enode, int> tmp;
-            int offset;
-            if (!m_autil.is_numeral(root1->get_owner()) && !m_autil.is_numeral(root2->get_owner())) {
-                if (m_len_offset.find(root1, tmp) && tmp.find(root2, offset)) {
-                    TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
-                    find_max_eq_len(ls, rs);
-                    return false;
-                }
-                else if (m_len_offset.find(root2, tmp) && tmp.find(root1, offset)) {
-                    TRACE("seq", tout << "(" << mk_pp(r_fst, m) << ", " << mk_pp(l_fst,m) << ")\n";);
-                    find_max_eq_len(ls ,rs);
-                    return false;
-                }
+    if (l_fst && ctx.e_internalized(len_l_fst)) {
+        enode * root1 = get_root(len_l_fst);
+        obj_map<enode, int> tmp;
+        int offset;
+        if (!m_autil.is_numeral(root1->get_owner()) && !m_autil.is_numeral(root2->get_owner())) {
+            if (m_len_offset.find(root1, tmp) && tmp.find(root2, offset)) {
+                TRACE("seq", tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << ")\n";);
+                find_max_eq_len(ls, rs);
+                return false;
+            }
+            else if (m_len_offset.find(root2, tmp) && tmp.find(root1, offset)) {
+                TRACE("seq", tout << "(" << mk_pp(r_fst, m) << ", " << mk_pp(l_fst,m) << ")\n";);
+                find_max_eq_len(ls ,rs);
+                return false;
             }
         }
     }
@@ -1160,30 +1143,21 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
     if (!m_autil.is_numeral(root2->get_owner()) && m_len_offset.find(root2, tmp)) {
         for (unsigned i = 0; i < idx; ++i) {
             eq const& e = m_eqs[i];
-            if (e.ls().size() == ls.size()) {
-                bool flag = true;
-                for (unsigned j = 0; j < ls.size(); ++j)
-                    if (e.ls().get(j) != ls.get(j)) {
-                        flag = false;
-                        break;
-                    }
-                if (flag) {
-                    expr* nl_fst = nullptr;
-                    if (e.rs().size()>1 && is_var(e.rs().get(0)))
-                        nl_fst = e.rs().get(0);
-                    if (nl_fst && nl_fst != r_fst) {
-                        int offset;
-                        expr_ref len_nl_fst = mk_len(nl_fst);
-                        if (ctx.e_internalized(len_nl_fst)) {
-                            enode * root1 = ctx.get_enode(len_nl_fst)->get_root();
-                            if (!m_autil.is_numeral(root1->get_owner()) && tmp.find(root1, offset)) {
-                                res.reset();
-                                res.append(e.rs().size(), e.rs().c_ptr());
-                                deps = m_dm.mk_join(e.dep(), deps);
-                                find_max_eq_len(res, rs);
-                                return true;
-                            }
-                        }
+            if (e.ls() != ls) continue;
+            expr* nl_fst = nullptr;
+            if (e.rs().size()>1 && is_var(e.rs().get(0)))
+                nl_fst = e.rs().get(0);
+            if (nl_fst && nl_fst != r_fst) {
+                int offset;
+                expr_ref len_nl_fst = mk_len(nl_fst);
+                if (ctx.e_internalized(len_nl_fst)) {
+                    enode * root1 = ctx.get_enode(len_nl_fst)->get_root();
+                    if (!m_autil.is_numeral(root1->get_owner()) && tmp.find(root1, offset)) {
+                        res.reset();
+                        res.append(e.rs().size(), e.rs().c_ptr());
+                        deps = m_dm.mk_join(e.dep(), deps);
+                        find_max_eq_len(res, rs);
+                        return true;
                     }
                 }
             }
@@ -1255,6 +1229,7 @@ bool theory_seq::len_based_split() {
             }
         }
     }
+    std::function<bool(eq const&)> split = [&](eq const& e) { return len_based_split(e); };
 
     for (auto const& e : m_eqs) {
         if (len_based_split(e)) {
