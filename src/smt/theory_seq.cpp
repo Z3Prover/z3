@@ -3450,7 +3450,6 @@ void theory_seq::ensure_digit_axiom() {
 }
 
 bool theory_seq::add_itos_val_axiom(expr* e) {
-    context& ctx = get_context();
     rational val;
     expr* n = nullptr;
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
@@ -3514,7 +3513,6 @@ expr_ref theory_seq::digit2int(expr* ch) {
 }
 
 void theory_seq::add_itos_axiom(expr* e) {
-    context& ctx = get_context();
     rational val;
     expr* n = nullptr;
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
@@ -5206,7 +5204,6 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     expr* e = ctx.bool_var2expr(v);
     expr* e1 = nullptr, *e2 = nullptr;
     expr_ref f(m);
-    bool change = false;
     literal lit(v, !is_true);
 
     if (m_util.str.is_prefix(e, e1, e2)) {
@@ -5436,7 +5433,7 @@ eautomaton* theory_seq::get_automaton(expr* re) {
         m_mk_aut.set_solver(alloc(seq_expr_solver, m, get_context().get_fparams()));
     }
     result = m_mk_aut(re);
-    CTRACE("seq", result, result->display(tout, display_expr(m)););
+    CTRACE("seq", result, { display_expr d(m); result->display(tout, d); });
     m_automata.push_back(result);
     m_re2aut.insert(re, result);
     m_res.push_back(re);
