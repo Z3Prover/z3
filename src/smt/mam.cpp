@@ -2376,6 +2376,13 @@ namespace smt {
             SASSERT(m_n2 != 0);
             if (m_n1->get_root() != m_n2->get_root())
                 goto backtrack;
+            
+            // We will use the common root when instantiating the quantifier => log the necessary equalities
+            if (m_ast_manager.has_trace_stream()) {
+                m_used_enodes.push_back(std::make_tuple(m_n1, m_n1->get_root()));
+                m_used_enodes.push_back(std::make_tuple(m_n2, m_n2->get_root()));
+            }
+
             m_pc = m_pc->m_next;
             goto main_loop;
 
@@ -2572,8 +2579,10 @@ namespace smt {
             if (m_n1 == 0 || !m_context.is_relevant(m_n1))                                                                                                              \
                 goto backtrack;                                                                                                                                         \
             update_max_generation(m_n1, nullptr);                                                                                                                       \
-            for (unsigned i = 0; i < static_cast<const get_cgr *>(m_pc)->m_num_args; ++i) {                                                                             \
-                m_used_enodes.push_back(std::make_tuple(m_n1->get_arg(i), m_args[i]));                                                                                  \
+            if (m_ast_manager.has_trace_stream()) {                                                                                                                     \
+                for (unsigned i = 0; i < static_cast<const get_cgr *>(m_pc)->m_num_args; ++i) {                                                                         \
+                    m_used_enodes.push_back(std::make_tuple(m_n1->get_arg(i), m_n1->get_arg(i)->get_root()));                                                           \
+                }                                                                                                                                                       \
             }                                                                                                                                                           \
             m_registers[static_cast<const get_cgr *>(m_pc)->m_oreg] = m_n1;                                                                                             \
             m_pc = m_pc->m_next;                                                                                                                                        \
