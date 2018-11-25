@@ -17,26 +17,24 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// DecRefQueue interface
     /// </summary>
-    [ContractClass(typeof(DecRefQueueContracts))]
     public abstract class IDecRefQueue
     {
         #region Object invariant
 
-        [ContractInvariantMethod]
         private void ObjectInvariant()
         {
-            Contract.Invariant(this.m_queue != null);
+            Debug.Assert(this.m_queue != null);
         }
 
         #endregion
@@ -61,7 +59,7 @@ namespace Microsoft.Z3
 
         internal void IncAndClear(Context ctx, IntPtr o)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
 
             IncRef(ctx, o);
             if (m_queue.Count >= m_move_limit) Clear(ctx);
@@ -79,7 +77,7 @@ namespace Microsoft.Z3
 
         internal void Clear(Context ctx)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
 
             lock (m_lock)
             {
@@ -90,17 +88,16 @@ namespace Microsoft.Z3
         }
     }
 
-    [ContractClassFor(typeof(IDecRefQueue))]
     abstract class DecRefQueueContracts : IDecRefQueue
     {
         internal override void IncRef(Context ctx, IntPtr obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal override void DecRef(Context ctx, IntPtr obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
     }
 }

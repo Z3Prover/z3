@@ -503,7 +503,7 @@ namespace smt {
                   tout << "lower: " << lower << "\n";
                   tout << "upper: " << upper << "\n";);
 
-            mk_axiom(eqz, eq,    true);
+            mk_axiom(eqz, eq,    false);
             mk_axiom(eqz, lower, false);
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
@@ -3128,7 +3128,7 @@ namespace smt {
     //
     // 1) Handling inequalities: (n1, k1) <= (n2, k2)
     //
-    // The only intersting case is n1 < n2 and k1 > k2.
+    // The only interesting case is n1 < n2 and k1 > k2.
     // Using the definition of infinitesimal numbers
     // we have:
     // n1 + k1 * epsilon <= n2 + k2 - epsilon
@@ -3301,7 +3301,6 @@ namespace smt {
         bound* b = (v == null_theory_var) ? nullptr : upper(v);
         return b && to_expr(b->get_value(), is_int(v), r);
     }
-
 
     template<typename Ext>
     bool theory_arith<Ext>::get_lower(enode * n, rational& r, bool& is_strict) {
@@ -3533,7 +3532,7 @@ namespace smt {
     }
 
     /**
-       \brief reset and retrieve built-in explanation hints for arithmetic lemmmas.
+       \brief reset and retrieve built-in explanation hints for arithmetic lemmas.
     */
 
     template<typename Ext>

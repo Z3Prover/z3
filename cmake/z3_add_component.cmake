@@ -7,7 +7,7 @@ function(z3_expand_dependencies output_var)
   if (ARGC LESS 2)
     message(FATAL_ERROR "Invalid number of arguments")
   endif()
-  # Remaing args should be component names
+  # Remaining args should be component names
   set(_expanded_deps ${ARGN})
   set(_old_number_of_deps 0)
   list(LENGTH _expanded_deps _number_of_deps)
@@ -33,7 +33,7 @@ function(z3_add_component_dependencies_to_target target_name)
   if (NOT (TARGET ${target_name}))
     message(FATAL_ERROR "Target \"${target_name}\" does not exist")
   endif()
-  # Remaing args should be component names
+  # Remaining args should be component names
   set(_expanded_deps ${ARGN})
   foreach (dependency ${_expanded_deps})
     # Ensure this component's dependencies are built before this component.
@@ -219,7 +219,7 @@ macro(z3_add_component component_name)
   # Record this component's dependencies
   foreach (dependency ${Z3_MOD_COMPONENT_DEPENDENCIES})
     if (NOT (TARGET ${dependency}))
-      message(FATAL_ERROR "Component \"${component_name}\" depends on a non existant component \"${dependency}\"")
+      message(FATAL_ERROR "Component \"${component_name}\" depends on a non existent component \"${dependency}\"")
     endif()
     set_property(GLOBAL APPEND PROPERTY Z3_${component_name}_DEPS "${dependency}")
   endforeach()

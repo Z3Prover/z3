@@ -86,6 +86,7 @@ namespace sat {
             m_local_search_mode = local_search_mode::gsat;
         else
             m_local_search_mode = local_search_mode::wsat;
+        m_local_search_dbg_flips = p.local_search_dbg_flips();
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_lookahead_simplify = p.lookahead_simplify();
@@ -152,6 +153,8 @@ namespace sat {
         m_gc_burst        = p.gc_burst();
         m_gc_defrag       = p.gc_defrag();
 
+        m_force_cleanup   = p.force_cleanup();
+
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
@@ -196,6 +199,22 @@ namespace sat {
         else 
             throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented");
 
+        s = p.pb_resolve();
+        if (s == "cardinality") 
+            m_pb_resolve = PB_CARDINALITY;
+        else if (s == "rounding") 
+            m_pb_resolve = PB_ROUNDING;
+        else 
+            throw sat_param_exception("invalid PB resolve: 'cardinality' or 'rounding' expected");
+
+        s = p.pb_lemma_format();
+        if (s == "cardinality") 
+            m_pb_lemma_format = PB_LEMMA_CARDINALITY;
+        else if (s == "pb")
+            m_pb_lemma_format = PB_LEMMA_PB;
+        else
+            throw sat_param_exception("invalid PB lemma format: 'cardinality' or 'pb' expected");
+        
         m_card_solver = p.cardinality_solver();
 
         sat_simplifier_params sp(_p);

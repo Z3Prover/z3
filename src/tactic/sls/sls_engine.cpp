@@ -182,7 +182,7 @@ bool sls_engine::what_if(
     // Andreas: Had this idea on my last day. Maybe we could add a noise here similar to the one that worked so well for ucb assertion selection.
     // r += 0.0001 * m_tracker.get_random_uint(8);
 
-    // Andreas: For some reason it is important to use > here instead of >=. Probably related to prefering the LSB.
+    // Andreas: For some reason it is important to use > here instead of >=. Probably related to preferring the LSB.
     if (r > best_score) {
         best_score = r;
         best_const = fd_inx;

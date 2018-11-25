@@ -705,6 +705,11 @@ struct
   let mk_forall_const = _internal_mk_quantifier_const ~universal:true
   let mk_exists = _internal_mk_quantifier ~universal:false
   let mk_exists_const = _internal_mk_quantifier_const ~universal:false
+  let mk_lambda_const ctx bound body = Z3native.mk_lambda_const ctx (List.length bound) bound body
+  let mk_lambda ctx bound body = 
+      let names = List.map (fun (x,_) -> x) bound in
+      let sorts = List.map (fun (_,y) -> y) bound in
+      Z3native.mk_lambda ctx (List.length bound) sorts names body
 
   let mk_quantifier (ctx:context) (universal:bool) (sorts:Sort.sort list) (names:Symbol.symbol list) (body:expr) (weight:int option) (patterns:Pattern.pattern list) (nopatterns:expr list) (quantifier_id:Symbol.symbol option) (skolem_id:Symbol.symbol option) =
     if universal then
@@ -1947,7 +1952,7 @@ struct
   let minimize (x:optimize) (e:Expr.expr) = mk_handle x (Z3native.optimize_minimize (gc x) x e)
 
   let check (x:optimize) =
-    let r = lbool_of_int (Z3native.optimize_check (gc x) x) 0 [] in
+    let r = lbool_of_int (Z3native.optimize_check (gc x) x 0 []) in
     match r with
     | L_TRUE -> Solver.SATISFIABLE
     | L_FALSE -> Solver.UNSATISFIABLE

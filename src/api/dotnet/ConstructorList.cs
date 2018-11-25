@@ -17,12 +17,12 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -43,14 +43,14 @@ namespace Microsoft.Z3
         internal ConstructorList(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal ConstructorList(Context ctx, Constructor[] constructors)
             : base(ctx)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(constructors != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(constructors != null);
 
             NativeObject = Native.Z3_mk_constructor_list(Context.nCtx, (uint)constructors.Length, Constructor.ArrayToNative(constructors));
         }

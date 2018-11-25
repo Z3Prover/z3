@@ -96,7 +96,7 @@ namespace smt {
     class model_value_dependency {
         bool m_fresh; //!< True if the dependency is a new fresh value;
         union {
-            enode *             m_enode; //!< When m_fresh == false, contains an enode depedency. 
+            enode *             m_enode; //!< When m_fresh == false, contains an enode dependency.
             extra_fresh_value * m_value; //!< When m_fresh == true, contains the sort of the fresh value
         };
     public:

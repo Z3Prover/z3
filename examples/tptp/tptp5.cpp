@@ -233,7 +233,7 @@ class env {
 
     void check_arity(unsigned num_args, unsigned arity) {
         if (num_args != arity) {
-            throw failure_ex("arity missmatch");
+            throw failure_ex("arity mismatch");
         }
     }
 
@@ -1337,7 +1337,7 @@ public:
             }
         }
         else if (e.is_quantifier()) {
-            Z3_bool is_forall = Z3_is_quantifier_forall(ctx, e);
+            bool is_forall = Z3_is_quantifier_forall(ctx, e);
             unsigned nb = Z3_get_quantifier_num_bound(ctx, e);
 
             out << (is_forall?"!":"?") << "[";

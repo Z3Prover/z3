@@ -402,7 +402,10 @@ namespace smt {
             enode * n         = m_context->get_enode(t);
             unsigned num_args = n->get_num_args();
             func_decl * f     = n->get_decl();
-            if (num_args > 0 && n->get_cg() == n && include_func_interp(f)) {
+            if (num_args == 0 && include_func_interp(f)) {
+                m_model->register_decl(f, get_value(n));
+            }
+            else if (num_args > 0 && n->get_cg() == n && include_func_interp(f)) {
                 ptr_buffer<expr> args;
                 expr * result = get_value(n);
                 SASSERT(result);

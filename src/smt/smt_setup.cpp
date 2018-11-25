@@ -28,6 +28,7 @@ Revision History:
 #include "smt/theory_array_full.h"
 #include "smt/theory_bv.h"
 #include "smt/theory_datatype.h"
+#include "smt/theory_recfun.h"
 #include "smt/theory_dummy.h"
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
@@ -35,6 +36,7 @@ Revision History:
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
+#include "smt/theory_jobscheduler.h"
 
 namespace smt {
 
@@ -119,6 +121,8 @@ namespace smt {
             setup_UFLRA();
         else if (m_logic == "LRA")
             setup_LRA();
+        else if (m_logic == "CSP")
+            setup_CSP();
         else if (m_logic == "QF_FP")
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
@@ -196,6 +200,8 @@ namespace smt {
                 setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
+            else if (m_logic == "CSP")
+                setup_CSP();
             else 
                 setup_unknown(st);
         }
@@ -203,7 +209,7 @@ namespace smt {
 
     static void check_no_arithmetic(static_features const & st, char const * logic) {
         if (st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0) 
-            throw default_exception("Benchmark constains arithmetic, but specified loging does not support it.");
+            throw default_exception("Benchmark constains arithmetic, but specified logic does not support it.");
     }
 
     void setup::setup_QF_UF() {
@@ -217,6 +223,7 @@ namespace smt {
     void setup::setup_QF_DT() {
         setup_QF_UF();
         setup_datatypes();
+        setup_recfuns();
     }
 
     void setup::setup_QF_BVRE() {
@@ -519,7 +526,7 @@ namespace smt {
             m_params.m_arith_eq2ineq          = true;
             m_params.m_eliminate_term_ite     = true;
             // if (st.m_num_exprs < 5000 && st.m_num_ite_terms < 50) { // safeguard to avoid high memory consumption
-            // TODO: implement analsysis function to decide where lift ite is too expensive.
+            // TODO: implement analysis function to decide where lift ite is too expensive.
             //    m_params.m_lift_ite           = LI_FULL;
             // }
         } 
@@ -873,6 +880,12 @@ namespace smt {
         m_context.register_plugin(alloc(theory_datatype, m_manager, m_params));
     }
 
+    void setup::setup_recfuns() {
+        TRACE("recfun", tout << "registering theory recfun...\n";);
+        theory_recfun * th = alloc(theory_recfun, m_manager);
+        m_context.register_plugin(th);
+    }
+
     void setup::setup_dl() {
         m_context.register_plugin(mk_theory_dl(m_manager));
     }
@@ -916,6 +929,11 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_seq, m_manager, m_params));
     }
 
+    void setup::setup_CSP() {
+        setup_unknown();
+        m_context.register_plugin(alloc(smt::theory_jobscheduler, m_manager));
+    }
+
     void setup::setup_unknown() {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
@@ -926,6 +944,7 @@ namespace smt {
         setup_arrays();
         setup_bv();
         setup_datatypes();
+        setup_recfuns();
         setup_dl();
         setup_seq_str(st);
         setup_card();
@@ -945,6 +964,7 @@ namespace smt {
             setup_seq_str(st);
             setup_card();
             setup_fpa();
+            setup_recfuns();
             return;
         }
 

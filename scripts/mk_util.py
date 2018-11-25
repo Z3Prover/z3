@@ -37,6 +37,7 @@ OCAMLOPT=getenv("OCAMLOPT", "ocamlopt")
 OCAML_LIB=getenv("OCAML_LIB", None)
 OCAMLFIND=getenv("OCAMLFIND", "ocamlfind")
 CSC=getenv("CSC", None)
+DOTNET="dotnet"
 GACUTIL=getenv("GACUTIL", 'gacutil')
 # Standard install directories relative to PREFIX
 INSTALL_BIN_DIR=getenv("Z3_INSTALL_BIN_DIR", "bin")
@@ -60,6 +61,7 @@ PATTERN_COMPONENT='pattern'
 UTIL_COMPONENT='util'
 API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
+DOTNET_CORE_COMPONENT='dotnetcore'
 JAVA_COMPONENT='java'
 ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
@@ -87,6 +89,7 @@ VS_PROJ = False
 TRACE = False
 PYTHON_ENABLED=False
 DOTNET_ENABLED=False
+DOTNET_CORE_ENABLED=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 JAVA_ENABLED=False
 ML_ENABLED=False
@@ -396,7 +399,7 @@ def check_java():
                 libdirs = m.group(1).split(',')
                 for libdir in libdirs:
                     q = os.path.dirname(libdir)
-                    if cdirs.count(q) == 0:
+                    if cdirs.count(q) == 0 and len(q) > 0:
                         cdirs.append(q)
         t.close()
 
@@ -451,6 +454,13 @@ def check_dotnet():
     r = exec_cmd([GACUTIL, '/l', 'hello' ])
     if r != 0:
         raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
+
+def check_dotnet_core():
+    if not IS_WINDOWS:
+        return
+    r = exec_cmd([DOTNET, '--help'])
+    if r != 0:
+        raise MKException('Failed testing dotnet. Make sure to install and configure dotnet core utilities')
 
 def check_ml():
     t = TempFile('hello.ml')
@@ -553,6 +563,11 @@ def set_version(major, minor, build, revision):
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
 
+def get_version_string(n):
+    if n == 3:
+        return "{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD)
+    return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_REVISION)
+
 def build_static_lib():
     return STATIC_LIB
 
@@ -652,6 +667,7 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
         print("  --optimize                    generate optimized code during linking.")
+    print("  --dotnetcore                  generate .NET platform bindings.")
     print("  --dotnet                      generate .NET bindings.")
     print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
     print("  --java                        generate Java bindings.")
@@ -690,14 +706,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
+                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
@@ -731,6 +747,8 @@ def parse_options():
             TRACE = True
         elif opt in ('-.net', '--dotnet'):
             DOTNET_ENABLED = True
+        elif opt in ('--dotnetcore',):
+            DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
         elif opt in ('--staticlib'):
@@ -886,6 +904,9 @@ def is_js_enabled():
 
 def is_dotnet_enabled():
     return DOTNET_ENABLED
+
+def is_dotnet_core_enabled():
+    return DOTNET_CORE_ENABLED
 
 def is_python_enabled():
     return PYTHON_ENABLED
@@ -1606,6 +1627,23 @@ class PythonInstallComponent(Component):
     def mk_makefile(self, out):
         return
 
+def set_key_file(self):
+    global DOTNET_KEY_FILE
+    # We need to give the assembly a strong name so that it
+    # can be installed into the GAC with ``make install``
+    if not DOTNET_KEY_FILE is None:
+       self.key_file = DOTNET_KEY_FILE
+
+    if not self.key_file is None:
+       if os.path.isfile(self.key_file):
+           self.key_file = os.path.abspath(self.key_file)
+       elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
+           self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
+       else:
+           print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
+           self.key_file = None
+    
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
         Component.__init__(self, name, path, deps)
@@ -1625,11 +1663,7 @@ class DotNetDLLComponent(Component):
         pkg_config_template = os.path.join(self.src_dir, '{}.pc.in'.format(self.gac_pkg_name()))
         substitutions = { 'PREFIX': PREFIX,
                           'GAC_PKG_NAME': self.gac_pkg_name(),
-                          'VERSION': "{}.{}.{}.{}".format(
-                              VER_MAJOR,
-                              VER_MINOR,
-                              VER_BUILD,
-                              VER_REVISION)
+                          'VERSION': get_version_string(4)
                         }
         pkg_config_output = os.path.join(BUILD_DIR,
                                        self.build_dir,
@@ -1671,19 +1705,7 @@ class DotNetDLLComponent(Component):
                                ]
                              )
 
-        # We need to give the assembly a strong name so that it
-        # can be installed into the GAC with ``make install``
-        if not DOTNET_KEY_FILE is None:
-            self.key_file = DOTNET_KEY_FILE
-
-        if not self.key_file is None:
-            if os.path.isfile(self.key_file):
-                self.key_file = os.path.abspath(self.key_file)
-            elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
-                self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
-            else:
-                print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
-                self.key_file = None
+        set_key_file(self)
 
         if not self.key_file is None:
             print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
@@ -1810,6 +1832,134 @@ class DotNetDLLComponent(Component):
         self._install_or_uninstall_to_gac(out, install=False)
         pkg_config_file = os.path.join('lib','pkgconfig','{}.pc'.format(self.gac_pkg_name()))
         MakeRuleCmd.remove_installed_files(out, pkg_config_file)
+
+
+# build for dotnet core
+class DotNetCoreDLLComponent(Component):
+    def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
+        Component.__init__(self, name, path, deps)
+        if dll_name is None:
+            dll_name = name
+        if assembly_info_dir is None:
+            assembly_info_dir = "."
+        self.dll_name          = dll_name
+        self.assembly_info_dir = assembly_info_dir
+        self.key_file = default_key_file
+
+    
+    def mk_makefile(self, out):
+        if not is_dotnet_core_enabled():
+            return
+        cs_fp_files = []
+        for cs_file in get_cs_files(self.src_dir):
+            cs_fp_files.append(os.path.join(self.to_src_dir, cs_file))
+        if self.assembly_info_dir != '.':
+            for cs_file in get_cs_files(os.path.join(self.src_dir, self.assembly_info_dir)):
+                cs_fp_files.append(os.path.join(self.to_src_dir, self.assembly_info_dir, cs_file))
+        dllfile = '%s.dll' % self.dll_name
+        out.write('%s: %s$(SO_EXT)' % (dllfile, get_component(Z3_DLL_COMPONENT).dll_name))
+        for cs_file in cs_fp_files:
+            out.write(' ')
+            out.write(cs_file)
+        out.write('\n')
+        
+        set_key_file(self)
+        key = ""
+        if not self.key_file is None:
+            key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
+
+        if VS_X64:
+            platform = 'x64'
+        elif VS_ARM:
+            platform = 'ARM'
+        else:
+            platform = 'x86'
+
+        version = get_version_string(3)
+
+        core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard1.4</TargetFramework>
+    <PlatformTarget>%s</PlatformTarget>    
+    <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
+    <DebugType>portable</DebugType>
+    <AssemblyName>Microsoft.Z3</AssemblyName>
+    <OutputType>Library</OutputType>
+    <PackageId>Microsoft.Z3</PackageId>
+    <RuntimeFrameworkVersion>1.0.4</RuntimeFrameworkVersion>
+    <Version>%s</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+    <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
+    <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
+    <PackageTags>smt constraint solver theorem prover</PackageTags>
+    %s
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\%s\*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
+  </ItemGroup>
+
+</Project>""" % (platform, version, key, self.to_src_dir)
+
+        mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
+        csproj = os.path.join('dotnet', 'z3.csproj')
+        with open(os.path.join(BUILD_DIR, csproj), 'w') as ous:
+            ous.write(core_csproj_str)
+
+        dotnetCmdLine = [DOTNET, "build", csproj]
+        
+        dotnetCmdLine.extend(['-c'])
+        if DEBUG_MODE:
+            dotnetCmdLine.extend(['Debug'])
+        else:
+            dotnetCmdLine.extend(['Release'])
+
+        path = os.path.join(os.path.abspath(BUILD_DIR), ".")
+        dotnetCmdLine.extend(['-o', path])
+            
+        MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
+
+        out.write('\n')
+        out.write('%s: %s\n\n' % (self.name, dllfile))
+
+
+    def main_component(self):
+        return is_dotnet_core_enabled()
+    
+    def has_assembly_info(self):
+        # TBD: is this required for dotnet core given that version numbers are in z3.csproj file?
+        return True
+
+    def mk_win_dist(self, build_path, dist_path):
+        if is_dotnet_core_enabled():
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
+            shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
+                        '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            if DEBUG_MODE:
+                shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
+                            '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+
+    def mk_unix_dist(self, build_path, dist_path):
+        if is_dotnet_core_enabled():
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
+            shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
+                        '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+
+    def mk_install_deps(self, out):
+        pass
+
+    def mk_install(self, out):
+        pass
+
+    def mk_uninstall(self, out):
+        pass
 
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
@@ -2201,7 +2351,7 @@ class DotNetExampleComponent(ExampleComponent):
         ExampleComponent.__init__(self, name, path)
 
     def is_example(self):
-        return is_dotnet_enabled()
+        return is_dotnet_enabled() or is_dotnet_core_enabled()
 
     def mk_makefile(self, out):
         if is_dotnet_enabled():
@@ -2229,6 +2379,48 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(os.path.join(relative_path, csfile))
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+        if is_dotnet_core_enabled():
+            proj_name = 'dotnet_example.csproj'
+            out.write('_ex_%s:' % self.name)
+            for csfile in get_cs_files(self.ex_dir):
+                out.write(' ')
+                out.write(os.path.join(self.to_ex_dir, csfile))
+
+            mk_dir(os.path.join(BUILD_DIR, 'dotnet_example'))
+            csproj = os.path.join('dotnet_example', proj_name)
+            if VS_X64:
+                platform = 'x64'
+            elif VS_ARM:
+                platform = 'ARM'
+            else:
+                platform = 'x86'
+
+            dotnet_proj_str = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <PlatformTarget>%s</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\%s/*.cs" />
+    <Reference Include="Microsoft.Z3">
+      <HintPath>..\Microsoft.Z3.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>""" % (platform, self.to_ex_dir)
+
+            with open(os.path.join(BUILD_DIR, csproj), 'w') as ous:
+                ous.write(dotnet_proj_str)
+
+            out.write('\n')
+            dotnetCmdLine = [DOTNET, "build", csproj]
+            dotnetCmdLine.extend(['-c'])
+            if DEBUG_MODE:
+                dotnetCmdLine.extend(['Debug'])
+            else:
+                dotnetCmdLine.extend(['Release'])
+            MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
+            out.write('\n')
 
 class JavaExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -2345,6 +2537,10 @@ def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None, default_key_file=None):
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir, default_key_file)
+    reg_component(name, c)
+
+def add_dot_net_core_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None, default_key_file=None):
+    c = DotNetCoreDLLComponent(name, dll_name, path, deps, assembly_info_dir, default_key_file)
     reg_component(name, c)
 
 def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, manifest_file=None):
@@ -2654,6 +2850,8 @@ def mk_config():
             if is_dotnet_enabled():
                 print('C# Compiler:    %s' % CSC)
                 print('GAC utility:    %s' % GACUTIL)
+            if is_dotnet_core_enabled():
+                print('C# Compiler:    %s' % DOTNET)
 
     config.close()
 
@@ -2979,6 +3177,9 @@ def mk_bindings(api_files):
         dotnet_output_dir = None
         if is_dotnet_enabled():
           dotnet_output_dir = get_component('dotnet').src_dir
+        elif is_dotnet_core_enabled():
+          dotnet_output_dir = os.path.join(BUILD_DIR, 'dotnet')
+          mk_dir(dotnet_output_dir)
         java_output_dir = None
         java_package_name = None
         if is_java_enabled():
@@ -3007,7 +3208,10 @@ def mk_bindings(api_files):
             mk_z3consts_ml(api_files)
         if is_dotnet_enabled():
             check_dotnet()
-            mk_z3consts_dotnet(api_files)
+            mk_z3consts_dotnet(api_files, dotnet_output_dir)
+        if  is_dotnet_core_enabled():
+            check_dotnet_core()
+            mk_z3consts_dotnet(api_files, dotnet_output_dir)
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
@@ -3024,14 +3228,16 @@ def mk_z3consts_py(api_files):
         print("Generated '{}".format(generated_file))
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
-def mk_z3consts_dotnet(api_files):
+def mk_z3consts_dotnet(api_files, output_dir):
     dotnet = get_component(DOTNET_COMPONENT)
+    if not dotnet:
+       dotnet = get_component(DOTNET_CORE_COMPONENT)
     full_path_api_files = []
     for api_file in api_files:
         api_file_c = dotnet.find_file(api_file, dotnet.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
         full_path_api_files.append(api_file)
-    generated_file = mk_genfile_common.mk_z3consts_dotnet_internal(full_path_api_files, dotnet.src_dir)
+    generated_file = mk_genfile_common.mk_z3consts_dotnet_internal(full_path_api_files, output_dir)
     if VERBOSE:
         print("Generated '{}".format(generated_file))
 
@@ -3276,7 +3482,7 @@ class MakeRuleCmd(object):
         needed commands used in Makefile rules
         Note that several of the method are meant for use during ``make
         install`` and ``make uninstall``.  These methods correctly use
-        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
+        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferable
         to writing commands manually which can be error prone.
     """
     @classmethod

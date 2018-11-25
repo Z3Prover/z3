@@ -45,7 +45,7 @@ tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p) {
                                     );
     
     tactic * st = and_then(using_params(preamble_st, main_p),
-                           using_params(mk_smt_tactic(), solver_p));
+                           using_params(mk_smt_tactic(m), solver_p));
     
     st->updt_params(p);
     return st;

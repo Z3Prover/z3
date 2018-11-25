@@ -118,7 +118,7 @@ bool simple_parser::parse(std::istream & in, expr_ref & result) {
         if (!result)
             throw parser_error();
     }
-    catch (parser_error) {
+    catch (const parser_error &) {
         warning_msg("parser error");
         return false;
     } 

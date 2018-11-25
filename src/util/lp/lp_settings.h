@@ -68,7 +68,7 @@ enum class lp_status {
     CANCELLED
 };
 
-// when the ratio of the vector lenth to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
+// when the ratio of the vector length to domain size to is greater than the return value we switch to solve_By_for_T_indexed_only
 template <typename X>
 unsigned ratio_of_index_size_to_all_size() {
     if (numeric_traits<X>::precise())
@@ -145,7 +145,7 @@ public:
     double        pivot_epsilon;
     // see Chatal, page 115
     double        positive_price_epsilon;
-    // a quatation "if some choice of the entering vairable leads to an eta matrix
+    // a quotation "if some choice of the entering variable leads to an eta matrix
     // whose diagonal element in the eta column is less than e2 (entering_diag_epsilon) in magnitude, the this choice is rejected ...
     double        entering_diag_epsilon;
     int           c_partial_pivoting; // this is the constant c from page 410

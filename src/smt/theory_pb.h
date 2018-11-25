@@ -107,7 +107,7 @@ namespace smt {
 
         struct ineq {
             unsynch_mpz_manager& m_mpz;    // mpz manager.
-            literal         m_lit;      // literal repesenting predicate
+            literal         m_lit;      // literal representing predicate
             bool            m_is_eq;    // is this an = or >=.
             arg_t           m_args[2];  // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= k();
             // Watch the first few positions until the sum satisfies:
@@ -192,7 +192,7 @@ namespace smt {
         // If none are available, then perform unit propagation.
         // 
         class card {
-            literal         m_lit;      // literal repesenting predicate
+            literal         m_lit;      // literal representing predicate
             literal_vector  m_args;
             unsigned        m_bound;
             unsigned        m_num_propagations;

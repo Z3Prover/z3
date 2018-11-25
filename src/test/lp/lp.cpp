@@ -117,7 +117,7 @@ void test_matrix(square_sparse_matrix<T, X> & a) {
 }
 
 void tst1() {
-    std::cout << "testing the minimial matrix with 1 row and 1 column" << std::endl;
+    std::cout << "testing the minimal matrix with 1 row and 1 column" << std::endl;
     square_sparse_matrix<double, double> m0(1, 1);
     m0.set(0, 0, 1);
     // print_matrix(m0);
@@ -192,7 +192,7 @@ void tst1() {
     // print_matrix(m10by9);
 }
 
-vector<int> allocate_basis_heading(unsigned count) { // the rest of initilization will be handled by lu_QR
+vector<int> allocate_basis_heading(unsigned count) { // the rest of initialization will be handled by lu_QR
     vector<int> basis_heading(count, -1);
     return basis_heading;
 }
@@ -850,7 +850,7 @@ void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
     }
 }
 
-void square_sparse_matrix_with_permutaions_test() {
+void square_sparse_matrix_with_permutations_test() {
     unsigned dim = 4;
     square_sparse_matrix<double, double> m(dim, dim);
     fill_uniformly(m, dim);
@@ -1023,7 +1023,7 @@ void test_dense_matrix() {
 
 
 
-vector<permutation_matrix<double, double>> vector_of_permutaions() {
+vector<permutation_matrix<double, double>> vector_of_permutations() {
     vector<permutation_matrix<double, double>> ret;
     {
         permutation_matrix<double, double> p0(5);
@@ -1058,7 +1058,7 @@ void test_apply_reverse_from_right_to_perm(permutation_matrix<double, double> & 
         }
 
 void test_apply_reverse_from_right() {
-    auto vec = vector_of_permutaions();
+    auto vec = vector_of_permutations();
     for (unsigned i = 0; i < vec.size(); i++) {
         test_apply_reverse_from_right_to_perm(vec[i]);
     }
@@ -1901,17 +1901,17 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
     parser.add_option_with_help_string("--test_swaps", "test row swaps with a permutation");
-    parser.add_option_with_help_string("--test_perm", "test permutaions");
+    parser.add_option_with_help_string("--test_perm", "test permutations");
     parser.add_option_with_after_string_with_help("--checklu", "the file name for lu checking");
     parser.add_option_with_after_string_with_help("--partial_pivot", "the partial pivot constant, a number somewhere between 10 and 100");
     parser.add_option_with_after_string_with_help("--percent_for_enter", "which percent of columns check for entering column");
-    parser.add_option_with_help_string("--totalinf", "minimizes the total infeasibility  instead of diminishin infeasibility of the rows");
+    parser.add_option_with_help_string("--totalinf", "minimizes the total infeasibility  instead of diminishing infeasibility of the rows");
     parser.add_option_with_after_string_with_help("--rep_frq", "the report frequency, in how many iterations print the cost and other info ");
     parser.add_option_with_help_string("--smt", "smt file format");
     parser.add_option_with_after_string_with_help("--filelist", "the file containing the list of files");
     parser.add_option_with_after_string_with_help("--file", "the input file name"); 
     parser.add_option_with_after_string_with_help("--random_seed", "random seed");
-    parser.add_option_with_help_string("--bp", "bound propogation");
+    parser.add_option_with_help_string("--bp", "bound propagation");
     parser.add_option_with_help_string("--min", "will look for the minimum for the given file if --file is used; the default is looking for the max");
     parser.add_option_with_help_string("--max", "will look for the maximum for the given file if --file is used; it is the default behavior");
     parser.add_option_with_after_string_with_help("--max_iters", "maximum total iterations in a core solver stage");
@@ -1932,7 +1932,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--lar", "test lar_solver");
     parser.add_option_with_after_string_with_help("--maxng", "max iterations without progress");
     parser.add_option_with_help_string("-tbq", "test binary queue");
-    parser.add_option_with_help_string("--randomize_lar", "test randomize funclionality");
+    parser.add_option_with_help_string("--randomize_lar", "test randomize functionality");
     parser.add_option_with_help_string("--smap", "test stacked_map");
     parser.add_option_with_help_string("--term", "simple term test");
     parser.add_option_with_help_string("--eti"," run a small evidence test for total infeasibility scenario");
@@ -3722,7 +3722,7 @@ void test_lp_local(int argn, char**argv) {
     test_init_U();
     test_replace_column();
 #ifdef Z3DEBUG
-    square_sparse_matrix_with_permutaions_test();
+    square_sparse_matrix_with_permutations_test();
     test_dense_matrix();
     test_swap_operations();
     test_permutations();

@@ -371,7 +371,7 @@ class bv1_blaster_tactic : public tactic {
                     for_each_expr_core<visitor, expr_fast_mark1, false, true>(proc, visited, f);
                 }
             }
-            catch (not_target) {
+            catch (const not_target &) {
                 return false;
             }
             return true;

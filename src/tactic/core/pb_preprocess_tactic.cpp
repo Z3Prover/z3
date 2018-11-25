@@ -273,8 +273,8 @@ private:
     }
 
     /**
-       \brief decompose large sums into smaller sums by intoducing
-       auxilary variables.
+       \brief decompose large sums into smaller sums by introducing
+       auxiliary variables.
     */
     void decompose(goal_ref const& g) {
         expr_ref fml1(m), fml2(m);

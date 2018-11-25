@@ -33,8 +33,8 @@ extern "C" {
         }
     }
 
-    Z3_bool Z3_API Z3_open_log(Z3_string filename) {
-        Z3_bool res = Z3_TRUE;
+    bool Z3_API Z3_open_log(Z3_string filename) {
+        bool res = true;
 
 #ifdef Z3_LOG_SYNC
         #pragma omp critical (z3_log)
@@ -46,7 +46,7 @@ extern "C" {
             if (g_z3_log->bad() || g_z3_log->fail()) {
                 dealloc(g_z3_log);
                 g_z3_log = nullptr;
-                res = Z3_FALSE;
+                res = false;
             }
             else {
                 *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << " " << __DATE__ << "\"\n";

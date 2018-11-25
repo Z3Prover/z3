@@ -1361,8 +1361,7 @@ public:
             }
             enode* n2 = get_enode(other);
             if (n1->get_root() != n2->get_root()) {
-                TRACE("arith", tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
-                      tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << "\n";
+                TRACE("arith", tout << enode_eq_pp(enode_pair(n1, n2), ctx());
                       tout << "v" << v << " = " << "v" << other << "\n";);
                 m_assume_eq_candidates.push_back(std::make_pair(v, other));
                 result = true;
@@ -2800,15 +2799,15 @@ public:
                                 get_id(), ctx().get_region(), m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), x, y, 0, nullptr));
 
                     TRACE("arith",
-                          for (unsigned i = 0; i <  m_core.size(); ++i) {
-                              ctx().display_detailed_literal(tout, m_core[i]);
+                          for (literal c : m_core) {
+                              ctx().display_detailed_literal(tout, c);
                               tout << "\n";
                           } 
-                          for (unsigned i = 0; i < m_eqs.size(); ++i) {
-                              tout << mk_pp(m_eqs[i].first->get_owner(), m) << " = " << mk_pp(m_eqs[i].second->get_owner(), m) << "\n";
+                          for (enode_pair const& p : m_eqs) {
+                              tout << enode_eq_pp(p, ctx());
                           } 
                           tout << " ==> ";
-                          tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n";
+                          tout << enode_pp(x, ctx()) << " = " << enode_pp(y, ctx()) << "\n";
                           );
 
                     // parameters are TBD.
@@ -3225,7 +3224,7 @@ public:
             theory_var w;
             if (m_solver->is_term(ti.var())) {
                 //w = m_term_index2theory_var.get(m_solver->adjust_term_index(ti.var()), null_theory_var);
-                //if (w == null_theory_var) // if extracing expressions directly from nested term
+                //if (w == null_theory_var) // if extracting expressions directly from nested term
                 lp::lar_term const& term1 = m_solver->get_term(ti.var());
                 rational coeff2 = coeff * ti.coeff();
                 term2coeffs(term1, coeffs, coeff2, offset);
@@ -3371,8 +3370,7 @@ public:
                 break;
             }
             case equality_source: 
-                out << mk_pp(m_equalities[idx].first->get_owner(), m) << " = " 
-                    << mk_pp(m_equalities[idx].second->get_owner(), m) << "\n"; 
+                out << enode_eq_pp(m_equalities[idx], ctx());
                 break;
             case definition_source: {
                 theory_var v = m_definitions[idx];

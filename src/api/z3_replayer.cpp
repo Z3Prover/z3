@@ -401,6 +401,7 @@ struct z3_replayer::imp {
 #define TICK_FREQUENCY 100000
 
     void parse() {
+        memory::exit_when_out_of_memory(false, nullptr);
         uint64_t counter = 0;
         unsigned tick = 0;
         while (true) {

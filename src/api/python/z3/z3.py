@@ -1,4 +1,5 @@
 
+
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 #
@@ -798,6 +799,49 @@ def Function(name, *sig):
 
 def _to_func_decl_ref(a, ctx):
     return FuncDeclRef(a, ctx)
+
+def RecFunction(name, *sig):
+    """Create a new Z3 recursive with the given sorts."""
+    sig = _get_args(sig)
+    if __debug__:
+        _z3_assert(len(sig) > 0, "At least two arguments expected")
+    arity = len(sig) - 1
+    rng   = sig[arity]
+    if __debug__:
+        _z3_assert(is_sort(rng), "Z3 sort expected")
+    dom   = (Sort * arity)()
+    for i in range(arity):
+        if __debug__:
+            _z3_assert(is_sort(sig[i]), "Z3 sort expected")
+        dom[i] = sig[i].ast
+    ctx = rng.ctx
+    return FuncDeclRef(Z3_mk_rec_func_decl(ctx.ref(), to_symbol(name, ctx), arity, dom, rng.ast), ctx)
+
+def RecAddDefinition(f, args, body):
+    """Set the body of a recursive function.
+       Recursive definitions are only unfolded during search.
+    >>> ctx = Context()
+    >>> fac = RecFunction('fac', IntSort(ctx), IntSort(ctx))
+    >>> n = Int('n', ctx)
+    >>> RecAddDefinition(fac, n, If(n == 0, 1, n*fac(n-1)))
+    >>> simplify(fac(5))
+    fac(5)
+    >>> s = Solver(ctx=ctx)
+    >>> s.add(fac(n) < 3)
+    >>> s.check()
+    sat
+    >>> s.model().eval(fac(5))
+    120
+    """
+    if is_app(args):
+       args = [args]
+    ctx = body.ctx
+    args = _get_args(args)
+    n = len(args)
+    _args = (Ast * n)()
+    for i in range(n):
+        _args[i] = args[i].ast
+    Z3_add_rec_def(ctx.ref(), f.ast, n, _args, body.ast)
 
 #########################################
 #
@@ -1600,6 +1644,12 @@ def Not(a, ctx=None):
         s = BoolSort(ctx)
         a = s.cast(a)
         return BoolRef(Z3_mk_not(ctx.ref(), a.as_ast()), ctx)
+
+def mk_not(a):
+    if is_not(a):
+        return a.arg(0)
+    else:
+        return Not(a)
 
 def _has_probe(args):
     """Return `True` if one of the elements of the given collection is a Z3 probe."""
@@ -2756,7 +2806,7 @@ class RatNumRef(ArithRef):
         return self.denominator().is_int() and self.denominator_as_long() == 1
 
     def as_long(self):
-        _z3_assert(self.is_int(), "Expected integer fraction")
+        _z3_assert(self.is_int_value(), "Expected integer fraction")
         return self.numerator_as_long()
 
     def as_decimal(self, prec):
@@ -6120,6 +6170,10 @@ class ModelRef(Z3PPObject):
     def __deepcopy__(self):
         return self.translate(self.ctx)
 
+def Model(ctx = None):
+    ctx = _get_ctx(ctx)
+    return ModelRef(Z3_mk_model(ctx.ref()), ctx)
+
 def is_as_array(n):
     """Return true if n is a Z3 expression of the form (_ as-array f)."""
     return isinstance(n, ExprRef) and Z3_is_as_array(n.ctx.ref(), n.as_ast())
@@ -6511,8 +6565,8 @@ class Solver(Z3PPObject):
         >>> s.add(x > 0, x < 2)
         >>> s.check()
         sat
-        >>> s.model()
-        [x = 1]
+        >>> s.model().eval(x)
+        1
         >>> s.add(x < 1)
         >>> s.check()
         unsat
@@ -8327,7 +8381,7 @@ def prove(claim, **keywords):
         print(s.model())
 
 def _solve_html(*args, **keywords):
-    """Version of funcion `solve` used in RiSE4Fun."""
+    """Version of function `solve` used in RiSE4Fun."""
     s = Solver()
     s.set(**keywords)
     s.add(*args)
@@ -8349,7 +8403,7 @@ def _solve_html(*args, **keywords):
         print(s.model())
 
 def _solve_using_html(s, *args, **keywords):
-    """Version of funcion `solve_using` used in RiSE4Fun."""
+    """Version of function `solve_using` used in RiSE4Fun."""
     if __debug__:
         _z3_assert(isinstance(s, Solver), "Solver object expected")
     s.set(**keywords)
@@ -8372,7 +8426,7 @@ def _solve_using_html(s, *args, **keywords):
         print(s.model())
 
 def _prove_html(claim, **keywords):
-    """Version of funcion `prove` used in RiSE4Fun."""
+    """Version of function `prove` used in RiSE4Fun."""
     if __debug__:
         _z3_assert(is_bool(claim), "Z3 Boolean expression expected")
     s = Solver()

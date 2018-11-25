@@ -19,14 +19,14 @@ Notes:
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Object for managing optimizization context
     /// </summary>
-    [ContractVerification(true)]
     public class Optimize : Z3Object
     {
         /// <summary>
@@ -36,7 +36,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<string>() != null);
                 return Native.Z3_optimize_get_help(Context.nCtx, NativeObject);
             }
         }
@@ -48,7 +47,7 @@ namespace Microsoft.Z3
         {
             set
             {
-                Contract.Requires(value != null);
+                Debug.Assert(value != null);
                 Context.CheckContextMatch(value);
                 Native.Z3_optimize_set_params(Context.nCtx, NativeObject, value.NativeObject);
             }
@@ -99,8 +98,8 @@ namespace Microsoft.Z3
         /// </summary>   
         private void AddConstraints(IEnumerable<BoolExpr> constraints)
         {
-            Contract.Requires(constraints != null);
-            Contract.Requires(Contract.ForAll(constraints, c => c != null));
+            Debug.Assert(constraints != null);
+            Debug.Assert(constraints.All(c => c != null));
 
             Context.CheckContextMatch(constraints);
             foreach (BoolExpr a in constraints)
@@ -248,7 +247,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr[]>() != null);
 
                 ASTVector core = new ASTVector(Context, Native.Z3_optimize_get_unsat_core(Context.nCtx, NativeObject));                
                 return core.ToBoolExprArray();
@@ -319,7 +317,6 @@ namespace Microsoft.Z3
         {
             get 
             {
-                Contract.Ensures(Contract.Result<string>() != null);
                 return Native.Z3_optimize_get_reason_unknown(Context.nCtx, NativeObject);
             }
         }
@@ -357,7 +354,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
                 ASTVector assertions = new ASTVector(Context, Native.Z3_optimize_get_assertions(Context.nCtx, NativeObject));
                 return assertions.ToBoolExprArray();
@@ -371,7 +367,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr[]>() != null);
 
                 ASTVector objectives = new ASTVector(Context, Native.Z3_optimize_get_objectives(Context.nCtx, NativeObject));
                 return objectives.ToExprArray();
@@ -386,7 +381,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Statistics>() != null);
 
                 return new Statistics(Context, Native.Z3_optimize_get_statistics(Context.nCtx, NativeObject));
             }
@@ -397,12 +391,12 @@ namespace Microsoft.Z3
         internal Optimize(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal Optimize(Context ctx)
             : base(ctx, Native.Z3_mk_optimize(ctx.nCtx))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

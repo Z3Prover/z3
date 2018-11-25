@@ -31,6 +31,7 @@ public:
     void reset() { std::for_each(m_vector.begin(), m_vector.end(), delete_proc<T>()); m_vector.reset(); }
     void push_back(T * ptr) { m_vector.push_back(ptr); }
     void pop_back() { SASSERT(!empty()); set(size()-1, nullptr); m_vector.pop_back(); }
+    T * back() const { return m_vector.back(); }
     T * operator[](unsigned idx) const { return m_vector[idx]; }
     void set(unsigned idx, T * ptr) { 
         if (m_vector[idx] == ptr) 
@@ -50,6 +51,13 @@ public:
             for (unsigned i = m_vector.size(); i < sz; i++)
                 push_back(nullptr);
         }
+    }
+    //!< swap last element with given pointer
+    void swap_back(scoped_ptr<T> & ptr) {
+        SASSERT(!empty());
+        T * tmp = ptr.detach();
+        ptr = m_vector.back();
+        m_vector[m_vector.size()-1] = tmp;
     }
 };
 

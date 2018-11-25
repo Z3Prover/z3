@@ -79,23 +79,23 @@ extern "C" {
              _c->autil().is_irrational_algebraic_numeral(to_expr(a)));
     }
 
-    Z3_bool Z3_API Z3_algebraic_is_value(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_algebraic_is_value(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_algebraic_is_value(c, a);
         RESET_ERROR_CODE();
-        return Z3_algebraic_is_value_core(c, a) ? Z3_TRUE : Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return Z3_algebraic_is_value_core(c, a);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_algebraic_is_pos(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_algebraic_is_pos(Z3_context c, Z3_ast a) {
         return Z3_algebraic_sign(c, a) > 0;
     }
 
-    Z3_bool Z3_API Z3_algebraic_is_neg(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_algebraic_is_neg(Z3_context c, Z3_ast a) {
         return Z3_algebraic_sign(c, a) < 0;
     }
 
-    Z3_bool Z3_API Z3_algebraic_is_zero(Z3_context c, Z3_ast a) {
+    bool Z3_API Z3_algebraic_is_zero(Z3_context c, Z3_ast a) {
         return Z3_algebraic_sign(c, a) == 0;
     }
 
@@ -283,32 +283,32 @@ extern "C" {
                 r = _am.IRAT_PRED(av, bv);                              \
             }                                                           \
         }                                                               \
-        return r ? Z3_TRUE : Z3_FALSE;
+        return r;
 
 
-    Z3_bool Z3_API Z3_algebraic_lt(Z3_context c, Z3_ast a, Z3_ast b) {
+    bool Z3_API Z3_algebraic_lt(Z3_context c, Z3_ast a, Z3_ast b) {
         Z3_TRY;
         LOG_Z3_algebraic_lt(c, a, b);
         RESET_ERROR_CODE();
         CHECK_IS_ALGEBRAIC(a, 0);
         CHECK_IS_ALGEBRAIC(b, 0);
         BIN_PRED(<,lt);
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_algebraic_gt(Z3_context c, Z3_ast a, Z3_ast b) {
+    bool Z3_API Z3_algebraic_gt(Z3_context c, Z3_ast a, Z3_ast b) {
         return Z3_algebraic_lt(c, b, a);
     }
 
-    Z3_bool Z3_API Z3_algebraic_le(Z3_context c, Z3_ast a, Z3_ast b) {
+    bool Z3_API Z3_algebraic_le(Z3_context c, Z3_ast a, Z3_ast b) {
         return !Z3_algebraic_lt(c, b, a);
     }
 
-    Z3_bool Z3_API Z3_algebraic_ge(Z3_context c, Z3_ast a, Z3_ast b) {
+    bool Z3_API Z3_algebraic_ge(Z3_context c, Z3_ast a, Z3_ast b) {
         return !Z3_algebraic_lt(c, a, b);
     }
 
-    Z3_bool Z3_API Z3_algebraic_eq(Z3_context c, Z3_ast a, Z3_ast b) {
+    bool Z3_API Z3_algebraic_eq(Z3_context c, Z3_ast a, Z3_ast b) {
         Z3_TRY;
         LOG_Z3_algebraic_eq(c, a, b);
         RESET_ERROR_CODE();
@@ -318,7 +318,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_bool Z3_API Z3_algebraic_neq(Z3_context c, Z3_ast a, Z3_ast b) {
+    bool Z3_API Z3_algebraic_neq(Z3_context c, Z3_ast a, Z3_ast b) {
         return !Z3_algebraic_eq(c, a, b);
     }
 

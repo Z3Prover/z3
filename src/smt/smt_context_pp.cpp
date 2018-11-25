@@ -603,5 +603,17 @@ namespace smt {
         display(out, j);
     }
 
+    std::ostream& operator<<(std::ostream& out, enode_pp const& p) {
+        ast_manager& m = p.ctx.get_manager();
+        enode* n = p.n;
+        return out << "[#" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m) << "]";
+    }
+
+    std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p) {
+        return out << enode_pp(p.p.first, p.ctx) << " = " << enode_pp(p.p.second, p.ctx) << "\n";
+    }
+
+
+
 };
 

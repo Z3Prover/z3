@@ -31,39 +31,39 @@ extern "C" {
     /** @name Algebraic Numbers */
     /*@{*/
     /**
-       \brief Return Z3_TRUE if \c a can be used as value in the Z3 real algebraic
+       \brief Return \c true if \c a can be used as value in the Z3 real algebraic
        number package.
 
        def_API('Z3_algebraic_is_value', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_is_value(Z3_context c, Z3_ast a);
+    bool Z3_API Z3_algebraic_is_value(Z3_context c, Z3_ast a);
 
     /**
-       \brief Return the Z3_TRUE if \c a is positive, and Z3_FALSE otherwise.
+       \brief Return \c true if \c a is positive, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
 
        def_API('Z3_algebraic_is_pos', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_is_pos(Z3_context c, Z3_ast a);
+    bool Z3_API Z3_algebraic_is_pos(Z3_context c, Z3_ast a);
 
     /**
-       \brief Return the Z3_TRUE if \c a is negative, and Z3_FALSE otherwise.
+       \brief Return \c true if \c a is negative, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
 
        def_API('Z3_algebraic_is_neg', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_is_neg(Z3_context c, Z3_ast a);
+    bool Z3_API Z3_algebraic_is_neg(Z3_context c, Z3_ast a);
 
     /**
-       \brief Return the Z3_TRUE if \c a is zero, and Z3_FALSE otherwise.
+       \brief Return \c true if \c a is zero, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
 
        def_API('Z3_algebraic_is_zero', BOOL, (_in(CONTEXT), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_is_zero(Z3_context c, Z3_ast a);
+    bool Z3_API Z3_algebraic_is_zero(Z3_context c, Z3_ast a);
 
     /**
        \brief Return 1 if \c a is positive, 0 if \c a is zero, and -1 if \c a is negative.
@@ -141,64 +141,64 @@ extern "C" {
     Z3_ast Z3_API Z3_algebraic_power(Z3_context c, Z3_ast a, unsigned k);
 
     /**
-       \brief Return Z3_TRUE if a < b, and Z3_FALSE otherwise.
+       \brief Return \c true if a < b, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
        \pre Z3_algebraic_is_value(c, b)
 
        def_API('Z3_algebraic_lt', BOOL, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_lt(Z3_context c, Z3_ast a, Z3_ast b);
+    bool Z3_API Z3_algebraic_lt(Z3_context c, Z3_ast a, Z3_ast b);
 
     /**
-       \brief Return Z3_TRUE if a > b, and Z3_FALSE otherwise.
+       \brief Return \c true if a > b, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
        \pre Z3_algebraic_is_value(c, b)
 
        def_API('Z3_algebraic_gt', BOOL, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_gt(Z3_context c, Z3_ast a, Z3_ast b);
+    bool Z3_API Z3_algebraic_gt(Z3_context c, Z3_ast a, Z3_ast b);
 
     /**
-       \brief Return Z3_TRUE if a <= b, and Z3_FALSE otherwise.
+       \brief Return \c true if a <= b, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
        \pre Z3_algebraic_is_value(c, b)
 
        def_API('Z3_algebraic_le', BOOL, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_le(Z3_context c, Z3_ast a, Z3_ast b);
+    bool Z3_API Z3_algebraic_le(Z3_context c, Z3_ast a, Z3_ast b);
 
     /**
-       \brief Return Z3_TRUE if a >= b, and Z3_FALSE otherwise.
+       \brief Return \c true if a >= b, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
        \pre Z3_algebraic_is_value(c, b)
 
        def_API('Z3_algebraic_ge', BOOL, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_ge(Z3_context c, Z3_ast a, Z3_ast b);
+    bool Z3_API Z3_algebraic_ge(Z3_context c, Z3_ast a, Z3_ast b);
 
     /**
-       \brief Return Z3_TRUE if a == b, and Z3_FALSE otherwise.
+       \brief Return \c true if a == b, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
        \pre Z3_algebraic_is_value(c, b)
 
        def_API('Z3_algebraic_eq', BOOL, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_eq(Z3_context c, Z3_ast a, Z3_ast b);
+    bool Z3_API Z3_algebraic_eq(Z3_context c, Z3_ast a, Z3_ast b);
 
     /**
-       \brief Return Z3_TRUE if a != b, and Z3_FALSE otherwise.
+       \brief Return \c true if a != b, and \c false otherwise.
 
        \pre Z3_algebraic_is_value(c, a)
        \pre Z3_algebraic_is_value(c, b)
 
        def_API('Z3_algebraic_neq', BOOL, (_in(CONTEXT), _in(AST), _in(AST)))
     */
-    Z3_bool Z3_API Z3_algebraic_neq(Z3_context c, Z3_ast a, Z3_ast b);
+    bool Z3_API Z3_algebraic_neq(Z3_context c, Z3_ast a, Z3_ast b);
 
     /**
        \brief Given a multivariate polynomial p(x_0, ..., x_{n-1}, x_n), returns the

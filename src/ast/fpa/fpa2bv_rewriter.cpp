@@ -31,7 +31,7 @@ fpa2bv_rewriter_cfg::fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, 
     m_bindings(m)
 {
     updt_params(p);
-    // We need to make sure that the mananger has the BV plugin loaded.
+    // We need to make sure that the manager has the BV plugin loaded.
     symbol s_bv("bv");
     if (!m_manager.has_plugin(s_bv))
         m_manager.register_plugin(s_bv, alloc(bv_decl_plugin));

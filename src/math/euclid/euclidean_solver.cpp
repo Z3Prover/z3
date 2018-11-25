@@ -690,7 +690,7 @@ struct euclidean_solver::imp {
             m().del(eq.m_as[j]);
         eq.m_as.shrink(new_sz);
         eq.m_xs.shrink(new_sz);
-        // ajust c
+        // adjust c
         mpz new_c;
         decompose(m_next_pos_a, m_next_a, eq.m_c, new_c, eq.m_c);
         // create auxiliary equation

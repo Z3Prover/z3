@@ -16,12 +16,12 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {    
@@ -45,7 +45,7 @@ namespace Microsoft.Z3
         internal FPExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }

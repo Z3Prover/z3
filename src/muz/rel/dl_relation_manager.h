@@ -253,7 +253,7 @@ namespace datalog {
             \brief Return functor that transforms a table into one that lacks columns listed in
             \c removed_cols array.
 
-            The \c removed_cols cotains columns of table \c t in strictly ascending order.
+            The \c removed_cols contains columns of table \c t in strictly ascending order.
             */
         relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
             const unsigned * removed_cols);
@@ -263,7 +263,7 @@ namespace datalog {
         }
 
         /**
-            \brief Return an operation that is a composition of a join an a project operation.
+            \brief Return an operation that is a composition of a join and a project operation.
         */
         relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
                 unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
@@ -420,7 +420,7 @@ namespace datalog {
             \brief Return functor that transforms a table into one that lacks columns listed in
             \c removed_cols array.
 
-            The \c removed_cols cotains columns of table \c t in strictly ascending order.
+            The \c removed_cols contains columns of table \c t in strictly ascending order.
 
             If a project operation removes a non-functional column, all functional columns become 
             non-functional (so that none of the values in functional columns are lost)
@@ -433,7 +433,7 @@ namespace datalog {
         }
 
         /**
-            \brief Return an operation that is a composition of a join an a project operation.
+            \brief Return an operation that is a composition of a join and a project operation.
 
             This operation is equivalent to the two operations performed separately, unless functional 
             columns are involved.

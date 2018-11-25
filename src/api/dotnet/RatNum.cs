@@ -16,8 +16,8 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 #if !FRAMEWORK_LT_4
 using System.Numerics;
@@ -28,7 +28,6 @@ namespace Microsoft.Z3
     /// <summary>
     /// Rational Numerals
     /// </summary>
-    [ContractVerification(true)]
     public class RatNum : RealExpr
     {
         /// <summary>
@@ -38,7 +37,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<IntNum>() != null);
 
                 return new IntNum(Context, Native.Z3_get_numerator(Context.nCtx, NativeObject));
             }
@@ -51,7 +49,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<IntNum>() != null);
 
                 return new IntNum(Context, Native.Z3_get_denominator(Context.nCtx, NativeObject));
             }
@@ -93,6 +90,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Returns a double representing the value.
+        /// </summary>
+        public double Double
+        {
+            get { return Native.Z3_get_numeral_double(Context.nCtx, NativeObject); }
+        }
+
+        /// <summary>
         /// Returns a string representation of the numeral.
         /// </summary>        
         public override string ToString()
@@ -104,7 +109,7 @@ namespace Microsoft.Z3
         internal RatNum(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }

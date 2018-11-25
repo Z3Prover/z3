@@ -284,7 +284,9 @@ namespace opt {
         symbol pri = optp.priority();
 
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
+        
         lbool is_sat = s.check_sat(asms.size(),asms.c_ptr());
+
         TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
             s.get_model(m_model);
@@ -706,7 +708,7 @@ namespace opt {
                 quick_for_each_expr(proc, visited, f);
             }
         }
-        catch (is_bv::found) {
+        catch (const is_bv::found &) {
             return false;
         }
         return true;
@@ -737,7 +739,7 @@ namespace opt {
         try {
             quick_for_each_expr(proc, visited, p);
         }
-        catch (is_propositional_fn::found) {
+        catch (const is_propositional_fn::found &) {
             return false;
         }
         return true;
@@ -1565,11 +1567,12 @@ namespace opt {
         mdl->set_model_completion(true);
         for (expr * f : fmls) {
             if (!mdl->is_true(f)) {
-                //IF_VERBOSE(0, m_fm->display(verbose_stream() << "fm\n"));
-                IF_VERBOSE(0, m_model_converter->display(verbose_stream() << "mc\n"));
-                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << mk_pp(f, m) << "\n" << tmp << "\n");
-                IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *mdl, 0)); 
-                IF_VERBOSE(11, verbose_stream() << to_string_internal() << "\n");
+                IF_VERBOSE(0, 
+                           verbose_stream() << "Failed to validate " << mk_pp(f, m) << "\n" << tmp << "\n";
+                           m_fm->display(verbose_stream() << "fm\n");
+                           m_model_converter->display(verbose_stream() << "mc\n");
+                           model_smt2_pp(verbose_stream(), m, *mdl, 0);
+                           verbose_stream() << to_string_internal() << "\n");
                 exit(0);
             }
         }

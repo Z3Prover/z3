@@ -21,6 +21,8 @@ Revision History:
 #undef min
 #include "sat/sat_solver.h"
 
+struct lex_error {};
+
 class stream_buffer {
     std::istream & m_stream;
     int            m_val;
@@ -67,7 +69,7 @@ void skip_line(Buffer & in) {
 }
 
 template<typename Buffer>
-int parse_int(Buffer & in) {
+int parse_int(Buffer & in, std::ostream& err) {
     int     val = 0;
     bool    neg = false;
     skip_whitespace(in);
@@ -81,9 +83,8 @@ int parse_int(Buffer & in) {
     }
 
     if (*in < '0' || *in > '9') {
-        std::cerr << "(error, \"unexpected char: " << *in << " line: " << in.line() << "\")\n";
-        exit(3);
-        exit(ERR_PARSER);
+        err << "(error, \"unexpected char: " << *in << " line: " << in.line() << "\")\n";
+        throw lex_error();
     }
 
     while (*in >= '0' && *in <= '9') {
@@ -95,14 +96,14 @@ int parse_int(Buffer & in) {
 }
 
 template<typename Buffer>
-void read_clause(Buffer & in, sat::solver & solver, sat::literal_vector & lits) {
+void read_clause(Buffer & in, std::ostream& err, sat::solver & solver, sat::literal_vector & lits) {
     int     parsed_lit;
     int     var;
     
     lits.reset();
 
     while (true) { 
-        parsed_lit = parse_int(in);
+        parsed_lit = parse_int(in, err);
         if (parsed_lit == 0)
             break;
         var = abs(parsed_lit);
@@ -114,24 +115,30 @@ void read_clause(Buffer & in, sat::solver & solver, sat::literal_vector & lits) 
 }
 
 template<typename Buffer>
-void parse_dimacs_core(Buffer & in, sat::solver & solver) {
+bool parse_dimacs_core(Buffer & in, std::ostream& err, sat::solver & solver) {
     sat::literal_vector lits;
-    while (true) {
-        skip_whitespace(in);
-        if (*in == EOF) {
-            break;
-        }
-        else if (*in == 'c' || *in == 'p') {
-            skip_line(in);
-        }
-        else {
-            read_clause(in, solver, lits);
-            solver.mk_clause(lits.size(), lits.c_ptr());
+    try {
+        while (true) {
+            skip_whitespace(in);
+            if (*in == EOF) {
+                break;
+            }
+            else if (*in == 'c' || *in == 'p') {
+                skip_line(in);
+            }
+            else {
+                read_clause(in, err, solver, lits);
+                solver.mk_clause(lits.size(), lits.c_ptr());
+            }
         }
     }
+    catch (lex_error) {
+        return false;
+    }
+    return true;
 }
 
-void parse_dimacs(std::istream & in, sat::solver & solver) {
+bool parse_dimacs(std::istream & in, std::ostream& err, sat::solver & solver) {
     stream_buffer _in(in);
-    parse_dimacs_core(_in, solver);
+    return parse_dimacs_core(_in, err, solver);
 }

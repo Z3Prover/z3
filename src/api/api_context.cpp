@@ -79,6 +79,7 @@ namespace api {
         m_datalog_util(m()),
         m_fpa_util(m()),
         m_sutil(m()),
+        m_recfun(m()),
         m_last_result(m()),
         m_ast_trail(m()),
         m_pmanager(m_limit) {
@@ -219,7 +220,7 @@ namespace api {
         if (m_user_ref_count) {
             // Corner case bug: n may be in m_last_result, and this is the only reference to n.
             // When, we execute reset() it is deleted
-            // To avoid this bug, I bump the reference counter before reseting m_last_result
+            // To avoid this bug, I bump the reference counter before resetting m_last_result
             ast_ref node(n, m());
             m_last_result.reset();
             m_last_result.push_back(std::move(node));
@@ -362,7 +363,7 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_toggle_warning_messages(Z3_bool enabled) {
+    void Z3_API Z3_toggle_warning_messages(bool enabled) {
         LOG_Z3_toggle_warning_messages(enabled);
         enable_warning_messages(enabled != 0);
     }
@@ -439,7 +440,6 @@ extern "C" {
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h) {
         RESET_ERROR_CODE();    
         mk_c(c)->set_error_handler(h);
-        // [Leo]: using exception handling, we don't need global error handlers anymore
     }
 
     void Z3_API Z3_set_error(Z3_context c, Z3_error_code e) {

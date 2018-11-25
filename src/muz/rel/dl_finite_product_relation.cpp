@@ -1319,7 +1319,7 @@ namespace datalog {
 
                 if(!m_table_cond_columns.empty()) {
                     //We will keep the table variables that appear in the condition together 
-                    //with the index column and then iterate throught the tuples, evaluating 
+                    //with the index column and then iterate through the tuples, evaluating
                     //the rest of the condition on the inner relations.
                     unsigned_vector removed_cols;
                     unsigned table_data_col_cnt = r.m_table_sig.size()-1;

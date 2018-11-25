@@ -68,7 +68,7 @@ unsigned length(list<T> * l) {
 }
 
 /**
-   \brief Non destructive apppend operation.  The new nodes are allocated
+   \brief Non destructive append operation.  The new nodes are allocated
    using the given region allocator.
 */
 template<typename T>

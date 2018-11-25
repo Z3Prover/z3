@@ -5074,7 +5074,7 @@ namespace smt {
                         }
                     } else {
                         // ------------------------------------------------------------------------------------------------
-                        // subStr doesn't have an eqc contant value
+                        // subStr doesn't have an eqc constant value
                         // however, subStr equals to some concat(arg_1, arg_2, ..., arg_n)
                         // if arg_j is a constant and is not a part of the strConst, it's sure that the contains is false
                         // ** This check is needed here because the "strConst" and "strAst" may not be in a same eqc yet
@@ -10608,7 +10608,6 @@ namespace smt {
         std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
         int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map, var_eq_concat_map);
         if (conflictInDep == -1) {
-            // return Z3_TRUE;
             return FC_DONE;
         }
 

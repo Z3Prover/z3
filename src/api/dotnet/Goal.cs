@@ -18,7 +18,8 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
@@ -27,7 +28,6 @@ namespace Microsoft.Z3
     /// of formulas, that can be solved and/or transformed using
     /// tactics and solvers.
     /// </summary>
-    [ContractVerification(true)]
     public class Goal : Z3Object
     {
         /// <summary>
@@ -79,13 +79,13 @@ namespace Microsoft.Z3
         /// </summary>   
         public void Assert(params BoolExpr[] constraints)
         {
-            Contract.Requires(constraints != null);
-            Contract.Requires(Contract.ForAll(constraints, c => c != null));
+            Debug.Assert(constraints != null);
+            Debug.Assert(constraints.All(c => c != null));
 
             Context.CheckContextMatch<BoolExpr>(constraints);
             foreach (BoolExpr c in constraints)
             {
-                Contract.Assert(c != null); // It was an assume, now made an assert just to be sure we do not regress
+                Debug.Assert(c != null); // It was an assume, now made an assert just to be sure we do not regress
                 Native.Z3_goal_assert(Context.nCtx, NativeObject, c.NativeObject);
             }
         }
@@ -140,7 +140,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
                 uint n = Size;
                 BoolExpr[] res = new BoolExpr[n];
@@ -181,7 +180,6 @@ namespace Microsoft.Z3
         /// <returns>A model for <c>g</c></returns>
         public Model ConvertModel(Model m)
         {
-            Contract.Ensures(Contract.Result<Model>() != null);
             if (m != null)
                return new Model(Context, Native.Z3_goal_convert_model(Context.nCtx, NativeObject, m.NativeObject));
             else
@@ -194,7 +192,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Goal Translate(Context ctx)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
 
             return new Goal(ctx, Native.Z3_goal_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
@@ -248,12 +246,12 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal Goal(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal Goal(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
         internal Goal(Context ctx, bool models, bool unsatCores, bool proofs)
             : base(ctx, Native.Z3_mk_goal(ctx.nCtx, (byte)(models ? 1 : 0), (byte)(unsatCores ? 1 : 0), (byte)(proofs ? 1 : 0)))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

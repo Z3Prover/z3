@@ -944,7 +944,7 @@ HTML_STYLESHEET        =
 # user-defined cascading style sheet that is included after the standard
 # style sheets created by doxygen. Using this option one can overrule
 # certain style aspects. This is preferred over using HTML_STYLESHEET
-# since it does not replace the standard style sheet and is therefor more
+# since it does not replace the standard style sheet and is therefore more
 # robust against future updates. Doxygen will copy the style sheet file to
 # the output directory.
 
@@ -1711,7 +1711,7 @@ UML_LOOK               = NO
 # the class node. If there are many fields or methods and many nodes the
 # graph may become too big to be useful. The UML_LIMIT_NUM_FIELDS
 # threshold limits the number of items for each type to make the size more
-# managable. Set this to 0 for no limit. Note that the threshold may be
+# manageable. Set this to 0 for no limit. Note that the threshold may be
 # exceeded by 50% before the limit is enforced.
 
 UML_LIMIT_NUM_FIELDS   = 10

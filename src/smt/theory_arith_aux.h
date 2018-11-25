@@ -491,13 +491,21 @@ namespace smt {
                 if (!it->is_dead()) {
                     unsigned rid = it->m_row_id;
                     row & r = m_rows[rid];
-                    if (is_base(r.get_base_var()))
+                    theory_var v = r.get_base_var();
+                    if (v == null_theory_var) {
+                        // skip
+                    }
+                    else if (is_base(v)) {
                         return it;
+                    }
                     else if (quasi_base_rid == -1)
                         quasi_base_rid = rid;
                 }
             }
-            SASSERT(quasi_base_rid != -1); // since c.size() != 0
+            if (quasi_base_rid == -1) {
+                return nullptr;
+            }
+			
             quasi_base_row2base_row(quasi_base_rid);
             // There is no guarantee that v is still a variable of row quasi_base_rid.
 
@@ -1073,7 +1081,7 @@ namespace smt {
     /**
        \brief: Create an atom that enforces the inequality v > val
        The arithmetical expression encoding the inequality suffices 
-       for the theory of aritmetic.
+       for the theory of arithmetic.
     */
     template<typename Ext>
     expr_ref theory_arith<Ext>::mk_gt(theory_var v) {
@@ -1146,7 +1154,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::enable_record_conflict(expr* bound) {
         m_params.m_arith_bound_prop = BP_NONE;
-        SASSERT(propagation_mode() == BP_NONE); // bound propagtion rules are not (yet) handled.
+        SASSERT(propagation_mode() == BP_NONE); // bound propagation rules are not (yet) handled.
         if (bound) {
             context& ctx = get_context();
             m_bound_watch = ctx.get_bool_var(bound);

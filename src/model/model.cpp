@@ -312,7 +312,8 @@ void model::collect_occs(top_sort& ts, func_decl* f) {
         func_interp* fi = get_func_interp(f);
         if (fi) {
             e = fi->get_else();
-            collect_occs(ts, e);
+            if (e != nullptr)
+               collect_occs(ts, e);
         }
     }
 }
@@ -409,8 +410,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             }
             else if (f->is_skolem() && can_inline_def(ts, f) && (fi = get_func_interp(f)) && 
                      fi->get_interp() && (!ts.partition_ids().find(f, pid) || pid != current_partition)) {
-                var_subst vs(m);
-                // ? TBD args.reverse();
+                var_subst vs(m, false);
                 new_t = vs(fi->get_interp(), args.size(), args.c_ptr());
             }
 #if 0

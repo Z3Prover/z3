@@ -85,7 +85,7 @@ namespace datalog {
         /**
            \brief Restrict the set of used predicates to \c res.
 
-           The function deallocates unsused relations, it does not deal with rules.
+           The function deallocates unused relations, it does not deal with rules.
          */
         void restrict_predicates(func_decl_set const& predicates) override;
 

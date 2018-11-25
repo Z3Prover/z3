@@ -687,7 +687,7 @@ bool pattern_inference_cfg::reduce_quantifier(
             mk_patterns(result2->get_num_decls(), result2->get_expr(), 0, nullptr, new_patterns);
             if (!new_patterns.empty()) {
                 if (m_params.m_pi_warnings) {
-                    warning_msg("pulled nested quantifier to be able to find an useable pattern (quantifier id: %s)", q->get_qid().str().c_str());
+                    warning_msg("pulled nested quantifier to be able to find an usable pattern (quantifier id: %s)", q->get_qid().str().c_str());
                 }
                 new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.c_ptr(), result2->get_expr());
                 if (m.proofs_enabled()) {

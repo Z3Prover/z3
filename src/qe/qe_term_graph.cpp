@@ -62,7 +62,7 @@ namespace qe {
             is_pure_ns::proc v(is_var);
             quick_for_each_expr(v, e);
         }
-        catch (is_pure_ns::found) {
+        catch (const is_pure_ns::found &) {
             return false;
         }
         return true;
@@ -669,7 +669,7 @@ namespace qe {
 
             // Here we could also walk equivalence classes that
             // contain interpreted values by sort and extract
-            // disequalities bewteen non-unique value
+            // disequalities between non-unique value
             // representatives.  these disequalities are implied
             // and can be mined using other means, such as theory
             // aware core minimization

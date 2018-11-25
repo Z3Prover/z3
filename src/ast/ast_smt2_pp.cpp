@@ -1163,6 +1163,33 @@ public:
         unregister_var_names(f->get_arity());
     }
 
+    // format set of mutually recursive definitions
+    void operator()(vector<std::pair<func_decl*, expr*>> const& funs, format_ref & r) {
+        format_ref_vector decls(m()), bodies(m());
+        format_ref r1(m()), r2(m());
+
+        for (auto const& p : funs) {
+            unsigned len;
+            func_decl* f = p.first;
+            expr* e = p.second;
+            format * fname = m_env.pp_fdecl_name(f, len);
+            register_var_names(f->get_arity());        
+            format * args[3];
+            args[0] = fname;
+            args[1] = pp_var_args(f->get_arity(), f->get_domain());
+            args[2] = m_env.pp_sort(f->get_range());
+            decls.push_back(mk_seq1<format**, f2f>(m(), args, args+3, f2f(), ""));                             
+            process(e, r);
+            bodies.push_back(r);
+            unregister_var_names(f->get_arity());
+        }
+        r1 = mk_seq1<format*const*, f2f>(m(), decls.begin(), decls.end(), f2f(), "");
+        r2 = mk_seq1<format*const*, f2f>(m(), bodies.begin(), bodies.end(), f2f(), "");
+        format * args[2];
+        args[0] = r1;
+        args[1] = r2;
+        r = mk_seq1<format**, f2f>(m(), args, args+2, f2f(), "define-rec-funs");
+    }
 
 
 };
@@ -1274,6 +1301,16 @@ std::ostream & ast_smt2_pp(std::ostream & out, symbol const& s, bool is_skolem, 
     pp(out, r.get(), m, p);
     return out;
 }
+
+std::ostream & ast_smt2_pp_recdefs(std::ostream & out, vector<std::pair<func_decl*, expr*>> const& funs, smt2_pp_environment & env, params_ref const & p) {
+    ast_manager & m = env.get_manager();
+    format_ref r(fm(m));
+    smt2_printer pr(env, p);
+    pr(funs, r);
+    pp(out, r.get(), m, p);
+    return out;
+}
+
 
 mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent, unsigned num_vars, char const * var_prefix):
     m_ast(t),
