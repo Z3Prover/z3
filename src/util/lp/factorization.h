@@ -75,27 +75,23 @@ struct const_iterator_mon {
 };
 
 struct factorization_factory {
-        // returns true if found
+    const svector<lpvar>& m_vars;
+    // returns true if found
     virtual bool find_monomial_of_vars(const svector<lpvar>& vars, monomial& m, rational & sign) const = 0;
-    unsigned           m_i_mon;
-    const monomial&    m_mon;
-    monomial_coeff m_cmon;
 
-    factorization_factory(unsigned i_mon, const monomial& mon, const monomial_coeff& cmon) :
-        m_i_mon(i_mon),
-        m_mon(mon),
-        m_cmon(cmon) {
+    factorization_factory(const svector<lpvar>& vars) :
+        m_vars(vars) {
     }
 
     const_iterator_mon begin() const {
         // we keep the last element always in the first factor to avoid
         // repeating a pair twice
-        svector<bool> mask(m_mon.vars().size() - 1, false);
+        svector<bool> mask(m_vars.size() - 1, false);
         return const_iterator_mon(mask, this);
     }
     
     const_iterator_mon end() const {
-        svector<bool> mask(m_mon.vars().size() - 1, true);
+        svector<bool> mask(m_vars.size() - 1, true);
         auto it = const_iterator_mon(mask, this);
         it.m_full_factorization_returned = true;
         return it;
