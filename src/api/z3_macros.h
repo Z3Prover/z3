@@ -19,7 +19,3 @@ Copyright (c) 2015 Microsoft Corporation
 #ifndef DEFINE_TYPE
 #define DEFINE_TYPE(T) typedef struct _ ## T *T
 #endif
-
-#ifndef DEFINE_VOID
-#define DEFINE_VOID(T) typedef void* T
-#endif
