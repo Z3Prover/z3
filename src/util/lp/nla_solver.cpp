@@ -28,6 +28,13 @@ namespace nla {
 
 struct solver::imp {
 
+    struct rooted_mon {
+        svector<lpvar>   m_vars;
+        index_with_sign  m_orig;
+        rooted_mon(const svector<lpvar>& vars, unsigned     i, const rational& sign): m_vars(vars), m_orig(i, sign) {}
+    };
+
+    
     typedef lp::lar_base_constraint lpcon;
     
    
@@ -40,7 +47,7 @@ struct solver::imp {
                        vector<index_with_sign>,
                        hash_svector>
                                                                      m_rooted_monomials_map;
-    vector<svector<lpvar>>                                           m_vector_of_rooted_monomials;
+    vector<rooted_mon>                                               m_vector_of_rooted_monomials;
 
     // this field is used for the push/pop operations
     unsigned_vector                                                  m_monomials_counts;
@@ -695,7 +702,8 @@ struct solver::imp {
     
     // use basic multiplication properties to create a lemma
     // for the given monomial
-    bool basic_lemma_for_mon(unsigned i_mon) {
+    bool basic_lemma_for_mon(const rooted_mon& rm) {
+        /*
         for (auto factorization : factorization_factory_imp(i_mon, *this)) {
             if (factorization.is_empty())
                 continue;
@@ -703,17 +711,19 @@ struct solver::imp {
                 basic_lemma_for_mon_neutral(i_mon, factorization))
                 return true;
             
-        }
+                }*/
         return false;
     }
 
     // use basic multiplication properties to create a lemma
-    bool basic_lemma(unsigned_vector & to_refine) {
+    bool basic_lemma() {
         if (basic_sign_lemma())
             return true;
 
-        for (unsigned i : to_refine) {
-            if (basic_lemma_for_mon(i)) {
+        for (const rooted_mon& r : m_vector_of_rooted_monomials) {
+            if (check_monomial(m_monomials[r.m_orig.m_i]))
+                continue;
+            if (basic_lemma_for_mon(r)) {
                 return true;
             }
         }
@@ -791,7 +801,19 @@ struct solver::imp {
         }
     }
 
+    bool var_is_a_root(lpvar j) const { return m_vars_equivalence.is_root(j); }
+
+    template <typename T>
+    bool vars_are_roots(const T& v) const {
+        for (lpvar j: v) {
+            if (!var_is_a_root(j))
+                return false;
+        }
+        return true;
+    }
+
     void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i) {
+        SASSERT(vars_are_roots(mc.vars()));
         index_with_sign ms(i, mc.coeff());
         auto it = m_rooted_monomials_map.find(mc.vars());
         if (it == m_rooted_monomials_map.end()) {
@@ -799,6 +821,7 @@ struct solver::imp {
             v.push_back(ms);
             // v is a vector containing a single index_with_sign
             m_rooted_monomials_map.emplace(mc.vars(), v);
+            m_vector_of_rooted_monomials.push_back(rooted_mon(mc.vars(), i, mc.coeff()));
         } 
         else {
             it->second.push_back(ms);
@@ -809,33 +832,6 @@ struct solver::imp {
         m_vars_equivalence.register_monomial_in_abs_vals(i, m_monomials[i]);
         monomial_coeff mc = canonize_monomial(m_monomials[i]);
         register_key_mono_in_rooted_monomials(mc, i);        
-    }
-
-    void fill_vector_of_rooted_monomials() {
-        SASSERT(m_vector_of_rooted_monomials.empty());
-        for (const auto& p : m_rooted_monomials_map) {
-            m_vector_of_rooted_monomials.push_back(p.first);
-        }
-    }
-
-    void register_rooted_monomial(unsigned i) {
-        for (unsigned j : m_vector_of_rooted_monomials[i]) {
-            auto it = m_rooted_monomials_containing_var.find(j);
-            if (it == m_rooted_monomials_containing_var.end()) {
-                std::unordered_set<unsigned> s;
-                s.insert(i);
-                m_rooted_monomials_containing_var[j] = s;
-            } else {
-                it->second.insert(i);
-            }
-        }
-    }
-    
-    void create_rooted_tables() {
-        fill_vector_of_rooted_monomials();
-        for (unsigned i = 0; i < m_vector_of_rooted_monomials.size(); i++) {
-            register_rooted_monomial(i);
-        }
     }
 
     void intersect_set(std::unordered_set<unsigned>& p, const std::unordered_set<unsigned>& w) {
@@ -875,27 +871,30 @@ struct solver::imp {
 
     void reduce_set_by_checking_actual_containment(std::unordered_set<unsigned>& p,
                                                    const svector<lpvar> & rm ) {
-        for (auto it = p.begin(); it != p.end();) {
-            if (is_factor(rm, m_vector_of_rooted_monomials[*it])) {
-                it++;
-                continue;
-            }
-            auto iit = it;
-            iit ++;
-            p.erase(it);
-            it = iit;
-        }
+        NOT_IMPLEMENTED_YET();
+      
+        // for (auto it = p.begin(); it != p.end();) {
+        //     if (is_factor(rm, m_vector_of_rooted_monomials[*it])) {
+        //         it++;
+        //         continue;
+        //     }
+        //     auto iit = it;
+        //     iit ++;
+        //     p.erase(it);
+        //     it = iit;
+        // }
     }
     
     // here i is the index of a monomial in m_vector_of_rooted_monomials
     void find_containing_rooted_monomials(unsigned i) {
-        const svector<lpvar> & rm = m_vector_of_rooted_monomials[i];
-        std::unordered_set<unsigned> p = m_rooted_monomials_containing_var[rm[0]];
-        for (unsigned k = 1; k < rm.size(); k++) {
-            intersect_set(p, m_rooted_monomials_containing_var[rm[k]]);
-        }
-        reduce_set_by_checking_actual_containment(p, rm);
-        m_rooted_factor_to_product[i] = p;
+        NOT_IMPLEMENTED_YET();
+        // const svector<lpvar> & rm = m_vector_of_rooted_monomials[i];
+        // std::unordered_set<unsigned> p = m_rooted_monomials_containing_var[rm[0]];
+        // for (unsigned k = 1; k < rm.size(); k++) {
+        //     intersect_set(p, m_rooted_monomials_containing_var[rm[k]]);
+        // }
+        // reduce_set_by_checking_actual_containment(p, rm);
+        // m_rooted_factor_to_product[i] = p;
     }
     
     void fill_rooted_factor_to_product() {
@@ -909,7 +908,6 @@ struct solver::imp {
         for (unsigned i = 0; i < m_monomials.size(); i++) 
             register_monomial_in_tables(i);
 
-        create_rooted_tables();
         fill_rooted_factor_to_product();
     }
     
@@ -1102,22 +1100,20 @@ struct solver::imp {
             return l_undef;
         }
 
-        unsigned_vector to_refine;
-        for (unsigned i = 0; i < m_monomials.size(); i++) {
+        bool to_refine = false;
+        for (unsigned i = 0; i < m_monomials.size() && !to_refine; i++) {
             if (!check_monomial(m_monomials[i]))
-                to_refine.push_back(i);
+                to_refine = true;
         }
 
-        if (to_refine.empty()) {
+        if (!to_refine) {
             return l_true;
         }
 
-        TRACE("nla_solver", tout << "to_refine.size() = " << to_refine.size() << std::endl;);
-        
         init_search();
         for (int search_level = 0; search_level < 3; search_level++) {
             if (search_level == 0) {
-                if (basic_lemma(to_refine)) {
+                if (basic_lemma()) {
                     return l_false;
                 }
             } else if (search_level == 1) {

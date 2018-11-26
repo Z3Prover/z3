@@ -76,16 +76,16 @@ struct vars_equivalence {
     
     // The map from the variables to m_equivs indices
     // m_tree is a spanning tree of the graph of equivs represented by m_equivs
-    std::unordered_map<unsigned, unsigned>       m_tree;  
+    std::unordered_map<unsigned, unsigned>        m_tree;  
     // If m_tree[v] == -1 then the variable is a root.
     // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), that k is the parent of v
-    vector<equiv>                                m_equivs;         // all equivalences extracted from constraints
-    std::unordered_map<rational,unsigned_vector> m_vars_by_abs_values;
+    vector<equiv>                                 m_equivs;         // all equivalences extracted from constraints
+    std::unordered_map<rational, unsigned_vector> m_vars_by_abs_values;
     std::unordered_map<vector<rational>,
                        unsigned_vector,
-                       hash_vector>              m_monomials_by_abs_vals;
+                       hash_vector>               m_monomials_by_abs_vals;
 
-    std::function<rational(lpvar)> m_vvr;
+    std::function<rational(lpvar)>                m_vvr;
 
 
     // constructor
