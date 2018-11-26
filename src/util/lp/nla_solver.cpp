@@ -653,18 +653,19 @@ struct solver::imp {
 
     // use the fact
     // 1 * 1 ... * 1 * x * 1 ... * 1 = x
-
     bool basic_lemma_for_mon_neutral_from_factors_to_monomial(const rooted_mon& rm, const factorization& f) {
-        int sign = 1;
+        rational sign = rm.m_orig.m_sign;
         lpvar not_one_j = -1;
         for (lpvar j : f){
             if (vvr(j) == rational(1)) {
                 continue;
             }
+
             if (vvr(j) == -rational(1)) { 
                 sign = - sign;
                 continue;
             } 
+
             if (not_one_j == static_cast<lpvar>(-1)) {
                 not_one_j = j;
                 continue;
@@ -673,24 +674,9 @@ struct solver::imp {
             // if we are here then there are at least two factors with values different from one and minus one: cannot create the lemma
             return false;
         }
-        /*
+       
         expl_set e;
         add_explanation_of_factorization_and_set_explanation(rm, f, e);
-        
-        if (not_one_j == static_cast<lpvar>(-1)) {
-     		// we can derive that the value of the monomial is equal to sign
-            for (lpvar j : f){
-                
-                if (vvr(j) == rational(1)) {
-                    mk_ineq(j, lp::lconstraint_kind::NE, rational(1));   
-                } else if (vvr(j) == -rational(1)) {
-                    mk_ineq(j, lp::lconstraint_kind::NE, -rational(1));   
-                } 
-            }
-            mk_ineq(m_monomials[i_mon].var(), lp::lconstraint_kind::EQ, rational(sign));
-            TRACE("nla_solver", print_lemma(tout););
-            return true;
-        }
         
         for (lpvar j : f){
             if (vvr(j) == rational(1)) {
@@ -699,10 +685,14 @@ struct solver::imp {
                 mk_ineq(j, lp::lconstraint_kind::NE, -rational(1));   
             } 
         }
-        mk_ineq(m_monomials[i_mon].var(), -rational(sign), not_one_j,lp::lconstraint_kind::EQ);   
+
+        if (not_one_j == static_cast<lpvar>(-1)) {
+            mk_ineq(m_monomials[rm.orig_index()].var(), lp::lconstraint_kind::EQ, rational(sign));
+        } else {
+            mk_ineq(m_monomials[rm.orig_index()].var(), -rational(sign), not_one_j, lp::lconstraint_kind::EQ);
+        }
         TRACE("nla_solver", print_lemma(tout););
-        return true;*/
-        return false;
+        return true;
     }
     
     bool basic_lemma_for_mon_neutral(const rooted_mon& rm, const factorization& factorization) {
