@@ -4,13 +4,13 @@ namespace nla {
 
 void const_iterator_mon::init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const {
     // the last element for m_factorization.m_rooted_vars goes to k_vars
-    SASSERT(m_mask.size() + 1  == m_ff->m_cmon.vars().size());
-    k_vars.push_back(m_ff->m_cmon.vars().back()); 
+    SASSERT(m_mask.size() + 1  == m_ff->m_vars.size());
+    k_vars.push_back(m_ff->m_vars.back()); 
     for (unsigned j = 0; j < m_mask.size(); j++) {
         if (m_mask[j]) {
-            k_vars.push_back(m_ff->m_cmon.vars()[j]);
+            k_vars.push_back(m_ff->m_vars[j]);
         } else {
-            j_vars.push_back(m_ff->m_cmon.vars()[j]);
+            j_vars.push_back(m_ff->m_vars[j]);
         }
     }
 }
@@ -54,7 +54,7 @@ const_iterator_mon::reference const_iterator_mon::operator*() const {
     unsigned j, k; rational sign;
     if (!get_factors(j, k, sign))
         return factorization();
-    return create_binary_factorization(j, k, m_ff->m_cmon.coeff() * sign);
+    return create_binary_factorization(j, k, sign);
 }
             
 void const_iterator_mon::advance_mask() {
@@ -113,7 +113,7 @@ factorization const_iterator_mon::create_binary_factorization(lpvar j, lpvar k, 
 
 factorization const_iterator_mon::create_full_factorization() const {
     factorization f;
-    f.vars() = m_ff->m_mon.vars();
+    f.vars() = m_ff->m_vars;
     f.sign() = rational(1);
     return f;
 }
