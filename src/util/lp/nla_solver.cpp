@@ -478,12 +478,9 @@ struct solver::imp {
     struct factorization_factory_imp: factorization_factory {
         const imp&         m_imp;
         
-        factorization_factory_imp(unsigned i_mon, const imp& s) :
-            factorization_factory(i_mon,
-                s.m_monomials[i_mon],
-                s.canonize_monomial(s.m_monomials[i_mon])
-                ),
-                m_imp(s) { }
+        factorization_factory_imp(const svector<lpvar>& m_vars, const imp& s) :
+            factorization_factory(m_vars),
+            m_imp(s) { }
         
          bool find_monomial_of_vars(const svector<lpvar>& vars, monomial& m, rational & sign) const {
             auto it = m_imp.m_rooted_monomials_map.find(vars);
