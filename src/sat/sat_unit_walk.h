@@ -69,7 +69,6 @@ namespace sat {
         unsigned          m_max_conflicts;
         bool              m_sticky_phase;
 
-        unsigned          m_propagations;
         unsigned          m_flips;
         unsigned          m_max_trail;
         unsigned          m_qhead;
