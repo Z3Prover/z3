@@ -2133,6 +2133,7 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
     if (!linearize(dep, eqs, lits)) 
         return;
     TRACE("seq",
+          tout << "scope: " << ctx.get_scope_level() << "\n";
           ctx.display_detailed_literal(tout << "assert:", lit);
           ctx.display_literals_verbose(tout << " <- ", lits);
           if (!lits.empty()) tout << "\n"; display_deps(tout, dep););
@@ -5509,16 +5510,18 @@ void theory_seq::propagate_step(literal lit, expr* step) {
 void theory_seq::propagate_accept(literal lit, expr* acc) {
     expr *e = nullptr, *idx = nullptr, *re = nullptr;
     unsigned src = 0;
+    context& ctx = get_context();
     rational _idx;
     eautomaton* aut = nullptr;
     VERIFY(is_accept(acc, e, idx, re, src, aut));
+    VERIFY(m_autil.is_numeral(idx, _idx));
     VERIFY(aut);
     if (aut->is_sink_state(src)) {
         propagate_lit(nullptr, 1, &lit, false_literal);
         return;
     }
-    VERIFY(m_autil.is_numeral(idx, _idx));
-    if (_idx.get_unsigned() > m_max_unfolding_depth && m_max_unfolding_lit != null_literal) {
+    if (_idx.get_unsigned() > m_max_unfolding_depth && 
+        m_max_unfolding_lit != null_literal && ctx.get_scope_level() > 0) {
         propagate_lit(nullptr, 1, &lit, ~m_max_unfolding_lit);
         return;
     }
@@ -5540,11 +5543,11 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     for (auto const& mv : mvs) {
         expr_ref nth = mk_nth(e, idx);
         expr_ref t = mv.t()->accept(nth);
-        get_context().get_rewriter()(t);
+        ctx.get_rewriter()(t);
         literal step = mk_literal(mk_step(e, idx, re, src, mv.dst(), t));
         lits.push_back(step);
     }
-    get_context().mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+    ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
 }
 
 void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
