@@ -183,7 +183,7 @@ template <typename T, typename X> unsigned core_solver_pretty_printer<T, X>:: ge
     }
     if (!m_core_solver.use_tableau()) {
         w = std::max(w, (unsigned)T_to_string(m_exact_column_norms[column]).size());
-        if (m_core_solver.m_column_norms.size() > 0)
+        if (!m_core_solver.m_column_norms.empty())
             w = std::max(w, (unsigned)T_to_string(m_core_solver.m_column_norms[column]).size());
     }
     return w;
@@ -339,7 +339,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print()
     print_lows();
     print_upps();
     print_exact_norms();
-    if (m_core_solver.m_column_norms.size() > 0)
+    if (!m_core_solver.m_column_norms.empty())
         print_approx_norms();
     m_out << std::endl;
 }

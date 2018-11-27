@@ -170,7 +170,7 @@ namespace datalog {
             SASSERT(is_inner_col(idx));
             return m_sig2inner[idx];
         }
-        bool no_sieved_columns() const { return m_ignored_cols.size()==0; }
+        bool no_sieved_columns() const { return m_ignored_cols.empty(); }
         bool no_inner_columns() const { return m_ignored_cols.size()==get_signature().size(); }
 
         relation_base & get_inner() { return *m_inner; }

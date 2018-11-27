@@ -381,7 +381,7 @@ char * mpn_manager::to_string(mpn_digit const * a, size_t const lng, char * buf,
             div_1(t_numer, t_denom[0], &temp[0]);
             div_unnormalize(t_numer, t_denom, d, &rem);
             buf[j++] = '0' + rem;
-            while (temp.size() > 0 && temp.back() == 0) 
+            while (!temp.empty() && temp.back() == 0)
                 temp.pop_back();
         }
         buf[j] = 0;

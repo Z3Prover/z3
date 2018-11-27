@@ -72,7 +72,7 @@ namespace datalog {
         ~sparse_table_plugin() override;
 
         bool can_handle_signature(const table_signature & s) override
-        { return s.size()>0; }
+        { return !s.empty(); }
 
         table_base * mk_empty(const table_signature & s) override;
         sparse_table * mk_clone(const sparse_table & t);

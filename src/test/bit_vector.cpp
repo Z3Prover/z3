@@ -35,7 +35,7 @@ static void tst1() {
     }
     else if (op <= 3) {
         ENSURE(v1.size() == v2.size());
-        if (v1.size() > 0) {
+        if (!v1.empty()) {
         bool val = (rand()%2) != 0;
         unsigned idx = rand()%v1.size();
         ENSURE(v1.get(idx) == v2[idx]);
@@ -46,7 +46,7 @@ static void tst1() {
     }
     else if (op <= 4) {
         ENSURE(v1.size() == v2.size());
-        if (v1.size() > 0) {
+        if (!v1.empty()) {
         unsigned idx = rand()%v1.size();
         VERIFY(v1.get(idx) == v2[idx]);
         }

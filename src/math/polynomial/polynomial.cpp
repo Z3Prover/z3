@@ -67,7 +67,7 @@ namespace polynomial {
         bool first = true;
         out << "[";
         for (unsigned i = 0; i < m_var2degree.size(); ++ i) {
-            if (m_var2degree.size() > 0) {
+            if (!m_var2degree.empty()) {
                 if (!first) {
                     out << ",";
                 }

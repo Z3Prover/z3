@@ -68,7 +68,7 @@ namespace recfun {
         struct ite_find_p : public i_expr_pred {
             ast_manager & m;
             ite_find_p(ast_manager & m) : m(m) {}
-            virtual bool operator()(expr * e) { return m.is_ite(e); }
+            bool operator()(expr * e) override { return m.is_ite(e); }
         };
         // ignore ites under quantifiers.
         // this is redundant as the code
@@ -331,7 +331,7 @@ namespace recfun {
     struct is_imm_pred : is_immediate_pred {
         util & u;
         is_imm_pred(util & u) : u(u) {}
-        bool operator()(expr * rhs) {
+        bool operator()(expr * rhs) override {
             // find an `app` that is an application of a defined function
             struct find : public i_expr_pred {
                 util & u;

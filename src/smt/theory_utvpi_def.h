@@ -618,7 +618,7 @@ namespace smt {
         
         th_var v1 = null_theory_var, v2 = null_theory_var;
         bool   pos1 = true, pos2 = true;
-        if (terms.size() >= 1) {
+        if (!terms.empty()) {
             v1 = terms[0].first;
             pos1 = terms[0].second.is_one();
             SASSERT(v1 != null_theory_var);

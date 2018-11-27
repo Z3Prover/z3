@@ -1003,7 +1003,7 @@ public:
     }
 
     ptr_vector<func_decl> & get_unsat_constants_walksat(expr * e) {
-            if (!e || m_temp_constants.size())
+            if (!e || !m_temp_constants.empty())
                 return m_temp_constants;
             ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
             unsigned sz = this_decls.size();

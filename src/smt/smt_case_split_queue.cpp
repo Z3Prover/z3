@@ -281,7 +281,7 @@ namespace smt {
             }
         }
         if (order == 1) {
-            if (undef_children.size() == 0) {
+            if (undef_children.empty()) {
                 // a bug?
             } else if (undef_children.size() == 1) {
                 undef_child = undef_children[0];

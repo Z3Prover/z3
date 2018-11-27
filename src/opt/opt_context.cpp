@@ -481,7 +481,7 @@ namespace opt {
                 ++j;
             }
         }
-        if (r == l_true && m_box_models.size() > 0) {
+        if (r == l_true && !m_box_models.empty()) {
             m_model = m_box_models[0];
         }
         return r;

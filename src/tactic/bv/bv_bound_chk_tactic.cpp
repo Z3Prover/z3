@@ -74,7 +74,7 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
         bv_bounds bvb(m());
         const br_status rv = bvb.rewrite(m_bv_ineq_consistency_test_max, f, num, args, result);
         if (rv != BR_FAILED && (m_m.is_false(result) || m_m.is_true(result))) m_stats.m_unsats++;
-        else if (rv != BR_FAILED && bvb.singletons().size()) m_stats.m_singletons++;
+        else if (rv != BR_FAILED && !bvb.singletons().empty()) m_stats.m_singletons++;
         else if (rv != BR_FAILED && is_app(result) && to_app(result)->get_num_args() < num) m_stats.m_reduces++;
         return rv;
     }

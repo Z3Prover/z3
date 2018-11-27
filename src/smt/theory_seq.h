@@ -343,7 +343,7 @@ namespace smt {
         unsigned                   m_axioms_head; // index of first axiom to add.
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
-        obj_hashtable<expr> m_si_axioms;
+        obj_map<expr, rational> m_si_axioms;
         obj_hashtable<expr> m_length;             // is length applied
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;

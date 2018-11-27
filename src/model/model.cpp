@@ -85,7 +85,7 @@ struct model::value_proc : public some_value_proc {
     expr * operator()(sort * s) override {
         ptr_vector<expr> * u = nullptr;
         if (m_model.m_usort2universe.find(s, u)) {
-            if (u->size() > 0)
+            if (!u->empty())
                 return u->get(0);
         }
         return nullptr;

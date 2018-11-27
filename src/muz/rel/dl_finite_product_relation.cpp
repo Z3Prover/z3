@@ -487,7 +487,7 @@ namespace datalog {
 
             res->init(*res_table, joined_orelations, true);
 
-            if(m_tr_table_joined_cols.size()) {
+            if(!m_tr_table_joined_cols.empty()) {
                 //There were some shared variables between the table and the relation part.
                 //We enforce those equalities here.
                 if(!m_filter_tr_identities) {

@@ -96,7 +96,7 @@ namespace upolynomial {
 
     void core_manager::factors::display(std::ostream & out) const {
         out << nm().to_string(m_constant);
-        if (m_factors.size() > 0) {
+        if (!m_factors.empty()) {
             for (unsigned i = 0; i < m_factors.size(); ++ i) {
                 out << " * (";
                 m_upm.display(out, m_factors[i]);
