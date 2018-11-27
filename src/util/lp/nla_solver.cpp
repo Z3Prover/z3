@@ -599,9 +599,9 @@ struct solver::imp {
     // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1
     bool basic_lemma_for_mon_neutral_monomial_to_factor(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
-        /*
+
         // todo : consider the case of just two factors
-        lpvar mon_var = m_monomials[i_mon].var();
+        lpvar mon_var = m_monomials[rm.orig_index()].var();
         const auto & mv = vvr(mon_var);
         const auto  abs_mv = abs(mv);
         
@@ -645,10 +645,9 @@ struct solver::imp {
         // not_one_j = -1
         mk_ineq(not_one_j, lp::lconstraint_kind::EQ, -rational(1));
         expl_set e;
-        add_explanation_of_factorization_and_set_explanation(i_mon, f, e);
+        add_explanation_of_factorization_and_set_explanation(rm, f, e);
         TRACE("nla_solver", print_lemma(tout); );
-        return true;*/
-        return false;
+        return true;
     }
 
     // use the fact
