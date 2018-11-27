@@ -141,6 +141,11 @@ struct solver::imp {
         return sign * m_lar_solver.get_column_value(j) != m_lar_solver.get_column_value(k);
     }
 
+    void explain(const rooted_mon& rm) {
+        expl_set e;
+        add_explanation_of_reducing_to_rooted_monomial_and_set_expl(rm, e);
+    }
+    
     void add_explanation_of_reducing_to_rooted_monomial(const monomial& m, expl_set & exp) const {
         m_vars_equivalence.add_explanation_of_reducing_to_rooted_monomial(m, exp);
     }
@@ -503,15 +508,6 @@ struct solver::imp {
         
     };
 
-    void explain(const factorization& f, expl_set exp) {
-        for (lpvar k : f) {
-            unsigned mon_index = 0;
-            if (m_var_to_its_monomial.find(k, mon_index)) {
-                add_explanation_of_reducing_to_rooted_monomial(m_monomials[mon_index], exp);
-            }
-        }
-    }
-    
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
     bool basic_lemma_for_mon_zero_from_monomial_to_factor(const rooted_mon& rm, const factorization& f) {
@@ -534,28 +530,22 @@ struct solver::imp {
         for (lpvar j : f) {
             mk_ineq(j, lp::lconstraint_kind::EQ);
         }
-        expl_set e;
-        add_explanation_of_factorization_and_set_explanation(rm, f, e);
+
+        explain(rm);
         TRACE("nla_solver", print_lemma(tout););
 
         return true;
     }
 
+    void add_explanation_of_reducing_to_rooted_monomial_and_set_expl(const rooted_mon& rm, expl_set& ex) {
+        add_explanation_of_reducing_to_rooted_monomial(m_monomials[rm.orig_index()], ex);
+        set_expl(ex);
+    }
+    
     void set_expl(const expl_set & e) {
         m_expl->clear();
         for (lpci ci : e)
             m_expl->push_justification(ci);
-    }
-
-    void add_explanation_of_factorization(const rooted_mon& rm, const factorization& f, expl_set & e) {
-        explain(f, e);
-        // todo: it is an overkill, need to find shorter explanations
-        add_explanation_of_reducing_to_rooted_monomial(m_monomials[rm.m_orig.m_i], e);
-    }
-
-    void add_explanation_of_factorization_and_set_explanation(const rooted_mon& rm, const factorization& f, expl_set& e){
-        add_explanation_of_factorization(rm, f, e);
-        set_expl(e);
     }
 
     void trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const {
@@ -587,8 +577,7 @@ struct solver::imp {
         mk_ineq(zero_j, lp::lconstraint_kind::NE);
         mk_ineq(m_monomials[rm.orig_index()].var(), lp::lconstraint_kind::EQ);
 
-        expl_set e;
-        add_explanation_of_factorization_and_set_explanation(rm, f, e);
+        explain(rm);
         TRACE("nla_solver", print_lemma(tout););
         return true;
     }
@@ -644,8 +633,7 @@ struct solver::imp {
         
         // not_one_j = -1
         mk_ineq(not_one_j, lp::lconstraint_kind::EQ, -rational(1));
-        expl_set e;
-        add_explanation_of_factorization_and_set_explanation(rm, f, e);
+        explain(rm);
         TRACE("nla_solver", print_lemma(tout); );
         return true;
     }
@@ -674,9 +662,8 @@ struct solver::imp {
             return false;
         }
        
-        expl_set e;
-        add_explanation_of_factorization_and_set_explanation(rm, f, e);
-        
+        explain(rm);
+
         for (lpvar j : f){
             if (vvr(j) == rational(1)) {
                 mk_ineq(j, lp::lconstraint_kind::NE, rational(1));   
