@@ -54,7 +54,7 @@ const_iterator_mon::reference const_iterator_mon::operator*() const {
     unsigned j, k; rational sign;
     if (!get_factors(j, k, sign))
         return factorization();
-    return create_binary_factorization(j, k, sign);
+    return create_binary_factorization(j, k);
 }
             
 void const_iterator_mon::advance_mask() {
@@ -90,7 +90,7 @@ bool const_iterator_mon::operator==(const const_iterator_mon::self_type &other) 
 }
 bool const_iterator_mon::operator!=(const const_iterator_mon::self_type &other) const { return !(*this == other); }
             
-factorization const_iterator_mon::create_binary_factorization(lpvar j, lpvar k, rational const& sign) const {
+factorization const_iterator_mon::create_binary_factorization(lpvar j, lpvar k) const {
     // todo : the current explanation is an overkill
     // std::function<void (expl_set&)> explain = [&](expl_set& exp){
     //                                               const imp & impl = m_ff->m_impf;
@@ -106,15 +106,13 @@ factorization const_iterator_mon::create_binary_factorization(lpvar j, lpvar k, 
     //                                           };
     factorization f;
     f.vars().push_back(j);
-    f.vars().push_back(k);
-    f.sign() = sign;
+    f.vars().push_back(k);  
     return f;
 }
 
 factorization const_iterator_mon::create_full_factorization() const {
     factorization f;
-    f.vars() = m_ff->m_vars;
-    f.sign() = rational(1);
+    f.vars() = m_ff->m_vars; 
     return f;
 }
 }

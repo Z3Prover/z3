@@ -35,6 +35,7 @@ struct solver::imp {
         lpvar operator[](unsigned k) const { return m_vars[k];}
         unsigned size() const { return m_vars.size(); }
         unsigned orig_index() const { return m_orig.m_i; }
+        const svector<lpvar> & vars() const {return m_vars;}
     };
 
     
@@ -485,7 +486,7 @@ struct solver::imp {
             if (k < f.size() - 1)
                 out << "*";
         }
-        return out << ", sign = " << f.sign();
+        return out;
     }
     
     struct factorization_factory_imp: factorization_factory {
@@ -587,7 +588,6 @@ struct solver::imp {
     bool basic_lemma_for_mon_neutral_monomial_to_factor(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
 
-        // todo : consider the case of just two factors
         lpvar mon_var = m_monomials[rm.orig_index()].var();
         const auto & mv = vvr(mon_var);
         const auto  abs_mv = abs(mv);
@@ -717,7 +717,7 @@ struct solver::imp {
             return true;
 
         for (const rooted_mon& r : m_vector_of_rooted_monomials) {
-            if (check_monomial(m_monomials[r.m_orig.m_i]))
+            if (check_monomial(m_monomials[r.orig_index()]))
                 continue;
             if (basic_lemma_for_mon(r)) {
                 return true;
@@ -922,96 +922,19 @@ struct solver::imp {
         return ret;
     }
 
-    // a > b && c == d => ac > bd
-    // ac is a factorization of m_monomials[i_mon]
-    // ac[k] plays the role of c
-    // d = +-c
-    // i_bd_equiv is a candidate for bd
-    bool order_lemma_on_factor_equiv_and_other_mon_eq(unsigned b,
-                                                      unsigned i_bd_equiv,
-                                                      unsigned i_bd,
-                                                      unsigned d, unsigned i_ac, const factorization& ac, unsigned k) {
-        return false;
-    }
-        
-
-    // a > b && c == d => ac > bd
-    // ac is a factorization of m_monomials[i_mon]
-    // ac[k] plays the role of c
-    // d = +-c
-    // i_bd_equiv is a candidate for bd
-    bool order_lemma_on_factor_equiv_and_other_mon_eq(unsigned i_bd_equiv,
-                                                     unsigned i_bd,
-                                                     unsigned d, unsigned i_ac, const factorization& ac, unsigned k) {
-        return false;
-        /*
-        TRACE("nla_solver", tout << "i_bd_equiv = "; print_monomial_with_vars(i_bd_equiv, tout); );
-        rational abs_d = abs(vvr(d));
-        for (unsigned k = 0; k < m_monomials[i_bd_equiv].size(); k++) {
-            if (abs(vvr(m_monomials[i_bd_equiv][k])) != abs_d)
-                continue;
-            svector<lpvar> b = extract_all_but(m_monomials[i_bd_equiv].vars(), k);
-            std::sort(b.begin(), b.end());
-            auto it = m_rooted_monomials_map.find(b);
-            if (it == m_rooted_monomials_map.end())
-                return false;
-            
-            for (const index_with_sign& s : it->second) {
-                if (order_lemma_on_factor_equiv_and_other_mon_eq_b(s.var(), i_bd, d, i_bd, d, i_ac, ac, k))
-                    return true;
-            }
-        }
-        return false;*/
-    }    
-
-    
-    // a > b && c == d => ac > bd
-    // ac is a factorization of m_monomials[i_mon]
-    // ac[k] plays the role of c
-    // d = +-c
-    bool order_lemma_on_factor_equiv_and_other_mon(unsigned i_bd, unsigned d, unsigned i_ac, const factorization& ac, unsigned k) {
-        if (i_bd == i_ac) {
-            return false;
-        }
-
-        const monomial & m_bd = m_monomials[i_bd];
-        monomial_coeff m_bd_rooted = canonize_monomial(m_bd);
-        TRACE("nla_solver", tout << "i_bd monomial = "; print_monomial(m_bd, tout); );
-        auto it = m_rooted_monomials_map.find(m_bd_rooted.vars());
-        if (it == m_rooted_monomials_map.end())
-            return false;
-        for (const index_with_sign& s : it->second) {
-            if (order_lemma_on_factor_equiv_and_other_mon_eq(s.var(), i_bd, d, i_ac, ac, k))
-                return true;
-        }
+    bool order_lemma_on_ac_and_bc(const rooted_mon& rm, const factorization& ac, unsigned k, const rooted_mon& rm_bc) {
         return false;
     }
 
-    // a > b && c == d => ac > bd
-    // ac is a factorization of m_monomials[i_mon]
-    // ac[k] plays the role of c
-    // d = +-c
-    bool order_lemma_on_factor_and_equiv(unsigned d, unsigned i_mon, const factorization& ac, unsigned k) {
-        TRACE("nla_solver", tout << "d = " << d << ", k = " << k << ", ac[k] = " << ac[k] << std::endl; );
-        SASSERT(abs(vvr(d)) == abs(vvr(ac[k])));
-        lpvar j = ac[k];
-        for (unsigned i : m_monomials_containing_var[j]) {
-            if (order_lemma_on_factor_equiv_and_other_mon(i, d, i_mon, ac, k)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // a > b && c == d => ac > bd
+    // a > b && c > 0 => ac > bc
     // ac is a factorization of m_monomials[i_mon]
     // ac[k] plays the role of c   
-    bool order_lemma_on_factor(unsigned i_mon, const factorization& ac, unsigned k) {
+    bool order_lemma_on_factor(const rooted_mon& rm, const factorization& ac, unsigned k) {
         lpvar c = ac[k];
         TRACE("nla_solver", tout << "k = " << k << ", c = " << c; );
-        for (const index_with_sign& d : m_vars_equivalence.get_equivalent_vars(c)) {
-            TRACE("nla_solver", tout << "d.var() = " << d.var() << ", d.sign() = " << d.sign(); );
-            if (order_lemma_on_factor_and_equiv(d.m_i, i_mon, ac, k)) {
+        SASSERT(m_rooted_monomials_containing_var.find(c) != m_rooted_monomials_containing_var.end());
+        for (unsigned rm_bc : m_rooted_monomials_containing_var[c]) {
+            if (order_lemma_on_ac_and_bc(rm , ac, k, m_vector_of_rooted_monomials[rm_bc])) {
                 return true;
             }
         }
@@ -1020,39 +943,43 @@ struct solver::imp {
 
     // a > b && c == d => ac > bd
     // ac is a factorization of m_monomials[i_mon]
-    bool order_lemma_on_factorization(unsigned i_mon, const factorization& ac) {
+    bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac) {
         TRACE("nla_solver", tout << "factorization = "; print_factorization(ac, tout););
         for (unsigned k = 0; k < ac.size(); k++) {
             const rational & v = vvr(ac[k]);
             if (v.is_zero())
                 continue;
 
-            if (order_lemma_on_factor(i_mon, ac, k)) { 
+            if (order_lemma_on_factor(rm, ac, k)) { 
                 return true;
             }
         }
         return false;
     }
 
-     // a > b && c == d => ac > bd
+     // a > b && c > 0 => ac > bc
     bool order_lemma_on_monomial(const rooted_mon& rm) {
-        /*
-        TRACE("nla_solver", print_monomial_with_vars(i_mon, tout););
-        for (auto ac : factorization_factory_imp(i_mon, *this)) {
+        TRACE("nla_solver",
+              tout << "rm = "; print_product(rm, tout);
+              tout << ", orig = "; print_monomial(m_monomials[rm.orig_index()], tout);
+              );
+        for (auto ac : factorization_factory_imp(rm.vars(), *this)) {
             if (ac.is_empty())
                 continue;
-            if (order_lemma_on_factorization(i_mon, ac))
+            if (order_lemma_on_factorization(rm, ac))
                 return true;
-                }*/
+        }
         return false;
     }
     
     bool order_lemma() {
-        // for (unsigned i_mon : to_refine) {
-        //     if (order_lemma_on_monomial(i_mon)) {
-        //         return true;
-        //     } 
-        // }
+        for (const auto& rm : m_vector_of_rooted_monomials) {
+            if (check_monomial(m_monomials[rm.orig_index()]))
+                continue;
+            if (order_lemma_on_monomial(rm)) {
+                 return true;
+             } 
+        }
         return false;
     }
 
@@ -1148,7 +1075,7 @@ struct solver::imp {
             for (lpvar j : f) {
                 std::cout << "j = "; print_var(j, std::cout);
             }
-            std::cout << "sign = " << f.sign() << std::endl;
+            std::cout << std::endl;
         }
         SASSERT(found_factorizations == number_of_factorizations);
     }

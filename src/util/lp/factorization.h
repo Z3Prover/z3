@@ -28,13 +28,10 @@ typedef unsigned lpvar;
 
 class factorization {
     svector<lpvar>         m_vars;
-    rational               m_sign;
 public:
     bool is_empty() const { return m_vars.empty(); }
     svector<lpvar> & vars() { return m_vars; }
     const svector<lpvar> & vars() const { return m_vars; }
-    rational const& sign() const { return m_sign; }
-    rational& sign() { return m_sign; } // the setter
     unsigned operator[](unsigned k) const { return m_vars[k]; }
     size_t size() const { return m_vars.size(); }
     const lpvar* begin() const { return m_vars.begin(); }
@@ -69,7 +66,7 @@ struct const_iterator_mon {
     bool operator==(const self_type &other) const;
     bool operator!=(const self_type &other) const;
             
-    factorization create_binary_factorization(lpvar j, lpvar k, rational const& sign) const;
+    factorization create_binary_factorization(lpvar j, lpvar k) const;
     
     factorization create_full_factorization() const;
 };
