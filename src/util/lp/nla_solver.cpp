@@ -510,19 +510,14 @@ struct solver::imp {
 
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
-    bool basic_lemma_for_mon_zero_from_monomial_to_factor(const rooted_mon& rm, const factorization& f) {
+    bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
-        if (!vvr(rm).is_zero() )
-            return false;
-        bool seen_zero = false;
+        SASSERT(vvr(rm).is_zero());
         for (lpvar j : f) {
             if (vvr(j).is_zero()) {
-                seen_zero = true;
-                break;
+                return false;
             }
         }
-        if (seen_zero)
-            return false;
         
         SASSERT(m_lemma->empty());
         
@@ -558,11 +553,10 @@ struct solver::imp {
         print_factorization(f, out << "fact: ") << "\n";
     }
     // x = 0 or y = 0 -> xy = 0
-    bool basic_lemma_for_mon_zero_from_factors_to_monomial(const rooted_mon& rm, const factorization& f) {
+    bool basic_lemma_for_mon_non_zero(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
-        if (vvr(rm).is_zero())
-            return false;
-        unsigned zero_j = -1;
+        SASSERT (!vvr(rm).is_zero());
+        int zero_j = -1;
         for (lpvar j : f) {
             if (vvr(j).is_zero()) {
                 zero_j = j;
@@ -570,7 +564,7 @@ struct solver::imp {
             }
         }
 
-        if (zero_j == static_cast<unsigned>(-1)) {
+        if (zero_j == -1) {
             return false;
         } 
 
@@ -696,7 +690,7 @@ struct solver::imp {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_zero_from_monomial_to_factor(rm, factorization) ||
+                if (basic_lemma_for_mon_zero(rm, factorization) ||
                     basic_lemma_for_mon_neutral(rm, factorization))
                     return true;
             }
@@ -704,7 +698,7 @@ struct solver::imp {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_zero_from_factors_to_monomial(rm, factorization) ||
+                if (basic_lemma_for_mon_non_zero(rm, factorization) ||
                     basic_lemma_for_mon_neutral(rm, factorization))
                     return true;
             
