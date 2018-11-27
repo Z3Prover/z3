@@ -1335,6 +1335,10 @@ z3_long_funs = frozenset([
     'Z3_simplify_ex',
     ])
 
+z3_ml_overrides = frozenset([
+    'Z3_mk_config'
+    ])
+
 def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
     ml_wrapperf = os.path.join(ml_output_dir, 'z3native_stubs.c')
     ml_wrapper = open(ml_wrapperf, 'w')
@@ -1346,6 +1350,10 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
     ml_pref.close()
 
     for name, result, params in _dotnet_decls:
+
+        if name in z3_ml_overrides:
+            continue
+
         ip = inparams(params)
         op = outparams(params)
         ap = arrayparams(params)
