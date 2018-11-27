@@ -3477,6 +3477,6 @@ val disable_trace : string -> unit
 (** Memory management **)
 module Memory :
 sig
-  (** Reset all allocated resourced **)
+  (** Reset all allocated resources **)
   val reset : unit -> unit
 end
