@@ -1536,6 +1536,11 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
             i = i + 1
         ml_wrapper.write(');\n')
 
+        if name in NULLWrapped:
+            ml_wrapper.write('  if (z3rv_m == NULL) {\n')
+            ml_wrapper.write('    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), "Object allocation failed");\n')
+            ml_wrapper.write('  }\n')
+
         if release_caml_gc:
             ml_wrapper.write('\n  caml_acquire_runtime_system();\n')
 
