@@ -238,7 +238,7 @@ class reduce_hypotheses {
         { args.push_back(fact); }
 
 
-        if (args.size() == 0) { return pf; }
+        if (args.empty()) { return pf; }
         else if (args.size() == 1) {
             lemma = args.get(0);
         } else {

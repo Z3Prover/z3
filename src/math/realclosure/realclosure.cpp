@@ -3466,11 +3466,11 @@ namespace realclosure {
         // ---------------------------------
 
         bool is_monic(value_ref_buffer const & p) {
-            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+            return !p.empty() && is_rational_one(p[p.size() - 1]);
         }
 
         bool is_monic(polynomial const & p) {
-            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+            return !p.empty() && is_rational_one(p[p.size() - 1]);
         }
 
         /**

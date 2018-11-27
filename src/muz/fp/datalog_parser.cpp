@@ -1057,7 +1057,7 @@ protected:
             line.push_back(ch);
             ch = strm.get();
         }
-        return line.size() > 0;
+        return !line.empty();
     }
 
     void add_rule(app* head, unsigned sz, app* const* body, const bool * is_neg) {

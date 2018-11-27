@@ -141,7 +141,7 @@ namespace smt {
     }
 
     void theory_array_full::set_prop_upward(theory_var v, var_data* d) {
-        if (m_params.m_array_always_prop_upward || d->m_stores.size() >= 1) {
+        if (m_params.m_array_always_prop_upward || !d->m_stores.empty()) {
             theory_array::set_prop_upward(v, d);
         }
         else {

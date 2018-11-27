@@ -532,7 +532,7 @@ bool check_hansel_lift(z_manager & upm, numeral_vector const & C,
     upm.mul(A_lifted.size(), A_lifted.c_ptr(), B_lifted.size(), B_lifted.c_ptr(), test1);
     upm.sub(C.size(), C.c_ptr(), test1.size(), test1.c_ptr(), test1);
     to_zp_manager(br_upm, test1);
-    if (test1.size() != 0) {
+    if (!test1.empty()) {
         TRACE("polynomial::factorization::bughunt", 
             tout << "sage: R.<x> = ZZ['x']" << endl;
             tout << "sage: A = "; upm.display(tout, A); tout << endl;

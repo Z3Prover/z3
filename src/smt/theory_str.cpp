@@ -2501,7 +2501,7 @@ namespace smt {
             }
         }
 
-        if (resolvedMap.size() == 0) {
+        if (resolvedMap.empty()) {
             // no simplification possible
             return node;
         } else {
@@ -5452,7 +5452,7 @@ namespace smt {
                             }
 
                             if (implyR) {
-                                if (litems1.size() == 0) {
+                                if (litems1.empty()) {
                                     assert_axiom(implyR);
                                 } else {
                                     assert_implication(mk_and(litems1), implyR);
@@ -7020,7 +7020,7 @@ namespace smt {
     bool theory_str::refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound) {
         ENSURE(aut != nullptr);
 
-        if (aut->final_states().size() < 1) {
+        if (aut->final_states().empty()) {
             // no solutions at all
             refined_lower_bound = rational::minus_one();
             return false;
@@ -8168,13 +8168,13 @@ namespace smt {
 
         // step 2: Concat == Constant
 
-        if (eqc_const_lhs.size() != 0) {
+        if (!eqc_const_lhs.empty()) {
             expr * conStr = *(eqc_const_lhs.begin());
             std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
             for (; itor2 != eqc_concat_rhs.end(); itor2++) {
                 solve_concat_eq_str(*itor2, conStr);
             }
-        } else if (eqc_const_rhs.size() != 0) {
+        } else if (!eqc_const_rhs.empty()) {
             expr* conStr = *(eqc_const_rhs.begin());
             std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
             for (; itor1 != eqc_concat_lhs.end(); itor1++) {
@@ -8250,7 +8250,7 @@ namespace smt {
         ast_manager & m = get_manager();
 
         int hasCommon = 0;
-        if (eqc_concat_lhs.size() != 0 && eqc_concat_rhs.size() != 0) {
+        if (!eqc_concat_lhs.empty() && !eqc_concat_rhs.empty()) {
             std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
             std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
             for (; itor1 != eqc_concat_lhs.end(); itor1++) {
@@ -8570,13 +8570,13 @@ namespace smt {
         obj_map<expr, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
         while (varItor != cut_var_map.end()) {
             std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
-            while ((val.size() > 0) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
+            while ((!val.empty()) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
                 // TRACE("str", tout << "remove cut info for " << mk_pp(e, get_manager()) << std::endl; print_cut_var(e, tout););
                 // T_cut * aCut = val.top();
                 val.pop();
                 // dealloc(aCut);
             }
-            if (val.size() == 0) {
+            if (val.empty()) {
                 cutvarmap_removes.insert(varItor->m_key);
             }
             varItor++;
@@ -9402,7 +9402,7 @@ namespace smt {
             }
         }
 
-        if (depMap.size() == 0) {
+        if (depMap.empty()) {
             std::map<expr*, int>::iterator itor = strVarMap.begin();
             for (; itor != strVarMap.end(); itor++) {
                 expr * var = get_alias_index_ast(aliasIndexMap, itor->first);
@@ -10801,7 +10801,7 @@ namespace smt {
             expr * var = fvIt2->first;
             tmpSet.clear();
             get_eqc_allUnroll(var, constValue, tmpSet);
-            if (tmpSet.size() > 0) {
+            if (!tmpSet.empty()) {
                 fv_unrolls_map[var] = tmpSet;
             }
         }
@@ -10935,7 +10935,7 @@ namespace smt {
             expr * var = fvIt1->first;
             fSimpUnroll.clear();
             get_eqc_simpleUnroll(var, constValue, fSimpUnroll);
-            if (fSimpUnroll.size() == 0) {
+            if (fSimpUnroll.empty()) {
                 gen_assign_unroll_reg(fv_unrolls_map[var]);
             } else {
                 expr * toAssert = gen_assign_unroll_Str2Reg(var, fSimpUnroll);
@@ -11548,7 +11548,7 @@ namespace smt {
             unroll_tries_map[var][unrolls].erase(e);
         }
 
-        if (unroll_tries_map[var][unrolls].size() == 0) {
+        if (unroll_tries_map[var][unrolls].empty()) {
             unroll_tries_map[var][unrolls].push_back(mk_unroll_test_var());
         }
 

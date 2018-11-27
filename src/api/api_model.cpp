@@ -472,7 +472,7 @@ extern "C" {
             model_smt2_pp(buffer, mk_c(c)->m(), *(to_model_ref(m)), 0);
             // Hack for removing the trailing '\n'
             result = buffer.str();
-            if (result.size() != 0)
+            if (!result.empty())
                 result.resize(result.size()-1);
         }
         else {
