@@ -68,10 +68,17 @@ extern "C" {
     }
 
     Z3_config Z3_API Z3_mk_config(void) {
-        memory::initialize(UINT_MAX);
-        LOG_Z3_mk_config();
-        Z3_config r = reinterpret_cast<Z3_config>(alloc(context_params));
-        RETURN_Z3(r);
+        try {
+            memory::initialize(UINT_MAX);
+            LOG_Z3_mk_config();
+            Z3_config r = reinterpret_cast<Z3_config>(alloc(context_params));
+            RETURN_Z3(r);
+        } catch (z3_exception & ex) {
+            // The error handler is only available for contexts
+            // Just throw a warning.
+            warning_msg("%s", ex.msg());
+            return nullptr;
+        }
     }
     
     void Z3_API Z3_del_config(Z3_config c) {
