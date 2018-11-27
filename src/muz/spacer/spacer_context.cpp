@@ -3058,7 +3058,7 @@ expr_ref context::get_ground_sat_answer() const {
                 ground_fact_conjs.push_back(m.mk_eq(sig_arg, sig_val));
                 ground_arg_vals.push_back(sig_val);
             }
-            if (ground_fact_conjs.size () > 0) {
+            if (!ground_fact_conjs.empty()) {
                 expr_ref ground_fact(m);
                 ground_fact = mk_and(ground_fact_conjs);
                 m_pm.formula_o2n(ground_fact, ground_fact, i);

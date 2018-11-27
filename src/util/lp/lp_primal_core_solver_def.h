@@ -504,7 +504,7 @@ lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(
         X tt = - (this->m_lower_bounds[j] - this->m_x[j]) / m;
         if (numeric_traits<X>::is_neg(tt))
             tt = zero_of_type<X>();
-        if (leavings.size() == 0 || tt < t || (tt == t && m > abs_of_d_of_leaving)) {
+        if (leavings.empty() || tt < t || (tt == t && m > abs_of_d_of_leaving)) {
             t = tt;
             abs_of_d_of_leaving = m;
             leavings.clear();
@@ -524,7 +524,7 @@ lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(
         X tt = (this->m_upper_bounds[j] - this->m_x[j]) / m;
         if (numeric_traits<X>::is_neg(tt))
             tt = zero_of_type<X>();
-        if (leavings.size() == 0 || tt < t || (tt == t && - m > abs_of_d_of_leaving)) {
+        if (leavings.empty() || tt < t || (tt == t && - m > abs_of_d_of_leaving)) {
             t = tt;
             abs_of_d_of_leaving = - m;
             leavings.clear();

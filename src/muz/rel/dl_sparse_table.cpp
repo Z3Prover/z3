@@ -1216,7 +1216,7 @@ namespace datalog {
            
             verbose_action  _va("filter_by_negation");
 
-            if (m_cols1.size() == 0) {
+            if (m_cols1.empty()) {
                 if (!neg.empty()) {
                     tgt.reset();
                 }

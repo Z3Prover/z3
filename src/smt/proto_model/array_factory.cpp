@@ -104,7 +104,7 @@ bool array_factory::mk_two_diff_values_for(sort * s) {
 
 bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     value_set * set = nullptr;
-    if (!m_sort2value_set.find(s, set) || set->size() == 0) {
+    if (!m_sort2value_set.find(s, set) || set->empty()) {
         if (!mk_two_diff_values_for(s))
             return false;
     }

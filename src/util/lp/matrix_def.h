@@ -97,7 +97,7 @@ void print_matrix_with_widths(vector<vector<std::string>> & A, vector<unsigned> 
 void print_string_matrix(vector<vector<std::string>> & A, std::ostream & out, unsigned blanks_in_front) {
     vector<unsigned> widths;
 
-    if (A.size() > 0)
+    if (!A.empty())
         for (unsigned j = 0; j < A[0].size(); j++) {
             widths.push_back(get_width_of_column(j, A));
         }

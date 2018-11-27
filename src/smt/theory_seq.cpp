@@ -3570,18 +3570,18 @@ void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
 }
 
 void theory_seq::display(std::ostream & out) const {
-    if (m_eqs.size() == 0 &&
-        m_nqs.size() == 0 &&
+    if (m_eqs.empty() &&
+        m_nqs.empty() &&
         m_rep.empty() &&
         m_exclude.empty()) {
         return;
     }
     out << "Theory seq\n";
-    if (m_eqs.size() > 0) {
+    if (!m_eqs.empty()) {
         out << "Equations:\n";
         display_equations(out);
     }
-    if (m_nqs.size() > 0) {
+    if (!m_nqs.empty()) {
         display_disequations(out);
     }
     if (!m_re2aut.empty()) {
@@ -3655,7 +3655,7 @@ std::ostream& theory_seq::display_disequation(std::ostream& out, ne const& e) co
     for (literal lit : e.lits()) {
         out << lit << " ";
     }
-    if (e.lits().size() > 0) {
+    if (!e.lits().empty()) {
         out << "\n";
     }
     for (unsigned j = 0; j < e.ls().size(); ++j) {
