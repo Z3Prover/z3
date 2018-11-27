@@ -259,6 +259,18 @@ namespace smt {
             }
         };
 
+
+        class replay_is_axiom : public apply {
+            expr_ref m_e;
+        public:
+            replay_is_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
+            ~replay_is_axiom() override {}
+            void operator()(theory_seq& th) override {
+                th.check_int_string(m_e);
+                m_e.reset();
+            }
+        };
+
         class push_replay : public trail<theory_seq> {
             apply* m_apply;
         public:
@@ -275,6 +287,16 @@ namespace smt {
             void undo(theory_seq& th) override {
                 th.m_branch_start.erase(k);
             }
+        };
+
+        struct s_in_re {
+            literal     m_lit;
+            expr*       m_s;
+            expr*       m_re;
+            eautomaton* m_aut;
+            bool        m_active;
+            s_in_re(literal l, expr*s, expr* re, eautomaton* aut):
+                m_lit(l), m_s(s), m_re(re), m_aut(aut), m_active(true) {}
         };
 
         void erase_index(unsigned idx, unsigned i);
@@ -321,8 +343,7 @@ namespace smt {
         unsigned                   m_axioms_head; // index of first axiom to add.
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
-        rational_set        m_itos_axioms;
-        rational_set        m_stoi_axioms;
+        obj_hashtable<expr> m_si_axioms;
         obj_hashtable<expr> m_length;             // is length applied
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
@@ -342,11 +363,10 @@ namespace smt {
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
         expr_ref_vector                m_res;
+        unsigned                       m_max_unfolding_depth;
+        literal                        m_max_unfolding_lit;
+        vector<s_in_re>                m_s_in_re;
 
-        // queue of asserted atoms
-        ptr_vector<expr>               m_atoms;
-        unsigned_vector                m_atoms_lim;
-        unsigned                       m_atoms_qhead;
         bool                           m_new_solution;     // new solution added
         bool                           m_new_propagation;  // new propagation to core
         re2automaton                   m_mk_aut;
@@ -367,6 +387,8 @@ namespace smt {
         void pop_scope_eh(unsigned num_scopes) override;
         void restart_eh() override;
         void relevant_eh(app* n) override;
+        bool should_research(expr_ref_vector &) override;
+        void add_theory_assumptions(expr_ref_vector & assumptions) override;
         theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), m_params); }
         char const * get_name() const override { return "seq"; }
         theory_var mk_var(enode* n) override;
@@ -432,6 +454,8 @@ namespace smt {
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
+        bool solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
+        bool solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
         bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
         bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
@@ -542,6 +566,7 @@ namespace smt {
         // model-check the functions that convert integers to strings and the other way.
         void add_int_string(expr* e);
         bool check_int_string();
+        bool check_int_string(expr* e);
 
         expr_ref add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
@@ -550,6 +575,8 @@ namespace smt {
         void add_stoi_axiom(expr* n);
         bool add_stoi_val_axiom(expr* n);
         bool add_itos_val_axiom(expr* n);
+        void add_si_axiom(expr* s, expr* i, unsigned sz);
+        void ensure_digit_axiom();
         literal is_digit(expr* ch);
         expr_ref digit2int(expr* ch);
         void add_itos_length_axiom(expr* n);
@@ -561,8 +588,9 @@ namespace smt {
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
         expr_ref mk_add(expr* a, expr* b);
+        expr_ref mk_len(expr* s) const { return expr_ref(m_util.str.mk_length(s), m); }
         enode* ensure_enode(expr* a);
-        
+        enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         dependency* mk_join(dependency* deps, literal lit);
         dependency* mk_join(dependency* deps, literal_vector const& lits);
 
@@ -587,44 +615,34 @@ namespace smt {
         literal mk_accept(expr* s, expr* idx, expr* re, expr* state);
         literal mk_accept(expr* s, expr* idx, expr* re, unsigned i) { return mk_accept(s, idx, re, m_autil.mk_int(i)); }
         bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
-        bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_accept, acc, s, idx, re, i, aut);
-        }
-        literal mk_reject(expr* s, expr* idx, expr* re, expr* state);
-        literal mk_reject(expr* s, expr* idx, expr* re, unsigned i) { return mk_reject(s, idx, re, m_autil.mk_int(i)); }
-        bool is_reject(expr* rej) const {  return is_skolem(m_reject, rej); }
-        bool is_reject(expr* rej, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_reject, rej, s, idx, re, i, aut);
-        }
-        bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
-        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* acc);
+        bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
+        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
         bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_step(expr* e) const;
-        void propagate_step(literal lit, expr* n);
-        bool add_reject2reject(expr* rej, bool& change);
-        bool add_accept2step(expr* acc, bool& change);       
-        bool add_step2accept(expr* step, bool& change);
-        bool add_prefix2prefix(expr* e, bool& change);
+        bool is_max_unfolding(expr* e) const { return is_skolem(symbol("seq.max_unfolding_depth"), e); }
+        expr_ref mk_max_unfolding_depth() { 
+            return mk_skolem(symbol("seq.max_unfolding_depth"), 
+                             m_autil.mk_int(m_max_unfolding_depth), 
+                             nullptr, nullptr, nullptr, m.mk_bool_sort());
+        }
         void propagate_not_prefix(expr* e);
-        void propagate_not_prefix2(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
         void propagate_non_empty(literal lit, expr* s);
         bool propagate_is_conc(expr* e, expr* conc);
-        void propagate_acc_rej_length(literal lit, expr* acc_rej);
-        bool propagate_automata();
-        void add_atom(expr* e);
+        void propagate_step(literal lit, expr* n);
+        void propagate_accept(literal lit, expr* e);
         void new_eq_eh(dependency* dep, enode* n1, enode* n2);
 
         // diagnostics
-        void display_equations(std::ostream& out) const;
-        void display_equation(std::ostream& out, eq const& e) const;
-        void display_disequations(std::ostream& out) const;
-        void display_disequation(std::ostream& out, ne const& e) const;
-        void display_deps(std::ostream& out, dependency* deps) const;
-        void display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
-        void display_nc(std::ostream& out, nc const& nc) const;
+        std::ostream& display_equations(std::ostream& out) const;
+        std::ostream& display_equation(std::ostream& out, eq const& e) const;
+        std::ostream& display_disequations(std::ostream& out) const;
+        std::ostream& display_disequation(std::ostream& out, ne const& e) const;
+        std::ostream& display_deps(std::ostream& out, dependency* deps) const;
+        std::ostream& display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
+        std::ostream& display_nc(std::ostream& out, nc const& nc) const;
     public:
         theory_seq(ast_manager& m, theory_seq_params const & params);
         ~theory_seq() override;

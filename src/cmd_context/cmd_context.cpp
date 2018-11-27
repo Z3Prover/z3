@@ -1737,20 +1737,25 @@ struct contains_underspecified_op_proc {
     struct found {};
     family_id m_array_fid;
     datatype_util m_dt;
+    seq_util m_seq;
+    family_id m_seq_id;
     
-    contains_underspecified_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")), m_dt(m) {}
+    contains_underspecified_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")), m_dt(m), m_seq(m), m_seq_id(m_seq.get_family_id()) {}
     void operator()(var * n)        {}
     void operator()(app * n)        {
         if (m_dt.is_accessor(n->get_decl())) 
             throw found();
-        if (n->get_family_id() != m_array_fid)
-            return;
-        decl_kind k = n->get_decl_kind();
-        if (k == OP_AS_ARRAY ||
-            k == OP_STORE ||
-            k == OP_ARRAY_MAP ||
-            k == OP_CONST_ARRAY)
+        if (n->get_family_id() == m_array_fid) {
+            decl_kind k = n->get_decl_kind();
+            if (k == OP_AS_ARRAY ||
+                k == OP_STORE ||
+                k == OP_ARRAY_MAP ||
+                k == OP_CONST_ARRAY)
+                throw found();
+        }
+        if (n->get_family_id() == m_seq_id && m_seq.is_re(n)) {
             throw found();
+        }
     }
     void operator()(quantifier * n) {}
 };

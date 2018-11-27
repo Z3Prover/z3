@@ -65,10 +65,14 @@ namespace smt {
         bool result = false;
         var_data * d = m_var_data[v];
         var_data_full * d_full = m_var_data_full[v];
-        for (enode* pm : d_full->m_parent_maps) 
-            for (enode* ps : d->m_parent_selects) 
+        for (unsigned i = 0; i < d_full->m_parent_maps.size(); ++i) {
+            enode* pm = d_full->m_parent_maps[i];
+            for (unsigned j = 0; j < d->m_parent_selects.size(); ++j) {
+                enode* ps = d->m_parent_selects[j];
                 if (instantiate_select_map_axiom(ps, pm)) 
-                    result = true;                    
+                    result = true;                  
+            }  
+        }
         return result;
     }
 

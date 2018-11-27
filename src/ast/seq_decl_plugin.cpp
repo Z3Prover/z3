@@ -345,7 +345,8 @@ seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_charc_sym("Char"),
                                     m_string(nullptr),
                                     m_char(nullptr),
-                                    m_re(nullptr) {}
+                                    m_re(nullptr),
+                                    m_has_re(false) {}
 
 void seq_decl_plugin::finalize() {
     for (unsigned i = 0; i < m_sigs.size(); ++i)
@@ -663,24 +664,28 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, info);
         }
 
-    case OP_SEQ_UNIT:
     case OP_RE_PLUS:
     case OP_RE_STAR:
     case OP_RE_OPTION:
     case OP_RE_RANGE:
     case OP_RE_OF_PRED:
+    case OP_RE_COMPLEMENT:
+        m_has_re = true;
+        // fall-through
+    case OP_SEQ_UNIT:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
-    case OP_RE_COMPLEMENT:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
     case _OP_REGEXP_FULL_CHAR:
+        m_has_re = true;
         if (!range) range = m_re;
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_CHAR_SET));
 
     case OP_RE_FULL_CHAR_SET:
+        m_has_re = true;
         if (!range) range = m_re;
         if (range == m_re) {
             match(*m_sigs[k], arity, domain, range, rng);
@@ -689,15 +694,18 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));
 
     case OP_RE_FULL_SEQ_SET:
+        m_has_re = true;
         if (!range) range = m_re;
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));        
 
     case _OP_REGEXP_EMPTY:
+        m_has_re = true;
         if (!range) range = m_re;
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
 
     case OP_RE_EMPTY_SET:
+        m_has_re = true;
         if (!range) range = m_re;
         if (range == m_re) {
             match(*m_sigs[k], arity, domain, range, rng);
@@ -706,6 +714,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));
 
     case OP_RE_LOOP:
+        m_has_re = true;
         switch (arity) {
         case 1:
             match(*m_sigs[k], arity, domain, range, rng);
@@ -728,6 +737,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         }
         
     case _OP_RE_UNROLL:
+        m_has_re = true;
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
@@ -741,6 +751,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_UNION:
     case OP_RE_CONCAT:
     case OP_RE_INTERSECT:
+        m_has_re = true;
         return mk_assoc_fun(k, arity, domain, range, k, k);
 
     case OP_SEQ_CONCAT:
@@ -792,13 +803,17 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_str_fun(k, arity, domain, range, OP_SEQ_CONTAINS);
 
     case OP_SEQ_TO_RE:
+        m_has_re = true;
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_TO_REGEXP);
     case _OP_STRING_TO_REGEXP:
+        m_has_re = true;
         return mk_str_fun(k, arity, domain, range, OP_SEQ_TO_RE);
 
     case OP_SEQ_IN_RE:
+        m_has_re = true;
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_IN_REGEXP);
     case _OP_STRING_IN_REGEXP:
+        m_has_re = true;
         return mk_str_fun(k, arity, domain, range, OP_SEQ_IN_RE);
 
     case OP_SEQ_AT:
