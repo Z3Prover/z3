@@ -81,11 +81,13 @@ struct solver::imp {
     }
 
 
-    rational vvr(unsigned j) const { return m_lar_solver.get_column_value_rational(j); }
+    rational vvr(lpvar j) const { return m_lar_solver.get_column_value_rational(j); }
+
+    lp::impq vv(lpvar j) const { return m_lar_solver.get_column_value(j); }
+    
+    lpvar orig_mon_var(const rooted_mon& rm) const {return m_monomials[rm.m_orig.m_i].var(); }
 
     rational vvr(const rooted_mon& rm) const { return vvr(m_monomials[rm.m_orig.m_i].var()) * rm.m_orig.m_sign; }
-    
-    lp::impq vv(unsigned j) const { return m_lar_solver.get_column_value(j); }
     
     void add(lpvar v, unsigned sz, lpvar const* vs) {
         m_monomials.push_back(monomial(v, sz, vs));
@@ -508,6 +510,8 @@ struct solver::imp {
         
     };
 
+    
+    
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
     bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f) {
@@ -521,7 +525,7 @@ struct solver::imp {
         
         SASSERT(m_lemma->empty());
         
-        mk_ineq(rm.m_orig.m_i, lp::lconstraint_kind::NE);
+        mk_ineq(orig_mon_var(rm), lp::lconstraint_kind::NE);
         for (lpvar j : f) {
             mk_ineq(j, lp::lconstraint_kind::EQ);
         }
