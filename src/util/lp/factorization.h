@@ -26,16 +26,30 @@ namespace nla {
 struct factorization_factory;
 typedef unsigned lpvar;
 
+enum class factor_type { VAR, RM}; // RM stands for rooted monomial 
+
+class factor {
+    unsigned     m_index;
+    factor_type  m_type;
+public:
+    factor() {}
+    factor(unsigned i, factor_type t) : m_index(i), m_type(t) {}
+    unsigned index() const {return m_index;}
+    unsigned& index() {return m_index;}
+    factor_type type() const {return m_type;}
+    factor_type& type() {return m_type;}
+};
+
 class factorization {
-    svector<lpvar>         m_vars;
+    vector<factor>         m_vars;
 public:
     bool is_empty() const { return m_vars.empty(); }
-    svector<lpvar> & vars() { return m_vars; }
-    const svector<lpvar> & vars() const { return m_vars; }
-    unsigned operator[](unsigned k) const { return m_vars[k]; }
+    const vector<factor> & vars() const { return m_vars; }
+    factor operator[](unsigned k) const { return m_vars[k]; }
     size_t size() const { return m_vars.size(); }
-    const lpvar* begin() const { return m_vars.begin(); }
-    const lpvar* end() const { return m_vars.end(); }
+    const factor* begin() const { return m_vars.begin(); }
+    const factor* end() const { return m_vars.end(); }
+    void push_back(factor v) {m_vars.push_back(v);}
 };
 
 struct const_iterator_mon {
@@ -53,7 +67,7 @@ struct const_iterator_mon {
 
     void init_vars_by_the_mask(unsigned_vector & k_vars, unsigned_vector & j_vars) const;
             
-    bool get_factors(unsigned& k, unsigned& j, rational& sign) const;
+    bool get_factors(factor& k, factor& j, rational& sign) const;
 
     reference operator*() const;
     void advance_mask();
@@ -66,7 +80,7 @@ struct const_iterator_mon {
     bool operator==(const self_type &other) const;
     bool operator!=(const self_type &other) const;
             
-    factorization create_binary_factorization(lpvar j, lpvar k) const;
+    factorization create_binary_factorization(factor j, factor k) const;
     
     factorization create_full_factorization() const;
 };
@@ -74,7 +88,7 @@ struct const_iterator_mon {
 struct factorization_factory {
     const svector<lpvar>& m_vars;
     // returns true if found
-    virtual bool find_monomial_of_vars(const svector<lpvar>& vars, monomial& m, rational & sign) const = 0;
+    virtual bool find_monomial_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
 
     factorization_factory(const svector<lpvar>& vars) :
         m_vars(vars) {
