@@ -102,7 +102,7 @@ class lackr {
         //
         // Introduce congruence ackermann lemma for the two given terms.
         //
-        bool ackr(app * const t1, app * const t2);
+        bool ackr(app * t1, app * t2);
 
         //
         // Introduce the ackermann lemma for each pair of terms.
