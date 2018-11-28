@@ -505,7 +505,7 @@ namespace smt {
         app * a = mk_fresh_const(name.c_str(), int_sort);
 
         ctx.internalize(a, false);
-        SASSERT(ctx.get_enode(a) != NULL);
+        SASSERT(ctx.get_enode(a) != nullptr);
         SASSERT(ctx.e_internalized(a));
         ctx.mark_as_relevant(a);
         // I'm assuming that this combination will do the correct thing in the integer theory.
@@ -544,7 +544,7 @@ namespace smt {
 
         // I have a hunch that this may not get internalized for free...
         ctx.internalize(a, false);
-        SASSERT(ctx.get_enode(a) != NULL);
+        SASSERT(ctx.get_enode(a) != nullptr);
         SASSERT(ctx.e_internalized(a));
         // this might help??
         mk_var(ctx.get_enode(a));
@@ -566,7 +566,7 @@ namespace smt {
         m_trail.push_back(a);
 
         ctx.internalize(a, false);
-        SASSERT(ctx.get_enode(a) != NULL);
+        SASSERT(ctx.get_enode(a) != nullptr);
         SASSERT(ctx.e_internalized(a));
         mk_var(ctx.get_enode(a));
         m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
@@ -617,7 +617,7 @@ namespace smt {
         app * a = mk_fresh_const(name.c_str(), string_sort);
 
         ctx.internalize(a, false);
-        SASSERT(ctx.get_enode(a) != NULL);
+        SASSERT(ctx.get_enode(a) != nullptr);
         // this might help??
         mk_var(ctx.get_enode(a));
 
@@ -710,7 +710,7 @@ namespace smt {
      * Returns the simplified concatenation of two expressions,
      * where either both expressions are constant strings
      * or one expression is the empty string.
-     * If this precondition does not hold, the function returns NULL.
+     * If this precondition does not hold, the function returns nullptr.
      * (note: this function was strTheory::Concat())
      */
     expr * theory_str::mk_concat_const_str(expr * n1, expr * n2) {
@@ -2148,7 +2148,7 @@ namespace smt {
     // Evaluates the concatenation (n1 . n2) with respect to
     // the current equivalence classes of n1 and n2.
     // Returns a constant string expression representing this concatenation
-    // if one can be determined, or NULL if this is not possible.
+    // if one can be determined, or nullptr if this is not possible.
     expr * theory_str::eval_concat(expr * n1, expr * n2) {
         bool n1HasEqcValue = false;
         bool n2HasEqcValue = false;
@@ -2222,7 +2222,7 @@ namespace smt {
 
             for (enode_vector::iterator parent_it = current_parents.begin(); parent_it != current_parents.end(); ++parent_it) {
                 enode * e_parent = *parent_it;
-                SASSERT(e_parent != NULL);
+                SASSERT(e_parent != nullptr);
 
                 app * a_parent = e_parent->get_owner();
                 TRACE("str", tout << "considering parent " << mk_ismt2_pp(a_parent, m) << std::endl;);
@@ -5575,7 +5575,7 @@ namespace smt {
                   tout << " " << mk_pp(el, m);
               }
               tout << std::endl;
-              if (constStrAst == NULL) {
+              if (constStrAst == nullptr) {
                   tout << "constStrAst = NULL" << std::endl;
               } else {
                   tout << "constStrAst = " << mk_pp(constStrAst, m) << std::endl;
@@ -7787,7 +7787,7 @@ namespace smt {
                             generate_mutual_exclusion(arrangement_disjunction);
                         }
                     } /* (arg1Len != 1 || arg2Len != 1) */
-                } /* if (Concat(arg1, arg2) == NULL) */
+                } /* if (Concat(arg1, arg2) == nullptr) */
             }
         }
     }
@@ -10417,12 +10417,12 @@ namespace smt {
                 }
             } // foreach(term in str_in_re_terms)
 
-            eautomaton * aut_inter = NULL;
+            eautomaton * aut_inter = nullptr;
             CTRACE("str", !intersect_constraints.empty(), tout << "check intersection of automata constraints for " << mk_pp(str, m) << std::endl;);
             for (svector<regex_automaton_under_assumptions>::iterator aut_it = intersect_constraints.begin();
                     aut_it != intersect_constraints.end(); ++aut_it) {
                 regex_automaton_under_assumptions aut = *aut_it;
-                if (aut_inter == NULL) {
+                if (aut_inter == nullptr) {
                     // start somewhere
                     aut_inter = aut.get_automaton();
                     used_intersect_constraints.push_back(aut);
@@ -10472,7 +10472,7 @@ namespace smt {
                     }
                 }
             } // foreach(entry in intersect_constraints)
-            if (aut_inter != NULL) {
+            if (aut_inter != nullptr) {
                 aut_inter->compress();
             }
             TRACE("str", tout << "intersected " << used_intersect_constraints.size() << " constraints" << std::endl;);
@@ -10503,7 +10503,7 @@ namespace smt {
             }
             conflict_lhs = mk_and(conflict_terms);
 
-            if (used_intersect_constraints.size() > 1 && aut_inter != NULL) {
+            if (used_intersect_constraints.size() > 1 && aut_inter != nullptr) {
                 // check whether the intersection is only the empty string
                 unsigned initial_state = aut_inter->init();
                 if (aut_inter->final_states().size() == 1 && aut_inter->is_final_state(initial_state)) {
@@ -10521,7 +10521,7 @@ namespace smt {
                 }
             }
 
-            if (aut_inter != NULL && aut_inter->is_empty()) {
+            if (aut_inter != nullptr && aut_inter->is_empty()) {
                 TRACE("str", tout << "product automaton is empty; asserting conflict clause" << std::endl;);
                 expr_ref conflict_clause(m.mk_not(mk_and(conflict_terms)), m);
                 assert_axiom(conflict_clause);
@@ -11809,7 +11809,7 @@ namespace smt {
             expr_ref assertL(mk_and(and_items_LHS), m);
             SASSERT(assertL);
             expr * finalAxiom = m.mk_or(m.mk_not(assertL), lenTestAssert.get());
-            SASSERT(finalAxiom != NULL);
+            SASSERT(finalAxiom != nullptr);
             TRACE("str", tout << "crash avoidance finalAxiom: " << mk_pp(finalAxiom, m) << std::endl;);
             return finalAxiom;
         } else {
@@ -12095,7 +12095,7 @@ namespace smt {
                 lenTester_fvar_map.insert(indicator, freeVar);
 
                 expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
-                SASSERT(lenTestAssert != NULL);
+                SASSERT(lenTestAssert != nullptr);
                 return lenTestAssert;
             } else {
                 TRACE("str", tout << "found previous in-scope length assertions" << std::endl;);
@@ -12201,7 +12201,7 @@ namespace smt {
                         testNum = i + 1;
                     }
                     expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
-                    SASSERT(lenTestAssert != NULL);
+                    SASSERT(lenTestAssert != nullptr);
                     return lenTestAssert;
                 } else {
                     // if we are performing automata-based reasoning and the term associated with

@@ -121,7 +121,7 @@ private:
             tactic_ref t = mk_qfaufbv_tactic(m_m, m_p);
             sat = mk_tactic2solver(m_m, t.get(), m_p);
         }
-        SASSERT(sat != NULL);
+        SASSERT(sat != nullptr);
         sat->set_produce_models(true);
         return sat;
     }

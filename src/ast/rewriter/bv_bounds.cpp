@@ -628,7 +628,7 @@ bool bv_bounds::is_sat_core(app * v) {
     numeral new_hi = lower - one;
     numeral ptr = lower;
     if (has_neg_intervals) {
-        SASSERT(negative_intervals != NULL);
+        SASSERT(negative_intervals != nullptr);
         std::sort(negative_intervals->begin(), negative_intervals->end(), interval_comp);
         intervals::const_iterator e = negative_intervals->end();
         for (intervals::const_iterator i = negative_intervals->begin(); i != e; ++i) {
