@@ -323,6 +323,10 @@ class theory_lra::imp {
         m_solver->settings().m_int_run_gcd_test = ctx().get_fparams().m_arith_gcd_test;
         m_solver->settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, m_solver.get());
+        get_one(true);
+        get_zero(true);
+        get_one(false);
+        get_zero(false);
     }
 
     void ensure_nra() {
@@ -346,6 +350,7 @@ class theory_lra::imp {
         var = m_solver->add_var(v, true);
         m_theory_var2var_index.setx(v, var, UINT_MAX);
         m_var_index2theory_var.setx(var, v, UINT_MAX);
+        TRACE("arith", tout << v << " internal: " << var << "\n";);
         m_var_trail.push_back(v);
         add_def_constraint(m_solver->add_var_bound(var, lp::GE, rational(c)));
         add_def_constraint(m_solver->add_var_bound(var, lp::LE, rational(c)));
@@ -662,6 +667,7 @@ class theory_lra::imp {
             m_has_int |= is_int(v);
             m_theory_var2var_index.setx(v, result, UINT_MAX);
             m_var_index2theory_var.setx(result, v, UINT_MAX);
+            TRACE("arith", tout << v << " internal: " << result << "\n";);
             m_var_trail.push_back(v);
         }
         return result;
@@ -828,6 +834,7 @@ class theory_lra::imp {
                 SASSERT(!m_left_side.empty());
                 vi = m_solver->add_term(m_left_side);
                 m_theory_var2var_index.setx(v, vi, UINT_MAX);
+                TRACE("arith", tout << v << " internal: " << vi << "\n";);
                 if (m_solver->is_term(vi)) {
                     m_term_index2theory_var.setx(m_solver->adjust_term_index(vi), v, UINT_MAX);
                 }

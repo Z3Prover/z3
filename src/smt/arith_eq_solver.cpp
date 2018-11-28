@@ -608,8 +608,8 @@ bool arith_eq_solver::solve_integer_equations_gcd(
                 return false;
             }
             live.erase(live.begin()+live_pos);
-            for (j = 0; j < live.size(); ++j) {
-                row& r = rows[live[j]];
+            for (unsigned l : live) {
+                row& r = rows[l];
                 if (!r[i].is_zero()) {
                     substitute(r, r0, i);
                     gcd_normalize(r);
@@ -625,10 +625,7 @@ bool arith_eq_solver::solve_integer_equations_gcd(
 
     TRACE("arith_eq_solver",
           tout << ((live.size()<=1)?"solved ":"incomplete check ") << live.size() << "\n";
-          for (unsigned i = 0; i < live.size(); ++i) {
-              print_row(tout, rows[live[i]]);
-          }
-          );
+          for (unsigned l : live) print_row(tout, rows[l]); );
 
     return true;
 }
