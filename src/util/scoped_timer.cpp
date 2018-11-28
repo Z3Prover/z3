@@ -146,7 +146,7 @@ struct scoped_timer::imp {
 #if defined(_WINDOWS) || defined(_CYGWIN)
         m_first = true;
         CreateTimerQueueTimer(&m_timer,
-                              NULL,
+                              nullptr,
                               abort_proc,
                               this,
                               0,
@@ -180,9 +180,9 @@ struct scoped_timer::imp {
         m_ms = ms;
         m_initialized = false;
         m_signal_sent = false;
-        ENSURE(pthread_mutex_init(&m_mutex, NULL) == 0);
-        ENSURE(pthread_cond_init(&m_cond, NULL) == 0);
-        ENSURE(pthread_create(&m_thread_id, NULL, &thread_func, this) == 0);
+        ENSURE(pthread_mutex_init(&m_mutex, nullptr) == 0);
+        ENSURE(pthread_cond_init(&m_cond, nullptr) == 0);
+        ENSURE(pthread_create(&m_thread_id, nullptr, &thread_func, this) == 0);
 #else
     // Other platforms
 #endif
@@ -190,7 +190,7 @@ struct scoped_timer::imp {
 
     ~imp() {
 #if defined(_WINDOWS) || defined(_CYGWIN)
-        DeleteTimerQueueTimer(NULL,
+        DeleteTimerQueueTimer(nullptr,
                               m_timer,
                               INVALID_HANDLE_VALUE);
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -242,7 +242,7 @@ struct scoped_timer::imp {
         // Perform signal outside of lock to avoid waking timing thread twice.
         pthread_cond_signal(&m_cond);
 
-        pthread_join(m_thread_id, NULL);
+        pthread_join(m_thread_id, nullptr);
         pthread_cond_destroy(&m_cond);
         pthread_mutex_destroy(&m_mutex);
 #else

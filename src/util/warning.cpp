@@ -88,7 +88,7 @@ void format2ostream(std::ostream & out, char const* msg, va_list args) {
 #ifdef _WINDOWS
     size_t msg_len = _vscprintf(msg, args_copy);
 #else
-    size_t msg_len = vsnprintf(NULL, 0, msg, args_copy);
+    size_t msg_len = vsnprintf(nullptr, 0, msg, args_copy);
 #endif
     va_end(args_copy);
 
