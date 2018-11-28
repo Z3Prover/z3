@@ -15,7 +15,7 @@ void const_iterator_mon::init_vars_by_the_mask(unsigned_vector & k_vars, unsigne
     }
 }
             
-bool const_iterator_mon::get_factors(unsigned& k, unsigned& j, rational& sign) const {
+bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const {
     unsigned_vector k_vars;
     unsigned_vector j_vars;
     init_vars_by_the_mask(k_vars, j_vars);
@@ -23,27 +23,29 @@ bool const_iterator_mon::get_factors(unsigned& k, unsigned& j, rational& sign) c
     std::sort(k_vars.begin(), k_vars.end());
     std::sort(j_vars.begin(), j_vars.end());
 
-    rational k_sign, j_sign;
-    monomial m;
     if (k_vars.size() == 1) {
-        k = k_vars[0];
-        k_sign = 1;
+        k.index() = k_vars[0];
+        k.type() = factor_type::VAR;
     } else {
-        if (!m_ff->find_monomial_of_vars(k_vars, m, k_sign)) {
+        unsigned i;
+        if (!m_ff->find_monomial_of_vars(k_vars,i)) {
             return false;
         }
-        k = m.var();
+        k.index() = i;
+        k.type() = factor_type::RM;
     }
+
     if (j_vars.size() == 1) {
-        j = j_vars[0];
-        j_sign = 1;
+        j.index() = j_vars[0];
+        j.type() = factor_type::VAR;
     } else {
-        if (!m_ff->find_monomial_of_vars(j_vars, m, j_sign)) {
+        unsigned i;
+        if (!m_ff->find_monomial_of_vars(j_vars,i)) {
             return false;
         }
-        j = m.var();
+        j.index() = i;
+        j.type() = factor_type::RM;
     }
-    sign = j_sign * k_sign;
     return true;
 }
 
@@ -51,7 +53,7 @@ const_iterator_mon::reference const_iterator_mon::operator*() const {
     if (m_full_factorization_returned == false)  {
         return create_full_factorization();
     }
-    unsigned j, k; rational sign;
+    factor j, k; rational sign;
     if (!get_factors(j, k, sign))
         return factorization();
     return create_binary_factorization(j, k);
@@ -90,7 +92,7 @@ bool const_iterator_mon::operator==(const const_iterator_mon::self_type &other) 
 }
 bool const_iterator_mon::operator!=(const const_iterator_mon::self_type &other) const { return !(*this == other); }
             
-factorization const_iterator_mon::create_binary_factorization(lpvar j, lpvar k) const {
+factorization const_iterator_mon::create_binary_factorization(factor j, factor k) const {
     // todo : the current explanation is an overkill
     // std::function<void (expl_set&)> explain = [&](expl_set& exp){
     //                                               const imp & impl = m_ff->m_impf;
@@ -105,14 +107,17 @@ factorization const_iterator_mon::create_binary_factorization(lpvar j, lpvar k) 
     //                                               impl.add_explanation_of_reducing_to_rooted_monomial(m_ff->m_mon, exp);
     //                                           };
     factorization f;
-    f.vars().push_back(j);
-    f.vars().push_back(k);  
+    f.push_back(j);
+    f.push_back(k);  
     return f;
 }
 
 factorization const_iterator_mon::create_full_factorization() const {
     factorization f;
-    f.vars() = m_ff->m_vars; 
+    //    f.vars() = m_ff->m_vars;
+    for (lpvar j : m_ff->m_vars) {
+        f.push_back(factor(j, factor_type::VAR));
+    }
     return f;
 }
 }
