@@ -5554,14 +5554,8 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
     TRACE("seq", tout << "add_theory_assumption " << m_util.has_re() << "\n";);
     if (m_util.has_re()) {
         expr_ref dlimit(m);
-        if (m_max_unfolding_lit != null_literal && 
-            m_max_unfolding_depth == 1) {
-            dlimit = mk_max_unfolding_depth();
-            m_max_unfolding_lit = mk_literal(dlimit);
-        }
-        else {
-            dlimit = get_context().bool_var2expr(m_max_unfolding_lit.var());
-        }
+        dlimit = mk_max_unfolding_depth();
+        m_max_unfolding_lit = mk_literal(dlimit);        
         TRACE("seq", tout << "add_theory_assumption " << dlimit << " " << assumptions << "\n";);
         assumptions.push_back(dlimit);
     }
