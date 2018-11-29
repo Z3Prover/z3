@@ -209,10 +209,12 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_axioms_head(0),
     m_int_string(m),
     m_mg(nullptr),
+    m_length(m),
     m_rewrite(m),
     m_seq_rewrite(m),
     m_util(m),
     m_autil(m),
+    m_arith_value(m),
     m_trail_stack(*this),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
@@ -245,6 +247,7 @@ theory_seq::~theory_seq() {
 
 void theory_seq::init(context* ctx) {
     theory::init(ctx);    
+    m_arith_value.init(ctx);
 }
 
 final_check_status theory_seq::final_check_eh() {
@@ -991,8 +994,9 @@ void theory_seq::find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector cons
                 hi = 1;
             }
             else {
-                lower_bound(ls.get(j), lo);
-                upper_bound(ls.get(j), hi);
+                expr_ref len_s = mk_len(ls.get(j));
+                lower_bound(len_s, lo);
+                upper_bound(len_s, hi);
             }
             if (!lo.is_minus_one()) {
                 if (lo1.is_minus_one())
@@ -1024,8 +1028,9 @@ void theory_seq::find_max_eq_len(expr_ref_vector const& ls, expr_ref_vector cons
                 hi = 1;
             }
             else {
-                lower_bound(rs.get(j), lo);
-                upper_bound(rs.get(j), hi);
+                expr_ref len_s = mk_len(rs.get(j));
+                lower_bound(len_s, lo);
+                upper_bound(len_s, hi);
             }
             if (!lo.is_minus_one()) {
                 if (lo2.is_minus_one())
@@ -1729,7 +1734,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     }
     TRACE("seq", tout << "Unsolved " << mk_pp(e, m);
           if (!lower_bound2(e, lo)) lo = -rational::one();
-          if (!upper_bound(e, hi)) hi = -rational::one();
+          if (!upper_bound(mk_len(e), hi)) hi = -rational::one();
           tout << " lo: " << lo << " hi: " << hi << "\n";
           );
 
@@ -1747,9 +1752,10 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     // len(e) >= low => e = tail;
     literal low(mk_literal(m_autil.mk_ge(mk_len(e), m_autil.mk_numeral(lo, true))));
     add_axiom(~low, mk_seq_eq(e, tail));
-    if (upper_bound(e, hi)) {
+    expr_ref len_e = mk_len(e);
+    if (upper_bound(len_e, hi)) {
         // len(e) <= hi => len(tail) <= hi - lo
-        expr_ref high1(m_autil.mk_le(mk_len(e), m_autil.mk_numeral(hi, true)), m);
+        expr_ref high1(m_autil.mk_le(len_e, m_autil.mk_numeral(hi, true)), m);
         if (hi == lo) {
             add_axiom(~mk_literal(high1), mk_seq_eq(seq, emp));
         }
@@ -1799,13 +1805,17 @@ bool theory_seq::check_length_coherence0(expr* e) {
 bool theory_seq::check_length_coherence() {
 
 #if 1
-    for (auto e : m_length) {
+    for (expr* l : m_length) {
+        expr* e = nullptr;
+        VERIFY(m_util.str.is_length(l, e));
         if (check_length_coherence0(e)) {
             return true;
         }
     }
 #endif
-    for (auto e : m_length) {
+    for (expr* l : m_length) {
+        expr* e = nullptr;
+        VERIFY(m_util.str.is_length(l, e));
         if (check_length_coherence(e)) {
             return true;
         }
@@ -1823,9 +1833,11 @@ bool theory_seq::fixed_length(bool is_zero) {
     return found;
 }
 
-bool theory_seq::fixed_length(expr* e, bool is_zero) {
+bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
     rational lo, hi;
-    if (!(is_var(e) && lower_bound(e, lo) && upper_bound(e, hi) && lo == hi
+    expr* e = nullptr;
+    VERIFY(m_util.str.is_length(len_e, e));
+    if (!(is_var(e) && lower_bound(len_e, lo) && upper_bound(len_e, hi) && lo == hi
           && ((is_zero && lo.is_zero()) || (!is_zero && lo.is_unsigned())))) {
         return false;
     }
@@ -1858,9 +1870,9 @@ bool theory_seq::fixed_length(expr* e, bool is_zero) {
         seq = mk_concat(elems.size(), elems.c_ptr());
     }
     TRACE("seq", tout << "Fixed: " << mk_pp(e, m) << " " << lo << "\n";);
-    add_axiom(~mk_eq(mk_len(e), m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
+    add_axiom(~mk_eq(len_e, m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
     if (!ctx.at_base_level()) {
-        m_trail_stack.push(push_replay(alloc(replay_fixed_length, m, e)));
+        m_trail_stack.push(push_replay(alloc(replay_fixed_length, m, len_e)));
     }
     return true;
 }
@@ -3354,10 +3366,14 @@ bool theory_seq::internalize_term(app* term) {
     return true;
 }
 
-void theory_seq::add_length(expr* e) {
-    SASSERT(!has_length(e));
-    m_length.insert(e);
-    m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_length, e));
+void theory_seq::add_length(expr* l) {
+    expr* e = nullptr;
+    VERIFY(m_util.str.is_length(l, e));
+    SASSERT(!m_length.contains(l));
+    m_length.push_back(l);
+    m_has_length.insert(e);
+    m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_has_length, e));
+    m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_length));
 }
 
 
@@ -3372,7 +3388,7 @@ void theory_seq::enforce_length(expr* e) {
         if (!has_length(o)) {
             expr_ref len = mk_len(o);
             enque_axiom(len);
-            add_length(o);
+            add_length(len);
         }
         n = n->get_next();
     }
@@ -3609,14 +3625,12 @@ void theory_seq::display(std::ostream & out) const {
         m_exclude.display(out);
     }
 
-    if (!m_length.empty()) {
-        for (auto e : m_length) {
-            rational lo(-1), hi(-1);
-            lower_bound(e, lo);
-            upper_bound(e, hi);
-            if (lo.is_pos() || !hi.is_minus_one()) {
-                out << mk_pp(e, m) << " [" << lo << ":" << hi << "]\n";
-            }
+    for (auto e : m_length) {
+        rational lo(-1), hi(-1);
+        lower_bound(e, lo);
+        upper_bound(e, hi);
+        if (lo.is_pos() || !hi.is_minus_one()) {
+            out << mk_pp(e, m) << " [" << lo << ":" << hi << "]\n";
         }
     }
 
@@ -4215,7 +4229,7 @@ void theory_seq::deque_axiom(expr* n) {
     if (m_util.str.is_length(n)) {
         add_length_axiom(n);
     }
-    else if (m_util.str.is_empty(n) && !has_length(n) && !m_length.empty()) {
+    else if (m_util.str.is_empty(n) && !has_length(n) && !m_has_length.empty()) {
         enforce_length(n);
     }
     else if (m_util.str.is_index(n)) {
@@ -4648,23 +4662,20 @@ bool theory_seq::get_num_value(expr* e, rational& val) const {
     return false;
 }
 
-bool theory_seq::lower_bound(expr* _e, rational& lo) const {
-    context& ctx = get_context();
-    expr_ref e = mk_len(_e);
-    expr_ref _lo(m);
-    family_id afid = m_autil.get_family_id();
-    do {
-        theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, afid, e);
-        if (tha && tha->get_lower(ctx.get_enode(e), _lo)) break;
-        theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, afid, e);
-        if (thi && thi->get_lower(ctx.get_enode(e), _lo)) break;
-        theory_lra* thr = get_th_arith<theory_lra>(ctx, afid, e);
-        if (thr && thr->get_lower(ctx.get_enode(e), _lo)) break;
-        return false;
-    }
-    while (false);
-    return m_autil.is_numeral(_lo, lo) && lo.is_int();
+bool theory_seq::lower_bound(expr* e, rational& lo) const {
+    VERIFY(m_autil.is_int(e));
+    bool is_strict = true;
+    return m_arith_value.get_lo(e, lo, is_strict) && !is_strict && lo.is_int();
+
 }
+
+bool theory_seq::upper_bound(expr* e, rational& hi) const {
+    VERIFY(m_autil.is_int(e));
+    bool is_strict = true;
+    return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
+}
+
+
 
 // The difference with lower_bound function is that since in some cases,
 // the lower bound is not updated for all the enodes in the same eqc,
@@ -4705,23 +4716,6 @@ bool theory_seq::lower_bound2(expr* _e, rational& lo) {
     return true;
 }
 
-bool theory_seq::upper_bound(expr* _e, rational& hi) const {
-    context& ctx = get_context();
-    expr_ref e = mk_len(_e);
-    family_id afid = m_autil.get_family_id();
-    expr_ref _hi(m);
-    do {
-        theory_mi_arith* tha = get_th_arith<theory_mi_arith>(ctx, afid, e);
-        if (tha && tha->get_upper(ctx.get_enode(e), _hi)) break;
-        theory_i_arith* thi = get_th_arith<theory_i_arith>(ctx, afid, e);
-        if (thi && thi->get_upper(ctx.get_enode(e), _hi)) break;
-        theory_lra* thr = get_th_arith<theory_lra>(ctx, afid, e);
-        if (thr && thr->get_upper(ctx.get_enode(e), _hi)) break;
-        return false;
-    }
-    while (false);
-    return m_autil.is_numeral(_hi, hi) && hi.is_int();
-}
 
 bool theory_seq::get_length(expr* e, rational& val) const {
     context& ctx = get_context();
@@ -5485,14 +5479,15 @@ void theory_seq::propagate_step(literal lit, expr* step) {
     TRACE("seq", tout << mk_pp(step, m) << " -> " << mk_pp(t, m) << "\n";);
     propagate_lit(nullptr, 1, &lit, mk_literal(t));
 
+    expr_ref len_s = mk_len(s);
     rational lo;
     rational _idx;
     VERIFY(m_autil.is_numeral(idx, _idx));
-    if (lower_bound(s, lo) && lo.is_unsigned() && lo >= _idx) {
+    if (lower_bound(len_s, lo) && lo.is_unsigned() && lo >= _idx) {
         // skip
     }
     else {
-        propagate_lit(nullptr, 1, &lit, ~mk_literal(m_autil.mk_le(mk_len(s), idx)));
+        propagate_lit(nullptr, 1, &lit, ~mk_literal(m_autil.mk_le(len_s, idx)));
     }
     ensure_nth(lit, s, idx);
 
@@ -5554,15 +5549,8 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
     TRACE("seq", tout << "add_theory_assumption " << m_util.has_re() << "\n";);
     if (m_util.has_re()) {
         expr_ref dlimit(m);
-        if (m_max_unfolding_lit != null_literal && 
-            m_max_unfolding_depth == 1) {
-            dlimit = mk_max_unfolding_depth();
-            m_max_unfolding_lit = mk_literal(dlimit);
-        }
-        else {
-            dlimit = get_context().bool_var2expr(m_max_unfolding_lit.var());
-        }
-        TRACE("seq", tout << "add_theory_assumption " << dlimit << " " << assumptions << "\n";);
+        dlimit = mk_max_unfolding_depth();
+        m_max_unfolding_lit = mk_literal(dlimit);        
         assumptions.push_back(dlimit);
     }
 }

@@ -4874,9 +4874,10 @@ namespace smt {
             return false;
         }
 
-        arith_value v(get_context());
+        arith_value v(get_manager());
+        v.init(&get_context());
         bool strict;
-        return v.get_lo(_e, lo, strict);
+        return v.get_lo_equiv(_e, lo, strict);
     }
 
     bool theory_str::upper_bound(expr* _e, rational& hi) {
@@ -4885,9 +4886,10 @@ namespace smt {
             return false;
         }
 
-        arith_value v(get_context());
+        arith_value v(get_manager());
+        v.init(&get_context());
         bool strict;
-        return v.get_up(_e, hi, strict);
+        return v.get_up_equiv(_e, hi, strict);
     }
 
     bool theory_str::get_len_value(expr* e, rational& val) {

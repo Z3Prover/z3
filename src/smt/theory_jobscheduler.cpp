@@ -551,7 +551,8 @@ namespace smt {
     }
 
     time_t theory_jobscheduler::get_lo(expr* e) {
-        arith_value av(get_context());
+        arith_value av(m);
+        av.init(&get_context());
         rational val;
         bool is_strict;
         if (av.get_lo(e, val, is_strict) && !is_strict && val.is_uint64()) {
@@ -561,7 +562,8 @@ namespace smt {
     }
 
     time_t theory_jobscheduler::get_up(expr* e) {
-        arith_value av(get_context());
+        arith_value av(m);
+        av.init(&get_context());
         rational val;
         bool is_strict;
         if (av.get_up(e, val, is_strict) && !is_strict && val.is_uint64()) {
@@ -571,7 +573,8 @@ namespace smt {
     }
 
     time_t theory_jobscheduler::get_value(expr* e) {
-        arith_value av(get_context());
+        arith_value av(get_manager());
+        av.init(&get_context());
         rational val;
         if (av.get_value(e, val) && val.is_uint64()) {
             return val.get_uint64();

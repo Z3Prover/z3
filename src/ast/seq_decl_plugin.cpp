@@ -377,8 +377,8 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     if (s->get_family_id() == sP->get_family_id() &&
         s->get_decl_kind() == sP->get_decl_kind() &&
         s->get_num_parameters() == sP->get_num_parameters()) {
-		for (unsigned i = 0, sz = s->get_num_parameters(); i < sz; ++i) {
-			parameter const& p = s->get_parameter(i);
+        for (unsigned i = 0, sz = s->get_num_parameters(); i < sz; ++i) {
+            parameter const& p = s->get_parameter(i);
             if (p.is_ast() && is_sort(p.get_ast())) {
                 parameter const& p2 = sP->get_parameter(i);
                 if (!match(binding, to_sort(p.get_ast()), to_sort(p2.get_ast()))) return false;
