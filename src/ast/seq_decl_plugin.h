@@ -140,6 +140,7 @@ class seq_decl_plugin : public decl_plugin {
     };
 
     ptr_vector<psig> m_sigs;
+    ptr_vector<sort> m_binding;
     bool             m_init;
     symbol           m_stringc_sym;
     symbol           m_charc_sym;
