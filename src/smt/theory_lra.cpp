@@ -2283,16 +2283,14 @@ public:
                 
             iterator lo_inf = begin1, lo_sup = begin1;
             iterator hi_inf = begin2, hi_sup = begin2;
-            iterator lo_inf1 = begin1, lo_sup1 = begin1;
-            iterator hi_inf1 = begin2, hi_sup1 = begin2;
             bool flo_inf, fhi_inf, flo_sup, fhi_sup;
             ptr_addr_hashtable<lp_api::bound> visited;
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 lp_api::bound* a1 = atoms[i];
-                lo_inf1 = next_inf(a1, lp_api::lower_t, lo_inf, end, flo_inf);
-                hi_inf1 = next_inf(a1, lp_api::upper_t, hi_inf, end, fhi_inf);
-                lo_sup1 = next_sup(a1, lp_api::lower_t, lo_sup, end, flo_sup);
-                hi_sup1 = next_sup(a1, lp_api::upper_t, hi_sup, end, fhi_sup);
+                iterator lo_inf1 = next_inf(a1, lp_api::lower_t, lo_inf, end, flo_inf);
+                iterator hi_inf1 = next_inf(a1, lp_api::upper_t, hi_inf, end, fhi_inf);
+                iterator lo_sup1 = next_sup(a1, lp_api::lower_t, lo_sup, end, flo_sup);
+                iterator hi_sup1 = next_sup(a1, lp_api::upper_t, hi_sup, end, fhi_sup);
                 if (lo_inf1 != end) lo_inf = lo_inf1; 
                 if (lo_sup1 != end) lo_sup = lo_sup1; 
                 if (hi_inf1 != end) hi_inf = hi_inf1; 
