@@ -5550,6 +5550,7 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
     if (m_util.has_re()) {
         expr_ref dlimit(m);
         dlimit = mk_max_unfolding_depth();
+        m_trail_stack.push(value_trail<theory_seq, literal>(m_max_unfolding_lit));
         m_max_unfolding_lit = mk_literal(dlimit);        
         assumptions.push_back(dlimit);
     }
