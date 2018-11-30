@@ -3447,7 +3447,7 @@ public class Context implements AutoCloseable {
      **/                     
     public FPNum mkFP(boolean sgn, int exp, int sig, FPSort s)
     {
-        return mkFPNumeral(sgn, sig, exp, s);
+        return mkFPNumeral(sgn, exp, sig, s);
     }
 
     /**
@@ -3460,7 +3460,7 @@ public class Context implements AutoCloseable {
      **/                     
     public FPNum mkFP(boolean sgn, long exp, long sig, FPSort s)
     {
-        return mkFPNumeral(sgn, sig, exp, s);
+        return mkFPNumeral(sgn, exp, sig, s);
     }
 
 
