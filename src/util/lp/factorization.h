@@ -38,6 +38,7 @@ public:
     unsigned& index() {return m_index;}
     factor_type type() const {return m_type;}
     factor_type& type() {return m_type;}
+    bool is_var() const { return m_type == factor_type::VAR; }
 };
 
 class factorization {
