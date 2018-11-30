@@ -3356,7 +3356,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a numeral of FloatingPoint sort from a float.
+     * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
@@ -3368,7 +3368,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of FloatingPoint sort from an int.
-     * * @param v numeral value.
+     * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/                    
@@ -3380,8 +3380,8 @@ public class Context implements AutoCloseable {
     /**
      * Create a numeral of FloatingPoint sort from a sign bit and two integers.
      * @param sgn the sign.
-     * @param sig the significand.
      * @param exp the exponent.
+     * @param sig the significand.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/            
@@ -3393,8 +3393,8 @@ public class Context implements AutoCloseable {
     /**
      * Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
      * @param sgn the sign.
-     * @param sig the significand.
      * @param exp the exponent.
+     * @param sig the significand.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/
@@ -3415,7 +3415,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a numeral of FloatingPoint sort from a float.
+     * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
