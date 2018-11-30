@@ -492,7 +492,7 @@ lbool sls_engine::search() {
 
             score = m_tracker.get_top_sum();
 
-            // update assertion weights if a weigthing is enabled (sp < 1024)
+            // update assertion weights if a weighting is enabled (sp < 1024)
             if (m_paws)
             {
                 for (unsigned i = 0; i < sz; i++)

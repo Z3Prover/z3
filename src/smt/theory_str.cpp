@@ -9424,15 +9424,15 @@ namespace smt {
                 if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                     freeVarMap[var] = 1;
                 } else {
-                    int lrConstainted = 0;
+                    int lrConstrained = 0;
                     std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                     for (; lrit != freeVarMap.end(); lrit++) {
                         if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                            lrConstainted = 1;
+                            lrConstrained = 1;
                             break;
                         }
                     }
-                    if (lrConstainted == 0) {
+                    if (lrConstrained == 0) {
                         freeVarMap[var] = 1;
                     }
                 }
@@ -9451,15 +9451,15 @@ namespace smt {
                         if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                             freeVarMap[var] = 1;
                         } else {
-                            int lrConstainted = 0;
+                            int lrConstrained = 0;
                             std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                             for (; lrit != freeVarMap.end(); lrit++) {
                                 if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                                    lrConstainted = 1;
+                                    lrConstrained = 1;
                                     break;
                                 }
                             }
-                            if (lrConstainted == 0) {
+                            if (lrConstrained == 0) {
                                 freeVarMap[var] = 1;
                             }
                         }
@@ -9471,15 +9471,15 @@ namespace smt {
                         if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                             freeVarMap[var] = 1;
                         } else {
-                            int lrConstainted = 0;
+                            int lrConstrained = 0;
                             std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                             for (; lrit != freeVarMap.end(); lrit++) {
                                 if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                                    lrConstainted = 1;
+                                    lrConstrained = 1;
                                     break;
                                 }
                             }
-                            if (lrConstainted == 0) {
+                            if (lrConstrained == 0) {
                                 freeVarMap[var] = 1;
                             }
                         }
@@ -9500,15 +9500,15 @@ namespace smt {
                                     if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                                         freeVarMap[var] = 1;
                                     } else {
-                                        int lrConstainted = 0;
+                                        int lrConstrained = 0;
                                         std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                                         for (; lrit != freeVarMap.end(); lrit++) {
                                             if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                                                lrConstainted = 1;
+                                                lrConstrained = 1;
                                                 break;
                                             }
                                         }
-                                        if (lrConstainted == 0) {
+                                        if (lrConstrained == 0) {
                                             freeVarMap[var] = 1;
                                         }
                                     }
@@ -9762,7 +9762,7 @@ namespace smt {
             expr_ref concatlenExpr (mk_strlen(concat), m) ;
             bool allLeafResolved = true;
             if (! get_arith_value(concatlenExpr, lenValue)) {
-                // the length fo concat is unresolved yet
+                // the length of concat is unresolved yet
                 if (get_len_value(concat, lenValue)) {
                     // but all leaf nodes have length information
                     TRACE("str", tout << "* length pop-up: " <<  mk_ismt2_pp(concat, m) << "| = " << lenValue << std::endl;);
