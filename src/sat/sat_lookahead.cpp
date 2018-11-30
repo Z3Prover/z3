@@ -2160,7 +2160,7 @@ namespace sat {
             if (is_undef(lit)) {
                 val = l_undef;
             }
-            if (is_true(lit)) {
+            else if (is_true(lit)) {
                 val = l_true;
             }
             else {
