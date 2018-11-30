@@ -1083,7 +1083,6 @@ namespace smt {
         for (unsigned i = 0; i <= num_args; i++) {
             expr* arg = (i == num_args)?n:n->get_arg(i);
             sort* s = get_manager().get_sort(arg);
-            s = get_manager().get_sort(arg);
             if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > m_params.m_bv_blast_max_size) {                
                 if (!m_approximates_large_bvs) {
                     TRACE("bv", tout << "found large size bit-vector:\n" << mk_pp(n, get_manager()) << "\n";);
