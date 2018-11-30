@@ -105,7 +105,7 @@ class sat_tactic : public tactic {
             else {
                 // get simplified problem.
 #if 0
-                IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "\"formula constains interpreted atoms, recovering formula from sat solver...\"\n";);
+                IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "\"formula constrains interpreted atoms, recovering formula from sat solver...\"\n";);
 #endif
                 m_solver.pop_to_base_level();
                 ref<sat2goal::mc> mc;
