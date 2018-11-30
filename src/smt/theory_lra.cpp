@@ -2672,14 +2672,12 @@ public:
         if (propagate_eqs()) {
             rational const& value = b.get_value();
             if (k == lp::GE) {
-                set_lower_bound(vi, ci, value);
-                if (has_upper_bound(vi, ci, value)) {
+                if (set_lower_bound(vi, ci, value) && has_upper_bound(vi, ci, value)) {
                     fixed_var_eh(b.get_var(), value);
                 }
             }
             else if (k == lp::LE) {
-                set_upper_bound(vi, ci, value);
-                if (has_lower_bound(vi, ci, value)) {
+                if (set_upper_bound(vi, ci, value) && has_lower_bound(vi, ci, value)) {
                     fixed_var_eh(b.get_var(), value);
                 }
             }
@@ -2698,25 +2696,39 @@ public:
 
     bool use_tableau() const { return lp_params(ctx().get_params()).simplex_strategy() < 2; }
 
-    void set_upper_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { set_bound(vi, ci, v, false);  }
+    bool set_upper_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { return set_bound(vi, ci, v, false);  }
 
-    void set_lower_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { set_bound(vi, ci, v, true);   }
+    bool set_lower_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { return set_bound(vi, ci, v, true);   }
 
-    void set_bound(lp::var_index vi, lp::constraint_index ci, rational const& v, bool is_lower) {
-        if (!m_solver->is_term(vi)) {
+    bool set_bound(lp::var_index vi, lp::constraint_index ci, rational const& v, bool is_lower) {
+
+        if (m_solver->is_term(vi)) {
+            lp::var_index ti = m_solver->adjust_term_index(vi);
+            auto& vec = is_lower ? m_lower_terms : m_upper_terms;
+            if (vec.size() <= ti) {
+                vec.resize(ti + 1, constraint_bound(UINT_MAX, rational()));
+            }
+            constraint_bound& b = vec[ti];
+            if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
+                TRACE("arith", tout << "tighter bound " << vi << "\n";);
+                ctx().push_trail(vector_value_trail<context, constraint_bound>(vec, ti));
+                b.first = ci;
+                b.second = v;
+            }
+            return true;
+        }
+        else {
+            TRACE("arith", tout << "not a term " << vi << "\n";);
             // m_solver already tracks bounds on proper variables, but not on terms.
-            return;
-        }
-        lp::var_index ti = m_solver->adjust_term_index(vi);
-        auto& vec = is_lower ? m_lower_terms : m_upper_terms;
-        if (vec.size() <= ti) {
-            vec.resize(ti + 1, constraint_bound(UINT_MAX, rational()));
-        }
-        constraint_bound& b = vec[ti];
-        if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
-            ctx().push_trail(vector_value_trail<context, constraint_bound>(vec, ti));
-            b.first = ci;
-            b.second = v;
+            bool is_strict = false;
+            rational b;
+            if (is_lower) {
+                return m_solver->has_lower_bound(vi, ci, b, is_strict) && !is_strict && b == v;
+            }
+            else {
+                return m_solver->has_upper_bound(vi, ci, b, is_strict) && !is_strict && b == v;
+            }
+            
         }
     }
 
