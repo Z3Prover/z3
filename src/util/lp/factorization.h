@@ -26,7 +26,7 @@ namespace nla {
 struct factorization_factory;
 typedef unsigned lpvar;
 
-enum class factor_type { VAR, RM}; // RM stands for rooted monomial 
+enum class factor_type { VAR, RM }; // RM stands for rooted monomial 
 
 class factor {
     unsigned     m_index;

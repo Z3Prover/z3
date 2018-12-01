@@ -26,15 +26,92 @@
 
 namespace nla {
 
+// returns true if a factor of b
+template <typename T>
+bool is_factor(const T & a, const T & b) {
+    SASSERT(lp::is_non_decreasing(a) && lp::is_non_decreasing(b));
+    auto i = a.begin();
+    auto j = b.begin();
+    
+    while (true) {
+        if (i == a.end()) {
+            return true;
+        }
+        if (j == b.end()) {
+            return false;
+        }
+
+        if (*i == *j) {
+            i++;j++;
+            continue;
+        } 
+
+        i++;
+    }
+}
+
+    // b / a, where a is a factor of b and both vectors are sorted
+template <typename T>
+svector<unsigned> vector_div(const T & b, const T & a) {
+    SASSERT(lp::is_non_decreasing(a));
+    SASSERT(lp::is_non_decreasing(b));
+    SASSERT(is_factor(a, b));
+    svector<unsigned> r;
+    auto i = a.begin();
+    auto j = b.begin();
+    
+    while (true) {
+        if (j == b.end()) {
+            break;
+        }
+        if (i == a.end()) {
+            r.push_back(*j);
+            j++;
+            continue;
+        }
+
+        if (*i == *j) {
+            i++;j++;
+            continue;
+        } 
+
+        r.push_back(*j);
+        j++;
+    }
+    return r;
+}
+
+// bool is_factor(const T a, const T b ) {   
+//     SASSERT(is_sorted(a) && is_sorted(b));
+//     if (b.size() <= a.size())
+//         return false;
+    
+//     while (!b.empty() && !a.empty() ) {
+
+//         if (b.back() < a.back())
+//             return false;
+//         if (b.back() == a.back()) {
+//             a.pop_back(); b.pop_back();
+//         } else { // b.back() > a.back()
+//             b.pop_back();
+//         }
+//     }
+    
+//     return a.empty();
+// } 
+
 struct solver::imp {
 
     struct rooted_mon {
         svector<lpvar>   m_vars;
         index_with_sign  m_orig;
-        rooted_mon(const svector<lpvar>& vars, unsigned i, const rational& sign): m_vars(vars), m_orig(i, sign) {}
+        rooted_mon(const svector<lpvar>& vars, unsigned i, const rational& sign): m_vars(vars), m_orig(i, sign) {
+            SASSERT(lp::is_non_decreasing(vars));
+        }
         lpvar operator[](unsigned k) const { return m_vars[k];}
         unsigned size() const { return m_vars.size(); }
         unsigned orig_index() const { return m_orig.m_i; }
+        const rational& orig_sign() const { return m_orig.m_sign; }
         const svector<lpvar> & vars() const {return m_vars;}
     };
 
@@ -95,6 +172,14 @@ struct solver::imp {
     lpvar var(const factor& f) const {
         return f.is_var()?
             f.index() : orig_mon_var(m_vector_of_rooted_monomials[f.index()]);
+    }
+
+    svector<lpvar> sorted_vars(const factor& f) const {
+        if (f.is_var()) {
+            svector<lpvar> r; r.push_back(f.index());
+            return r;
+        }
+        return m_vector_of_rooted_monomials[f.index()].vars();
     }
     
     rational flip_sign(const factor& f) const {
@@ -199,16 +284,26 @@ struct solver::imp {
         print_product(m, out);
         out << '\n';
         for (unsigned k = 0; k < m.size(); k++) {
-            print_var(m.vars()[k], out);
+            print_var(m[k], out);
         }
         return out;
         
     }
+
     std::ostream& print_monomial_with_vars(const monomial& m, std::ostream& out) const {
         out << m_lar_solver.get_variable_name(m.var()) << " = ";
         return print_product_with_vars(m, out);
     }
 
+    std::ostream& print_rooted_monomial(const rooted_mon& rm, std::ostream& out) const {
+        out << "vars = "; 
+        print_product_with_vars(rm.vars(), out);
+        out << "\n orig = "; print_monomial_with_vars(m_monomials[rm.orig_index()], out);
+        out << ", orig sign = " << rm.orig_sign() << "\n";
+        return out;
+    }
+    
+    
     
     std::ostream& print_explanation(std::ostream& out) const {
         for (auto &p : *m_expl) {
@@ -865,29 +960,6 @@ struct solver::imp {
     }
 
     
-    // returns true if a is a factar of b
-    bool is_factor(const svector<lpvar> & a, const svector<lpvar> & b) {
-        SASSERT(lp::is_non_decreasing(a) && lp::is_non_decreasing(b));
-        auto i = a.begin();
-        auto j = b.begin();
-
-        while (true) {
-            if (i == a.end()) {
-                return true;
-            }
-            if (j == b.end()) {
-                return false;
-            }
-
-            j = std::lower_bound(j, b.end(), *i);
-
-            if (j == b.end() || *i != *j) {
-                return false;
-            }
-            i++; j++;
-        }
-        
-    }
 
     void reduce_set_by_checking_actual_containment(std::unordered_set<unsigned>& p,
                                                    const rooted_mon & rm ) {
@@ -957,18 +1029,32 @@ struct solver::imp {
         m_lemma->clear();
     }
 
-    static svector<lpvar> extract_all_but(const svector<lpvar> & vars, unsigned k) {
-        static svector<lpvar> ret;
-        for (unsigned j = 0; j < vars.size(); j++) {
-            if (j == k)
-                continue;
-            ret.push_back(vars[j]);
-        }
-        return ret;
+
+    bool divide(const rooted_mon& bc, const factor& c, factor & b) const {
+        svector<lpvar> c_vars = sorted_vars(c);
+        TRACE("nla_solver",
+              tout << "c_vars = ";
+              print_product(c_vars, tout);
+              tout << "\nbc_vars = ";
+              print_product(bc.vars(), tout););
+        auto b_vars = vector_div(bc.vars(), sorted_vars(c));
+        TRACE("nla_solver", tout << "b_vars = "; print_product(b_vars, tout););
+        return false;
     }
 
-    bool order_lemma_on_ac_and_bc(const rooted_mon& rm, const factorization& ac, unsigned k, const rooted_mon& rm_bc) {
-        NOT_IMPLEMENTED_YET();
+    // a > b && c > 0 => ac > bc
+    // ac is a factorization of m_monomials[i_mon]
+    // ac[k] plays the role of c   
+    bool order_lemma_on_ac_and_bc(const rooted_mon& rm, const factorization& acf, unsigned k, const rooted_mon& rm_bc) {
+        TRACE("nla_solver",
+              tout << "rm = ";
+              print_rooted_monomial(rm, tout);
+              tout << "factor, c = "; print_factor(acf[k], tout);
+              tout << "\nrm_bc = ";
+              print_rooted_monomial(rm_bc, tout););
+        factor b;
+        if (!divide(rm, acf[k], b))
+            return false;
         return false;
     }
 
@@ -980,8 +1066,6 @@ struct solver::imp {
         TRACE("nla_solver", tout << "k = " << k << ", c = "; print_factor(c, tout); );
     
         if (c.is_var()) {
-            TRACE("nla_solver", );
-            
             for (unsigned rm_bc : m_rooted_monomials_containing_var[var(c)]) {
                 TRACE("nla_solver", );
                 if (order_lemma_on_ac_and_bc(rm , ac, k, m_vector_of_rooted_monomials[rm_bc])) {
@@ -989,7 +1073,6 @@ struct solver::imp {
                 }
             }
         } else {
-            TRACE("nla_solver", );
             for (unsigned rm_bc : m_rooted_factor_to_product[var(c)]) {
                 TRACE("nla_solver", );
                 if (order_lemma_on_ac_and_bc(rm , ac, k, m_vector_of_rooted_monomials[rm_bc])) {
