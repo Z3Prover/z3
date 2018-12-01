@@ -303,7 +303,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     // CMW: modf is not the right function here.
     // modf(x.value, &o.value);
 
-    // According to the Intel Architecture manual, the x87-instrunction FRNDINT is the
+    // According to the Intel Architecture manual, the x87-instruction FRNDINT is the
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
 #ifdef _WINDOWS
 #if defined(USE_INTRINSICS) && \
