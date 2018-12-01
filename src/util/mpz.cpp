@@ -30,7 +30,6 @@ Revision History:
 #else
 #error No multi-precision library selected.
 #endif
-#include <immintrin.h> 
 
 // Available GCD algorithms
 // #define EUCLID_GCD
