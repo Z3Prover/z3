@@ -28,6 +28,10 @@ void print_vector(const C & t, std::ostream & out) {
         out << p << " ";
     out << std::endl;
 }
+template <typename C, typename D>
+bool contains(const C & collection, const D & key) {
+    return collection.find(key) != collection.end();
+}
 
 template <typename C>
 void print_vector(const C * t, unsigned size, std::ostream & out) {
