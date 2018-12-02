@@ -63,14 +63,6 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 
 #define VEC2PTR(_x_) ((_x_).size() ? &(_x_)[0] : 0)
 
-#ifdef _WINDOWS
-// Disable thread local declspec as it seems to not work downlevel.
-// #define THREAD_LOCAL __declspec(thread)
-#define THREAD_LOCAL 
-#else
-#define THREAD_LOCAL 
-#endif
-
 #ifdef _MSC_VER
 # define STD_CALL __cdecl
 #else
