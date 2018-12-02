@@ -115,6 +115,17 @@ struct solver::imp {
         const svector<lpvar> & vars() const {return m_vars;}
     };
 
+    struct rooted_mon_info {
+        unsigned                 m_i; // index to m_vector_of_rooted_monomials
+        vector<index_with_sign>  m_mons; // canonize_monomial(m_mons[j]) gives m_vector_of_rooted_monomials[m_i]
+        rooted_mon_info(unsigned i, const index_with_sign& ind_s) : m_i(i) {
+            m_mons.push_back(ind_s);
+        }
+
+        void push_back(const index_with_sign& ind_s) {
+            m_mons.push_back(ind_s);
+        }
+    };
     
     typedef lp::lar_base_constraint lpcon;
     
@@ -125,9 +136,8 @@ struct solver::imp {
     vector<monomial>                                                 m_monomials;
     // maps the vector of the rooted monomial vars to the list of the indices of monomials having the same rooted monomial
     std::unordered_map<svector<lpvar>,
-                       vector<index_with_sign>,
-                       hash_svector>
-    m_rooted_monomials_map;
+                       rooted_mon_info,
+                       hash_svector>                                 m_rooted_monomials_map;
     vector<rooted_mon>                                               m_vector_of_rooted_monomials;
 
     // this field is used for the push/pop operations
@@ -146,7 +156,7 @@ struct solver::imp {
     std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_rooted_factor_to_product;
     
     // u_map[m_monomials[i].var()] = i
-    u_map<unsigned>                                                  m_var_to_its_monomial;
+    std::unordered_map<lpvar, unsigned>                              m_var_to_its_monomial;
     lp::explanation *                                                m_expl;
     lemma *                                                          m_lemma;
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
@@ -188,8 +198,8 @@ struct solver::imp {
     }
     
     void add(lpvar v, unsigned sz, lpvar const* vs) {
+        m_var_to_its_monomial[v] = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
-        m_var_to_its_monomial.insert(v, m_monomials.size() - 1);
         TRACE("nla_solver", print_monomial(m_monomials.back(), tout););
     }
     
@@ -251,10 +261,10 @@ struct solver::imp {
     }
 
     void add_explanation_of_reducing_to_rooted_monomial(lpvar j, expl_set & exp) const {
-        unsigned index = 0;
-        if (!m_var_to_its_monomial.find(j, index))
+        auto it = m_var_to_its_monomial.find(j);
+        if (it == m_var_to_its_monomial.end())
             return; // j is not a var of a monomial
-        add_explanation_of_reducing_to_rooted_monomial(m_monomials[index], exp);
+        add_explanation_of_reducing_to_rooted_monomial(it->second, exp);
     }
 
     template <typename T>
@@ -265,7 +275,16 @@ struct solver::imp {
         }
         return out;
     }
-    
+
+    std::ostream & print_factor(const factor& f, std::ostream& out) const {
+        if (f.is_var()) {
+            print_var(f.index(), out);
+        } else {
+            print_product(m_vector_of_rooted_monomials[f.index()].vars(), out);
+        }
+        return out;
+    }
+
     std::ostream& print_monomial(const monomial& m, std::ostream& out) const {
         out << m_lar_solver.get_variable_name(m.var()) << " = ";
         return print_product(m.vars(), out);
@@ -407,16 +426,6 @@ struct solver::imp {
         return monomial_coeff(vars, sign);
     }
 
-    bool list_contains_one_to_refine(const std::unordered_set<unsigned> & to_refine_set,
-                                     const vector<index_with_sign>& list_of_mon_indices) {
-        for (const auto& p : list_of_mon_indices) {
-            if (to_refine_set.find(p.m_i) != to_refine_set.end())
-                return true;
-        }
-        return false;
-    }
-
-
     // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
     // but it is not the case in the model
     void generate_sign_lemma(const vector<rational>& abs_vals, unsigned i, unsigned k, const rational& sign) {
@@ -488,7 +497,6 @@ struct solver::imp {
         return sign;
     }
     
-    
     bool basic_sign_lemma_on_a_bucket_of_abs_vals(const vector<rational>& abs_vals, const unsigned_vector& list){
         rational val =  vvr(m_monomials[list[0]].var());
         int sign = vars_sign(m_monomials[list[0]].vars());
@@ -518,10 +526,6 @@ struct solver::imp {
                 return true;
         }
         return false;
-    }
-
-    bool is_set(unsigned j) const {
-        return static_cast<unsigned>(-1) != j;
     }
 
     bool var_is_fixed_to_zero(lpvar j) const {
@@ -574,31 +578,6 @@ struct solver::imp {
         return out;
     }
     
-    // returns true if found
-    bool find_monomial_of_vars(const svector<lpvar>& vars, monomial& m, rational & sign) const {
-        auto it = m_rooted_monomials_map.find(vars);
-        if (it == m_rooted_monomials_map.end()) {
-            return false;
-        }
-
-        const index_with_sign & mi = *(it->second.begin());
-        sign = mi.m_sign;
-        m = m_monomials[mi.m_i];
-        return true;
-    }
-
-    
-    
-    std::ostream & print_factor(const factor& f, std::ostream& out) const {
-        if (f.is_var()) {
-            print_var(f.index(), out);
-        } else {
-            print_product(m_vector_of_rooted_monomials[f.index()].vars(), out);
-        }
-        return out;
-    }
-    
-    
     std::ostream & print_factorization(const factorization& f, std::ostream& out) const {
         for (unsigned k = 0; k < f.size(); k++ ) {
             if (f[k].is_var())
@@ -625,7 +604,7 @@ struct solver::imp {
                 return false;
             }
 
-            i = it->second.begin()->m_i;
+            i = it->second.m_mons.begin()->m_i;
             return true;
         }
         
@@ -929,13 +908,12 @@ struct solver::imp {
 
     void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i) {
         SASSERT(vars_are_roots(mc.vars()));
+        SASSERT(lp::is_non_decreasing(mc.vars()));
         index_with_sign ms(i, mc.coeff());
         auto it = m_rooted_monomials_map.find(mc.vars());
         if (it == m_rooted_monomials_map.end()) {
-            vector<index_with_sign> v;
-            v.push_back(ms);
-            // v is a vector containing a single index_with_sign
-            m_rooted_monomials_map.emplace(mc.vars(), v);
+            rooted_mon_info rmi(m_vector_of_rooted_monomials.size(), ms);
+            m_rooted_monomials_map.emplace(mc.vars(), rmi);
             m_vector_of_rooted_monomials.push_back(rooted_mon(mc.vars(), i, mc.coeff()));
         } 
         else {
@@ -1042,45 +1020,78 @@ struct solver::imp {
         return false;
     }
 
-    // a > b && c > 0 => ac > bc
+    
+    // a > b && c > 0 && d = c => ac > bd
     // ac is a factorization of m_monomials[i_mon]
     // ac[k] plays the role of c   
-    bool order_lemma_on_ac_and_bc(const rooted_mon& rm, const factorization& acf, unsigned k, const rooted_mon& rm_bc) {
+    bool order_lemma_on_ac_and_bd(const rooted_mon& rm_ac,
+                                  const factorization& ac_f,
+                                  unsigned k,
+                                  const rooted_mon& rm_bc,
+                                  const factor& d) {
         TRACE("nla_solver",
               tout << "rm = ";
-              print_rooted_monomial(rm, tout);
-              tout << "factor, c = "; print_factor(acf[k], tout);
+              print_rooted_monomial(rm_ac, tout);
+              tout << "factor, c = "; print_factor(ac_f[k], tout);
               tout << "\nrm_bc = ";
               print_rooted_monomial(rm_bc, tout););
         factor b;
-        if (!divide(rm, acf[k], b))
+        if (!divide(rm_bc, ac_f[k], b))
             return false;
+        rational ac_v = vvr(rm_ac);
+        rational bc_v = vvr(rm_bc);
+        TRACE("nla_solver", tout << "ac_v = " << ac_v << ", bc_v = " << bc_v;);
+        NOT_IMPLEMENTED_YET();
         return false;
     }
 
+    
+    
+    vector<factor> primitive_factors_with_the_same_abs_val(const factor& c) const {
+        vector<factor> r;
+        std::unordered_set<lpvar> found_vars;
+        std::unordered_set<unsigned> found_rm;
+        
+        for (lpvar i : m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
+            auto it = m_var_to_its_monomial.find(i);
+            if (it == m_var_to_its_monomial.end()) {
+                i = m_vars_equivalence.map_to_root(i);
+                if (!contains(found_vars, i)) {
+                    found_vars.insert(i);
+                    r.push_back(factor(i, factor_type::VAR));
+                }
+            } else {
+                const monomial& m = m_monomials[it->second];
+                monomial_coeff mc = canonize_monomial(m);
+            }
+        }
+        return r;
+    }
+    
     // a > b && c > 0 => ac > bc
     // ac is a factorization of m_monomials[i_mon]
     // ac[k] plays the role of c   
     bool order_lemma_on_factor(const rooted_mon& rm, const factorization& ac, unsigned k) {
         auto c = ac[k];
         TRACE("nla_solver", tout << "k = " << k << ", c = "; print_factor(c, tout); );
-    
-        if (c.is_var()) {
-            for (unsigned rm_bc : m_rooted_monomials_containing_var[var(c)]) {
-                TRACE("nla_solver", );
-                if (order_lemma_on_ac_and_bc(rm , ac, k, m_vector_of_rooted_monomials[rm_bc])) {
-                    return true;
+
+        for (const factor & d : primitive_factors_with_the_same_abs_val(c)) {
+            if (d.is_var()) {
+                for (unsigned rm_bd : m_rooted_monomials_containing_var[var(d)]) {
+                    TRACE("nla_solver", );
+                    if (order_lemma_on_ac_and_bd(rm , ac, k, m_vector_of_rooted_monomials[rm_bd], d)) {
+                        return true;
+                    }
                 }
-            }
-        } else {
-            for (unsigned rm_bc : m_rooted_factor_to_product[var(c)]) {
-                TRACE("nla_solver", );
-                if (order_lemma_on_ac_and_bc(rm , ac, k, m_vector_of_rooted_monomials[rm_bc])) {
-                    return true;
+            } else {
+                for (unsigned rm_bd : m_rooted_factor_to_product[var(d)]) {
+                    TRACE("nla_solver", );
+                    if (order_lemma_on_ac_and_bd(rm , ac, k, m_vector_of_rooted_monomials[rm_bd], d)) {
+                        return true;
+                    }
                 }
             }
         }
-        
         return false;
     }
 

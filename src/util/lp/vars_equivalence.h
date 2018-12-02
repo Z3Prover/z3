@@ -102,18 +102,14 @@ struct vars_equivalence {
         m_equivs.clear();
         m_tree.clear();
     }
-    // it also returns (j, 1)
-    vector<index_with_sign> get_equivalent_vars(lpvar j) const {
-        vector<index_with_sign> ret;
-        
-        rational val = m_vvr(j);
-        for (lpvar j : m_vars_by_abs_values.find(abs(val))->second) {
-            if (val.is_pos())
-                ret.push_back(index_with_sign(j, rational(1)));
-            else
-                ret.push_back(index_with_sign(j, rational(-1)));
-        }
-        return ret; 
+
+    svector<lpvar> get_vars_with_the_same_abs_val(const rational& v) const {
+        svector<unsigned> ret;
+        auto it = m_vars_by_abs_values.find(abs(v));
+        if (it == m_vars_by_abs_values.end())
+            return ret;
+
+        return it->second; 
     } 
 
     unsigned size() const { return static_cast<unsigned>(m_tree.size()); }
@@ -183,6 +179,20 @@ struct vars_equivalence {
                 return j;
             const equiv & e = m_equivs[it->second];
             sign *= e.m_sign;
+            j = get_parent_node(j, e);
+        }
+    }
+
+        // Finds the root var which is equivalent to j.
+    // The sign is flipped if needed
+    lpvar map_to_root(lpvar j) const {
+        while (true) {
+            auto it = m_tree.find(j);
+            if (it == m_tree.end())
+                return j;
+            if (it->second == static_cast<unsigned>(-1))
+                return j;
+            const equiv & e = m_equivs[it->second];
             j = get_parent_node(j, e);
         }
     }
