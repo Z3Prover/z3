@@ -172,7 +172,12 @@ namespace smt {
 
                     break;
                 } else {
-                    out << "[eq-expl] #" << en->get_owner_id() << " nyi ; #" << target->get_owner_id() << "\n";
+
+                    // The e-graph only supports commutativity for binary functions
+                    out << "[eq-expl] #" << en->get_owner_id()
+                        << " cg (#" << en->get_arg(0)->get_owner_id() << " #" << target->get_arg(1)->get_owner_id()
+                        << ") (#" << en->get_arg(1)->get_owner_id() << " #" << target->get_arg(0)->get_owner_id()
+                        << ") ; #" << target->get_owner_id() << "\n";
                     break;
                 }
             case smt::eq_justification::kind::JUSTIFICATION:
