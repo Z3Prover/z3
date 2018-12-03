@@ -253,7 +253,7 @@ namespace qe {
     /**
        \brief Guarded definitions.
 
-       A realizer to a an existential quantified formula is a disjunction
+       A realizer to an existential quantified formula is a disjunction
        together with a substitution from the existentially quantified variables
        to terms such that:
        1. The original formula (exists (vars) fml) is equivalent to the disjunction of guards.

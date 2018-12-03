@@ -25,7 +25,7 @@ using System.Linq;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Object for managing optimizization context
+    /// Object for managing optimization context
     /// </summary>
     public class Optimize : Z3Object
     {

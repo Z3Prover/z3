@@ -475,7 +475,7 @@ namespace Microsoft.Z3
         /// Update a datatype field at expression t with value v.
         /// The function performs a record update at t. The field
         /// that is passed in as argument is updated with value v,
-        /// the remainig fields of t are unchanged.
+        /// the remaining fields of t are unchanged.
             /// </summary>
         public Expr MkUpdateField(FuncDecl field, Expr t, Expr v)
         {
