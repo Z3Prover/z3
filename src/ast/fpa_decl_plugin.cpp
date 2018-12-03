@@ -92,7 +92,13 @@ func_decl * fpa_decl_plugin::mk_numeral_decl(mpf const & v) {
 }
 
 app * fpa_decl_plugin::mk_numeral(mpf const & v) {
-    return m_manager->mk_const(mk_numeral_decl(v));
+    app * r = m_manager->mk_const(mk_numeral_decl(v));
+
+    if (log_constant_meaning_prelude(r)) {
+        m_manager->trace_stream() << "(" << m_fm.to_string(v) << ")\n";
+    }
+
+    return r;
 }
 
 bool fpa_decl_plugin::is_numeral(expr * n, mpf & val) {

@@ -662,6 +662,23 @@ ast* ast_table::pop_erase() {
 //
 // -----------------------------------
 
+/**
+     \brief Checks wether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
+    to that log. The theory solver should add some description of the meaning of the term in terms of the theory's
+    internal reasoning to the end of the line and insert a line break.
+    
+    \param a the term that should be described.
+
+    \return true if a log is being generated, false otherwise.
+*/
+bool decl_plugin::log_constant_meaning_prelude(app * a) {
+    if (m_manager->has_trace_stream()) {
+        m_manager->trace_stream() << "[attach-meaning] #" << a->get_id() << " " << m_manager->get_family_name(m_family_id).str() << " ";
+        return true;
+    }
+    return false;
+}
+
 func_decl * decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                         unsigned num_args, expr * const * args, sort * range) {
     ptr_buffer<sort> sorts;

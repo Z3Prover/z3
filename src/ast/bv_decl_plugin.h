@@ -238,6 +238,8 @@ protected:
     func_decl * mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity);
 
     void get_offset_term(app * a, expr * & t, rational & offset) const;
+
+    friend class bv_util;
 public:
     bv_decl_plugin();
 
@@ -432,7 +434,7 @@ public:
     app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, n, m); }
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
 
-    app * mk_bv(unsigned n, expr* const* es) { return m_manager.mk_app(get_fid(), OP_MKBV, n, es); }
+    app * mk_bv(unsigned n, expr* const* es);
 
 };
 

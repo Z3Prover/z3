@@ -210,7 +210,7 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {
-                if (has_trace_stream()) {
+                if (has_trace_stream() && pat != nullptr) {
                     std::ostream & out = trace_stream();
 
                     obj_hashtable<enode> already_visited;

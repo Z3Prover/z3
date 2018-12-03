@@ -864,7 +864,15 @@ app * bv_util::mk_numeral(rational const & val, sort* s) const {
 
 app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
     parameter p[2] = { parameter(val), parameter(static_cast<int>(bv_size)) };
-    return m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, nullptr);
+    app * r = m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, nullptr);
+
+    if (m_plugin->log_constant_meaning_prelude(r)) {
+        m_manager.trace_stream() << "(" << bv_size << " #d";
+        val.display(m_manager.trace_stream());
+        m_manager.trace_stream() << ")\n";
+    }
+
+    return r;
 }
 
 sort * bv_util::mk_sort(unsigned bv_size) {
@@ -883,3 +891,32 @@ app * bv_util::mk_bv2int(expr* e) {
     parameter p(s);
     return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e);
 }
+
+
+app * bv_util::mk_bv(unsigned n, expr* const* es) {
+        app * r = m_manager.mk_app(get_fid(), OP_MKBV, n, es);
+
+        if (m_plugin->log_constant_meaning_prelude(r)) {
+            m_manager.trace_stream() << "(" << n << " #x";
+
+            m_manager.trace_stream() << std::hex;
+            uint8_t hexDigit = 0;
+            unsigned curLength = (4 - n % 4) % 4;
+            for (unsigned i = 0; i < n; ++i) {
+                hexDigit << 1;
+                ++curLength;
+                if (m_manager.is_true(es[i])) {
+                    hexDigit |= 1;
+                }
+                if (curLength == 4) {
+                    m_manager.trace_stream() << hexDigit;
+                    hexDigit = 0;
+                }
+            }
+            m_manager.trace_stream() << std::dec;
+
+            m_manager.trace_stream() << ")\n";
+        }
+
+        return r;
+    }
