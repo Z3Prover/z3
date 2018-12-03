@@ -45,6 +45,11 @@ Revision History:
 #define LEHMER_GCD
 #endif
 
+#ifdef _WINDOWS
+// This is needed for _tzcnt_u32 and friends.
+#include <immintrin.h>
+#endif
+
 #if defined(__GNUC__)
 #define _trailing_zeros32(X) __builtin_ctz(X)
 #else
