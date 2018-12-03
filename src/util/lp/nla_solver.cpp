@@ -1034,6 +1034,26 @@ struct solver::imp {
         return true;
     }
 
+    lp::lconstraint_kind relation_between_products(const factor& a,
+                                               const factor& c,
+                                               const factor& b,
+                                               const factor& d) {
+        auto av = vvr(a);
+        auto bv = vvr(b);
+        auto cv = vvr(c);
+        auto dv = vvr(d);
+        SASSERT(abs(cv) == abs(dv));
+    }
+
+    bool order_lemma_on_ac_and_bd_on_reg_monomials(const index_with_sign& ac,
+                                                   const factor& a,
+                                                   const factor& c,
+                                                   const index_with_sign& bd,
+                                                   const factor& b,
+                                                   const factor& d) {
+        
+        return false;
+    }
     
     // a > b && c > 0 && d = |c => ac > bd 
     // ac is a factorization of m_monomials[i_mon]
@@ -1043,7 +1063,7 @@ struct solver::imp {
                                   unsigned k,
                                   const rooted_mon& rm_bd,
                                   const factor& d) {
-        TRACE("nla_solver",
+        TRACE("nla_solver",x
               tout << "rm_ac = ";
               print_rooted_monomial(rm_ac, tout);
               tout << "\nrm_bd = ";
@@ -1053,11 +1073,8 @@ struct solver::imp {
         factor b;
         if (!divide(rm_bd, d, b))
             return false;
-        rational ac_v = vvr(rm_ac);
-        rational bc_v = vvr(rm_bd);
-        TRACE("nla_solver", tout << "ac_v = " << ac_v << ", bc_v = " << bc_v;);
-        NOT_IMPLEMENTED_YET();
-        return false;
+
+        return order_lemma_on_ac_and_bd_on_reg_monomials(rm_ac.m_orig, ac_f[(k + 1) % 2], ac_f[k], rm_bd.m_orig, b, d);
     }
 
     // collect all vars and rooted monomials with the same absolute
