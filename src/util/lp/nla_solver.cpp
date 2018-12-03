@@ -1049,6 +1049,7 @@ struct solver::imp {
               tout << "\nrm_bd = ";
               print_rooted_monomial(rm_bd, tout);
               tout << ", d  = "; print_factor(d, tout););
+        SASSERT(abs(vvr(ac_f[k])) == abs(vvr(d)));
         factor b;
         if (!divide(rm_bd, d, b))
             return false;
@@ -1059,8 +1060,8 @@ struct solver::imp {
         return false;
     }
 
-    
-    
+    // collect all vars and rooted monomials with the same absolute
+    //value as c and return them as factors 
     vector<factor> primitive_factors_with_the_same_abs_val(const factor& c) const {
         vector<factor> r;
         std::unordered_set<lpvar> found_vars;
@@ -1124,6 +1125,7 @@ struct solver::imp {
     // a > b && c == d => ac > bd
     // ac is a factorization of m_monomials[i_mon]
     bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac) {
+        SASSERT(ac.size() == 2);
         TRACE("nla_solver", tout << "factorization = "; print_factorization(ac, tout););
         for (unsigned k = 0; k < ac.size(); k++) {
             const rational & v = vvr(ac[k]);
@@ -1144,7 +1146,7 @@ struct solver::imp {
               tout << ", orig = "; print_monomial(m_monomials[rm.orig_index()], tout);
               );
         for (auto ac : factorization_factory_imp(rm.vars(), *this)) {
-            if (ac.is_empty())
+            if (ac.size() != 2)
                 continue;
             if (order_lemma_on_factorization(rm, ac))
                 return true;
