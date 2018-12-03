@@ -7501,15 +7501,12 @@ namespace smt {
             expr_ref newConcat(m);
             if (arg1 != a1 || arg2 != a2) {
                 TRACE("str", tout << "resolved concat argument(s) to eqc string constants" << std::endl;);
-                int iPos = 0;
                 expr_ref_vector item1(m);
                 if (a1 != arg1) {
                     item1.push_back(ctx.mk_eq_atom(a1, arg1));
-                    iPos += 1;
                 }
                 if (a2 != arg2) {
                     item1.push_back(ctx.mk_eq_atom(a2, arg2));
-                    iPos += 1;
                 }
                 expr_ref implyL1(mk_and(item1), m);
                 newConcat = mk_concat(arg1, arg2);
@@ -9424,15 +9421,15 @@ namespace smt {
                 if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                     freeVarMap[var] = 1;
                 } else {
-                    int lrConstainted = 0;
+                    int lrConstrained = 0;
                     std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                     for (; lrit != freeVarMap.end(); lrit++) {
                         if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                            lrConstainted = 1;
+                            lrConstrained = 1;
                             break;
                         }
                     }
-                    if (lrConstainted == 0) {
+                    if (lrConstrained == 0) {
                         freeVarMap[var] = 1;
                     }
                 }
@@ -9451,15 +9448,15 @@ namespace smt {
                         if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                             freeVarMap[var] = 1;
                         } else {
-                            int lrConstainted = 0;
+                            int lrConstrained = 0;
                             std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                             for (; lrit != freeVarMap.end(); lrit++) {
                                 if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                                    lrConstainted = 1;
+                                    lrConstrained = 1;
                                     break;
                                 }
                             }
-                            if (lrConstainted == 0) {
+                            if (lrConstrained == 0) {
                                 freeVarMap[var] = 1;
                             }
                         }
@@ -9471,15 +9468,15 @@ namespace smt {
                         if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                             freeVarMap[var] = 1;
                         } else {
-                            int lrConstainted = 0;
+                            int lrConstrained = 0;
                             std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                             for (; lrit != freeVarMap.end(); lrit++) {
                                 if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                                    lrConstainted = 1;
+                                    lrConstrained = 1;
                                     break;
                                 }
                             }
-                            if (lrConstainted == 0) {
+                            if (lrConstrained == 0) {
                                 freeVarMap[var] = 1;
                             }
                         }
@@ -9500,15 +9497,15 @@ namespace smt {
                                     if (lrConstrainedMap.find(var) == lrConstrainedMap.end()) {
                                         freeVarMap[var] = 1;
                                     } else {
-                                        int lrConstainted = 0;
+                                        int lrConstrained = 0;
                                         std::map<expr*, int>::iterator lrit = freeVarMap.begin();
                                         for (; lrit != freeVarMap.end(); lrit++) {
                                             if (lrConstrainedMap[var].find(lrit->first) != lrConstrainedMap[var].end()) {
-                                                lrConstainted = 1;
+                                                lrConstrained = 1;
                                                 break;
                                             }
                                         }
-                                        if (lrConstainted == 0) {
+                                        if (lrConstrained == 0) {
                                             freeVarMap[var] = 1;
                                         }
                                     }
@@ -9762,7 +9759,7 @@ namespace smt {
             expr_ref concatlenExpr (mk_strlen(concat), m) ;
             bool allLeafResolved = true;
             if (! get_arith_value(concatlenExpr, lenValue)) {
-                // the length fo concat is unresolved yet
+                // the length of concat is unresolved yet
                 if (get_len_value(concat, lenValue)) {
                     // but all leaf nodes have length information
                     TRACE("str", tout << "* length pop-up: " <<  mk_ismt2_pp(concat, m) << "| = " << lenValue << std::endl;);

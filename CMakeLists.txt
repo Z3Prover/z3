@@ -426,6 +426,15 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
 ################################################################################
+# Save Clang optimization records
+################################################################################
+option(SAVE_CLANG_OPTIMIZATION_RECORDS "Enable saving Clang optimization records." OFF)
+
+if (SAVE_CLANG_OPTIMIZATION_RECORDS)
+  z3_add_cxx_flag("-fsave-optimization-record" REQUIRED)
+endif()
+
+################################################################################
 # If using Ninja, force color output for Clang (and gcc, disabled to check build).
 ################################################################################
 if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")

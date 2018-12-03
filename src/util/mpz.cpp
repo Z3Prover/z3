@@ -30,7 +30,6 @@ Revision History:
 #else
 #error No multi-precision library selected.
 #endif
-#include <immintrin.h> 
 
 // Available GCD algorithms
 // #define EUCLID_GCD
@@ -44,6 +43,11 @@ Revision History:
 #define EUCLID_GCD
 #else
 #define LEHMER_GCD
+#endif
+
+#ifdef _WINDOWS
+// This is needed for _tzcnt_u32 and friends.
+#include <immintrin.h>
 #endif
 
 #if defined(__GNUC__)
