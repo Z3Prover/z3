@@ -3737,6 +3737,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq extensionality", m_stats.m_extensionality);
     st.update("seq fixed length", m_stats.m_fixed_length);
     st.update("seq int.to.str", m_stats.m_int_string);
+    st.update("seq automata", m_stats.m_propagate_automata);
 }
 
 void theory_seq::init_search_eh() {
@@ -5476,6 +5477,7 @@ void theory_seq::propagate_step(literal lit, expr* step) {
    acc(s, idx, re, i) -> idx < max_unfolding
  */
 void theory_seq::propagate_accept(literal lit, expr* acc) {
+    ++m_stats.m_propagate_automata;
     expr *e = nullptr, *idx = nullptr, *re = nullptr;
     unsigned src = 0;
     context& ctx = get_context();

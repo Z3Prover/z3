@@ -7219,20 +7219,18 @@ namespace smt {
     expr_ref theory_str::aut_path_rewrite_constraint(expr * cond, expr * ch_var) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
-        bv_util bvu(m);
 
         expr_ref retval(m);
-
-        rational char_val;
-        unsigned int bv_width;
+        
+        unsigned char_val = 0;
 
         expr * lhs;
         expr * rhs;
 
-        if (bvu.is_numeral(cond, char_val, bv_width)) {
-            SASSERT(char_val.is_nonneg() && char_val.get_unsigned() < 256);
+        if (u.is_const_char(cond, char_val)) {
+            SASSERT(char_val < 256);
             TRACE("str", tout << "rewrite character constant " << char_val << std::endl;);
-            zstring str_const(char_val.get_unsigned());
+            zstring str_const(char_val);
             retval = u.str.mk_string(str_const);
             return retval;
         } else if (is_var(cond)) {
@@ -7377,23 +7375,20 @@ namespace smt {
                     } else if (mv.t()->is_range()) {
                         expr_ref range_lo(mv.t()->get_lo(), m);
                         expr_ref range_hi(mv.t()->get_hi(), m);
-                        bv_util bvu(m);
 
-                        rational lo_val, hi_val;
-                        unsigned int bv_width;
+                        unsigned lo_val, hi_val;
 
-                        if (bvu.is_numeral(range_lo, lo_val, bv_width) && bvu.is_numeral(range_hi, hi_val, bv_width)) {
+                        if (u.is_const_char(range_lo, lo_val) && u.is_const_char(range_hi, hi_val)) {
                             TRACE("str", tout << "make range predicate from " << lo_val << " to " << hi_val << std::endl;);
                             expr_ref cond_rhs(m);
 
                             if (hi_val < lo_val) {
-                                rational tmp = lo_val;
-                                lo_val = hi_val;
-                                hi_val = tmp;
+                                // NSB: why? The range would be empty. 
+                                std::swap(lo_val, hi_val);
                             }
 
                             expr_ref_vector cond_rhs_terms(m);
-                            for (unsigned i = lo_val.get_unsigned(); i <= hi_val.get_unsigned(); ++i) {
+                            for (unsigned i = lo_val; i <= hi_val; ++i) {
                                 zstring str_const(i);
                                 expr_ref str_expr(u.str.mk_string(str_const), m);
                                 cond_rhs_terms.push_back(ctx.mk_eq_atom(ch, str_expr));

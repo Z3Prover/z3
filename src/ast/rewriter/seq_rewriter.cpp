@@ -307,6 +307,9 @@ eautomaton* re2automaton::re2aut(expr* e) {
     else if (u.re.is_intersection(e, e1, e2) && m_sa && (a = re2aut(e1)) && (b = re2aut(e2))) {
         return m_sa->mk_product(*a, *b);
     }
+    else {
+        TRACE("seq", tout << "not handled " << mk_pp(e, m) << "\n";);
+    }
     
     return nullptr;
 }
@@ -1234,6 +1237,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
     if (!(aut = m_re2aut(b))) {
+        TRACE("seq", tout << "not translated to automaton " << mk_pp(b, m()) << "\n";);
         return BR_FAILED;
     }
 
@@ -1250,6 +1254,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
 
     if (!is_sequence(a, seq)) {
+        TRACE("seq", tout << "not a sequence " << mk_pp(a, m()) << "\n";);
         return BR_FAILED;
     } 
         
@@ -1301,17 +1306,16 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         }
     }
     u_map<expr*> const& frontier = maps[select_map];
-    u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
     expr_ref_vector ors(m());
-    for (; it != end; ++it) {
+    for (auto const& kv : frontier) {
         unsigned_vector states;
         bool has_final = false;
-        aut->get_epsilon_closure(it->m_key, states);
+        aut->get_epsilon_closure(kv.m_key, states);
         for (unsigned i = 0; i < states.size() && !has_final; ++i) {
             has_final = aut->is_final_state(states[i]);
         }
         if (has_final) {
-            ors.push_back(it->m_value);
+            ors.push_back(kv.m_value);
         }
     }
     result = mk_or(ors);

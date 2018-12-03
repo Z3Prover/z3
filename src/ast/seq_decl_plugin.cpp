@@ -972,7 +972,7 @@ bool seq_util::is_const_char(expr* e, unsigned& c) const {
     bv_util bv(m);
     rational r;    
     unsigned sz;
-    return bv.is_numeral(e, r, sz) && r.is_unsigned(), c = r.get_unsigned(), true;
+    return bv.is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
 }
 
 app* seq_util::mk_char(unsigned ch) const {
