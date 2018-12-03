@@ -38,9 +38,10 @@ namespace smt {
         void init(context* ctx);
         bool get_lo_equiv(expr* e, rational& lo, bool& strict);
         bool get_up_equiv(expr* e, rational& up, bool& strict);
-        bool get_value(expr* e, rational& value);
+        bool get_value_equiv(expr* e, rational& value) const;
         bool get_lo(expr* e, rational& lo, bool& strict) const;
         bool get_up(expr* e, rational& up, bool& strict) const;
+        bool get_value(expr* e, rational& value) const;
         bool get_fixed(expr* e, rational& value) const;
         final_check_status final_check();
     };

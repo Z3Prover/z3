@@ -20,6 +20,7 @@ Revision History:
 #include "smt/theory_bv.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/bv_decl_plugin.h"
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
 

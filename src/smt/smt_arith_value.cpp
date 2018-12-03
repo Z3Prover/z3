@@ -92,8 +92,18 @@ namespace smt {
         return false;
     }
 
+    bool arith_value::get_value(expr* e, rational& val) const {
+        if (!m_ctx->e_internalized(e)) return false;
+        expr_ref _val(m);
+        enode* n = m_ctx->get_enode(e);
+        if (m_tha && m_tha->get_value(n, _val) && a.is_numeral(_val, val)) return true;
+        if (m_thi && m_thi->get_value(n, _val) && a.is_numeral(_val, val)) return true;
+        if (m_thr && m_thr->get_value(n, val)) return true;
+        return false;
+    }
 
-    bool arith_value::get_value(expr* e, rational& val) {
+
+    bool arith_value::get_value_equiv(expr* e, rational& val) const {
         if (!m_ctx->e_internalized(e)) return false;
         expr_ref _val(m);
         enode* next = m_ctx->get_enode(e), *n = next;

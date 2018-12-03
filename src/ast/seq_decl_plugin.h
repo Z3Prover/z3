@@ -22,7 +22,6 @@ Revision History:
 #define SEQ_DECL_PLUGIN_H_
 
 #include "ast/ast.h"
-#include "ast/bv_decl_plugin.h"
 
 
 enum seq_sort_kind {
@@ -221,6 +220,9 @@ public:
     bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
     bool is_char(expr* e) const { return is_char(m.get_sort(e)); }
+    bool is_const_char(expr* e, unsigned& c) const;
+    app* mk_char(unsigned ch) const;
+    app* mk_le(expr* ch1, expr* ch2) const;
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }

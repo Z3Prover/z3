@@ -45,14 +45,13 @@ expr_ref sym_expr::accept(expr* e) {
         result = m.mk_eq(e, m_t);
         break;
     case t_range: {
-        bv_util bv(m);
-        rational r1, r2, r3;
-        unsigned sz;
-        if (bv.is_numeral(m_t, r1, sz) && bv.is_numeral(e, r2, sz) && bv.is_numeral(m_s, r3, sz)) {
+        seq_util u(m);
+        unsigned r1, r2, r3;
+        if (u.is_const_char(m_t, r1) && u.is_const_char(e, r2) && u.is_const_char(m_s, r3)) {
             result = m.mk_bool_val((r1 <= r2) && (r2 <= r3));            
         }
         else {
-            result = m.mk_and(bv.mk_ule(m_t, e), bv.mk_ule(e, m_s));
+            result = m.mk_and(u.mk_le(m_t, e), u.mk_le(e, m_s));
         }
         break;
     }
@@ -190,7 +189,7 @@ public:
     }*/
 };
 
-re2automaton::re2automaton(ast_manager& m): m(m), u(m), bv(m), m_ba(nullptr), m_sa(nullptr) {}
+re2automaton::re2automaton(ast_manager& m): m(m), u(m), m_ba(nullptr), m_sa(nullptr) {}
 
 re2automaton::~re2automaton() {}
 
@@ -248,9 +247,8 @@ eautomaton* re2automaton::re2aut(expr* e) {
             s1.length() == 1 && s2.length() == 1) {
             unsigned start = s1[0];
             unsigned stop = s2[0];
-            unsigned nb = s1.num_bits();
-            expr_ref _start(bv.mk_numeral(start, nb), m);
-            expr_ref _stop(bv.mk_numeral(stop, nb), m);
+            expr_ref _start(u.mk_char(start), m);
+            expr_ref _stop(u.mk_char(stop), m);
             TRACE("seq", tout << "Range: " << start << " " << stop << "\n";);
             a = alloc(eautomaton, sm, sym_expr::mk_range(_start, _stop));
             return a.detach();
@@ -463,14 +461,12 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
  * (seq.unit (_ BitVector 8)) ==> String constant
  */
 br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
-    bv_util bvu(m());
-    rational n_val;
-    unsigned int n_size;
+    unsigned ch;
     // specifically we want (_ BitVector 8)
-    if (bvu.is_bv(e) && bvu.is_numeral(e, n_val, n_size) && n_size == 8) {
+    if (m_util.is_const_char(e, ch)) {
         // convert to string constant
-        zstring str(n_val.get_unsigned());
-        TRACE("seq_verbose", tout << "rewrite seq.unit of 8-bit value " << n_val.to_string() << " to string constant \"" << str<< "\"" << std::endl;);
+        zstring str(ch);
+        TRACE("seq_verbose", tout << "rewrite seq.unit of 8-bit value " << ch << " to string constant \"" << str<< "\"" << std::endl;);
         result = m_util.str.mk_string(str);
         return BR_DONE;
     }
@@ -1977,15 +1973,13 @@ bool seq_rewriter::min_length(unsigned n, expr* const* es, unsigned& len) {
 bool seq_rewriter::is_string(unsigned n, expr* const* es, zstring& s) const {
     zstring s1;
     expr* e;
-    bv_util bv(m());
-    rational val;
-    unsigned sz;
+    unsigned ch;
     for (unsigned i = 0; i < n; ++i) {
         if (m_util.str.is_string(es[i], s1)) {
             s = s + s1;
         }
-        else if (m_util.str.is_unit(es[i], e) && bv.is_numeral(e, val, sz)) {
-            s = s + zstring(val.get_unsigned());
+        else if (m_util.str.is_unit(es[i], e) && m_util.is_const_char(e, ch)) {
+            s = s + zstring(ch);
         }
         else {
             return false;

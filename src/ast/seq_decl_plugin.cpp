@@ -20,6 +20,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/bv_decl_plugin.h"
 #include <sstream>
 
 static bool is_hex_digit(char ch, unsigned& d) {
@@ -966,6 +967,24 @@ app*  seq_util::str::mk_char(char ch) const {
     zstring s(ch, zstring::ascii);
     return mk_char(s, 0);
 }
+
+bool seq_util::is_const_char(expr* e, unsigned& c) const {
+    bv_util bv(m);
+    rational r;    
+    unsigned sz;
+    return bv.is_numeral(e, r, sz) && r.is_unsigned(), c = r.get_unsigned(), true;
+}
+
+app* seq_util::mk_char(unsigned ch) const {
+    bv_util bv(m);
+    return bv.mk_numeral(rational(ch), 8);
+}
+
+app* seq_util::mk_le(expr* ch1, expr* ch2) const {
+    bv_util bv(m);
+    return bv.mk_ule(ch1, ch2);
+}
+
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {
     if (is_string(n)) {

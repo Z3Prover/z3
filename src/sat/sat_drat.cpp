@@ -288,7 +288,6 @@ namespace sat {
                   display(tout); 
                   s.display(tout););
             UNREACHABLE();
-            exit(0);
         }
     }
 

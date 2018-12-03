@@ -1573,7 +1573,6 @@ namespace opt {
                            m_model_converter->display(verbose_stream() << "mc\n");
                            model_smt2_pp(verbose_stream(), m, *mdl, 0);
                            verbose_stream() << to_string_internal() << "\n");
-                exit(0);
             }
         }
     }

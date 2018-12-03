@@ -77,7 +77,6 @@ class re2automaton {
     ast_manager& m;
     sym_expr_manager sm;
     seq_util     u;     
-    bv_util      bv;
     scoped_ptr<expr_solver>         m_solver;
     scoped_ptr<boolean_algebra_t>   m_ba;
     scoped_ptr<symbolic_automata_t> m_sa;

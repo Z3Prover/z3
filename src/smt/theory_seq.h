@@ -606,7 +606,7 @@ namespace smt {
         bool get_length(expr* s, rational& val) const;
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr* coalesce_chars(expr* const& str);
+        expr_ref coalesce_chars(expr* const& str);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr);
         bool is_skolem(symbol const& s, expr* e) const;
 

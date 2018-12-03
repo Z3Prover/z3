@@ -576,7 +576,7 @@ namespace smt {
         arith_value av(get_manager());
         av.init(&get_context());
         rational val;
-        if (av.get_value(e, val) && val.is_uint64()) {
+        if (av.get_value_equiv(e, val) && val.is_uint64()) {
             return val.get_uint64();
         }
         return 0;
