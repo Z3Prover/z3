@@ -241,8 +241,15 @@ void * memory::allocate(char const* file, int line, char const* obj, size_t s) {
 // when the local counter > SYNCH_THRESHOLD 
 #define SYNCH_THRESHOLD 100000
 
+#ifdef _WINDOWS
+// This is VS2013 specific instead of Windows specific.
+// It can go away with VS2017 builds
+__declspec(thread) long long g_memory_thread_alloc_size    = 0;
+__declspec(thread) long long g_memory_thread_alloc_count   = 0;
+#else
 thread_local long long g_memory_thread_alloc_size    = 0;
 thread_local long long g_memory_thread_alloc_count   = 0;
+#endif
 
 static void synchronize_counters(bool allocating) {
 #ifdef PROFILE_MEMORY
