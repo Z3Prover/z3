@@ -228,8 +228,8 @@ extern "C" {
     /**
        \brief Retrieve lower bound value or approximation for the i'th optimization objective.
               The returned vector is of length 3. It always contains numerals.
-              The three numerals are coefficients a, b, c and encode the result of \c Z3_optimize_get_lower
-              a * infinity + b + c * epsilon.
+              The three numerals are coefficients \c a, \c b, \c c and encode the result of
+              #Z3_optimize_get_lower \ccode{a * infinity + b + c * epsilon}.
               
        \param c - context
        \param o - optimization context
@@ -330,7 +330,7 @@ extern "C" {
     /**
        \brief Return objectives on the optimization context.
        If the objective function is a max-sat objective it is returned
-       as a Pseudo-Boolean (minimization) sum of the form (+ (if f1 w1 0) (if f2 w2 0) ...)
+       as a Pseudo-Boolean (minimization) sum of the form \ccode{(+ (if f1 w1 0) (if f2 w2 0) ...)}
        If the objective function is entered as a maximization objective, then return
        the corresponding minimization objective. In this way the resulting objective
        function is always returned as a minimization objective.
