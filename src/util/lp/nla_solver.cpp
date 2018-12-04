@@ -1034,16 +1034,31 @@ struct solver::imp {
         return true;
     }
 
-    void generate_ol() {
-        NOT_IMPLEMENTED_YET();
+    void generate_ol(const rooted_mon& ac,
+                     const factor& a,
+                     const factor& c,
+                     const rooted_mon& bd,
+                     const factor& b,
+                     const factor& d) {
+        if (c != d) {
+            lpvar i = var(c);
+            lpvar j = var(d);
+            auto iv = vvr(i), jv = vvr(j);
+            SASSERT(abs(iv) == abs(jv));
+            if (iv == jv) {
+                mk_ineq(i, -rational(1), j, lp::lconstraint_kind::NE);
+            } else { // iv == -jv
+                mk_ineq(i, j, lp::lconstraint_kind::NE);                
+            }
+        }
     }
 
     bool order_lemma_on_ac_and_bd_and_factors(const rooted_mon& ac,
-                                                   const factor& a,
-                                                   const factor& c,
-                                                   const rooted_mon& bd,
-                                                   const factor& b,
-                                                   const factor& d) {
+                                              const factor& a,
+                                              const factor& c,
+                                              const rooted_mon& bd,
+                                              const factor& b,
+                                              const factor& d) {
         
         auto ac_m = vvr(a) * vvr(c);
         auto bd_m = vvr(b) * vvr(d);
@@ -1052,11 +1067,11 @@ struct solver::imp {
         auto bd_v = vvr(bd);
 
         if (ac_m < bd_m && !(ac_v < bd_v)) {
-            generate_ol();
+            generate_ol(ac, a, c, bd, b, d);
             return true;
         }
         else if (ac_m > bd_m && !(ac_v > bd_v)) {
-            generate_ol();
+            generate_ol(ac, a, c, bd, b, d);
             return true;
         }
 
