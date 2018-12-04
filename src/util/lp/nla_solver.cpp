@@ -81,25 +81,6 @@ svector<unsigned> vector_div(const T & b, const T & a) {
     return r;
 }
 
-// bool is_factor(const T a, const T b ) {   
-//     SASSERT(is_sorted(a) && is_sorted(b));
-//     if (b.size() <= a.size())
-//         return false;
-    
-//     while (!b.empty() && !a.empty() ) {
-
-//         if (b.back() < a.back())
-//             return false;
-//         if (b.back() == a.back()) {
-//             a.pop_back(); b.pop_back();
-//         } else { // b.back() > a.back()
-//             b.pop_back();
-//         }
-//     }
-    
-//     return a.empty();
-// } 
-
 struct solver::imp {
 
     struct rooted_mon {
@@ -173,7 +154,7 @@ struct solver::imp {
 
     lp::impq vv(lpvar j) const { return m_lar_solver.get_column_value(j); }
     
-    lpvar orig_mon_var(const rooted_mon& rm) const {return m_monomials[rm.m_orig.m_i].var(); }
+    lpvar var(const rooted_mon& rm) const {return m_monomials[rm.m_orig.m_i].var(); }
 
     rational vvr(const rooted_mon& rm) const { return vvr(m_monomials[rm.m_orig.m_i].var()) * rm.m_orig.m_sign; }
 
@@ -181,7 +162,7 @@ struct solver::imp {
 
     lpvar var(const factor& f) const {
         return f.is_var()?
-            f.index() : orig_mon_var(m_vector_of_rooted_monomials[f.index()]);
+            f.index() : var(m_vector_of_rooted_monomials[f.index()]);
     }
 
     svector<lpvar> sorted_vars(const factor& f) const {
@@ -192,12 +173,20 @@ struct solver::imp {
         TRACE("nla_solver", tout << "nv";);
         return m_vector_of_rooted_monomials[f.index()].vars();
     }
-    
+
+    // the value of the factor is equal to the value of the variable multiplied
+    // by the flip_sign
     rational flip_sign(const factor& f) const {
         return f.is_var()?
             rational(1) : m_vector_of_rooted_monomials[f.index()].m_orig.sign();
     }
-    
+
+    // the value of the rooted monomias is equal to the value of the variable multiplied
+    // by the flip_sign
+    rational flip_sign(const rooted_mon& m) const {
+        return m.m_orig.sign();
+    }
+
     void add(lpvar v, unsigned sz, lpvar const* vs) {
         m_var_to_its_monomial[v] = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
@@ -607,6 +596,7 @@ struct solver::imp {
             m_imp(s) { }
         
         bool find_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
+            SASSERT(m_imp.vars_are_roots(vars));
             auto it = m_imp.m_rooted_monomials_map.find(vars);
             if (it == m_imp.m_rooted_monomials_map.end()) {
                 return false;
@@ -632,7 +622,7 @@ struct solver::imp {
         
         SASSERT(m_lemma->empty());
         
-        mk_ineq(orig_mon_var(rm), lp::lconstraint_kind::NE);
+        mk_ineq(var(rm), lp::lconstraint_kind::NE);
         for (auto j : f) {
             mk_ineq(var(j), lp::lconstraint_kind::EQ);
         }
@@ -681,7 +671,7 @@ struct solver::imp {
         } 
 
         mk_ineq(zero_j, lp::lconstraint_kind::NE);
-        mk_ineq(orig_mon_var(rm), lp::lconstraint_kind::EQ);
+        mk_ineq(var(rm), lp::lconstraint_kind::EQ);
 
         explain(rm);
         TRACE("nla_solver", print_lemma(tout););
@@ -1031,40 +1021,51 @@ struct solver::imp {
             
         auto b_vars = vector_div(bc.vars(), c_vars);
         TRACE("nla_solver", tout << "b_vars = "; print_product(b_vars, tout););
+        SASSERT(b_vars.size() > 0);
+        if (b_vars.size() == 1) {
+            b = factor(b_vars[0]);
+            return true;
+        }
+        auto it = m_rooted_monomials_map.find(b_vars);
+        if (it == m_rooted_monomials_map.end()) {
+            return false;
+        }
+        b = factor(it->second.m_i, factor_type::RM);
         return true;
     }
 
+    void negate_factor_equality(const factor& c,
+                                const factor& d) {
+        if (c == d)
+            return;
+        lpvar i = var(c);
+        lpvar j = var(d);
+        auto iv = vvr(i), jv = vvr(j);
+        SASSERT(abs(iv) == abs(jv));
+        if (iv == jv) {
+            mk_ineq(i, -rational(1), j, lp::lconstraint_kind::NE);
+        } else { // iv == -jv
+            mk_ineq(i, j, lp::lconstraint_kind::NE);                
+        }
+    }
+    
+    void negate_factor_relation(const factor& a, const factor& b) {
+        rational a_fs = flip_sign(a);
+        rational b_fs = flip_sign(b);
+        lp::lconstraint_kind cmp = vvr(a) < vvr(b)? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+        mk_ineq(a_fs, var(a), - b_fs, var(b), cmp);
+    }
+    
     void generate_ol(const rooted_mon& ac,
                      const factor& a,
                      const factor& c,
                      const rooted_mon& bd,
                      const factor& b,
-                     const factor& d) {
-        rational c_over_d = vvr(c) / vvr(d);
-        SASSERT(abs(c_over_d) == rational(1));
-        if (c != d) {
-            lpvar i = var(c);
-            lpvar j = var(d);
-            auto iv = vvr(i), jv = vvr(j);
-            SASSERT(abs(iv) == abs(jv));
-            if (iv == jv) {
-                mk_ineq(i, -rational(1), j, lp::lconstraint_kind::NE);
-            } else { // iv == -jv
-                c_over_d = -rational(1);
-                mk_ineq(i, j, lp::lconstraint_kind::NE);                
-            }
-        }
-
-        {
-            lpvar i = var(a);
-            rational i_fs = flip_sign(a);
-            lpvar j = var(b);
-            rational j_fs = flip_sign(b);
-            auto iv = vvr(a), jv = vvr(b);
-            SASSERT(iv != jv);
-            lp::lconstraint_kind cmp = iv < jv? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
-            mk_ineq(i_fs, i, -rational(1) * j_fs, j, cmp);
-        }
+                     const factor& d,
+                     lp::lconstraint_kind cmp) {
+        negate_factor_equality(c, d);
+        negate_factor_relation(a, b);
+        mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), cmp);
     }
 
     bool order_lemma_on_ac_and_bd_and_factors(const rooted_mon& ac,
@@ -1081,11 +1082,11 @@ struct solver::imp {
         auto bd_v = vvr(bd);
 
         if (ac_m < bd_m && !(ac_v < bd_v)) {
-            generate_ol(ac, a, c, bd, b, d);
+            generate_ol(ac, a, c, bd, b, d, lp::lconstraint_kind::LT);
             return true;
         }
         else if (ac_m > bd_m && !(ac_v > bd_v)) {
-            generate_ol(ac, a, c, bd, b, d);
+            generate_ol(ac, a, c, bd, b, d, lp::lconstraint_kind::GT);
             return true;
         }
 
@@ -1110,6 +1111,12 @@ struct solver::imp {
         if (!divide(rm_bd, d, b))
             return false;
 
+        TRACE("nla_solver", tout << "factor b = ";
+              print_factor(b, tout););
+
+        TRACE("nla_solver", tout << "vvr(b) = " << vvr(b););
+
+        
         return order_lemma_on_ac_and_bd_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b, d);
     }
 
