@@ -31,31 +31,38 @@ class sym_expr {
     enum ty {
         t_char,
         t_pred,
+        t_not,
         t_range
     };
-    ty       m_ty;
-    sort*    m_sort;
-    expr_ref m_t;
-    expr_ref m_s;
-    unsigned m_ref;
-    sym_expr(ty ty, expr_ref& t, expr_ref& s, sort* srt) : m_ty(ty), m_sort(srt), m_t(t), m_s(s), m_ref(0) {}
+    ty        m_ty;
+    sort*     m_sort;
+    sym_expr* m_expr;
+    expr_ref  m_t;
+    expr_ref  m_s;
+    unsigned  m_ref;
+    sym_expr(ty ty, expr_ref& t, expr_ref& s, sort* srt, sym_expr* e) : 
+        m_ty(ty), m_sort(srt), m_expr(e), m_t(t), m_s(s), m_ref(0) {}
 public:
+    ~sym_expr() { if (m_expr) m_expr->dec_ref(); }
     expr_ref accept(expr* e);
-    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, t_char, t, t, t.get_manager().get_sort(t)); }
+    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, t_char, t, t, t.get_manager().get_sort(t), nullptr); }
     static sym_expr* mk_char(ast_manager& m, expr* t) { expr_ref tr(t, m); return mk_char(tr); }
-    static sym_expr* mk_pred(expr_ref& t, sort* s) { return alloc(sym_expr, t_pred, t, t, s); }
-    static sym_expr* mk_range(expr_ref& lo, expr_ref& hi) { return alloc(sym_expr, t_range, lo, hi, lo.get_manager().get_sort(hi)); }
+    static sym_expr* mk_pred(expr_ref& t, sort* s) { return alloc(sym_expr, t_pred, t, t, s, nullptr); }
+    static sym_expr* mk_range(expr_ref& lo, expr_ref& hi) { return alloc(sym_expr, t_range, lo, hi, lo.get_manager().get_sort(hi), nullptr); }
+    static sym_expr* mk_not(ast_manager& m, sym_expr* e) { expr_ref f(m); e->inc_ref(); return alloc(sym_expr, t_not, f, f, e->get_sort(), e); }
     void inc_ref() { ++m_ref;  }
     void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
     std::ostream& display(std::ostream& out) const;
     bool is_char() const { return m_ty == t_char; }
     bool is_pred() const { return !is_char(); }
     bool is_range() const { return m_ty == t_range; }
+    bool is_not() const { return m_ty == t_not; }
     sort* get_sort() const { return m_sort; }
     expr* get_char() const { SASSERT(is_char()); return m_t; }
     expr* get_pred() const { SASSERT(is_pred()); return m_t; }
     expr* get_lo() const { SASSERT(is_range()); return m_t; }
     expr* get_hi() const { SASSERT(is_range()); return m_s; }
+    sym_expr* get_arg() const { SASSERT(is_not()); return m_expr; }
 };
 
 class sym_expr_manager {

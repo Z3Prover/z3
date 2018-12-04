@@ -33,20 +33,23 @@ Notes:
 expr_ref sym_expr::accept(expr* e) {
     ast_manager& m = m_t.get_manager();
     expr_ref result(m);
+    var_subst subst(m);
+    seq_util u(m);
+    unsigned r1, r2, r3;
     switch (m_ty) {
-    case t_pred: {
-        var_subst subst(m);
+    case t_pred:         
         result = subst(m_t, 1, &e);
+        break;    
+    case t_not:
+        result = m_expr->accept(e);
+        result = m.mk_not(result);
         break;
-    }
     case t_char:
         SASSERT(m.get_sort(e) == m.get_sort(m_t));
         SASSERT(m.get_sort(e) == m_sort);
         result = m.mk_eq(e, m_t);
         break;
-    case t_range: {
-        seq_util u(m);
-        unsigned r1, r2, r3;
+    case t_range: 
         if (u.is_const_char(m_t, r1) && u.is_const_char(e, r2) && u.is_const_char(m_s, r3)) {
             result = m.mk_bool_val((r1 <= r2) && (r2 <= r3));            
         }
@@ -55,7 +58,7 @@ expr_ref sym_expr::accept(expr* e) {
         }
         break;
     }
-    }
+    
     return result;
 }
 
@@ -64,6 +67,7 @@ std::ostream& sym_expr::display(std::ostream& out) const {
     case t_char: return out << m_t;
     case t_range: return out << m_t << ":" << m_s;
     case t_pred: return out << m_t;
+    case t_not: return m_expr->display(out << "not ");
     }
     return out << "expression type not recognized";
 }
@@ -79,10 +83,11 @@ struct display_expr1 {
 class sym_expr_boolean_algebra : public boolean_algebra<sym_expr*> {
     ast_manager& m;
     expr_solver& m_solver;
+    expr_ref     m_var;
     typedef sym_expr* T;
 public:
     sym_expr_boolean_algebra(ast_manager& m, expr_solver& s): 
-        m(m), m_solver(s) {}
+        m(m), m_solver(s), m_var(m) {}
 
     T mk_false() override {
         expr_ref fml(m.mk_false(), m);
@@ -93,6 +98,7 @@ public:
         return sym_expr::mk_pred(fml, m.mk_bool_sort());
     }
     T mk_and(T x, T y) override {
+        seq_util u(m);
         if (x->is_char() && y->is_char()) {
             if (x->get_char() == y->get_char()) {
                 return x;
@@ -102,6 +108,21 @@ public:
                 return sym_expr::mk_pred(fml, x->get_sort());
             }
         }
+        unsigned lo1, hi1, lo2, hi2;
+        if (x->is_range() && y->is_range() &&
+            u.is_const_char(x->get_lo(), lo1) && u.is_const_char(x->get_hi(), hi1) &&
+            u.is_const_char(y->get_lo(), lo2) && u.is_const_char(y->get_hi(), hi2)) {
+            lo1 = std::max(lo1, lo2);
+            hi1 = std::min(hi1, hi2);
+            if (lo1 > hi1) {
+                expr_ref fml(m.mk_false(), m);
+                return sym_expr::mk_pred(fml, x->get_sort());
+            }
+            expr_ref _start(u.mk_char(lo1), m);
+            expr_ref _stop(u.mk_char(hi1), m);
+            return sym_expr::mk_range(_start, _stop);
+        }
+
         sort* s = x->get_sort();
         if (m.is_bool(s)) s = y->get_sort();
         var_ref v(m.mk_var(0, s), m);
@@ -110,13 +131,29 @@ public:
         if (m.is_true(fml1)) {
             return y;
         }
-        if (m.is_true(fml2)) return x;
-        if (fml1 == fml2) return x;        
+        if (m.is_true(fml2)) {
+            return x;
+        }
+        if (fml1 == fml2) {
+            return x;   
+        }
+        if (is_complement(fml1, fml2)) {
+            expr_ref ff(m.mk_false(), m);
+            return sym_expr::mk_pred(ff, x->get_sort());
+        }
         bool_rewriter br(m);
         expr_ref fml(m);
         br.mk_and(fml1, fml2, fml);
         return sym_expr::mk_pred(fml, x->get_sort());
     }
+
+    bool is_complement(expr* f1, expr* f2) {
+        expr* f = nullptr;
+        return 
+            (m.is_not(f1, f) && f == f2) ||
+            (m.is_not(f2, f) && f == f1);
+    }
+
     T mk_or(T x, T y) override {
         if (x->is_char() && y->is_char() &&
             x->get_char() == y->get_char()) {
@@ -147,6 +184,7 @@ public:
         }
         }
     }
+
     T mk_or(unsigned sz, T const* ts) override {
         switch (sz) {
         case 0: return mk_false();
@@ -160,15 +198,24 @@ public:
         }
         }
     }
+
     lbool is_sat(T x) override {
+        unsigned lo, hi;
+        seq_util u(m);
+
         if (x->is_char()) {
             return l_true;
         }
-        if (x->is_range()) {
-            // TBD check lower is below upper.
+        if (x->is_range() && u.is_const_char(x->get_lo(), lo) && u.is_const_char(x->get_hi(), hi)) {
+            return (lo <= hi) ? l_true : l_false; 
         }
-        expr_ref v(m.mk_fresh_const("x", x->get_sort()), m);
-        expr_ref fml = x->accept(v);
+        if (x->is_not() && x->get_arg()->is_range() && u.is_const_char(x->get_arg()->get_lo(), lo) && 0 < lo) {
+            return l_true;
+        }            
+        if (!m_var || m.get_sort(m_var) != x->get_sort()) {
+            m_var = m.mk_fresh_const("x", x->get_sort()); 
+        }
+        expr_ref fml = x->accept(m_var);
         if (m.is_true(fml)) {
             return l_true;
         }
@@ -177,16 +224,11 @@ public:
         }
         return m_solver.check_sat(fml);
     }
+
     T mk_not(T x) override {
-        var_ref v(m.mk_var(0, x->get_sort()), m);
-        expr_ref fml(m.mk_not(x->accept(v)), m);
-        return sym_expr::mk_pred(fml, x->get_sort());
+        return sym_expr::mk_not(m, x);    
     }
 
-    /*virtual vector<std::pair<vector<bool>, T>> generate_min_terms(vector<T> constraints){
-        
-        return 0;
-    }*/
 };
 
 re2automaton::re2automaton(ast_manager& m): m(m), u(m), m_ba(nullptr), m_sa(nullptr) {}
@@ -1432,6 +1474,14 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
     }
     if (m_util.re.is_full_seq(b)) {
         result = a;
+        return BR_DONE;
+    }
+    expr* ac = nullptr, *bc = nullptr;
+    if ((m_util.re.is_complement(a, ac) && ac == b) ||
+        (m_util.re.is_complement(b, bc) && bc == a)) {
+        sort* seq_sort = nullptr;
+        VERIFY(m_util.is_re(a, seq_sort));
+        result = m_util.re.mk_empty(seq_sort);
         return BR_DONE;
     }
     return BR_FAILED;
