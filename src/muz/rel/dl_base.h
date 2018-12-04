@@ -1120,10 +1120,7 @@ namespace datalog {
             virtual bool operator==(const iterator_core & it) {
                 //we worry about the equality operator only because of checking 
                 //the equality with the end() iterator
-                if(is_finished() && it.is_finished()) {
-                    return true;
-                }
-                return false;
+                return is_finished() && it.is_finished();
             }
         private:
             //private and undefined copy constructor and assignment operator
@@ -1153,10 +1150,7 @@ namespace datalog {
             virtual bool operator==(const row_iterator_core & it) {
                 //we worry about the equality operator only because of checking 
                 //the equality with the end() iterator
-                if(is_finished() && it.is_finished()) {
-                    return true;
-                }
-                return false;
+                return is_finished() && it.is_finished();
             }
         private:
             //private and undefined copy constructor and assignment operator
