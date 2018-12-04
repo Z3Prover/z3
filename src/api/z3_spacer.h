@@ -48,7 +48,7 @@ extern "C" {
      /**
        \brief Retrieve a bottom-up (from query) sequence of ground facts
 
-       The previous call to Z3_fixedpoint_query must have returned \c Z3_L_TRUE.
+       The previous call to #Z3_fixedpoint_query must have returned \c Z3_L_TRUE.
 
        def_API('Z3_fixedpoint_get_ground_sat_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
