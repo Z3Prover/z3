@@ -142,7 +142,7 @@ extern "C" {
     /**
        \brief Retrieve a string that describes the last status returned by #Z3_optimize_check.
 
-       Use this method when #Z3_optimize_check returns Z3_L_UNDEF.
+       Use this method when #Z3_optimize_check returns \c Z3_L_UNDEF.
 
        def_API('Z3_optimize_get_reason_unknown', STRING, (_in(CONTEXT), _in(OPTIMIZE) ))
     */
