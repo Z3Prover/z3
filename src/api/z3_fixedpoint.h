@@ -395,7 +395,7 @@ extern "C" {
                                             Z3_fixedpoint_predecessor_eh predecessor_eh,
                                             Z3_fixedpoint_unfold_eh unfold_eh);
 
-    void Z3_fixedpoint_add_constraint (Z3_context c, Z3_fixedpoint d, Z3_ast e, unsigned lvl);
+    void Z3_API Z3_fixedpoint_add_constraint (Z3_context c, Z3_fixedpoint d, Z3_ast e, unsigned lvl);
 
     /*@}*/
     /*@}*/
