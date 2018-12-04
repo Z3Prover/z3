@@ -18,6 +18,7 @@
 
 
   --*/
+#pragma once
 #include "util/rational.h"
 #include "util/lp/monomial.h"
 
@@ -40,6 +41,15 @@ public:
     factor_type& type() {return m_type;}
     bool is_var() const { return m_type == factor_type::VAR; }
 };
+
+inline bool operator==(const factor& a, const factor& b) {
+    return a.index() == b.index() && a.type() == b.type(); 
+}
+
+inline bool operator!=(const factor& a, const factor& b) {
+    return ! (a == b); 
+}
+
 
 class factorization {
     vector<factor>         m_vars;
