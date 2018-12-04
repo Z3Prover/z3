@@ -4416,7 +4416,7 @@ extern "C" {
     bool Z3_API Z3_is_well_sorted(Z3_context c, Z3_ast t);
 
     /**
-       \brief Return Z3_L_TRUE if \c a is true, Z3_L_FALSE if it is false, and Z3_L_UNDEF otherwise.
+       \brief Return \c Z3_L_TRUE if \c a is true, \c Z3_L_FALSE if it is false, and \c Z3_L_UNDEF otherwise.
 
        def_API('Z3_get_bool_value', INT, (_in(CONTEXT), _in(AST)))
     */
@@ -6227,7 +6227,7 @@ extern "C" {
        The function #Z3_solver_get_model retrieves a model if the
        assertions is satisfiable (i.e., the result is \c
        Z3_L_TRUE) and model construction is enabled.
-       Note that if the call returns Z3_L_UNDEF, Z3 does not
+       Note that if the call returns \c Z3_L_UNDEF, Z3 does not
        ensure that calls to #Z3_solver_get_model succeed and any models
        produced in this case are not guaranteed to satisfy the assertions.
 
@@ -6269,7 +6269,7 @@ extern "C" {
        the current context implies that they are equal.
 
        A side-effect of the function is a satisfiability check on the assertions on the solver that is passed in.
-       The function return Z3_L_FALSE if the current assertions are not satisfiable.
+       The function return \c Z3_L_FALSE if the current assertions are not satisfiable.
 
        def_API('Z3_get_implied_equalities', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
     */
@@ -6342,7 +6342,7 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_solver_get_unsat_core(Z3_context c, Z3_solver s);
 
     /**
-       \brief Return a brief justification for an "unknown" result (i.e., Z3_L_UNDEF) for
+       \brief Return a brief justification for an "unknown" result (i.e., \c Z3_L_UNDEF) for
        the commands #Z3_solver_check and #Z3_solver_check_assumptions
 
        def_API('Z3_solver_get_reason_unknown', STRING, (_in(CONTEXT), _in(SOLVER)))
