@@ -1034,24 +1034,32 @@ struct solver::imp {
         return true;
     }
 
-    lp::lconstraint_kind relation_between_products(const factor& a,
-                                               const factor& c,
-                                               const factor& b,
-                                               const factor& d) {
-        auto av = vvr(a);
-        auto bv = vvr(b);
-        auto cv = vvr(c);
-        auto dv = vvr(d);
-        SASSERT(abs(cv) == abs(dv));
+    void generate_ol() {
+        NOT_IMPLEMENTED_YET();
     }
 
-    bool order_lemma_on_ac_and_bd_on_reg_monomials(const index_with_sign& ac,
+    bool order_lemma_on_ac_and_bd_and_factors(const rooted_mon& ac,
                                                    const factor& a,
                                                    const factor& c,
-                                                   const index_with_sign& bd,
+                                                   const rooted_mon& bd,
                                                    const factor& b,
                                                    const factor& d) {
         
+        auto ac_m = vvr(a) * vvr(c);
+        auto bd_m = vvr(b) * vvr(d);
+
+        auto ac_v = vvr(ac);
+        auto bd_v = vvr(bd);
+
+        if (ac_m < bd_m && !(ac_v < bd_v)) {
+            generate_ol();
+            return true;
+        }
+        else if (ac_m > bd_m && !(ac_v > bd_v)) {
+            generate_ol();
+            return true;
+        }
+
         return false;
     }
     
@@ -1063,8 +1071,7 @@ struct solver::imp {
                                   unsigned k,
                                   const rooted_mon& rm_bd,
                                   const factor& d) {
-        TRACE("nla_solver",x
-              tout << "rm_ac = ";
+        TRACE("nla_solver",   tout << "rm_ac = ";
               print_rooted_monomial(rm_ac, tout);
               tout << "\nrm_bd = ";
               print_rooted_monomial(rm_bd, tout);
@@ -1074,7 +1081,7 @@ struct solver::imp {
         if (!divide(rm_bd, d, b))
             return false;
 
-        return order_lemma_on_ac_and_bd_on_reg_monomials(rm_ac.m_orig, ac_f[(k + 1) % 2], ac_f[k], rm_bd.m_orig, b, d);
+        return order_lemma_on_ac_and_bd_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b, d);
     }
 
     // collect all vars and rooted monomials with the same absolute
