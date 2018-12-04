@@ -1040,6 +1040,8 @@ struct solver::imp {
                      const rooted_mon& bd,
                      const factor& b,
                      const factor& d) {
+        rational c_over_d = vvr(c) / vvr(d);
+        SASSERT(abs(c_over_d) == rational(1));
         if (c != d) {
             lpvar i = var(c);
             lpvar j = var(d);
@@ -1048,8 +1050,20 @@ struct solver::imp {
             if (iv == jv) {
                 mk_ineq(i, -rational(1), j, lp::lconstraint_kind::NE);
             } else { // iv == -jv
+                c_over_d = -rational(1);
                 mk_ineq(i, j, lp::lconstraint_kind::NE);                
             }
+        }
+
+        {
+            lpvar i = var(a);
+            rational i_fs = flip_sign(a);
+            lpvar j = var(b);
+            rational j_fs = flip_sign(b);
+            auto iv = vvr(a), jv = vvr(b);
+            SASSERT(iv != jv);
+            lp::lconstraint_kind cmp = iv < jv? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+            mk_ineq(i_fs, i, -rational(1) * j_fs, j, cmp);
         }
     }
 
