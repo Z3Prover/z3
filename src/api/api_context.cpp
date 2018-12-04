@@ -489,9 +489,3 @@ extern "C" {
     }
     
 };
-
-Z3_API ast_manager& Z3_get_manager(Z3_context c) {
-    return mk_c(c)->m();
-}
-
-
