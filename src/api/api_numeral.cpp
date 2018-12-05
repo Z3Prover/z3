@@ -198,19 +198,19 @@ extern "C" {
             mpf_rounding_mode rm;
             if (mk_c(c)->fpautil().is_rm_numeral(to_expr(a), rm)) {
                 switch (rm) {
-                case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
+                case MPF_ROUND_NEAREST_TEVEN:
                     return mk_c(c)->mk_external_string("roundNearestTiesToEven");
                     break;
-                case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
+                case MPF_ROUND_NEAREST_TAWAY:
                     return mk_c(c)->mk_external_string("roundNearestTiesToAway");
                     break;
-                case OP_FPA_RM_TOWARD_POSITIVE:
+                case MPF_ROUND_TOWARD_POSITIVE:
                     return mk_c(c)->mk_external_string("roundTowardPositive");
                     break;
-                case OP_FPA_RM_TOWARD_NEGATIVE:
+                case MPF_ROUND_TOWARD_NEGATIVE:
                     return mk_c(c)->mk_external_string("roundTowardNegative");
                     break;
-                case OP_FPA_RM_TOWARD_ZERO:
+                case MPF_ROUND_TOWARD_ZERO:
                 default:
                     return mk_c(c)->mk_external_string("roundTowardZero");
                     break;
