@@ -4,7 +4,7 @@ instructions are as follows:
 
 In the project properties of Microsoft.Z3.csproj:
 - Under 'Application': Change Target framework to .NET Framework 3.5
-- Under 'Build': Add FRAMEWORK_LT_4 to the condidional compilation symbols
+- Under 'Build': Add FRAMEWORK_LT_4 to the conditional compilation symbols
 - Remove the reference to System.Numerics
 - Install the NuGet Package "Microsoft Code Contracts for Net3.5":
   In the Package Manager Console enter Install-Package Code.Contract

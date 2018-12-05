@@ -18,7 +18,7 @@ Copyright (c) 2015 Microsoft Corporation
 //      ADD_INITIALIZER('rational::initialize();')
 //      ADD_FINALIZER('rational::finalize();')
 // Thus, any executable or shared object (DLL) that depends on rational.h
-// will have an automalically generated file mem_initializer.cpp containing
+// will have an automatically generated file mem_initializer.cpp containing
 //    mem_initialize() 
 //    mem_finalize()
 // and these functions will include the statements:
