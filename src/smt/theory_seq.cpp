@@ -4561,11 +4561,11 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
             IF_VERBOSE(11, verbose_stream() << "intersect " << re << " " << mk_pp(entry.m_re, m) << " " << mk_pp(s, m) << " " << mk_pp(entry.m_s, m) << "\n";);
             re = m_util.re.mk_inter(entry.m_re, re);
             m_rewrite(re);
-            lits.push_back(entry.m_lit);
+            lits.push_back(~entry.m_lit);
             enode* n1 = ensure_enode(entry.m_s);
             enode* n2 = ensure_enode(s);
             if (n1 != n2) {
-                lits.push_back(mk_eq(n1->get_owner(), n2->get_owner(), false));
+                lits.push_back(~mk_eq(n1->get_owner(), n2->get_owner(), false));
             }
         }
     }
