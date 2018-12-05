@@ -1335,6 +1335,10 @@ std::ostream& lar_solver::print_left_side_of_constraint(const lar_base_constrain
 }
 
 std::ostream& lar_solver::print_term(lar_term const& term, std::ostream & out) const {
+    if (term.size() == 0){
+        out << "0";
+        return out;
+    }
     bool first = true;
     for (const auto p : term) {
         mpq val = p.coeff();
