@@ -198,6 +198,7 @@ namespace sat {
         config                 m_config;
         double                 m_delta_trigger;
         double                 m_delta_decrease;
+        double                 m_delta_fraction;
 
         drat                   m_drat;
         literal_vector         m_assumptions;

@@ -997,6 +997,7 @@ namespace sat {
     void lookahead::init(bool learned) {
         m_delta_trigger = 0.0;
         m_delta_decrease = 0.0;
+        m_delta_fraction = m_s.m_config.m_lookahead_delta_fraction;
         m_config.m_dl_success = 0.8;
         m_inconsistent = false;
         m_qhead = 0;
@@ -1814,7 +1815,7 @@ namespace sat {
                     ++m_stats.m_double_lookahead_rounds;
                     num_units = double_look(l, base);
                     if (!inconsistent()) {
-                        m_delta_trigger = get_lookahead_reward(l);
+                        m_delta_trigger = m_delta_fraction*get_lookahead_reward(l);
                         dl_disable(l);
                     }
                 }
@@ -2098,7 +2099,9 @@ namespace sat {
                 m_cube_state.m_freevars_threshold = m_freevars.size();     
                 m_cube_state.m_psat_threshold = m_config.m_cube_cutoff == adaptive_psat_cutoff ? psat_heur() : dbl_max;  // MN. only compute PSAT if enabled
                 m_cube_state.inc_conflict();
-                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;                
+                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) {
+                    return l_false; 
+                }               
                 continue;
             }
         pick_up_work:
@@ -2131,7 +2134,9 @@ namespace sat {
                 m_cube_state.m_freevars_threshold = prev_nfreevars;
                 m_cube_state.m_psat_threshold = prev_psat;
                 m_cube_state.inc_conflict();
-                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) return l_false;
+                if (!backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision)) {
+                    return l_false;
+                }
                 continue;
             }
             if (lit == null_literal) {
