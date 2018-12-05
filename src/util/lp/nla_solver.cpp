@@ -46,7 +46,7 @@ bool is_factor(const T & a, const T & b) {
             continue;
         } 
 
-        i++;
+        j++;
     }
 }
 
@@ -1074,7 +1074,12 @@ struct solver::imp {
                                               const rooted_mon& bd,
                                               const factor& b,
                                               const factor& d) {
-        
+        TRACE("nla_solver",
+              tout << "factor a = ";
+              print_factor(a, tout);
+              tout << ", factor b = ";
+              print_factor(b, tout););
+
         auto ac_m = vvr(a) * vvr(c);
         auto bd_m = vvr(b) * vvr(d);
 
