@@ -54,8 +54,6 @@ bool contains(const std::unordered_map<A, B> & map, const A& key) {
     return map.find(key) != map.end();
 }
 
-#ifdef lp_for_z3
-
 #ifdef Z3DEBUG
 #define Z3DEBUG 1
 #endif
@@ -120,7 +118,67 @@ template <typename X> inline X floor_ratio(const X & a, const X & b) { return nu
 
 
 template <typename X> inline bool precise() { return numeric_traits<X>::precise(); }
+
+
+// returns true if a factor of b
+template <typename T>
+bool is_proper_factor(const T & a, const T & b) {
+    if (a.size() >= b.size())
+        return false;
+    SASSERT(lp::is_non_decreasing(a) && lp::is_non_decreasing(b));
+    auto i = a.begin();
+    auto j = b.begin();
+    
+    while (true) {
+        if (i == a.end()) {
+            return true;
+        }
+        if (j == b.end()) {
+            return false;
+        }
+
+        if (*i == *j) {
+            i++;j++;
+            continue;
+        } 
+
+        j++;
+    }
 }
+
+    // b / a, where a is a factor of b and both vectors are sorted
+template <typename T>
+svector<unsigned> vector_div(const T & b, const T & a) {
+    SASSERT(lp::is_non_decreasing(a));
+    SASSERT(lp::is_non_decreasing(b));
+    SASSERT(is_proper_factor(a, b));
+    svector<unsigned> r;
+    auto i = a.begin();
+    auto j = b.begin();
+    
+    while (true) {
+        if (j == b.end()) {
+            break;
+        }
+        if (i == a.end()) {
+            r.push_back(*j);
+            j++;
+            continue;
+        }
+
+        if (*i == *j) {
+            i++;j++;
+            continue;
+        } 
+
+        r.push_back(*j);
+        j++;
+    }
+    return r;
+}
+
+} // namespace lp
+
 namespace std {
 template<>
 struct hash<rational> {
@@ -154,72 +212,6 @@ struct hash<lp::numeric_pair<lp::mpq>> {
         return seed;
     }
 };
-
-}
-#else // else  of #if  lp_for_z3
-#include <utility>
-#include <functional>
-//include "util/numerics/mpq.h"
-//include "util/numerics/numeric_traits.h"
-//include "util/numerics/double.h"
-
-#ifdef __CLANG__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmismatched-tags"
-#endif
-namespace std {
-template<>
-struct hash<lp::mpq> {
-    inline size_t operator()(const lp::mpq & v) const {
-        return v.hash();
-    }
-};
-}
-namespace lp {
-template <typename X> inline bool  precise() { return numeric_traits<X>::precise();}
-template <typename X> inline X one_of_type() { return numeric_traits<X>::one(); }
-template <typename X> inline bool is_zero(const X & v) { return numeric_traits<X>::is_zero(v); }
-template <typename X> inline bool is_pos(const X & v) { return numeric_traits<X>::is_pos(v); }
-template <typename X> inline bool is_int(const X & v) { return numeric_traits<X>::is_int(v); }
-template <typename X> inline X ceil_ratio(const X & a, const X & b) { return numeric_traits<X>::ceil_ratio(a, b); }
-template <typename X> inline X floor_ratio(const X & a, const X & b) { return numeric_traits<X>::floor_ratio(v); }
-
-
-template <typename X> inline double  get_double(const X & v) { return numeric_traits<X>::get_double(v); }
-template <typename T> inline T zero_of_type() {return numeric_traits<T>::zero();}
-inline void throw_exception(std::string str) { throw exception(str); }
-template <typename T> inline T from_string(std::string const & ) { lp_unreachable();}
-template <> double inline from_string<double>(std::string const & str) { return atof(str.c_str());}
-template <> mpq inline from_string<mpq>(std::string const & str) {
-    return mpq(atof(str.c_str()));
 }
 
-} // closing lp
-template <class T>
-inline void hash_combine(std::size_t & seed, const T & v) {
-    seed ^= std::hash<T>()(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-}
 
-namespace std {
-template<typename S, typename T> struct hash<pair<S, T>> {
-    inline size_t operator()(const pair<S, T> & v) const {
-        size_t seed = 0;
-        hash_combine(seed, v.first);
-        hash_combine(seed, v.second);
-        return seed;
-    }
-};
-template<>
-struct hash<lp::numeric_pair<lp::mpq>> {
-    inline size_t operator()(const lp::numeric_pair<lp::mpq> & v) const {
-        size_t seed = 0;
-        hash_combine(seed, v.x);
-        hash_combine(seed, v.y);
-        return seed;
-    }
-};
-} // std
-#ifdef __CLANG__
-#pragma clang diagnostic pop
-#endif
-#endif

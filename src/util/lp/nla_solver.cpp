@@ -25,64 +25,6 @@
 #include "util/lp/factorization.h"
 
 namespace nla {
-
-// returns true if a factor of b
-template <typename T>
-bool is_proper_factor(const T & a, const T & b) {
-    if (a.size() >= b.size())
-        return false;
-    SASSERT(lp::is_non_decreasing(a) && lp::is_non_decreasing(b));
-    auto i = a.begin();
-    auto j = b.begin();
-    
-    while (true) {
-        if (i == a.end()) {
-            return true;
-        }
-        if (j == b.end()) {
-            return false;
-        }
-
-        if (*i == *j) {
-            i++;j++;
-            continue;
-        } 
-
-        j++;
-    }
-}
-
-    // b / a, where a is a factor of b and both vectors are sorted
-template <typename T>
-svector<unsigned> vector_div(const T & b, const T & a) {
-    SASSERT(lp::is_non_decreasing(a));
-    SASSERT(lp::is_non_decreasing(b));
-    SASSERT(is_proper_factor(a, b));
-    svector<unsigned> r;
-    auto i = a.begin();
-    auto j = b.begin();
-    
-    while (true) {
-        if (j == b.end()) {
-            break;
-        }
-        if (i == a.end()) {
-            r.push_back(*j);
-            j++;
-            continue;
-        }
-
-        if (*i == *j) {
-            i++;j++;
-            continue;
-        } 
-
-        r.push_back(*j);
-        j++;
-    }
-    return r;
-}
-
 struct solver::imp {
 
     struct rooted_mon {
@@ -941,7 +883,7 @@ struct solver::imp {
     void reduce_set_by_checking_proper_containment(std::unordered_set<unsigned>& p,
                                                    const rooted_mon & rm ) {
         for (auto it = p.begin(); it != p.end();) {
-            if (is_proper_factor(rm.m_vars, m_vector_of_rooted_monomials[*it].m_vars)) {
+            if (lp::is_proper_factor(rm.m_vars, m_vector_of_rooted_monomials[*it].m_vars)) {
                 it++;
                 continue;
             }
@@ -1040,10 +982,10 @@ struct solver::imp {
               print_product(c_vars, tout);
               tout << "\nbc_vars = ";
               print_product(bc.vars(), tout););
-        if (!is_proper_factor(c_vars, bc.vars()))
+        if (!lp::is_proper_factor(c_vars, bc.vars()))
             return false;
             
-        auto b_vars = vector_div(bc.vars(), c_vars);
+        auto b_vars = lp::vector_div(bc.vars(), c_vars);
         TRACE("nla_solver_div", tout << "b_vars = "; print_product(b_vars, tout););
         SASSERT(b_vars.size() > 0);
         if (b_vars.size() == 1) {
