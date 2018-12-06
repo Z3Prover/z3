@@ -845,34 +845,13 @@ struct solver::imp {
     
     
 
-    void register_rooted_monomial_containing_vars(unsigned i_rm) {
-        TRACE("nla_solver", print_rooted_monomial(m_rm_table.vec()[i_rm], tout););
-        for (lpvar j_var : m_rm_table.vec()[i_rm].vars()) {
-            TRACE("nla_solver", print_var(j_var, tout););
-            auto it = m_rm_table.var_map().find(j_var);
-            if (it == m_rm_table.var_map().end()) {
-                std::unordered_set<unsigned> s;
-                s.insert(i_rm);
-                m_rm_table.var_map()[j_var] = s;
-            } else {
-                it->second.insert(i_rm);
-            }
-        }
-    }
-    
-    void fill_rooted_monomials_containing_var() {
-        for (unsigned i = 0; i < m_rm_table.vec().size(); i++) {
-            register_rooted_monomial_containing_vars(i);
-        }
-      
-    }
     
     void register_monomials_in_tables() {
         m_vars_equivalence.clear_monomials_by_abs_vals();
         for (unsigned i = 0; i < m_monomials.size(); i++) 
             register_monomial_in_tables(i);
 
-        fill_rooted_monomials_containing_var();
+        m_rm_table.fill_rooted_monomials_containing_var();
         m_rm_table.fill_rooted_factor_to_product();
     }
     
