@@ -136,5 +136,26 @@ struct rooted_mon_table {
             find_rooted_monomials_containing_rm(i);
         }
     }
+
+    void register_rooted_monomial_containing_vars(unsigned i_rm) {
+        for (lpvar j_var : vec()[i_rm].vars()) {
+            auto it = var_map().find(j_var);
+            if (it == var_map().end()) {
+                std::unordered_set<unsigned> s;
+                s.insert(i_rm);
+                var_map()[j_var] = s;
+            } else {
+                it->second.insert(i_rm);
+            }
+        }
+    }
+    
+    void fill_rooted_monomials_containing_var() {
+        for (unsigned i = 0; i < vec().size(); i++) {
+            register_rooted_monomial_containing_vars(i);
+        }
+      
+    }
+ 
 };
 }
