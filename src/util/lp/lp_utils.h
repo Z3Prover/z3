@@ -22,6 +22,7 @@ Revision History:
 #include "util/lp/numeric_pair.h"
 #include "util/debug.h"
 #include <unordered_map>
+#include <unordered_set>
 template <typename C>
 void print_vector(const C & t, std::ostream & out) {
     for (const auto & p : t)
@@ -212,6 +213,19 @@ struct hash<lp::numeric_pair<lp::mpq>> {
         return seed;
     }
 };
+
+inline
+void intersect_set(std::unordered_set<unsigned>& p, const std::unordered_set<unsigned>& w) {
+        for (auto it = p.begin(); it != p.end(); ) {
+            auto iit = it;
+            iit ++;
+            if (w.find(*it) == w.end())
+                p.erase(it);
+            it = iit;
+        }
+    }
+
+
 }
 
 
