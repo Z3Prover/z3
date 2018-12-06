@@ -832,30 +832,6 @@ struct solver::imp {
         register_key_mono_in_rooted_monomials(mc, i_mon);        
     }
 
-    void intersect_set(std::unordered_set<unsigned>& p, const std::unordered_set<unsigned>& w) {
-        for (auto it = p.begin(); it != p.end(); ) {
-            auto iit = it;
-            iit ++;
-            if (w.find(*it) == w.end())
-                p.erase(it);
-            it = iit;
-        }
-    }
-
-    void reduce_set_by_checking_proper_containment(std::unordered_set<unsigned>& p,
-                                                   const rooted_mon & rm ) {
-        for (auto it = p.begin(); it != p.end();) {
-            if (lp::is_proper_factor(rm.m_vars, m_rm_table.vec()[*it].m_vars)) {
-                it++;
-                continue;
-            }
-            auto iit = it;
-            iit ++;
-            p.erase(it);
-            it = iit;
-        }
-    }
-
     template <typename T>
     void trace_print_rms(const T& p, std::ostream& out) {
         out << "p = {";
@@ -867,35 +843,7 @@ struct solver::imp {
         out << "\n}";
     }
     
-    // here i is the index of a monomial in m_vector_of_rooted_monomials
-    void find_rooted_monomials_containing_rm(unsigned i_rm) {
-        const auto & rm = m_rm_table.vec()[i_rm];
-       
-        std::unordered_set<unsigned> p = m_rm_table.var_map()[rm[0]];
-        TRACE("nla_solver",
-              tout << "i_rm = " << i_rm << ", rm = ";
-              print_rooted_monomial(rm, tout);
-              tout << "\n rm[0] =" << rm[0] << " var = ";
-              print_var(rm[0], tout);
-              tout << "\n";
-              trace_print_rms(p, tout);
-              );
-        
-        
-        for (unsigned k = 1; k < rm.size(); k++) {
-            intersect_set(p, m_rm_table.var_map()[rm[k]]);
-        }
-        TRACE("nla_solver", trace_print_rms(p, tout););
-        reduce_set_by_checking_proper_containment(p, rm);
-        TRACE("nla_solver", trace_print_rms(p, tout););
-        m_rm_table.m_rooted_factor_to_product[i_rm] = p;
-    }
     
-    void fill_rooted_factor_to_product() {
-        for (unsigned i = 0; i < m_rm_table.vec().size(); i++) {
-            find_rooted_monomials_containing_rm(i);
-        }
-    }
 
     void register_rooted_monomial_containing_vars(unsigned i_rm) {
         TRACE("nla_solver", print_rooted_monomial(m_rm_table.vec()[i_rm], tout););
@@ -925,7 +873,7 @@ struct solver::imp {
             register_monomial_in_tables(i);
 
         fill_rooted_monomials_containing_var();
-        fill_rooted_factor_to_product();
+        m_rm_table.fill_rooted_factor_to_product();
     }
     
     void init_search() {
@@ -1113,8 +1061,8 @@ struct solver::imp {
                     }
                 }
             } else {
-                TRACE("nla_solver", tout << "not a var = " << m_rm_table.m_rooted_factor_to_product[d.index()].size() ;);
-                for (unsigned rm_bd : m_rm_table.m_rooted_factor_to_product[d.index()]) {
+                TRACE("nla_solver", tout << "not a var = " << m_rm_table.factor_to_product()[d.index()].size() ;);
+                for (unsigned rm_bd : m_rm_table.factor_to_product()[d.index()]) {
                     TRACE("nla_solver", );
                     if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.vec()[rm_bd], d)) {
                         return true;
