@@ -2396,6 +2396,7 @@ bool theory_seq::is_var(expr* a) const {
         !m_util.str.is_string(a) &&
         !m_util.str.is_unit(a) &&
         !m_util.str.is_itos(a) && 
+        !m_util.str.is_extract(a) && 
         !m.is_ite(a);
 }
 
