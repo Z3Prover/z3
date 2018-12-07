@@ -242,8 +242,8 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
-        expr * a = negative != 0 ? ctx->fpautil().mk_ninf(to_sort(s)) :
-                                   ctx->fpautil().mk_pinf(to_sort(s));
+        expr * a = negative ? ctx->fpautil().mk_ninf(to_sort(s)) :
+                              ctx->fpautil().mk_pinf(to_sort(s));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(nullptr);
@@ -259,8 +259,8 @@ extern "C" {
             RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
-        expr * a = negative != 0 ? ctx->fpautil().mk_nzero(to_sort(s)) :
-                                   ctx->fpautil().mk_pzero(to_sort(s));
+        expr * a = negative ? ctx->fpautil().mk_nzero(to_sort(s)) :
+                              ctx->fpautil().mk_pzero(to_sort(s));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(nullptr);
@@ -351,7 +351,7 @@ extern "C" {
         ctx->fpautil().fm().set(tmp,
                                 ctx->fpautil().get_ebits(to_sort(ty)),
                                 ctx->fpautil().get_sbits(to_sort(ty)),
-                                sgn != 0, exp, sig);
+                                sgn, exp, sig);
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
@@ -371,7 +371,7 @@ extern "C" {
         ctx->fpautil().fm().set(tmp,
                                 ctx->fpautil().get_ebits(to_sort(ty)),
                                 ctx->fpautil().get_sbits(to_sort(ty)),
-                                sgn != 0, exp, sig);
+                                sgn, exp, sig);
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));

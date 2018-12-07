@@ -274,7 +274,7 @@ extern "C" {
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         std::ostringstream buffer;
-        rcfm(c).display(buffer, to_rcnumeral(a), compact != 0, html != 0);
+        rcfm(c).display(buffer, to_rcnumeral(a), compact, html);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }
