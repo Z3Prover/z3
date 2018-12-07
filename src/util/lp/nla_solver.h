@@ -44,7 +44,9 @@ class solver {
     struct imp;
     imp* m_imp;
 public:
-    void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs);
+    // returns the monomial index
+    unsigned add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs);
+    
     solver(lp::lar_solver& s, reslimit& lim, params_ref const& p);
     ~solver();
     void push();
@@ -60,6 +62,6 @@ public:
     static void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0();
     static void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1();
     static void test_order_lemma();
-    static void test_order_lemma_params(int);
+    static void test_order_lemma_params(int sign);
 };
 }

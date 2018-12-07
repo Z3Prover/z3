@@ -92,11 +92,13 @@ struct solver::imp {
     rational flip_sign(const rooted_mon& m) const {
         return m.m_orig.sign();
     }
-
-    void add(lpvar v, unsigned sz, lpvar const* vs) {
-        m_var_to_its_monomial[v] = m_monomials.size();
+    
+    // returns the monomial index
+    unsigned add(lpvar v, unsigned sz, lpvar const* vs) {
+        unsigned ret = m_var_to_its_monomial[v] = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
         TRACE("nla_solver", print_monomial(m_monomials.back(), tout););
+        return ret;
     }
     
     void push() {
@@ -127,15 +129,21 @@ struct solver::imp {
         m_monomials_counts.shrink(m_monomials_counts.size() - n);       
     }
 
-    // return true if the monomial value is equal to the product of the values of the factors
-    bool check_monomial(const monomial& m) {
-        SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
-        const rational & model_val = m_lar_solver.get_column_value_rational(m.var());
+    rational mon_value_by_vars(unsigned i) const {
+        return mon_value_by_vars(m_monomials[i]);
+    }
+    rational mon_value_by_vars(const monomial & m) const {
         rational r(1);
         for (auto j : m) {
             r *= m_lar_solver.get_column_value_rational(j);
         }
-        return r == model_val;
+        return r;
+    }
+    
+    // return true if the monomial value is equal to the product of the values of the factors
+    bool check_monomial(const monomial& m) {
+        SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
+        return mon_value_by_vars(m) == m_lar_solver.get_column_value_rational(m.var());
     }
     
     /**
@@ -1186,10 +1194,9 @@ struct solver::imp {
     }
 }; // end of imp
 
-
-
-void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
-    m_imp->add(v, sz, vs);
+// returns the monomial index
+unsigned solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
+    return m_imp->add(v, sz, vs);
 }
 
 bool solver::need_check() { return true; }
@@ -1743,7 +1750,7 @@ void solver::test_order_lemma_params(int sign) {
     lpvar lp_cdij = s.add_named_var(cdij, true, "cdij");
 
     for (unsigned j = 0; j < s.number_of_vars(); j++) {
-        s.set_column_value(j, rational(3));
+        s.set_column_value(j, rational(j + 2));
     }
     
     reslimit l;
@@ -1753,41 +1760,30 @@ void solver::test_order_lemma_params(int sign) {
     vector<unsigned> vec;
     vec.push_back(lp_a);
     vec.push_back(lp_b);
-    nla.add_monomial(lp_ab, vec.size(), vec.begin());
+    int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
     // create monomial cd
     vec.clear();
     vec.push_back(lp_c);
     vec.push_back(lp_d);
-    nla.add_monomial(lp_cd, vec.size(), vec.begin());
+    int mon_cd = nla.add_monomial(lp_cd, vec.size(), vec.begin());
     // create monomial ef
     vec.clear();
     vec.push_back(lp_e);
     vec.push_back(lp_f);
-    nla.add_monomial(lp_ef, vec.size(), vec.begin());
+    int mon_ef = nla.add_monomial(lp_ef, vec.size(), vec.begin());
     // create monomial ij
     vec.clear();
     vec.push_back(lp_i);
     vec.push_back(lp_j);
-    nla.add_monomial(lp_ij, vec.size(), vec.begin());
+    int mon_ij = nla.add_monomial(lp_ij, vec.size(), vec.begin());
     
-    // make ab < cd it the model
-    s.set_column_value(lp_ab, rational(7));
-    s.set_column_value(lp_cd, rational(8));
-
-    s.set_column_value(lp_a,  rational(4));
-    s.set_column_value(lp_b,  rational(4));
-    s.set_column_value(lp_c,  rational(2));
-    s.set_column_value(lp_d,  rational(3));
     //create monomial (ab)(ef) 
     vec.clear();
     vec.push_back(lp_e);
     vec.push_back(lp_a);
     vec.push_back(lp_b);
     vec.push_back(lp_f);
-    nla.add_monomial(lp_abef, vec.size(), vec.begin());
-
-    s.set_column_value(lp_e,  rational(9));
-    s.set_column_value(lp_f,  rational(11));
+    auto mon_abef = nla.add_monomial(lp_abef, vec.size(), vec.begin());
 
     //create monomial (cd)(ij)
     vec.clear();
@@ -1795,17 +1791,35 @@ void solver::test_order_lemma_params(int sign) {
     vec.push_back(lp_j);
     vec.push_back(lp_c);
     vec.push_back(lp_d);
-    nla.add_monomial(lp_cdij, vec.size(), vec.begin());
+    auto mon_cdij = nla.add_monomial(lp_cdij, vec.size(), vec.begin());
 
-    // set ij == sign*ef in the model
-    s.set_column_value(lp_ij, rational(sign)*rational(17));
-    s.set_column_value(lp_ef, rational(17));
+    // set i == e
+    s.set_column_value(lp_e, s.get_column_value(lp_i));
+    // set f == sign*j
+    s.set_column_value(lp_f, rational(sign) * s.get_column_value(lp_j));
 
+    // set the values of ab, ef, cd, and ij correctly
+    s.set_column_value(lp_ab, nla.m_imp->mon_value_by_vars(mon_ab));
+    s.set_column_value(lp_ef, nla.m_imp->mon_value_by_vars(mon_ef));
+    s.set_column_value(lp_cd, nla.m_imp->mon_value_by_vars(mon_cd));
+    s.set_column_value(lp_ij, nla.m_imp->mon_value_by_vars(mon_ij));
+    
     // set abef = cdij, while it has to be abef < cdij
-    // because ab < cd and ef = ij > 0
-    s.set_column_value(lp_abef, rational(18));
-    s.set_column_value(lp_cdij, rational(18));
-   
+    SASSERT(s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
+    // we have ab < cd
+    s.set_column_value(lp_abef, nla.m_imp->mon_value_by_vars(mon_abef));
+    s.set_column_value(lp_cdij, nla.m_imp->mon_value_by_vars(mon_cdij));
+    if (sign > 0) {
+        // we need to have abef < cdij, so let us make abef > cdij
+        s.set_column_value(lp_abef, nla.m_imp->mon_value_by_vars(mon_cdij)
+                           + rational(1));
+        
+    }
+    else {
+        // we need to have abef > cdij, so let us make abef < cdij
+        s.set_column_value(lp_abef, nla.m_imp->mon_value_by_vars(mon_cdij)
+                           - rational(1));
+    }
     vector<ineq> lemma;
     lp::explanation exp;
     
@@ -1830,6 +1844,7 @@ void solver::test_order_lemma_params(int sign) {
 
     // SASSERT(found);
 }
+
 void solver::test_order_lemma() {
     test_order_lemma_params(1);
     test_order_lemma_params(-1);
