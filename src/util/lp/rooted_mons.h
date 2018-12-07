@@ -156,6 +156,20 @@ struct rooted_mon_table {
         }
       
     }
- 
+
+    void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i_mon) {
+        index_with_sign ms(i_mon, mc.coeff());
+        auto it = map().find(mc.vars());
+        if (it == map().end()) {
+            TRACE("nla_solver", tout << "size = " << vec().size(););
+            rooted_mon_info rmi(vec().size(), ms);
+            map().emplace(mc.vars(), rmi);
+            vec().push_back(rooted_mon(mc.vars(), i_mon, mc.coeff()));
+        } 
+        else {
+            it->second.push_back(ms);
+            TRACE("nla_solver", tout << "add ms.m_i = " << ms.m_i;);
+        }
+    }
 };
 }

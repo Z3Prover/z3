@@ -512,8 +512,6 @@ struct solver::imp {
             return true;
         }
     };
-
-    
     
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
@@ -685,7 +683,6 @@ struct solver::imp {
         return false;
     }
 
-    
     // use basic multiplication properties to create a lemma
     // for the given monomial
     bool basic_lemma_for_mon(const rooted_mon& rm) {
@@ -807,29 +804,11 @@ struct solver::imp {
         return true;
     }
 
-    void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i_mon) {
-        TRACE("nla_solver", tout << "mc = "; print_product(mc.vars(), tout);
-              tout << " i_mon = " << i_mon;);
-        SASSERT(vars_are_roots(mc.vars()));
-        SASSERT(lp::is_non_decreasing(mc.vars()));
-        index_with_sign ms(i_mon, mc.coeff());
-        auto it = m_rm_table.map().find(mc.vars());
-        if (it == m_rm_table.map().end()) {
-            TRACE("nla_solver", tout << "size = " << m_rm_table.vec().size(););
-            rooted_mon_info rmi(m_rm_table.vec().size(), ms);
-            m_rm_table.map().emplace(mc.vars(), rmi);
-            m_rm_table.vec().push_back(rooted_mon(mc.vars(), i_mon, mc.coeff()));
-        } 
-        else {
-            it->second.push_back(ms);
-            TRACE("nla_solver", tout << "add ms.m_i = " << ms.m_i;);
-        }
-    }
 
     void register_monomial_in_tables(unsigned i_mon) {
         m_vars_equivalence.register_monomial_in_abs_vals(i_mon, m_monomials[i_mon]);
         monomial_coeff mc = canonize_monomial(m_monomials[i_mon]);
-        register_key_mono_in_rooted_monomials(mc, i_mon);        
+        m_rm_table.register_key_mono_in_rooted_monomials(mc, i_mon);        
     }
 
     template <typename T>
@@ -1741,7 +1720,7 @@ void solver::test_basic_sign_lemma() {
     SASSERT(found);
 }
 
-void solver::test_order_lemma() {
+void solver::test_order_lemma_params(int sign) {
     enable_trace("nla_solver");
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4, f = 5, 
@@ -1818,8 +1797,8 @@ void solver::test_order_lemma() {
     vec.push_back(lp_d);
     nla.add_monomial(lp_cdij, vec.size(), vec.begin());
 
-    // set ij == ef in the model
-    s.set_column_value(lp_ij, rational(17));
+    // set ij == sign*ef in the model
+    s.set_column_value(lp_ij, rational(sign)*rational(17));
     s.set_column_value(lp_ef, rational(17));
 
     // set abef = cdij, while it has to be abef < cdij
@@ -1850,5 +1829,9 @@ void solver::test_order_lemma() {
     // }
 
     // SASSERT(found);
+}
+void solver::test_order_lemma() {
+    test_order_lemma_params(1);
+    test_order_lemma_params(-1);
 }
 }
