@@ -3035,9 +3035,9 @@ public:
 
     bool proofs_enabled() const { return m.proofs_enabled(); }
 
-    void set_upper_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { set_bound(vi, ci, v, false);  }
+    bool set_upper_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { return set_bound(vi, ci, v, false);  }
 
-    void set_lower_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { return set_bound(vi, ci, v, true);   }
+    bool set_lower_bound(lp::var_index vi, lp::constraint_index ci, rational const& v) { return set_bound(vi, ci, v, true);   }
 
     bool set_bound(lp::var_index vi, lp::constraint_index ci, rational const& v, bool is_lower) {
 
