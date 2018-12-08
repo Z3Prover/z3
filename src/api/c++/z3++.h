@@ -505,7 +505,7 @@ namespace z3 {
         out << Z3_ast_to_string(n.ctx(), n.m_ast); return out;
     }
 
-    inline bool eq(ast const & a, ast const & b) { return Z3_is_eq_ast(a.ctx(), a, b) != 0; }
+    inline bool eq(ast const & a, ast const & b) { return Z3_is_eq_ast(a.ctx(), a, b); }
 
 
     /**
@@ -713,10 +713,10 @@ namespace z3 {
            small integers, 64 bit integers or rational or decimal strings.
         */
         bool is_numeral() const { return kind() == Z3_NUMERAL_AST; }
-        bool is_numeral_i64(int64_t& i) const { bool r = 0 != Z3_get_numeral_int64(ctx(), m_ast, &i); check_error(); return r;}
-        bool is_numeral_u64(uint64_t& i) const { bool r = 0 != Z3_get_numeral_uint64(ctx(), m_ast, &i); check_error(); return r;}
-        bool is_numeral_i(int& i) const { bool r = 0 != Z3_get_numeral_int(ctx(), m_ast, &i); check_error(); return r;}
-        bool is_numeral_u(unsigned& i) const { bool r = 0 != Z3_get_numeral_uint(ctx(), m_ast, &i); check_error(); return r;}
+        bool is_numeral_i64(int64_t& i) const { bool r = Z3_get_numeral_int64(ctx(), m_ast, &i); check_error(); return r;}
+        bool is_numeral_u64(uint64_t& i) const { bool r = Z3_get_numeral_uint64(ctx(), m_ast, &i); check_error(); return r;}
+        bool is_numeral_i(int& i) const { bool r = Z3_get_numeral_int(ctx(), m_ast, &i); check_error(); return r;}
+        bool is_numeral_u(unsigned& i) const { bool r = Z3_get_numeral_uint(ctx(), m_ast, &i); check_error(); return r;}
         bool is_numeral(std::string& s) const { if (!is_numeral()) return false; s = Z3_get_numeral_string(ctx(), m_ast); check_error(); return true; }
         bool is_numeral(std::string& s, unsigned precision) const { if (!is_numeral()) return false; s = Z3_get_numeral_decimal_string(ctx(), m_ast, precision); check_error(); return true; }
         bool is_numeral(double& d) const { if (!is_numeral()) return false; d = Z3_get_numeral_double(ctx(), m_ast); check_error(); return true; }
@@ -736,15 +736,15 @@ namespace z3 {
         /**
            \brief Return true if this expression is a universal quantifier.
         */
-        bool is_forall() const { return 0 != Z3_is_quantifier_forall(ctx(), m_ast); }
+        bool is_forall() const { return Z3_is_quantifier_forall(ctx(), m_ast); }
         /**
            \brief Return true if this expression is an existential quantifier.
         */
-        bool is_exists() const { return 0 != Z3_is_quantifier_exists(ctx(), m_ast); }
+        bool is_exists() const { return Z3_is_quantifier_exists(ctx(), m_ast); }
         /**
            \brief Return true if this expression is a lambda expression.
         */
-        bool is_lambda() const { return 0 != Z3_is_lambda(ctx(), m_ast); }
+        bool is_lambda() const { return Z3_is_lambda(ctx(), m_ast); }
         /**
 
            \brief Return true if this expression is a variable.
@@ -753,12 +753,12 @@ namespace z3 {
         /**
            \brief Return true if expression is an algebraic number.
         */
-        bool is_algebraic() const { return 0 != Z3_is_algebraic_number(ctx(), m_ast); }
+        bool is_algebraic() const { return Z3_is_algebraic_number(ctx(), m_ast); }
 
         /**
            \brief Return true if this expression is well sorted (aka type correct).
         */
-        bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast) != 0; check_error(); return r; }
+        bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast); check_error(); return r; }
 
         /**
            \brief Return string representation of numeral or algebraic number
@@ -2073,7 +2073,7 @@ namespace z3 {
         // for function f.
         bool has_interp(func_decl f) const {
             check_context(*this, f);
-            return 0 != Z3_model_has_interp(ctx(), m_model, f);
+            return Z3_model_has_interp(ctx(), m_model, f);
         }
 
         func_interp add_func_interp(func_decl& f, expr& else_val) {
@@ -2112,8 +2112,8 @@ namespace z3 {
         }
         unsigned size() const { return Z3_stats_size(ctx(), m_stats); }
         std::string key(unsigned i) const { Z3_string s = Z3_stats_get_key(ctx(), m_stats, i); check_error(); return s; }
-        bool is_uint(unsigned i) const { bool r = Z3_stats_is_uint(ctx(), m_stats, i); check_error(); return r != 0; }
-        bool is_double(unsigned i) const { bool r = Z3_stats_is_double(ctx(), m_stats, i); check_error(); return r != 0; }
+        bool is_uint(unsigned i) const { bool r = Z3_stats_is_uint(ctx(), m_stats, i); check_error(); return r; }
+        bool is_double(unsigned i) const { bool r = Z3_stats_is_double(ctx(), m_stats, i); check_error(); return r; }
         unsigned uint_value(unsigned i) const { unsigned r = Z3_stats_get_uint_value(ctx(), m_stats, i); check_error(); return r; }
         double double_value(unsigned i) const { double r = Z3_stats_get_double_value(ctx(), m_stats, i); check_error(); return r; }
         friend std::ostream & operator<<(std::ostream & out, stats const & s);
@@ -2353,12 +2353,12 @@ namespace z3 {
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
         expr operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
-        bool inconsistent() const { return Z3_goal_inconsistent(ctx(), m_goal) != 0; }
+        bool inconsistent() const { return Z3_goal_inconsistent(ctx(), m_goal); }
         unsigned depth() const { return Z3_goal_depth(ctx(), m_goal); }
         void reset() { Z3_goal_reset(ctx(), m_goal); }
         unsigned num_exprs() const { return Z3_goal_num_exprs(ctx(), m_goal); }
-        bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal) != 0; }
-        bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal) != 0; }
+        bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal); }
+        bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal); }
         model convert_model(model const & m) const {
             check_context(*this, m);
             Z3_model new_m = Z3_goal_convert_model(ctx(), m_goal, m);

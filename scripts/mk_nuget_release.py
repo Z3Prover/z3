@@ -52,7 +52,7 @@ def classify_package(f):
     return None
         
 def unpack():
-    shutil.rmtree("out")
+    shutil.rmtree("out", ignore_errors=True)
     # unzip files in packages
     # out
     # +- runtimes
@@ -70,9 +70,9 @@ def unpack():
             path = os.path.abspath(os.path.join("packages", f))
             zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract("%s/bin/libz3.%s" % (package_dir, ext), "tmp")
-            mk_dir("out/runtimes/%s" % dst)
-            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/." % dst, "/y")
-            if "win" in f:
+            mk_dir("out/runtimes/%s/native" % dst)
+            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/native/." % dst, "/y")
+            if "x64-win" in f:
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll"]:
                     zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
