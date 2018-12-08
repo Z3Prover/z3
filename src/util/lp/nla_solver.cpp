@@ -893,23 +893,25 @@ struct solver::imp {
         }
     }
     
-    void negate_factor_relation(const factor& a, const factor& b) {
+    void negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
         rational a_fs = flip_sign(a);
         rational b_fs = flip_sign(b);
-        lp::lconstraint_kind cmp = vvr(a) < vvr(b)? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
-        mk_ineq(a_fs, var(a), - b_fs, var(b), cmp);
+        lp::lconstraint_kind cmp = a_sign*vvr(a) < b_sign*vvr(b)? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
+        mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
     }
     
-    void generate_ol(const rooted_mon& ac,
+    void generate_ol(const rooted_mon& ac,                     
                      const factor& a,
+                     int c_sign,
                      const factor& c,
                      const rooted_mon& bd,
                      const factor& b,
+                     int d_sign,
                      const factor& d,
-                     lp::lconstraint_kind cmp) {
+                     lp::lconstraint_kind ab_cmp) {
         negate_factor_equality(c, d);
-        negate_factor_relation(a, b);
-        mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), cmp);
+        negate_factor_relation(rational(c_sign), a, rational(d_sign), b);
+        mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), ab_cmp);
     }
 
     bool order_lemma_on_ac_and_bd_and_factors(const rooted_mon& ac,
@@ -918,37 +920,92 @@ struct solver::imp {
                                               const rooted_mon& bd,
                                               const factor& b,
                                               const factor& d) {
-        TRACE("nla_solver",
-              tout << "factor a = ";
-              print_factor(a, tout);
-              tout << ", factor b = ";
-              print_factor(b, tout););
-
-        auto ac_m = vvr(a) * vvr(c);
-        auto bd_m = vvr(b) * vvr(d);
-
-        auto ac_v = vvr(ac);
-        auto bd_v = vvr(bd);
-        TRACE("nla_solver",
-              tout << "ac_m = " << ac_m << ", ";
-              tout << "bd_m = " << bd_m << ", ";
-              tout << "ac_v = " << ac_v << ", ";
-              tout << "bd_v = " << bd_v;
-              );
-
-        if (ac_m < bd_m && !(ac_v < bd_v)) {
-            generate_ol(ac, a, c, bd, b, d, lp::lconstraint_kind::LT);
-            return true;
+        TRACE("nla_solver", tout << "a = "; print_factor(a, tout); tout << ", b = "; print_factor(b, tout););
+        SASSERT(abs(vvr(c)) == abs(vvr(d)));
+        auto av = vvr(a); auto bv = vvr(b);
+        auto cv = vvr(c); auto dv = vvr(d);
+        auto acv = vvr(ac); auto bdv = vvr(bd);
+        
+        if (cv == dv) {
+            if (cv.is_pos()) {
+                if (av < bv){
+                    if(!(acv < bdv)) {
+                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::LT);
+                        return true;
+                    }
+                    return false;
+                } else if (av > bv){
+                    if(!(acv > bdv)) {
+                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::GT);
+                        return true;
+                    }
+                    return false;
+                } else {
+                    SASSERT(av == bv);
+                     // the sign lemma should take care of this case
+                }
+            } else {
+                SASSERT(cv.is_neg());
+                if (av < bv){
+                    if(!(acv > bdv)) {
+                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::GT);
+                        return true;
+                    }
+                    return false;
+                } else if (av > bv){
+                    if(!(acv < bdv)) {
+                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::LT);
+                        return true;
+                    }
+                    return false;
+                } else {
+                    SASSERT(av == bv);
+                    // the sign lemma should take care of this case
+                }
+            }
+        } else { // cv == -dv 
+            if (cv.is_pos()) {
+                if (av < -bv){
+                    if(!(acv < bdv)) {
+                        generate_ol(ac, a, 1, c, bd, b, -1, d, lp::lconstraint_kind::LT);
+                        return true;
+                    }
+                    return false;
+                } else if (av > -bv){
+                    if(!(acv > bdv)) {
+                        generate_ol(ac, a, 1, c, bd, b, -1, d, lp::lconstraint_kind::GT);
+                        return true;
+                    }
+                    return false;
+                } else {
+                    SASSERT(av == bv);
+                     // the sign lemma should take care of this case
+                }
+            } else {
+                SASSERT(cv.is_neg());
+                if (-av < bv){
+                    if(!(acv < bdv)) {
+                        generate_ol(ac, a, -1, c, bd, b, 1, d, lp::lconstraint_kind::LT);
+                        return true;
+                    }
+                    return false;
+                } else if (-av > bv){
+                    if(!(acv > bdv)) {
+                        generate_ol(ac, a, -1, c, bd, b, 1, d, lp::lconstraint_kind::GT);
+                        return true;
+                    }
+                    return false;
+                } else {
+                    SASSERT(av == bv);
+                    // the sign lemma should take care of this case
+                }
+            }
+            
         }
-        if (ac_m > bd_m && !(ac_v > bd_v)) {
-            generate_ol(ac, a, c, bd, b, d, lp::lconstraint_kind::GT);
-            return true;
-        }
-
         return false;
     }
     
-    // a > b && c > 0 && d = |c => ac > bd 
+    // a > b && c > 0 && d = c => ac > bd 
     // ac is a factorization of m_monomials[i_mon]
     // ac[k] plays the role of c   
     bool order_lemma_on_ac_and_bd(const rooted_mon& rm_ac,
@@ -964,16 +1021,9 @@ struct solver::imp {
         SASSERT(abs(vvr(ac_f[k])) == abs(vvr(d)));
         factor b;
         if (!divide(rm_bd, d, b)){
-            TRACE("nla_solver", tout << "no division";);
             return false;
         }
 
-        TRACE("nla_solver", tout << "div factor b = ";
-              print_factor(b, tout););
-
-        TRACE("nla_solver", tout << "vvr(b) = " << vvr(b););
-
-        
         return order_lemma_on_ac_and_bd_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b, d);
     }
 
@@ -1783,7 +1833,7 @@ void solver::test_order_lemma_params(int sign) {
     vec.push_back(lp_a);
     vec.push_back(lp_b);
     vec.push_back(lp_f);
-    auto mon_abef = nla.add_monomial(lp_abef, vec.size(), vec.begin());
+    nla.add_monomial(lp_abef, vec.size(), vec.begin());
 
     //create monomial (cd)(ij)
     vec.clear();
@@ -1805,20 +1855,22 @@ void solver::test_order_lemma_params(int sign) {
     s.set_column_value(lp_ij, nla.m_imp->mon_value_by_vars(mon_ij));
     
     // set abef = cdij, while it has to be abef < cdij
-    SASSERT(s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
-    // we have ab < cd
-    s.set_column_value(lp_abef, nla.m_imp->mon_value_by_vars(mon_abef));
-    s.set_column_value(lp_cdij, nla.m_imp->mon_value_by_vars(mon_cdij));
     if (sign > 0) {
-        // we need to have abef < cdij, so let us make abef > cdij
+        SASSERT(s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
+        // we have ab < cd
+
+        // we need to have ab*ef < cd*ij, so let us make ab*ef > cd*ij
+        s.set_column_value(lp_cdij, nla.m_imp->mon_value_by_vars(mon_cdij));
         s.set_column_value(lp_abef, nla.m_imp->mon_value_by_vars(mon_cdij)
                            + rational(1));
         
     }
     else {
-        // we need to have abef > cdij, so let us make abef < cdij
+        SASSERT(-s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
+        // we need to have abef < cdij, so let us make abef < cdij
+        s.set_column_value(lp_cdij, nla.m_imp->mon_value_by_vars(mon_cdij));
         s.set_column_value(lp_abef, nla.m_imp->mon_value_by_vars(mon_cdij)
-                           - rational(1));
+                           + rational(1));
     }
     vector<ineq> lemma;
     lp::explanation exp;
