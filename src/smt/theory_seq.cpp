@@ -2396,7 +2396,6 @@ bool theory_seq::is_var(expr* a) const {
         !m_util.str.is_string(a) &&
         !m_util.str.is_unit(a) &&
         !m_util.str.is_itos(a) && 
-        !m_util.str.is_extract(a) && 
         !m.is_ite(a);
 }
 
@@ -4812,11 +4811,15 @@ void theory_seq::add_extract_axiom(expr* e) {
 void theory_seq::add_tail_axiom(expr* e, expr* s) {
     expr_ref head(m), tail(m);
     mk_decompose(s, head, tail);
-    add_axiom(mk_eq_empty(s), mk_seq_eq(s, mk_concat(head, e)));
+    literal emp = mk_eq_empty(s);
+    add_axiom(emp, mk_seq_eq(s, mk_concat(head, e)));
+    add_axiom(~emp, mk_eq_empty(e));
 }
 
 void theory_seq::add_drop_last_axiom(expr* e, expr* s) {
-    add_axiom(mk_eq_empty(s), mk_seq_eq(s, mk_concat(e, m_util.str.mk_unit(mk_last(s)))));
+    literal emp = mk_eq_empty(s);
+    add_axiom(emp, mk_seq_eq(s, mk_concat(e, m_util.str.mk_unit(mk_last(s)))));
+    add_axiom(~emp, mk_eq_empty(e));
 }
 
 bool theory_seq::is_drop_last(expr* s, expr* i, expr* l) {
@@ -4857,6 +4860,7 @@ bool theory_seq::is_extract_suffix(expr* s, expr* i, expr* l) {
 /*
   0 <= l <= len(s) => s = ey & l = len(e)
   len(s) < l => s = e
+  l < 0 => e = empty
  */
 void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     TRACE("seq", tout << mk_pp(e, m) << " " << mk_pp(s, m) << " " << mk_pp(l, m) << "\n";);
@@ -4872,12 +4876,13 @@ void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     add_axiom(~l_ge_0, ~l_le_s, mk_eq(l, le, false));
     add_axiom(~l_ge_0, ~l_le_s, mk_eq(ls_minus_l, mk_len(y), false));
     add_axiom(l_le_s, mk_eq(e, s, false));
+    add_axiom(l_ge_0, mk_eq_empty(e));
 }
 
 /*
   0 <= i <= len(s) => s = xe & i = len(x)    
-  i < 0 => len(e) = 0
-  i > len(s) => len(e) = 0
+  i < 0 => e = empty
+  i > len(s) => e = empty
  */
 void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     expr_ref x(mk_skolem(m_pre, s, i), m);
@@ -4885,7 +4890,7 @@ void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
     expr_ref ls = mk_len(s);
     expr_ref zero(m_autil.mk_int(0), m);
     expr_ref xe = mk_concat(x, e);
-    literal le_is_0 = mk_eq(zero, mk_len(e), false);
+    literal le_is_0 = mk_eq_empty(e);
     literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
     literal i_le_s = mk_simplified_literal(m_autil.mk_le(mk_sub(i, ls), zero));
     add_axiom(~i_ge_0, ~i_le_s, mk_seq_eq(s, xe));

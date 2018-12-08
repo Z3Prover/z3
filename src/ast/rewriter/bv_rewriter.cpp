@@ -780,13 +780,11 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
     }
 
     expr* c = nullptr, *t = nullptr, *e = nullptr;
-    if (m().is_ite(arg, c, t, e)) {
-        if ((t->get_ref_count() == 1 && e->get_ref_count() == 1) ||
-            (!m().is_ite(t) && !m().is_ite(e))) {
-            //std::cout << "n-ite\n";
-            result = m().mk_ite(c, m_mk_extract(high, low, t), m_mk_extract(high, low, e));
-            return BR_REWRITE2;
-        }
+    if (m().is_ite(arg, c, t, e) &&
+        (t->get_ref_count() == 1 || !m().is_ite(t)) && 
+        (e->get_ref_count() == 1 || !m().is_ite(e))) {
+        result = m().mk_ite(c, m_mk_extract(high, low, t), m_mk_extract(high, low, e));
+        return BR_REWRITE2;
     }
 
     return BR_FAILED;

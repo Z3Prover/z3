@@ -238,7 +238,7 @@ format * smt2_pp_environment::pp_float_literal(app * t, bool use_bv_lits, bool u
     string_buffer<> buf;
     VERIFY(get_futil().is_numeral(t, v));
     if (fm.is_nan(v)) {
-        buf << "(_ NaN " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
+        buf << "(_ NaN " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";        
         return mk_string(m, buf.c_str());
     }
     else if (fm.is_pinf(v)) {
