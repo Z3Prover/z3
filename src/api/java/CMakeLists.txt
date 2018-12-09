@@ -39,8 +39,7 @@ add_library(z3java SHARED ${Z3_JAVA_NATIVE_CPP})
 target_link_libraries(z3java PRIVATE libz3)
 # FIXME:
 # Not sure if using all the flags used by the Z3 components is really necessary
-# here.  At the bare minimum setting _AMD64_ depending on the target is
-# necessary but seeing as the Python build system uses all the flags used for building
+# here. The Python build system uses all the flags used for building
 # Z3's components to build ``Native.cpp`` lets do the same for now.
 target_compile_options(z3java PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_compile_definitions(z3java PRIVATE ${Z3_COMPONENT_CXX_DEFINES})

@@ -56,7 +56,7 @@ Revision History:
 #define _trailing_zeros32(X) _tzcnt_u32(X)
 #endif
 
-#if defined(_AMD64_) 
+#if defined(__LP64__) || defined(_WIN64)
  #if defined(__GNUC__)
  #define _trailing_zeros64(X) __builtin_ctzll(X)
  #else
