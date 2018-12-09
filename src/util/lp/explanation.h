@@ -36,5 +36,8 @@ public:
     }
 
     template <typename A> void add(const A& a) { for (constraint_index j : a) push_justification(j); }
+    bool empty() const {
+        return m_explanation.empty();
+    }
 };
 }

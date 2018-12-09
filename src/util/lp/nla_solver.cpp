@@ -1777,12 +1777,14 @@ void solver::test_basic_sign_lemma() {
     SASSERT(found);
 }
 
-void solver::test_order_lemma_params(int sign) {
+void solver::test_order_lemma_params(bool var_equiv, int sign) {
     enable_trace("nla_solver");
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4, f = 5, 
         i = 8, j = 9,
-        ab = 10, cd = 11, ef = 12, abef = 13, cdij = 16, ij = 17;
+        ab = 10, cd = 11, ef = 12, abef = 13, cdij = 16, ij = 17,
+        k = 18;
+    
     
     lpvar lp_a = s.add_named_var(a, true, "a");
     lpvar lp_b = s.add_named_var(b, true, "b");
@@ -1792,6 +1794,7 @@ void solver::test_order_lemma_params(int sign) {
     lpvar lp_f = s.add_named_var(f, true, "f");
     lpvar lp_i = s.add_named_var(i, true, "i");
     lpvar lp_j = s.add_named_var(j, true, "j");
+    lpvar lp_k = s.add_named_var(k, true, "k");
     lpvar lp_ab = s.add_named_var(ab, true, "ab");
     lpvar lp_cd = s.add_named_var(cd, true, "cd");
     lpvar lp_ef = s.add_named_var(ef, true, "ef");
@@ -1824,8 +1827,20 @@ void solver::test_order_lemma_params(int sign) {
     // create monomial ij
     vec.clear();
     vec.push_back(lp_i);
-    vec.push_back(lp_j);
+    if (var_equiv)
+        vec.push_back(lp_k);
+    else
+        vec.push_back(lp_j);
     int mon_ij = nla.add_monomial(lp_ij, vec.size(), vec.begin());
+
+    if (var_equiv) { // make k equivalent to j
+        lp::lar_term t;
+        t.add_coeff_var(lp_k);
+        t.add_coeff_var(-rational(1), lp_j);
+        lpvar kj = s.add_term(t.coeffs_as_vector());
+        s.add_var_bound(kj, lp::lconstraint_kind::LE, rational(0));
+        s.add_var_bound(kj, lp::lconstraint_kind::GE, rational(0));
+    }
     
     //create monomial (ab)(ef) 
     vec.clear();
@@ -1847,13 +1862,15 @@ void solver::test_order_lemma_params(int sign) {
     s.set_column_value(lp_e, s.get_column_value(lp_i));
     // set f == sign*j
     s.set_column_value(lp_f, rational(sign) * s.get_column_value(lp_j));
-
+    if (var_equiv) {
+        s.set_column_value(lp_k, s.get_column_value(lp_j));
+    }
     // set the values of ab, ef, cd, and ij correctly
     s.set_column_value(lp_ab, nla.m_imp->mon_value_by_vars(mon_ab));
     s.set_column_value(lp_ef, nla.m_imp->mon_value_by_vars(mon_ef));
     s.set_column_value(lp_cd, nla.m_imp->mon_value_by_vars(mon_cd));
     s.set_column_value(lp_ij, nla.m_imp->mon_value_by_vars(mon_ij));
-    
+   
     // set abef = cdij, while it has to be abef < cdij
     if (sign > 0) {
         SASSERT(s.get_column_value(lp_ab) < s.get_column_value(lp_cd));
@@ -1876,7 +1893,7 @@ void solver::test_order_lemma_params(int sign) {
     lp::explanation exp;
     
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-
+    SASSERT(!var_equiv || !exp.empty());
     // lp::lar_term t;
     // t.add_coeff_var(lp_bde);
     // t.add_coeff_var(lp_acd);
@@ -1898,7 +1915,9 @@ void solver::test_order_lemma_params(int sign) {
 }
 
 void solver::test_order_lemma() {
-    test_order_lemma_params(1);
-    test_order_lemma_params(-1);
+    test_order_lemma_params(false,  1);
+    test_order_lemma_params(false, -1);
+    test_order_lemma_params(true,   1);
+    test_order_lemma_params(true,  -1);
 }
 }
