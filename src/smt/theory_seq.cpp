@@ -3957,8 +3957,6 @@ app* theory_seq::mk_value(app* e) {
         SASSERT(m_factory);
         expr_ref val(m);
         val = m_factory->get_some_value(m.get_sort(result));
-        std::cout << "is-var " << result << "\n";
-        std::cout << "val " << val << "\n";
         if (val) {
             result = val;
         }
