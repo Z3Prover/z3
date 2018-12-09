@@ -404,6 +404,8 @@ namespace smt {
         void init_search_eh() override;
 
         void init_model(expr_ref_vector const& es);
+        app* get_ite_value(expr* a);
+        void get_ite_concat(expr* e, ptr_vector<expr>& concats);
         
         void len_offset(expr* e, rational val);
         void prop_arith_to_len_offset();
@@ -539,8 +541,6 @@ namespace smt {
         expr_ref expand1(expr* e, dependency*& eqs);
         expr_ref try_expand(expr* e, dependency*& eqs);
         void add_dependency(dependency*& dep, enode* a, enode* b);
-
-        void get_concat(expr* e, ptr_vector<expr>& concats);
     
         // terms whose meaning are encoded using axioms.
         void enque_axiom(expr* e);

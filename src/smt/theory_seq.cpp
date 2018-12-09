@@ -3767,6 +3767,8 @@ void theory_seq::finalize_model(model_generator& mg) {
 }
 
 void theory_seq::init_model(model_generator & mg) {
+    enable_trace("seq");
+    TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
     m_rep.push_scope();
     m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
     mg.register_factory(m_factory);
@@ -3884,28 +3886,35 @@ public:
             th.m_rewrite(result);
         }
         th.m_factory->add_trail(result);
+        TRACE("seq", tout << result << "\n";);
         return to_app(result);
     }
 };
 
+app* theory_seq::get_ite_value(expr* e) {
+    expr* e1, *e2, *e3;
+    while (m.is_ite(e, e1, e2, e3)) {
+        if (get_root(e2) == get_root(e)) {
+            e = e2;
+        }
+        else if (get_root(e3) == get_root(e)) {
+            e = e3;
+        }
+        else {
+            break;
+        }
+    }
+    return to_app(e);
+}
 
 model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     app* e = n->get_owner();
     context& ctx = get_context();
-    expr* e1, *e2, *e3;
-    if (m.is_ite(e, e1, e2, e3) && ctx.e_internalized(e2) && ctx.e_internalized(e3) &&
-        (get_root(e2) == n->get_root() ||
-         get_root(e3) == n->get_root())) {
-        if (ctx.get_enode(e2)->get_root() == n->get_root()) {
-            return mk_value(ctx.get_enode(e2), mg);
-        }
-        else {
-            return mk_value(ctx.get_enode(e3), mg);
-        }
-    }
-    else if (m_util.is_seq(e)) {
+    TRACE("seq", tout << mk_pp(n->get_owner(), m) << "\n";);
+    e = get_ite_value(e);    
+    if (m_util.is_seq(e)) {
         ptr_vector<expr> concats;
-        get_concat(e, concats);
+        get_ite_concat(e, concats);
         sort* srt = m.get_sort(e);
         seq_value_proc* sv = alloc(seq_value_proc, *this, srt);
        
@@ -3940,11 +3949,16 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
 
 app* theory_seq::mk_value(app* e) {
     expr_ref result(m);
+    context& ctx = get_context();
+    e = get_ite_value(e);
     result = m_rep.find(e);
+
     if (is_var(result)) {
         SASSERT(m_factory);
         expr_ref val(m);
         val = m_factory->get_some_value(m.get_sort(result));
+        std::cout << "is-var " << result << "\n";
+        std::cout << "val " << val << "\n";
         if (val) {
             result = val;
         }
@@ -5643,15 +5657,16 @@ bool theory_seq::canonizes(bool sign, expr* e) {
 }
 
 
-void theory_seq::get_concat(expr* e, ptr_vector<expr>& concats) {
+void theory_seq::get_ite_concat(expr* e, ptr_vector<expr>& concats) {
     expr* e1 = nullptr, *e2 = nullptr;
     while (true) {
         e = m_rep.find(e);
+        e = get_ite_value(e);
         if (m_util.str.is_concat(e, e1, e2)) {
-            get_concat(e1, concats);
+            get_ite_concat(e1, concats);
             e = e2;
             continue;
-        }
+        }        
         concats.push_back(e);        
         return;
     }

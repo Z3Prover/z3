@@ -501,7 +501,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
-    TRACE("seq", tout << result << "\n";);
+    CTRACE("seq", st != BR_FAILED, tout << result << "\n";);
     return st;
 }
 
