@@ -689,11 +689,10 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (offset == 0) {
         return BR_FAILED;
     }
-    expr_ref len1(m()), pos1(m());
+    expr_ref pos1(m());
     pos1 = m_autil.mk_sub(b, m_autil.mk_int(offset));
-    len1 = m_autil.mk_sub(c, m_autil.mk_int(offset));
     result = m_util.str.mk_concat(as.size() - offset, as.c_ptr() + offset);
-    result = m_util.str.mk_substr(result, pos1, len1);
+    result = m_util.str.mk_substr(result, pos1, c);
     return BR_REWRITE3;
 }
 
