@@ -17,11 +17,21 @@ Revision History:
 
 --*/
 #include<sstream>
+#include<iomanip>
+#include<bitset>
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "util/warning.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_smt2_pp.h"
+
+#if defined(_MP_INTERNAL)
+#include "util/mpn.h"
+#elif defined(_MP_GMP)
+#include<gmp.h>
+#else
+#error No multi-precision library selected.
+#endif
 
 bv_decl_plugin::bv_decl_plugin():
     m_bv_sym("bv"),
@@ -867,9 +877,71 @@ app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
     app * r = m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, nullptr);
 
     if (m_plugin->log_constant_meaning_prelude(r)) {
-        m_manager.trace_stream() << "(" << bv_size << " #d";
-        val.display(m_manager.trace_stream());
-        m_manager.trace_stream() << ")\n";
+        std::ios fmt(nullptr);
+        fmt.copyfmt(m_manager.trace_stream());
+        SASSERT(val.is_int());
+        if (val.is_small()) {
+            if (bv_size % 4 == 0) {
+                m_manager.trace_stream() << "#x" << std::hex << std::setw(bv_size/4) << std::setfill('0') << val << "\n";
+            } else {
+                m_manager.trace_stream() << "#b" << std::bitset<sizeof(unsigned)*8>(val.get_unsigned()).to_string().substr(sizeof(unsigned)*8 - bv_size) << "\n";
+            }
+            return r;
+        }
+#ifndef _MP_GMP
+        digit_t *digits = mpz_manager<true>::digits(val.to_mpq().numerator());
+        unsigned size = mpz_manager<true>::size(val.to_mpq().numerator());
+        if (bv_size % 4 == 0) {
+            m_manager.trace_stream() << "#x" << std::hex;
+            unsigned bitSize = size * sizeof(digit_t) * 8;
+            if (bv_size > bitSize) {
+                for (unsigned i = 0; i < (bv_size - bitSize)/4; ++i) {
+                    m_manager.trace_stream() << 0;
+                }
+            }
+            m_manager.trace_stream() << digits[size-1] << std::setw(sizeof(digit_t)*2) << std::setfill('0');
+            for (unsigned i = 1; i < size; ++i) {
+                m_manager.trace_stream() << digits[size-i-1];
+            }
+            m_manager.trace_stream() << "\n";
+        } else {
+            m_manager.trace_stream() << "#b";
+            const unsigned digitBitSize = sizeof(digit_t) * 8;
+            unsigned bitSize = size * digitBitSize;
+            unsigned firstDigitLength;
+            if (bv_size > bitSize) {
+                firstDigitLength = 0;
+                for (unsigned i = 0; i < (bv_size - bitSize)/4; ++i) {
+                    m_manager.trace_stream() << 0;
+                }
+            } else {
+                firstDigitLength = bv_size % digitBitSize;
+            }
+            for (unsigned i = 0; i < size; ++i) {
+                if (i == 0 && firstDigitLength != 0) {
+                    m_manager.trace_stream() << std::bitset<digitBitSize>(digits[size-1]).to_string().substr(digitBitSize - firstDigitLength);
+                } else {
+                    m_manager.trace_stream() << std::bitset<digitBitSize>(digits[size-i-1]);
+                }
+            }
+            m_manager.trace_stream() << "\n";
+        }
+#else
+        // GMP version
+        const unsigned base = bv_size % 4 == 0 ? 16 : 2;
+        size_t sz = mpz_sizeinbase(*(val.to_mpq().numerator().m_ptr), base) + 2;
+        unsigned requiredLength = bv_size / (base == 16 ? 4 : 1);
+        unsigned padding = requiredLength > sz ? requiredLength - sz : 0;
+        sbuffer<char, 1024> buffer(sz, 0);
+        mpz_get_str(buffer.c_ptr(), base, *(val.to_mpq().numerator().m_ptr));
+        m_manager.trace_stream() << (base == 16 ? "#x" : "#b");
+        for (unsigned i = 0; i < padding; ++i) {
+            m_manager.trace_stream() << 0;
+        }
+        m_manager.trace_stream() << buffer.c_ptr() << "\n";
+#endif
+        m_manager.trace_stream().copyfmt(fmt);
+        m_manager.trace_stream() << std::dec;
     }
 
     return r;
@@ -892,30 +964,43 @@ app * bv_util::mk_bv2int(expr* e) {
     return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e);
 }
 
-
 app * bv_util::mk_bv(unsigned n, expr* const* es) {
         app * r = m_manager.mk_app(get_fid(), OP_MKBV, n, es);
 
-        if (m_plugin->log_constant_meaning_prelude(r)) {
-            m_manager.trace_stream() << "(" << n << " #x";
-
-            m_manager.trace_stream() << std::hex;
-            uint8_t hexDigit = 0;
-            unsigned curLength = (4 - n % 4) % 4;
+        if (m_manager.has_trace_stream()) {
             for (unsigned i = 0; i < n; ++i) {
-                hexDigit << 1;
-                ++curLength;
-                if (m_manager.is_true(es[i])) {
-                    hexDigit |= 1;
-                }
-                if (curLength == 4) {
-                    m_manager.trace_stream() << hexDigit;
-                    hexDigit = 0;
-                }
-            }
-            m_manager.trace_stream() << std::dec;
+                if (!m_manager.is_true(es[i]) && !m_manager.is_true(es[i]))
+                    return r;
+            } 
 
-            m_manager.trace_stream() << ")\n";
+            if (m_plugin->log_constant_meaning_prelude(r)) {
+                if (n % 4 == 0) {
+                    m_manager.trace_stream() << " #x";
+
+                    m_manager.trace_stream() << std::hex;
+                    uint8_t hexDigit = 0;
+                    unsigned curLength = (4 - n % 4) % 4;
+                    for (unsigned i = 0; i < n; ++i) {
+                        hexDigit << 1;
+                        ++curLength;
+                        if (m_manager.is_true(es[i])) {
+                            hexDigit |= 1;
+                        }
+                        if (curLength == 4) {
+                            m_manager.trace_stream() << hexDigit;
+                            hexDigit = 0;
+                        }
+                    }
+                    m_manager.trace_stream() << std::dec;
+                } else {
+                    m_manager.trace_stream() << " #b";
+                    for (unsigned i = 0; i < n; ++i) {
+                        m_manager.trace_stream() << (m_manager.is_true(es[i]) ? 1 : 0);
+                    }
+                }
+
+                m_manager.trace_stream() << ")\n";
+            }
         }
 
         return r;

@@ -99,6 +99,7 @@ class mpz {
     friend class mpbq;
     friend class mpbq_manager;
     friend class mpz_stack;
+    friend class bv_util;
     mpz & operator=(mpz const & other) { UNREACHABLE(); return *this; }
 public:
     mpz(int v):m_val(v), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
@@ -134,6 +135,7 @@ inline void swap(mpz & m1, mpz & m2) { m1.swap(m2); }
 
 template<bool SYNCH = true>
 class mpz_manager {
+    friend class bv_util;
     mutable small_object_allocator  m_allocator;
     mutable omp_nest_lock_t         m_lock;
 #define MPZ_BEGIN_CRITICAL() if (SYNCH) omp_set_nest_lock(&m_lock);

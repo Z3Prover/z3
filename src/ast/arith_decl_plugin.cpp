@@ -92,7 +92,7 @@ app * arith_decl_plugin::mk_numeral(algebraic_numbers::anum const & val, bool is
         app * r = m_manager->mk_const(decl);
 
         if (log_constant_meaning_prelude(r)) {
-            am().display_root(m_manager->trace_stream(), val);
+            am().display_root_smt2(m_manager->trace_stream(), val);
             m_manager->trace_stream() << "\n";
         }
 
@@ -427,7 +427,6 @@ app * arith_decl_plugin::mk_numeral(rational const & val, bool is_int) {
                         m_manager->trace_stream() << u_val << "\n";
                     }
                 }
-
                 return r;
             }
             else {
@@ -455,7 +454,7 @@ app * arith_decl_plugin::mk_numeral(rational const & val, bool is_int) {
     app * r = m_manager->mk_const(decl);
 
     if (log_constant_meaning_prelude(r)) {
-        val.display(m_manager->trace_stream());
+        val.display_smt2(m_manager->trace_stream());
         m_manager->trace_stream() << "\n";
     }
 

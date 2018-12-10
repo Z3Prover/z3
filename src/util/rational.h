@@ -93,6 +93,8 @@ public:
     
     void display_decimal(std::ostream & out, unsigned prec, bool truncate = false) const { return m().display_decimal(out, m_val, prec, truncate); }
 
+    void display_smt2(std::ostream & out) const { return m().display_smt2(out, m_val, false); }
+
     bool is_uint64() const { return m().is_uint64(m_val); }
 
     bool is_int64() const { return m().is_int64(m_val); }
