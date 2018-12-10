@@ -899,7 +899,10 @@ struct solver::imp {
         lp::lconstraint_kind cmp = a_sign*vvr(a) < b_sign*vvr(b)? lp::lconstraint_kind::GE : lp::lconstraint_kind::LE;
         mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
     }
-    
+
+    // |c_sign| = |d_sign| = 1, and c*c_sign = d*d_sign > 0
+    // a*c_sign > b*d_sign => ac > bd.
+    // The sign ">" above is replaced by ab_cmp
     void generate_ol(const rooted_mon& ac,                     
                      const factor& a,
                      int c_sign,
@@ -914,6 +917,31 @@ struct solver::imp {
         mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), ab_cmp);
     }
 
+    bool get_cd_signs_for_ol(const rational& c, const rational& d, int& c_sign, int & d_sign) const {
+        if (c.is_zero() || d.is_zero())
+            return false;
+        if (c == d) {
+            if (c.is_pos()) {
+                c_sign = d_sign = 1;
+            }
+            else {
+                c_sign = d_sign = -1;
+            }
+            return true;
+        } else if (c == -d){
+            if (c.is_pos()) {
+                c_sign = 1;
+                d_sign = -1;
+            }
+            else {
+                c_sign = 1;
+                d_sign = -1;
+            }
+            return true;
+        }
+        return false;
+    }
+    
     bool order_lemma_on_ac_and_bd_and_factors(const rooted_mon& ac,
                                               const factor& a,
                                               const factor& c,
@@ -922,85 +950,24 @@ struct solver::imp {
                                               const factor& d) {
         TRACE("nla_solver", tout << "a = "; print_factor(a, tout); tout << ", b = "; print_factor(b, tout););
         SASSERT(abs(vvr(c)) == abs(vvr(d)));
-        auto av = vvr(a); auto bv = vvr(b);
         auto cv = vvr(c); auto dv = vvr(d);
+        int c_sign, d_sign;
+        if (!get_cd_signs_for_ol(cv, dv, c_sign, d_sign))
+            return false;
+
+        auto av = vvr(a)*rational(c_sign); auto bv = vvr(b)*rational(d_sign);
         auto acv = vvr(ac); auto bdv = vvr(bd);
         
-        if (cv == dv) {
-            if (cv.is_pos()) {
-                if (av < bv){
-                    if(!(acv < bdv)) {
-                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::LT);
-                        return true;
-                    }
-                    return false;
-                } else if (av > bv){
-                    if(!(acv > bdv)) {
-                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::GT);
-                        return true;
-                    }
-                    return false;
-                } else {
-                    SASSERT(av == bv);
-                     // the sign lemma should take care of this case
-                }
-            } else {
-                SASSERT(cv.is_neg());
-                if (av < bv){
-                    if(!(acv > bdv)) {
-                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::GT);
-                        return true;
-                    }
-                    return false;
-                } else if (av > bv){
-                    if(!(acv < bdv)) {
-                        generate_ol(ac, a, 1, c, bd, b, 1, d, lp::lconstraint_kind::LT);
-                        return true;
-                    }
-                    return false;
-                } else {
-                    SASSERT(av == bv);
-                    // the sign lemma should take care of this case
-                }
+        if (av < bv){
+            if(!(acv < bdv)) {
+                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, lp::lconstraint_kind::LT);
+                return true;
             }
-        } else { // cv == -dv 
-            if (cv.is_pos()) {
-                if (av < -bv){
-                    if(!(acv < bdv)) {
-                        generate_ol(ac, a, 1, c, bd, b, -1, d, lp::lconstraint_kind::LT);
-                        return true;
-                    }
-                    return false;
-                } else if (av > -bv){
-                    if(!(acv > bdv)) {
-                        generate_ol(ac, a, 1, c, bd, b, -1, d, lp::lconstraint_kind::GT);
-                        return true;
-                    }
-                    return false;
-                } else {
-                    SASSERT(av == bv);
-                     // the sign lemma should take care of this case
-                }
-            } else {
-                SASSERT(cv.is_neg());
-                if (-av < bv){
-                    if(!(acv < bdv)) {
-                        generate_ol(ac, a, -1, c, bd, b, 1, d, lp::lconstraint_kind::LT);
-                        return true;
-                    }
-                    return false;
-                } else if (-av > bv){
-                    if(!(acv > bdv)) {
-                        generate_ol(ac, a, -1, c, bd, b, 1, d, lp::lconstraint_kind::GT);
-                        return true;
-                    }
-                    return false;
-                } else {
-                    SASSERT(av == bv);
-                    // the sign lemma should take care of this case
-                }
+        } else if (av > bv){
+            if(!(acv > bdv)) {
+                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, lp::lconstraint_kind::GT);
+                return true;
             }
-            
         }
         return false;
     }
