@@ -3767,8 +3767,6 @@ void theory_seq::finalize_model(model_generator& mg) {
 }
 
 void theory_seq::init_model(model_generator & mg) {
-    enable_trace("seq");
-    TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
     m_rep.push_scope();
     m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
     mg.register_factory(m_factory);
