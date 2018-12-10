@@ -733,7 +733,6 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         }
     }
 
-
     if (as.empty()) {
         result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
         return BR_REWRITE2;
@@ -769,14 +768,10 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_true();
         return BR_DONE;
     }
-    bool all_units = true;
-    for (unsigned i = 0; i < bs.size(); ++i) { 
-        all_units = m_util.str.is_unit(bs[i].get());
-    }
-    for (unsigned i = 0; i < as.size(); ++i) { 
-        all_units = m_util.str.is_unit(as[i].get());
-    }
-    if (all_units) {
+
+    std::function<bool(expr*)> is_unit = [&](expr *e) { return m_util.str.is_unit(e); };
+
+    if (bs.forall(is_unit) && as.forall(is_unit)) {
         if (as.size() < bs.size()) {
             result = m().mk_false();
             return BR_DONE;

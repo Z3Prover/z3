@@ -3064,7 +3064,9 @@ bool theory_seq::solve_nc(unsigned idx) {
     expr_ref c = canonize(n.contains(), deps);
     expr* a = nullptr, *b = nullptr;
 
-    CTRACE("seq", c != n.contains(), tout << n.contains() << " => " << c << "\n";);
+    CTRACE("seq", c != n.contains(), tout << n.contains() << " => " << c << "\n";
+           display_nc(tout, n);
+           display_deps(tout, deps); tout << "\n";);
 
     
     if (m.is_true(c)) {
@@ -3114,6 +3116,7 @@ bool theory_seq::solve_nc(unsigned idx) {
         return true;
     }
 
+#if 0
     if (m_util.str.is_contains(n.contains(), a, b)) {
         enforce_length(a);
         enforce_length(b);
@@ -3124,7 +3127,8 @@ bool theory_seq::solve_nc(unsigned idx) {
         // if len(a) < len(b), then a cannot contain b.
         return true;
     }
-    
+#endif
+
     if (c != n.contains()) {
         m_ncs.push_back(nc(c, deps));
         m_new_propagation = true;
@@ -3604,7 +3608,6 @@ void theory_seq::display(std::ostream & out) const {
             display_nc(out, m_ncs[i]);
         }
     }
-
 }
 
 void theory_seq::display_nc(std::ostream& out, nc const& nc) const {
@@ -4299,12 +4302,13 @@ void theory_seq::add_indexof_axiom(expr* i) {
         expr_ref y  = mk_skolem(m_indexof_right, t, s);
         xsy         = mk_concat(x, s, y);
         expr_ref lenx(m_util.str.mk_length(x), m);
+        literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
         // |s| = 0 => indexof(t,s,0) = 0
         // contains(t,s) & |s| != 0 => t = xsy & indexof(t,s,0) = |x|
         add_axiom(~s_eq_empty, i_eq_0);
         add_axiom(~cnt, s_eq_empty, mk_seq_eq(t, xsy));
         add_axiom(~cnt, s_eq_empty, mk_eq(i, lenx, false));
-        add_axiom(~cnt, mk_literal(m_autil.mk_ge(i, zero)));
+        add_axiom(~cnt, i_ge_0);
         tightest_prefix(s, x);
     }
     else {
