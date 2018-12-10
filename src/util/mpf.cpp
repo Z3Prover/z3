@@ -1624,10 +1624,10 @@ std::string mpf_manager::to_string_hexfloat(mpf const & x) {
                                     std::ios_base::showpoint | std::ios_base::showpos);
     ss.setf(ff);
     ss.precision(13);
-#if defined(_WIN32) && _MSC_VER >= 1800
-    ss << std::hexfloat << to_double(x);
-#else
+#if defined(_WIN32) && _MSC_VER < 1800
     ss << std::hex << (*reinterpret_cast<const unsigned long long *>(&(x)));
+#else
+    ss << std::hexfloat << to_double(x);
 #endif
     return ss.str();
 }
