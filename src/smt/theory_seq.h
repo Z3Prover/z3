@@ -19,9 +19,7 @@ Revision History:
 #ifndef THEORY_SEQ_H_
 #define THEORY_SEQ_H_
 
-#include "smt/smt_theory.h"
 #include "ast/seq_decl_plugin.h"
-#include "smt/theory_seq_empty.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_trail.h"
 #include "util/scoped_vector.h"
@@ -30,6 +28,9 @@ Revision History:
 #include "ast/rewriter/seq_rewriter.h"
 #include "util/union_find.h"
 #include "util/obj_ref_hashtable.h"
+#include "smt/smt_theory.h"
+#include "smt/smt_arith_value.h"
+#include "smt/theory_seq_empty.h"
 
 namespace smt {
 
@@ -344,13 +345,15 @@ namespace smt {
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
         obj_map<expr, rational> m_si_axioms;
-        obj_hashtable<expr> m_length;             // is length applied
+        obj_hashtable<expr> m_has_length;          // is length applied
+        expr_ref_vector     m_length;             // length applications themselves
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
         th_rewriter      m_rewrite;
         seq_rewriter     m_seq_rewrite;
         seq_util         m_util;
         arith_util       m_autil;
+        arith_value      m_arith_value;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
         symbol           m_prefix, m_suffix, m_accept, m_reject;
@@ -401,6 +404,8 @@ namespace smt {
         void init_search_eh() override;
 
         void init_model(expr_ref_vector const& es);
+        app* get_ite_value(expr* a);
+        void get_ite_concat(expr* e, ptr_vector<expr>& concats);
         
         void len_offset(expr* e, rational val);
         void prop_arith_to_len_offset();
@@ -536,8 +541,6 @@ namespace smt {
         expr_ref expand1(expr* e, dependency*& eqs);
         expr_ref try_expand(expr* e, dependency*& eqs);
         void add_dependency(dependency*& dep, enode* a, enode* b);
-
-        void get_concat(expr* e, ptr_vector<expr>& concats);
     
         // terms whose meaning are encoded using axioms.
         void enque_axiom(expr* e);
@@ -557,7 +560,7 @@ namespace smt {
         bool is_extract_suffix(expr* s, expr* i, expr* l);
         
 
-        bool has_length(expr *e) const { return m_length.contains(e); }
+        bool has_length(expr *e) const { return m_has_length.contains(e); }
         void add_length(expr* e);
         void enforce_length(expr* n);
         bool enforce_length(expr_ref_vector const& es, vector<rational>& len);
@@ -603,7 +606,7 @@ namespace smt {
         bool get_length(expr* s, rational& val) const;
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
-        expr* coalesce_chars(expr* const& str);
+        expr_ref coalesce_chars(expr* const& str);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = nullptr, expr* e3 = nullptr, expr* e4 = nullptr, sort* range = nullptr);
         bool is_skolem(symbol const& s, expr* e) const;
 

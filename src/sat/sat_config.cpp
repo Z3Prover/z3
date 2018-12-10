@@ -123,8 +123,11 @@ namespace sat {
         m_lookahead_cube_psat_clause_base = p.lookahead_cube_psat_clause_base();
         m_lookahead_cube_psat_trigger = p.lookahead_cube_psat_trigger();
         m_lookahead_global_autarky = p.lookahead_global_autarky();
+        m_lookahead_delta_fraction = p.lookahead_delta_fraction();
         m_lookahead_use_learned = p.lookahead_use_learned();
-
+        if (m_lookahead_delta_fraction < 0 || m_lookahead_delta_fraction > 1.0) {
+            throw sat_param_exception("invalid value for delta fraction. It should be a number in the interval 0 to 1"); 
+        }
 
         // These parameters are not exposed
         m_next_simplify1  = _p.get_uint("next_simplify", 30000);

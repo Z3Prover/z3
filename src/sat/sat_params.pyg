@@ -76,6 +76,7 @@ def_module_params('sat',
                           ('lookahead.use_learned', BOOL, False, 'use learned clauses when selecting lookahead literal'),
                           ('lookahead_simplify.bca', BOOL, True, 'add learned binary clauses as part of lookahead simplification'),
                           ('lookahead.global_autarky', BOOL, False, 'prefer to branch on variables that occur in clauses that are reduced'),
+                          ('lookahead.delta_fraction', DOUBLE, 1.0, 'number between 0 and 1, the smaller the more literals are selected for double lookahead'),
                           ('lookahead.reward', SYMBOL, 'march_cu', 'select lookahead heuristic: ternary, heule_schur (Heule Schur), heuleu (Heule Unit), unit, or march_cu'))
                           # reward function used to determine which literal to cube on.
                           # - ternary: reward function useful for random 3-SAT instances. Used by Heule and Knuth in March.

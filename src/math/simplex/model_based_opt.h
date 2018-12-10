@@ -132,7 +132,7 @@ namespace opt {
 
         void normalize(unsigned row_id);
 
-        void mk_coeffs_without(vector<var>& dst, vector<var> const src, unsigned x);
+        void mk_coeffs_without(vector<var>& dst, vector<var> const& src, unsigned x);
 
         unsigned new_row();
 

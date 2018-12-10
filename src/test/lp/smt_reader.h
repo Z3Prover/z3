@@ -193,14 +193,14 @@ namespace lp {
             }
         }
 
-        void adjust_rigth_side(formula_constraint & /* c*/, lisp_elem & /*el*/) {
+        void adjust_right_side(formula_constraint & /* c*/, lisp_elem & /*el*/) {
             // lp_assert(el.m_head == "0"); // do nothing for the time being
         }
 
         void set_constraint_coeffs(formula_constraint & c, lisp_elem & el) {
             lp_assert(el.m_elems.size() == 2);
             set_constraint_coeffs_on_coeff_element(c, el.m_elems[0]);
-            adjust_rigth_side(c, el.m_elems[1]);
+            adjust_right_side(c, el.m_elems[1]);
         }
 
 

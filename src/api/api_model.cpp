@@ -79,11 +79,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_model_has_interp(c, m, a);
         CHECK_NON_NULL(m, 0);
-        if (to_model_ref(m)->has_interpretation(to_func_decl(a))) {
-            return true;
-        } else {
-            return false;
-        }
+        return to_model_ref(m)->has_interpretation(to_func_decl(a));
         Z3_CATCH_RETURN(false);
     }
 

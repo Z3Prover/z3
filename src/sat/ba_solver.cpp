@@ -676,7 +676,6 @@ namespace sat {
                 verbose_stream() << "alit: " << alit << "\n";
                 verbose_stream() << "num watch " << num_watch << "\n");
             UNREACHABLE();
-            exit(0);
             return l_undef;
         }
         
@@ -2608,7 +2607,6 @@ namespace sat {
                 IF_VERBOSE(0, s().display_watches(verbose_stream()));
 
                 UNREACHABLE();
-                exit(1);
                 return false;
             }
         }

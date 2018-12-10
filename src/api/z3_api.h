@@ -1515,19 +1515,19 @@ extern "C" {
        although some parameters can be changed using #Z3_update_param_value.
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
-       In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
+       In contrast to #Z3_mk_context_rc, the life time of \c Z3_ast objects
        are determined by the scope level of #Z3_solver_push and #Z3_solver_pop.
-       In other words, a Z3_ast object remains valid until there is a
-       call to Z3_solver_pop that takes the current scope below the level where
+       In other words, a \c Z3_ast object remains valid until there is a
+       call to #Z3_solver_pop that takes the current scope below the level where
        the object was created.
 
-       Note that all other reference counted objects, including Z3_model,
-       Z3_solver, Z3_func_interp have to be managed by the caller.
+       Note that all other reference counted objects, including \c Z3_model,
+       \c Z3_solver, \c Z3_func_interp have to be managed by the caller.
        Their reference counts are not handled by the context.
 
        Further remarks:
-       - Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are Z3_ast's.
-       - Z3 uses hash-consing, i.e., when the same Z3_ast is created twice,
+       - \c Z3_sort, \c Z3_func_decl, \c Z3_app, \c Z3_pattern are \c Z3_ast's.
+       - Z3 uses hash-consing, i.e., when the same \c Z3_ast is created twice,
          Z3 will return the same pointer twice.
 
        \sa Z3_del_context
@@ -1540,20 +1540,20 @@ extern "C" {
        \brief Create a context using the given configuration.
        This function is similar to #Z3_mk_context. However,
        in the context returned by this function, the user
-       is responsible for managing Z3_ast reference counters.
+       is responsible for managing \c Z3_ast reference counters.
        Managing reference counters is a burden and error-prone,
        but allows the user to use the memory more efficiently.
-       The user must invoke #Z3_inc_ref for any Z3_ast returned
-       by Z3, and #Z3_dec_ref whenever the Z3_ast is not needed
+       The user must invoke #Z3_inc_ref for any \c Z3_ast returned
+       by Z3, and #Z3_dec_ref whenever the \c Z3_ast is not needed
        anymore. This idiom is similar to the one used in
        BDD (binary decision diagrams) packages such as CUDD.
 
        Remarks:
 
-       - Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are Z3_ast's.
+       - \c Z3_sort, \c Z3_func_decl, \c Z3_app, \c Z3_pattern are \c Z3_ast's.
        - After a context is created, the configuration cannot be changed.
        - All main interaction with Z3 happens in the context of a \c Z3_context.
-       - Z3 uses hash-consing, i.e., when the same Z3_ast is created twice,
+       - Z3 uses hash-consing, i.e., when the same \c Z3_ast is created twice,
          Z3 will return the same pointer twice.
 
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
@@ -1615,7 +1615,7 @@ extern "C" {
        Starting at Z3 4.0, parameter sets are used to configure many components such as:
        simplifiers, tactics, solvers, etc.
 
-       \remark Reference counting must be used to manage parameter sets, even when the Z3_context was
+       \remark Reference counting must be used to manage parameter sets, even when the \c Z3_context was
        created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
        def_API('Z3_mk_params', PARAMS, (_in(CONTEXT),))
@@ -4416,7 +4416,7 @@ extern "C" {
     bool Z3_API Z3_is_well_sorted(Z3_context c, Z3_ast t);
 
     /**
-       \brief Return Z3_L_TRUE if \c a is true, Z3_L_FALSE if it is false, and Z3_L_UNDEF otherwise.
+       \brief Return \c Z3_L_TRUE if \c a is true, \c Z3_L_FALSE if it is false, and \c Z3_L_UNDEF otherwise.
 
        def_API('Z3_get_bool_value', INT, (_in(CONTEXT), _in(AST)))
     */
@@ -4998,7 +4998,7 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_model_get_sort_universe(Z3_context c, Z3_model m, Z3_sort s);
 
     /**
-       \brief translate model from context c to context \c dst.
+       \brief translate model from context \c c to context \c dst.
 
        def_API('Z3_model_translate', MODEL, (_in(CONTEXT), _in(MODEL), _in(CONTEXT)))
     */
@@ -6227,7 +6227,7 @@ extern "C" {
        The function #Z3_solver_get_model retrieves a model if the
        assertions is satisfiable (i.e., the result is \c
        Z3_L_TRUE) and model construction is enabled.
-       Note that if the call returns Z3_L_UNDEF, Z3 does not
+       Note that if the call returns \c Z3_L_UNDEF, Z3 does not
        ensure that calls to #Z3_solver_get_model succeed and any models
        produced in this case are not guaranteed to satisfy the assertions.
 
@@ -6269,7 +6269,7 @@ extern "C" {
        the current context implies that they are equal.
 
        A side-effect of the function is a satisfiability check on the assertions on the solver that is passed in.
-       The function return Z3_L_FALSE if the current assertions are not satisfiable.
+       The function return \c Z3_L_FALSE if the current assertions are not satisfiable.
 
        def_API('Z3_get_implied_equalities', INT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
     */
@@ -6342,7 +6342,7 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_solver_get_unsat_core(Z3_context c, Z3_solver s);
 
     /**
-       \brief Return a brief justification for an "unknown" result (i.e., Z3_L_UNDEF) for
+       \brief Return a brief justification for an "unknown" result (i.e., \c Z3_L_UNDEF) for
        the commands #Z3_solver_check and #Z3_solver_check_assumptions
 
        def_API('Z3_solver_get_reason_unknown', STRING, (_in(CONTEXT), _in(SOLVER)))

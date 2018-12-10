@@ -129,6 +129,7 @@ namespace sat {
         double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
         bool               m_lookahead_global_autarky;
+        double             m_lookahead_delta_fraction;
         bool               m_lookahead_use_learned;
 
         bool               m_incremental;

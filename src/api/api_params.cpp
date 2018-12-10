@@ -66,7 +66,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_params_set_bool(c, p, k, v);
         RESET_ERROR_CODE();
-        to_params(p)->m_params.set_bool(norm_param_name(to_symbol(k)).c_str(), v != 0);
+        to_params(p)->m_params.set_bool(norm_param_name(to_symbol(k)).c_str(), v);
         Z3_CATCH;
     }
 

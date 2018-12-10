@@ -24,10 +24,6 @@ Revision History:
 #undef max
 #undef min
 #endif
-#ifdef __APPLE__
-#undef max
-#undef min
-#endif
 #include<fstream>
 
 #ifdef _TRACE

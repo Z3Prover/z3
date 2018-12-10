@@ -606,7 +606,7 @@ namespace opt {
         }
     }
 
-    void model_based_opt::mk_coeffs_without(vector<var>& dst, vector<var> const src, unsigned x) {
+    void model_based_opt::mk_coeffs_without(vector<var>& dst, vector<var> const& src, unsigned x) {
         for (var const & v : src) {
             if (v.m_id != x) dst.push_back(v);
         }

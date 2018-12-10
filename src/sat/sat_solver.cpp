@@ -2604,6 +2604,7 @@ namespace sat {
                   tout << " ";
               }
               tout << "\n";
+              tout << "conflict level: " << m_conflict_lvl << "\n";
               );
 
         m_core.reset();
@@ -2688,8 +2689,6 @@ namespace sat {
     unsigned solver::get_max_lvl(literal not_l, justification js, bool& unique_max) {
         unique_max = true;
         unsigned level = 0;
-        if (at_base_lvl())
-            return 0;
 
         if (not_l != null_literal) {
             level = lvl(not_l);            
@@ -2697,6 +2696,7 @@ namespace sat {
 
         switch (js.get_kind()) {
         case justification::NONE:
+            level = std::max(level, js.level());
             return level;
         case justification::BINARY:
             level = update_max_level(js.get_literal(), level, unique_max);

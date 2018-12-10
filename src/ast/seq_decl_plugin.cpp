@@ -20,6 +20,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/bv_decl_plugin.h"
 #include <sstream>
 
 static bool is_hex_digit(char ch, unsigned& d) {
@@ -377,8 +378,8 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     if (s->get_family_id() == sP->get_family_id() &&
         s->get_decl_kind() == sP->get_decl_kind() &&
         s->get_num_parameters() == sP->get_num_parameters()) {
-		for (unsigned i = 0, sz = s->get_num_parameters(); i < sz; ++i) {
-			parameter const& p = s->get_parameter(i);
+        for (unsigned i = 0, sz = s->get_num_parameters(); i < sz; ++i) {
+            parameter const& p = s->get_parameter(i);
             if (p.is_ast() && is_sort(p.get_ast())) {
                 parameter const& p2 = sP->get_parameter(i);
                 if (!match(binding, to_sort(p.get_ast()), to_sort(p2.get_ast()))) return false;
@@ -435,7 +436,7 @@ void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* do
 }
 
 void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
-    ptr_vector<sort> binding;
+    m_binding.reset();
     ast_manager& m = *m_manager;
     if (sig.m_dom.size() != dsz) {
         std::ostringstream strm;
@@ -445,10 +446,10 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
     }
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
-        is_match = match(binding, dom[i], sig.m_dom[i].get());
+        is_match = match(m_binding, dom[i], sig.m_dom[i].get());
     }
     if (range && is_match) {
-        is_match = match(binding, range, sig.m_range);
+        is_match = match(m_binding, range, sig.m_range);
     }
     if (!is_match) {
         std::ostringstream strm;
@@ -474,7 +475,7 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
         strm << "is ambiguous. Function takes no arguments and sort of range has not been constrained";
         m.raise_exception(strm.str().c_str());
     }
-    range_out = apply_binding(binding, sig.m_range);
+    range_out = apply_binding(m_binding, sig.m_range);
     SASSERT(range_out);
 }
 
@@ -966,6 +967,24 @@ app*  seq_util::str::mk_char(char ch) const {
     zstring s(ch, zstring::ascii);
     return mk_char(s, 0);
 }
+
+bool seq_util::is_const_char(expr* e, unsigned& c) const {
+    bv_util bv(m);
+    rational r;    
+    unsigned sz;
+    return bv.is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
+}
+
+app* seq_util::mk_char(unsigned ch) const {
+    bv_util bv(m);
+    return bv.mk_numeral(rational(ch), 8);
+}
+
+app* seq_util::mk_le(expr* ch1, expr* ch2) const {
+    bv_util bv(m);
+    return bv.mk_ule(ch1, ch2);
+}
+
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {
     if (is_string(n)) {

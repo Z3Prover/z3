@@ -332,18 +332,6 @@ public:
         }
         sat::literal_vector lits;
         lbool result = m_solver.cube(vars, lits, backtrack_level);
-        switch (result) {
-        case l_true:
-            return last_cube(true);
-        case l_false: 
-            return last_cube(false);
-        default: 
-            break;
-        }
-        if (lits.empty()) {
-            set_reason_unknown(m_solver.get_reason_unknown());
-            return expr_ref_vector(m);
-        }
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
@@ -357,6 +345,17 @@ public:
             if (x) {
                 vs.push_back(x);
             }
+        }
+        switch (result) {
+        case l_true:
+            return last_cube(true);
+        case l_false: 
+            return last_cube(false);
+        default: 
+            break;
+        }
+        if (lits.empty()) {
+            set_reason_unknown(m_solver.get_reason_unknown());
         }
         return fmls;
     }

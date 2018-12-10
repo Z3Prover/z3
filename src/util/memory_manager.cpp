@@ -18,7 +18,7 @@ Copyright (c) 2015 Microsoft Corporation
 //      ADD_INITIALIZER('rational::initialize();')
 //      ADD_FINALIZER('rational::finalize();')
 // Thus, any executable or shared object (DLL) that depends on rational.h
-// will have an automalically generated file mem_initializer.cpp containing
+// will have an automatically generated file mem_initializer.cpp containing
 //    mem_initialize() 
 //    mem_finalize()
 // and these functions will include the statements:
@@ -242,13 +242,13 @@ void * memory::allocate(char const* file, int line, char const* obj, size_t s) {
 #define SYNCH_THRESHOLD 100000
 
 #ifdef _WINDOWS
-// Actually this is VS specific instead of Windows specific.
+// This is VS2013 specific instead of Windows specific.
+// It can go away with VS2017 builds
 __declspec(thread) long long g_memory_thread_alloc_size    = 0;
 __declspec(thread) long long g_memory_thread_alloc_count   = 0;
 #else
-// GCC style
-__thread long long g_memory_thread_alloc_size    = 0;
-__thread long long g_memory_thread_alloc_count  = 0;
+thread_local long long g_memory_thread_alloc_size    = 0;
+thread_local long long g_memory_thread_alloc_count   = 0;
 #endif
 
 static void synchronize_counters(bool allocating) {
