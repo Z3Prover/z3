@@ -195,6 +195,7 @@ struct solver::imp {
         } else {
             print_product_with_vars(m_rm_table.vec()[f.index()].vars(), out);
         }
+        out << "vvr(f) = " << vvr(f) << "\n";
         return out;
     }
 
@@ -234,7 +235,17 @@ struct solver::imp {
         out << ", orig sign = " << rm.orig_sign() << "\n";
         return out;
     }
-    
+
+    std::ostream& print_rooted_monomial_with_vars(const rooted_mon& rm, std::ostream& out) const {
+        out << "vars = "; 
+        print_product(rm.vars(), out);
+        out << "\n orig = "; print_monomial_with_vars(m_monomials[rm.orig_index()], out);
+        out << ", orig sign = " << rm.orig_sign() << "\n";
+        out << ", vvr(rm) = " << vvr(rm) << "\n";
+        
+        return out;
+    }
+
     std::ostream& print_explanation(std::ostream& out) const {
         for (auto &p : *m_expl) {
             m_lar_solver.print_constraint(p.second, out);
@@ -934,8 +945,8 @@ struct solver::imp {
                 d_sign = -1;
             }
             else {
-                c_sign = 1;
-                d_sign = -1;
+                c_sign = -1;
+                d_sign = 1;
             }
             return true;
         }
@@ -948,15 +959,29 @@ struct solver::imp {
                                               const rooted_mon& bd,
                                               const factor& b,
                                               const factor& d) {
-        TRACE("nla_solver", tout << "a = "; print_factor(a, tout); tout << ", b = "; print_factor(b, tout););
         SASSERT(abs(vvr(c)) == abs(vvr(d)));
         auto cv = vvr(c); auto dv = vvr(d);
         int c_sign, d_sign;
         if (!get_cd_signs_for_ol(cv, dv, c_sign, d_sign))
             return false;
-
+        SASSERT(cv*c_sign == dv*d_sign && (dv*d_sign).is_pos() && abs(c_sign) == 1 &&
+                abs(d_sign) == 1);
         auto av = vvr(a)*rational(c_sign); auto bv = vvr(b)*rational(d_sign);
         auto acv = vvr(ac); auto bdv = vvr(bd);
+        TRACE("nla_solver",
+              tout << "ac = ";
+              print_rooted_monomial_with_vars(ac, tout);
+              tout << "\nbd = ";
+              print_rooted_monomial_with_vars(bd, tout);
+              tout << "\na = ";
+              print_factor_with_vars(a, tout);
+              tout << ", \nb = ";
+              print_factor_with_vars(b, tout);
+              tout << "\nc = ";
+              print_factor_with_vars(c, tout);
+              tout << ", \nd = ";
+              print_factor_with_vars(d, tout);
+              );
         
         if (av < bv){
             if(!(acv < bdv)) {
