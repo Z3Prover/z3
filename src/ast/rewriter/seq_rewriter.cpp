@@ -386,7 +386,7 @@ eautomaton* re2automaton::seq2aut(expr* e) {
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
-    
+    TRACE("seq", tout << f->get_name() << "\n";);
     br_status st = BR_FAILED;
     switch(f->get_decl_kind()) {
         
@@ -400,16 +400,19 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         return mk_re_plus(args[0], result);
     case OP_RE_STAR:
         SASSERT(num_args == 1);
-        return mk_re_star(args[0], result);
+        st = mk_re_star(args[0], result);
+        break;
     case OP_RE_OPTION:
         SASSERT(num_args == 1);
         return mk_re_opt(args[0], result);
     case OP_RE_CONCAT:
         if (num_args == 1) {
-            result = args[0]; return BR_DONE;
+            result = args[0]; 
+            return BR_DONE;
         }
         SASSERT(num_args == 2);
-        return mk_re_concat(args[0], args[1], result);
+        st = mk_re_concat(args[0], args[1], result); 
+        break;
     case OP_RE_UNION:
         if (num_args == 1) {
             result = args[0]; return BR_DONE;

@@ -5272,6 +5272,26 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
     new_eq_eh(deps, n1, n2);
 }
 
+lbool theory_seq::regex_are_equal(expr* r1, expr* r2) {
+    if (r1 == r2) {
+        return l_true;
+    }
+    expr* d1 = m_util.re.mk_inter(r1, m_util.re.mk_complement(r2));
+    expr* d2 = m_util.re.mk_inter(r2, m_util.re.mk_complement(r1));
+    expr_ref diff(m_util.re.mk_union(d1, d2), m);
+    eautomaton* aut = get_automaton(diff);
+    if (!aut) {
+        return l_undef;
+    }
+    else if (aut->is_empty()) {
+        return l_true;
+    }
+    else {
+        return l_false;
+    }
+}
+
+
 void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
     TRACE("seq", tout << expr_ref(n1->get_owner(), m) << " = " << expr_ref(n2->get_owner(), m) << "\n";);
     if (n1 != n2 && m_util.is_seq(n1->get_owner())) {
@@ -5292,28 +5312,23 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
         // create an expression for the symmetric difference and imply it is empty.
         enode_pair_vector eqs;
         literal_vector lits;
-        if (!linearize(deps, eqs, lits)) 
-            return;
         context& ctx = get_context();
-        eqs.push_back(enode_pair(n1, n2));
-        expr_ref r1(n1->get_owner(), m);
-        expr_ref r2(n2->get_owner(), m);
-        ctx.get_rewriter()(r1);
-        ctx.get_rewriter()(r2);
-        if (r1 == r2) {
-            return;
+        switch (regex_are_equal(n1->get_owner(), n2->get_owner())) {
+        case l_true:
+            break;
+        case l_false:
+            if (!linearize(deps, eqs, lits)) {
+                throw default_exception("could not linearlize assumptions");
+            }
+            eqs.push_back(enode_pair(n1, n2));
+            ctx.set_conflict(
+                ctx.mk_justification(
+                    ext_theory_conflict_justification(
+                        get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr)));
+            break;
+        default:
+            throw default_exception("convert regular expressions into automata");            
         }
-#if 0
-        expr* d1 = m_util.re.mk_inter(r1, m_util.re.mk_complement(r2));
-        expr* d2 = m_util.re.mk_inter(r2, m_util.re.mk_complement(r1));
-        expr_ref diff(m_util.re.mk_union(d1, d2), m);
-        lit = mk_literal(m_util.re.mk_is_empty(diff));
-        justification* js =
-            ctx.mk_justification(
-                ext_theory_propagation_justification(
-                    get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), lit));
-        ctx.assign(lit, js);        
-#endif
     }
 }
 
@@ -5323,6 +5338,26 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     expr_ref e1(n1->get_owner(), m);
     expr_ref e2(n2->get_owner(), m);
     SASSERT(n1->get_root() != n2->get_root());
+    if (m_util.is_re(n1->get_owner())) {
+        enode_pair_vector eqs;
+        literal_vector lits;
+        context& ctx = get_context();
+        switch (regex_are_equal(e1, e2)) {
+        case l_false:
+            return;
+        case l_true: {
+            literal lit = mk_eq(e1, e2, false);
+            lits.push_back(~lit);
+            ctx.set_conflict(
+                ctx.mk_justification(
+                    ext_theory_conflict_justification(
+                        get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), 0, nullptr)));
+            return;
+        }
+        default:
+            throw default_exception("convert regular expressions into automata");            
+        }
+    }
     m_exclude.update(e1, e2);
     expr_ref eq(m.mk_eq(e1, e2), m);
     TRACE("seq", tout << "new disequality " << get_context().get_scope_level() << ": " << eq << "\n";);
