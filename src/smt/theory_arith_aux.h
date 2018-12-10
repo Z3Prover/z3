@@ -548,7 +548,7 @@ namespace smt {
             if (!it->is_dead()) {
                 row const & r = m_rows[it->m_row_id];
                 theory_var s  = r.get_base_var();
-                if (is_quasi_base(s) && m_var_occs[s].size() == 0)
+                if (is_quasi_base(s) && m_var_occs[s].empty())
                     continue;
                 if (is_int(v)) {
                     numeral const & c = r[it->m_row_idx].m_coeff;
@@ -574,7 +574,7 @@ namespace smt {
         TRACE("move_unconstrained_to_base", tout << "before...\n"; display(tout););
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
-            if (m_var_occs[v].size() == 0 && is_free(v)) {
+            if (m_var_occs[v].empty() && is_free(v)) {
                 switch (get_var_kind(v)) {
                 case QUASI_BASE:
                     break;

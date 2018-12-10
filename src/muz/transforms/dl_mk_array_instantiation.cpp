@@ -253,7 +253,7 @@ namespace datalog {
         all_selects.push_back(rewrite_select(array, select_ops[i]));
       }
     }
-    if(all_selects.size()==0)
+    if(all_selects.empty())
     {
       expr_ref_vector dummy_args(m);
       dummy_args.push_back(array);

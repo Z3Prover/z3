@@ -37,7 +37,7 @@ struct lar_term {
     }
 
     bool is_empty() const {
-        return m_coeffs.size() == 0; // && is_zero(m_v);
+        return m_coeffs.empty(); // && is_zero(m_v);
     }
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }

@@ -557,6 +557,7 @@ namespace sat {
         void user_push();
         void user_pop(unsigned num_scopes);
         void pop_to_base_level();
+        unsigned num_user_scopes() const { return m_user_scope_literals.size(); }
         reslimit& rlimit() { return m_rlimit; }
         // -----------------------
         //

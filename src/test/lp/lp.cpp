@@ -1091,7 +1091,7 @@ void lp_solver_test() {
 
 bool get_int_from_args_parser(const char * option, argument_parser & args_parser, unsigned & n) {
     std::string s = args_parser.get_option_value(option);
-    if (s.size() > 0) {
+    if (!s.empty()) {
         n = atoi(s.c_str());
         return true;
     }
@@ -1100,7 +1100,7 @@ bool get_int_from_args_parser(const char * option, argument_parser & args_parser
 
 bool get_double_from_args_parser(const char * option, argument_parser & args_parser, double & n) {
     std::string s = args_parser.get_option_value(option);
-    if (s.size() > 0) {
+    if (!s.empty()) {
         n = atof(s.c_str());
         return true;
     }
@@ -1830,7 +1830,7 @@ std::unordered_map<std::string, double> * get_solution_from_glpsol_output(std::s
             return nullptr;
         }
         auto split = string_split(s, " \t", false);
-        if (split.size() == 0) {
+        if (split.empty()) {
             return ret;
         }
 
@@ -2050,14 +2050,14 @@ void finalize(unsigned ret) {
 
 void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit, unsigned & max_iters) {
     std::string s = args_parser.get_option_value("--max_iters");
-    if (s.size() > 0) {
+    if (!s.empty()) {
         max_iters = atoi(s.c_str());
     } else {
         max_iters = 0;
     }
 
     std::string time_limit_string = args_parser.get_option_value("--time_limit");
-    if (time_limit_string.size() > 0) {
+    if (!time_limit_string.empty()) {
         time_limit = atoi(time_limit_string.c_str());
     } else {
         time_limit = 0;
@@ -2156,7 +2156,7 @@ double get_lp_tst_cost(std::string file_name) {
             cost_string = str;
         }
     }
-    if (cost_string.size() == 0) {
+    if (cost_string.empty()) {
         std::cout << "cannot find the cost line in " << file_name << std::endl;
         throw 0;
     }
@@ -2377,7 +2377,7 @@ std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp:
 
 void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_reader<lp::mpq, lp::mpq> * reader) {
     std::string maxng = args_parser.get_option_value("--maxng");
-    if (maxng.size() > 0) {
+    if (!maxng.empty()) {
         solver->settings().max_number_of_iterations_with_no_improvements = atoi(maxng.c_str());
     }
     if (args_parser.option_is_used("-pd")){
@@ -2385,7 +2385,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     }
     
     std::string iter = args_parser.get_option_value("--max_iters");
-    if (iter.size() > 0) {
+    if (!iter.empty()) {
         solver->settings().max_total_number_of_iterations = atoi(iter.c_str());
     }
     if (args_parser.option_is_used("--compare_with_primal")){
@@ -2470,7 +2470,7 @@ vector<std::string> get_file_names_from_file_list(std::string filelist) {
         std::string s = read_line(end, file);
         if (end)
             break;
-        if (s.size() == 0)
+        if (s.empty())
             break;
         ret.push_back(s);
     } while (true);
@@ -2480,13 +2480,13 @@ vector<std::string> get_file_names_from_file_list(std::string filelist) {
 void test_lar_solver(argument_parser & args_parser) {
 
     std::string file_name = args_parser.get_option_value("--file");
-    if (file_name.size() > 0) {
+    if (!file_name.empty()) {
         test_lar_on_file(file_name, args_parser);
         return;
     }
 
     std::string file_list = args_parser.get_option_value("--filelist");
-    if (file_list.size() > 0) {
+    if (!file_list.empty()) {
         for (const std::string & fn : get_file_names_from_file_list(file_list))
             test_lar_on_file(fn, args_parser);
         return;
@@ -3600,7 +3600,7 @@ void test_lp_local(int argn, char**argv) {
         
     
     std::string lufile = args_parser.get_option_value("--checklu");
-    if (lufile.size()) {
+    if (!lufile.empty()) {
         check_lu_from_file(lufile);
         return finalize(0);
     }
@@ -3623,7 +3623,7 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
     std::string file_list = args_parser.get_option_value("--filelist");
-    if (file_list.size() > 0) {
+    if (!file_list.empty()) {
         for (const std::string & fn : get_file_names_from_file_list(file_list))
             solve_mps(fn, args_parser);
         return finalize(0);
@@ -3704,7 +3704,7 @@ void test_lp_local(int argn, char**argv) {
     bool dual = args_parser.option_is_used("--dual");
     bool solve_for_rational = args_parser.option_is_used("--mpq");
     std::string file_name = args_parser.get_option_value("--file");
-    if (file_name.size() > 0) {
+    if (!file_name.empty()) {
         solve_mps(file_name, args_parser.option_is_used("--min"), max_iters, time_limit, solve_for_rational, dual, args_parser.option_is_used("--compare_with_primal"), args_parser);
         ret = 0;
         return finalize(ret);

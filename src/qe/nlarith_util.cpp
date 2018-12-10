@@ -684,7 +684,7 @@ namespace nlarith {
 
         void get_coefficients(poly const& p, app*& a, app*& b, app*& c) {
             a = b = c = z();
-            if (p.size() > 0) c = p[0];
+            if (!p.empty()) c = p[0];
             if (p.size() > 1) b = p[1];
             if (p.size() > 2) a = p[2];
             SASSERT(p.size() <= 3);
@@ -1359,7 +1359,7 @@ namespace nlarith {
         void quot_rem(poly const& u, poly const& v, poly& q, poly& r, app_ref& lc, unsigned& power) {
             lc = v.empty()?num(0):v[v.size()-1];
             power = 0;
-            if (u.size() < v.size() || v.size() == 0) {
+            if (u.size() < v.size() || v.empty()) {
                 q.reset();
                 r.reset();
                 r.append(u);

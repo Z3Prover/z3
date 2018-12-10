@@ -2023,3 +2023,7 @@ let toggle_warning_messages = Z3native.toggle_warning_messages
 let enable_trace = Z3native.enable_trace
 
 let disable_trace = Z3native.enable_trace
+
+module Memory = struct
+  let reset = Z3native.reset_memory
+end

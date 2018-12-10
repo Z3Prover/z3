@@ -428,7 +428,18 @@ public:
                             add(mv);
                         }
                     }
+                    else if (1 == out_degree(src) && (is_final_state(src) || !is_final_state(dst))) {
+                        moves const& mvs = m_delta[dst];
+                        moves mvs1;
+                        for (move const& mv : mvs) {
+                            mvs1.push_back(move(m, src, mv.dst(), mv.t()));
+                        }
+                        for (move const& mv : mvs1) {
+                            add(mv);
+                        }
+                    }
                     else {
+                        TRACE("seq", tout << "epsilon not removed " << out_degree(src) << " " << is_final_state(src) << " " << is_final_state(dst) << "\n";);
                         continue;
                     }                    
                     remove(src, dst, nullptr);
@@ -600,13 +611,14 @@ private:
         }
     }
 
+#if 0
     void remove_dead_states() {
         unsigned_vector remap;
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             
         }
     }    
-
+#endif
 
     void add(move const& mv) {
         if (!is_duplicate_cheap(mv)) {

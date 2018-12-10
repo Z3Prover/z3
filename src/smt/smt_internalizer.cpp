@@ -1024,8 +1024,17 @@ namespace smt {
     void context::apply_sort_cnstr(app * term, enode * e) {
         sort * s    = term->get_decl()->get_range();
         theory * th = m_theories.get_plugin(s->get_family_id());
-        if (th)
+        if (th) {
+            if (m_manager.has_trace_stream()) {
+                m_manager.trace_stream() << "[theory-constraints] " << m_manager.get_family_name(s->get_family_id()) << "\n";
+            }
+
             th->apply_sort_cnstr(e, s);
+
+            if (m_manager.has_trace_stream()) {
+                m_manager.trace_stream() << "[end-theory-constraints]\n";
+            }
+        }
     }
 
     /**

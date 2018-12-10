@@ -962,7 +962,6 @@ class ast_translation;
 
 class ast_table : public chashtable<ast*, obj_ptr_hash<ast>, ast_eq_proc> {
 public:
-    void erase(ast * n);
     void push_erase(ast * n);
     ast* pop_erase();
 };
