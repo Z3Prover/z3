@@ -312,12 +312,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("branch_binary_variable");
         return FC_CONTINUE;
     }
-    if (branch_ternary_variable1() || branch_ternary_variable2() || branch_quat_variable()) {
-        ++m_stats.m_branch_variable;
-        TRACEFIN("split_based_on_alignment");
-        return FC_CONTINUE;
-    }
-    if (branch_variable_mb() || branch_variable()) {
+    if (branch_variable()) {
         ++m_stats.m_branch_variable;
         TRACEFIN("branch_variable");
         return FC_CONTINUE;
@@ -387,7 +382,7 @@ bool theory_seq::branch_binary_variable(eq const& e) {
     
     rational lenX, lenY;
     context& ctx = get_context();
-    if (branch_variable(e)) {
+    if (branch_variable_eq(e)) {
         return true;
     }
     if (!get_length(x, lenX)) {
@@ -457,6 +452,9 @@ bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
     if (ls.empty() || !is_var(ls[0])) {
         return false;
     }
+    //std::function<bool(expr*)> is_unit = [&](expr* elem) { return m_util.str.is_unit(elem); }
+    //return rs.forall(is_unit);
+
     for (auto const& elem : rs) {
         if (!m_util.str.is_unit(elem)) {
             return false;
@@ -502,10 +500,9 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_ternary_variable1() {
-
-    //std::function<bool(eq const& e)> branch = [&](eq const& e) { return branch_ternary_variable(e) || branch_ternary_variable2(e); };
-    //return m_eqs.exists(branch);
-    for (auto const& e : m_eqs) {
+    int start = get_context().get_random_value();
+    for (unsigned i = 0; i < m_eqs.size(); ++i) {
+        eq const& e = m_eqs[(i + start) % m_eqs.size()];
         if (branch_ternary_variable(e) || branch_ternary_variable2(e)) {
             return true;
         }
@@ -514,7 +511,9 @@ bool theory_seq::branch_ternary_variable1() {
 }
 
 bool theory_seq::branch_ternary_variable2() {
-    for (auto const& e : m_eqs) {
+    int start = get_context().get_random_value();
+    for (unsigned i = 0; i < m_eqs.size(); ++i) {
+        eq const& e = m_eqs[(i + start) % m_eqs.size()];
         if (branch_ternary_variable(e, true)) {
             return true;
         }
@@ -1339,6 +1338,20 @@ bool theory_seq::len_based_split(eq const& e) {
     return true;
 }
 
+/**
+   \brief select branching on variable equality.
+   preference mb > eq > ternary > quat
+   this performs much better on #1628
+*/
+bool theory_seq::branch_variable() {
+    if (branch_variable_mb()) return true;
+    if (branch_variable_eq()) return true;
+    if (branch_ternary_variable1()) return true;
+    if (branch_ternary_variable2()) return true;
+    if (branch_quat_variable()) return true;
+    return false;
+}
+
 bool theory_seq::branch_variable_mb() {
     bool change = false;
     for (auto const& e : m_eqs) {
@@ -1517,7 +1530,7 @@ bool theory_seq::enforce_length(expr_ref_vector const& es, vector<rational> & le
     return all_have_length;
 }
 
-bool theory_seq::branch_variable() {
+bool theory_seq::branch_variable_eq() {
     context& ctx = get_context();
     unsigned sz = m_eqs.size();
     int start = ctx.get_random_value();
@@ -1526,24 +1539,15 @@ bool theory_seq::branch_variable() {
         unsigned k = (i + start) % sz;
         eq const& e = m_eqs[k];
 
-        if (branch_variable(e)) {
+        if (branch_variable_eq(e)) {
             TRACE("seq", tout << "branch variable\n";);
             return true;
         }
-
-#if 0
-        if (!has_length(e.ls())) {
-            enforce_length(e.ls());
-        }
-        if (!has_length(e.rs())) {
-            enforce_length(e.rs());
-        }
-#endif
     }
     return ctx.inconsistent();
 }
 
-bool theory_seq::branch_variable(eq const& e) {
+bool theory_seq::branch_variable_eq(eq const& e) {
     unsigned id = e.id();
     unsigned s = find_branch_start(2*id);
     TRACE("seq", tout << s << " " << id << ": " << e.ls() << " = " << e.rs() << "\n";);
@@ -4450,6 +4454,7 @@ expr_ref theory_seq::add_elim_string_axiom(expr* n) {
     - len(str) = str.length()       if x = str
     - len(empty) = 0                if x = empty
     - len(int.to.str(i)) >= 1       if x = int.to.str(i) and more generally if i = 0 then 1 else 1+floor(log(|i|))
+    - len(substr(s,i,l)) <= l       if x = substr(s,i,l)
     - len(x) >= 0                   otherwise
  */
 void theory_seq::add_length_axiom(expr* n) {
@@ -4467,8 +4472,13 @@ void theory_seq::add_length_axiom(expr* n) {
     }
     else if (m_util.str.is_itos(x)) {
         add_itos_length_axiom(n);
-    }
+    }   
     else {
+        expr* s = nullptr, *i = nullptr, *l = nullptr;
+        if (m_util.str.is_extract(x, s, i, l)) {
+            literal len_le_l = mk_simplified_literal(m_autil.mk_ge(mk_sub(l, n), m_autil.mk_int(0)));
+            add_axiom(len_le_l); 
+        }
         add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
     }
     if (!ctx.at_base_level()) {
@@ -5186,6 +5196,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             f = mk_skolem(m_prefix, e1, e2);
             f = mk_concat(e1, f);
             propagate_eq(lit, f, e2, true);
+            //literal len1_le_len2 = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(e2), mk_len(e1)), m_autil.mk_int(0)));
+            //add_axiom(~lit, len1_le_len2);
         }
         else {
             propagate_not_prefix(e);
@@ -5196,6 +5208,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             f = mk_skolem(m_suffix, e1, e2);
             f = mk_concat(f, e1);
             propagate_eq(lit, f, e2, true);
+            //literal len1_le_len2 = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(e2), mk_len(e1)), m_autil.mk_int(0)));
+            //add_axiom(~lit, len1_le_len2);
         }
         else {
             propagate_not_suffix(e);
@@ -5222,6 +5236,8 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             expr_ref f2 = mk_skolem(m_indexof_right, e1, e2);
             f = mk_concat(f1, e2, f2);
             propagate_eq(lit, f, e1, true);
+            //literal len2_le_len1 = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(e1), mk_len(e2)), m_autil.mk_int(0)));
+            //add_axiom(~lit, len2_le_len1);
         }
         else if (!canonizes(false, e)) {
             propagate_non_empty(lit, e2);
