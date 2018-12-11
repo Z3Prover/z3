@@ -190,7 +190,7 @@ namespace nlsat {
         }
         
         ~imp() {
-            reset();
+            clear();
         }
 
         void mk_true_bvar() {
@@ -230,6 +230,14 @@ namespace nlsat {
             m_assignment.reset();
         }
 
+        void clear() {
+            m_explain.reset();
+            m_lemma.reset();
+            m_lazy_clause.reset();
+            undo_until_size(0);
+            del_clauses();
+            del_unref_atoms();
+        }
 
         void checkpoint() {
             if (!m_rlimit.inc()) throw solver_exception(m_rlimit.get_cancel_msg());
