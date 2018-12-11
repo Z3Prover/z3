@@ -33,6 +33,7 @@ Notes:
 #include "ast/ast_printer.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "tactic/generic_model_converter.h"
 #include "solver/solver.h"
 #include "solver/progress_callback.h"
@@ -492,5 +493,25 @@ public:
 };
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st);
+
+
+class th_solver : public expr_solver {
+    cmd_context& m_ctx;
+    params_ref   m_params;
+    ref<solver> m_solver;
+public:
+    th_solver(cmd_context& ctx): m_ctx(ctx) {}
+    
+    lbool check_sat(expr* e) override {
+        if (!m_solver) {
+            m_solver = m_ctx.get_solver_factory()(m_ctx.m(), m_params, false, true, false, symbol::null);
+        }
+        m_solver->push();
+        m_solver->assert_expr(e);
+        lbool r = m_solver->check_sat(0,nullptr);
+        m_solver->pop(1);
+        return r;
+    }
+};
 
 #endif

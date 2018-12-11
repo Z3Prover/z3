@@ -38,6 +38,9 @@ Revision History:
 #include "cmd_context/cmd_context.h"
 #include "api/api_polynomial.h"
 #include "util/hashtable.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
 
 namespace smtlib {
     class parser;
@@ -49,6 +52,24 @@ namespace realclosure {
 
 namespace api {
        
+    class seq_expr_solver : public expr_solver {
+        ast_manager& m;
+        params_ref const& p;
+        solver_ref   s;
+    public:
+        seq_expr_solver(ast_manager& m, params_ref const& p): m(m), p(p) {}
+        lbool check_sat(expr* e) {
+            if (!s) {
+                s = mk_smt_solver(m, p, symbol("ALL"));
+            }
+            s->push();
+            s->assert_expr(e);
+            lbool r = s->check_sat();
+            s->pop(1);
+            return r;
+        }
+    };
+
 
     class context : public tactic_manager {
         struct add_plugins {  add_plugins(ast_manager & m); };

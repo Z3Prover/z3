@@ -24,29 +24,10 @@ Notes:
 #include "util/scoped_timer.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
-#include "ast/rewriter/seq_rewriter.h"
 #include<iomanip>
 
 class simplify_cmd : public parametric_cmd {
 
-    class th_solver : public expr_solver {
-        cmd_context& m_ctx;
-        params_ref   m_params;
-        ref<solver> m_solver;
-    public:
-        th_solver(cmd_context& ctx): m_ctx(ctx) {}
-        
-        lbool check_sat(expr* e) override {
-            if (!m_solver) {
-                m_solver = m_ctx.get_solver_factory()(m_ctx.m(), m_params, false, true, false, symbol::null);
-            }
-            m_solver->push();
-            m_solver->assert_expr(e);
-            lbool r = m_solver->check_sat(0,nullptr);
-            m_solver->pop(1);
-            return r;
-        }
-    };
 
     expr *                   m_target;
 public:
