@@ -1867,6 +1867,7 @@ class DotNetCoreDLLComponent(Component):
         key = ""
         if not self.key_file is None:
             key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
+            key += "\n<SignAssembly>true</SignAssembly>"
 
         if VS_X64:
             platform = 'x64'
