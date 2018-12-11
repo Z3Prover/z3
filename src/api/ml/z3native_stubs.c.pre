@@ -458,7 +458,7 @@ CAMLprim DLL_PUBLIC value n_mk_config() {
   z3rv = Z3_mk_config();
 
   if (z3rv == NULL) {
-    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), "internal error");
+    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), "Object allocation failed");
   }
 
   /* construct simple return value */
