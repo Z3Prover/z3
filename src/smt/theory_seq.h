@@ -451,6 +451,7 @@ namespace smt {
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
         bool is_complex(eq const& e);
+        lbool regex_are_equal(expr* r1, expr* r2);
 
         bool check_extensionality();
         bool check_contains();
