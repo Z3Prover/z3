@@ -17,10 +17,11 @@
 
 
   --*/
+
 namespace nla {
 
 typedef lp::constraint_index     lpci;
-typedef std::unordered_set<lpci> expl_set;
+typedef lp::explanation          expl_set;
 typedef lp::var_index            lpvar;
 struct hash_svector {
     size_t operator()(const unsigned_vector & v) const {
@@ -197,7 +198,13 @@ struct vars_equivalence {
         }
     }
 
-    void add_equiv_exp(unsigned j, expl_set& exp) const {
+    template <typename T>
+    void explain(const T& collection, expl_set & exp) const {
+        for (lpvar j : collection) {
+            explain(j, exp);
+        }
+    } 
+    void explain(lpvar j, expl_set& exp) const {
         while (true) {
             auto it = m_tree.find(j);
             if (it == m_tree.end())
@@ -205,16 +212,16 @@ struct vars_equivalence {
             if (it->second == static_cast<unsigned>(-1))
                 return;
             const equiv & e = m_equivs[it->second];
-            exp.insert(e.m_c0);
-            exp.insert(e.m_c1);
+            exp.add(e.m_c0);
+            exp.add(e.m_c1);
             j = get_parent_node(j, e);
         }
     }
     
     template <typename T>
     void add_explanation_of_reducing_to_rooted_monomial(const T & m, expl_set & exp) const {
-        for (auto j : m)
-            add_equiv_exp(j, exp);
+        for (lpvar j : m)
+            explain(j, exp);
     }
 
     void register_var(unsigned j, const rational& val) {
