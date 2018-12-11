@@ -155,20 +155,22 @@ struct solver::imp {
         return sign * m_lar_solver.get_column_value(j) != m_lar_solver.get_column_value(k);
     }
 
-    void explain(const rooted_mon& rm) {
-        expl_set e;
-        add_explanation_of_reducing_to_rooted_monomial_and_set_expl(rm, e);
-    }
     
-    void add_explanation_of_reducing_to_rooted_monomial(const monomial& m, expl_set & exp) const {
-        m_vars_equivalence.add_explanation_of_reducing_to_rooted_monomial(m, exp);
+    void explain(const monomial& m) const {
+        m_vars_equivalence.explain(m, *m_expl);
     }
 
-    void add_explanation_of_reducing_to_rooted_monomial(lpvar j, expl_set & exp) const {
-        auto it = m_var_to_its_monomial.find(j);
-        if (it == m_var_to_its_monomial.end())
-            return; // j is not a var of a monomial
-        add_explanation_of_reducing_to_rooted_monomial(it->second, exp);
+    void explain(const rooted_mon& rm) const {
+        auto & m = m_monomials[rm.orig_index()];
+        explain(m);
+    }
+
+    void explain(const factor& f) const {
+        if (f.type() == factor_type::VAR) {
+            m_vars_equivalence.explain(f.index(), *m_expl);
+        } else {
+            m_vars_equivalence.explain(m_monomials[m_rm_table.vec()[f.index()].orig_index()], *m_expl);
+        }
     }
 
     template <typename T>
@@ -304,14 +306,11 @@ struct solver::imp {
         mk_ineq(j, cmp, rational::zero());
     }
     
-    // the monomials should be equal by modulo sign but this is not so the model
+    // the monomials should be equal by modulo sign but this is not so in the model
     void fill_explanation_and_lemma_sign(const monomial& a, const monomial & b, rational const& sign) {
-        expl_set expl;
         SASSERT(sign == 1 || sign == -1);
-        add_explanation_of_reducing_to_rooted_monomial(a, expl);
-        add_explanation_of_reducing_to_rooted_monomial(b, expl);
-        m_expl->clear();
-        m_expl->add(expl);
+        explain(a);
+        explain(b);
         TRACE("nla_solver",
               tout << "used constraints: ";
               for (auto &p : *m_expl)
@@ -554,17 +553,6 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(tout););
 
         return true;
-    }
-
-    void add_explanation_of_reducing_to_rooted_monomial_and_set_expl(const rooted_mon& rm, expl_set& ex) {
-        add_explanation_of_reducing_to_rooted_monomial(m_monomials[rm.orig_index()], ex);
-        set_expl(ex);
-    }
-    
-    void set_expl(const expl_set & e) {
-        m_expl->clear();
-        for (lpci ci : e)
-            m_expl->push_justification(ci);
     }
 
     void trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const {
@@ -926,6 +914,12 @@ struct solver::imp {
         negate_factor_equality(c, d);
         negate_factor_relation(rational(c_sign), a, rational(d_sign), b);
         mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), ab_cmp);
+        explain(ac);
+        explain(a);
+        explain(c);
+        explain(bd);
+        explain(b);
+        explain(d);
     }
 
     bool get_cd_signs_for_ol(const rational& c, const rational& d, int& c_sign, int & d_sign) const {
