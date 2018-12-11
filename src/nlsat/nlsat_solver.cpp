@@ -231,6 +231,9 @@ namespace nlsat {
         }
 
         void clear() {
+            m_explain.reset();
+            m_lemma.reset();
+            m_lazy_clause.reset();
             undo_until_size(0);
             del_clauses();
             del_unref_atoms();
