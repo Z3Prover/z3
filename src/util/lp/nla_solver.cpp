@@ -599,7 +599,7 @@ struct solver::imp {
     }
 
     // use the fact that
-    // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1
+    // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
     bool basic_lemma_for_mon_neutral_monomial_to_factor(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
 
@@ -635,6 +635,9 @@ struct solver::imp {
         if (not_one_j == static_cast<lpvar>(-1)) {
             return false;
         } 
+
+        // mon_var = 0
+        mk_ineq(mon_var, lp::lconstraint_kind::EQ);
         
         // negate abs(jl) == abs()
         if (vvr(jl) == - vvr(mon_var))
@@ -700,6 +703,11 @@ struct solver::imp {
         return false;
     }
 
+    void explain(const factorization& f) {
+        for (const auto& fc : f) {
+            explain(fc);
+        }
+    }
     // use basic multiplication properties to create a lemma
     // for the given monomial
     bool basic_lemma_for_mon(const rooted_mon& rm) {
@@ -708,17 +716,20 @@ struct solver::imp {
                 if (factorization.is_empty())
                     continue;
                 if (basic_lemma_for_mon_zero(rm, factorization) ||
-                    basic_lemma_for_mon_neutral(rm, factorization))
+                    basic_lemma_for_mon_neutral(rm, factorization)) {
+                    explain(factorization);
                     return true;
+                }
             }
         } else {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
                 if (basic_lemma_for_mon_non_zero(rm, factorization) ||
-                    basic_lemma_for_mon_neutral(rm, factorization))
+                    basic_lemma_for_mon_neutral(rm, factorization))  {
+                    explain(factorization);
                     return true;
-            
+                }
             }
         }
         return false;
