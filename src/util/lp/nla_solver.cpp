@@ -188,6 +188,7 @@ struct solver::imp {
         } else {
             print_product(m_rm_table.vec()[f.index()].vars(), out);
         }
+        out << "\n";
         return out;
     }
 
@@ -330,6 +331,11 @@ struct solver::imp {
         for (lpvar v : vars) {
             unsigned root = m_vars_equivalence.map_to_root(v, sign);
             SASSERT(m_vars_equivalence.is_root(root));
+            TRACE("nla_solver",
+                  print_var(v,tout);
+                  tout << " mapped to ";
+
+                  print_var(root, tout););
             ret.push_back(root);
         }
         std::sort(ret.begin(), ret.end());
@@ -465,6 +471,7 @@ struct solver::imp {
 
     std::ostream & print_var(lpvar j, std::ostream & out) const {
         bool is_monomial = false;
+        out << j << " ";
         for (const monomial & m : m_monomials) {
             if (j == m.var()) {
                 is_monomial = true;
@@ -595,6 +602,8 @@ struct solver::imp {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
 
         lpvar mon_var = m_monomials[rm.orig_index()].var();
+        TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
+        
         const auto & mv = vvr(mon_var);
         const auto  abs_mv = abs(mv);
         
@@ -625,12 +634,11 @@ struct solver::imp {
             return false;
         } 
         
-        SASSERT(m_lemma->empty());
-        // jl + mon_var != 0
-        mk_ineq(jl, mon_var, lp::lconstraint_kind::NE);   
-        
-        // jl - mon_var != 0
-        mk_ineq(jl, -rational(1), mon_var, lp::lconstraint_kind::NE);   
+        // negate abs(jl) == abs()
+        if (vvr(jl) == - vvr(mon_var))
+            mk_ineq(jl, mon_var, lp::lconstraint_kind::NE);   
+        else  // jl == mon_var
+            mk_ineq(jl, -rational(1), mon_var, lp::lconstraint_kind::NE);   
 
         // not_one_j = 1
         mk_ineq(not_one_j, lp::lconstraint_kind::EQ,  rational(1));   
@@ -785,21 +793,77 @@ struct solver::imp {
             else
                 j = p.var();
         }
-        TRACE("nla_solver", tout << "adding equiv";);
         rational sign((seen_minus && seen_plus)? 1 : -1);
         m_vars_equivalence.add_equiv(i, j, sign, c0, c1);
     }
 
+    bool abs_values_table_is_ok_for_var(lpvar j) const {
+        for (lpvar k : m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(j))) {
+            if (abs(vvr(j)) != abs(vvr(k))) {
+                TRACE("nla_solver", tout << "j = "; print_var(j, tout);
+                      tout << "\nk = "; print_var(k, tout););
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool abs_values_table_is_ok() const {
+        for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
+            if (!abs_values_table_is_ok_for_var(j)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
-        m_vars_equivalence.clear();
+        SASSERT(abs_values_table_is_ok());
+        TRACE("nla_solver",);
+        SASSERT(m_vars_equivalence.empty());
         collect_equivs();
         m_vars_equivalence.create_tree();
         for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
             m_vars_equivalence.register_var(j, vvr(j));
         }
+        
+        SASSERT(tables_are_ok());
     }
 
+    bool vars_table_is_ok() const {
+        for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
+            auto it = m_var_to_its_monomial.find(j);
+            if (it != m_var_to_its_monomial.end()
+                && m_vars_equivalence.is_root(j)) {
+                TRACE("nla_solver", tout << "j = ";
+                      print_var(j, tout););
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool rm_table_is_ok() const {
+        for (const auto & rm : m_rm_table.vec()) {
+            for (lpvar j : rm.vars()) {
+                if (!m_vars_equivalence.is_root(j)){
+                    TRACE("nla_solver", print_var(j, tout););
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    bool tables_are_ok() const {
+        return abs_values_table_is_ok()
+            &&
+            vars_table_is_ok()
+            &&
+            rm_table_is_ok();
+    }
+    
     bool var_is_a_root(lpvar j) const { return m_vars_equivalence.is_root(j); }
 
     template <typename T>
@@ -815,6 +879,11 @@ struct solver::imp {
     void register_monomial_in_tables(unsigned i_mon) {
         m_vars_equivalence.register_monomial_in_abs_vals(i_mon, m_monomials[i_mon]);
         monomial_coeff mc = canonize_monomial(m_monomials[i_mon]);
+        TRACE("nla_solver", tout << "mon = ";
+              print_monomial(m_monomials[i_mon], tout);
+              tout << "\nmc = ";
+              print_product(mc.vars(), tout);
+              );
         m_rm_table.register_key_mono_in_rooted_monomials(mc, i_mon);        
     }
 
@@ -828,25 +897,29 @@ struct solver::imp {
         }
         out << "\n}";
     }
-    
-    
-
-    
+        
     void register_monomials_in_tables() {
-        m_vars_equivalence.clear_monomials_by_abs_vals();
         for (unsigned i = 0; i < m_monomials.size(); i++) 
             register_monomial_in_tables(i);
 
         m_rm_table.fill_rooted_monomials_containing_var();
         m_rm_table.fill_rooted_factor_to_product();
     }
+
+    void clear() {
+        m_vars_equivalence.clear();
+        m_rm_table.clear();
+        m_monomials_containing_var.clear();
+        m_var_to_its_monomial.clear();
+        m_expl->clear();
+        m_lemma->clear();
+    }
     
     void init_search() {
+        clear();
         map_vars_to_monomials();
         init_vars_equivalence();
         register_monomials_in_tables();
-        m_expl->clear();
-        m_lemma->clear();
     }
 
 
@@ -919,7 +992,7 @@ struct solver::imp {
         explain(c);
         explain(bd);
         explain(b);
-        explain(d);
+        explain(d); // todo: double check that these explanations are enough!
     }
 
     bool get_cd_signs_for_ol(const rational& c, const rational& d, int& c_sign, int & d_sign) const {
@@ -1003,7 +1076,9 @@ struct solver::imp {
               print_rooted_monomial(rm_ac, tout);
               tout << "\nrm_bd = ";
               print_rooted_monomial(rm_bd, tout);
-              tout << ", d  = "; print_factor(d, tout););
+              tout << "\nac_f[k] = ";
+              print_factor_with_vars(ac_f[k], tout);
+              tout << "\nd  = "; print_factor(d, tout););
         SASSERT(abs(vvr(ac_f[k])) == abs(vvr(d)));
         factor b;
         if (!divide(rm_bd, d, b)){
@@ -1027,6 +1102,7 @@ struct solver::imp {
                 if (!contains(found_vars, i)) {
                     found_vars.insert(i);
                     r.push_back(factor(i, factor_type::VAR));
+                    TRACE("nla_solver", tout << "insering var = "; print_var(i, tout););
                 }
             } else {
                 const monomial& m = m_monomials[it->second];
@@ -1037,7 +1113,7 @@ struct solver::imp {
                 if (!contains(found_rm, i)) {
                     found_rm.insert(i);
                     r.push_back(factor(i, factor_type::RM));
-                    TRACE("nla_solver", tout << "insering factor = "; print_factor(factor(i, factor_type::RM), tout); );
+                    TRACE("nla_solver", tout << "insering factor = "; print_factor_with_vars(factor(i, factor_type::RM), tout); );
                 }
                 
             }
@@ -1058,7 +1134,7 @@ struct solver::imp {
                 TRACE("nla_solver", tout << "var(d) = " << var(d););
                 for (unsigned rm_bd : m_rm_table.var_map()[d.index()]) {
                     TRACE("nla_solver", );
-                    if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.vec()[rm_bd], d)) {
+                    if (order_lemma_on_ac_and_bd(rm ,ac, k, m_rm_table.vec()[rm_bd], d)) {
                         return true;
                     }
                 }
