@@ -102,6 +102,8 @@ struct vars_equivalence {
     void clear() {
         m_equivs.clear();
         m_tree.clear();
+        m_vars_by_abs_values.clear();
+        m_monomials_by_abs_vals.clear();
     }
 
     svector<lpvar> get_vars_with_the_same_abs_val(const rational& v) const {
@@ -128,27 +130,27 @@ struct vars_equivalence {
     void connect_equiv_to_tree(unsigned k) {
         // m_tree is a spanning tree of the graph of m_equivs
         const equiv &e = m_equivs[k];
-        TRACE("nla_solver", tout << "m_i = " << e.m_i << ", " << "m_j = " << e.m_j ;);
+        TRACE("nla_vars_eq", tout << "m_i = " << e.m_i << ", " << "m_j = " << e.m_j ;);
         bool i_is_in = m_tree.find(e.m_i) != m_tree.end();
         bool j_is_in = m_tree.find(e.m_j) != m_tree.end();
         
         if (!(i_is_in || j_is_in)) {
             // none of the edge vertices is in the tree
             // let m_i be the parent, and m_j be the child
-            TRACE("nla_solver", tout << "create nodes for " << e.m_i << " and " << e.m_j; );
+            TRACE("nla_vars_eq", tout << "create nodes for " << e.m_i << " and " << e.m_j; );
             m_tree.emplace(e.m_i, -1);
             m_tree.emplace(e.m_j, k);
         } else if (i_is_in && (!j_is_in)) {
             // create a node for m_j, with m_i is the parent
-            TRACE("nla_solver", tout << "create a node for " << e.m_j; );
+            TRACE("nla_vars_eq", tout << "create a node for " << e.m_j; );
             m_tree.emplace(e.m_j, k);
             // if m_i is a root here we can set its parent m_j
         } else if ((!i_is_in) && j_is_in) {
-            TRACE("nla_solver", tout << "create a node for " << e.m_i; );
+            TRACE("nla_vars_eq", tout << "create a node for " << e.m_i; );
             m_tree.emplace(e.m_i, k);
             // if m_j is a root here we can set its parent to m_i
         } else {
-            TRACE("nla_solver", tout << "both vertices are in the tree";);
+            TRACE("nla_vars_eq", tout << "both vertices are in the tree";);
         }
     }
     
@@ -172,12 +174,15 @@ struct vars_equivalence {
     // Finds the root var which is equivalent to j.
     // The sign is flipped if needed
     lpvar map_to_root(lpvar j, rational& sign) const {
+        TRACE("nla_vars_eq", tout << "j = " << j << "\n";);
         while (true) {
             auto it = m_tree.find(j);
             if (it == m_tree.end())
                 return j;
-            if (it->second == static_cast<unsigned>(-1))
+            if (it->second == static_cast<unsigned>(-1)) {
+                TRACE("nla_vars_eq", tout << "mapped to " << j << "\n";);
                 return j;
+            }
             const equiv & e = m_equivs[it->second];
             sign *= e.m_sign;
             j = get_parent_node(j, e);
@@ -225,12 +230,13 @@ struct vars_equivalence {
     }
 
     void register_var(unsigned j, const rational& val) {
+        TRACE("nla_vars_eq", tout << "j = " << j;);
         rational v = abs(val);
         auto it = m_vars_by_abs_values.find(v);
         if (it == m_vars_by_abs_values.end()) {
             unsigned_vector uv;
             uv.push_back(j);
-            m_vars_by_abs_values[val] = uv;
+            m_vars_by_abs_values[v] = uv;
         } else {
             it->second.push_back(j);
         }
@@ -272,10 +278,5 @@ struct vars_equivalence {
         }
         
     }
-
-    void clear_monomials_by_abs_vals() {
-        m_monomials_by_abs_vals.clear();
-    }
-
 }; // end of vars_equivalence
 }
