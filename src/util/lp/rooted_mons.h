@@ -62,6 +62,13 @@ struct rooted_mon_table {
     // m_vector_of_rooted_monomials[i] is a proper factor of m_vector_of_rooted_monomials[h]
     std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_rooted_factor_to_product;
 
+    void clear() {
+        m_rooted_monomials_map.clear();
+        m_vector_of_rooted_monomials.clear();
+        m_rooted_monomials_containing_var.clear();
+        m_rooted_factor_to_product.clear();
+    }
+    
     const vector<rooted_mon>& vec() const { return m_vector_of_rooted_monomials; }
     vector<rooted_mon>& vec() { return m_vector_of_rooted_monomials; }
 
