@@ -1003,6 +1003,7 @@ struct solver::imp {
                      int d_sign,
                      const factor& d,
                      lp::lconstraint_kind ab_cmp) {
+        mk_ineq(rational(c_sign) * flip_sign(c), var(c), lp::lconstraint_kind::LE);
         negate_factor_equality(c, d);
         negate_factor_relation(rational(c_sign), a, rational(d_sign), b);
         mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), ab_cmp);
@@ -1012,6 +1013,7 @@ struct solver::imp {
         explain(bd);
         explain(b);
         explain(d); // todo: double check that these explanations are enough!
+        TRACE("nla_solver", print_lemma(tout););
     }
 
     bool get_cd_signs_for_ol(const rational& c, const rational& d, int& c_sign, int & d_sign) const {
