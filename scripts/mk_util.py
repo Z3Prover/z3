@@ -90,6 +90,7 @@ TRACE = False
 PYTHON_ENABLED=False
 DOTNET_ENABLED=False
 DOTNET_CORE_ENABLED=False
+ESRP_SIGN=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 JAVA_ENABLED=False
 ML_ENABLED=False
@@ -706,14 +707,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED, ESRP_SIGN
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
+                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
@@ -751,6 +752,8 @@ def parse_options():
             DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
+        elif opt in ('--esrp'):
+            ESRP_SIGN = True
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--staticbin'):
@@ -1867,6 +1870,7 @@ class DotNetCoreDLLComponent(Component):
         key = ""
         if not self.key_file is None:
             key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
+            key += "\n<SignAssembly>true</SignAssembly>"
 
         if VS_X64:
             platform = 'x64'
@@ -1921,9 +1925,75 @@ class DotNetCoreDLLComponent(Component):
         dotnetCmdLine.extend(['-o', path])
             
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
-
-        out.write('\n')
+        self.sign_esrp(out)
+        out.write('\n')        
         out.write('%s: %s\n\n' % (self.name, dllfile))
+
+    def sign_esrp(self, out):
+        global ESRP_SIGNx
+        print("esrp-sign", ESRP_SIGN)
+        if not ESRP_SIGN:
+            return
+        
+        import uuid
+        guid = str(uuid.uuid4())
+        path = BUILD_DIR        
+        assemblySignStr = """
+{
+  "Version": "1.0.0",
+  "SignBatches"
+  :
+  [
+   {
+    "SourceLocationType": "UNC",
+    "SourceRootDirectory": "c:\\ESRP\\input",
+    "DestinationLocationType": "UNC",
+    "DestinationRootDirectory": "c:\\ESRP\\output",
+    "SignRequestFiles": [
+     {
+      "CustomerCorrelationId": "%s",
+      "SourceLocation": "%s\\libz3.dll",
+      "DestinationLocation": "%s\\libz3.dll"
+     },
+     {
+      "CustomerCorrelationId": "%s",
+      "SourceLocation": "%s\\Microsoft.Z3.dll",
+      "DestinationLocation": "%s\\Microsoft.Z3.dll"
+     }
+    ],
+    "SigningInfo": {
+     "Operations": [
+      {
+       "KeyCode" : "CP-230012",
+       "OperationCode" : "SigntoolSign",
+       "Parameters" : {
+        "OpusName": "Microsoft",
+        "OpusInfo": "http://www.microsoft.com",
+        "FileDigest": "/fd \"SHA256\"",
+        "PageHash": "/NPH",
+        "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+       },
+       "ToolName" : "sign",
+       "ToolVersion" : "1.0"
+      },
+      {
+       "KeyCode" : "CP-230012",
+       "OperationCode" : "SigntoolVerify",
+       "Parameters" : {},
+       "ToolName" : "sign",
+       "ToolVersion" : "1.0"
+      }
+     ]
+    }
+   }
+  ]
+}       """ % (guid, path, path, guid, path, path)
+        assemblySign = os.path.join('dotnet', 'assembly-sign-input.json')
+        with open(os.path.join(BUILD_DIR, assemblySign), 'w') as ous:
+            ous.write(assemblySignStr)
+        outputFile = os.path.join(BUILD_DIR, 'dotnet', "output.json")
+        esrpCmdLine = ["esrpclient.exe", "sign", "-a", "C:\\esrp\\config\\authorization.json", "-p", "C:\\esrp\\config\\policy.json", "-i", assemblySign, "-o", outputFile]
+        MakeRuleCmd.write_cmd(out, ' '.join(esrpCmdLine))
 
 
     def main_component(self):
@@ -1933,6 +2003,7 @@ class DotNetCoreDLLComponent(Component):
         # TBD: is this required for dotnet core given that version numbers are in z3.csproj file?
         return True
 
+    
     def mk_win_dist(self, build_path, dist_path):
         if is_dotnet_core_enabled():
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
