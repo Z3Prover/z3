@@ -584,7 +584,7 @@ def mk_java(java_dir, package_name):
     java_wrapper.write('extern "C" {\n')
     java_wrapper.write('#endif\n\n')
     java_wrapper.write('#ifdef __GNUC__\n#if __GNUC__ >= 4\n#define DLL_VIS __attribute__ ((visibility ("default")))\n#else\n#define DLL_VIS\n#endif\n#else\n#define DLL_VIS\n#endif\n\n')
-    java_wrapper.write('#if defined(_M_X64) || defined(_AMD64_)\n\n')
+    java_wrapper.write('#if defined(__LP64__) || defined(_WIN64)\n\n')
     java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
     java_wrapper.write('  T * NEW = (OLD == 0) ? 0 : (T*) jenv->GetLongArrayElements(OLD, NULL);\n')
     java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                 \\\n')

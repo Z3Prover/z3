@@ -205,9 +205,6 @@ message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 include(${CMAKE_SOURCE_DIR}/cmake/target_arch_detect.cmake)
 detect_target_architecture(TARGET_ARCHITECTURE)
 message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_AMD64_")
-endif()
 
 
 ################################################################################

@@ -2706,7 +2706,7 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2731,7 +2731,7 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
@@ -2853,7 +2853,6 @@ def mk_config():
         if is64():
             if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
-            CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
                 CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
         elif not LINUX_X64:

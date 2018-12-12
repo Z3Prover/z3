@@ -61,7 +61,7 @@ public:
     char * to_string(mpn_digit const * a, size_t lng,
                      char * buf, size_t lbuf) const;
 private:
-    #ifdef _AMD64_
+    #if defined(__LP64__) || defined(_WIN64)
     class  mpn_sbuffer : public sbuffer<mpn_digit> {
     public:
         mpn_sbuffer() : sbuffer<mpn_digit>() {}
