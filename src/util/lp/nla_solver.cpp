@@ -95,6 +95,7 @@ struct solver::imp {
     
     // returns the monomial index
     unsigned add(lpvar v, unsigned sz, lpvar const* vs) {
+        SASSERT(m_var_to_its_monomial.find(v) == m_var_to_its_monomial.end());
         unsigned ret = m_var_to_its_monomial[v] = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
         TRACE("nla_solver", print_monomial(m_monomials.back(), tout););
@@ -331,7 +332,7 @@ struct solver::imp {
         for (lpvar v : vars) {
             unsigned root = m_vars_equivalence.map_to_root(v, sign);
             SASSERT(m_vars_equivalence.is_root(root));
-            TRACE("nla_solver",
+            TRACE("nla_solver_eq",
                   print_var(v,tout);
                   tout << " mapped to ";
 
@@ -534,6 +535,7 @@ struct solver::imp {
             }
 
             i = it->second.m_mons.begin()->m_i;
+            TRACE("nla_solver",);
             return true;
         }
     };
@@ -835,9 +837,16 @@ struct solver::imp {
         for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
             auto it = m_var_to_its_monomial.find(j);
             if (it != m_var_to_its_monomial.end()
-                && m_vars_equivalence.is_root(j)) {
+                && m_monomials[it->second].var() != j) {
                 TRACE("nla_solver", tout << "j = ";
                       print_var(j, tout););
+                return false;
+            }
+        }
+        for (unsigned i = 0; i < m_monomials.size(); i++){
+            const monomial& m = m_monomials[i];
+            lpvar j = m.var();
+            if (m_var_to_its_monomial.find(j) == m_var_to_its_monomial.end()){
                 return false;
             }
         }
@@ -910,7 +919,6 @@ struct solver::imp {
         m_vars_equivalence.clear();
         m_rm_table.clear();
         m_monomials_containing_var.clear();
-        m_var_to_its_monomial.clear();
         m_expl->clear();
         m_lemma->clear();
     }
