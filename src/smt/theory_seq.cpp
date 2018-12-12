@@ -4454,7 +4454,6 @@ expr_ref theory_seq::add_elim_string_axiom(expr* n) {
     - len(str) = str.length()       if x = str
     - len(empty) = 0                if x = empty
     - len(int.to.str(i)) >= 1       if x = int.to.str(i) and more generally if i = 0 then 1 else 1+floor(log(|i|))
-    - len(substr(s,i,l)) <= l       if x = substr(s,i,l)
     - len(x) >= 0                   otherwise
  */
 void theory_seq::add_length_axiom(expr* n) {
@@ -4474,11 +4473,6 @@ void theory_seq::add_length_axiom(expr* n) {
         add_itos_length_axiom(n);
     }   
     else {
-        expr* s = nullptr, *i = nullptr, *l = nullptr;
-        if (m_util.str.is_extract(x, s, i, l)) {
-            literal len_le_l = mk_simplified_literal(m_autil.mk_ge(mk_sub(l, n), m_autil.mk_int(0)));
-            add_axiom(len_le_l); 
-        }
         add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
     }
     if (!ctx.at_base_level()) {
@@ -4801,6 +4795,7 @@ void theory_seq::add_extract_axiom(expr* e) {
         add_extract_suffix_axiom(e, s, i);
         return;
     }
+
     expr_ref x(mk_skolem(m_pre, s, i), m);
     expr_ref ls = mk_len(s);
     expr_ref lx = mk_len(x);
