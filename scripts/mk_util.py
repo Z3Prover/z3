@@ -1946,19 +1946,19 @@ class DotNetCoreDLLComponent(Component):
   [
    {
     "SourceLocationType": "UNC",
-    "SourceRootDirectory": "c:\\\\ESRP\\\\input",
+    "SourceRootDirectory": "%s",
     "DestinationLocationType": "UNC",
     "DestinationRootDirectory": "c:\\\\ESRP\\\\output",
     "SignRequestFiles": [
      {
       "CustomerCorrelationId": "%s",
-      "SourceLocation": "%s\\\\libz3.dll",
-      "DestinationLocation": "%s\\\\libz3.dll"
+      "SourceLocation": "libz3.dll",
+      "DestinationLocation": "libz3.dll"
      },
      {
       "CustomerCorrelationId": "%s",
-      "SourceLocation": "%s\\\\Microsoft.Z3.dll",
-      "DestinationLocation": "%s\\\\Microsoft.Z3.dll"
+      "SourceLocation": "Microsoft.Z3.dll",
+      "DestinationLocation": "Microsoft.Z3.dll"
      }
     ],
     "SigningInfo": {
@@ -1987,13 +1987,15 @@ class DotNetCoreDLLComponent(Component):
     }
    }
   ]
-}       """ % (guid, path, path, guid, path, path)
+}       """ % (path, guid, guid)
         assemblySign = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', 'assembly-sign-input.json')
         with open(assemblySign, 'w') as ous:
             ous.write(assemblySignStr)
         outputFile = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', "esrp-out.json")
         esrpCmdLine = ["esrpclient.exe", "sign", "-a", "C:\\esrp\\config\\authorization.json", "-p", "C:\\esrp\\config\\policy.json", "-i", assemblySign, "-o", outputFile]
         MakeRuleCmd.write_cmd(out, ' '.join(esrpCmdLine))
+        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\libz3.dll .")
+        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\Microsoft.Z3.dll .")
 
 
     def main_component(self):
