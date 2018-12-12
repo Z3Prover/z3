@@ -1937,7 +1937,7 @@ class DotNetCoreDLLComponent(Component):
         
         import uuid
         guid = str(uuid.uuid4())
-        path = BUILD_DIR        
+        path = os.path.abspath(BUILD_DIR).replace("\\","\\\\")        
         assemblySignStr = """
 {
   "Version": "1.0.0",
@@ -1946,19 +1946,19 @@ class DotNetCoreDLLComponent(Component):
   [
    {
     "SourceLocationType": "UNC",
-    "SourceRootDirectory": "c:\\ESRP\\input",
+    "SourceRootDirectory": "c:\\\\ESRP\\\\input",
     "DestinationLocationType": "UNC",
-    "DestinationRootDirectory": "c:\\ESRP\\output",
+    "DestinationRootDirectory": "c:\\\\ESRP\\\\output",
     "SignRequestFiles": [
      {
       "CustomerCorrelationId": "%s",
-      "SourceLocation": "%s\\libz3.dll",
-      "DestinationLocation": "%s\\libz3.dll"
+      "SourceLocation": "%s\\\\libz3.dll",
+      "DestinationLocation": "%s\\\\libz3.dll"
      },
      {
       "CustomerCorrelationId": "%s",
-      "SourceLocation": "%s\\Microsoft.Z3.dll",
-      "DestinationLocation": "%s\\Microsoft.Z3.dll"
+      "SourceLocation": "%s\\\\Microsoft.Z3.dll",
+      "DestinationLocation": "%s\\\\Microsoft.Z3.dll"
      }
     ],
     "SigningInfo": {
@@ -1969,9 +1969,9 @@ class DotNetCoreDLLComponent(Component):
        "Parameters" : {
         "OpusName": "Microsoft",
         "OpusInfo": "http://www.microsoft.com",
-        "FileDigest": "/fd \"SHA256\"",
+        "FileDigest": "/fd \\"SHA256\\"",
         "PageHash": "/NPH",
-        "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+        "TimeStamp": "/tr \\"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\\" /td sha256"
        },
        "ToolName" : "sign",
        "ToolVersion" : "1.0"
@@ -1988,10 +1988,10 @@ class DotNetCoreDLLComponent(Component):
    }
   ]
 }       """ % (guid, path, path, guid, path, path)
-        assemblySign = os.path.join('dotnet', 'assembly-sign-input.json')
-        with open(os.path.join(BUILD_DIR, assemblySign), 'w') as ous:
+        assemblySign = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', 'assembly-sign-input.json')
+        with open(assemblySign, 'w') as ous:
             ous.write(assemblySignStr)
-        outputFile = os.path.join(BUILD_DIR, 'dotnet', "output.json")
+        outputFile = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', "esrp-out.json")
         esrpCmdLine = ["esrpclient.exe", "sign", "-a", "C:\\esrp\\config\\authorization.json", "-p", "C:\\esrp\\config\\policy.json", "-i", assemblySign, "-o", outputFile]
         MakeRuleCmd.write_cmd(out, ' '.join(esrpCmdLine))
 
