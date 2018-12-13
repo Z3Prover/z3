@@ -213,7 +213,7 @@ struct solver::imp {
     }
 
     std::ostream& print_monomial_with_vars(unsigned i, std::ostream& out) const {
-        return print_monomial_with_vars(m_monomials[i], tout);
+        return print_monomial_with_vars(m_monomials[i], out);
     }
 
     template <typename T>
