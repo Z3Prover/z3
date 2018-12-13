@@ -400,6 +400,18 @@ bool vectors_are_equal(const vector<T> & a, const buffer<T>  &b);
 template <typename T>
 bool vectors_are_equal(const vector<T> & a, const vector<T> &b);
 
+template <typename T, typename K >
+bool vectors_are_equal_(const T & a, const K &b) {
+    if (a.size() != b.size())
+        return false;
+    for (unsigned i = 0; i < a.size(); i++){
+        if (a[i] != b[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 template <typename T>
 T abs (T const & v) { return v >= zero_of_type<T>() ? v : -v; }
 
