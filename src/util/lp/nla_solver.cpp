@@ -261,6 +261,9 @@ struct solver::imp {
         lp::lar_term t;
         t.add_coeff_var(a, j);
         t.add_coeff_var(b, k);
+        if (t.is_empty() && rs.is_zero() &&
+            (cmp == lp::lconstraint_kind::LT || cmp == lp::lconstraint_kind::GT || cmp == lp::lconstraint_kind::NE))
+            return; // otherwise we get something like 0 < 0, which is always false and can be removed from the lemma
         m_lemma->push_back(ineq(cmp, t, rs));
     }
 
