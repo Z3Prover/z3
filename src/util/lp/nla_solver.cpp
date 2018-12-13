@@ -95,11 +95,9 @@ struct solver::imp {
     
     // returns the monomial index
     unsigned add(lpvar v, unsigned sz, lpvar const* vs) {
-        SASSERT(m_var_to_its_monomial.find(v) == m_var_to_its_monomial.end());
-        unsigned ret = m_var_to_its_monomial[v] = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
         TRACE("nla_solver", print_monomial(m_monomials.back(), tout););
-        return ret;
+        return m_monomials.size() - 1;
     }
     
     void push() {
@@ -120,9 +118,12 @@ struct solver::imp {
     }
      
     void pop(unsigned n) {
-        TRACE("nla_solver",);
+        TRACE("nla_solver", tout << "n = " << n <<
+              " , m_monomials_counts.size() = " << m_monomials_counts.size() << ", m_monomials.size() = " << m_monomials.size() << "\n"; );
         if (n == 0) return;
         unsigned new_size = m_monomials_counts[m_monomials_counts.size() - n];
+        TRACE("nla_solver", tout << "new_size = " << new_size << "\n"; );
+        
         for (unsigned i = m_monomials.size(); i-- > new_size; ){
             deregister_monomial_from_tables(m_monomials[i], i);
         }
@@ -524,21 +525,23 @@ struct solver::imp {
     }
     
     struct factorization_factory_imp: factorization_factory {
-        const imp&         m_imp;
+        const imp&  m_imp;
         
         factorization_factory_imp(const svector<lpvar>& m_vars, const imp& s) :
             factorization_factory(m_vars),
             m_imp(s) { }
         
-        bool find_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
+        bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
             SASSERT(m_imp.vars_are_roots(vars));
             auto it = m_imp.m_rm_table.map().find(vars);
             if (it == m_imp.m_rm_table.map().end()) {
                 return false;
             }
 
-            i = it->second.m_mons.begin()->m_i;
+            i = it->second.m_i;
             TRACE("nla_solver",);
+            
+            SASSERT(lp::vectors_are_equal_(vars,  m_imp.m_rm_table.vec()[i].vars()));
             return true;
         }
     };
@@ -663,12 +666,16 @@ struct solver::imp {
     bool basic_lemma_for_mon_neutral_from_factors_to_monomial(const rooted_mon& rm, const factorization& f) {
         rational sign = rm.m_orig.m_sign;
         lpvar not_one = -1;
+
+        TRACE("nla_solver", tout << "f = "; print_factorization(f, tout););
         for (auto j : f){
-            if (vvr(j) == rational(1)) {
+            TRACE("nla_solver", tout << "j = "; print_factor_with_vars(j, tout););
+            auto v = vvr(j);
+            if (v == rational(1)) {
                 continue;
             }
 
-            if (vvr(j) == -rational(1)) { 
+            if (v == -rational(1)) { 
                 sign = - sign;
                 continue;
             } 
@@ -695,7 +702,9 @@ struct solver::imp {
         } else {
             mk_ineq(m_monomials[rm.orig_index()].var(), -sign, not_one, lp::lconstraint_kind::EQ);
         }
-        TRACE("nla_solver", print_lemma(tout););
+        TRACE("nla_solver",
+              tout << "rm = "; print_rooted_monomial_with_vars(rm, tout);
+              print_lemma(tout););
         return true;
     }
     
@@ -769,8 +778,13 @@ struct solver::imp {
     }
 
     void map_vars_to_monomials() {
-        for (unsigned i = 0; i < m_monomials.size(); i++)
+        for (unsigned i = 0; i < m_monomials.size(); i++) {
+            const monomial& m = m_monomials[i];
+            lpvar v = m.var();
+            SASSERT(m_var_to_its_monomial.find(v) == m_var_to_its_monomial.end());
+            m_var_to_its_monomial[v] = i;
             map_monomial_vars_to_monomial_indices(i);
+        }
     }
 
     // we look for octagon constraints here, with a left part  +-x +- y 
@@ -930,6 +944,7 @@ struct solver::imp {
     }
 
     void clear() {
+        m_var_to_its_monomial.clear();
         m_vars_equivalence.clear();
         m_rm_table.clear();
         m_monomials_containing_var.clear();
