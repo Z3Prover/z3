@@ -47,7 +47,7 @@ public:
     }
 
     bool is_empty() const {
-        return m_coeffs.empty(); // && is_zero(m_v);
+        return m_coeffs.empty();
     }
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
