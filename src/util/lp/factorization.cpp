@@ -28,7 +28,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         k.type() = factor_type::VAR;
     } else {
         unsigned i;
-        if (!m_ff->find_monomial_of_vars(k_vars,i)) {
+        if (!m_ff->find_rm_monomial_of_vars(k_vars,i)) {
             return false;
         }
         k.index() = i;
@@ -40,7 +40,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         j.type() = factor_type::VAR;
     } else {
         unsigned i;
-        if (!m_ff->find_monomial_of_vars(j_vars,i)) {
+        if (!m_ff->find_rm_monomial_of_vars(j_vars, i)) {
             return false;
         }
         j.index() = i;
