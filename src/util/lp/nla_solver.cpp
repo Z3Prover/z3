@@ -849,7 +849,6 @@ struct solver::imp {
     
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
-        SASSERT(abs_values_table_is_ok());
         TRACE("nla_solver",);
         SASSERT(m_vars_equivalence.empty());
         collect_equivs();
@@ -858,7 +857,7 @@ struct solver::imp {
             m_vars_equivalence.register_var(j, vvr(j));
         }
         
-        SASSERT(tables_are_ok());
+        SASSERT((m_lar_solver.settings().random_next() % 100) || tables_are_ok());
     }
 
     bool vars_table_is_ok() const {
