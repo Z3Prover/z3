@@ -514,7 +514,12 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     }
     if (ProofGen) {
         quantifier_ref new_q(m().update_quantifier(q, num_pats, new_pats.c_ptr(), num_no_pats, new_no_pats.c_ptr(), new_body), m());
-        m_pr = q == new_q ? nullptr : m().mk_quant_intro(q, new_q, result_pr_stack().get(fr.m_spos));
+        m_pr = nullptr;
+        if (q != new_q) {
+            m_pr = result_pr_stack().get(fr.m_spos);
+            m_pr = m().mk_bind_proof(q, m_pr);
+            m_pr = m().mk_quant_intro(q, new_q, m_pr);
+        }
         m_r = new_q;
         proof_ref pr2(m());
         if (m_cfg.reduce_quantifier(new_q, new_body, new_pats.c_ptr(), new_no_pats.c_ptr(), m_r, pr2)) {

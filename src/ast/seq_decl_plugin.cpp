@@ -69,14 +69,14 @@ static bool is_escape_char(char const *& s, unsigned& result) {
     }
     /* 2 octal digits */
     if (is_octal_digit(*(s + 1), d1) && is_octal_digit(*(s + 2), d2) &&
-            !is_octal_digit(*(s + 3), d3)) {
+        !is_octal_digit(*(s + 3), d3)) {
         result = d1 * 8 + d2;
         s += 3;
         return true;
     }
     /* 3 octal digits */
     if (is_octal_digit(*(s + 1), d1) && is_octal_digit(*(s + 2), d2) &&
-            is_octal_digit(*(s + 3), d3)) {
+        is_octal_digit(*(s + 3), d3)) {
         result = d1*64 + d2*8 + d3;
         s += 4;
         return true;
@@ -296,13 +296,10 @@ bool zstring::operator==(const zstring& other) const {
         return false;
     }
     for (unsigned i = 0; i < length(); ++i) {
-        unsigned Xi = m_buffer[i];
-        unsigned Yi = other[i];
-        if (Xi != Yi) {
+        if (m_buffer[i] != other[i]) {
             return false;
         }
     }
-
     return true;
 }
 
@@ -325,19 +322,14 @@ bool operator<(const zstring& lhs, const zstring& rhs) {
         unsigned Ri = rhs[i];
         if (Li < Ri) {
             return true;
-        } else if (Li > Ri) {
+        } 
+        else if (Li > Ri) {
             return false;
-        } else {
-            continue;
-        }
+        } 
     }
     // at this point, all compared characters are equal,
     // so decide based on the relative lengths
-    if (lhs.length() < rhs.length()) {
-        return true;
-    } else {
-        return false;
-    }
+    return lhs.length() < rhs.length();
 }
 
 
@@ -556,7 +548,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
-    m_sigs[OP_STRING_CONST]      = 0;
+    m_sigs[OP_STRING_CONST]      = nullptr;
     m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
@@ -1062,7 +1054,6 @@ app* seq_util::re::mk_full_seq(sort* s) {
 app* seq_util::re::mk_empty(sort* s) {    
     return m.mk_app(m_fid, OP_RE_EMPTY_SET, 0, nullptr, 0, nullptr, s);
 }
-
 
 bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi)  {
     if (is_loop(n)) {

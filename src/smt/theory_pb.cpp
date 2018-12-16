@@ -523,21 +523,15 @@ namespace smt {
             SASSERT(pb.is_at_least_k(atom) || pb.is_ge(atom) || pb.is_eq(atom));
         }
         TRACE("pb", display(tout, *c, true););        
-        //app_ref fml1(m), fml2(m);
-        //fml1 = c->to_expr(ctx, m);
         c->unique();
         lbool is_true = c->normalize();
         c->prune();
         c->post_prune();
-        //fml2 = c->to_expr(ctx, m);
-        //expr_ref validate_pb = pb_rewriter(m).mk_validate_rewrite(fml1, fml2);
-        //pb_rewriter(m).dump_pb_rewrite(validate_pb);
 
         literal lit(abv);
 
-
         TRACE("pb", display(tout, *c); tout << " := " << lit << "\n";);        
-        switch(is_true) {
+        switch (is_true) {
         case l_false: 
             lit = ~lit;
             // fall-through
@@ -590,14 +584,11 @@ namespace smt {
         else {
             c->m_compilation_threshold = UINT_MAX;
         }
-        init_watch_var(*c);
+        init_watch_ineq(*c);
         init_watch(abv);
         m_var_infos[abv].m_ineq = c;
         m_ineqs_trail.push_back(abv);
-
-
         TRACE("pb", display(tout, *c););
-
         return true;
     }
 
@@ -699,50 +690,40 @@ namespace smt {
         }
     }
 
-
     void theory_pb::watch_literal(literal lit, ineq* c) {
         init_watch(lit.var());
         ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
+        TRACE("pb", display(tout << "watch " << lit << " " << (c), *c););
         if (ineqs == nullptr) {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
         }
-        ineqs->push_back(c);
-    }
-
-
-    void theory_pb::watch_var(bool_var v, ineq* c) {
-        init_watch(v);
-        ptr_vector<ineq>* ineqs = m_var_infos[v].m_var_watch;
-        if (ineqs == nullptr) {
-            ineqs = alloc(ptr_vector<ineq>);
-            m_var_infos[v].m_var_watch = ineqs;
+        for (auto* c1 : *ineqs) {
+            //if (c1 == c) return;
+            SASSERT (c1 != c);
         }
         ineqs->push_back(c);
-    }
-
-    void theory_pb::unwatch_var(bool_var v, ineq* c) {
-        ptr_vector<ineq>* ineqs = m_var_infos[v].m_var_watch;
-        if (ineqs) {
-            remove(*ineqs, c);
-        }
     }
 
     void theory_pb::unwatch_literal(literal lit, ineq* c) {
         ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (ineqs) {
+            TRACE("pb", display(tout << "unwatch " << lit << " " << (c), *c););
             remove(*ineqs, c);        
         }
     }
 
     void theory_pb::remove(ptr_vector<ineq>& ineqs, ineq* c) {
-        for (unsigned j = 0; j < ineqs.size(); ++j) {
+        unsigned sz = ineqs.size();
+        for (unsigned j = 0; j < sz; ++j) {
             if (ineqs[j] == c) {                        
-                std::swap(ineqs[j], ineqs[ineqs.size()-1]);
+                std::swap(ineqs[j], ineqs[sz-1]);
                 ineqs.pop_back();
-                break;
+                TRACE("pb", tout << "removed\n";);
+                return;
             }
         }
+        TRACE("pb", tout << "not removed\n";);        
     }
 
     // ----------------------------
@@ -1042,13 +1023,6 @@ namespace smt {
                 }
             }
         }
-        ineqs = m_var_infos[v].m_var_watch;
-        if (ineqs != nullptr) {
-            for (unsigned i = 0; i < ineqs->size(); ++i) {
-                ineq* c = (*ineqs)[i]; 
-                assign_watch(v, is_true, *c);
-            }
-        }
         ineq* c = m_var_infos[v].m_ineq;
         if (c != nullptr) {
             if (c->is_ge()) {
@@ -1143,19 +1117,6 @@ namespace smt {
         return lits;
     }
 
-    class theory_pb::rewatch_vars : public trail<context> {
-        theory_pb& pb;
-        ineq&      c;
-    public:
-        rewatch_vars(theory_pb& p, ineq& c): pb(p), c(c) {}        
-        void undo(context& ctx) override {
-            for (unsigned i = 0; i < c.size(); ++i) {
-                pb.watch_var(c.lit(i).var(), &c);
-            }
-        }
-    };
-
-
     class theory_pb::negate_ineq : public trail<context> {
         ineq& c;
     public:
@@ -1176,7 +1137,6 @@ namespace smt {
         ctx.push_trail(value_trail<context, scoped_mpz>(c.m_max_sum));
         ctx.push_trail(value_trail<context, scoped_mpz>(c.m_min_sum));
         ctx.push_trail(value_trail<context, unsigned>(c.m_nfixed));
-        ctx.push_trail(rewatch_vars(*this, c));
 
         SASSERT(c.is_ge());
         unsigned sz = c.size();
@@ -1227,104 +1187,7 @@ namespace smt {
     */
     void theory_pb::assign_eq(ineq& c, bool is_true) {
         SASSERT(c.is_eq());
-        
-    }
-
-    /**
-       Propagation rules:
-
-       nfixed = N & minsum = k -> T
-       nfixed = N & minsum != k -> F
-    
-       minsum > k or maxsum < k -> F
-       minsum = k & = -> fix 0 variables
-       nfixed+1 = N & = -> fix unassigned variable or conflict
-       nfixed+1 = N & != -> maybe forced unassigned to ensure disequal
-       minsum >= k -> T
-       maxsum <  k -> F
-    */
-
-    void theory_pb::assign_watch(bool_var v, bool is_true, ineq& c) {
-        
-        context& ctx = get_context();
-        unsigned i;
-        literal l = c.lit();
-        lbool asgn = ctx.get_assignment(l);
-
-        if (c.max_sum() < c.mpz_k() && asgn == l_false) {
-            return;
-        }
-        if (c.is_ge() && c.min_sum() >= c.mpz_k() && asgn == l_true) {
-            return;
-        }
-        for (i = 0; i < c.size(); ++i) {
-            if (c.lit(i).var() == v) {
-                break;
-            }
-        }
-        
-        TRACE("pb", display(tout << "assign watch " << literal(v,!is_true) << " ", c, true););
-
-        SASSERT(i < c.size());
-        if (c.lit(i).sign() == is_true) {
-            ctx.push_trail(value_trail<context, scoped_mpz>(c.m_max_sum));
-            c.m_max_sum -= c.ncoeff(i);
-        }
-        else {
-            ctx.push_trail(value_trail<context, scoped_mpz>(c.m_min_sum));
-            c.m_min_sum += c.ncoeff(i);            
-        }
-        DEBUG_CODE(
-            scoped_mpz sum(m_mpz_mgr);
-            scoped_mpz maxs(m_mpz_mgr);
-            for (unsigned i = 0; i < c.size(); ++i) {
-                if (ctx.get_assignment(c.lit(i)) == l_true)  sum  += c.ncoeff(i);
-                if (ctx.get_assignment(c.lit(i)) != l_false) maxs += c.ncoeff(i);
-            }
-            CTRACE("pb", (maxs > c.max_sum()), display(tout, c, true););
-            SASSERT(c.min_sum() <= sum);
-            SASSERT(sum <= maxs);
-            SASSERT(maxs <= c.max_sum());
-            );
-        SASSERT(c.min_sum() <= c.max_sum());
-        SASSERT(!m_mpz_mgr.is_neg(c.min_sum()));
-        ctx.push_trail(value_trail<context, unsigned>(c.m_nfixed));
-        ++c.m_nfixed;
-        SASSERT(c.nfixed() <= c.size());
-        if (c.is_ge() && c.min_sum() >= c.mpz_k() && asgn != l_true) {
-            TRACE("pb", display(tout << "Set " << l << "\n", c, true););
-            add_assign(c, get_helpful_literals(c, false), l);
-        }        
-        else if (c.max_sum() < c.mpz_k() && asgn != l_false) {
-            TRACE("pb", display(tout << "Set " << ~l << "\n", c, true););
-            add_assign(c, get_unhelpful_literals(c, true), ~l);
-        }
-        else if (c.is_eq() && c.nfixed() == c.size() && c.min_sum() == c.mpz_k() && asgn != l_true) {
-            TRACE("pb", display(tout << "Set " << l << "\n", c, true););
-            add_assign(c, get_all_literals(c, false), l);     
-        }
-        else if (c.is_eq() && c.nfixed() == c.size() && c.min_sum() != c.mpz_k() && asgn != l_false) {
-            TRACE("pb", display(tout << "Set " << ~l << "\n", c, true););
-            add_assign(c, get_all_literals(c, false), ~l);     
-        }
-#if 0
-        else if (c.is_eq() && c.min_sum() > c.mpz_k() && asgn != l_false) {
-            TRACE("pb", display(tout << "Set " << ~l << "\n", c, true););
-            add_assign(c, get_all_literals(c, false), ~l);
-        }
-        else if (c.is_eq() && asgn == l_true && c.min_sum() == c.mpz_k() && c.max_sum() > c.mpz_k()) {
-            literal_vector& lits = get_all_literals(c, false);
-            lits.push_back(c.lit());
-            for (unsigned i = 0; i < c.size(); ++i) {
-                if (ctx.get_assignment(c.lit(i)) == l_undef) {
-                    add_assign(c, lits, ~c.lit(i)); 
-                }
-            }
-        }
-#endif
-        else {
-            IF_VERBOSE(14, display(verbose_stream() << "no propagation ", c, true););
-        }
+        UNREACHABLE();
     }
 
 
@@ -1682,7 +1545,6 @@ namespace smt {
     void theory_pb::clear_watch(ineq& c) {
         for (unsigned i = 0; i < c.size(); ++i) {
             literal w = c.lit(i);
-            unwatch_var(w.var(), &c);
             unwatch_literal(w, &c);            
         }
         c.m_watch_sum.reset();
@@ -1728,7 +1590,7 @@ namespace smt {
         ctx.push_trail(unwatch_ge(*this, c));
     }
 
-    void theory_pb::init_watch_var(ineq& c) {
+    void theory_pb::init_watch_ineq(ineq& c) {
         c.m_min_sum.reset();
         c.m_max_sum.reset();
         c.m_nfixed = 0;
@@ -1736,7 +1598,6 @@ namespace smt {
         c.m_max_watch.reset();
         c.m_watch_sz = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
-            watch_var(c.lit(i).var(), &c);
             c.m_max_sum += c.ncoeff(i);
         }                   
     }
@@ -2756,16 +2617,6 @@ namespace smt {
         for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
             display_watch(out, vi, false);
             display_watch(out, vi, true);
-        }
-        for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
-            ineq_watch const* w = m_var_infos[vi].m_var_watch;
-            if (!w) continue;
-            out << "watch (v): " << literal(vi) << " |-> ";
-            ineq_watch const& wl = *w;
-            for (unsigned i = 0; i < wl.size(); ++i) {
-                out << wl[i]->lit() << " ";
-            }
-            out << "\n";
         }
         for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
             ineq* c = m_var_infos[vi].m_ineq;
