@@ -1187,7 +1187,7 @@ namespace smt {
     */
     void theory_pb::assign_eq(ineq& c, bool is_true) {
         SASSERT(c.is_eq());
-        UNREACHABLE();
+        
     }
 
 
