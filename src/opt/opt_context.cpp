@@ -300,6 +300,7 @@ namespace opt {
             }
             return is_sat;
         }
+        s.assert_expr(asms);
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n");
         TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
