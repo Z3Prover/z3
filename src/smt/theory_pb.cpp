@@ -465,7 +465,9 @@ namespace smt {
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
         context& ctx = get_context();
-        TRACE("pb", tout << mk_pp(atom, get_manager()) << "\n";);
+        ast_manager& m = get_manager();
+
+        TRACE("pb", tout << mk_pp(atom, m) << "\n";);
         if (ctx.b_internalized(atom)) {
             return true;
         }
@@ -490,11 +492,36 @@ namespace smt {
         unsigned num_args = atom->get_num_args();
         bool_var abv = ctx.mk_bool_var(atom);
         ctx.set_var_theory(abv, get_id());
+        literal lit(abv);
+
+
+        if (pb.is_eq(atom)) {
+            expr_ref_vector args(m);
+            vector<rational> coeffs;
+            unsigned n = atom->get_num_args();
+            for (unsigned i = 0; i < n; ++i) {
+                args.push_back(atom->get_arg(i));
+                coeffs.push_back(pb.get_coeff(atom, i));
+            }
+            expr_ref le(pb.mk_le(n, coeffs.c_ptr(), args.c_ptr(), pb.get_k(atom)), m);
+            expr_ref ge(pb.mk_ge(n, coeffs.c_ptr(), args.c_ptr(), pb.get_k(atom)), m);
+            ctx.internalize(le, false);
+            ctx.internalize(ge, false);
+            literal le_lit = ctx.get_literal(le);
+            literal ge_lit = ctx.get_literal(ge);
+            ctx.mark_as_relevant(le_lit);
+            ctx.mark_as_relevant(ge_lit);
+            ctx.mk_th_axiom(get_id(), ~lit, le_lit);
+            ctx.mk_th_axiom(get_id(), ~lit, ge_lit);
+            ctx.mk_th_axiom(get_id(), ~le_lit, ~ge_lit, lit);
+            return true;
+        }
 
         ineq* c = alloc(ineq, m_mpz_mgr, literal(abv), pb.is_eq(atom));
         c->m_args[0].m_k = pb.get_k(atom);
         numeral& k = c->m_args[0].m_k;
         arg_t& args = c->m_args[0];
+
 
         // extract literals and coefficients.
         for (unsigned i = 0; i < num_args; ++i) {
@@ -528,7 +555,6 @@ namespace smt {
         c->prune();
         c->post_prune();
 
-        literal lit(abv);
 
         TRACE("pb", display(tout, *c); tout << " := " << lit << "\n";);        
         switch (is_true) {
@@ -693,7 +719,6 @@ namespace smt {
     void theory_pb::watch_literal(literal lit, ineq* c) {
         init_watch(lit.var());
         ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
-        TRACE("pb", display(tout << "watch " << lit << " " << (c), *c););
         if (ineqs == nullptr) {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
@@ -708,7 +733,6 @@ namespace smt {
     void theory_pb::unwatch_literal(literal lit, ineq* c) {
         ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (ineqs) {
-            TRACE("pb", display(tout << "unwatch " << lit << " " << (c), *c););
             remove(*ineqs, c);        
         }
     }
@@ -719,11 +743,9 @@ namespace smt {
             if (ineqs[j] == c) {                        
                 std::swap(ineqs[j], ineqs[sz-1]);
                 ineqs.pop_back();
-                TRACE("pb", tout << "removed\n";);
                 return;
             }
-        }
-        TRACE("pb", tout << "not removed\n";);        
+        }   
     }
 
     // ----------------------------
@@ -773,8 +795,6 @@ namespace smt {
                 return m.mk_th_lemma(m_fid, fact, prs.size(), prs.c_ptr());
             }
         }
-
-
     };
 
 
