@@ -3836,7 +3836,7 @@ def Extract(high, low, a):
     >>> Extract(6, 2, x).sort()
     BitVec(5)
     >>> simplify(Extract(StringVal("abcd"),2,1))
-    "c"
+    c
     """
     if isinstance(high, str):
         high = StringVal(high)
@@ -9995,8 +9995,6 @@ def Strings(names, ctx=None):
 def Empty(s):
     """Create the empty sequence of the given sort
     >>> e = Empty(StringSort())
-    >>> print(e)
-    ""
     >>> e2 = StringVal("")
     >>> print(e.eq(e2))
     True
@@ -10082,7 +10080,7 @@ def Replace(s, src, dst):
     """Replace the first occurrence of 'src' by 'dst' in 's'
     >>> r = Replace("aaa", "a", "b")
     >>> simplify(r)
-    "baa"
+    baa
     """
     ctx = _get_ctx2(dst, s)
     if ctx is None and is_expr(src):
