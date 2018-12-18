@@ -1436,7 +1436,7 @@ namespace smt {
             }
         }
 
-        std::cout << "zs: " << z << " nzs: " << nz << " lemmas: " << ctx.get_lemmas().size() << " trail: " << m_card_trail.size() << "\n";
+        //std::cout << "zs: " << z << " nzs: " << nz << " lemmas: " << ctx.get_lemmas().size() << " trail: " << m_card_trail.size() << "\n";
         return z*10 >= nz;
 
         m_occs.reset();
@@ -1739,7 +1739,7 @@ namespace smt {
         k.assert_expr(notB);
         lbool is_sat = k.check();
         validating = false;
-        std::cout << is_sat << "\n";
+        // std::cout << is_sat << "\n";
         if (is_sat == l_true) {
             std::cout << A << "\n";
             std::cout << B << "\n";
@@ -2010,7 +2010,6 @@ namespace smt {
                 m_coeffs[m_active_vars[i]] /= g;                
             }
             m_bound = (m_bound + g - 1) / g;
-            std::cout << "CUT " << g << "\n";
             TRACE("pb", display_resolved_lemma(tout << "cut\n"););
         }
     }
@@ -2032,7 +2031,7 @@ namespace smt {
         for (unsigned i = 0; i < m_antecedent_exprs.size(); ++i) {
             expr* a = m_antecedent_exprs[i].get();
             if (!ctx.b_internalized(a)) {
-                std::cout << "not internalized " << mk_pp(a, m) << "\n";
+                // std::cout << "not internalized " << mk_pp(a, m) << "\n";
                 return;
             }
             m_antecedents.push_back(~literal(ctx.get_bool_var(a), m_antecedent_signs[i]));
@@ -2040,7 +2039,7 @@ namespace smt {
         for (unsigned i = 0; i < m_cardinality_exprs.size(); ++i) {
             expr* a = m_cardinality_exprs[i].get();
             if (!ctx.b_internalized(a)) {
-                std::cout << "not internalized " << mk_pp(a, m) << "\n";
+                // std::cout << "not internalized " << mk_pp(a, m) << "\n";
                 return;
             }
             if (m_cardinality_signs[i]) {
