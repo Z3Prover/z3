@@ -1722,19 +1722,24 @@ public:
         return FC_GIVEUP;
     }
 
-    // create an eq atom representing "term = offset"
+        // create an eq atom representing "term = offset"
     app_ref mk_eq(lp::lar_term const& term, rational const& offset) {
         u_map<rational> coeffs;
         term2coeffs(term, coeffs);
         bool isint = offset.is_int();
         for (auto const& kv : coeffs) isint &= is_int(kv.m_key) && kv.m_value.is_int();
         app_ref t = coeffs2app(coeffs, rational::zero(), isint);
-        app_ref atom(m.mk_eq(t, a.mk_numeral(offset, isint)), m);
-        ctx().internalize(atom, true);
-        ctx().mark_as_relevant(atom.get());
-        return atom;
+        app_ref s(a.mk_numeral(offset, isint), m);
+        if (s == t) {
+            return app_ref(m.mk_true(), m);
+        }
+        else {
+            app_ref atom(m.mk_eq(t, s), m);
+            ctx().internalize(atom, true);
+            ctx().mark_as_relevant(atom.get());
+            return atom;
+        }
     }
-
     // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
     app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
         rational offset = k;
