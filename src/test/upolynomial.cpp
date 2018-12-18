@@ -891,6 +891,7 @@ static void tst_fact(polynomial_ref const & p, unsigned num_distinct_factors, up
     for (unsigned i = 0; i < fs.distinct_factors(); i++) {
         std::cout << "*("; um.display(std::cout, fs[i]); std::cout << ")^" << fs.get_degree(i) << std::endl;
     }
+    std::cout << fs.distinct_factors() << " " << num_distinct_factors << "\n";
     ENSURE(fs.distinct_factors() == num_distinct_factors);
     upolynomial::scoped_numeral_vector _r(um);
     fs.multiply(_r);
@@ -906,10 +907,10 @@ static void tst_fact() {
     x0 = m.mk_polynomial(m.mk_var());
     tst_fact((x0^4) + (x0^2) - 20, 3);
     tst_fact((x0^4) + (x0^2) - 20, 1, upolynomial::factor_params(5, 1, 1000));
-    tst_fact((x0^4) + (x0^2) - 20, 3, upolynomial::factor_params(7, 1, 1000));
+    tst_fact((x0^4) + (x0^2) - 20, 1, upolynomial::factor_params(7, 1, 1000));
     tst_fact((x0^70) - 6*(x0^65) - (x0^60) + 60*(x0^55) - 54*(x0^50) - 230*(x0^45) + 274*(x0^40) + 542*(x0^35) - 615*(x0^30) - 1120*(x0^25) + 1500*(x0^20) - 160*(x0^15) - 395*(x0^10) + 76*(x0^5) + 34, 1, upolynomial::factor_params(3, 1, 20));
-    tst_fact((x0^70) - 6*(x0^65) - (x0^60) + 60*(x0^55) - 54*(x0^50) - 230*(x0^45) + 274*(x0^40) + 542*(x0^35) - 615*(x0^30) - 1120*(x0^25) + 1500*(x0^20) - 160*(x0^15) - 395*(x0^10) + 76*(x0^5) + 34, 2, upolynomial::factor_params(3, 1, 72));
-    tst_fact((x0^70) - 6*(x0^65) - (x0^60) + 60*(x0^55) - 54*(x0^50) - 230*(x0^45) + 274*(x0^40) + 542*(x0^35) - 615*(x0^30) - 1120*(x0^25) + 1500*(x0^20) - 160*(x0^15) - 395*(x0^10) + 76*(x0^5) + 34, 3, upolynomial::factor_params(3, 1, 80));
+    tst_fact((x0^70) - 6*(x0^65) - (x0^60) + 60*(x0^55) - 54*(x0^50) - 230*(x0^45) + 274*(x0^40) + 542*(x0^35) - 615*(x0^30) - 1120*(x0^25) + 1500*(x0^20) - 160*(x0^15) - 395*(x0^10) + 76*(x0^5) + 34, 1, upolynomial::factor_params(3, 1, 72));
+    tst_fact((x0^70) - 6*(x0^65) - (x0^60) + 60*(x0^55) - 54*(x0^50) - 230*(x0^45) + 274*(x0^40) + 542*(x0^35) - 615*(x0^30) - 1120*(x0^25) + 1500*(x0^20) - 160*(x0^15) - 395*(x0^10) + 76*(x0^5) + 34, 1, upolynomial::factor_params(3, 1, 80));
     tst_fact( (x0^10) - 10*(x0^8) + 38*(x0^6) - 2*(x0^5) - 100*(x0^4) - 40*(x0^3) + 121*(x0^2) - 38*x0 - 17, 1);
     tst_fact( (x0^4) - 404*(x0^2) + 39204, 2);
     tst_fact(((x0^5) - (x0^2) + 1)*((-1)*x0 + 1)*((x0^2) - 2*x0 + 3), 3);

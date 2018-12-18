@@ -1072,6 +1072,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
     prime_iterator prime_it;
     scoped_numeral gcd_tmp(nm);    
     unsigned trials = 0;
+    TRACE("polynomial::factorization::bughunt", tout << "trials: " << params.m_p_trials << "\n";);
     while (trials <= params.m_p_trials) {
         upm.checkpoint();
         // construct prime to check 
