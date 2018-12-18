@@ -320,6 +320,10 @@ namespace smt {
      */
     bool theory_jobscheduler::constrain_end_time_interval(unsigned j, unsigned r) {
         unsigned idx1 = 0, idx2 = 0;
+        if (!job_has_resource(j, r)) {
+            IF_VERBOSE(0, verbose_stream() << "job " << j << " assigned non-registered resource " << r << "\n");
+            return false;
+        }
         time_t s = start(j);
         job_resource const& jr = get_job_resource(j, r);
         TRACE("csp", tout << "job: " << j << " resource: " << r << " start: " << s <<  "\n";);
