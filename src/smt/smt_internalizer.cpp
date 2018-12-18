@@ -1459,9 +1459,7 @@ namespace smt {
     
     void context::mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params) {
         justification * js = nullptr;
-        TRACE("mk_th_axiom", 
-              display_literals_verbose(tout, num_lits, lits);
-              tout << "\n";);
+        TRACE("mk_th_axiom", display_literals_verbose(tout, num_lits, lits) << "\n";);
 
         if (m_manager.proofs_enabled()) {
             js = mk_justification(theory_axiom_justification(tid, m_region, num_lits, lits, num_params, params));

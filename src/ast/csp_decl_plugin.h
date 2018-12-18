@@ -148,7 +148,7 @@ public:
     bool is_resource(expr* e, unsigned& r);
     bool is_makespan(expr* e, unsigned& r);
     bool is_add_resource_available(expr * e, expr *& res, unsigned& loadpct, unsigned& cap_time, uint64_t& start, uint64_t& end, svector<symbol>& properites);
-    bool is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& end, svector<symbol>& properites); 
+    bool is_add_job_resource(expr * e, expr *& job, expr*& res, unsigned& loadpct, uint64_t& capacity, uint64_t& finite_capacity_end, svector<symbol>& properites); 
     bool is_set_preemptable(expr* e, expr *& job);
     bool is_model(expr* e) const { return is_app_of(e, m_fid, OP_JS_MODEL); }
     bool is_js_properties(expr* e, svector<symbol>& properties);

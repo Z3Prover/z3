@@ -471,8 +471,9 @@ namespace smt {
         b_justification js;
         literal consequent;
 
-        if (!initialize_resolve(conflict, not_l, js, consequent))
+        if (!initialize_resolve(conflict, not_l, js, consequent)) {
             return false;
+        }
 
         unsigned idx = skip_literals_above_conflict_level();
 
