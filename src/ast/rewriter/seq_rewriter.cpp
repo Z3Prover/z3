@@ -386,7 +386,6 @@ eautomaton* re2automaton::seq2aut(expr* e) {
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
-    TRACE("seq", tout << f->get_name() << "\n";);
     br_status st = BR_FAILED;
     switch(f->get_decl_kind()) {
         
