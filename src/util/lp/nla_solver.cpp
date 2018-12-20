@@ -605,7 +605,7 @@ struct solver::imp {
     
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const {
         m_lar_solver.print_term(in.m_term, out);
-        out << " " << llc_string(in.m_cmp) << " " << in.m_rs;
+        out << " " << lconstraint_kind_string(in.m_cmp) << " " << in.m_rs;
         return out;
     }
 
@@ -862,6 +862,68 @@ struct solver::imp {
             explain(fc);
         }
     }
+
+    // from monomial to factors
+    // |xy| >= |y| => |x| >= 1 or |y| = 0
+    bool proportion_lemma_m_f(const rooted_mon& rm, const factorization& factorization) {
+        return false;
+    }
+
+    bool has_zero_factor(const factorization& factorization) const {
+        for (factor f : factorization) {
+            if (vvr(f).is_zero())
+                return true;
+        }
+        return false;
+    }
+
+    void generate_pl_f_m(const rooted_mon& rm, const factorization& fc, int factor_index) {
+        TRACE("nla_solver", tout << "rm = "; print_rooted_monomial_with_vars(rm, tout););
+        int fi = 0;
+        for (factor f : fc) {
+            if (fi++ != factor_index) {
+                mk_ineq(var(f), llc::EQ);
+            } else {
+                rational rmv = vvr(rm);
+                rational sm = rational(rat_sign(rmv));
+                unsigned mon_var = var(rm);
+                lpvar j = var(f);
+                rational jv = vvr(j);
+                rational sj = rational(rat_sign(jv));
+                SASSERT(sm*rmv < sj*jv);
+                TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
+                mk_ineq(sm, mon_var, llc::LT);
+                mk_ineq(sj, j, llc::LT);
+                mk_ineq(sm, mon_var, -sj, j, llc::GE);
+            }
+            explain(f);
+        }
+        TRACE("nla_solver", print_lemma(tout););
+    }   
+
+    
+    // from factors to monomial
+    // |x| >= 1 or |y|  = 0 =>  |xy| >= |y|
+    bool proportion_lemma_f_m(const rooted_mon& rm, const factorization& factorization) {
+        rational rmv = abs(vvr(rm));
+        if (rmv.is_zero()) {
+            SASSERT(has_zero_factor(factorization));
+            return false;
+        }
+        int factor_index = 0;
+        for (factor f : factorization) {
+            if (abs(vvr(f)) > rmv) {
+                generate_pl_f_m(rm, factorization, factor_index);
+                return true;
+            }
+            factor_index++;
+        }
+        return false;
+    }
+
+    bool proportion_lemma(const rooted_mon& rm, const factorization& factorization) {
+        return proportion_lemma_m_f(rm, factorization)  || proportion_lemma_f_m(rm, factorization);
+    }
     // use basic multiplication properties to create a lemma
     // for the given monomial
     bool basic_lemma_for_mon(const rooted_mon& rm) {
@@ -880,7 +942,8 @@ struct solver::imp {
                 if (factorization.is_empty())
                     continue;
                 if (basic_lemma_for_mon_non_zero(rm, factorization) ||
-                    basic_lemma_for_mon_neutral(rm, factorization))  {
+                    basic_lemma_for_mon_neutral(rm, factorization) ||
+                    proportion_lemma(rm, factorization)) {
                     explain(factorization);
                     return true;
                 }
@@ -1432,23 +1495,24 @@ struct solver::imp {
         for (int search_level = 0; search_level < 3 && ret == l_undef; search_level++) {
             if (search_level == 0) {
                 if (basic_lemma()) {
-                    return l_false;
+                    ret = l_false;
                 }
             } else if (search_level == 1) {
                 if (order_lemma()) {
-                    return l_false;
+                    ret = l_false;
                 }
             } else { // search_level == 3
                 if (monotonicity_lemma()) {
-                    return l_false;
+                    ret = l_false;
                 }
                                 
                 if (tangent_lemma()) {
-                    return l_false;
+                    ret = l_false;
                 }
             }
         }
         
+        IF_VERBOSE(2, if(ret != l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
         SASSERT(ret != l_false || ((!m_lemma->empty()) && (!lemma_holds())));
         return ret;
