@@ -863,12 +863,6 @@ struct solver::imp {
         }
     }
 
-    // from monomial to factors
-    // |xy| >= |y| => |x| >= 1 or |y| = 0
-    bool proportion_lemma_m_f(const rooted_mon& rm, const factorization& factorization) {
-        return false;
-    }
-
     bool has_zero_factor(const factorization& factorization) const {
         for (factor f : factorization) {
             if (vvr(f).is_zero())
@@ -877,7 +871,7 @@ struct solver::imp {
         return false;
     }
 
-    void generate_pl_f_m(const rooted_mon& rm, const factorization& fc, int factor_index) {
+    void generate_pl(const rooted_mon& rm, const factorization& fc, int factor_index) {
         TRACE("nla_solver", tout << "rm = "; print_rooted_monomial_with_vars(rm, tout););
         int fi = 0;
         for (factor f : fc) {
@@ -901,10 +895,8 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(tout););
     }   
 
-    
-    // from factors to monomial
-    // |x| >= 1 or |y|  = 0 =>  |xy| >= |y|
-    bool proportion_lemma_f_m(const rooted_mon& rm, const factorization& factorization) {
+    // x != 0 or y = 0 => |xy| >= |y|
+    bool proportion_lemma(const rooted_mon& rm, const factorization& factorization) {
         rational rmv = abs(vvr(rm));
         if (rmv.is_zero()) {
             SASSERT(has_zero_factor(factorization));
@@ -913,7 +905,7 @@ struct solver::imp {
         int factor_index = 0;
         for (factor f : factorization) {
             if (abs(vvr(f)) > rmv) {
-                generate_pl_f_m(rm, factorization, factor_index);
+                generate_pl(rm, factorization, factor_index);
                 return true;
             }
             factor_index++;
@@ -921,9 +913,6 @@ struct solver::imp {
         return false;
     }
 
-    bool proportion_lemma(const rooted_mon& rm, const factorization& factorization) {
-        return proportion_lemma_m_f(rm, factorization)  || proportion_lemma_f_m(rm, factorization);
-    }
     // use basic multiplication properties to create a lemma
     // for the given monomial
     bool basic_lemma_for_mon(const rooted_mon& rm) {
