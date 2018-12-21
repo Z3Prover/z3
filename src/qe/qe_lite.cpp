@@ -2370,6 +2370,7 @@ void qe_lite::operator()(uint_set const& index_set, bool index_of_bound, expr_re
     (*m_impl)(index_set, index_of_bound, fmls);
 }
 
+namespace {
 class qe_lite_tactic : public tactic {
 
     struct imp {
@@ -2494,7 +2495,6 @@ public:
         (*m_imp)(in, result);
     }
 
-
     void collect_statistics(statistics & st) const override {
         // m_imp->collect_statistics(st);
     }
@@ -2503,14 +2503,14 @@ public:
         // m_imp->reset_statistics();
     }
 
-
     void cleanup() override {
         ast_manager & m = m_imp->m;
-        dealloc(m_imp);
-        m_imp = alloc(imp, m, m_params);
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(m, m_params);
     }
 
 };
+}
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
     return alloc(qe_lite_tactic, m, p);
