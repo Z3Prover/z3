@@ -815,7 +815,9 @@ private:
         mdl = alloc(model, m);
         for (sat::bool_var v = 0; v < ll_m.size(); ++v) {
             expr* n = m_sat_mc->var2expr(v);
-            if (!n || (is_app(n) && to_app(n)->get_num_args() > 0)) continue;
+            if (!n || !is_app(n) || to_app(n)->get_num_args() > 0) {
+                continue;
+            }
             switch (sat::value_at(v, ll_m)) {
             case l_true:
                 mdl->register_decl(to_app(n)->get_decl(), m.mk_true());
