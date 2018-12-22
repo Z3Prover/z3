@@ -2310,6 +2310,7 @@ void solver::test_monotone_lemma() {
     // set f == j + 1
     s.set_column_value(lp_f, s.get_column_value(lp_j) + rational(1));
     // set the values of ab, ef, cd, and ij correctly
+    
     s.set_column_value(lp_ab, nla.m_imp->mon_value_by_vars(mon_ab));
     s.set_column_value(lp_cd, nla.m_imp->mon_value_by_vars(mon_cd));
     s.set_column_value(lp_ij, nla.m_imp->mon_value_by_vars(mon_ij));
@@ -2319,9 +2320,7 @@ void solver::test_monotone_lemma() {
 
     vector<ineq> lemma;
     lp::explanation exp;
-    
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-   
     nla.m_imp->print_lemma(std::cout << "lemma: ");
 }
 
