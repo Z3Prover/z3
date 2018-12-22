@@ -184,6 +184,20 @@ class elim_small_bv_tactic : public tactic {
             return true;
         }
 
+        bool pre_visit(expr * t) {
+            TRACE("elim_small_bv_pre", tout << "pre_visit: " << mk_ismt2_pp(t, m) << std::endl;);
+            if (is_quantifier(t)) {
+                quantifier * q = to_quantifier(t);
+                TRACE("elim_small_bv", tout << "pre_visit quantifier [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m) << std::endl;);
+                sort_ref_vector new_bindings(m);
+                for (unsigned i = 0; i < q->get_num_decls(); i++)
+                    new_bindings.push_back(q->get_decl_sort(i));
+                SASSERT(new_bindings.size() == q->get_num_decls());
+                m_bindings.append(new_bindings);
+            }
+            return true;
+        }
+
         void updt_params(params_ref const & p) {
             m_params = p;
             m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
