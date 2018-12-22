@@ -2257,6 +2257,74 @@ void solver::test_order_lemma_params(bool var_equiv, int sign) {
     // SASSERT(found);
 }
 
+void solver::test_monotone_lemma() {
+    enable_trace("nla_solver");
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4, f = 5, 
+        i = 8, j = 9,
+        ab = 10, cd = 11, ef = 12, ij = 17;
+    
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    lpvar lp_c = s.add_named_var(c, true, "c");
+    lpvar lp_d = s.add_named_var(d, true, "d");
+    lpvar lp_e = s.add_named_var(e, true, "e");
+    lpvar lp_f = s.add_named_var(f, true, "f");
+    lpvar lp_i = s.add_named_var(i, true, "i");
+    lpvar lp_j = s.add_named_var(j, true, "j");
+    lpvar lp_ab = s.add_named_var(ab, true, "ab");
+    lpvar lp_cd = s.add_named_var(cd, true, "cd");
+    lpvar lp_ef = s.add_named_var(ef, true, "ef");
+    lpvar lp_ij = s.add_named_var(ij, true, "ij");
+    //    lpvar lp_abef = s.add_named_var(abef, true, "abef");
+    for (unsigned j = 0; j < s.number_of_vars(); j++) {
+        s.set_column_value(j, rational((j + 2)*(j + 2)));
+    }
+    
+    reslimit l;
+    params_ref p;
+    solver nla(s, l, p);
+    // create monomial ab
+    vector<unsigned> vec;
+    vec.push_back(lp_a);
+    vec.push_back(lp_b);
+    int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
+    // create monomial cd
+    vec.clear();
+    vec.push_back(lp_c);
+    vec.push_back(lp_d);
+    int mon_cd = nla.add_monomial(lp_cd, vec.size(), vec.begin());
+    // create monomial ef
+    vec.clear();
+    vec.push_back(lp_e);
+    vec.push_back(lp_f);
+    nla.add_monomial(lp_ef, vec.size(), vec.begin());
+    // create monomial ij
+    vec.clear();
+    vec.push_back(lp_i);
+    vec.push_back(lp_j);
+    int mon_ij = nla.add_monomial(lp_ij, vec.size(), vec.begin());
+
+    // set e == i + 1
+    s.set_column_value(lp_e, s.get_column_value(lp_i) + rational(1));
+    // set f == j + 1
+    s.set_column_value(lp_f, s.get_column_value(lp_j) + rational(1));
+    // set the values of ab, ef, cd, and ij correctly
+    s.set_column_value(lp_ab, nla.m_imp->mon_value_by_vars(mon_ab));
+    s.set_column_value(lp_cd, nla.m_imp->mon_value_by_vars(mon_cd));
+    s.set_column_value(lp_ij, nla.m_imp->mon_value_by_vars(mon_ij));
+   
+    // set ef = ij while it has to be ef > ij
+    s.set_column_value(lp_ef, s.get_column_value(lp_ij));
+
+    vector<ineq> lemma;
+    lp::explanation exp;
+    
+    SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
+   
+    nla.m_imp->print_lemma(std::cout << "lemma: ");
+}
+
 void solver::test_order_lemma() {
     test_order_lemma_params(false,  1);
     test_order_lemma_params(false, -1);
