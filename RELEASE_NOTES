@@ -1,5 +1,15 @@
 RELEASE NOTES
 
+Version 4.8.4
+=============
+
+- Notes
+  - fixes bugs
+  - a substantial update to how the seq theory solver handles regular
+    expressions. Other performance improvements to the seq solver.
+  - Managed .NET DLLs include dotnet standard 1.4 on supported platforms.
+  - Windows Managed DLLs are strong signed in the released binaries.
+
 Version 4.8.3
 =============
 - New features

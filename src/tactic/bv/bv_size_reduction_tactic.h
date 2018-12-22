@@ -21,8 +21,7 @@ Author:
 Notes:
 
 --*/
-#ifndef BV_SIZE_REDUCTION_TACTIC_H_
-#define BV_SIZE_REDUCTION_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -32,5 +31,3 @@ tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p = par
 /*
   ADD_TACTIC("reduce-bv-size", "try to reduce bit-vector sizes using inequalities.", "mk_bv_size_reduction_tactic(m, p)")
 */
-
-#endif
