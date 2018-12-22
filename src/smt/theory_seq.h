@@ -420,12 +420,13 @@ namespace smt {
         bool reduce_length_eq();
         bool branch_unit_variable();     // branch on XYZ = abcdef
         bool branch_binary_variable();   // branch on abcX = Ydefg 
+        bool branch_variable();          // branch on 
         bool branch_ternary_variable1(); // branch on XabcY = Zdefg or XabcY = defgZ
         bool branch_ternary_variable2(); // branch on XabcY = defgZmnpq
         bool branch_quat_variable();     // branch on XabcY = ZdefgT
         bool len_based_split();          // split based on len offset
         bool branch_variable_mb();       // branch on a variable, model based on length
-        bool branch_variable();          // branch on a variable
+        bool branch_variable_eq();       // branch on a variable, by an alignment among variable boundaries.
         bool is_solved(); 
         bool check_length_coherence();
         bool check_length_coherence0(expr* e);
@@ -433,7 +434,7 @@ namespace smt {
         bool fixed_length(bool is_zero = false);
         bool fixed_length(expr* e, bool is_zero);
         void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
-        bool branch_variable(eq const& e);
+        bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
         bool eq_unit(expr* const& l, expr* const &r) const;       
         unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
@@ -451,6 +452,7 @@ namespace smt {
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
         bool is_complex(eq const& e);
+        lbool regex_are_equal(expr* r1, expr* r2);
 
         bool check_extensionality();
         bool check_contains();

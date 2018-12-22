@@ -25,6 +25,7 @@ Revision History:
 
 class model;
 class model_core;
+class expr_solver;
 
 typedef rewriter_exception model_evaluator_exception;
 
@@ -54,6 +55,8 @@ public:
     bool is_true(expr * t);
     bool is_false(expr * t);
     bool is_true(expr_ref_vector const& ts);
+
+    void set_solver(expr_solver* solver);
 
     /**
      * best effort evaluator of extensional array equality.

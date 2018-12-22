@@ -34,7 +34,7 @@ endif()
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
 set(Z3_VERSION_MINOR 8)
-set(Z3_VERSION_PATCH 4)
+set(Z3_VERSION_PATCH 5)
 set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
@@ -205,9 +205,6 @@ message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 include(${CMAKE_SOURCE_DIR}/cmake/target_arch_detect.cmake)
 detect_target_architecture(TARGET_ARCHITECTURE)
 message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_AMD64_")
-endif()
 
 
 ################################################################################

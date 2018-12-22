@@ -627,3 +627,7 @@ bool model_evaluator::eval(expr_ref_vector const& ts, expr_ref& r, bool model_co
     tmp = mk_and(ts);
     return eval(tmp, r, model_completion);
 }
+
+void model_evaluator::set_solver(expr_solver* solver) {
+    m_imp->m_cfg.m_seq_rw.set_solver(solver);
+}

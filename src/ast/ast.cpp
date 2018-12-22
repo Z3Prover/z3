@@ -1388,6 +1388,7 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
     copy_families_plugins(src);
+    update_fresh_id(src);
 }
 
 void ast_manager::update_fresh_id(ast_manager const& m) {

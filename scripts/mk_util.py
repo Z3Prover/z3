@@ -90,6 +90,7 @@ TRACE = False
 PYTHON_ENABLED=False
 DOTNET_ENABLED=False
 DOTNET_CORE_ENABLED=False
+ESRP_SIGN=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 JAVA_ENABLED=False
 ML_ENABLED=False
@@ -706,14 +707,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED, ESRP_SIGN
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
+                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
@@ -751,6 +752,8 @@ def parse_options():
             DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
+        elif opt in ('--esrp'):
+            ESRP_SIGN = True
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--staticbin'):
@@ -1867,6 +1870,7 @@ class DotNetCoreDLLComponent(Component):
         key = ""
         if not self.key_file is None:
             key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
+            key += "\n<SignAssembly>true</SignAssembly>"
 
         if VS_X64:
             platform = 'x64'
@@ -1921,9 +1925,77 @@ class DotNetCoreDLLComponent(Component):
         dotnetCmdLine.extend(['-o', path])
             
         MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
-
-        out.write('\n')
+        self.sign_esrp(out)
+        out.write('\n')        
         out.write('%s: %s\n\n' % (self.name, dllfile))
+
+    def sign_esrp(self, out):
+        global ESRP_SIGNx
+        print("esrp-sign", ESRP_SIGN)
+        if not ESRP_SIGN:
+            return
+        
+        import uuid
+        guid = str(uuid.uuid4())
+        path = os.path.abspath(BUILD_DIR).replace("\\","\\\\")        
+        assemblySignStr = """
+{
+  "Version": "1.0.0",
+  "SignBatches"
+  :
+  [
+   {
+    "SourceLocationType": "UNC",
+    "SourceRootDirectory": "%s",
+    "DestinationLocationType": "UNC",
+    "DestinationRootDirectory": "c:\\\\ESRP\\\\output",
+    "SignRequestFiles": [
+     {
+      "CustomerCorrelationId": "%s",
+      "SourceLocation": "libz3.dll",
+      "DestinationLocation": "libz3.dll"
+     },
+     {
+      "CustomerCorrelationId": "%s",
+      "SourceLocation": "Microsoft.Z3.dll",
+      "DestinationLocation": "Microsoft.Z3.dll"
+     }
+    ],
+    "SigningInfo": {
+     "Operations": [
+      {
+       "KeyCode" : "CP-230012",
+       "OperationCode" : "SigntoolSign",
+       "Parameters" : {
+        "OpusName": "Microsoft",
+        "OpusInfo": "http://www.microsoft.com",
+        "FileDigest": "/fd \\"SHA256\\"",
+        "PageHash": "/NPH",
+        "TimeStamp": "/tr \\"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\\" /td sha256"
+       },
+       "ToolName" : "sign",
+       "ToolVersion" : "1.0"
+      },
+      {
+       "KeyCode" : "CP-230012",
+       "OperationCode" : "SigntoolVerify",
+       "Parameters" : {},
+       "ToolName" : "sign",
+       "ToolVersion" : "1.0"
+      }
+     ]
+    }
+   }
+  ]
+}       """ % (path, guid, guid)
+        assemblySign = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', 'assembly-sign-input.json')
+        with open(assemblySign, 'w') as ous:
+            ous.write(assemblySignStr)
+        outputFile = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', "esrp-out.json")
+        esrpCmdLine = ["esrpclient.exe", "sign", "-a", "C:\\esrp\\config\\authorization.json", "-p", "C:\\esrp\\config\\policy.json", "-i", assemblySign, "-o", outputFile]
+        MakeRuleCmd.write_cmd(out, ' '.join(esrpCmdLine))
+        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\libz3.dll .")
+        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\Microsoft.Z3.dll .")
 
 
     def main_component(self):
@@ -1933,6 +2005,7 @@ class DotNetCoreDLLComponent(Component):
         # TBD: is this required for dotnet core given that version numbers are in z3.csproj file?
         return True
 
+    
     def mk_win_dist(self, build_path, dist_path):
         if is_dotnet_core_enabled():
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
@@ -2635,7 +2708,7 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2660,7 +2733,7 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
@@ -2782,7 +2855,6 @@ def mk_config():
         if is64():
             if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
-            CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
                 CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
         elif not LINUX_X64:

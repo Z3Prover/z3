@@ -60,7 +60,7 @@ void error(const char * msg) {
 void display_usage() {
     std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
     std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
     std::cout << "64";
 #else
     std::cout << "32";
@@ -161,7 +161,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             if (strcmp(opt_name, "version") == 0) {
                 std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
                 std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
                 std::cout << "64";
 #else
                 std::cout << "32";

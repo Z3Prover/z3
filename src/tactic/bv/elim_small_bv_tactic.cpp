@@ -28,6 +28,7 @@ Revision History:
 
 #include "tactic/bv/elim_small_bv_tactic.h"
 
+namespace {
 class elim_small_bv_tactic : public tactic {
 
     struct rw_cfg : public default_rewriter_cfg {
@@ -183,20 +184,6 @@ class elim_small_bv_tactic : public tactic {
             return true;
         }
 
-        bool pre_visit(expr * t) {
-            TRACE("elim_small_bv_pre", tout << "pre_visit: " << mk_ismt2_pp(t, m) << std::endl;);
-            if (is_quantifier(t)) {
-                quantifier * q = to_quantifier(t);
-                TRACE("elim_small_bv", tout << "pre_visit quantifier [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m) << std::endl;);
-                sort_ref_vector new_bindings(m);
-                for (unsigned i = 0; i < q->get_num_decls(); i++)
-                    new_bindings.push_back(q->get_decl_sort(i));
-                SASSERT(new_bindings.size() == q->get_num_decls());
-                m_bindings.append(new_bindings);
-            }
-            return true;
-        }
-
         void updt_params(params_ref const & p) {
             m_params = p;
             m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
@@ -214,69 +201,24 @@ class elim_small_bv_tactic : public tactic {
         }
     };
 
-    struct imp {
-        ast_manager & m;
-        rw            m_rw;
+    ast_manager & m;
+    rw            m_rw;
+    params_ref    m_params;
 
-        imp(ast_manager & _m, params_ref const & p) :
-            m(_m),
-            m_rw(m, p) {
-        }
-
-        void updt_params(params_ref const & p) {
-            m_rw.cfg().updt_params(p);
-        }
-
-        void operator()(goal_ref const & g, goal_ref_buffer & result) {
-            SASSERT(g->is_well_sorted());
-            tactic_report report("elim-small-bv", *g);
-            bool produce_proofs = g->proofs_enabled();
-            fail_if_proof_generation("elim-small-bv", g);
-            fail_if_unsat_core_generation("elim-small-bv", g);
-            m_rw.cfg().m_produce_models = g->models_enabled();
-
-            m_rw.m_cfg.m_goal = g.get();
-            expr_ref   new_curr(m);
-            proof_ref  new_pr(m);
-            unsigned   size = g->size();
-            for (unsigned idx = 0; idx < size; idx++) {
-                expr * curr = g->form(idx);
-                m_rw(curr, new_curr, new_pr);
-                if (produce_proofs) {
-                    proof * pr = g->pr(idx);
-                    new_pr = m.mk_modus_ponens(pr, new_pr);
-                }
-                g->update(idx, new_curr, new_pr, g->dep(idx));
-            }
-            g->add(m_rw.m_cfg.m_mc.get());
-
-            report_tactic_progress(":elim-small-bv-num-eliminated", m_rw.m_cfg.m_num_eliminated);
-            g->inc_depth();
-            result.push_back(g.get());
-            TRACE("elim-small-bv", g->display(tout););
-            SASSERT(g->is_well_sorted());
-        }
-    };
-
-    imp *      m_imp;
-    params_ref m_params;
 public:
     elim_small_bv_tactic(ast_manager & m, params_ref const & p) :
+        m(m),
+        m_rw(m, p),
         m_params(p) {
-        m_imp = alloc(imp, m, p);
     }
 
     tactic * translate(ast_manager & m) override {
         return alloc(elim_small_bv_tactic, m, m_params);
     }
 
-    ~elim_small_bv_tactic() override {
-        dealloc(m_imp);
-    }
-
     void updt_params(params_ref const & p) override {
         m_params = p;
-        m_imp->m_rw.cfg().updt_params(p);
+        m_rw.cfg().updt_params(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {
@@ -285,18 +227,44 @@ public:
         r.insert("max_bits", CPK_UINT, "(default: 4) maximum bit-vector size of quantified bit-vectors to be eliminated.");
     }
 
-    void operator()(goal_ref const & in,
+    void operator()(goal_ref const & g,
                     goal_ref_buffer & result) override {
-        (*m_imp)(in, result);
+        SASSERT(g->is_well_sorted());
+        tactic_report report("elim-small-bv", *g);
+        bool produce_proofs = g->proofs_enabled();
+        fail_if_proof_generation("elim-small-bv", g);
+        fail_if_unsat_core_generation("elim-small-bv", g);
+        m_rw.cfg().m_produce_models = g->models_enabled();
+
+        m_rw.m_cfg.m_goal = g.get();
+        expr_ref   new_curr(m);
+        proof_ref  new_pr(m);
+        unsigned   size = g->size();
+        for (unsigned idx = 0; idx < size; idx++) {
+            expr * curr = g->form(idx);
+            m_rw(curr, new_curr, new_pr);
+            if (produce_proofs) {
+                proof * pr = g->pr(idx);
+                new_pr = m.mk_modus_ponens(pr, new_pr);
+            }
+            g->update(idx, new_curr, new_pr, g->dep(idx));
+        }
+        g->add(m_rw.m_cfg.m_mc.get());
+
+        report_tactic_progress(":elim-small-bv-num-eliminated", m_rw.m_cfg.m_num_eliminated);
+        g->inc_depth();
+        result.push_back(g.get());
+        TRACE("elim-small-bv", g->display(tout););
+        SASSERT(g->is_well_sorted());
     }
 
     void cleanup() override {
-        ast_manager & m = m_imp->m;
-        m_imp->~imp();
-        m_imp = new (m_imp) imp(m, m_params);
+        m_rw.~rw();
+        new (&m_rw) rw(m, m_params);
     }
 
 };
+}
 
 tactic * mk_elim_small_bv_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(elim_small_bv_tactic, m, p));

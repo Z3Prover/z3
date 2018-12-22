@@ -95,6 +95,7 @@ public:
     bool is_false(expr* t);
     bool is_true(expr_ref_vector const& ts);
     void reset_eval_cache();
+    void set_solver(expr_solver* solver);
 
     class scoped_model_completion {
         bool   m_old_completion;

@@ -34,6 +34,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/recfun_replace.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/pp.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
@@ -733,6 +734,7 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 
+
     static Z3_ast simplify(Z3_context c, Z3_ast _a, Z3_params _p) {
         Z3_TRY;
         RESET_ERROR_CODE();
@@ -742,6 +744,7 @@ extern "C" {
         unsigned timeout     = p.get_uint("timeout", mk_c(c)->get_timeout());
         bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
         th_rewriter m_rw(m, p);
+        m_rw.set_solver(alloc(api::seq_expr_solver, m, p));
         expr_ref    result(m);
         cancel_eh<reslimit> eh(m.limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
