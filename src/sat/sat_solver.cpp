@@ -1785,7 +1785,7 @@ namespace sat {
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
         if (m_clone) {
-            IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
+            IF_VERBOSE(1, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
             if (!m_clone->check_model(m_model)) {
                 //IF_VERBOSE(0, display(verbose_stream()));
                 //IF_VERBOSE(0, display_watches(verbose_stream()));
