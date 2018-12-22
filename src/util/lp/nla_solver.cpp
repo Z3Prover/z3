@@ -18,7 +18,7 @@
 
   --*/
 #include "util/lp/nla_solver.h"
-#include "util/map.h"
+#include <map>
 #include "util/lp/monomial.h"
 #include "util/lp/lp_utils.h"
 #include "util/lp/vars_equivalence.h"
@@ -46,6 +46,15 @@ struct solver::imp {
     std::unordered_map<lpvar, unsigned>                              m_var_to_its_monomial;
     lp::explanation *                                                m_expl;
     lemma *                                                          m_lemma;
+
+    // for a rooted monomial rm = m_rm_table.vec[i] with rm.vars() = (a, b, c)
+    // the key = sort([abs(vvr(a)),abs(vvr(b)),abs(vvr(c))])
+    // lex_sorted contains pair (key,i), and key has all elements equal to 1 removed
+    typedef vector<std::pair<std::vector<rational>, unsigned>>            lex_sorted;
+
+    // the key of arity n is in m_lex_sorted_root_mons[n]
+    std::unordered_map<unsigned, lex_sorted>                         m_lex_sorted_root_mons;      
+
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
         :
         m_vars_equivalence([this](unsigned h){return vvr(h);}),
@@ -1429,30 +1438,65 @@ struct solver::imp {
         return false;
     }
 
-    bool monotonicity_lemma_on_factorization(unsigned i_mon, const factorization& factorization) {
-        return false;
+    std::vector<rational> get_monotone_key(const rooted_mon& rm) {
+        std::vector<rational> r;
+        for (lpvar j : rm.vars()) {
+            r.push_back(abs(vvr(j)));
+        }
+        std::sort(r.begin(), r.end() ,[](rational const& a, rational const& b) { 
+                                          return a > b; // sort in reverse order
+                      } );
+        return r;
     }
     
-    bool monotonicity_lemma_on_monomial() {
-        /*
-          for (auto factorization : factorization_factory_imp(i_mon, *this)) {
-          if (factorization.is_empty())
-          continue;
-          if (monotonicity_lemma_on_factorization(i_mon, factorization))
-          return true;
-          }*/
-        return false;
+    void add_rm_to_monotone_table(lpvar i) {
+        const rooted_mon& rm =  m_rm_table.vec()[i];
+        auto key = get_monotone_key(rm);
+        // make sure that the entry of the needed arity is there
+        auto it = m_lex_sorted_root_mons.find(key.size());        
+        if (it == m_lex_sorted_root_mons.end()) {
+            it = m_lex_sorted_root_mons.insert(it, std::make_pair(key.size(), lex_sorted()));
+        }
+        
+        it->second.push_back(std::make_pair(key, i));
     }
+
+    void sort_monotone_table() {
+        for (auto & p : m_lex_sorted_root_mons){
+            std::sort(p.second.begin(),p.second.end(),
+                      [](std::pair<std::vector<rational>, unsigned> const &a,
+                         std::pair<std::vector<rational>, unsigned> const &b) { 
+                          return a.first < b.first;
+                      } );
+        }
+        TRACE("nla_solver", tout << "Monotone table:\n"; print_monotone_table(tout););
+    }
+
+    void print_monotone_table(std::ostream& out) const {
+        for (const auto & p : m_lex_sorted_root_mons){
+            out << "Arity = " << p.first << " {";
+            for(auto & t : p.second) {
+                out << "(";
+                print_vector(t.first, out);
+                out << "), " << t.second << " ";
+            }
+            out <<  "}";
+            
+        }
+    }
+    
+    void build_monotone_table() {
+        for (unsigned i = 0; i < m_rm_table.vec().size(); i++ ) {
+            add_rm_to_monotone_table(i);
+        }
+        sort_monotone_table();
+    }
+
+    bool find_lemma_in_monotone_table() {return false;}
     
     bool monotonicity_lemma() {
-        
-        // for (unsigned i_mon : to_refine) {
-        //     if (monotonicity_lemma_on_monomial(i_mon)) {
-        //         return true;
-        //     } 
-        // }
-        
-        return false;
+        build_monotone_table();        
+        return find_lemma_in_monotone_table();
     }
 
     bool tangent_lemma() {
@@ -1482,6 +1526,7 @@ struct solver::imp {
         init_search();
         lbool ret = l_undef;
         for (int search_level = 0; search_level < 3 && ret == l_undef; search_level++) {
+            TRACE("nla_solver", tout << "search_level = " << search_level << "\n";);
             if (search_level == 0) {
                 if (basic_lemma()) {
                     ret = l_false;
@@ -1501,7 +1546,7 @@ struct solver::imp {
             }
         }
         
-        IF_VERBOSE(2, if(ret != l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
+        IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
         SASSERT(ret != l_false || ((!m_lemma->empty()) && (!lemma_holds())));
         return ret;
