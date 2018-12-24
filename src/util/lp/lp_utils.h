@@ -27,8 +27,8 @@ template <typename C>
 void print_vector(const C & t, std::ostream & out) {
     for (const auto & p : t)
         out << p << " ";
-    out << std::endl;
 }
+
 template <typename C, typename D>
 bool contains(const C & collection, const D & key) {
     return collection.find(key) != collection.end();
