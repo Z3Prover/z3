@@ -47,13 +47,6 @@ struct solver::imp {
     lp::explanation *                                                m_expl;
     lemma *                                                          m_lemma;
 
-    // for a rooted monomial rm = m_rm_table.vec[i] with rm.vars() = (a, b, c)
-    // the key = sort([abs(vvr(a)),abs(vvr(b)),abs(vvr(c))])
-    // lex_sorted contains pair (key,i), and key has all elements equal to 1 removed
-    typedef vector<std::pair<std::vector<rational>, unsigned>>            lex_sorted;
-
-    // the key of arity n is in m_lex_sorted_root_mons[n]
-    std::unordered_map<unsigned, lex_sorted>                         m_lex_sorted_root_mons;      
 
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
         :
@@ -187,8 +180,8 @@ struct solver::imp {
         return r;
     }
     
-    // return true if the monomial value is equal to the product of the values of the factors
-    bool check_monomial(const monomial& m) {
+    // return true iff the monomial value is equal to the product of the values of the factors
+    bool check_monomial(const monomial& m) const {
         SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
         return mon_value_by_vars(m) == m_lar_solver.get_column_value_rational(m.var());
     }
@@ -1438,65 +1431,250 @@ struct solver::imp {
         return false;
     }
 
-    std::vector<rational> get_monotone_key(const rooted_mon& rm) {
+    std::vector<rational> get_sorted_key(const rooted_mon& rm) {
         std::vector<rational> r;
-        for (lpvar j : rm.vars()) {
+        for (unsigned j : rm.vars()) {
             r.push_back(abs(vvr(j)));
         }
-        std::sort(r.begin(), r.end() ,[](rational const& a, rational const& b) { 
-                                          return a > b; // sort in reverse order
-                      } );
+        std::sort(r.begin(), r.end());
         return r;
     }
     
-    void add_rm_to_monotone_table(lpvar i) {
-        const rooted_mon& rm =  m_rm_table.vec()[i];
-        auto key = get_monotone_key(rm);
-        // make sure that the entry of the needed arity is there
-        auto it = m_lex_sorted_root_mons.find(key.size());        
-        if (it == m_lex_sorted_root_mons.end()) {
-            it = m_lex_sorted_root_mons.insert(it, std::make_pair(key.size(), lex_sorted()));
-        }
-        
-        it->second.push_back(std::make_pair(key, i));
-    }
 
-    void sort_monotone_table() {
-        for (auto & p : m_lex_sorted_root_mons){
-            std::sort(p.second.begin(),p.second.end(),
-                      [](std::pair<std::vector<rational>, unsigned> const &a,
-                         std::pair<std::vector<rational>, unsigned> const &b) { 
-                          return a.first < b.first;
-                      } );
-        }
-        TRACE("nla_solver", tout << "Monotone table:\n"; print_monotone_table(tout););
-    }
+    // void sort_monotone_table() {
+    //     for (auto & p : m_lex_sorted_root_mons){
+    //         std::sort(p.second.begin(),p.second.end(),
+    //                   [](std::pair<std::vector<rational>, unsigned> const &a,
+    //                      std::pair<std::vector<rational>, unsigned> const &b) { 
+    //                       return a.first[0] < b.first[0]; // just compare the first elements
+    //                   } );
+    //     }
+    //     find_to_refines();
+    //     TRACE("nla_solver", tout << "Monotone table:\n"; print_monotone_table(tout); tout << "\n";);
+    // }
 
-    void print_monotone_table(std::ostream& out) const {
-        for (const auto & p : m_lex_sorted_root_mons){
-            out << "Arity = " << p.first << " {";
-            for(auto & t : p.second) {
-                out << "(";
-                print_vector(t.first, out);
-                out << "), " << t.second << " ";
+    void print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
+                              std::ostream& out) const {
+        out << "Monotone array :\n";
+        for (const auto & t : lex_sorted ){
+            out << "(";
+            print_vector(t.first, out);
+            out << "), rm[" << t.second << "]" << std::endl;
+        }
+        out <<  "}";
+    }
+    
+    
+    // Returns rooted monomials by arity
+    std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity() {
+        std::unordered_map<unsigned, unsigned_vector> m;
+        for (unsigned i = 0; i < m_rm_table.vec().size(); i++ ) {
+            unsigned arity = m_rm_table.vec()[i].vars().size();
+            auto it = m.find(arity);
+            if (it == m.end()) {
+                it = m.insert(it, std::make_pair(arity, unsigned_vector()));
             }
-            out <<  "}";
+            it->second.push_back(i);
+        }
+        return m;
+    }
+
+    bool uniform_LE(const std::vector<rational>& a,
+                    const std::vector<rational>& b,
+                    bool & strict) const {
+        SASSERT(a.size() == b.size());
+        for (unsigned i = 0; i < a.size(); i++) {
+            if (a[i] < b[i]) {
+                strict = true;
+            } else if (a[i] > b[i]){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool uniform_GE(const std::vector<rational>& a,
+                    const std::vector<rational>& b,
+                    bool & strict) const {
+        SASSERT(a.size() == b.size());
+        for (unsigned i = 0; i < a.size(); i++) {
+            if (a[i] > b[i]) {
+                strict = true;
+            } else if (a[i] < b[i]){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    vector<std::pair<rational, lpvar>> get_sorted_key_with_vars(const rooted_mon& a) const {
+        vector<std::pair<rational, lpvar>> r;
+        for (lpvar j : a.vars()) {
+            r.push_back(std::make_pair(abs(vvr(j)), j));
+        }
+        std::sort(r.begin(), r.end(), [](const std::pair<rational, lpvar>& a,
+                                         const std::pair<rational, lpvar>& b) {
+                                          return
+                                              a.first < b.first ||
+                                              (a.first == b.first &&
+                                               a.second < b.second);
+                                      });
+        return r;
+    } 
+
+    void negate_abs_a_le_abs_b(lpvar a, lpvar b) {
+        rational av = vvr(a);
+        rational as = rational(rat_sign(av));
+        rational bv = vvr(b);
+        rational bs = rational(rat_sign(bv));
+        TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
+        SASSERT(as*av <= bs*bv);
+        mk_ineq(as, a, llc::LT); // |aj| < 0
+        mk_ineq(bs, b, llc::LT); // |bj| < 0
+        bool strict = as*av < bs*bv;
+        mk_ineq(as, a, -bs, b, strict? llc::GT : llc::GE); // negate |aj| < |bj|
+    }
+
+    void assert_abs_val_a_le_abs_var_b(
+        const rooted_mon& a,
+        const rooted_mon& b,
+        bool strict) {
+        lpvar aj = var(a);
+        lpvar bj = var(b);
+        rational av = vvr(aj);
+        rational as = rational(rat_sign(av));
+        rational bv = vvr(bj);
+        rational bs = rational(rat_sign(bv));
+        //        TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
+        mk_ineq(as, aj, llc::LT); // |aj| < 0
+        mk_ineq(bs, bj, llc::LT); // |bj| < 0
+        mk_ineq(as, aj, -bs, bj, strict? llc::LT : llc::LE); // |aj| < |bj|
+    }
+    
+    void generate_monl(const rooted_mon& a,
+                       const rooted_mon& b,
+                       bool strict) {
+        auto akey = get_sorted_key_with_vars(a);
+        auto bkey = get_sorted_key_with_vars(b);
+        SASSERT(akey.size() == bkey.size());
+        for (unsigned i = 0; i < akey.size(); i++) {
+            negate_abs_a_le_abs_b(a[i], b[i]);
+        }
+        assert_abs_val_a_le_abs_var_b(a, b, strict);
+    }
+    
+    bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
+        const rational v = abs(vvr(rm));
+        const auto& key = lex_sorted[i].first;
+        TRACE("nla_solver", tout << "rm = ";
+              print_rooted_monomial_with_vars(rm, tout); tout << "i = " << i << std::endl;);
+        for (unsigned k = i + 1; k < lex_sorted.size(); k++) {
+            const auto& p = lex_sorted[k];
+            const rooted_mon& rmk = m_rm_table.vec()[p.second];
+            const rational vk = abs(vvr(rmk));
+            TRACE("nla_solver", tout << "rmk = ";
+                  print_rooted_monomial_with_vars(rmk, tout);
+                  tout << "\n";
+                  tout << "vk = " << vk << std::endl;);
+            if (vk > v) continue;
+            bool strict;
+            TRACE("nla_solver", tout << "uniform_LE = " << uniform_LE(key, p.first, strict);
+                  print_rooted_monomial_with_vars(rmk, tout);
+                  tout << "\n";
+                  tout << "vk = " << vk << std::endl;);
+            if (uniform_LE(key, p.first, strict)) {
+                if (strict) {
+                    generate_monl(rm, rmk, strict);
+                    return true;
+                } else {
+                    SASSERT(key == p.first); 
+                    if (vk < v) {
+                        generate_monl(rm, rmk, strict);
+                        return true;
+                    }
+                }
+            }
             
         }
-    }
-    
-    void build_monotone_table() {
-        for (unsigned i = 0; i < m_rm_table.vec().size(); i++ ) {
-            add_rm_to_monotone_table(i);
-        }
-        sort_monotone_table();
+        return false;
     }
 
-    bool find_lemma_in_monotone_table() {return false;}
+    bool monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
+        const rational v = abs(vvr(rm));
+        const auto& key = lex_sorted[i].first;
+        TRACE("nla_solver", tout << "rm = ";
+              print_rooted_monomial_with_vars(rm, tout); tout << "i = " << i << std::endl;);
+        
+        for (unsigned k = i; k-- > 0;) {
+            const auto& p = lex_sorted[k];
+            const rooted_mon& rmk = m_rm_table.vec()[p.second];
+            const rational vk = abs(vvr(rmk));
+            TRACE("nla_solver", tout << "rmk = ";
+                  print_rooted_monomial_with_vars(rmk, tout);
+                  tout << "\n";
+                  tout << "vk = " << vk << std::endl;);
+            if (vk < v) continue;
+            bool strict;
+            if (uniform_GE(key, p.first, strict)) {
+                TRACE("nla_solver", tout << "strict = " << strict << std::endl;);
+                if (strict) {
+                    generate_monl(rmk, rm, strict);
+                    return true;
+                } else {
+                    SASSERT(key == p.first); 
+                    if (vk < v) {
+                        generate_monl(rmk, rm, strict);
+                        return true;
+                    }
+                }
+            }
+            
+        }
+        return false;
+    }
+
+    bool monotonicity_lemma_on_lex_sorted_rm(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
+        return monotonicity_lemma_on_lex_sorted_rm_upper(lex_sorted, i, rm)
+            || monotonicity_lemma_on_lex_sorted_rm_lower(lex_sorted, i, rm);
+    }
+
+    bool rm_check(const rooted_mon& rm) const {
+        return check_monomial(m_monomials[rm.orig_index()]);
+    }
+    
+    bool monotonicity_lemma_on_lex_sorted(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted) {
+        for (unsigned i = 0; i < lex_sorted.size(); i++) {
+            unsigned rmi = lex_sorted[i].second;
+            const rooted_mon& rm = m_rm_table.vec()[rmi];
+            TRACE("nla_solver", print_rooted_monomial(rm, tout); tout << "\n, rm_check = " << rm_check(rm); tout << std::endl;); 
+            if ((!rm_check(rm)) && monotonicity_lemma_on_lex_sorted_rm(lex_sorted, i, rm))
+                return true;
+        }
+        return false;
+    }
+    
+    bool monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms) { 
+        vector<std::pair<std::vector<rational>, unsigned>> lex_sorted;
+        for (unsigned i : rms) {
+            lex_sorted.push_back(std::make_pair(get_sorted_key(m_rm_table.vec()[i]), i));
+        }
+        std::sort(lex_sorted.begin(), lex_sorted.end(),
+                  [](const std::pair<std::vector<rational>, unsigned> &a,
+                     const std::pair<std::vector<rational>, unsigned> &b) {
+                      return a.first < b.first;
+                  });
+        TRACE("nla_solver", print_monotone_array(lex_sorted, tout););
+        return monotonicity_lemma_on_lex_sorted(lex_sorted);
+    }
     
     bool monotonicity_lemma() {
-        build_monotone_table();        
-        return find_lemma_in_monotone_table();
+        auto rm_by_arity = get_rm_by_arity();
+        for (const auto & p : rm_by_arity) {
+            if (monotonicity_lemma_on_rms_of_same_arity(p.second)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     bool tangent_lemma() {
