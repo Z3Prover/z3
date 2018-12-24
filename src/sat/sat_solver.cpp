@@ -2665,7 +2665,7 @@ namespace sat {
         for (unsigned i = head; i < sz; i++) {
             literal l  = m_trail[i];
             bool_var v = l.var();
-            TRACE("forget_phase", tout << "forgeting phase of l: " << l << "\n";);
+            TRACE("forget_phase", tout << "forgetting phase of l: " << l << "\n";);
             m_phase[v] = PHASE_NOT_AVAILABLE;
         }
     }

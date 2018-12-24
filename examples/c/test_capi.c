@@ -1697,7 +1697,7 @@ void parser_example3()
     LOG_MSG("parser_example3");
 
     cfg = Z3_mk_config();
-    /* See quantifer_example1 */
+    /* See quantifier_example1 */
     Z3_set_param_value(cfg, "model", "true");
     ctx = mk_context_custom(cfg, error_handler);
     Z3_del_config(cfg);

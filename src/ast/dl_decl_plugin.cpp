@@ -147,7 +147,7 @@ namespace datalog {
         for (unsigned i = 0; i < n; ++i) {
             parameter const& p = r->get_parameter(i);
             if (!p.is_ast() || !is_sort(p.get_ast())) {
-                m_manager->raise_exception("exptected sort parameter");
+                m_manager->raise_exception("expected sort parameter");
                 return false;
             }
             sorts.push_back(to_sort(p.get_ast()));
@@ -185,7 +185,7 @@ namespace datalog {
                            verbose_stream() << "Domain: " << mk_pp(domain[0], m) << "\n" <<
                            mk_pp(sorts[i], m) << "\n" <<
                            mk_pp(domain[i+1], m) << "\n";);
-                m_manager->raise_exception("sort miss-match for relational access");
+                m_manager->raise_exception("sort mismatch for relational access");
                 return nullptr;
             }
         }
@@ -252,7 +252,7 @@ namespace datalog {
     func_decl * dl_decl_plugin::mk_unionw(decl_kind k, sort* s1, sort* s2) {
         ast_manager& m = *m_manager;
         if (s1 != s2) {
-            m_manager->raise_exception("sort miss-match for arguments to union");
+            m_manager->raise_exception("sort mismatch for arguments to union");
             return nullptr;
         }
         if (!is_rel_sort(s1)) {                
@@ -298,7 +298,7 @@ namespace datalog {
                     return nullptr;
                 }
                 if (sorts[idx] != m.get_sort(e)) {
-                    m_manager->raise_exception("sort miss-match in filter");
+                    m_manager->raise_exception("sort mismatch in filter");
                     return nullptr;
                 }
                 break;
@@ -391,7 +391,7 @@ namespace datalog {
                 return nullptr;
             }
             if (sorts1[i1] != sorts2[i2]) {
-                m_manager->raise_exception("sort miss-match in join");
+                m_manager->raise_exception("sort mismatch in join");
                 return nullptr;
             }
         }
@@ -435,7 +435,7 @@ namespace datalog {
                 return nullptr;
             }
             if (sorts1[i1] != sorts2[i2]) {
-                m_manager->raise_exception("sort miss-match in join");
+                m_manager->raise_exception("sort mismatch in join");
                 return nullptr;
             }
         }

@@ -658,7 +658,7 @@ namespace datalog {
     void context::add_table_fact(func_decl * pred, unsigned num_args, unsigned args[]) {
         if (pred->get_arity() != num_args) {
             std::ostringstream out;
-            out << "miss-matched number of arguments passed to " << mk_ismt2_pp(pred, m) << " " << num_args << " passed";
+            out << "mismatched number of arguments passed to " << mk_ismt2_pp(pred, m) << " " << num_args << " passed";
             throw default_exception(out.str());
         }
         table_fact fact;
@@ -1243,7 +1243,7 @@ namespace datalog {
     void context::declare_vars(expr_ref_vector& rules, mk_fresh_name& fresh_names, std::ostream& out) {
         //
         // replace bound variables in rules by 'var declarations'
-        // First remove quantifers, then replace bound variables
+        // First remove quantifiers, then replace bound variables
         // by fresh constants.
         //
         smt2_pp_environment_dbg env(m);
