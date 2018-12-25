@@ -1479,31 +1479,27 @@ struct solver::imp {
         return m;
     }
 
-    bool uniform_LE(const std::vector<rational>& a,
-                    const std::vector<rational>& b,
-                    bool & strict) const {
+    
+    bool uniform_less(const std::vector<rational>& a,
+                      const std::vector<rational>& b,
+                      unsigned & strict_i) const {
         SASSERT(a.size() == b.size());
+        strict_i = -1;
+        bool z_b = false;
+        
         for (unsigned i = 0; i < a.size(); i++) {
-            if (a[i] < b[i]) {
-                strict = true;
-            } else if (a[i] > b[i]){
+            if (a[i] > b[i]){
                 return false;
             }
-        }
-        return true;
-    }
-
-    bool uniform_GE(const std::vector<rational>& a,
-                    const std::vector<rational>& b,
-                    bool & strict) const {
-        SASSERT(a.size() == b.size());
-        for (unsigned i = 0; i < a.size(); i++) {
-            if (a[i] > b[i]) {
-                strict = true;
-            } else if (a[i] < b[i]){
-                return false;
+            
+            SASSERT(!a[i].is_neg());
+            if (a[i] < b[i]){
+                strict_i = i;
+            } else if (b[i].is_zero()) {
+                z_b = true;
             }
         }
+        if (z_b) {strict_i = -1;}
         return true;
     }
 
@@ -1531,8 +1527,19 @@ struct solver::imp {
         SASSERT(as*av <= bs*bv);
         mk_ineq(as, a, llc::LT); // |aj| < 0
         mk_ineq(bs, b, llc::LT); // |bj| < 0
-        bool strict = as*av < bs*bv;
-        mk_ineq(as, a, -bs, b, strict? llc::GT : llc::GE); // negate |aj| < |bj|
+        mk_ineq(as, a, -bs, b, llc::GT); // negate |aj| <= |bj| 
+    }
+
+    void negate_abs_a_lt_abs_b(lpvar a, lpvar b) {
+        rational av = vvr(a);
+        rational as = rational(rat_sign(av));
+        rational bv = vvr(b);
+        rational bs = rational(rat_sign(bv));
+        TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
+        SASSERT(as*av < bs*bv);
+        mk_ineq(as, a, llc::LT); // |aj| < 0
+        mk_ineq(bs, b, llc::LT); // |bj| < 0
+        mk_ineq(as, a, -bs, b, llc::GE); // negate  |aj| < |bj|
     }
 
     void assert_abs_val_a_le_abs_var_b(
@@ -1550,18 +1557,40 @@ struct solver::imp {
         mk_ineq(bs, bj, llc::LT); // |bj| < 0
         mk_ineq(as, aj, -bs, bj, strict? llc::LT : llc::LE); // |aj| < |bj|
     }
-    
-    void generate_monl(const rooted_mon& a,
+
+    // strict version
+    void generate_monl_strict(const rooted_mon& a,
                        const rooted_mon& b,
-                       bool strict) {
+                       unsigned strict) {
+        auto akey = get_sorted_key_with_vars(a);
+        auto bkey = get_sorted_key_with_vars(b);
+        SASSERT(akey.size() == bkey.size());
+        for (unsigned i = 0; i < akey.size(); i++) {
+            if (i != strict) {
+                negate_abs_a_le_abs_b(a[i], b[i]);
+            } else {
+                mk_ineq(b[i], llc::EQ);
+                negate_abs_a_lt_abs_b(a[i], b[i]);
+            }
+        }
+        assert_abs_val_a_le_abs_var_b(a, b, true);
+        explain(a);
+        explain(b);
+    }
+
+    // not a strict version
+    void generate_monl(const rooted_mon& a,
+                       const rooted_mon& b) {
         auto akey = get_sorted_key_with_vars(a);
         auto bkey = get_sorted_key_with_vars(b);
         SASSERT(akey.size() == bkey.size());
         for (unsigned i = 0; i < akey.size(); i++) {
             negate_abs_a_le_abs_b(a[i], b[i]);
         }
-        assert_abs_val_a_le_abs_var_b(a, b, strict);
-    }
+        assert_abs_val_a_le_abs_var_b(a, b, false);
+        explain(a);
+        explain(b);
+   }
     
     bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
         const rational v = abs(vvr(rm));
@@ -1577,19 +1606,14 @@ struct solver::imp {
                   tout << "\n";
                   tout << "vk = " << vk << std::endl;);
             if (vk > v) continue;
-            bool strict;
-            TRACE("nla_solver", tout << "uniform_LE = " << uniform_LE(key, p.first, strict);
-                  print_rooted_monomial_with_vars(rmk, tout);
-                  tout << "\n";
-                  tout << "vk = " << vk << std::endl;);
-            if (uniform_LE(key, p.first, strict)) {
-                if (strict) {
-                    generate_monl(rm, rmk, strict);
+            unsigned strict;
+            if (uniform_less(key, p.first, strict)) {
+                if (static_cast<int>(strict) != -1) {
+                    generate_monl_strict(rm, rmk, strict);
                     return true;
                 } else {
-                    SASSERT(key == p.first); 
                     if (vk < v) {
-                        generate_monl(rm, rmk, strict);
+                        generate_monl(rm, rmk);
                         return true;
                     }
                 }
@@ -1614,16 +1638,16 @@ struct solver::imp {
                   tout << "\n";
                   tout << "vk = " << vk << std::endl;);
             if (vk < v) continue;
-            bool strict;
-            if (uniform_GE(key, p.first, strict)) {
+            unsigned strict;
+            if (uniform_less(p.first, key, strict)) {
                 TRACE("nla_solver", tout << "strict = " << strict << std::endl;);
-                if (strict) {
-                    generate_monl(rmk, rm, strict);
+                if (static_cast<int>(strict) != -1) {
+                    generate_monl_strict(rmk, rm, strict);
                     return true;
                 } else {
                     SASSERT(key == p.first); 
                     if (vk < v) {
-                        generate_monl(rmk, rm, strict);
+                        generate_monl(rmk, rm);
                         return true;
                     }
                 }
