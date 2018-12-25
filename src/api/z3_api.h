@@ -4094,7 +4094,7 @@ extern "C" {
        The remaining fields are left unchanged. It is the record
        equivalent of an array store (see \sa Z3_mk_store).
        If the datatype has more than one constructor, then the update function
-       behaves as identity if there is a miss-match between the accessor and
+       behaves as identity if there is a mismatch between the accessor and
        constructor. For example ((_ update-field car) nil 1) is nil,
        while ((_ update-field car) (cons 2 nil) 1) is (cons 1 nil).
 
