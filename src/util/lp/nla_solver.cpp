@@ -1938,7 +1938,7 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     lp::explanation exp;
 
     // set abcde = ac * bde
-    // ac = 1, bde = 3 -> abcde = bde, but we have abcde set to 2
+    // ac = 1 then abcde = bde, but we have abcde < bde
     s.set_column_value(lp_a, rational(4));
     s.set_column_value(lp_b, rational(4));
     s.set_column_value(lp_c, rational(4));
