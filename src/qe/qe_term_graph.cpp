@@ -815,6 +815,7 @@ namespace qe {
                         for (expr* r : roots) {
                             args.push_back(r);
                         }
+                        TRACE("qe", tout << "function: " << d->get_name() << "\n";);
                         res.push_back(m.mk_distinct(args.size(), args.c_ptr()));
                     }
                 }
@@ -965,6 +966,7 @@ namespace qe {
             m_pinned.reset();
             m_model.reset();
         }
+
         expr_ref_vector project() {
             expr_ref_vector res(m);
             purify();

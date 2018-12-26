@@ -115,6 +115,9 @@ namespace qe {
         app_ref_vector get_arith_vars(model_ref& mdl, expr_ref_vector& lits);
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
         void collect_atoms(expr_ref_vector const& fmls);
+        void project0(model_ref& mdl, expr_ref_vector& lits);
+        void project(model_ref& mdl, expr_ref_vector& lits);
+        void order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars);
     public:
         euf_arith_mbi_plugin(solver* s, solver* emptySolver);
         ~euf_arith_mbi_plugin() override {}
