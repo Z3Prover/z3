@@ -1703,7 +1703,7 @@ namespace smt {
             friend class quantifier_analyzer;
 
             void checkpoint() {
-                m_mf.checkpoint("quantifer_info");
+                m_mf.checkpoint("quantifier_info");
             }
 
             void insert_qinfo(qinfo * qi) {
