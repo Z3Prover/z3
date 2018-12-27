@@ -1567,10 +1567,10 @@ struct solver::imp {
         SASSERT(akey.size() == bkey.size());
         for (unsigned i = 0; i < akey.size(); i++) {
             if (i != strict) {
-                negate_abs_a_le_abs_b(a[i], b[i]);
+                negate_abs_a_le_abs_b(akey[i].second, bkey[i].second);
             } else {
                 mk_ineq(b[i], llc::EQ);
-                negate_abs_a_lt_abs_b(a[i], b[i]);
+                negate_abs_a_lt_abs_b(akey[i].second, bkey[i].second);
             }
         }
         assert_abs_val_a_le_abs_var_b(a, b, true);
