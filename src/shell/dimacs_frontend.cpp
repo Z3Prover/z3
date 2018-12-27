@@ -41,7 +41,6 @@ static void display_statistics() {
     if (g_tac && g_display_statistics) {
         g_tac->collect_statistics(g_st);
     }
-
     if (g_solver && g_display_statistics) {
         std::cout.flush();
         std::cerr.flush();
@@ -50,6 +49,7 @@ static void display_statistics() {
         g_st.update("total time", ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
         g_st.display_smt2(std::cout);
     }
+    g_display_statistics = false;
 }
 
 static void on_timeout() {
@@ -194,20 +194,25 @@ lbool solve_parallel(sat::solver& s) {
     lbool r = check_sat(*g_tac, g, md, labels, pr, core, reason_unknown);
     switch (r) {
     case l_true:
-        // populate the SAT solver with the model obtained from parallel execution.
-        for (auto const& kv : a2b) {
-            sat::literal lit;
-            bool is_true = m.is_true((*md)(kv.m_key));
-            lit = sat::literal(kv.m_value, !is_true);
-            s.mk_clause(1, &lit);
+        if (gparams::get_ref().get_bool("model_validate", false)) {
+            // populate the SAT solver with the model obtained from parallel execution.
+            for (auto const& kv : a2b) {
+                sat::literal lit;
+                bool is_true = m.is_true((*md)(kv.m_key));
+                lit = sat::literal(kv.m_value, !is_true);
+                s.mk_clause(1, &lit);
+            }
+            // VERIFY(l_true == s.check());
         }
-        // VERIFY(l_true == s.check());
         break;
     case l_false:
         break;
     default:
         break;
     }
+    display_statistics();
+    g_display_statistics = false;    
+    g_tac = nullptr;
     return r;
 }
 
@@ -253,7 +258,7 @@ unsigned read_dimacs(char const * file_name) {
     switch (r) {
     case l_true: 
         std::cout << "sat\n"; 
-        if (file_name) verify_solution(file_name);
+        if (file_name && gparams::get_ref().get_bool("model_validate", false)) verify_solution(file_name);
         display_model(*g_solver);
         break;
     case l_undef: 
@@ -266,7 +271,6 @@ unsigned read_dimacs(char const * file_name) {
         }
         break;
     }
-    if (g_display_statistics)
-        display_statistics();
+    display_statistics();
     return 0;
 }

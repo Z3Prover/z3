@@ -60,7 +60,7 @@ struct goal2sat::imp {
     sat::solver &               m_solver;
     atom2bool_var &             m_map;
     dep2asm_map &               m_dep2asm;
-    sat::bool_var               m_true;
+    sat::literal                m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
@@ -81,7 +81,7 @@ struct goal2sat::imp {
         m_default_external(default_external),
         m_is_lemma(false) {
         updt_params(p);
-        m_true = sat::null_bool_var;
+        m_true = sat::null_literal;
         mk_true();
     }
         
@@ -118,11 +118,16 @@ struct goal2sat::imp {
         m_solver.mk_clause(num, lits, m_is_lemma);
     }
 
-    sat::bool_var mk_true() {
-        if (m_true == sat::null_bool_var) {
-            // create fake variable to represent true;
-            m_true = m_solver.mk_var(false);
-            mk_clause(sat::literal(m_true, false)); // v is true
+    sat::literal mk_true() {
+        if (m_true == sat::null_literal) {
+            if (m_solver.init_trail_size() > 0) {
+                m_true = m_solver.trail_literal(0);
+            }
+            else {
+                // create fake variable to represent true;
+                m_true = sat::literal(m_solver.mk_var(false), false);
+                mk_clause(m_true);
+            }
         }
         return m_true;
     }
@@ -133,10 +138,10 @@ struct goal2sat::imp {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) {
             if (m.is_true(t)) {
-                l = sat::literal(mk_true(), sign);
+                l = sign ? ~mk_true() : mk_true();
             }
             else if (m.is_false(t)) {
-                l = sat::literal(mk_true(), !sign);
+                l = sign ? mk_true() : ~mk_true();
             }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);

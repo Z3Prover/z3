@@ -1913,16 +1913,16 @@ namespace sat {
         if (m_conflicts_since_init >= m_restart_next_out) {
             if (0 == m_restart_next_out) {
                 m_restart_next_out = 1;
-                IF_VERBOSE(1, verbose_stream() << "(sat.stats :conflicts :decisions :restarts :clauses  :learned :units :gc :mem :time)\n");
-                IF_VERBOSE(1, verbose_stream() << "(sat.stats                                 (all/bin) (all/bin)                     )\n");
+                IF_VERBOSE(1, verbose_stream() << "(sat.stats :conflicts   :restarts     :learned/bin      :gc           :time)\n");
+                IF_VERBOSE(1, verbose_stream() << "(sat.stats      :decisions   :clauses/bin        :units    :memory         )\n");
             }
             m_restart_next_out = (3*m_restart_next_out)/2 + 1;
             
             IF_VERBOSE(1,
                        verbose_stream() << "(sat.stats " 
-                       << std::setw(10) << m_stats.m_conflict 
-                       << std::setw(11) << m_stats.m_decision
-                       << std::setw(10) << m_stats.m_restart 
+                       << std::setw(6) << m_stats.m_conflict << " " 
+                       << std::setw(6) << m_stats.m_decision << " "
+                       << std::setw(4) << m_stats.m_restart 
                        << mk_stat(*this)
                        << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
         }
@@ -2682,7 +2682,6 @@ namespace sat {
             set_model(m_mus.get_model());
             IF_VERBOSE(2, verbose_stream() << "(sat.core: " << m_core << ")\n";);
         }
-
     }
 
 
@@ -4518,9 +4517,9 @@ namespace sat {
     void mk_stat::display(std::ostream & out) const {
         unsigned given, learned;
         m_solver.num_binary(given, learned);
-        out << " " << std::setw(11) << m_solver.m_clauses.size() + given << "/" << given;
-        out << " " << std::setw(11) << (m_solver.m_learned.size() + learned - m_solver.m_num_frozen) << "/" << learned;
-        out << " " << std::setw(7)  << m_solver.init_trail_size();
+        out << " " << std::setw(5) << m_solver.m_clauses.size() + given << "/" << given;
+        out << " " << std::setw(5) << (m_solver.m_learned.size() + learned - m_solver.m_num_frozen) << "/" << learned;
+        out << " " << std::setw(3)  << m_solver.init_trail_size();
         out << " " << std::setw(7)  << m_solver.m_stats.m_gc_clause << " ";
         out << " " << std::setw(7)  << mem_stat();
     }
