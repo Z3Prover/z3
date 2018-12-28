@@ -587,22 +587,23 @@ struct solver::imp {
         return false;
     }
 
+    const rooted_mon& mon_to_rooted_mon(const monomial& m) const {
+        monomial_coeff mc = canonize_monomial(m);
+        TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout);
+              tout << "mc = "; print_product_with_vars(mc.vars(), tout););
+        
+        auto rit = m_rm_table.map().find(mc.vars());
+        SASSERT(rit != m_rm_table.map().end());
+        unsigned rm_i = rit->second.m_i;
+        return m_rm_table.vec()[rm_i];
+    }
+    
     bool basic_sign_lemma_on_a_var_bucket_of_abs_vals(const rational& v, const unsigned_vector& vars ) {
         for(unsigned j : vars) {
             auto it = m_var_to_its_monomial.find(j);
-            if (it == m_var_to_its_monomial.end()) {
-                continue;
-            }
-            unsigned i = it->second;
-            const monomial& m = m_monomials[i];
-            monomial_coeff mc = canonize_monomial(m);
-            TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout);
-                  tout << "mc = "; print_product_with_vars(mc.vars(), tout););
-            
-            auto rit = m_rm_table.map().find(mc.vars());
-            SASSERT(rit != m_rm_table.map().end());
-            unsigned rm_i = rit->second.m_i;
-            const rooted_mon& rm = m_rm_table.vec()[rm_i];
+            if (it == m_var_to_its_monomial.end()) continue;
+            const monomial& m = m_monomials[it->second];
+            const rooted_mon& rm = mon_to_rooted_mon(m);
             unsigned rm_j = var(rm);
             if (rm_j == j) continue;
             if (abs(vvr(rm_j)) != v) {
