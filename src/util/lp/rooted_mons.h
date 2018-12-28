@@ -58,15 +58,15 @@ struct rooted_mon_table {
 
     // A map from m_vector_of_rooted_monomials to a set
     // of sets of m_vector_of_rooted_monomials,
-    // such that for every i and every h in m_vector_of_rooted_monomials[i]
+    // such that for every i and every h in m_proper_factors[i]
     // m_vector_of_rooted_monomials[i] is a proper factor of m_vector_of_rooted_monomials[h]
-    std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_rooted_factor_to_product;
+    std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_proper_factors;
 
     void clear() {
         m_rooted_monomials_map.clear();
         m_vector_of_rooted_monomials.clear();
         m_rooted_monomials_containing_var.clear();
-        m_rooted_factor_to_product.clear();
+        m_proper_factors.clear();
     }
     
     const vector<rooted_mon>& vec() const { return m_vector_of_rooted_monomials; }
@@ -92,12 +92,12 @@ struct rooted_mon_table {
         return m_rooted_monomials_containing_var;
     }
 
-    std::unordered_map<unsigned, std::unordered_set<unsigned>>& factor_to_product() {
-        return m_rooted_factor_to_product;
+    std::unordered_map<unsigned, std::unordered_set<unsigned>>& proper_factors() {
+        return m_proper_factors;
     }
 
-    const std::unordered_map<unsigned, std::unordered_set<unsigned>>& factor_to_product() const {
-        return m_rooted_factor_to_product;
+    const std::unordered_map<unsigned, std::unordered_set<unsigned>>& proper_factors() const {
+        return m_proper_factors;
     }
 
     void reduce_set_by_checking_proper_containment(std::unordered_set<unsigned>& p,
@@ -135,10 +135,10 @@ struct rooted_mon_table {
         // TRACE("nla_solver", trace_print_rms(p, tout););
         reduce_set_by_checking_proper_containment(p, rm);
         // TRACE("nla_solver", trace_print_rms(p, tout););
-        factor_to_product()[i_rm] = p;
+        proper_factors()[i_rm] = p;
     }
 
-    void fill_rooted_factor_to_product() {
+    void fill_proper_factors() {
         for (unsigned i = 0; i < vec().size(); i++) {
             find_rooted_monomials_containing_rm(i);
         }
