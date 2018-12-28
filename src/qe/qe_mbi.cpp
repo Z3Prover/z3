@@ -218,13 +218,13 @@ namespace qe {
         void operator()(expr*) {}
     };
 
-    struct euf_arith_mbi_plugin::is_arith_var_proc {
+    struct euf_arith_mbi_plugin::is_arith_var_proc1 {
         ast_manager&    m;
         app_ref_vector& m_pvars;
         app_ref_vector& m_svars;
         arith_util      arith;
         obj_hashtable<func_decl> m_shared;
-        is_arith_var_proc(func_decl_ref_vector const& shared, app_ref_vector& pvars, app_ref_vector& svars):
+        is_arith_var_proc1(func_decl_ref_vector const& shared, app_ref_vector& pvars, app_ref_vector& svars):
             m(pvars.m()), m_pvars(pvars), m_svars(svars), arith(m) {
             for (func_decl* f : shared) m_shared.insert(f);
         }
@@ -240,8 +240,53 @@ namespace qe {
             }
         }
         void operator()(expr*) {}
-
     };
+
+    struct euf_arith_mbi_plugin::is_arith_var_proc2 {
+        ast_manager&    m;
+        app_ref_vector& m_avars;
+        arith_util      arith;
+        obj_hashtable<expr> m_seen;
+        is_arith_var_proc2(app_ref_vector& avars):
+            m(avars.m()), m_avars(avars), arith(m) {
+        }
+        void operator()(app* a) {
+            if (is_arith_op(a) || a->get_family_id() == m.get_basic_family_id()) {
+                // no-op
+            }
+            else if (!arith.is_int_real(a)) {
+                for (expr* arg : *a) {
+                    if (is_app(arg) && !m_seen.contains(arg) && is_arith_op(to_app(arg))) {
+                        m_avars.push_back(to_app(arg));
+                        m_seen.insert(arg);
+                    }
+                }
+            }
+            else if (!m_seen.contains(a)) {
+                m_seen.insert(a);
+                m_avars.push_back(a);
+            }
+        }
+        bool is_arith_op(app* a) {
+            return a->get_family_id() == arith.get_family_id();
+        }
+        void operator()(expr*) {}
+    };
+
+    void euf_arith_mbi_plugin::filter_private_arith(app_ref_vector& avars) {
+        arith_util a(m);
+        unsigned j = 0;
+        obj_hashtable<func_decl> shared;
+        for (func_decl* f : m_shared) shared.insert(f);
+        for (unsigned i = 0; i < avars.size(); ++i) {
+            app* v = avars.get(i);
+            if (!shared.contains(v->get_decl()) && 
+                v->get_family_id() != a.get_family_id()) {
+                avars[j++] = v;
+            }
+        }
+        avars.shrink(j);
+    }
 
     euf_arith_mbi_plugin::euf_arith_mbi_plugin(solver* s, solver* sNot):
         mbi_plugin(s->get_manager()),
@@ -291,10 +336,10 @@ namespace qe {
         }
     }
 
-    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(model_ref& mdl, expr_ref_vector& lits) {
+    app_ref_vector euf_arith_mbi_plugin::get_arith_vars1(model_ref& mdl, expr_ref_vector& lits) {
         arith_util a(m);
         app_ref_vector pvars(m), svars(m); // private and shared arithmetic variables.
-        is_arith_var_proc _proc(m_shared, pvars, svars);
+        is_arith_var_proc1 _proc(m_shared, pvars, svars);
         for_each_expr(_proc, lits);
         rational v1, v2;
         for (expr* p : pvars) {
@@ -313,6 +358,14 @@ namespace qe {
             }
         }
         return pvars;
+    }
+
+    app_ref_vector euf_arith_mbi_plugin::get_arith_vars2(model_ref& mdl, expr_ref_vector& lits) {
+        arith_util a(m);
+        app_ref_vector avars(m); // arithmetic variables.
+        is_arith_var_proc2 _proc(avars);
+        for_each_expr(_proc, lits);
+        return avars;
     }
 
     mbi_result euf_arith_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
@@ -348,7 +401,7 @@ namespace qe {
         TRACE("qe", tout << lits << "\n" << *mdl << "\n";);
 
         // 1. arithmetical variables
-        app_ref_vector avars = get_arith_vars(mdl, lits);
+        app_ref_vector avars = get_arith_vars2(mdl, lits);
         TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
 
 
@@ -366,22 +419,26 @@ namespace qe {
 
         // 3. Order arithmetical variables
         order_avars(mdl, lits, avars);
+        TRACE("qe", tout << "ordered: " << lits << "\n";);
 
         // 4. Arithmetical projection
         arith_project_plugin ap(m);
         ap.set_check_purified(false);
         auto defs = ap.project(*mdl.get(), avars, lits);
 
+        TRACE("qe", tout << "aproject: " << lits << "\n";);
         // 5. Substitute solution
         for (auto const& def : defs) {
             expr_safe_replace rep(m);
             rep.insert(def.var, def.term);
+            TRACE("qe", tout << def.var << " -> " << def.term << "\n";);
             for (unsigned i = 0; i < lits.size(); ++i) {
                 expr_ref tmp(m);
                 rep(lits.get(i), tmp);
                 lits[i] = tmp;
             }
         }
+        TRACE("qe", tout << "substitute: " << lits << "\n";);
     }
 
     void euf_arith_mbi_plugin::order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars) {
@@ -411,6 +468,9 @@ namespace qe {
                 lits.push_back(a.mk_lt(vals[i-1].second, vals[i].second));
             }
         }
+        // filter out only private variables
+        filter_private_arith(avars);
+
         // sort avars based on depth
         struct compare_depth {
             bool operator()(app* x, app* y) const {
@@ -434,7 +494,7 @@ namespace qe {
         // 4. Add projected definitions as equalities to EUF.
         // 5. project remaining literals with respect to EUF.
         
-        app_ref_vector avars = get_arith_vars(mdl, lits);
+        app_ref_vector avars = get_arith_vars1(mdl, lits);
         TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
         
         // 2.
