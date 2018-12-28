@@ -20,6 +20,8 @@ Revision History:
 
 #pragma once
 
+#include "qe/qe_arith.h"
+
 namespace qe {
     enum mbi_result {
         mbi_sat,
@@ -110,16 +112,15 @@ namespace qe {
         solver_ref          m_solver;
         solver_ref          m_dual_solver;
         struct is_atom_proc;
-        struct is_arith_var_proc1;
-        struct is_arith_var_proc2;
+        struct is_arith_var_proc;
 
-        app_ref_vector get_arith_vars1(model_ref& mdl, expr_ref_vector& lits);
-        app_ref_vector get_arith_vars2(model_ref& mdl, expr_ref_vector& lits);
+        app_ref_vector get_arith_vars(model_ref& mdl, expr_ref_vector& lits);
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
         void collect_atoms(expr_ref_vector const& fmls);
-        void project0(model_ref& mdl, expr_ref_vector& lits);
         void project(model_ref& mdl, expr_ref_vector& lits);
+        void project_euf(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars);
         void order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars);
+        void substitute(vector<def> const& defs, expr_ref_vector& lits);
         void filter_private_arith(app_ref_vector& avars);
     public:
         euf_arith_mbi_plugin(solver* s, solver* emptySolver);

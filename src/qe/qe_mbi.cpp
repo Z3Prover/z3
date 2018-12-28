@@ -218,36 +218,12 @@ namespace qe {
         void operator()(expr*) {}
     };
 
-    struct euf_arith_mbi_plugin::is_arith_var_proc1 {
-        ast_manager&    m;
-        app_ref_vector& m_pvars;
-        app_ref_vector& m_svars;
-        arith_util      arith;
-        obj_hashtable<func_decl> m_shared;
-        is_arith_var_proc1(func_decl_ref_vector const& shared, app_ref_vector& pvars, app_ref_vector& svars):
-            m(pvars.m()), m_pvars(pvars), m_svars(svars), arith(m) {
-            for (func_decl* f : shared) m_shared.insert(f);
-        }
-        void operator()(app* a) {
-            if (!arith.is_int_real(a) || a->get_family_id() == arith.get_family_id()) {
-                // no-op
-            }
-            else if (m_shared.contains(a->get_decl())) {
-                m_svars.push_back(a);
-            }
-            else {
-                m_pvars.push_back(a);
-            }
-        }
-        void operator()(expr*) {}
-    };
-
-    struct euf_arith_mbi_plugin::is_arith_var_proc2 {
+    struct euf_arith_mbi_plugin::is_arith_var_proc {
         ast_manager&    m;
         app_ref_vector& m_avars;
         arith_util      arith;
         obj_hashtable<expr> m_seen;
-        is_arith_var_proc2(app_ref_vector& avars):
+        is_arith_var_proc(app_ref_vector& avars):
             m(avars.m()), m_avars(avars), arith(m) {
         }
         void operator()(app* a) {
@@ -336,34 +312,13 @@ namespace qe {
         }
     }
 
-    app_ref_vector euf_arith_mbi_plugin::get_arith_vars1(model_ref& mdl, expr_ref_vector& lits) {
-        arith_util a(m);
-        app_ref_vector pvars(m), svars(m); // private and shared arithmetic variables.
-        is_arith_var_proc1 _proc(m_shared, pvars, svars);
-        for_each_expr(_proc, lits);
-        rational v1, v2;
-        for (expr* p : pvars) {
-            VERIFY(a.is_numeral((*mdl)(p), v1));
-            for (expr* s : svars) {
-                VERIFY(a.is_numeral((*mdl)(s), v2));                
-                if (v1 < v2) {
-                    lits.push_back(a.mk_lt(p, s));
-                }
-                else if (v2 < v1) {
-                    lits.push_back(a.mk_lt(s, p));                    
-                }
-                else {
-                    lits.push_back(m.mk_eq(s, p));
-                }
-            }
-        }
-        return pvars;
-    }
 
-    app_ref_vector euf_arith_mbi_plugin::get_arith_vars2(model_ref& mdl, expr_ref_vector& lits) {
-        arith_util a(m);
-        app_ref_vector avars(m); // arithmetic variables.
-        is_arith_var_proc2 _proc(avars);
+    /** 
+     * \brief extract arithmetical variables and arithmetical terms in shared positions.
+     */
+    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(model_ref& mdl, expr_ref_vector& lits) {
+        app_ref_vector avars(m); 
+        is_arith_var_proc _proc(avars);
         for_each_expr(_proc, lits);
         return avars;
     }
@@ -390,57 +345,66 @@ namespace qe {
         }
     }
 
-    /**
-       1. extract arithmetical variables, purify.
-       2. project private variables from lits
-       3. Order arithmetical variables.
-       4. Perform arithmetical projection.
-       5. Substitute solution into lits
-     */
     void euf_arith_mbi_plugin::project(model_ref& mdl, expr_ref_vector& lits) {
         TRACE("qe", tout << lits << "\n" << *mdl << "\n";);
 
-        // 1. arithmetical variables
-        app_ref_vector avars = get_arith_vars2(mdl, lits);
+        // 1. arithmetical variables - atomic and in purified positions
+        app_ref_vector avars = get_arith_vars(mdl, lits);
         TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
 
+        // 2. project private non-arithmetical variables from lits
+        project_euf(mdl, lits, avars);
 
-        // 2. project private variables from lits
-        {
-            term_graph tg(m);
-            func_decl_ref_vector shared(m_shared);
-            for (app* a : avars) shared.push_back(a->get_decl());
-            tg.set_vars(shared, false);
-            tg.add_lits(lits);
-            lits.reset();
-            lits.append(tg.project(*mdl.get()));
-            TRACE("qe", tout << "project: " << lits << "\n";);
-        }
-
-        // 3. Order arithmetical variables
+        // 3. Order arithmetical variables and purified positions
         order_avars(mdl, lits, avars);
         TRACE("qe", tout << "ordered: " << lits << "\n";);
 
-        // 4. Arithmetical projection
+        // 4. Perform arithmetical projection
         arith_project_plugin ap(m);
         ap.set_check_purified(false);
         auto defs = ap.project(*mdl.get(), avars, lits);
-
         TRACE("qe", tout << "aproject: " << lits << "\n";);
-        // 5. Substitute solution
-        for (auto const& def : defs) {
-            expr_safe_replace rep(m);
-            rep.insert(def.var, def.term);
-            TRACE("qe", tout << def.var << " -> " << def.term << "\n";);
-            for (unsigned i = 0; i < lits.size(); ++i) {
-                expr_ref tmp(m);
-                rep(lits.get(i), tmp);
-                lits[i] = tmp;
-            }
-        }
+
+        // 5. Substitute solution into lits
+        substitute(defs, lits);
         TRACE("qe", tout << "substitute: " << lits << "\n";);
     }
 
+    /**
+     * \brief subistute solution to arithmetical variables into lits
+     */
+    void euf_arith_mbi_plugin::substitute(vector<def> const& defs, expr_ref_vector& lits) {
+        for (auto const& def : defs) {
+            expr_safe_replace rep(m);
+            rep.insert(def.var, def.term);
+            for (unsigned j = 0; j < lits.size(); ++j) {
+                expr_ref tmp(m);
+                rep(lits.get(j), tmp);
+                lits[j] = tmp;
+            }
+        }
+    }
+
+    /**
+     * \brief project non-arithmetical private symbols.
+     */
+    void euf_arith_mbi_plugin::project_euf(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars) {
+        term_graph tg(m);
+        func_decl_ref_vector shared(m_shared);
+        for (app* a : avars) shared.push_back(a->get_decl());
+        tg.set_vars(shared, false);
+        tg.add_lits(lits);
+        lits.reset();
+        lits.append(tg.project(*mdl.get()));
+        TRACE("qe", tout << "project: " << lits << "\n";);                
+    }
+
+    /**
+     * \brief Order arithmetical variables:
+     * 1. add literals that order the variable according to the model.
+     * 2. remove non-atomic arithmetical terms from projection.
+     * 2. sort arithmetical terms, such that deepest terms are first.
+     */
     void euf_arith_mbi_plugin::order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars) {
         arith_util a(m);
         model_evaluator mev(*mdl.get());
@@ -480,91 +444,6 @@ namespace qe {
         compare_depth cmpd;
         std::sort(avars.c_ptr(), avars.c_ptr() + avars.size(), cmpd);
         TRACE("qe", tout << lits << "\navars:" << avars << "\n" << *mdl << "\n";);
-    }
-
-
-    void euf_arith_mbi_plugin::project0(model_ref& mdl, expr_ref_vector& lits) {
-        TRACE("qe", tout << lits << "\n" << *mdl << "\n";);
-            
-                        
-        // 1. Extract projected variables, add inequalities between
-        //    projected variables and non-projected terms according to model.
-        // 2. Extract disequalities implied by congruence closure.
-        // 3. project arithmetic variables from pure literals.
-        // 4. Add projected definitions as equalities to EUF.
-        // 5. project remaining literals with respect to EUF.
-        
-        app_ref_vector avars = get_arith_vars1(mdl, lits);
-        TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
-        
-        // 2.
-        term_graph tg1(m);
-        func_decl_ref_vector no_shared(m);
-        tg1.set_vars(no_shared, false);
-        tg1.add_lits(lits);
-        arith_util a(m);
-        expr_ref_vector foreign = tg1.shared_occurrences(a.get_family_id());
-        obj_hashtable<expr> _foreign;
-        for (expr* e : foreign) _foreign.insert(e);
-        vector<expr_ref_vector> partition = tg1.get_partition(*mdl);
-        expr_ref_vector diseq = tg1.get_ackerman_disequalities();
-        lits.append(diseq);
-        TRACE("qe", tout << "diseq: " << diseq << "\n";
-              tout << "foreign: " << foreign << "\n";
-              for (auto const& v : partition) {
-                  tout << "partition: {";
-                  bool first = true;
-                  for (expr* e : v) {
-                      if (first) first = false; else tout << ", ";
-                      tout << expr_ref(e, m);
-                  }
-                  tout << "}\n";
-              }
-              );
-        vector<expr_ref_vector> refined_partition;
-        for (auto & p : partition) {
-            unsigned j = 0; 
-            for (expr* e : p) {
-                if (_foreign.contains(e) || 
-                    (is_app(e) && m_shared.contains(to_app(e)->get_decl()))) {
-                    p[j++] = e;
-                }
-            }
-            p.shrink(j);
-            if (!p.empty()) refined_partition.push_back(p);
-        }
-        TRACE("qe",
-              for (auto const& v : refined_partition) {
-                  tout << "partition: {";
-                  bool first = true;
-                  for (expr* e : v) {
-                      if (first) first = false; else tout << ", ";
-                      tout << expr_ref(e, m);
-                  }
-                  tout << "}\n";
-              });
-        
-        
-        
-        arith_project_plugin ap(m);
-        ap.set_check_purified(false);
-        
-        // 3.
-        auto defs = ap.project(*mdl.get(), avars, lits);
-        
-        // 4.
-        for (auto const& def : defs) {
-            lits.push_back(m.mk_eq(def.var, def.term));
-        }
-        TRACE("qe", tout << "# arith defs " << defs.size() << " avars: " << avars << " " << lits << "\n";);
-        
-        // 5.
-        term_graph tg2(m);
-        tg2.set_vars(m_shared, false);
-        tg2.add_lits(lits);
-        lits.reset();
-        lits.append(tg2.project());
-        TRACE("qe", tout << "project: " << lits << "\n";);
     }
 
     void euf_arith_mbi_plugin::block(expr_ref_vector const& lits) {
