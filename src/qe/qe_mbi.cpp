@@ -325,20 +325,14 @@ namespace qe {
             TRACE("qe", tout << "unsat core: " << lits << "\n";);
             // optionally minimize core using superposition.
             return mbi_unsat;
-        case l_true: {
+        case l_true: 
             m_solver->get_model(mdl);
             if (!get_literals(mdl, lits)) {
                 return mbi_undef;
             }
-            project0(mdl, lits);
+            project(mdl, lits);
             return mbi_sat;
-        }
         default:
-            // TBD: if not running solver to completion, then:
-            // 1. extract unit literals from m_solver.
-            // 2. run a cc over the units
-            // 3. extract equalities or other assignments over the congruence classes
-            // 4. ensure that at least some progress is made over original lits.
             return mbi_undef;
         }
     }
