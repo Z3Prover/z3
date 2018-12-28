@@ -97,101 +97,6 @@ namespace qe {
     }
 
     // -------------------------------
-    // euf_mbi
-
-    struct euf_mbi_plugin::is_atom_proc {
-        ast_manager& m;
-        expr_ref_vector& m_atoms;
-        is_atom_proc(expr_ref_vector& atoms): m(atoms.m()), m_atoms(atoms) {}
-        void operator()(app* a) {
-            if (m.is_eq(a)) {
-                m_atoms.push_back(a);
-            }
-            else if (m.is_bool(a) && a->get_family_id() != m.get_basic_family_id()) {
-                m_atoms.push_back(a);
-            }
-        }
-        void operator()(expr*) {}
-    };
-
-    euf_mbi_plugin::euf_mbi_plugin(solver* s, solver* sNot):
-        mbi_plugin(s->get_manager()),
-        m_atoms(m),
-        m_solver(s),
-        m_dual_solver(sNot) {
-        params_ref p;
-        p.set_bool("core.minimize", true);
-        m_solver->updt_params(p);
-        m_dual_solver->updt_params(p);
-        expr_ref_vector fmls(m);
-        m_solver->get_assertions(fmls);
-        expr_fast_mark1 marks;
-        is_atom_proc proc(m_atoms);
-        for (expr* e : fmls) {
-            quick_for_each_expr(proc, marks, e);
-        }
-    }
-
-    mbi_result euf_mbi_plugin::operator()(expr_ref_vector& lits, model_ref& mdl) {
-        lbool r = m_solver->check_sat(lits);
-        switch (r) {
-        case l_false:
-            lits.reset();
-            m_solver->get_unsat_core(lits);
-            // optionally minimize core using superposition.
-            return mbi_unsat;
-        case l_true: {
-            m_solver->get_model(mdl);
-            model_evaluator mev(*mdl.get());
-            lits.reset();
-            for (expr* e : m_atoms) {
-                if (mev.is_true(e)) {
-                    lits.push_back(e);
-                }
-                else if (mev.is_false(e)) {
-                    lits.push_back(m.mk_not(e));
-                }
-            }
-            TRACE("qe", tout << "atoms from model: " << lits << "\n";);
-            r = m_dual_solver->check_sat(lits);
-            expr_ref_vector core(m);
-            term_graph tg(m);
-            switch (r) {
-            case l_false:
-                // use the dual solver to find a 'small' implicant
-                m_dual_solver->get_unsat_core(core);
-                TRACE("qe", tout << "core: " << core << "\n";);
-                // project the implicant onto vars
-                tg.set_vars(m_shared, false);
-                tg.add_lits(core);
-                lits.reset();
-                lits.append(tg.project(*mdl));
-                TRACE("qe", tout << "project: " << lits << "\n";);
-                return mbi_sat;
-            case l_undef:
-                return mbi_undef;
-            case l_true:
-                UNREACHABLE();
-                return mbi_undef;
-            }
-            return mbi_sat;
-        }
-        default:
-            // TBD: if not running solver to completion, then:
-            // 1. extract unit literals from m_solver.
-            // 2. run a cc over the units
-            // 3. extract equalities or other assignments over the congruence classes
-            // 4. ensure that at least some progress is made over original lits.
-            return mbi_undef;
-        }
-    }
-
-    void euf_mbi_plugin::block(expr_ref_vector const& lits) {
-        m_solver->assert_expr(mk_not(mk_and(lits)));
-    }
-
-
-    // -------------------------------
     // euf_arith_mbi
 
     struct euf_arith_mbi_plugin::is_atom_proc {
@@ -341,6 +246,11 @@ namespace qe {
             project(mdl, lits);
             return mbi_sat;
         default:
+            // TBD: if not running solver to completion, then:
+            // 1. extract unit literals from m_solver.
+            // 2. run a cc over the units
+            // 3. extract equalities or other assignments over the congruence classes
+            // 4. ensure that at least some progress is made over original lits.
             return mbi_undef;
         }
     }
