@@ -17,6 +17,7 @@ class Horn2Transitions:
     def __init__(self):
         self.trans = True
         self.init = True
+        self.inputs = []
         self.goal = True
         self.index = 0
         
@@ -48,6 +49,9 @@ class Horn2Transitions:
         if pred is None:
             return False
         self.goal = self.subst_vars("x", inv, pred)
+        self.goal = self.subst_vars("i", self.goal, self.goal)
+        self.inputs += self.vars
+        self.inputs = list(set(self.inputs))
         return True
 
     def is_body(self, body):
@@ -77,6 +81,9 @@ class Horn2Transitions:
         self.xs = self.vars
         pred = self.subst_vars("xn", inv1, pred)
         self.xns = self.vars
+        pred = self.subst_vars("i", pred, pred)
+        self.inputs += self.vars
+        self.inputs = list(set(self.inputs))
         self.trans = pred
         return True
 
@@ -97,11 +104,23 @@ class Horn2Transitions:
 
     def mk_subst(self, prefix, inv):
         self.index = 0
-        return [(f, self.mk_bool(prefix)) for f in inv.children()]
+        if self.is_inv(inv) is not None:
+            return [(f, self.mk_bool(prefix)) for f in inv.children()]
+        else:
+            vars = self.get_vars(inv)
+            return [(f, self.mk_bool(prefix)) for f in vars]
 
     def mk_bool(self, prefix):
         self.index += 1
         return Bool("%s%d" % (prefix, self.index))
+
+    def get_vars(self, f, rs=[]):
+        if is_var(f):
+            return z3util.vset(rs + [f], str)
+        else:
+            for f_ in f.children():
+                rs = self.get_vars(f_, rs)
+            return z3util.vset(rs, str)
 
 # Produce a finite domain solver.
 # The theory QF_FD covers bit-vector formulas
@@ -169,8 +188,9 @@ def prune(R):
     return R - removed
                 
 class MiniIC3:
-    def __init__(self, init, trans, goal, x0, xn):
+    def __init__(self, init, trans, goal, x0, inputs, xn):
         self.x0 = x0
+        self.inputs = inputs
         self.xn = xn
         self.init = init
         self.bad = goal
@@ -229,6 +249,9 @@ class MiniIC3:
     def project0(self, m):
         return self.values2literals(m, self.x0)
 
+    def projectI(self, m):
+        return self.values2literals(m, self.inputs)
+
     def projectN(self, m):
         return self.values2literals(m, self.xn)
 
@@ -242,12 +265,14 @@ class MiniIC3:
         is_sat = self.s_bad.check()
         if is_sat == sat:
            m = self.s_bad.model()
-           props = self.project0(m)
+           cube = self.project0(m)
+           props = cube + self.projectI(m)
            self.s_good.push()
            self.s_good.add(R)
            is_sat2 = self.s_good.check(props)
            assert is_sat2 == unsat
            core = self.s_good.unsat_core()
+           core = [c for c in core if c in set(cube)]
            self.s_good.pop()
         self.s_bad.pop()
         return is_sat, core
@@ -263,8 +288,8 @@ class MiniIC3:
 
     # minimize cube that is core of Dual solver.
     # this assumes that props & cube => Trans    
-    def minimize_cube(self, cube, lits):
-        is_sat = self.min_cube_solver.check(lits + [c for c in cube])
+    def minimize_cube(self, cube, inputs, lits):
+        is_sat = self.min_cube_solver.check(lits + [c for c in cube] + [i for i in inputs])
         assert is_sat == unsat
         core = self.min_cube_solver.unsat_core()
         assert core
@@ -319,7 +344,7 @@ class MiniIC3:
            m = s.model()
         s.pop()
         if is_sat == sat:
-           cube = self.next(self.minimize_cube(self.project0(m), self.projectN(m)))
+           cube = self.next(self.minimize_cube(self.project0(m), self.projectI(m), self.projectN(m)))
         elif is_sat == unsat:
            cube, f = self.generalize(cube, f)
         return cube, f, is_sat
@@ -348,7 +373,7 @@ class MiniIC3:
 def test(file):
     h2t = Horn2Transitions()
     h2t.parse(file)
-    mp = MiniIC3(h2t.init, h2t.trans, h2t.goal, h2t.xs, h2t.xns)
+    mp = MiniIC3(h2t.init, h2t.trans, h2t.goal, h2t.xs, h2t.inputs, h2t.xns)
     result = mp.run()    
     if isinstance(result, Goal):
        g = result
