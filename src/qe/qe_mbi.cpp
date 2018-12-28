@@ -350,7 +350,7 @@ namespace qe {
 
         // 1. arithmetical variables - atomic and in purified positions
         app_ref_vector avars = get_arith_vars(mdl, lits);
-        TRACE("qe", tout << "vars: " << avars << " lits: " << lits << "\n";);
+        TRACE("qe", tout << "vars: " << avars << "\nlits: " << lits << "\n";);
 
         // 2. project private non-arithmetical variables from lits
         project_euf(mdl, lits, avars);
@@ -371,7 +371,7 @@ namespace qe {
     }
 
     /**
-     * \brief subistute solution to arithmetical variables into lits
+     * \brief substitute solution to arithmetical variables into lits
      */
     void euf_arith_mbi_plugin::substitute(vector<def> const& defs, expr_ref_vector& lits) {
         for (auto const& def : defs) {
