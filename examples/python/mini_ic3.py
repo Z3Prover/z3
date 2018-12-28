@@ -391,6 +391,10 @@ def test(file):
 
 test("data/horn1.smt2")
 test("data/horn2.smt2")
+test("data/horn3.smt2")
+test("data/horn4.smt2")
+test("data/horn5.smt2")
+test("data/horn6.smt2")
 
 
 
