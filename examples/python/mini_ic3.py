@@ -331,7 +331,9 @@ class MiniIC3:
     def generalize(self, cube, f):
         s = self.states[f - 1].solver
         if unsat == s.check(cube):
-            return s.unsat_core(), f
+            core = s.unsat_core()
+            if not check_disjoint(self.init, self.prev(And(core))):
+                return core, f
         return cube, f
 
     # Check if the negation of cube is inductive at level f
