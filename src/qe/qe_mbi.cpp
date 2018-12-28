@@ -377,11 +377,7 @@ namespace qe {
         for (auto const& def : defs) {
             expr_safe_replace rep(m);
             rep.insert(def.var, def.term);
-            for (unsigned j = 0; j < lits.size(); ++j) {
-                expr_ref tmp(m);
-                rep(lits.get(j), tmp);
-                lits[j] = tmp;
-            }
+            rep(lits);
         }
     }
 
