@@ -138,6 +138,8 @@ endforeach()
 # FindDotnet.cmake forwards CMake build type to MSBuild.
 # And thus we can put the conditional properties in the project file.
 # Note, nuget package file names do not have the ${VER_REV} part.
+
+# TODO how to receive "configuration" and "platform" from here? 
 set(Z3_DOTNET_NUPKG_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in ${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj)
 ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj
