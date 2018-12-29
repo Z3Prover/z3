@@ -561,6 +561,31 @@ struct solver::imp {
         }
         return sign;
     }
+
+    void generate_zero_lemma(const monomial& m) {
+        unsigned zero_j = -1;
+        for (unsigned j : m.vars()){
+            if (vvr(j).is_zero()){
+                zero_j = j;
+                break;
+            }
+        }
+        SASSERT(zero_j + 1);
+        mk_ineq(zero_j, llc::NE);
+        mk_ineq(m.var(), llc::EQ);
+    }
+    
+    // we know here that the value one of the vars of each monomial is zero
+    // so the value of each monomial has to be zero
+    bool sign_lemma_for_zero_on_list(const unsigned_vector& mon_list) {
+        for (unsigned i : mon_list) {
+            if (!vvr(m_monomials[i]).is_zero()) {
+                generate_zero_lemma(m_monomials[i]);
+                return true;
+            }
+        }
+        return false;
+    }
     
     bool basic_sign_lemma_on_a_bucket_of_abs_vals(const vector<rational>& abs_vals, const unsigned_vector& list){
         TRACE("nla_solver",
@@ -572,7 +597,7 @@ struct solver::imp {
         rational val =  vvr(m_monomials[list[0]].var());
         int sign = vars_sign(m_monomials[list[0]].vars());
         if (sign == 0) {
-            return false;
+            return sign_lemma_for_zero_on_list(list);
         }
         
         for (unsigned i = 1; i < list.size(); i++) {
@@ -598,40 +623,11 @@ struct solver::imp {
         return m_rm_table.vec()[rm_i];
     }
     
-    bool basic_sign_lemma_on_a_var_bucket_of_abs_vals(const rational& v, const unsigned_vector& vars ) {
-        for(unsigned j : vars) {
-            auto it = m_var_to_its_monomial.find(j);
-            if (it == m_var_to_its_monomial.end()) continue;
-            const monomial& m = m_monomials[it->second];
-            const rooted_mon& rm = mon_to_rooted_mon(m);
-            unsigned rm_j = var(rm);
-            if (rm_j == j) continue;
-            if (abs(vvr(rm_j)) != v) {
-                explain(m);
-                explain(rm);
-                generate_bsm(j, rm_j);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    void generate_bsm(unsigned j, unsigned k) {
-        auto jv = vvr(j);
-        auto kv = vvr(k);
-        auto js = rational(rat_sign(jv));
-        auto ks = rational(rat_sign(kv));
-        mk_ineq(js, j, -ks, k, llc::EQ);
-    }
     /**
      * \brief <generate lemma by using the fact that -ab = (-a)b) and
      -ab = a(-b)
     */
     bool basic_sign_lemma() {
-        for (const auto & p : m_vars_equivalence.m_vars_by_abs_values){
-            if (basic_sign_lemma_on_a_var_bucket_of_abs_vals(p.first, p.second))
-                return true;
-        }
         for (const auto & p : m_vars_equivalence.monomials_by_abs_values()){
             if (basic_sign_lemma_on_a_bucket_of_abs_vals(p.first, p.second))
                 return true;
