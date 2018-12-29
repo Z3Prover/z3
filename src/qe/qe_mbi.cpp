@@ -126,30 +126,29 @@ namespace qe {
     struct euf_arith_mbi_plugin::is_arith_var_proc {
         ast_manager&    m;
         app_ref_vector& m_avars;
-        arith_util      arith;
+        app_ref_vector& m_proxies;
+        arith_util      m_arith;
         obj_hashtable<expr> m_seen;
-        is_arith_var_proc(app_ref_vector& avars):
-            m(avars.m()), m_avars(avars), arith(m) {
+        is_arith_var_proc(app_ref_vector& avars, app_ref_vector& proxies):
+            m(avars.m()), m_avars(avars), m_proxies(proxies), m_arith(m) {
         }
         void operator()(app* a) {
             if (is_arith_op(a) || a->get_family_id() == m.get_basic_family_id()) {
-                // no-op
+                return;
             }
-            else if (!arith.is_int_real(a)) {
-                for (expr* arg : *a) {
-                    if (is_app(arg) && !m_seen.contains(arg) && is_arith_op(to_app(arg))) {
-                        m_avars.push_back(to_app(arg));
-                        m_seen.insert(arg);
-                    }
-                }
-            }
-            else if (!m_seen.contains(a)) {
-                m_seen.insert(a);
+
+            if (m_arith.is_int_real(a)) {
                 m_avars.push_back(a);
+            }
+            for (expr* arg : *a) {
+                if (is_app(arg) && !m_seen.contains(arg) && m_arith.is_int_real(arg)) {
+                    m_proxies.push_back(to_app(arg));
+                    m_seen.insert(arg);
+                }
             }
         }
         bool is_arith_op(app* a) {
-            return a->get_family_id() == arith.get_family_id();
+            return a->get_family_id() == m_arith.get_family_id();
         }
         void operator()(expr*) {}
     };
@@ -221,9 +220,9 @@ namespace qe {
     /** 
      * \brief extract arithmetical variables and arithmetical terms in shared positions.
      */
-    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(model_ref& mdl, expr_ref_vector& lits) {
+    app_ref_vector euf_arith_mbi_plugin::get_arith_vars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& proxies) {
         app_ref_vector avars(m); 
-        is_arith_var_proc _proc(avars);
+        is_arith_var_proc _proc(avars, proxies);
         for_each_expr(_proc, lits);
         return avars;
     }
@@ -259,14 +258,15 @@ namespace qe {
         TRACE("qe", tout << lits << "\n" << *mdl << "\n";);
 
         // 1. arithmetical variables - atomic and in purified positions
-        app_ref_vector avars = get_arith_vars(mdl, lits);
-        TRACE("qe", tout << "vars: " << avars << "\nlits: " << lits << "\n";);
+        app_ref_vector proxies(m);
+        app_ref_vector avars = get_arith_vars(mdl, lits, proxies);
+        TRACE("qe", tout << "vars: " << avars << "\nproxies: " << proxies << "\nlits: " << lits << "\n";);
 
         // 2. project private non-arithmetical variables from lits
         project_euf(mdl, lits, avars);
 
         // 3. Order arithmetical variables and purified positions
-        order_avars(mdl, lits, avars);
+        order_avars(mdl, lits, avars, proxies);
         TRACE("qe", tout << "ordered: " << lits << "\n";);
 
         // 4. Perform arithmetical projection
@@ -307,15 +307,14 @@ namespace qe {
 
     /**
      * \brief Order arithmetical variables:
-     * 1. add literals that order the variable according to the model.
-     * 2. remove non-atomic arithmetical terms from projection.
+     * 1. add literals that order the proxies according to the model.
      * 2. sort arithmetical terms, such that deepest terms are first.
      */
-    void euf_arith_mbi_plugin::order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars) {
+    void euf_arith_mbi_plugin::order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars, app_ref_vector const& proxies) {
         arith_util a(m);
         model_evaluator mev(*mdl.get());
         vector<std::pair<rational, app*>> vals;
-        for (app* v : avars) {
+        for (app* v : proxies) {
             rational val;
             expr_ref tmp = mev(v);
             VERIFY(a.is_numeral(tmp, val));
@@ -327,7 +326,7 @@ namespace qe {
                 return x.first < y.first;
             }
         };
-        // add linear order between avars
+        // add linear order between proxies
         compare_first cmp;
         std::sort(vals.begin(), vals.end(), cmp);
         for (unsigned i = 1; i < vals.size(); ++i) {
@@ -338,6 +337,7 @@ namespace qe {
                 lits.push_back(a.mk_lt(vals[i-1].second, vals[i].second));
             }
         }
+
         // filter out only private variables
         filter_private_arith(avars);
 
