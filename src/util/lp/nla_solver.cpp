@@ -29,7 +29,6 @@ namespace nla {
 typedef lp::lconstraint_kind llc;
 
 struct solver::imp {
-    
     typedef lp::lar_base_constraint lpcon;
 
     //fields    
@@ -40,7 +39,6 @@ struct solver::imp {
     // this field is used for the push/pop operations
     unsigned_vector                                                  m_monomials_counts;
     lp::lar_solver&                                                  m_lar_solver;
-    std::unordered_map<lpvar, svector<lpvar>>                        m_monomials_containing_var;
     
     // m_var_to_its_monomial[m_monomials[i].var()] = i
     std::unordered_map<lpvar, unsigned>                              m_var_to_its_monomial;
@@ -1000,28 +998,12 @@ struct solver::imp {
         return false;
     }
 
-    void map_monomial_vars_to_monomial_indices(unsigned i) {
-        const monomial& m = m_monomials[i];
-        for (lpvar j : m.vars()) {
-            auto it = m_monomials_containing_var.find(j);
-            if (it == m_monomials_containing_var.end()) {
-                unsigned_vector ms;
-                ms.push_back(i);
-                m_monomials_containing_var[j] = ms;
-            }
-            else {
-                it->second.push_back(i);
-            }
-        }
-    }
-
     void map_vars_to_monomials() {
         for (unsigned i = 0; i < m_monomials.size(); i++) {
             const monomial& m = m_monomials[i];
             lpvar v = m.var();
             SASSERT(m_var_to_its_monomial.find(v) == m_var_to_its_monomial.end());
             m_var_to_its_monomial[v] = i;
-            map_monomial_vars_to_monomial_indices(i);
         }
     }
 
@@ -1184,7 +1166,6 @@ struct solver::imp {
         m_var_to_its_monomial.clear();
         m_vars_equivalence.clear();
         m_rm_table.clear();
-        m_monomials_containing_var.clear();
         m_expl->clear();
         m_lemma->clear();
     }
