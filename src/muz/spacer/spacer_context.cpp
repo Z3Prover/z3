@@ -1210,7 +1210,7 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
         if (!is_quantifier(s) && !mdl.is_true(s)) {
             TRACE("spacer", tout << "Summary not true in the model: "
                   << mk_pp(s, m) << "\n";);
-            return expr_ref(m);
+            // return expr_ref(m);
         }
     }
 
@@ -1325,7 +1325,7 @@ bool pred_transformer::is_qblocked (pob &n) {
 
     // assert cti
     s->assert_expr(n.post());
-    lbool res = s->check_sat(0, 0);
+    lbool res = s->check_sat(0, nullptr);
 
     // if (res == l_false) {
     //     expr_ref_vector core(m);
@@ -2366,7 +2366,6 @@ void context::updt_params() {
     }
 }
 
-
 void context::reset()
 {
     TRACE("spacer", tout << "\n";);
@@ -2503,7 +2502,7 @@ void context::add_cover(int level, func_decl* p, expr* property, bool bg)
 }
 
 void context::add_invariant (func_decl *p, expr *property)
-{add_cover (infty_level(), p, property, true);}
+{add_cover (infty_level(), p, property, use_bg_invs());}
 
 expr_ref context::get_reachable(func_decl *p) {
     pred_transformer* pt = nullptr;
@@ -2737,13 +2736,13 @@ lbool context::solve(unsigned from_lvl)
             // }
         }
         VERIFY (validate ());
-    } catch (unknown_exception)
+    } catch (const unknown_exception &)
     {}
 
     if (m_last_result == l_true) {
         m_stats.m_cex_depth = get_cex_depth ();
     }
- 
+
     if (m_params.print_statistics ()) {
         statistics st;
         collect_statistics (st);
@@ -2927,10 +2926,6 @@ expr_ref context::get_answer()
     }
 }
 
-/**
-   \brief Retrieve satisfying assignment with explanation.
-*/
-expr_ref context::mk_sat_answer() {return get_ground_sat_answer();}
 
 
 expr_ref context::mk_unsat_answer() const
@@ -2953,8 +2948,7 @@ proof_ref context::get_ground_refutation() {
     ground_sat_answer_op op(*this);
     return op(*m_query);
 }
-expr_ref context::get_ground_sat_answer()
-{
+expr_ref context::get_ground_sat_answer() const {
     if (m_last_result != l_true) {
         IF_VERBOSE(0, verbose_stream()
                    << "Sat answer unavailable when result is false\n";);
@@ -3064,7 +3058,7 @@ expr_ref context::get_ground_sat_answer()
                 ground_fact_conjs.push_back(m.mk_eq(sig_arg, sig_val));
                 ground_arg_vals.push_back(sig_val);
             }
-            if (ground_fact_conjs.size () > 0) {
+            if (!ground_fact_conjs.empty()) {
                 expr_ref ground_fact(m);
                 ground_fact = mk_and(ground_fact_conjs);
                 m_pm.formula_o2n(ground_fact, ground_fact, i);
@@ -3080,6 +3074,20 @@ expr_ref context::get_ground_sat_answer()
     TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
 
     return expr_ref(m.mk_and(cex.size(), cex.c_ptr()), m);
+}
+
+void context::display_certificate(std::ostream &out) const {
+    switch(m_last_result) {
+    case l_false:
+        out << mk_pp(mk_unsat_answer(), m);
+        break;
+    case l_true:
+        out << mk_pp(mk_sat_answer(), m);
+        break;
+    case l_undef:
+        out << "unknown";
+        break;
+    }
 }
 
 ///this is where everything starts

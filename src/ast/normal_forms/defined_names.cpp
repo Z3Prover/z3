@@ -221,7 +221,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
             args.push_back(m.mk_var(q->get_num_decls() - i - 1, q->get_decl_sort(i)));
         }
         array_util autil(m);
-        func_decl * f = 0;
+        func_decl * f = nullptr;
         if (autil.is_as_array(n2, f)) {
             n3 = m.mk_app(f, args.size()-1, args.c_ptr() + 1);
         }

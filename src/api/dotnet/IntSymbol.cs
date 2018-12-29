@@ -18,15 +18,14 @@ Notes:
 --*/
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Numbered symbols
     /// </summary>
-    [ContractVerification(true)]
     public class IntSymbol : Symbol
     {
         /// <summary>
@@ -47,12 +46,12 @@ namespace Microsoft.Z3
         internal IntSymbol(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal IntSymbol(Context ctx, int i)
             : base(ctx, Native.Z3_mk_int_symbol(ctx.nCtx, i))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
 #if DEBUG

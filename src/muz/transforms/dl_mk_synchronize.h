@@ -126,7 +126,7 @@ namespace datalog {
          */
         mk_synchronize(context & ctx, unsigned priority = 22500);
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

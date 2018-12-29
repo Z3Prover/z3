@@ -279,8 +279,9 @@ protected:
         return false;
     }
 
-    bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
-        return m_cfg.get_macro(f, def, q, def_pr);
+    bool get_macro(func_decl * f, expr * & def, proof * & def_pr) {
+        quantifier* q = nullptr;
+        return m_cfg.get_macro(f, def, q, def_pr); 
     }
 
     void push_frame(expr * t, bool mcache, unsigned max_depth) {

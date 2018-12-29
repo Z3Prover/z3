@@ -36,7 +36,7 @@ protected:
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); --m_ref_count; }
     virtual bool is_psort() const { return false; }
-    virtual size_t obj_size() const = 0;
+    virtual size_t obj_size() const { UNREACHABLE(); return sizeof(*this); }
     pdecl(unsigned id, unsigned num_params):m_id(id), m_num_params(num_params), m_ref_count(0) {}
     virtual void finalize(pdecl_manager & m) {}
     virtual ~pdecl() {}
@@ -53,7 +53,7 @@ public:
 class psort_inst_cache;
 
 #if defined(__APPLE__) && defined(__MACH__)
-// CMW: for some unknown reason, llvm on OSX does not like the name `psort'
+// CMW: for some unknown reason, llvm on macOS does not like the name `psort'
 #define psort Z3_psort
 #endif
 
@@ -74,9 +74,9 @@ public:
     virtual bool is_sort_wrapper() const { return false; }
     virtual sort * instantiate(pdecl_manager & m, sort * const * s) { return nullptr; }
     // we use hash-consing for psorts.
-    virtual char const * hcons_kind() const = 0;
-    virtual unsigned hcons_hash() const = 0;
-    virtual bool hcons_eq(psort const * other) const = 0;
+    virtual char const * hcons_kind() const { UNREACHABLE(); return nullptr; }
+    virtual unsigned hcons_hash() const { UNREACHABLE(); return 0; }
+    virtual bool hcons_eq(psort const * other) const { UNREACHABLE(); return false; }
     void reset_cache(pdecl_manager& m) override;
 };
 

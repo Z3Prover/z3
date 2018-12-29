@@ -426,6 +426,7 @@ namespace smt {
         std::stringstream strm;
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
+        TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
         out.close();
         return m_lemma_id;
@@ -466,6 +467,7 @@ namespace smt {
         std::stringstream strm;
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
+        TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
         return m_lemma_id;
@@ -600,6 +602,18 @@ namespace smt {
         out << " ";
         display(out, j);
     }
+
+    std::ostream& operator<<(std::ostream& out, enode_pp const& p) {
+        ast_manager& m = p.ctx.get_manager();
+        enode* n = p.n;
+        return out << "[#" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m) << "]";
+    }
+
+    std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p) {
+        return out << enode_pp(p.p.first, p.ctx) << " = " << enode_pp(p.p.second, p.ctx) << "\n";
+    }
+
+
 
 };
 

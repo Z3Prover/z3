@@ -16,8 +16,8 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 #if !FRAMEWORK_LT_4
 using System.Numerics;
@@ -28,7 +28,6 @@ namespace Microsoft.Z3
     /// <summary>
     /// Algebraic numbers
     /// </summary>
-    [ContractVerification(true)]
     public class AlgebraicNum : ArithExpr
     {
         /// <summary>
@@ -40,7 +39,6 @@ namespace Microsoft.Z3
         /// <returns>A numeral Expr of sort Real</returns>
         public RatNum ToUpper(uint precision)
         {
-            Contract.Ensures(Contract.Result<RatNum>() != null);
 
             return new RatNum(Context, Native.Z3_get_algebraic_number_upper(Context.nCtx, NativeObject, precision));
         }
@@ -54,7 +52,6 @@ namespace Microsoft.Z3
         /// <returns>A numeral Expr of sort Real</returns>
         public RatNum ToLower(uint precision)
         {
-            Contract.Ensures(Contract.Result<RatNum>() != null);
 
             return new RatNum(Context, Native.Z3_get_algebraic_number_lower(Context.nCtx, NativeObject, precision));
         }
@@ -65,7 +62,6 @@ namespace Microsoft.Z3
         /// <remarks>The result has at most <paramref name="precision"/> decimal places.</remarks>    
         public string ToDecimal(uint precision)
         {
-            Contract.Ensures(Contract.Result<string>() != null);
 
             return Native.Z3_get_numeral_decimal_string(Context.nCtx, NativeObject, precision);
         }
@@ -74,7 +70,7 @@ namespace Microsoft.Z3
         internal AlgebraicNum(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }

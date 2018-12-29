@@ -74,7 +74,7 @@ extern "C" {
     Z3_rcf_num Z3_API Z3_rcf_mk_infinitesimal(Z3_context c);
 
     /**
-       \brief Store in roots the roots of the polynomial <tt>a[n-1]*x^{n-1} + ... + a[0]</tt>.
+       \brief Store in roots the roots of the polynomial \ccode{a[n-1]*x^{n-1} + ... + a[0]}.
        The output vector \c roots must have size \c n.
        It returns the number of roots of the polynomial.
 
@@ -85,102 +85,102 @@ extern "C" {
     unsigned Z3_API Z3_rcf_mk_roots(Z3_context c, unsigned n, Z3_rcf_num const a[], Z3_rcf_num roots[]);
 
     /**
-       \brief Return the value a + b.
+       \brief Return the value \ccode{a + b}.
 
        def_API('Z3_rcf_add', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_add(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return the value a - b.
+       \brief Return the value \ccode{a - b}.
 
        def_API('Z3_rcf_sub', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_sub(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return the value a * b.
+       \brief Return the value \ccode{a * b}.
 
        def_API('Z3_rcf_mul', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_mul(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return the value a / b.
+       \brief Return the value \ccode{a / b}.
 
        def_API('Z3_rcf_div', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_div(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return the value -a
+       \brief Return the value \ccode{-a}.
 
        def_API('Z3_rcf_neg', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_neg(Z3_context c, Z3_rcf_num a);
 
     /**
-       \brief Return the value 1/a
+       \brief Return the value \ccode{1/a}.
 
        def_API('Z3_rcf_inv', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM)))
     */
     Z3_rcf_num Z3_API Z3_rcf_inv(Z3_context c, Z3_rcf_num a);
 
     /**
-       \brief Return the value a^k
+       \brief Return the value \ccode{a^k}.
 
        def_API('Z3_rcf_power', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(UINT)))
     */
     Z3_rcf_num Z3_API Z3_rcf_power(Z3_context c, Z3_rcf_num a, unsigned k);
 
     /**
-       \brief Return Z3_TRUE if a < b
+       \brief Return \c true if \ccode{a < b}.
 
        def_API('Z3_rcf_lt', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
-    Z3_bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
+    bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a > b
+       \brief Return \c true if \ccode{a > b}.
 
        def_API('Z3_rcf_gt', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
-    Z3_bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
+    bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a <= b
+       \brief Return \c true if \ccode{a <= b}.
 
        def_API('Z3_rcf_le', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
-    Z3_bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
+    bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a >= b
+       \brief Return \c true if \ccode{a >= b}.
 
        def_API('Z3_rcf_ge', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
-    Z3_bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
+    bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a == b
+       \brief Return \c true if \ccode{a == b}.
 
        def_API('Z3_rcf_eq', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
-    Z3_bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
+    bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
-       \brief Return Z3_TRUE if a != b
+       \brief Return \c true if \ccode{a != b}.
 
        def_API('Z3_rcf_neq', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
     */
-    Z3_bool Z3_API Z3_rcf_neq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
+    bool Z3_API Z3_rcf_neq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b);
 
     /**
        \brief Convert the RCF numeral into a string.
 
        def_API('Z3_rcf_num_to_string', STRING, (_in(CONTEXT), _in(RCF_NUM), _in(BOOL), _in(BOOL)))
     */
-    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, Z3_bool compact, Z3_bool html);
+    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, bool compact, bool html);
 
     /**
        \brief Convert the RCF numeral into a string in decimal notation.
@@ -191,7 +191,7 @@ extern "C" {
 
     /**
        \brief Extract the "numerator" and "denominator" of the given RCF numeral.
-       We have that a = n/d, moreover n and d are not represented using rational functions.
+       We have that \ccode{a = n/d}, moreover \c n and \c d are not represented using rational functions.
 
        def_API('Z3_rcf_get_numerator_denominator', VOID, (_in(CONTEXT), _in(RCF_NUM), _out(RCF_NUM), _out(RCF_NUM)))
     */

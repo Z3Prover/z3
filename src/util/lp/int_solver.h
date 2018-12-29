@@ -39,20 +39,31 @@ public:
     // fields
     lar_solver          *m_lar_solver;
     unsigned            m_number_of_calls;
-    lar_term            *m_t; // the term to return in the cut
-    mpq                 *m_k; // the right side of the cut
-    explanation         *m_ex; // the conflict explanation
-    bool                *m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
+    lar_term            m_t; // the term to return in the cut
+    mpq                 m_k; // the right side of the cut
+    explanation         m_ex; // the conflict explanation
+    bool                m_upper; // we have a cut m_t*x <= k if m_upper is true nad m_t*x >= k otherwise
     hnf_cutter          m_hnf_cutter;
     // methods
     int_solver(lar_solver* lp);
 
     // main function to check that the solution provided by lar_solver is valid for integral values,
     // or provide a way of how it can be adjusted.
-    lia_move check(lar_term& t, mpq& k, explanation& ex, bool & upper);
+    lia_move check();
+    lar_term const& get_term() const { return m_t; }
+    mpq const& get_offset() const { return m_k; }
+    explanation const& get_explanation() const { return m_ex; }
+    bool is_upper() const { return m_upper; }
+
     bool move_non_basic_column_to_bounds(unsigned j);
-    lia_move check_wrapper(lar_term& t, mpq& k, explanation& ex);    
     bool is_base(unsigned j) const;
+    bool is_real(unsigned j) const;
+    const impq & lower_bound(unsigned j) const;
+    const impq & upper_bound(unsigned j) const;
+    bool is_int(unsigned j) const;
+    const impq & get_value(unsigned j) const;
+    bool at_lower(unsigned j) const;
+    bool at_upper(unsigned j) const;
     
 private:
 
@@ -79,10 +90,7 @@ private:
     void add_to_explanation_from_fixed_or_boxed_column(unsigned j);
     lia_move patch_nbasic_columns();
     bool get_freedom_interval_for_column(unsigned j, bool & inf_l, impq & l, bool & inf_u, impq & u, mpq & m);
-    const impq & lower_bound(unsigned j) const;
-    const impq & upper_bound(unsigned j) const;
-    bool is_int(unsigned j) const;
-    bool is_real(unsigned j) const;
+private:
     bool is_boxed(unsigned j) const;
     bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
@@ -91,7 +99,6 @@ private:
     void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     bool non_basic_columns_are_at_bounds() const;
     bool is_feasible() const;
-    const impq & get_value(unsigned j) const;
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
     lia_move branch_or_sat();
@@ -104,39 +111,22 @@ private:
     bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
     lia_move mk_gomory_cut(unsigned inf_col, const row_strip<mpq>& row);
-    lia_move report_conflict_from_gomory_cut();
-    void adjust_term_and_k_for_some_ints_case_gomory(mpq& lcm_den);
     lia_move proceed_with_gomory_cut(unsigned j);
-    int find_free_var_in_gomory_row(const row_strip<mpq>& );
     bool is_gomory_cut_target(const row_strip<mpq>&);
     bool at_bound(unsigned j) const;
-    bool at_low(unsigned j) const;
-    bool at_upper(unsigned j) const;
     bool has_low(unsigned j) const;
     bool has_upper(unsigned j) const;
     unsigned row_of_basic_column(unsigned j) const;
-    inline static bool is_rational(const impq & n) {
-        return is_zero(n.y);  
-    }
 
 public:
     void display_column(std::ostream & out, unsigned j) const;
-    inline static
-    mpq fractional_part(const impq & n) {
-        lp_assert(is_rational(n));
-        return n.x - floor(n.x);
-    }
-private:
-    void real_case_in_gomory_cut(const mpq & a, unsigned x_j, const mpq& f_0, const mpq& one_minus_f_0);
-    void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & lcm_den, const mpq& f_0, const mpq& one_minus_f_0);
     constraint_index column_upper_bound_constraint(unsigned j) const;
     constraint_index column_lower_bound_constraint(unsigned j) const;
-    void display_row_info(std::ostream & out, unsigned row_index) const;
-    void gomory_cut_adjust_t_and_k(vector<std::pair<mpq, unsigned>> & pol, lar_term & t, mpq &k, bool num_ints, mpq &lcm_den);
     bool current_solution_is_inf_on_cut() const;
-public:
+
     bool shift_var(unsigned j, unsigned range);
 private:
+    void display_row_info(std::ostream & out, unsigned row_index) const;
     unsigned random();
     bool has_inf_int() const;
     lia_move create_branch_on_column(int j);
@@ -161,5 +151,5 @@ public:
     bool hnf_has_var_with_non_integral_value() const;
     bool hnf_cutter_is_full() const;
     void patch_nbasic_column(unsigned j, bool patch_only_int_vals);
-};
+  };
 }

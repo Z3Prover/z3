@@ -491,13 +491,21 @@ namespace smt {
                 if (!it->is_dead()) {
                     unsigned rid = it->m_row_id;
                     row & r = m_rows[rid];
-                    if (is_base(r.get_base_var()))
+                    theory_var v = r.get_base_var();
+                    if (v == null_theory_var) {
+                        // skip
+                    }
+                    else if (is_base(v)) {
                         return it;
+                    }
                     else if (quasi_base_rid == -1)
                         quasi_base_rid = rid;
                 }
             }
-            SASSERT(quasi_base_rid != -1); // since c.size() != 0
+            if (quasi_base_rid == -1) {
+                return nullptr;
+            }
+			
             quasi_base_row2base_row(quasi_base_rid);
             // There is no guarantee that v is still a variable of row quasi_base_rid.
 
@@ -540,7 +548,7 @@ namespace smt {
             if (!it->is_dead()) {
                 row const & r = m_rows[it->m_row_id];
                 theory_var s  = r.get_base_var();
-                if (is_quasi_base(s) && m_var_occs[s].size() == 0)
+                if (is_quasi_base(s) && m_var_occs[s].empty())
                     continue;
                 if (is_int(v)) {
                     numeral const & c = r[it->m_row_idx].m_coeff;
@@ -566,7 +574,7 @@ namespace smt {
         TRACE("move_unconstrained_to_base", tout << "before...\n"; display(tout););
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
-            if (m_var_occs[v].size() == 0 && is_free(v)) {
+            if (m_var_occs[v].empty() && is_free(v)) {
                 switch (get_var_kind(v)) {
                 case QUASI_BASE:
                     break;
@@ -1073,7 +1081,7 @@ namespace smt {
     /**
        \brief: Create an atom that enforces the inequality v > val
        The arithmetical expression encoding the inequality suffices 
-       for the theory of aritmetic.
+       for the theory of arithmetic.
     */
     template<typename Ext>
     expr_ref theory_arith<Ext>::mk_gt(theory_var v) {
@@ -1103,6 +1111,7 @@ namespace smt {
                 e = m_util.mk_gt(obj, e);
             }
         }
+        TRACE("opt", tout << e << "\n";);
         return e;
     }
 
@@ -1119,6 +1128,8 @@ namespace smt {
         std::ostringstream strm;
         strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
         app* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
+        expr_ref result(b, m);
+        TRACE("opt", tout << result << "\n";);
         if (!ctx.b_internalized(b)) {
             fm.hide(b->get_decl());
             bool_var bv = ctx.mk_bool_var(b);
@@ -1133,7 +1144,7 @@ namespace smt {
             TRACE("arith", tout << mk_pp(b, m) << "\n";
                   display_atom(tout, a, false););            
         }
-        return expr_ref(b, m);
+        return result;
     }
 
 
@@ -1143,7 +1154,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::enable_record_conflict(expr* bound) {
         m_params.m_arith_bound_prop = BP_NONE;
-        SASSERT(propagation_mode() == BP_NONE); // bound propagtion rules are not (yet) handled.
+        SASSERT(propagation_mode() == BP_NONE); // bound propagation rules are not (yet) handled.
         if (bound) {
             context& ctx = get_context();
             m_bound_watch = ctx.get_bool_var(bound);

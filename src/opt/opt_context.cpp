@@ -79,13 +79,13 @@ namespace opt {
         m_hard.push_back(hard);
     }
 
-    bool context::scoped_state::set(ptr_vector<expr> & hard) {
+    bool context::scoped_state::set(expr_ref_vector const & hard) {
         bool eq = hard.size() == m_hard.size();
         for (unsigned i = 0; eq && i < hard.size(); ++i) {
-            eq = hard[i] == m_hard[i].get();
+            eq = hard.get(i) == m_hard.get(i);
         }
         m_hard.reset();
-        m_hard.append(hard.size(), hard.c_ptr());
+        m_hard.append(hard);
         return !eq;
     }
 
@@ -130,6 +130,7 @@ namespace opt {
         m_fm(alloc(generic_model_converter, m, "opt")),
         m_model_fixed(),
         m_objective_refs(m),
+        m_core(m),
         m_enable_sat(false),
         m_is_clausal(false),
         m_pp_neat(false),
@@ -173,11 +174,10 @@ namespace opt {
     }
 
     void context::get_unsat_core(expr_ref_vector & r) { 
-        throw default_exception("Unsat cores are not supported with optimization"); 
+        r.append(m_core);
     }
 
-
-    void context::set_hard_constraints(ptr_vector<expr>& fmls) {
+    void context::set_hard_constraints(expr_ref_vector const& fmls) {
         if (m_scoped_state.set(fmls)) {
             clear_state();
         }
@@ -253,7 +253,7 @@ namespace opt {
         m_hard_constraints.append(s.m_hard);
     }
 
-    lbool context::optimize() {
+    lbool context::optimize(expr_ref_vector const& asms) {
         if (m_pareto) {
             return execute_pareto();
         }
@@ -263,7 +263,10 @@ namespace opt {
         clear_state();
         init_solver(); 
         import_scoped_state(); 
-        normalize();
+        normalize(asms);
+        if (m_hard_constraints.size() == 1 && m.is_false(m_hard_constraints.get(0))) {
+            return l_false;
+        }
         internalize();
         update_solver();
         if (contains_quantifiers()) {
@@ -281,7 +284,9 @@ namespace opt {
         symbol pri = optp.priority();
 
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n");
-        lbool is_sat = s.check_sat(0,0);
+        
+        lbool is_sat = s.check_sat(asms.size(),asms.c_ptr());
+
         TRACE("opt", s.display(tout << "initial search result: " << is_sat << "\n");); 
         if (is_sat != l_false) {
             s.get_model(m_model);
@@ -289,9 +294,13 @@ namespace opt {
             model_updated(m_model.get());
         }
         if (is_sat != l_true) {
-            TRACE("opt", tout << m_hard_constraints << "\n";);            
+            TRACE("opt", tout << m_hard_constraints << " " << asms << "\n";);            
+            if (!asms.empty()) {
+                s.get_unsat_core(m_core);
+            }
             return is_sat;
         }
+        s.assert_expr(asms);
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n");
         TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
@@ -473,12 +482,11 @@ namespace opt {
                 ++j;
             }
         }
-        if (r == l_true && m_box_models.size() > 0) {
+        if (r == l_true && !m_box_models.empty()) {
             m_model = m_box_models[0];
         }
         return r;
     }
-
 
     expr_ref context::mk_le(unsigned i, model_ref& mdl) {
         objective const& obj = m_objectives[i];
@@ -489,8 +497,7 @@ namespace opt {
         objective const& obj = m_objectives[i];
         return mk_cmp(true, mdl, obj);
     }
-    
-    
+        
     expr_ref context::mk_gt(unsigned i, model_ref& mdl) {
         expr_ref result = mk_le(i, mdl);
         result = mk_not(m, result);
@@ -702,7 +709,7 @@ namespace opt {
                 quick_for_each_expr(proc, visited, f);
             }
         }
-        catch (is_bv::found) {
+        catch (const is_bv::found &) {
             return false;
         }
         return true;
@@ -733,7 +740,7 @@ namespace opt {
         try {
             quick_for_each_expr(proc, visited, p);
         }
-        catch (is_propositional_fn::found) {
+        catch (const is_propositional_fn::found &) {
             return false;
         }
         return true;
@@ -751,21 +758,24 @@ namespace opt {
         return m_arith.is_numeral(e, n) || m_bv.is_numeral(e, n, sz);
     }
 
-    void context::normalize() {
+    void context::normalize(expr_ref_vector const& asms) {
         expr_ref_vector fmls(m);
         to_fmls(fmls);
-        simplify_fmls(fmls);
+        simplify_fmls(fmls, asms);
         from_fmls(fmls);
     }
 
-    void context::simplify_fmls(expr_ref_vector& fmls) {
+    void context::simplify_fmls(expr_ref_vector& fmls, expr_ref_vector const& asms) {
         if (m_is_clausal) {
             return;
         }
 
-        goal_ref g(alloc(goal, m, true, false));
+        goal_ref g(alloc(goal, m, true, !asms.empty()));
         for (expr* fml : fmls) {
             g->assert_expr(fml);
+        }
+        for (expr * a : asms) {
+            g->assert_expr(a, a);
         }
         tactic_ref tac0 = 
             and_then(mk_simplify_tactic(m, m_params), 
@@ -788,6 +798,7 @@ namespace opt {
             set_simplify(tac0.get());
         }
         goal_ref_buffer result;
+        TRACE("opt", g->display(tout););
         (*m_simplify)(g, result); 
         SASSERT(result.size() == 1);
         goal* r = result[0];
@@ -795,8 +806,27 @@ namespace opt {
         fmls.reset();
         expr_ref tmp(m);
         for (unsigned i = 0; i < r->size(); ++i) {
-            fmls.push_back(r->form(i));
+            if (asms.empty()) {
+                fmls.push_back(r->form(i));
+                continue;
+            }
+
+            ptr_vector<expr> deps;
+            expr_dependency_ref core(r->dep(i), m);
+            m.linearize(core, deps);
+            if (!deps.empty()) {
+                fmls.push_back(m.mk_implies(m.mk_and(deps.size(), deps.c_ptr()), r->form(i)));
+            }
+            else {
+                fmls.push_back(r->form(i));
+            }
         }        
+        if (r->inconsistent()) {
+            ptr_vector<expr> core_elems;
+            expr_dependency_ref core(r->dep(0), m);
+            m.linearize(core, core_elems);
+            m_core.append(core_elems.size(), core_elems.c_ptr());
+        }
     }
 
     bool context::is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index) {
@@ -1084,11 +1114,7 @@ namespace opt {
             }
             term = m_arith.mk_add(args.size(), args.c_ptr());
         }
-        else if (m_arith.is_arith_expr(term) && !is_mul_const(term)) {
-            TRACE("opt", tout << "Purifying " << term << "\n";);
-            term = purify(fm, term);
-        }
-        else if (m.is_ite(term)) {
+        else if (m.is_ite(term) || !is_mul_const(term)) {
             TRACE("opt", tout << "Purifying " << term << "\n";);
             term = purify(fm, term);
         }
@@ -1399,6 +1425,7 @@ namespace opt {
         m_box_index = UINT_MAX;
         m_model.reset();
         m_model_fixed.reset();
+        m_core.reset();
     }
 
     void context::set_pareto(pareto_base* p) {
@@ -1541,12 +1568,12 @@ namespace opt {
         mdl->set_model_completion(true);
         for (expr * f : fmls) {
             if (!mdl->is_true(f)) {
-                //IF_VERBOSE(0, m_fm->display(verbose_stream() << "fm\n"));
-                IF_VERBOSE(0, m_model_converter->display(verbose_stream() << "mc\n"));
-                IF_VERBOSE(0, verbose_stream() << "Failed to validate " << mk_pp(f, m) << "\n" << tmp << "\n");
-                IF_VERBOSE(0, model_smt2_pp(verbose_stream(), m, *mdl, 0)); 
-                IF_VERBOSE(11, verbose_stream() << to_string_internal() << "\n");
-                exit(0);
+                IF_VERBOSE(0, 
+                           verbose_stream() << "Failed to validate " << mk_pp(f, m) << "\n" << tmp << "\n";
+                           m_fm->display(verbose_stream() << "fm\n");
+                           m_model_converter->display(verbose_stream() << "mc\n");
+                           model_smt2_pp(verbose_stream(), m, *mdl, 0);
+                           verbose_stream() << to_string_internal() << "\n");
             }
         }
     }

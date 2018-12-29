@@ -93,7 +93,7 @@ public:
         unsigned        m_row;
     public:
         ref_row(const static_matrix & m, unsigned row): m_matrix(m), m_row(row) {}
-        const T operator[](unsigned col) const { return m_matrix.get_elem(m_row, col); }
+        T operator[](unsigned col) const { return m_matrix.get_elem(m_row, col); }
     };
 
 public:

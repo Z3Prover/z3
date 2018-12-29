@@ -835,6 +835,17 @@ void tst_visit() {
     visit(f);
 }
 
+void tst_numeral() {
+    context c;
+    expr x = c.real_val("1/3");
+    double d = 0;
+    if (!x.is_numeral(d)) {
+        std::cout << x << " is not recognized as a numeral\n";
+        return;
+    }
+    std::cout << x << " is " << d << "\n";
+}
+
 void incremental_example1() {
     std::cout << "incremental example1\n";
     context c;
@@ -1179,6 +1190,20 @@ void mk_model_example() {
     std::cout << m.eval(a + b < 2)<< std::endl;
 }
 
+void recfun_example() {
+    std::cout << "recfun example\n";
+    context c;    
+    expr x = c.int_const("x");
+    expr y = c.int_const("y");
+    expr b = c.bool_const("b");
+    sort I = c.int_sort();
+    sort B = c.bool_sort();    
+    func_decl f = recfun("f", I, B, I);
+    expr_vector args(c);
+    args.push_back(x); args.push_back(b);
+    c.recdef(f, args, ite(b, x, f(x + 1, !b)));
+    prove(f(x,c.bool_val(false)) > x);
+}
 
 int main() {
 
@@ -1212,6 +1237,7 @@ int main() {
         tactic_example9(); std::cout << "\n";
         tactic_qe(); std::cout << "\n";
         tst_visit(); std::cout << "\n";
+        tst_numeral(); std::cout << "\n";
         incremental_example1(); std::cout << "\n";
         incremental_example2(); std::cout << "\n";
         incremental_example3(); std::cout << "\n";
@@ -1227,6 +1253,7 @@ int main() {
         consequence_example(); std::cout << "\n";
         parse_example(); std::cout << "\n";
         mk_model_example(); std::cout << "\n";
+        recfun_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

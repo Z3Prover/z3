@@ -81,7 +81,7 @@ void eta_matrix<T, X>::apply_from_right(vector<T> & w) {
 }
 template <typename T, typename X>
 void eta_matrix<T, X>::apply_from_right(indexed_vector<T> & w) {
-    if (w.m_index.size() == 0)
+    if (w.m_index.empty())
         return;
 #ifdef Z3DEBUG
     // vector<T> wcopy(w.m_data);

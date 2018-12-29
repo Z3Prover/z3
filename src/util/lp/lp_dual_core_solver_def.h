@@ -276,7 +276,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::can_be_breakpo
             bool grawing = m_sign_of_alpha_r * this->m_pivot_row[j] > 0;
             return lower_bound == grawing;
         }
-    case column_type::fixed: // is always dual feasible so we ingore it
+    case column_type::fixed: // is always dual feasible so we ignore it
         return false;
     case column_type::free_column:
         return true;
@@ -665,7 +665,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::ratio_test() {
     m_flipped_boxed.clear();
     int initial_delta_sign = m_delta >= numeric_traits<T>::zero()? 1: -1;
     do {
-        if (m_breakpoint_set.size() == 0) {
+        if (m_breakpoint_set.empty()) {
             set_status_to_tentative_dual_unbounded_or_dual_unbounded();
             return false;
         }
@@ -697,7 +697,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_d_and_x
         this->m_d[j] -= m_theta_D * this->m_pivot_row[j];
     }
     this->m_d[m_p] = - m_theta_D;
-    if (m_flipped_boxed.size() > 0) {
+    if (!m_flipped_boxed.empty()) {
         process_flipped();
         update_xb_after_bound_flips();
     }

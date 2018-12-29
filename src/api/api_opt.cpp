@@ -124,10 +124,16 @@ extern "C" {
     }
 
 
-    Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o) {
+    Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o, unsigned num_assumptions, Z3_ast const assumptions[]) {
         Z3_TRY;
-        LOG_Z3_optimize_check(c, o);
+        LOG_Z3_optimize_check(c, o, num_assumptions, assumptions);
         RESET_ERROR_CODE();
+        for (unsigned i = 0; i < num_assumptions; i++) {
+            if (!is_expr(to_ast(assumptions[i]))) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, "assumption is not an expression");
+                return Z3_L_UNDEF;
+            }
+        }
         lbool r = l_undef;
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
@@ -137,7 +143,9 @@ extern "C" {
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
-                r = to_optimize_ptr(o)->optimize();
+                expr_ref_vector asms(mk_c(c)->m());
+                asms.append(num_assumptions, to_exprs(assumptions));
+                r = to_optimize_ptr(o)->optimize(asms);
             }
             catch (z3_exception& ex) {
                 if (!mk_c(c)->m().canceled()) {
@@ -156,6 +164,22 @@ extern "C" {
         return of_lbool(r);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
+
+    Z3_ast_vector Z3_API Z3_optimize_get_unsat_core(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_unsat_core(c, o);
+        RESET_ERROR_CODE();
+        expr_ref_vector core(mk_c(c)->m());
+        to_optimize_ptr(o)->get_unsat_core(core);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        for (expr* e : core) {
+            v->m_ast_vector.push_back(e);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
 
     Z3_string Z3_API Z3_optimize_get_reason_unknown(Z3_context c, Z3_optimize o) {
         Z3_TRY;
@@ -330,10 +354,8 @@ extern "C" {
             return;
         }
 
-        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
-        for (; it != end; ++it) {
-            to_optimize_ptr(opt)->add_hard_constraint(*it);
+        for (expr * e : ctx->assertions()) {
+            to_optimize_ptr(opt)->add_hard_constraint(e);
         }
     }
 

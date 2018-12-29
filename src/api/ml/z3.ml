@@ -705,6 +705,11 @@ struct
   let mk_forall_const = _internal_mk_quantifier_const ~universal:true
   let mk_exists = _internal_mk_quantifier ~universal:false
   let mk_exists_const = _internal_mk_quantifier_const ~universal:false
+  let mk_lambda_const ctx bound body = Z3native.mk_lambda_const ctx (List.length bound) bound body
+  let mk_lambda ctx bound body = 
+      let names = List.map (fun (x,_) -> x) bound in
+      let sorts = List.map (fun (_,y) -> y) bound in
+      Z3native.mk_lambda ctx (List.length bound) sorts names body
 
   let mk_quantifier (ctx:context) (universal:bool) (sorts:Sort.sort list) (names:Symbol.symbol list) (body:expr) (weight:int option) (patterns:Pattern.pattern list) (nopatterns:expr list) (quantifier_id:Symbol.symbol option) (skolem_id:Symbol.symbol option) =
     if universal then
@@ -1815,8 +1820,10 @@ struct
     | _ -> UNKNOWN
 
   let get_model x =
-    let q = Z3native.solver_get_model (gc x) x in
-    if Z3native.is_null_model q then None else Some q
+    try 
+       let q = Z3native.solver_get_model (gc x) x in
+       if Z3native.is_null_model q then None else Some q 
+    with | _ -> None
 
   let get_proof x =
     let q = Z3native.solver_get_proof (gc x) x in
@@ -1945,15 +1952,17 @@ struct
   let minimize (x:optimize) (e:Expr.expr) = mk_handle x (Z3native.optimize_minimize (gc x) x e)
 
   let check (x:optimize) =
-    let r = lbool_of_int (Z3native.optimize_check (gc x) x) in
+    let r = lbool_of_int (Z3native.optimize_check (gc x) x 0 []) in
     match r with
     | L_TRUE -> Solver.SATISFIABLE
     | L_FALSE -> Solver.UNSATISFIABLE
     | _ -> Solver.UNKNOWN
 
   let get_model (x:optimize) =
-    let q = Z3native.optimize_get_model (gc x) x in
-    if Z3native.is_null_model q then None else Some q
+    try
+      let q = Z3native.optimize_get_model (gc x) x in
+      if Z3native.is_null_model q then None else Some q
+    with | _ -> None
 
   let get_lower (x:handle) = Z3native.optimize_get_lower (gc x.opt) x.opt x.h
   let get_upper (x:handle) = Z3native.optimize_get_upper (gc x.opt) x.opt x.h
@@ -2014,3 +2023,7 @@ let toggle_warning_messages = Z3native.toggle_warning_messages
 let enable_trace = Z3native.enable_trace
 
 let disable_trace = Z3native.enable_trace
+
+module Memory = struct
+  let reset = Z3native.reset_memory
+end

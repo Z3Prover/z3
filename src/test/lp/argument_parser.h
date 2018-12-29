@@ -112,41 +112,41 @@ public:
     std::string usage_string() {
         std::string ret = "";
         std::vector<std::string> unknown_options;
-        for (auto t : m_free_args) {
+        for (const auto & t : m_free_args) {
             if (starts_with(t, "-") || starts_with(t, "\\")) {
                 unknown_options.push_back(t);
             }
         }
-        if (unknown_options.size()) {
+        if (!unknown_options.empty()) {
             ret = "Unknown options:";
         }
-        for (auto unknownOption : unknown_options) {
+        for (const auto & unknownOption : unknown_options) {
             ret += unknownOption;
             ret += ",";
         }
         ret += "\n";
         ret += "Usage:\n";
         for (auto allowed_option : m_options)
-            ret += allowed_option.first + " " + (allowed_option.second.size() == 0 ? std::string("") : std::string("/") + allowed_option.second) + std::string("\n");
+            ret += allowed_option.first + " " + (allowed_option.second.empty() ? std::string("") : std::string("/") + allowed_option.second) + std::string("\n");
         for (auto s : m_options_with_after_string) {
-            ret += s.first + " " + (s.second.size() == 0? " \"option value\"":("\""+ s.second+"\"")) + "\n";
+            ret += s.first + " " + (s.second.empty()? " \"option value\"":("\""+ s.second+"\"")) + "\n";
         }
         return ret;
     }
 
     void print() {
-        if (m_used_options.size() == 0 && m_used_options_with_after_string.size() == 0 && m_free_args.size() == 0) {
+        if (m_used_options.empty() && m_used_options_with_after_string.empty() && m_free_args.empty()) {
             std::cout << "no options are given" << std::endl;
             return;
         }
         std::cout << "options are: " << std::endl;
-        for (std::string s : m_used_options) {
+        for (const std::string & s : m_used_options) {
             std::cout << s << std::endl;
         }
         for (auto & t : m_used_options_with_after_string) {
             std::cout << t.first << " " << t.second << std::endl;
         }
-        if (m_free_args.size() > 0) {
+        if (!m_free_args.empty()) {
             std::cout << "free arguments are: "  << std::endl;
             for (auto & t : m_free_args) {
                 std::cout << t << " " <<  std::endl;

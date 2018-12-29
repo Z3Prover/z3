@@ -117,7 +117,7 @@ void test_matrix(square_sparse_matrix<T, X> & a) {
 }
 
 void tst1() {
-    std::cout << "testing the minimial matrix with 1 row and 1 column" << std::endl;
+    std::cout << "testing the minimal matrix with 1 row and 1 column" << std::endl;
     square_sparse_matrix<double, double> m0(1, 1);
     m0.set(0, 0, 1);
     // print_matrix(m0);
@@ -192,7 +192,7 @@ void tst1() {
     // print_matrix(m10by9);
 }
 
-vector<int> allocate_basis_heading(unsigned count) { // the rest of initilization will be handled by lu_QR
+vector<int> allocate_basis_heading(unsigned count) { // the rest of initialization will be handled by lu_QR
     vector<int> basis_heading(count, -1);
     return basis_heading;
 }
@@ -850,7 +850,7 @@ void fill_uniformly(dense_matrix<double, double> & m, unsigned dim) {
     }
 }
 
-void square_sparse_matrix_with_permutaions_test() {
+void square_sparse_matrix_with_permutations_test() {
     unsigned dim = 4;
     square_sparse_matrix<double, double> m(dim, dim);
     fill_uniformly(m, dim);
@@ -1023,7 +1023,7 @@ void test_dense_matrix() {
 
 
 
-vector<permutation_matrix<double, double>> vector_of_permutaions() {
+vector<permutation_matrix<double, double>> vector_of_permutations() {
     vector<permutation_matrix<double, double>> ret;
     {
         permutation_matrix<double, double> p0(5);
@@ -1058,7 +1058,7 @@ void test_apply_reverse_from_right_to_perm(permutation_matrix<double, double> & 
         }
 
 void test_apply_reverse_from_right() {
-    auto vec = vector_of_permutaions();
+    auto vec = vector_of_permutations();
     for (unsigned i = 0; i < vec.size(); i++) {
         test_apply_reverse_from_right_to_perm(vec[i]);
     }
@@ -1091,7 +1091,7 @@ void lp_solver_test() {
 
 bool get_int_from_args_parser(const char * option, argument_parser & args_parser, unsigned & n) {
     std::string s = args_parser.get_option_value(option);
-    if (s.size() > 0) {
+    if (!s.empty()) {
         n = atoi(s.c_str());
         return true;
     }
@@ -1100,7 +1100,7 @@ bool get_int_from_args_parser(const char * option, argument_parser & args_parser
 
 bool get_double_from_args_parser(const char * option, argument_parser & args_parser, double & n) {
     std::string s = args_parser.get_option_value(option);
-    if (s.size() > 0) {
+    if (!s.empty()) {
         n = atof(s.c_str());
         return true;
     }
@@ -1161,14 +1161,14 @@ void setup_solver(unsigned max_iterations, unsigned time_limit, bool look_for_mi
 bool values_are_one_percent_close(double a, double b);
 
 void print_x(mps_reader<double, double> & reader, lp_solver<double, double> * solver) {
-    for (auto name : reader.column_names()) {
+    for (const auto & name : reader.column_names()) {
         std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
     }
     std::cout << std::endl;
 }
 
 void compare_solutions(mps_reader<double, double> & reader, lp_solver<double, double> * solver, lp_solver<double, double> * solver0) {
-    for (auto name : reader.column_names()) {
+    for (const auto & name : reader.column_names()) {
         double a = solver->get_column_value_by_name(name);
         double b = solver0->get_column_value_by_name(name);
         if (!values_are_one_percent_close(a, b)) {
@@ -1299,7 +1299,7 @@ void solve_mps_in_rational(std::string file_name, bool dual, argument_parser & /
         std::cout << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
         if (solver->get_status() == lp_status::OPTIMAL) {
             if (reader.column_names().size() < 20) {
-                for (auto name : reader.column_names()) {
+                for (const auto & name : reader.column_names()) {
                     std::cout << name << "=" << solver->get_column_value_by_name(name).get_double() << ' ';
                 }
             }
@@ -1414,7 +1414,7 @@ void solve_mps_with_known_solution(std::string file_name, std::unordered_map<std
                 }
             }
             if (reader.column_names().size() < 20) {
-                for (auto name : reader.column_names()) {
+                for (const auto & name : reader.column_names()) {
                     std::cout << name << "=" << solver->get_column_value_by_name(name) << ' ';
                 }
                 std::cout << std::endl;
@@ -1775,7 +1775,7 @@ void solve_rational() {
     expected_sol["x8"] = lp::mpq(0);
     solver.find_maximal_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
-    for (auto it : expected_sol) {
+    for (const auto & it : expected_sol) {
         lp_assert(it.second == solver.get_column_value_by_name(it.first));
     }
 }
@@ -1830,7 +1830,7 @@ std::unordered_map<std::string, double> * get_solution_from_glpsol_output(std::s
             return nullptr;
         }
         auto split = string_split(s, " \t", false);
-        if (split.size() == 0) {
+        if (split.empty()) {
             return ret;
         }
 
@@ -1901,17 +1901,17 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_after_string_with_help("--density", "the percentage of non-zeroes in the matrix below which it is not dense");
     parser.add_option_with_after_string_with_help("--harris_toler", "harris tolerance");
     parser.add_option_with_help_string("--test_swaps", "test row swaps with a permutation");
-    parser.add_option_with_help_string("--test_perm", "test permutaions");
+    parser.add_option_with_help_string("--test_perm", "test permutations");
     parser.add_option_with_after_string_with_help("--checklu", "the file name for lu checking");
     parser.add_option_with_after_string_with_help("--partial_pivot", "the partial pivot constant, a number somewhere between 10 and 100");
     parser.add_option_with_after_string_with_help("--percent_for_enter", "which percent of columns check for entering column");
-    parser.add_option_with_help_string("--totalinf", "minimizes the total infeasibility  instead of diminishin infeasibility of the rows");
+    parser.add_option_with_help_string("--totalinf", "minimizes the total infeasibility  instead of diminishing infeasibility of the rows");
     parser.add_option_with_after_string_with_help("--rep_frq", "the report frequency, in how many iterations print the cost and other info ");
     parser.add_option_with_help_string("--smt", "smt file format");
     parser.add_option_with_after_string_with_help("--filelist", "the file containing the list of files");
     parser.add_option_with_after_string_with_help("--file", "the input file name"); 
     parser.add_option_with_after_string_with_help("--random_seed", "random seed");
-    parser.add_option_with_help_string("--bp", "bound propogation");
+    parser.add_option_with_help_string("--bp", "bound propagation");
     parser.add_option_with_help_string("--min", "will look for the minimum for the given file if --file is used; the default is looking for the max");
     parser.add_option_with_help_string("--max", "will look for the maximum for the given file if --file is used; it is the default behavior");
     parser.add_option_with_after_string_with_help("--max_iters", "maximum total iterations in a core solver stage");
@@ -1932,7 +1932,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("--lar", "test lar_solver");
     parser.add_option_with_after_string_with_help("--maxng", "max iterations without progress");
     parser.add_option_with_help_string("-tbq", "test binary queue");
-    parser.add_option_with_help_string("--randomize_lar", "test randomize funclionality");
+    parser.add_option_with_help_string("--randomize_lar", "test randomize functionality");
     parser.add_option_with_help_string("--smap", "test stacked_map");
     parser.add_option_with_help_string("--term", "simple term test");
     parser.add_option_with_help_string("--eti"," run a small evidence test for total infeasibility scenario");
@@ -2050,14 +2050,14 @@ void finalize(unsigned ret) {
 
 void get_time_limit_and_max_iters_from_parser(argument_parser & args_parser, unsigned & time_limit, unsigned & max_iters) {
     std::string s = args_parser.get_option_value("--max_iters");
-    if (s.size() > 0) {
+    if (!s.empty()) {
         max_iters = atoi(s.c_str());
     } else {
         max_iters = 0;
     }
 
     std::string time_limit_string = args_parser.get_option_value("--time_limit");
-    if (time_limit_string.size() > 0) {
+    if (!time_limit_string.empty()) {
         time_limit = atoi(time_limit_string.c_str());
     } else {
         time_limit = 0;
@@ -2156,7 +2156,7 @@ double get_lp_tst_cost(std::string file_name) {
             cost_string = str;
         }
     }
-    if (cost_string.size() == 0) {
+    if (cost_string.empty()) {
         std::cout << "cannot find the cost line in " << file_name << std::endl;
         throw 0;
     }
@@ -2369,7 +2369,7 @@ void test_files_from_directory(std::string test_file_dir, argument_parser & args
 
 std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp::mpq> * lps, mps_reader<lp::mpq, lp::mpq> & reader) {
     std::unordered_map<std::string, lp::mpq> ret;
-    for (auto it : reader.column_names()) {
+    for (const auto & it : reader.column_names()) {
         ret[it] = lps->get_column_value_by_name(it);
     }
     return ret;
@@ -2377,7 +2377,7 @@ std::unordered_map<std::string, lp::mpq> get_solution_map(lp_solver<lp::mpq, lp:
 
 void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_reader<lp::mpq, lp::mpq> * reader) {
     std::string maxng = args_parser.get_option_value("--maxng");
-    if (maxng.size() > 0) {
+    if (!maxng.empty()) {
         solver->settings().max_number_of_iterations_with_no_improvements = atoi(maxng.c_str());
     }
     if (args_parser.option_is_used("-pd")){
@@ -2385,7 +2385,7 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
     }
     
     std::string iter = args_parser.get_option_value("--max_iters");
-    if (iter.size() > 0) {
+    if (!iter.empty()) {
         solver->settings().max_total_number_of_iterations = atoi(iter.c_str());
     }
     if (args_parser.option_is_used("--compare_with_primal")){
@@ -2470,7 +2470,7 @@ vector<std::string> get_file_names_from_file_list(std::string filelist) {
         std::string s = read_line(end, file);
         if (end)
             break;
-        if (s.size() == 0)
+        if (s.empty())
             break;
         ret.push_back(s);
     } while (true);
@@ -2480,14 +2480,14 @@ vector<std::string> get_file_names_from_file_list(std::string filelist) {
 void test_lar_solver(argument_parser & args_parser) {
 
     std::string file_name = args_parser.get_option_value("--file");
-    if (file_name.size() > 0) {
+    if (!file_name.empty()) {
         test_lar_on_file(file_name, args_parser);
         return;
     }
 
     std::string file_list = args_parser.get_option_value("--filelist");
-    if (file_list.size() > 0) {
-        for (std::string fn : get_file_names_from_file_list(file_list))
+    if (!file_list.empty()) {
+        for (const std::string & fn : get_file_names_from_file_list(file_list))
             test_lar_on_file(fn, args_parser);
         return;
     }
@@ -2667,13 +2667,20 @@ void test_term() {
     lar_solver solver;
     unsigned _x = 0;
     unsigned _y = 1;
+    unsigned _one = 2;
     var_index x = solver.add_var(_x, false);
     var_index y = solver.add_var(_y, false);
+    var_index one = solver.add_var(_one, false);
+
+    vector<std::pair<mpq, var_index>> term_one;
+    term_one.push_back(std::make_pair((int)1, one));
+    solver.add_constraint(term_one, lconstraint_kind::EQ, mpq(0));
 
     vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
     term_ls.push_back(std::pair<mpq, var_index>((int)1, y));
-    var_index z = solver.add_term(term_ls, mpq(3));
+    term_ls.push_back(std::make_pair((int)3, one));
+    var_index z = solver.add_term(term_ls);
 
     vector<std::pair<mpq, var_index>> ls;
     ls.push_back(std::pair<mpq, var_index>((int)1, x));
@@ -2743,10 +2750,10 @@ void test_bound_propagation_one_small_sample1() {
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::pair<mpq, var_index>(1, a));
     coeffs.push_back(std::pair<mpq, var_index>(-1, c));
-    ls.add_term(coeffs, zero_of_type<mpq>());
+    ls.add_term(coeffs);
     coeffs.pop_back();
     coeffs.push_back(std::pair<mpq, var_index>(-1, b));
-    ls.add_term(coeffs, zero_of_type<mpq>());
+    ls.add_term(coeffs);
     coeffs.clear();
     coeffs.push_back(std::pair<mpq, var_index>(1, a));
     coeffs.push_back(std::pair<mpq, var_index>(-1, b));
@@ -3485,12 +3492,12 @@ void test_maximize_term() {
     vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
     term_ls.push_back(std::pair<mpq, var_index>((int)-1, y));
-    unsigned term_x_min_y = solver.add_term(term_ls, mpq(0));
+    unsigned term_x_min_y = solver.add_term(term_ls);
     term_ls.clear();
     term_ls.push_back(std::pair<mpq, var_index>((int)2, x));
     term_ls.push_back(std::pair<mpq, var_index>((int)2, y));
     
-    unsigned term_2x_pl_2y = solver.add_term(term_ls, mpq(0));
+    unsigned term_2x_pl_2y = solver.add_term(term_ls);
     solver.add_var_bound(term_x_min_y,  LE, zero_of_type<mpq>());
     solver.add_var_bound(term_2x_pl_2y, LE, mpq((int)5));
     solver.find_feasible_solution();
@@ -3502,8 +3509,7 @@ void test_maximize_term() {
         std::cout<< "v[" << p.first << "] = " << p.second << std::endl;
     }
     std::cout << "calling int_solver\n";
-    lar_term t; mpq k; explanation ex; bool upper;
-    lia_move lm = i_solver.check(t, k, ex, upper);
+    lia_move lm = i_solver.check();
     VERIFY(lm == lia_move::sat);
     impq term_max;
     lp_status st = solver.maximize_term(term_2x_pl_2y, term_max);
@@ -3594,7 +3600,7 @@ void test_lp_local(int argn, char**argv) {
         
     
     std::string lufile = args_parser.get_option_value("--checklu");
-    if (lufile.size()) {
+    if (!lufile.empty()) {
         check_lu_from_file(lufile);
         return finalize(0);
     }
@@ -3617,8 +3623,8 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
     std::string file_list = args_parser.get_option_value("--filelist");
-    if (file_list.size() > 0) {
-        for (std::string fn : get_file_names_from_file_list(file_list))
+    if (!file_list.empty()) {
+        for (const std::string & fn : get_file_names_from_file_list(file_list))
             solve_mps(fn, args_parser);
         return finalize(0);
     }
@@ -3698,7 +3704,7 @@ void test_lp_local(int argn, char**argv) {
     bool dual = args_parser.option_is_used("--dual");
     bool solve_for_rational = args_parser.option_is_used("--mpq");
     std::string file_name = args_parser.get_option_value("--file");
-    if (file_name.size() > 0) {
+    if (!file_name.empty()) {
         solve_mps(file_name, args_parser.option_is_used("--min"), max_iters, time_limit, solve_for_rational, dual, args_parser.option_is_used("--compare_with_primal"), args_parser);
         ret = 0;
         return finalize(ret);
@@ -3716,7 +3722,7 @@ void test_lp_local(int argn, char**argv) {
     test_init_U();
     test_replace_column();
 #ifdef Z3DEBUG
-    square_sparse_matrix_with_permutaions_test();
+    square_sparse_matrix_with_permutations_test();
     test_dense_matrix();
     test_swap_operations();
     test_permutations();

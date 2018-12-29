@@ -34,7 +34,7 @@ endif()
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
 set(Z3_VERSION_MINOR 8)
-set(Z3_VERSION_PATCH 0)
+set(Z3_VERSION_PATCH 5)
 set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
@@ -99,7 +99,7 @@ set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
 if (EXISTS "${GIT_DIR}")
   # Try to make CMake configure depend on the current git HEAD so that
   # a re-configure is triggered when the HEAD changes.
-  add_git_dir_dependency("${GIT_DIR}" ADD_GIT_DEP_SUCCESS)
+  add_git_dir_dependency("${CMAKE_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
   if (ADD_GIT_DEP_SUCCESS)
     if (INCLUDE_GIT_HASH)
       get_git_head_hash("${GIT_DIR}" Z3GITHASH)
@@ -205,9 +205,6 @@ message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 include(${CMAKE_SOURCE_DIR}/cmake/target_arch_detect.cmake)
 detect_target_architecture(TARGET_ARCHITECTURE)
 message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_AMD64_")
-endif()
 
 
 ################################################################################
@@ -240,7 +237,7 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
   endif()
 elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-  # Does OSX really not need any special flags?
+  # Does macOS really not need any special flags?
   message(STATUS "Platform: Darwin")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
@@ -380,9 +377,17 @@ endif()
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
 if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel"))
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+      # Intel's compiler requires linking with libiomp5
+      list(APPEND Z3_DEPENDENT_LIBS "iomp5")
+    endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # FIXME: Remove "x.." when CMP0054 is set to NEW
+  elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+    set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
+    # Intel's compiler requires linking with libiomp5 
+    list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
   elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
@@ -416,6 +421,15 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 # Compiler warnings
 ################################################################################
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
+
+################################################################################
+# Save Clang optimization records
+################################################################################
+option(SAVE_CLANG_OPTIMIZATION_RECORDS "Enable saving Clang optimization records." OFF)
+
+if (SAVE_CLANG_OPTIMIZATION_RECORDS)
+  z3_add_cxx_flag("-fsave-optimization-record" REQUIRED)
+endif()
 
 ################################################################################
 # If using Ninja, force color output for Clang (and gcc, disabled to check build).

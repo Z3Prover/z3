@@ -88,7 +88,7 @@ static void tst2() {
     int_heap2 h(N);
     for (int i = 0; i < N * 10; i++) {
 
-        if (i % 1 == 0) std::cout << "i: " << i << std::endl;
+        // if (i % 1 == 0) std::cout << "i: " << i << std::endl;
         if (i % 1000 == 0) std::cout << "i: " << i << std::endl;
         int cmd = heap_rand() % 10;
         if (cmd <= 3) {

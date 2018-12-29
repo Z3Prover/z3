@@ -594,7 +594,6 @@ bool pattern_inference_cfg::reduce_quantifier(
         unsigned new_weight;
         if (m_database.match_quantifier(q, new_patterns, new_weight)) {
             DEBUG_CODE(for (unsigned i = 0; i < new_patterns.size(); i++) { SASSERT(is_well_sorted(m, new_patterns.get(i))); });
-            quantifier_ref new_q(m);
             if (q->get_num_patterns() > 0) {
                 // just update the weight...
                 TRACE("pattern_inference", tout << "updating weight to: " << new_weight << "\n" << mk_pp(q, m) << "\n";);
@@ -604,10 +603,10 @@ bool pattern_inference_cfg::reduce_quantifier(
                 quantifier_ref tmp(m);
                 tmp    = m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.c_ptr(), q->get_expr());
                 result = m.update_quantifier_weight(tmp, new_weight);
-                TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(new_q, m) << "\n";);
+                TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(result, m) << "\n";);
             }
             if (m.proofs_enabled())
-                result_pr = m.mk_rewrite(q, new_q);
+                result_pr = m.mk_rewrite(q, result);
             return true;
         }
     }
@@ -687,7 +686,7 @@ bool pattern_inference_cfg::reduce_quantifier(
             mk_patterns(result2->get_num_decls(), result2->get_expr(), 0, nullptr, new_patterns);
             if (!new_patterns.empty()) {
                 if (m_params.m_pi_warnings) {
-                    warning_msg("pulled nested quantifier to be able to find an useable pattern (quantifier id: %s)", q->get_qid().str().c_str());
+                    warning_msg("pulled nested quantifier to be able to find an usable pattern (quantifier id: %s)", q->get_qid().str().c_str());
                 }
                 new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.c_ptr(), result2->get_expr());
                 if (m.proofs_enabled()) {

@@ -212,6 +212,7 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
     return false;
 }
 
+
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
@@ -338,15 +339,12 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
         // TODO: add rewrite rules support
         expr * def = nullptr;
         proof * def_pr = nullptr;
-        quantifier * def_q = nullptr;
         // When get_macro succeeds, then
         // we know that:
         // forall X. f(X) = def[X]
         // and def_pr is a proof for this quantifier.
         //
-        // Remark: def_q is only used for proof generation.
-        // It is the quantifier forall X. f(X) = def[X]
-        if (get_macro(f, def, def_q, def_pr)) {
+        if (get_macro(f, def, def_pr)) {
             SASSERT(!f->is_associative() || !flat_assoc(f));
             SASSERT(new_num_args == t->get_num_args());
             SASSERT(m().get_sort(def) == m().get_sort(t));
@@ -516,7 +514,12 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     }
     if (ProofGen) {
         quantifier_ref new_q(m().update_quantifier(q, num_pats, new_pats.c_ptr(), num_no_pats, new_no_pats.c_ptr(), new_body), m());
-        m_pr = q == new_q ? nullptr : m().mk_quant_intro(q, new_q, result_pr_stack().get(fr.m_spos));
+        m_pr = nullptr;
+        if (q != new_q) {
+            m_pr = result_pr_stack().get(fr.m_spos);
+            m_pr = m().mk_bind_proof(q, m_pr);
+            m_pr = m().mk_quant_intro(q, new_q, m_pr);
+        }
         m_r = new_q;
         proof_ref pr2(m());
         if (m_cfg.reduce_quantifier(new_q, new_body, new_pats.c_ptr(), new_no_pats.c_ptr(), m_r, pr2)) {

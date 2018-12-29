@@ -12,13 +12,10 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2012-02-25
-    
+
 --*/
 #include "smt/arith_eq_solver.h"
 
-
-arith_eq_solver::~arith_eq_solver() {
-}
 
 arith_eq_solver::arith_eq_solver(ast_manager & m, params_ref const& p):
     m(m),
@@ -93,9 +90,9 @@ void arith_eq_solver::gcd_normalize(vector<numeral>& values) {
     if (g.is_zero() || g.is_one()) {
         return;
     }
-    for (unsigned i = 0; i < values.size(); ++i) {
-        values[i] = values[i] / g;
-        SASSERT(values[i].is_int());
+    for (auto &value : values) {
+        value /= g;
+        SASSERT(value.is_int());
     }
 }
 
@@ -116,9 +113,9 @@ unsigned arith_eq_solver::find_abs_min(vector<numeral>& values) {
 #ifdef _TRACE
 
 static void print_row(std::ostream& out, vector<rational> const& row) {
-    for(unsigned i = 0; i < row.size(); ++i) { 
-        out << row[i] << " "; 
-    } 
+    for(unsigned i = 0; i < row.size(); ++i) {
+        out << row[i] << " ";
+    }
     out << "\n";
 }
 
@@ -165,7 +162,7 @@ bool arith_eq_solver::solve_integer_equation(
     bool&            is_fresh
     )
 {
-    TRACE("arith_eq_solver", 
+    TRACE("arith_eq_solver",
           tout << "solving: ";
           print_row(tout, values);
           );
@@ -174,31 +171,31 @@ bool arith_eq_solver::solve_integer_equation(
     //
     // Given:
     //    a1*x1 + a2*x2 + .. + a_n*x_n + a_{n+1} = 0
-    // 
+    //
     // Assume gcd(a1,..,a_n,a_{n+1}) = 1
     // Assume gcd(a1,...,a_n) divides a_{n+1} (eg. gcd(a1,..,an) = 1)
-    // 
+    //
     // post-condition: values[index] = -1.
-    // 
+    //
     // Let a_index be index of least absolute value.
     //
     // If |a_index| = 1, then return row and index.
     // Otherwise:
     //  Let m = |a_index| + 1
     //  Set
-    // 
-    //    m*x_index' 
-    // =  
+    //
+    //    m*x_index'
+    // =
     //    ((a1 mod_hat m)*x1 + (a2 mod_hat m)*x2 + .. + (a_n mod_hat m)*x_n + (k mod_hat m))
-    // = 
+    // =
     //    (a1'*x1 + a2'*x2 + .. (-)1*x_index + ...)
-    // 
+    //
     // <=> Normalize signs so that sign to x_index is -1.
     //    (-)a1'*x1 + (-)a2'*x2 + .. -1*x_index + ... + m*x_index'  = 0
-    // 
+    //
     // Return row, where the coefficient to x_index is implicit.
     // Instead used the coefficient 'm' at position 'index'.
-    // 
+    //
 
     gcd_normalize(values);
     if (!gcd_test(values)) {
@@ -216,8 +213,8 @@ bool arith_eq_solver::solve_integer_equation(
         return true;
     }
     if (a.is_one()) {
-        for (unsigned i = 0; i < values.size(); ++i) {
-            values[i].neg();
+        for (auto &value : values) {
+            value.neg();
         }
     }
     is_fresh = !abs_a.is_one();
@@ -225,19 +222,19 @@ bool arith_eq_solver::solve_integer_equation(
     if (is_fresh) {
 
         numeral m = abs_a + numeral(1);
-        for (unsigned i = 0; i < values.size(); ++i) {
-            values[i] = mod_hat(values[i], m);
+        for (auto &value : values) {
+          value = mod_hat(value, m);
         }
         if (values[index].is_one()) {
-            for (unsigned i = 0; i < values.size(); ++i) {
-                values[i].neg();
+            for (auto &value : values) {
+                value.neg();
             }
         }
         SASSERT(values[index].is_minus_one());
         values[index] = m;
     }
 
-    TRACE("arith_eq_solver", 
+    TRACE("arith_eq_solver",
           tout << "solved at index " << index << ": ";
           print_row(tout, values);
           );
@@ -253,7 +250,7 @@ void arith_eq_solver::substitute(
     )
 {
     SASSERT(1 <= index && index < s.size());
-    TRACE("arith_eq_solver", 
+    TRACE("arith_eq_solver",
           tout << "substitute " << index << ":\n";
           print_row(tout, r);
           print_row(tout, s);
@@ -272,21 +269,21 @@ void arith_eq_solver::substitute(
         // s encodes an equation that contains a variable
         // with a unit coefficient.
         //
-        // Let 
+        // Let
         //  c = r[index]
         //  s = s[index]*x + s'*y = 0
         //  r = c*x + r'*y = 0
-        // 
-        // => 
+        //
+        // =>
         //
         //   0
-        // = 
-        //   -sign(s[index])*c*s + r 
-        // =  
+        // =
+        //   -sign(s[index])*c*s + r
+        // =
         //   -s[index]*sign(s[index])*c*x - sign(s[index])*c*s'*y + c*x + r'*y
-        // = 
+        // =
         //   -c*x - sign(s[index])*c*s'*y + c*x + r'*y
-        // = 
+        // =
         //   -sign(s[index])*c*s'*y + r'*y
         //
         numeral sign_s = s[index].is_pos()?numeral(1):numeral(-1);
@@ -301,36 +298,36 @@ void arith_eq_solver::substitute(
         //
         // s encodes a substitution using an auxiliary variable.
         // the auxiliary variable is at position 'index'.
-        // 
-        // Let 
+        //
+        // Let
         //  c = r[index]
         //  s = s[index]*x + s'*y = 0
         //  r = c*x + r'*y = 0
         //
         //  s encodes : x |-> s[index]*x' + s'*y
         //
-        //  Set: 
+        //  Set:
         //
         //    r := c*s + r'*y
-        // 
+        //
         r[index] = numeral(0);
         for (unsigned i = 0; i < r.size(); ++i) {
             r[i] += c*s[i];
-        }        
+        }
         for (unsigned i = r.size(); i < s.size(); ++i) {
             r.push_back(c*s[i]);
         }
 
-    }    
+    }
 
-    TRACE("arith_eq_solver", 
+    TRACE("arith_eq_solver",
           tout << "result: ";
           print_row(tout, r);
           );
 }
 
 bool arith_eq_solver::solve_integer_equations(
-    vector<row>& rows, 
+    vector<row>& rows,
     row&         unsat_row
     )
 {
@@ -340,10 +337,10 @@ bool arith_eq_solver::solve_integer_equations(
 
 //
 // Naive integer equation solver where only units are eliminated.
-// 
+//
 
 bool arith_eq_solver::solve_integer_equations_units(
-    vector<row>&   rows, 
+    vector<row>&   rows,
     row&           unsat_row
     )
 {
@@ -351,7 +348,7 @@ bool arith_eq_solver::solve_integer_equations_units(
     TRACE("arith_eq_solver", print_rows(tout << "solving:\n", rows););
 
     unsigned_vector todo, done;
-    
+
     for (unsigned i = 0; i < rows.size(); ++i) {
         todo.push_back(i);
         row& r = rows[i];
@@ -360,9 +357,9 @@ bool arith_eq_solver::solve_integer_equations_units(
             unsat_row = r;
             TRACE("arith_eq_solver", print_row(tout << "input is unsat: ", unsat_row); );
             return false;
-        }        
+        }
     }
-    for (unsigned i = 0; i < todo.size(); ++i) {        
+    for (unsigned i = 0; i < todo.size(); ++i) {
         row& r = rows[todo[i]];
         gcd_normalize(r);
         if (!gcd_test(r)) {
@@ -388,7 +385,7 @@ bool arith_eq_solver::solve_integer_equations_units(
                     todo.push_back(done[j]);
                     done.erase(done.begin()+j);
                     --j;
-                }                
+                }
             }
         }
         else {
@@ -396,7 +393,7 @@ bool arith_eq_solver::solve_integer_equations_units(
         }
     }
 
-    TRACE("arith_eq_solver", 
+    TRACE("arith_eq_solver",
           tout << ((done.size()<=1)?"solved ":"incomplete check ") << done.size() << "\n";
           for (unsigned i = 0; i < done.size(); ++i) {
               print_row(tout, rows[done[i]]);
@@ -411,12 +408,12 @@ bool arith_eq_solver::solve_integer_equations_units(
 
 //
 // Partial solver based on the omega test equalities.
-// unsatisfiability is not preserved when eliminating 
+// unsatisfiability is not preserved when eliminating
 // auxiliary variables.
 //
 
 bool arith_eq_solver::solve_integer_equations_omega(
-    vector<row> & rows, 
+    vector<row> & rows,
     row&        unsat_row
     )
 {
@@ -460,16 +457,16 @@ bool arith_eq_solver::solve_integer_equations_omega(
                     //
                     // solved_row: -x_index +  m*sigma + r1 = 0
                     // unsat_row:      k*sigma + r2 = 0
-                    // 
-                    // <=> 
-                    // 
+                    //
+                    // <=>
+                    //
                     // solved_row: -k*x_index +  k*m*sigma + k*r1 = 0
                     // unsat_row:      m*k*sigma + m*r2 = 0
                     //
                     // =>
                     //
                     // m*k*sigma + m*r2 + k*x_index - k*m*sigma - k*r1 = 0
-                    // 
+                    //
                     for (unsigned l = 0; l < unsat_row.size(); ++l) {
                         unsat_row[l] *= m;
                         unsat_row[l] -= k*solved_row[l];
@@ -479,7 +476,7 @@ bool arith_eq_solver::solve_integer_equations_omega(
                     }
 
                     gcd_normalize(unsat_row);
-                    TRACE("arith_eq_solver", 
+                    TRACE("arith_eq_solver",
                           tout << "gcd: ";
                           print_row(tout, solved_row);
                           print_row(tout, unsat_row);
@@ -495,7 +492,7 @@ bool arith_eq_solver::solve_integer_equations_omega(
             return false;
         }
         else if (r[index].is_zero()) {
-            // Row is trival
+            // Row is trivial
             rows_solved.pop_back();
             continue;
         }
@@ -525,18 +522,18 @@ bool arith_eq_solver::solve_integer_equations_omega(
 
 //
 // Eliminate variables by searching for combination of rows where
-// the coefficients have gcd = 1. 
-// 
+// the coefficients have gcd = 1.
+//
 
 bool arith_eq_solver::solve_integer_equations_gcd(
-    vector<row> & rows, 
+    vector<row> & rows,
     row&        unsat_row
     )
-{    
+{
     unsigned_vector live, useful, gcd_pos;
     vector<rational> gcds;
     rational u, v;
-    
+
     if (rows.empty()) {
         return true;
     }
@@ -548,7 +545,7 @@ bool arith_eq_solver::solve_integer_equations_gcd(
             unsat_row = r;
             TRACE("arith_eq_solver", print_row(tout << "input is unsat: ", unsat_row); );
             return false;
-        }        
+        }
     }
     unsigned max_column = rows[0].size();
     bool change = true;
@@ -579,7 +576,7 @@ bool arith_eq_solver::solve_integer_equations_gcd(
             if (j == live.size()) {
                 continue;
             }
-            
+
             change = true;
             // found gcd, now identify reduced set of rows with GCD = 1.
             g = abs(rows[live[j]][i]);
@@ -592,7 +589,7 @@ bool arith_eq_solver::solve_integer_equations_gcd(
                     useful.push_back(gcd_pos[j]);
                     g = gcd(g, gcds[j]);
                     SASSERT(j == 0 || gcd(g,gcds[j-1]).is_one());
-                }                
+                }
             }
             //
             // we now have a set "useful" of rows whose combined GCD = 1.
@@ -600,7 +597,7 @@ bool arith_eq_solver::solve_integer_equations_gcd(
             //
             row& r0 = rows[useful[0]];
             for (j = 1; j < useful.size(); ++j) {
-                row& r1 = rows[useful[j]];          
+                row& r1 = rows[useful[j]];
                 g = gcd(r0[i], r1[i], u, v);
                 for (unsigned k = 0; k < max_column; ++k) {
                     r0[k] = u*r0[k] + v*r1[k];
@@ -611,8 +608,8 @@ bool arith_eq_solver::solve_integer_equations_gcd(
                 return false;
             }
             live.erase(live.begin()+live_pos);
-            for (j = 0; j < live.size(); ++j) {
-                row& r = rows[live[j]];
+            for (unsigned l : live) {
+                row& r = rows[l];
                 if (!r[i].is_zero()) {
                     substitute(r, r0, i);
                     gcd_normalize(r);
@@ -626,12 +623,9 @@ bool arith_eq_solver::solve_integer_equations_gcd(
         }
     }
 
-    TRACE("arith_eq_solver", 
+    TRACE("arith_eq_solver",
           tout << ((live.size()<=1)?"solved ":"incomplete check ") << live.size() << "\n";
-          for (unsigned i = 0; i < live.size(); ++i) {
-              print_row(tout, rows[live[i]]);
-          }
-          );
+          for (unsigned l : live) print_row(tout, rows[l]); );
 
     return true;
 }

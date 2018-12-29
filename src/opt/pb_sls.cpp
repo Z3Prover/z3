@@ -403,10 +403,8 @@ namespace smt {
                 }
                 int new_break_count = flip(~lit);
                 if (-break_count != new_break_count) {
-                    verbose_stream() << lit << "\n";
-                    IF_VERBOSE(0, display(verbose_stream(), cls););
-                    display(verbose_stream());
-                    exit(0);
+                    IF_VERBOSE(0, display(verbose_stream() << lit << "\n", cls);
+                               display(verbose_stream()));
                 }
                 // VERIFY(-break_count == flip(~lit));
             }            

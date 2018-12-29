@@ -449,7 +449,7 @@ void asserted_formulas::propagate_values() {
         m_expr2depth.reset();
         m_scoped_substitution.push();
         unsigned prop = num_prop;
-        TRACE("propagate_values", tout << "before:\n"; display(tout););
+        TRACE("propagate_values", display(tout << "before:\n"););
         unsigned i  = m_qhead;
         unsigned sz = m_formulas.size();
         for (; i < sz; i++) {
@@ -482,15 +482,13 @@ unsigned asserted_formulas::propagate_values(unsigned i) {
     expr_ref new_n(m);
     proof_ref new_pr(m);
     m_rewriter(n, new_n, new_pr);
+    TRACE("propagate_values", tout << n << "\n" << new_n << "\n";);
     if (m.proofs_enabled()) {
         proof * pr  = m_formulas[i].get_proof();
         new_pr = m.mk_modus_ponens(pr, new_pr);
     }
     justified_expr j(m, new_n, new_pr);
     m_formulas[i] = j;
-    if (m_formulas[i].get_fml() != new_n) {
-        std::cout << "NOT updated\n";
-    }
     if (m.is_false(j.get_fml())) {
         m_inconsistent = true;
     }

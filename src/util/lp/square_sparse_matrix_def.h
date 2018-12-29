@@ -186,7 +186,7 @@ void square_sparse_matrix<T, X>::init_row_headers() {
 }
 
 template <typename T, typename X>
-void square_sparse_matrix<T, X>::init_column_headers() { // we alway have only square square_sparse_matrix
+void square_sparse_matrix<T, X>::init_column_headers() { // we always have only square square_sparse_matrix
     for (unsigned l = 0; l < m_row_permutation.size(); l++) {
         m_columns.push_back(col_header());
     }
@@ -248,7 +248,7 @@ void square_sparse_matrix<T, X>::put_max_index_to_0(vector<indexed_value<T>> & r
 
 template <typename T, typename X>
 void square_sparse_matrix<T, X>::set_max_in_row(vector<indexed_value<T>> & row_vals) {
-    if (row_vals.size() == 0)
+    if (row_vals.empty())
         return;
     T max_val = abs(row_vals[0].m_value);
     unsigned max_index = 0;
@@ -386,7 +386,7 @@ bool square_sparse_matrix<T, X>::set_row_from_work_vector_and_clean_work_vector_
     }
     work_vec.m_index.clear();
     auto & row_vals = m_rows[i0];
-    if (row_vals.size() == 0) {
+    if (row_vals.empty()) {
         return false;
     }
     set_max_in_row(row_vals);  // it helps to find larger pivots

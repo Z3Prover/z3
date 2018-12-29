@@ -107,7 +107,7 @@ namespace smt {
 
         struct ineq {
             unsynch_mpz_manager& m_mpz;    // mpz manager.
-            literal         m_lit;      // literal repesenting predicate
+            literal         m_lit;      // literal representing predicate
             bool            m_is_eq;    // is this an = or >=.
             arg_t           m_args[2];  // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= k();
             // Watch the first few positions until the sum satisfies:
@@ -192,7 +192,7 @@ namespace smt {
         // If none are available, then perform unit propagation.
         // 
         class card {
-            literal         m_lit;      // literal repesenting predicate
+            literal         m_lit;      // literal representing predicate
             literal_vector  m_args;
             unsigned        m_bound;
             unsigned        m_num_propagations;
@@ -252,13 +252,12 @@ namespace smt {
 
         struct var_info {
             ineq_watch*  m_lit_watch[2];
-            ineq_watch*  m_var_watch;
             ineq*        m_ineq;
 
             card_watch*  m_lit_cwatch[2];
             card*        m_card;
             
-            var_info(): m_var_watch(0), m_ineq(0), m_card(0)
+            var_info(): m_ineq(nullptr), m_card(nullptr)
             {
                 m_lit_watch[0] = nullptr;
                 m_lit_watch[1] = nullptr;
@@ -269,7 +268,6 @@ namespace smt {
             void reset() {
                 dealloc(m_lit_watch[0]);
                 dealloc(m_lit_watch[1]);
-                dealloc(m_var_watch);
                 dealloc(m_ineq);
                 dealloc(m_lit_cwatch[0]);
                 dealloc(m_lit_cwatch[1]);
@@ -305,16 +303,13 @@ namespace smt {
         void add_watch(ineq& c, unsigned index);
         void del_watch(ineq_watch& watch, unsigned index, ineq& c, unsigned ineq_index);
         void init_watch_literal(ineq& c);
-        void init_watch_var(ineq& c);
+        void init_watch_ineq(ineq& c);
         void clear_watch(ineq& c);
         void watch_literal(literal lit, ineq* c);
-        void watch_var(bool_var v, ineq* c);
         void unwatch_literal(literal w, ineq* c);
-        void unwatch_var(bool_var v, ineq* c);
         void remove(ptr_vector<ineq>& ineqs, ineq* c);
 
         bool assign_watch_ge(bool_var v, bool is_true, ineq_watch& watch, unsigned index);
-        void assign_watch(bool_var v, bool is_true, ineq& c);
         void assign_ineq(ineq& c, bool is_true);
         void assign_eq(ineq& c, bool is_true);
 

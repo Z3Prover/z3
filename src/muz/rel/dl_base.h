@@ -295,7 +295,7 @@ namespace datalog {
                Precondition: &orig.get_plugin()==this
             */
             virtual base_object * mk_empty(const signature & s, family_id kind) {
-                SASSERT(kind==get_kind()); //if plugin uses multiple kinds, this function needs to be overriden
+                SASSERT(kind==get_kind()); //if plugin uses multiple kinds, this function needs to be overridden
                 return mk_empty(s);
             }
 
@@ -1120,10 +1120,7 @@ namespace datalog {
             virtual bool operator==(const iterator_core & it) {
                 //we worry about the equality operator only because of checking 
                 //the equality with the end() iterator
-                if(is_finished() && it.is_finished()) {
-                    return true;
-                }
-                return false;
+                return is_finished() && it.is_finished();
             }
         private:
             //private and undefined copy constructor and assignment operator
@@ -1153,10 +1150,7 @@ namespace datalog {
             virtual bool operator==(const row_iterator_core & it) {
                 //we worry about the equality operator only because of checking 
                 //the equality with the end() iterator
-                if(is_finished() && it.is_finished()) {
-                    return true;
-                }
-                return false;
+                return is_finished() && it.is_finished();
             }
         private:
             //private and undefined copy constructor and assignment operator

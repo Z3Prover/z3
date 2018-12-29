@@ -154,7 +154,7 @@ namespace nra {
             polynomial::polynomial* ps[1] = { p };
             bool even[1] = { false };
             nlsat::literal lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, even);
-            m_nlsat->mk_clause(1, &lit, 0);
+            m_nlsat->mk_clause(1, &lit, nullptr);
         }
 
         void add_constraint(unsigned idx) {

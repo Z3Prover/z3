@@ -332,10 +332,8 @@ public:
 private:
     void set_background(cmd_context& ctx) {
         datalog::context& dlctx = m_dl_ctx->dlctx();
-        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-        for (; it != end; ++it) {
-            dlctx.assert_expr(*it);
+        for (expr * e : ctx.assertions()) {
+            dlctx.assert_expr(e);
         }
     }
 

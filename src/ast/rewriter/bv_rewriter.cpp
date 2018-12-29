@@ -779,10 +779,11 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
         }
     }
 
-    if (m().is_ite(arg)) {
-        result = m().mk_ite(to_app(arg)->get_arg(0),
-                            m_mk_extract(high, low, to_app(arg)->get_arg(1)),
-                            m_mk_extract(high, low, to_app(arg)->get_arg(2)));
+    expr* c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(arg, c, t, e) &&
+        (t->get_ref_count() == 1 || !m().is_ite(t)) && 
+        (e->get_ref_count() == 1 || !m().is_ite(e))) {
+        result = m().mk_ite(c, m_mk_extract(high, low, t), m_mk_extract(high, low, e));
         return BR_REWRITE2;
     }
 
@@ -2679,7 +2680,7 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
             }
 
             const unsigned sz = m_util.get_bv_size(rhs);
-            if (sz == 1) { // detect (lhs = N) ? C : D, where N, C, D are 1 bit numberals
+            if (sz == 1) { // detect (lhs = N) ? C : D, where N, C, D are 1 bit numerals
                 numeral rhs_n, e_n, t_n;
                 unsigned rhs_sz, e_sz, t_sz;
                 if (is_numeral(rhs, rhs_n, rhs_sz)

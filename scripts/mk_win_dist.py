@@ -25,6 +25,8 @@ VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
 DOTNET_ENABLED=True
+DOTNET_CORE_ENABLED=False
+ESRP_SIGN=False
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
 GIT_HASH=False
@@ -62,7 +64,9 @@ def display_help():
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
+    print("  --dotnetcore                  build for dotnet core.")
     print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
+    print("  --esrp                        sign with esrp.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
     print("  --githash                     include git hash in the Zip file.")
@@ -72,7 +76,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY, ESRP_SIGN
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -80,7 +84,9 @@ def parse_options():
                                                                    'force',
                                                                    'nojava',
                                                                    'nodotnet',
+                                                                   'dotnetcore',
                                                                    'dotnet-key=',
+                                                                   'esrp',
                                                                    'githash',
                                                                    'nopython',
                                                                    'x86-only',
@@ -99,10 +105,15 @@ def parse_options():
             FORCE_MK = True
         elif opt == '--nodotnet':
             DOTNET_ENABLED = False
+        elif opt == '--dotnetcore':
+            DOTNET_CORE_ENABLED = True
+            DOTNET_ENABLED = False
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
             DOTNET_KEY_FILE = arg
+        elif opt == '--esrp':
+            ESRP_SIGN = True
         elif opt == '--nojava':
             JAVA_ENABLED = False
         elif opt == '--githash':
@@ -124,7 +135,11 @@ def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
         parallel = '--parallel=' + MAKEJOBS
         opts = ["python", os.path.join('scripts', 'mk_make.py'), parallel, "-b", path]
-        if DOTNET_ENABLED:
+        if DOTNET_CORE_ENABLED:
+            opts.append('--dotnetcore')
+            if not DOTNET_KEY_FILE is None:
+                opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
+        elif DOTNET_ENABLED:
             opts.append('--dotnet')
             if not DOTNET_KEY_FILE is None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
@@ -132,6 +147,8 @@ def mk_build_dir(path, x64):
             opts.append('--java')
         if x64:
             opts.append('-x')
+        if ESRP_SIGN:
+            opts.append('--esrp')
         if GIT_HASH:
             opts.append('--githash=%s' % mk_util.git_hash())
             opts.append('--git-describe')
@@ -200,6 +217,7 @@ def get_z3_name(x64):
         return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
 
 def mk_dist_dir(x64):
+    global ESRP_SIGN
     if x64:
         platform = "x64"
         build_path = BUILD_X64_DIR
@@ -208,7 +226,11 @@ def mk_dist_dir(x64):
         build_path = BUILD_X86_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
-    mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    mk_util.ESRP_SIGN = ESRP_SIGN
+    if DOTNET_CORE_ENABLED:
+       mk_util.DOTNET_CORE_ENABLED = True
+    else:
+       mk_util.DOTNET_ENABLED = DOTNET_ENABLED
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
@@ -257,19 +279,30 @@ def cp_vs_runtime(x64):
     else:
         platform = "x86"
     vcdir = os.environ['VCINSTALLDIR']
-    path  = '%sredist\\%s' % (vcdir, platform)
-    VS_RUNTIME_FILES = []
+    path  = '%sredist' % vcdir
+    vs_runtime_files = []
+    print("Walking %s" % path)
+    # Everything changes with every release of VS
+    # Prior versions of VS had DLLs under "redist\x64"
+    # There are now several variants of redistributables
+    # The naming convention defies my understanding so 
+    # we use a "check_root" filter to find some hopefully suitable
+    # redistributable.
+    def check_root(root):
+        return platform in root and ("CRT" in root or "MP" in root) and "onecore" not in root and "debug" not in root
     for root, dirs, files in os.walk(path):
         for filename in files:
-            if fnmatch(filename, '*.dll'):
+            if fnmatch(filename, '*.dll') and check_root(root):
+                print("Checking %s %s" % (root, filename))
                 for pat in VS_RUNTIME_PATS:
                     if pat.match(filename):
                         fname = os.path.join(root, filename)
                         if not os.path.isdir(fname):
-                            VS_RUNTIME_FILES.append(fname)
-
+                            vs_runtime_files.append(fname)
+    if not vs_runtime_files:
+        raise MKException("Did not find any runtime files to include")       
     bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
-    for f in VS_RUNTIME_FILES:
+    for f in vs_runtime_files:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
             print("Copied '%s' to '%s'" % (f, bin_dist_path))

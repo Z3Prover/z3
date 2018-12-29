@@ -146,6 +146,8 @@ public:
     
     lbool check_sat(app_ref_vector const& asms) { return check_sat(asms.size(), (expr* const*)asms.c_ptr()); }
 
+    lbool check_sat() { return check_sat(0, nullptr); }
+
     /**
        \brief Check satisfiability modulo a cube and a clause.
 
@@ -235,6 +237,8 @@ public:
        \brief extract units from solver.
     */
     expr_ref_vector get_units(ast_manager& m);
+
+    expr_ref_vector get_non_units(ast_manager& m);
 
     class scoped_push {
         solver& s;

@@ -27,8 +27,9 @@ Revision History:
 # define __has_builtin(x) 0
 #endif
 
+
 #ifdef __GNUC__
-# if (__GNUC__ * 100 + __GNUC_MINOR__) >= 409 || __has_builtin(returns_nonnull)
+# if ((__GNUC__ * 100 + __GNUC_MINOR__) >= 409 || __has_builtin(returns_nonnull)) && !defined(__INTEL_COMPILER)
 #  define GCC_RET_NON_NULL __attribute__((returns_nonnull))
 # else
 #  define GCC_RET_NON_NULL

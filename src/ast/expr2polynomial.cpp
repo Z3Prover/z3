@@ -436,7 +436,7 @@ struct expr2polynomial::imp {
                         margs.push_back(t);
                 }
             }
-            if (margs.size() == 0) {
+            if (margs.empty()) {
                 args.push_back(m_autil.mk_numeral(rational(1), is_int));
             }
             else if (margs.size() == 1) {
@@ -447,7 +447,7 @@ struct expr2polynomial::imp {
             }
         }
 
-        if (args.size() == 0) {
+        if (args.empty()) {
             r = m_autil.mk_numeral(rational(0), is_int);
         }
         else if (args.size() == 1) {

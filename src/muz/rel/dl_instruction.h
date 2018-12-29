@@ -285,7 +285,7 @@ namespace datalog {
             const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
             const unsigned * removed_cols, reg_idx result);
         static instruction * mk_min(reg_idx source, reg_idx target, const unsigned_vector & group_by_cols,
-            const unsigned min_col);
+            unsigned min_col);
         static instruction * mk_rename(reg_idx src, unsigned cycle_len, const unsigned * permutation_cycle, 
             reg_idx tgt);
         static instruction * mk_filter_by_negation(reg_idx tgt, reg_idx neg_rel, unsigned col_cnt,

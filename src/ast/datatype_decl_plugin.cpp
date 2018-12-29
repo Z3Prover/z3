@@ -231,7 +231,7 @@ namespace datatype {
                 }
                 return s;
             }
-            catch (invalid_datatype) {
+            catch (const invalid_datatype &) {
                 m_manager->raise_exception("invalid datatype");
                 return nullptr;
             }
@@ -682,7 +682,7 @@ namespace datatype {
 
     /**
        \brief Return true if the inductive datatype is well-founded.
-       Pre-condition: The given argument constains the parameters of an inductive datatype.
+       Pre-condition: The given argument constrains the parameters of an inductive datatype.
     */
     bool util::is_well_founded(unsigned num_types, sort* const* sorts) {
         buffer<bool> well_founded(num_types, false);

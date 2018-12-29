@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -26,7 +26,6 @@ namespace Microsoft.Z3
     ///  A function interpretation is represented as a finite map and an 'else' value.
     ///  Each entry in the finite map represents the value of a function given a set of arguments.  
     /// </summary>
-    [ContractVerification(true)]
     public class FuncInterp : Z3Object
     {
         /// <summary>
@@ -42,7 +41,6 @@ namespace Microsoft.Z3
             {
                 get
                 {
-                    Contract.Ensures(Contract.Result<Expr>() != null);
                     return Expr.Create(Context, Native.Z3_func_entry_get_value(Context.nCtx, NativeObject));
                 }
             }
@@ -62,8 +60,6 @@ namespace Microsoft.Z3
             {
                 get
                 {
-                    Contract.Ensures(Contract.Result<Expr[]>() != null);
-                    Contract.Ensures(Contract.Result<Expr[]>().Length == this.NumArgs);
 
                     uint n = NumArgs;
                     Expr[] res = new Expr[n];
@@ -87,7 +83,7 @@ namespace Microsoft.Z3
             }
 
             #region Internal
-            internal Entry(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+            internal Entry(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
             internal class DecRefQueue : IDecRefQueue
             {
@@ -133,8 +129,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Entry[]>() != null);
-                Contract.Ensures(Contract.ForAll(0, Contract.Result<Entry[]>().Length, j => Contract.Result<Entry[]>()[j] != null));
 
                 uint n = NumEntries;
                 Entry[] res = new Entry[n];
@@ -151,7 +145,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr>() != null);
 
                 return Expr.Create(Context, Native.Z3_func_interp_get_else(Context.nCtx, NativeObject));
             }
@@ -194,7 +187,7 @@ namespace Microsoft.Z3
         internal FuncInterp(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

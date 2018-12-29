@@ -37,9 +37,9 @@ extern "C" {
         \endcode
 
         query returns
-        - Z3_L_FALSE if the query is unsatisfiable.
-        - Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
-        - Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
+        - \c Z3_L_FALSE if the query is unsatisfiable.
+        - \c Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
+        - \c Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
 
         def_API('Z3_fixedpoint_query_from_lvl', INT, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST), _in(UINT)))
     */
@@ -48,7 +48,7 @@ extern "C" {
      /**
        \brief Retrieve a bottom-up (from query) sequence of ground facts
 
-       The previous call to Z3_fixedpoint_query must have returned Z3_L_TRUE.
+       The previous call to #Z3_fixedpoint_query must have returned \c Z3_L_TRUE.
 
        def_API('Z3_fixedpoint_get_ground_sat_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
     */

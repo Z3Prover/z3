@@ -19,7 +19,7 @@ Revision History:
 --*/
 #include<typeinfo>
 #include "api/api_context.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "api/api_log_macros.h"
@@ -79,6 +79,7 @@ namespace api {
         m_datalog_util(m()),
         m_fpa_util(m()),
         m_sutil(m()),
+        m_recfun(m()),
         m_last_result(m()),
         m_ast_trail(m()),
         m_pmanager(m_limit) {
@@ -108,13 +109,10 @@ namespace api {
 
     context::~context() {
         m_last_obj = nullptr;
-        u_map<api::object*>::iterator it = m_allocated_objects.begin();
-        while (it != m_allocated_objects.end()) {
-            api::object* val = it->m_value;
-            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*val).name()););
-            m_allocated_objects.remove(it->m_key);
+        for (auto& kv : m_allocated_objects) {
+            api::object* val = kv.m_value;
+            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
             dealloc(val);
-            it = m_allocated_objects.begin();
         }
     }
 
@@ -219,7 +217,7 @@ namespace api {
         if (m_user_ref_count) {
             // Corner case bug: n may be in m_last_result, and this is the only reference to n.
             // When, we execute reset() it is deleted
-            // To avoid this bug, I bump the reference counter before reseting m_last_result
+            // To avoid this bug, I bump the reference counter before resetting m_last_result
             ast_ref node(n, m());
             m_last_result.reset();
             m_last_result.push_back(std::move(node));
@@ -362,7 +360,7 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_toggle_warning_messages(Z3_bool enabled) {
+    void Z3_API Z3_toggle_warning_messages(bool enabled) {
         LOG_Z3_toggle_warning_messages(enabled);
         enable_warning_messages(enabled != 0);
     }
@@ -439,7 +437,6 @@ extern "C" {
     void Z3_API Z3_set_error_handler(Z3_context c, Z3_error_handler h) {
         RESET_ERROR_CODE();    
         mk_c(c)->set_error_handler(h);
-        // [Leo]: using exception handling, we don't need global error handlers anymore
     }
 
     void Z3_API Z3_set_error(Z3_context c, Z3_error_code e) {
@@ -489,9 +486,3 @@ extern "C" {
     }
     
 };
-
-Z3_API ast_manager& Z3_get_manager(Z3_context c) {
-    return mk_c(c)->m();
-}
-
-

@@ -72,7 +72,7 @@ app* iuc_solver::mk_proxy (expr *v)
         if (is_uninterp_const(e)) { return to_app(v); }
     }
 
-    def_manager &def = m_defs.size () > 0 ? m_defs.back () : m_base_defs;
+    def_manager &def = !m_defs.empty() ? m_defs.back () : m_base_defs;
     return def.mk_proxy (v);
 }
 

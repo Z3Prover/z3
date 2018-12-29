@@ -17,7 +17,7 @@ Notes:
 --*/
 #include "util/gparams.h"
 #include "util/env_params.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp_dot.h"
@@ -137,7 +137,7 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
         symbol const & name = kv.m_key;
         macro_decls const & _m    = kv.m_value;
         for (auto md : _m) {
-            if (md.m_domain.size() == 0 && ctx.m().is_bool(md.m_body)) {
+            if (md.m_domain.empty() && ctx.m().is_bool(md.m_body)) {
                 model::scoped_model_completion _scm(*m, true);
                 expr_ref val = (*m)(md.m_body);
                 if (ctx.m().is_true(val) || ctx.m().is_false(val)) {

@@ -18,16 +18,15 @@ Notes:
 --*/
 
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Solvers.
     /// </summary>
-    [ContractVerification(true)]
     public class Solver : Z3Object
     {
         /// <summary>
@@ -37,7 +36,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<string>() != null);
 
                 return Native.Z3_solver_get_help(Context.nCtx, NativeObject);
             }
@@ -50,7 +48,7 @@ namespace Microsoft.Z3
         {
             set
             {
-                Contract.Requires(value != null);
+                Debug.Assert(value != null);
 
                 Context.CheckContextMatch(value);
                 Native.Z3_solver_set_params(Context.nCtx, NativeObject, value.NativeObject);
@@ -152,8 +150,8 @@ namespace Microsoft.Z3
         /// </summary>        
         public void Assert(params BoolExpr[] constraints)
         {
-            Contract.Requires(constraints != null);
-            Contract.Requires(Contract.ForAll(constraints, c => c != null));
+            Debug.Assert(constraints != null);
+            Debug.Assert(constraints.All(c => c != null));
 
             Context.CheckContextMatch<BoolExpr>(constraints);
             foreach (BoolExpr a in constraints)
@@ -191,9 +189,9 @@ namespace Microsoft.Z3
         /// </remarks>        
         public void AssertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
         {
-            Contract.Requires(constraints != null);
-            Contract.Requires(Contract.ForAll(constraints, c => c != null));
-            Contract.Requires(Contract.ForAll(ps, c => c != null));
+            Debug.Assert(constraints != null);
+            Debug.Assert(constraints.All(c => c != null));
+            Debug.Assert(ps.All(c => c != null));
             Context.CheckContextMatch<BoolExpr>(constraints);
             Context.CheckContextMatch<BoolExpr>(ps);
             if (constraints.Length != ps.Length)
@@ -216,8 +214,8 @@ namespace Microsoft.Z3
         /// </remarks>        
         public void AssertAndTrack(BoolExpr constraint, BoolExpr p)
         {
-            Contract.Requires(constraint != null);
-            Contract.Requires(p != null);
+            Debug.Assert(constraint != null);
+            Debug.Assert(p != null);
             Context.CheckContextMatch(constraint);
             Context.CheckContextMatch(p);
                         
@@ -259,7 +257,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
                 ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_assertions(Context.nCtx, NativeObject));
                 return assertions.ToBoolExprArray();
@@ -273,7 +270,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
                 ASTVector assertions = new ASTVector(Context, Native.Z3_solver_get_units(Context.nCtx, NativeObject));
                 return assertions.ToBoolExprArray();
@@ -394,7 +390,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr[]>() != null);
 
                 ASTVector core = new ASTVector(Context, Native.Z3_solver_get_unsat_core(Context.nCtx, NativeObject));                
                 return core.ToBoolExprArray();
@@ -408,7 +403,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<string>() != null);
 
                 return Native.Z3_solver_get_reason_unknown(Context.nCtx, NativeObject);
             }
@@ -455,8 +449,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Solver Translate(Context ctx) 
         {
-             Contract.Requires(ctx != null);
-             Contract.Ensures(Contract.Result<Solver>() != null);
+             Debug.Assert(ctx != null);
              return new Solver(ctx, Native.Z3_solver_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
 
@@ -475,7 +468,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Statistics>() != null);
 
                 return new Statistics(Context, Native.Z3_solver_get_statistics(Context.nCtx, NativeObject));
             }
@@ -493,7 +485,7 @@ namespace Microsoft.Z3
         internal Solver(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
             this.BacktrackLevel = uint.MaxValue;
         }
 

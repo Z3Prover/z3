@@ -39,7 +39,7 @@ Notes:
 
    The object switches to incremental when:
        - push is used
-       - assertions are peformed after a check_sat
+       - assertions are performed after a check_sat
        - parameter ignore_solver1==false
 */
 class combined_solver : public solver {

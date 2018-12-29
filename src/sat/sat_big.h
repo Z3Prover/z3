@@ -34,6 +34,7 @@ namespace sat {
         svector<int>           m_left, m_right;
         literal_vector         m_root, m_parent;
         bool                   m_learned;
+        bool                   m_include_cardinality;
 
         svector<std::pair<literal, literal>> m_del_bin;
         
@@ -54,6 +55,9 @@ namespace sat {
         // static svector<std::pair<literal, literal>> s_del_bin;
 
         big(random_gen& rand);
+
+        void set_include_cardinality(bool f) { m_include_cardinality = f; }
+        
         /**
            \brief initialize a BIG from a solver.
          */
@@ -77,7 +81,7 @@ namespace sat {
         int get_left(literal l) const { return m_left[l.index()]; }
         int get_right(literal l) const { return m_right[l.index()]; }
         literal get_parent(literal l) const { return m_parent[l.index()]; }
-        literal get_root(literal l) const { return m_root[l.index()]; }
+        literal get_root(literal l);
         bool reaches(literal u, literal v) const { return m_left[u.index()] < m_left[v.index()] && m_right[v.index()] < m_right[u.index()]; }        
         bool connected(literal u, literal v) const { return reaches(u, v) || reaches(~v, ~u); }
         void display(std::ostream& out) const;

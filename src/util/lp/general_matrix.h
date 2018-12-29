@@ -51,7 +51,7 @@ public:
 
     
     unsigned row_count() const { return m_data.size(); }
-    unsigned column_count() const { return m_data.size() > 0? m_data[0].size() : 0; }
+    unsigned column_count() const { return !m_data.empty()? m_data[0].size() : 0; }
 
     class ref_row {
         general_matrix& m_matrix;

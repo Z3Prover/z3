@@ -15,7 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include <map>
 
 /*
-TBD: count number of nodes, number of operations accross all insertions
+TBD: count number of nodes, number of operations across all insertions
 */
 
 void read_nums(std::istream& is, unsigned & x, unsigned& y) {

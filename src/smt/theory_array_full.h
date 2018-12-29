@@ -38,6 +38,11 @@ namespace smt {
         ast2ast_trailmap<sort,app> m_sort2epsilon;
         obj_pair_map<expr,expr,bool> m_eqs;
         svector<literal>             m_eqsv;
+        
+        static unsigned const m_default_map_fingerprint = UINT_MAX - 112;
+        static unsigned const m_default_store_fingerprint = UINT_MAX - 113;
+        static unsigned const m_default_const_fingerprint = UINT_MAX - 115;
+        static unsigned const m_default_as_array_fingerprint = UINT_MAX - 116;
 
     protected:
 
@@ -70,6 +75,7 @@ namespace smt {
         bool instantiate_default_store_axiom(enode* store);
         bool instantiate_default_map_axiom(enode* map);
         bool instantiate_default_as_array_axiom(enode* arr);
+        bool instantiate_parent_stores_default(theory_var v);
 
         bool has_large_domain(app* array_term);
         app* mk_epsilon(sort* s);

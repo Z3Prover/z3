@@ -85,7 +85,7 @@ struct model::value_proc : public some_value_proc {
     expr * operator()(sort * s) override {
         ptr_vector<expr> * u = nullptr;
         if (m_model.m_usort2universe.find(s, u)) {
-            if (u->size() > 0)
+            if (!u->empty())
                 return u->get(0);
         }
         return nullptr;
@@ -312,7 +312,8 @@ void model::collect_occs(top_sort& ts, func_decl* f) {
         func_interp* fi = get_func_interp(f);
         if (fi) {
             e = fi->get_else();
-            collect_occs(ts, e);
+            if (e != nullptr)
+               collect_occs(ts, e);
         }
     }
 }
@@ -351,7 +352,7 @@ bool model::can_inline_def(top_sort& ts, func_decl* f) {
 
 
 expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) {
-    if (!e) return expr_ref(0, m);
+    if (!e) return expr_ref(nullptr, m);
 
     TRACE("model", tout << "cleaning up:\n" << mk_pp(e, m) << "\n";);
 
@@ -409,8 +410,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             }
             else if (f->is_skolem() && can_inline_def(ts, f) && (fi = get_func_interp(f)) && 
                      fi->get_interp() && (!ts.partition_ids().find(f, pid) || pid != current_partition)) {
-                var_subst vs(m);
-                // ? TBD args.reverse();
+                var_subst vs(m, false);
                 new_t = vs(fi->get_interp(), args.size(), args.c_ptr());
             }
 #if 0
@@ -453,7 +453,7 @@ void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s)
 
 expr_ref model::get_inlined_const_interp(func_decl* f) {
     expr* v = get_const_interp(f);
-    if (!v) return expr_ref(0, m);
+    if (!v) return expr_ref(nullptr, m);
     top_sort st(m);
     expr_ref result1(v, m);
     expr_ref result2 = cleanup_expr(st, v, UINT_MAX);
@@ -466,6 +466,10 @@ expr_ref model::get_inlined_const_interp(func_decl* f) {
 
 expr_ref model::operator()(expr* t) {
     return m_mev(t);
+}
+
+void model::set_solver(expr_solver* s) {
+    m_mev.set_solver(s);
 }
 
 expr_ref_vector model::operator()(expr_ref_vector const& ts) {

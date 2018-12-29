@@ -191,7 +191,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         return l_false;
     }
     else {
-        if (models_enabled && r.size() >= 1) {
+        if (models_enabled && !r.empty()) {
         model_converter_ref mc = r[0]->mc();            
             model_converter2model(m, mc.get(), md);
             if (mc)

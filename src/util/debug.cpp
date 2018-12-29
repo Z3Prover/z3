@@ -69,7 +69,7 @@ bool is_debug_enabled(const char * tag) {
     return g_enabled_debug_tags->contains(const_cast<char *>(tag));
 }
 
-#ifndef _WINDOWS
+#if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
 void invoke_gdb() {
     char buffer[1024];
     int * x = nullptr;

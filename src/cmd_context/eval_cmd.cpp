@@ -72,6 +72,7 @@ public:
         unsigned timeout = m_params.get_uint("timeout", UINT_MAX);
         unsigned rlimit  = m_params.get_uint("rlimit", 0);
         model_evaluator ev(*(md.get()), m_params);
+        ev.set_solver(alloc(th_solver, ctx));
         cancel_eh<reslimit> eh(ctx.m().limit());
         { 
             scoped_ctrl_c ctrlc(eh);

@@ -195,7 +195,7 @@ namespace upolynomial {
 
                 // the index we are currently trying to fix
                 int current_i = m_current_size - 1;
-                // the value we found as plausable (-1 we didn't find anything)
+                // the value we found as plausible (-1 we didn't find anything)
                 int current_value = -1;
 
                 if (remove_current) {
@@ -401,7 +401,7 @@ namespace upolynomial {
                 } else {   
                     if (selection_i >= m_current.size() || (int) current < m_current[selection_i]) {
                         SASSERT(m_factors.get_degree(current) == 1);
-                        if (out.size() == 0) {
+                        if (out.empty()) {
                             upm.set(m_factors[current].size(), m_factors[current].c_ptr(), out);
                         } else {
                             upm.mul(out.size(), out.c_ptr(), m_factors[current].size(), m_factors[current].c_ptr(), out);

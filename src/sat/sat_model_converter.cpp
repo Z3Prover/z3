@@ -95,7 +95,7 @@ namespace sat {
                         IF_VERBOSE(0, display(verbose_stream() << "violated ate\n", *it) << "\n");
                         IF_VERBOSE(0, for (unsigned v = 0; v < m.size(); ++v) verbose_stream() << v << " := " << m[v] << "\n";);
                         IF_VERBOSE(0, display(verbose_stream()));
-                        exit(0);
+                        UNREACHABLE();
                         first = false;
                     }
                     if (!sat && it->get_kind() != ATE && v0 != null_bool_var) {     

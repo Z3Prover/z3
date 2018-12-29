@@ -110,7 +110,7 @@ namespace datalog {
     /**
        \brief Manager for the \c rule class
 
-       \remark \c rule_manager objects are interchangable as long as they
+       \remark \c rule_manager objects are interchangeable as long as they
          contain the same \c ast_manager object.
     */
     class rule_manager

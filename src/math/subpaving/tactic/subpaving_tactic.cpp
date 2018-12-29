@@ -183,7 +183,7 @@ class subpaving_tactic : public tactic {
                     process_clause(g.form(i));
                 }
             }
-            catch (subpaving::exception) {
+            catch (const subpaving::exception &) {
                 throw tactic_exception("failed to internalize goal into subpaving module");
             }
         }
@@ -195,7 +195,7 @@ class subpaving_tactic : public tactic {
             try {
                 (*m_ctx)();
             }
-            catch (subpaving::exception) {
+            catch (const subpaving::exception &) {
                 throw tactic_exception("failed building subpaving tree...");
             }
             if (m_display) {

@@ -17,15 +17,16 @@ Notes:
 
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
+using System.Linq;
+
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Expressions are terms.
     /// </summary>
-    [ContractVerification(true)]
     public class Expr : AST
     {
         /// <summary>
@@ -35,7 +36,6 @@ namespace Microsoft.Z3
         /// <seealso cref="Context.SimplifyHelp"/>
         public Expr Simplify(Params p = null)
         {
-            Contract.Ensures(Contract.Result<Expr>() != null);
 
             if (p == null)
                 return Expr.Create(Context, Native.Z3_simplify(Context.nCtx, NativeObject));
@@ -50,7 +50,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_app_decl(Context.nCtx, NativeObject));
             }
         }
@@ -79,7 +78,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr[]>() != null);
 
                 uint n = NumArgs;
                 Expr[] res = new Expr[n];
@@ -94,7 +92,6 @@ namespace Microsoft.Z3
         /// </summary>
         public Expr Arg(uint i)
         {
-            Contract.Ensures(Contract.Result<Expr>() != null);
             return Expr.Create(Context, Native.Z3_get_app_arg(Context.nCtx, NativeObject, i));
         }
 
@@ -104,8 +101,8 @@ namespace Microsoft.Z3
         /// </summary>
         public void Update(Expr[] args)
         {
-            Contract.Requires(args != null);
-            Contract.Requires(Contract.ForAll(args, a => a != null));
+            Debug.Assert(args != null);
+            Debug.Assert(args.All(a => a != null));
 
             Context.CheckContextMatch<Expr>(args);
             if (IsApp && args.Length != NumArgs)
@@ -123,11 +120,10 @@ namespace Microsoft.Z3
         /// </remarks>
         public Expr Substitute(Expr[] from, Expr[] to)
         {
-            Contract.Requires(from != null);
-            Contract.Requires(to != null);
-            Contract.Requires(Contract.ForAll(from, f => f != null));
-            Contract.Requires(Contract.ForAll(to, t => t != null));
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(from != null);
+            Debug.Assert(to != null);
+            Debug.Assert(from.All(f => f != null));
+            Debug.Assert(to.All(t => t != null));
 
             Context.CheckContextMatch<Expr>(from);
             Context.CheckContextMatch<Expr>(to);
@@ -142,9 +138,8 @@ namespace Microsoft.Z3
         /// <seealso cref="Substitute(Expr[],Expr[])"/>
         public Expr Substitute(Expr from, Expr to)
         {
-            Contract.Requires(from != null);
-            Contract.Requires(to != null);
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(from != null);
+            Debug.Assert(to != null);
 
             return Substitute(new Expr[] { from }, new Expr[] { to });
         }
@@ -157,9 +152,8 @@ namespace Microsoft.Z3
         /// </remarks>
         public Expr SubstituteVars(Expr[] to)
         {
-            Contract.Requires(to != null);
-            Contract.Requires(Contract.ForAll(to, t => t != null));
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(to != null);
+            Debug.Assert(to.All(t => t != null));
 
             Context.CheckContextMatch<Expr>(to);
             return Expr.Create(Context, Native.Z3_substitute_vars(Context.nCtx, NativeObject, (uint)to.Length, Expr.ArrayToNative(to)));
@@ -207,7 +201,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Sort>() != null);
                 return Sort.Create(Context, Native.Z3_get_sort(Context.nCtx, NativeObject));
             }
         }
@@ -332,7 +325,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieve bound of at-most
         /// </summary>
-        public uint AtMostBound { get { Contract.Requires(IsAtMost); return (uint)FuncDecl.Parameters[0].Int; } }
+        public uint AtMostBound { get { Debug.Assert(IsAtMost); return (uint)FuncDecl.Parameters[0].Int; } }
 
         /// <summary>
         /// Indicates whether the term is at-least
@@ -342,7 +335,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieve bound of at-least
         /// </summary>
-        public uint AtLeastBound { get { Contract.Requires(IsAtLeast); return (uint)FuncDecl.Parameters[0].Int; } }
+        public uint AtLeastBound { get { Debug.Assert(IsAtLeast); return (uint)FuncDecl.Parameters[0].Int; } }
 
         /// <summary>
         /// Indicates whether the term is pbeq
@@ -842,7 +835,7 @@ namespace Microsoft.Z3
         public string String { get { return Native.Z3_get_string(Context.nCtx, NativeObject); } }
 
         /// <summary>
-        /// Check whether expression is a concatentation.
+        /// Check whether expression is a concatenation.
         /// </summary>
         /// <returns>a Boolean</returns>
         public bool IsConcat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONCAT; } }
@@ -1816,8 +1809,6 @@ namespace Microsoft.Z3
                 if (!IsVar)
                     throw new Z3Exception("Term is not a bound variable.");
 
-                Contract.EndContractBlock();
-
                 return Native.Z3_get_index_value(Context.nCtx, NativeObject);
             }
         }
@@ -1827,10 +1818,9 @@ namespace Microsoft.Z3
         /// <summary>
         /// Constructor for Expr
         /// </summary>
-        internal protected Expr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal protected Expr(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
 #if DEBUG
-        [Pure]
         internal override void CheckNativeObject(IntPtr obj)
         {
             if (Native.Z3_is_app(Context.nCtx, obj) == 0 &&
@@ -1841,12 +1831,10 @@ namespace Microsoft.Z3
         }
 #endif
 
-        [Pure]
         internal static Expr Create(Context ctx, FuncDecl f, params Expr[] arguments)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(f != null);
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(f != null);
 
             IntPtr obj = Native.Z3_mk_app(ctx.nCtx, f.NativeObject,
                                           AST.ArrayLength(arguments),
@@ -1854,11 +1842,9 @@ namespace Microsoft.Z3
             return Create(ctx, obj);
         }
 
-        [Pure]
         new internal static Expr Create(Context ctx, IntPtr obj)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(ctx != null);
 
             Z3_ast_kind k = (Z3_ast_kind)Native.Z3_get_ast_kind(ctx.nCtx, obj);
             if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)

@@ -986,7 +986,7 @@ namespace datalog {
                 m_sort2pred.insert(new_sorts[i].get(), it->m_key);
                 m_pinned.push_back(new_sorts[i].get());
             }
-            if (new_sorts.size() > 0) {
+            if (!new_sorts.empty()) {
                 TRACE("bmc", dtu.display_datatype(new_sorts[0].get(), tout););
             }
             del_datatype_decls(dts.size(), dts.c_ptr());

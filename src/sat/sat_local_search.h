@@ -23,6 +23,8 @@
 #include "sat/sat_types.h"
 #include "sat/sat_config.h"
 #include "util/rlimit.h"
+#include "util/ema.h"
+#include "util/statistics.h"
 
 namespace sat {
 
@@ -33,18 +35,21 @@ namespace sat {
         int               m_best_known_value;
         local_search_mode m_mode;
         bool              m_phase_sticky;
+        bool              m_dbg_flips;
     public:
         local_search_config() {
             m_random_seed = 0;
             m_best_known_value = INT_MAX;
             m_mode = local_search_mode::wsat;
             m_phase_sticky = false;
+            m_dbg_flips = false;
         }
 
         unsigned random_seed() const { return m_random_seed; }
         unsigned best_known_value() const { return m_best_known_value;  }
         local_search_mode mode() const { return m_mode; }
         bool phase_sticky() const { return m_phase_sticky; }
+        bool dbg_flips() const { return m_dbg_flips; }
         
         void set_random_seed(unsigned s) { m_random_seed = s;  }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
@@ -53,6 +58,7 @@ namespace sat {
             m_mode         = cfg.m_local_search_mode;
             m_random_seed  = cfg.m_random_seed;
             m_phase_sticky = cfg.m_phase_sticky;
+            m_dbg_flips    = cfg.m_local_search_dbg_flips;
         }
     };
 
@@ -74,6 +80,13 @@ namespace sat {
             int coefficient;                     // non-zero integer
             ob_term(bool_var v, int c): var_id(v), coefficient(c) {}
         };
+
+        struct stats {
+            unsigned m_num_flips;
+            unsigned m_num_restarts;
+            void reset() { memset(this, 0, sizeof(*this)); }
+            stats() { reset(); }
+        };
         
         struct var_info {
             bool m_value;                        // current solution
@@ -89,6 +102,8 @@ namespace sat {
             bool_var_vector m_neighbors;         // neighborhood variables
             coeff_vector m_watch[2];
             literal_vector m_bin[2];
+            unsigned m_flips;
+            ema  m_slow_break;
             var_info():
                 m_value(true),
                 m_bias(50), 
@@ -97,7 +112,9 @@ namespace sat {
                 m_in_goodvar_stack(false),
                 m_score(0),
                 m_slack_score(0),
-                m_cscc(0)
+                m_cscc(0),
+                m_flips(0),
+                m_slow_break(1e-5)
             {}
         };
 
@@ -115,10 +132,12 @@ namespace sat {
             literal const* end() const { return m_literals.end(); }
         };
 
+        stats              m_stats;
+
         local_search_config m_config;
 
         // objective function: maximize
-        svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in decending order
+        svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in descending order
                         
         // information about the variable
         int_vector             coefficient_in_ob_constraint; // var! initialized to be 0
@@ -145,7 +164,6 @@ namespace sat {
         
         inline void set_best_unsat();
         /* TBD: other scores */
-        
 
         vector<constraint> m_constraints;
 
@@ -169,8 +187,8 @@ namespace sat {
         
         // unsat constraint stack
         bool            m_is_unsat;
-        unsigned_vector m_unsat_stack;               // store all the unsat constraits
-        unsigned_vector m_index_in_unsat_stack;      // which position is a contraint in the unsat_stack
+        unsigned_vector m_unsat_stack;               // store all the unsat constraints
+        unsigned_vector m_index_in_unsat_stack;      // which position is a constraint in the unsat_stack
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
         bool_var_vector m_goodvar_stack;
@@ -277,7 +295,7 @@ namespace sat {
         
         lbool check();
 
-        lbool check(unsigned sz, literal const* assumptions, parallel* p = 0);
+        lbool check(unsigned sz, literal const* assumptions, parallel* p = nullptr);
 
         local_search_config& config() { return m_config;  }
 
@@ -292,6 +310,8 @@ namespace sat {
         bool get_phase(bool_var v) const { return is_true(v); }
 
         model& get_model() { return m_model; }
+
+        void collect_statistics(statistics& st) const;        
 
     };
 }

@@ -79,6 +79,7 @@ public:
 
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
+        set_reason_unknown("cubing is not supported on tactics");
         return expr_ref_vector(get_manager());
     }
 
@@ -169,7 +170,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
             break;
         default: 
             m_result->set_status(l_undef);
-            if (reason_unknown != "")
+            if (!reason_unknown.empty())
                 m_result->m_unknown = reason_unknown;
             if (num_assumptions == 0 && m_scopes.empty()) {
                 m_assertions.reset();

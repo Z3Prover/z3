@@ -21,7 +21,7 @@ Revision History:
 namespace smt {
 
 #define DEFAULT_WATCH_LIST_SIZE (sizeof(clause *) * 4)
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
 // make sure data is aligned in 64 bit machines
 #define HEADER_SIZE (4 * sizeof(unsigned)) 
 #else
@@ -36,10 +36,10 @@ namespace smt {
     
     void watch_list::expand() {
         if (m_data == nullptr) {
-        unsigned size       = DEFAULT_WATCH_LIST_SIZE + HEADER_SIZE;
+            unsigned size       = DEFAULT_WATCH_LIST_SIZE + HEADER_SIZE;
             unsigned * mem      = reinterpret_cast<unsigned*>(alloc_svect(char, size));
-#ifdef _AMD64_
-        ++mem;  // make sure data is aligned in 64 bit machines
+#if defined(__LP64__) || defined(_WIN64)
+            ++mem;  // make sure data is aligned in 64 bit machines
 #endif
             *mem                = 0;
             ++mem;
@@ -61,10 +61,10 @@ namespace smt {
             unsigned new_capacity   = (((curr_capacity * 3 + sizeof(clause *)) >> 1)+3)&~3U;
             unsigned * mem          = reinterpret_cast<unsigned*>(alloc_svect(char, new_capacity + HEADER_SIZE));
             unsigned curr_end_cls   = end_cls_core();
-#ifdef _AMD64_
-        ++mem;  // make sure data is aligned in 64 bit machines
+#if defined(__LP64__) || defined(_WIN64)
+            ++mem;  // make sure data is aligned in 64 bit machines
 #endif
-        *mem                    = curr_end_cls;
+            *mem                    = curr_end_cls;
             ++mem;
             SASSERT(bin_bytes <= new_capacity);
             unsigned new_begin_bin  = new_capacity - bin_bytes;

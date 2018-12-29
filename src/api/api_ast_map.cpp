@@ -57,12 +57,12 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_bool Z3_API Z3_ast_map_contains(Z3_context c, Z3_ast_map m, Z3_ast k) {
+    bool Z3_API Z3_ast_map_contains(Z3_context c, Z3_ast_map m, Z3_ast k) {
         Z3_TRY;
         LOG_Z3_ast_map_contains(c, m, k);
         RESET_ERROR_CODE();
         return to_ast_map_ref(m).contains(to_ast(k));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_ast Z3_API Z3_ast_map_find(Z3_context c, Z3_ast_map m, Z3_ast k) {

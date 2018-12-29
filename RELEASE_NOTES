@@ -1,5 +1,33 @@
 RELEASE NOTES
 
+Version 4.8.4
+=============
+
+- Notes
+  - fixes bugs
+  - a substantial update to how the seq theory solver handles regular
+    expressions. Other performance improvements to the seq solver.
+  - Managed .NET DLLs include dotnet standard 1.4 on supported platforms.
+  - Windows Managed DLLs are strong signed in the released binaries.
+
+Version 4.8.3
+=============
+- New features
+  - Native handling of recursive function definitions, thanks to Simon Cruanes
+  - PB rounding based option for conflict resolution when reasoning about PB constraints.
+  - Access to numeral constants as a double from the native API.
+
+- Notes
+  - fixes several bugs discovered since the 4.8.1 release.
+
+Version 4.8.2
+=============
+- Post-Release. 
+
+Version 4.8.1
+=============
+- Release. Bug-fix for 4.8.0
+
 Version 4.8.0
 =============
 
@@ -21,7 +49,7 @@ Version 4.8.0
      extracting models from apply_result have been replaced.
    - An optional mode handles xor constraints using a custom xor propagator. 
      It is off by default and its value not demonstrated.
-   - The SAT solver includes new inprocessing technques that are available during simplification. 
+   - The SAT solver includes new inprocessing techniques that are available during simplification.
      It performs asymmetric tautology elimination by default, and one can turn on more powerful inprocessing techniques 
      (known as ACCE, ABCE, CCE). Asymmetric branching also uses features introduced in Lingeling by exploiting binary implication graphs.
      Use sat.acce=true to enable the full repertoire of inprocessing methods. By default, clauses that are "eliminated" by acce are tagged
@@ -318,7 +346,7 @@ First source code release (October 2, 2012)
 
 - Added support for numbers in scientific notation at Z3_ast Z3_mk_numeral(__in Z3_context c, __in Z3_string numeral, __in Z3_sort ty).
 
-- New builtin symbols in the arithmetic theory: pi, euler, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh. The first two are constants, and the others are unary functions. These symbols are not available if the a SMT 2.0 logic is specified (e.g., QF_LRA, QF_NRA, QF_LIA, etc) because these symbols are not defined in these logics. That is, the new symbols are only available if the logic is not specified.
+- New builtin symbols in the arithmetic theory: pi, euler, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh. The first two are constants, and the others are unary functions. These symbols are not available if a SMT 2.0 logic is specified (e.g., QF_LRA, QF_NRA, QF_LIA, etc) because these symbols are not defined in these logics. That is, the new symbols are only available if the logic is not specified.
 
 Version 4.1
 ===========

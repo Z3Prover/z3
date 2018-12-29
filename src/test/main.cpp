@@ -78,11 +78,11 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
     int i = 1;
     while (i < argc) {
 	char * arg = argv[i];    
-        char * eq_pos = 0;
+        char * eq_pos = nullptr;
         
         if (arg[0] == '-' || arg[0] == '/') {
             char * opt_name = arg + 1;
-            char * opt_arg  = 0;
+            char * opt_arg  = nullptr;
             char * colon    = strchr(arg, ':');
             if (colon) {
                 opt_arg = colon + 1;
@@ -97,7 +97,7 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
             else if (strcmp(opt_name, "v") == 0) {
                 if (!opt_arg)
                     error("option argument (/v:level) is missing.");
-                long lvl = strtol(opt_arg, 0, 10);
+                long lvl = strtol(opt_arg, nullptr, 10);
                 set_verbosity_level(lvl);
             }
             else if (strcmp(opt_name, "w") == 0) {
@@ -143,7 +143,6 @@ int main(int argc, char ** argv) {
     bool test_all = false;
     parse_cmd_line_args(argc, argv, do_display_usage, test_all);
     TST(random);
-    TST(vector);
     TST(symbol_table);
     TST(region);
     TST(symbol);
@@ -213,6 +212,7 @@ int main(int argc, char ** argv) {
     if (test_all) return 0;
     TST(ext_numeral);
     TST(interval);
+    TST(vector);
     TST(f2n);
     TST(hwf);
     TST(trigo);

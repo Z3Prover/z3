@@ -17,9 +17,9 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {

@@ -27,7 +27,7 @@ Revision History:
 // Windows
 #include<windows.h>
 #elif defined(__APPLE__) && defined(__MACH__)
-// Mac OS X
+// macOS
 #include<mach/mach.h>
 #include<mach/clock.h>
 #include<sys/time.h>
@@ -59,7 +59,7 @@ struct scoped_timer::imp {
     HANDLE           m_timer;
     bool             m_first;
 #elif defined(__APPLE__) && defined(__MACH__)
-    // Mac OS X
+    // macOS
     pthread_t        m_thread_id;
     pthread_attr_t   m_attributes;
     unsigned         m_interval;    
@@ -89,7 +89,7 @@ struct scoped_timer::imp {
         }
     }
 #elif defined(__APPLE__) && defined(__MACH__)
-    // Mac OS X
+    // macOS
     static void * thread_func(void * arg) {
         scoped_timer::imp * st = static_cast<scoped_timer::imp*>(arg);  
 
@@ -146,14 +146,14 @@ struct scoped_timer::imp {
 #if defined(_WINDOWS) || defined(_CYGWIN)
         m_first = true;
         CreateTimerQueueTimer(&m_timer,
-                              NULL,
+                              nullptr,
                               abort_proc,
                               this,
                               0,
                               ms,
                               WT_EXECUTEINTIMERTHREAD);
 #elif defined(__APPLE__) && defined(__MACH__)
-        // Mac OS X
+        // macOS
         m_interval = ms?ms:0xFFFFFFFF;
         if (pthread_attr_init(&m_attributes) != 0)
             throw default_exception("failed to initialize timer thread attributes");
@@ -180,9 +180,9 @@ struct scoped_timer::imp {
         m_ms = ms;
         m_initialized = false;
         m_signal_sent = false;
-        ENSURE(pthread_mutex_init(&m_mutex, NULL) == 0);
-        ENSURE(pthread_cond_init(&m_cond, NULL) == 0);
-        ENSURE(pthread_create(&m_thread_id, NULL, &thread_func, this) == 0);
+        ENSURE(pthread_mutex_init(&m_mutex, nullptr) == 0);
+        ENSURE(pthread_cond_init(&m_cond, nullptr) == 0);
+        ENSURE(pthread_create(&m_thread_id, nullptr, &thread_func, this) == 0);
 #else
     // Other platforms
 #endif
@@ -190,11 +190,11 @@ struct scoped_timer::imp {
 
     ~imp() {
 #if defined(_WINDOWS) || defined(_CYGWIN)
-        DeleteTimerQueueTimer(NULL,
+        DeleteTimerQueueTimer(nullptr,
                               m_timer,
                               INVALID_HANDLE_VALUE);
 #elif defined(__APPLE__) && defined(__MACH__)
-        // Mac OS X
+        // macOS
 
         // If the waiting-thread is not up and waiting yet, 
         // we can make sure that it finishes quickly by 
@@ -242,7 +242,7 @@ struct scoped_timer::imp {
         // Perform signal outside of lock to avoid waking timing thread twice.
         pthread_cond_signal(&m_cond);
 
-        pthread_join(m_thread_id, NULL);
+        pthread_join(m_thread_id, nullptr);
         pthread_cond_destroy(&m_cond);
         pthread_mutex_destroy(&m_mutex);
 #else

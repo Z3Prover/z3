@@ -284,7 +284,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_so
             break;
         } else {
             if ((numeric_traits<T>::precise() == false) || ( numeric_traits<T>::is_zero(slope_at_entering) && this->m_settings.random_next() % 2 == 0)) {
-                // it is not cost benefitial to advance the delta more, so just break to increas the randomness
+                // it is not cost beneficial to advance the delta more, so just break to increase the randomness
                 break;
             }
         }        
@@ -504,7 +504,7 @@ lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(
         X tt = - (this->m_lower_bounds[j] - this->m_x[j]) / m;
         if (numeric_traits<X>::is_neg(tt))
             tt = zero_of_type<X>();
-        if (leavings.size() == 0 || tt < t || (tt == t && m > abs_of_d_of_leaving)) {
+        if (leavings.empty() || tt < t || (tt == t && m > abs_of_d_of_leaving)) {
             t = tt;
             abs_of_d_of_leaving = m;
             leavings.clear();
@@ -524,7 +524,7 @@ lp_primal_core_solver<T, X>::get_bound_on_variable_and_update_leaving_precisely(
         X tt = (this->m_upper_bounds[j] - this->m_x[j]) / m;
         if (numeric_traits<X>::is_neg(tt))
             tt = zero_of_type<X>();
-        if (leavings.size() == 0 || tt < t || (tt == t && - m > abs_of_d_of_leaving)) {
+        if (leavings.empty() || tt < t || (tt == t && - m > abs_of_d_of_leaving)) {
             t = tt;
             abs_of_d_of_leaving = - m;
             leavings.clear();
@@ -612,7 +612,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
                 return 2; // abort entering
         } else {
             if (refreshed_cost > -m_epsilon_of_reduced_cost)
-                return 2; // abort entiring
+                return 2; // abort entering
         }
         return 1; // go on with this entering
     } else {
@@ -621,7 +621,7 @@ template <typename T, typename X>    int lp_primal_core_solver<T, X>::refresh_re
                 return 2; // abort entering
         } else {
             if (refreshed_cost > -m_epsilon_of_reduced_cost)
-                return 2; // abort entiring
+                return 2; // abort entering
         }
     }
     return 0;
@@ -1238,6 +1238,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
         break;
     case column_type::free_column:
         out << "( _" << this->m_x[j] << "_)" << std::endl;
+        break;
     default:
         lp_unreachable();
     }
