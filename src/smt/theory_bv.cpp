@@ -81,6 +81,8 @@ namespace smt {
         TRACE("bv", tout << "bit2bool: " << mk_pp(n, ctx.get_manager()) << "\n";);
         expr* first_arg = n->get_arg(0);
 
+        SASSERT(!m_util.is_numeral(first_arg));
+
         if (!ctx.e_internalized(first_arg)) {
             // This may happen if bit2bool(x) is in a conflict
             // clause that is being reinitialized, and x was not reinitialized
@@ -96,6 +98,9 @@ namespace smt {
             // This will also force the creation of all bits for x.
             enode * first_arg_enode = ctx.get_enode(first_arg);
             get_var(first_arg_enode);
+#if 0
+            // constant axiomatization moved to catch all case in the end of function.
+
             // numerals are not blasted into bit2bool, so we do this directly.
             rational val;
             unsigned sz;
@@ -116,6 +121,7 @@ namespace smt {
                     m_bits[v].push_back(bit.is_zero()?false_literal:true_literal);                                        
                 }
             }
+#endif
         }
          
         enode * arg      = ctx.get_enode(first_arg);
@@ -140,6 +146,7 @@ namespace smt {
             SASSERT(a->m_occs == 0);
             a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
         }
+        // axiomatize bit2bool on constants.
         rational val;
         unsigned sz;
         if (m_util.is_numeral(first_arg, val, sz)) {
@@ -619,8 +626,8 @@ namespace smt {
             num *= numeral(2);
         }
         expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
-        arith_rewriter arw(m);
-        ctx.get_rewriter()(sum);
+		th_rewriter rw(m);
+        rw(sum);
         literal l(mk_eq(n, sum, false));
         TRACE("bv", 
               tout << mk_pp(n, m) << "\n";
