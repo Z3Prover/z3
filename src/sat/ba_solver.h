@@ -331,6 +331,7 @@ namespace sat {
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
         void cleanup_clauses();
+        void cleanup_clauses(clause_vector& clauses);
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
         void remove_constraint(constraint& c, char const* reason);
@@ -391,6 +392,9 @@ namespace sat {
         void get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r);
         void get_antecedents(literal l, xr const& x, literal_vector & r);
         void simplify(xr& x);
+        void extract_xor();
+        bool extract_xor(clause& c, literal l);
+        bool extract_xor(clause& c1, clause& c2);
         bool clausify(xr& x);
         void flush_roots(xr& x);
         lbool eval(xr const& x) const;
@@ -519,6 +523,9 @@ namespace sat {
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
         constraint* add_xr(literal_vector const& lits, bool learned);
+        literal     add_xor_def(literal_vector& lits, bool learned = false);
+        bool        all_distinct(literal_vector const& lits);
+        bool        all_distinct(xr const& x);
 
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);

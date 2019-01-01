@@ -23,7 +23,9 @@ Revision History:
 #include "util/rlimit.h"
 #include "util/gparams.h"
 #include "sat/dimacs.h"
+#include "sat/sat_params.hpp"
 #include "sat/sat_solver.h"
+#include "sat/ba_solver.h"
 #include "sat/tactic/goal2sat.h"
 #include "ast/reg_decl_plugins.h"
 #include "tactic/tactic.h"
@@ -223,8 +225,12 @@ unsigned read_dimacs(char const * file_name) {
     params_ref p = gparams::get_module("sat");
     params_ref par = gparams::get_module("parallel");
     p.set_bool("produce_models", true);
+    sat_params sp(p);
     reslimit limit;
     sat::solver solver(p, limit);
+    if (sp.xor_solver()) {
+        solver.set_extension(alloc(sat::ba_solver));
+    }
     g_solver = &solver;
 
     if (file_name) {

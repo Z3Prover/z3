@@ -3319,7 +3319,7 @@ namespace sat {
         }
         m_trail.shrink(old_sz);        
         m_qhead = m_trail.size();
-        if (!m_replay_assign.empty()) IF_VERBOSE(2, verbose_stream() << "replay assign: " << m_replay_assign.size() << "\n");
+        if (!m_replay_assign.empty()) IF_VERBOSE(20, verbose_stream() << "replay assign: " << m_replay_assign.size() << "\n");
         for (unsigned i = m_replay_assign.size(); i-- > 0; ) {
             m_trail.push_back(m_replay_assign[i]);            
         }

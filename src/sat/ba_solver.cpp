@@ -1983,6 +1983,77 @@ namespace sat {
         add_xr(lits, false);
     }
 
+    bool ba_solver::all_distinct(literal_vector const& lits) {
+        init_visited();
+        for (literal l : lits) {
+            if (is_visited(l.var())) {
+                return false;
+            }
+            mark_visited(l.var());
+        }
+        return true;
+    }
+
+    bool ba_solver::all_distinct(xr const& x) {
+        init_visited();
+        for (literal l : x) {
+            if (is_visited(l.var())) {
+                return false;
+            }
+            mark_visited(l.var());
+        }
+        return true;
+    }
+
+    literal ba_solver::add_xor_def(literal_vector& lits, bool learned) {
+        unsigned sz = lits.size();
+        SASSERT (sz > 1);
+        VERIFY(all_distinct(lits));
+        init_visited();
+        bool parity1 = true;
+        for (literal l : lits) {            
+            mark_visited(l.var());
+            parity1 ^= l.sign();
+        }
+        for (auto const & w : get_wlist(lits[0])) {
+            if (w.get_kind() != watched::EXT_CONSTRAINT) continue;
+            constraint& c = index2constraint(w.get_ext_constraint_idx());
+            if (!c.is_xr()) continue;
+            xr& x = c.to_xr();
+            if (sz + 1 != x.size()) continue;
+            bool is_match = true;
+            literal l0 = null_literal;
+            bool parity2 = true;
+            for (literal l : x) {
+                if (!is_visited(l.var())) {
+                    if (l0 == null_literal) {
+                        l0 = l;
+                    }
+                    else {
+                        is_match = false;
+                        break;
+                    }
+                }
+                else {
+                    parity2 ^= l.sign();
+                }
+            }
+            if (is_match) {
+                SASSERT(all_distinct(x));
+                if (parity1 == parity2) l0.neg();
+                if (!learned && x.learned()) {
+                    x.set_learned(false);
+                }
+                return l0;
+            }
+        }
+        bool_var v = s().mk_var(true, true);
+        literal lit(v, false);
+        lits.push_back(~lit);
+        add_xr(lits, learned);
+        return lit;
+    }
+
     ba_solver::constraint* ba_solver::add_xr(literal_vector const& lits, bool learned) {
         void * mem = m_allocator.allocate(xr::get_obj_size(lits.size()));
         xr* x = new (mem) xr(next_id(), lits);
@@ -2086,20 +2157,21 @@ namespace sat {
        The idea is to collect premises based on xr resolvents. 
        Variables that are repeated an even number of times cancel out.
      */
+
     void ba_solver::get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r) {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
+        // IF_VERBOSE(0, verbose_stream() << l << " : " << js << " " << xr_count << "\n");
         TRACE("ba", tout << l << ": " << js << "\n"; 
               for (unsigned i = 0; i <= index; ++i) tout << s().m_trail[i] << " "; tout << "\n";
               s().display_units(tout);
               );
 
+
         unsigned num_marks = 0;
-        unsigned count = 0;
         while (true) {
-            TRACE("ba", tout << "process: " << l << "\n";);
-            ++count;
+            TRACE("ba", tout << "process: " << l << " " << js << "\n";);
             if (js.get_kind() == justification::EXT_JUSTIFICATION) {
                 constraint& c = index2constraint(js.get_ext_justification_idx());
                 TRACE("ba", tout << c << "\n";);
@@ -2111,7 +2183,7 @@ namespace sat {
                     if (x[1].var() == l.var()) {
                         x.swap(0, 1);
                     }
-                    SASSERT(x[0].var() == l.var());
+                    VERIFY(x[0].var() == l.var());
                     for (unsigned i = 1; i < x.size(); ++i) {
                         literal lit(value(x[i]) == l_true ? x[i] : ~x[i]);
                         inc_parity(lit.var());
@@ -2133,7 +2205,7 @@ namespace sat {
                 l = s().m_trail[index];
                 v = l.var();
                 unsigned n = get_parity(v);
-                if (n > 0) {
+                if (n > 0 && lvl(l) == level) {
                     reset_parity(v);
                     num_marks -= n;
                     if (n % 2 == 1) {
@@ -2152,8 +2224,7 @@ namespace sat {
 
         // now walk the defined literals 
 
-        for (unsigned i = 0; i < m_parity_trail.size(); ++i) {
-            literal lit = m_parity_trail[i];
+        for (literal lit : m_parity_trail) {
             if (get_parity(lit.var()) % 2 == 1) {
                 r.push_back(lit);
             }
@@ -2854,6 +2925,7 @@ namespace sat {
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);          
             unit_strengthen();
+            extract_xor();
             cleanup_clauses();
             cleanup_constraints();
             update_pure();
@@ -3579,13 +3651,160 @@ namespace sat {
         }
     }
 
+    void ba_solver::extract_xor() {
+        for (clause* cp : s().m_clauses) {
+            clause& c = *cp;
+            if (c.was_removed() || c.size() <= 3) continue;
+            // TBD: ensure all literals in c are distinct
+            init_visited();
+            for (literal l : c) mark_visited(l);  
+            literal l0 = c[0];
+            literal l1 = c[1];
+            if (extract_xor(c, l0) ||
+                extract_xor(c, l1) ||
+                extract_xor(c, ~l0)) {
+                m_simplify_change = true;
+            }
+        }
+        // extract xor from ternary clauses
+        vector<ptr_vector<clause>> ternary;
+		unsigned sz = s().num_vars();
+        ternary.reserve(sz);
+        for (clause* cp : s().m_clauses) {
+            clause& c = *cp;
+            if (!c.was_removed() && c.size() == 3) {
+                ternary[c[0].var()].push_back(cp);
+            }
+        }
+        for (clause* cp : s().m_learned) {
+            clause& c = *cp;
+            if (!c.was_removed() && c.size() == 3) {
+                ternary[c[0].var()].push_back(cp);
+            }
+        }
+		
+        for (unsigned v = 0; v < sz; ++v) {
+            ptr_vector<clause>& cs = ternary[v];
+            for (unsigned i = 0; i < cs.size() && !cs[i]->is_learned(); ++i) {
+                clause& c1 = *cs[i];                
+                if (c1.was_removed()) continue;
+                init_visited();
+                for (literal l : c1) mark_visited(l);  
+                for (unsigned j = i + 1; j < cs.size(); ++j) {
+                    if (extract_xor(c1, *cs[j])) {
+                        m_simplify_change = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * \brief replace (lit0, lit1, lit2), (lit0, ~lit1, ~lit2)
+     *  by (lit0, lit), ~lit x lit1 x lit2
+     */
+    bool ba_solver::extract_xor(clause& c1, clause& c2) {
+        SASSERT(c1.size() == 3);
+        SASSERT(c2.size() == 3);
+        SASSERT(&c1 != &c2);
+        literal lit0, lit1, lit2;
+        if (is_visited(c2[0]) && is_visited(~c2[1]) && is_visited(~c2[2])) {
+            lit0 = c2[0];
+            lit1 = c2[1];
+            lit2 = c2[2];
+        }
+        else if (is_visited(c2[1]) && is_visited(~c2[0]) && is_visited(~c2[2])) {
+            lit0 = c2[1];
+            lit1 = c2[0];
+            lit2 = c2[2];
+        }
+        else if (is_visited(c2[2]) && is_visited(~c2[0]) && is_visited(~c2[1])) {
+            lit0 = c2[2];
+            lit1 = c2[0];
+            lit2 = c2[1];
+        }
+        else {
+            return false;
+        }
+        c1.set_removed(true);
+        c2.set_removed(true);
+        m_clause_removed = true;
+        literal_vector lits;
+        lits.push_back(lit1);
+        lits.push_back(lit2);
+        literal lit = add_xor_def(lits);
+        lits.reset();
+        lits.push_back(lit);
+        lits.push_back(lit0);
+        s().mk_clause(lits);
+        TRACE("ba", tout << c1 << " " << c2 << "\n";);
+        return true;
+    }
+
+    bool ba_solver::extract_xor(clause& c, literal l0) {
+        watch_list & wlist = get_wlist(~l0);
+        unsigned sz = c.size();
+        SASSERT(sz > 3);
+        for (watched const& w : wlist) {
+            if (!w.is_clause()) continue;
+            clause& c2 = s().get_clause(w);
+            if (c2.size() != sz || c2.was_removed()) continue;
+            // TBD: ensure all literals in c2 are distinct
+            bool is_xor = true;
+            literal lit1 = null_literal;
+            literal lit2 = null_literal;
+            for (literal l : c2) {
+                if (is_visited(l)) {
+                    // no-op
+                }
+                else if (is_visited(~l) && lit1 == null_literal) {
+                    lit1 = l;
+                }
+                else if (is_visited(~l) && lit2 == null_literal) {
+                    lit2 = l;
+                }
+                else {
+                    is_xor = false;
+                    break;
+                }
+            }
+            if (is_xor && lit2 != null_literal && lit1 != lit2) {
+                
+                literal_vector lits;
+                lits.push_back(lit1);
+                lits.push_back(lit2);
+                literal lit = add_xor_def(lits);
+                lits.reset();
+                lits.push_back(lit);
+                for (literal l : c2) {
+                    if (l != lit1 && l != lit2) {
+                        lits.push_back(l);
+                    }
+                }
+                s().mk_clause(lits);
+                c.set_removed(true);
+                c2.set_removed(true);
+                m_clause_removed = true;
+                TRACE("ba", tout << "xor " << lit1 << " " << lit2 << " : " << c << " " << c2 << "\nnew clause: " << lits << "\n";);
+                return true;
+            }
+        }
+        return false;
+    }
+
     void ba_solver::cleanup_clauses() {
         if (!m_clause_removed) return;
+        cleanup_clauses(s().m_clauses);
+        cleanup_clauses(s().m_learned);
+    }
+
+    void ba_solver::cleanup_clauses(clause_vector& clauses) {
         // version in simplify first clears 
         // all watch literals, then reinserts them.
         // this ensures linear time cleanup.
-        clause_vector::iterator it = s().m_clauses.begin();
-        clause_vector::iterator end = s().m_clauses.end();
+        clause_vector::iterator it = clauses.begin();
+        clause_vector::iterator end = clauses.end();
         clause_vector::iterator it2 = it;
         for (; it != end; ++it) {
             clause* c = *it;
@@ -3600,7 +3819,7 @@ namespace sat {
                 ++it2;
             }
         }
-        s().m_clauses.set_end(it2);        
+        clauses.set_end(it2);        
     }
     
     void ba_solver::cleanup_constraints() {
