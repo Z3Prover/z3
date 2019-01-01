@@ -3652,6 +3652,9 @@ namespace sat {
     }
 
     void ba_solver::extract_xor() {
+        if (!s().get_config().m_xor_solver) {
+            return;
+        }
         for (clause* cp : s().m_clauses) {
             clause& c = *cp;
             if (c.was_removed() || c.size() <= 3) continue;
@@ -3668,7 +3671,7 @@ namespace sat {
         }
         // extract xor from ternary clauses
         vector<ptr_vector<clause>> ternary;
-		unsigned sz = s().num_vars();
+        unsigned sz = s().num_vars();
         ternary.reserve(sz);
         for (clause* cp : s().m_clauses) {
             clause& c = *cp;
@@ -3682,7 +3685,7 @@ namespace sat {
                 ternary[c[0].var()].push_back(cp);
             }
         }
-		
+
         for (unsigned v = 0; v < sz; ++v) {
             ptr_vector<clause>& cs = ternary[v];
             for (unsigned i = 0; i < cs.size() && !cs[i]->is_learned(); ++i) {

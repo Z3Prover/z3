@@ -222,6 +222,7 @@ namespace sat {
             throw sat_param_exception("invalid PB lemma format: 'cardinality' or 'pb' expected");
         
         m_card_solver = p.cardinality_solver();
+        m_xor_solver = p.xor_solver();
 
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();

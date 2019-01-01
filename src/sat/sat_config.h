@@ -167,6 +167,7 @@ namespace sat {
         
         pb_solver          m_pb_solver;
         bool               m_card_solver;
+        bool               m_xor_solver;
         pb_resolve         m_pb_resolve;
         pb_lemma_format    m_pb_lemma_format;
         
