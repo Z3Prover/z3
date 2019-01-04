@@ -723,10 +723,11 @@ namespace smt {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
         }
-        for (auto* c1 : *ineqs) {
-            //if (c1 == c) return;
-            SASSERT (c1 != c);
-        }
+        DEBUG_CODE(
+            for (auto* c1 : *ineqs) {
+                //if (c1 == c) return;
+                SASSERT (c1 != c);
+            });
         ineqs->push_back(c);
     }
 

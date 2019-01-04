@@ -53,6 +53,7 @@ namespace smt {
         unsigned bv_size      = get_bv_size(n);
         context & ctx         = get_context();
         literal_vector & bits = m_bits[v];
+        TRACE("bv", tout << "v" << v << "\n";);
         bits.reset();
         for (unsigned i = 0; i < bv_size; i++) {
             app * bit  = mk_bit2bool(owner, i);
@@ -77,6 +78,7 @@ namespace smt {
         context & ctx    = get_context();
         SASSERT(!ctx.b_internalized(n));
         
+        TRACE("bv", tout << "bit2bool: " << mk_pp(n, ctx.get_manager()) << "\n";);
         expr* first_arg = n->get_arg(0);
 
         if (!ctx.e_internalized(first_arg)) {
@@ -94,23 +96,30 @@ namespace smt {
             // This will also force the creation of all bits for x.
             enode * first_arg_enode = ctx.get_enode(first_arg);
             get_var(first_arg_enode);
+#if 0
+            // constant axiomatization moved to catch all case in the end of function.
+
             // numerals are not blasted into bit2bool, so we do this directly.
             rational val;
             unsigned sz;
             if (!ctx.b_internalized(n) && m_util.is_numeral(first_arg, val, sz)) {
+                
+                TRACE("bv", tout << "bit2bool constants\n";);
                 theory_var v = first_arg_enode->get_th_var(get_id());
                 app* owner = first_arg_enode->get_owner();
                 for (unsigned i = 0; i < sz; ++i) {
-                    ctx.internalize(mk_bit2bool(owner, i), true);
+                    app* e = mk_bit2bool(owner, i);
+                    ctx.internalize(e, true);
                 }
                 m_bits[v].reset();
                 rational bit;                
                 for (unsigned i = 0; i < sz; ++i) {
                     div(val, rational::power_of_two(i), bit);
                     mod(bit, rational(2), bit);
-                    m_bits[v].push_back(bit.is_zero()?false_literal:true_literal);
+                    m_bits[v].push_back(bit.is_zero()?false_literal:true_literal);                                        
                 }
             }
+#endif
         }
          
         enode * arg      = ctx.get_enode(first_arg);
@@ -134,6 +143,19 @@ namespace smt {
             unsigned idx     = n->get_decl()->get_parameter(0).get_int();
             SASSERT(a->m_occs == 0);
             a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
+        }
+        // axiomatize bit2bool on constants.
+        rational val;
+        unsigned sz;
+        if (m_util.is_numeral(first_arg, val, sz)) {
+            rational bit;
+            unsigned idx = n->get_decl()->get_parameter(0).get_int();
+            div(val, rational::power_of_two(idx), bit);
+            mod(bit, rational(2), bit);
+            literal lit = ctx.get_literal(n);
+            if (bit.is_zero()) lit.neg();
+            ctx.mark_as_relevant(lit);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
         }
     }
 
@@ -602,8 +624,8 @@ namespace smt {
             num *= numeral(2);
         }
         expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
-        arith_rewriter arw(m);
-        ctx.get_rewriter()(sum);
+		th_rewriter rw(m);
+        rw(sum);
         literal l(mk_eq(n, sum, false));
         TRACE("bv", 
               tout << mk_pp(n, m) << "\n";
@@ -622,7 +644,9 @@ namespace smt {
         context& ctx = get_context();
         process_args(n);
         mk_enode(n);
-        mk_bits(ctx.get_enode(n)->get_th_var(get_id()));
+        theory_var v = ctx.get_enode(n)->get_th_var(get_id()); 
+        mk_bits(v);
+
         if (!ctx.relevancy()) {
             assert_int2bv_axiom(n);
         }
@@ -1179,7 +1203,7 @@ namespace smt {
                 m_prop_queue.push_back(var_pos(curr->m_var, curr->m_idx));
                 curr = curr->m_next;
             }
-            TRACE("bv", tout << m_prop_queue.size() << "\n";);
+            TRACE("bv", tout << "prop queue size: " << m_prop_queue.size() << "\n";);
             propagate_bits();
         }
     }
@@ -1196,7 +1220,7 @@ namespace smt {
 
             literal_vector & bits = m_bits[v];
             literal bit           = bits[idx];
-            lbool   val           = ctx.get_assignment(bit); 
+            lbool   val           = ctx.get_assignment(bit);            
             if (val == l_undef) {
                 continue;
             }
@@ -1213,6 +1237,7 @@ namespace smt {
                 SASSERT(bit != ~bit2);
                 lbool   val2             = ctx.get_assignment(bit2);
                 TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v2)->get_owner_id() << "[" << idx << "] = " << val2 << "\n";);
+                TRACE("bv", tout << bit << " " << bit2 << "\n";);
                 
                 if (val != val2) {
                     literal consequent = bit2;
