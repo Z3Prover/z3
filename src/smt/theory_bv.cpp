@@ -81,8 +81,6 @@ namespace smt {
         TRACE("bv", tout << "bit2bool: " << mk_pp(n, ctx.get_manager()) << "\n";);
         expr* first_arg = n->get_arg(0);
 
-        SASSERT(!m_util.is_numeral(first_arg));
-
         if (!ctx.e_internalized(first_arg)) {
             // This may happen if bit2bool(x) is in a conflict
             // clause that is being reinitialized, and x was not reinitialized
