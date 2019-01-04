@@ -3495,12 +3495,11 @@ bool theory_seq::add_itos_val_axiom(expr* e) {
 }
 
 bool theory_seq::add_stoi_val_axiom(expr* e) {
-    context& ctx = get_context();
     expr* n = nullptr;
     rational val, val2;
     VERIFY(m_util.str.is_stoi(e, n));    
 
-    TRACE("seq", tout << mk_pp(e, m) << " " << ctx.get_scope_level () << " " << get_length(n, val) << " " << val << "\n";);
+    TRACE("seq", tout << mk_pp(e, m) << " " << get_context().get_scope_level () << " " << get_length(n, val) << " " << val << "\n";);
 
     if (m_util.str.is_itos(n)) {
         return false;
@@ -3951,7 +3950,6 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
 
 app* theory_seq::mk_value(app* e) {
     expr_ref result(m);
-    context& ctx = get_context();
     e = get_ite_value(e);
     result = m_rep.find(e);
 
@@ -4705,7 +4703,6 @@ bool theory_seq::lower_bound2(expr* _e, rational& lo) {
 
 
 bool theory_seq::get_length(expr* e, rational& val) const {
-    context& ctx = get_context();
     rational val1;
     expr_ref len(m), len_val(m);
     expr* e1 = nullptr, *e2 = nullptr;

@@ -106,7 +106,6 @@ namespace qe {
         app_ref_vector get_arith_vars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& proxies);
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
         void collect_atoms(expr_ref_vector const& fmls);
-        void project(model_ref& mdl, expr_ref_vector& lits);
         void project_euf(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars);
         void order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars, app_ref_vector const& proxies);
         void substitute(vector<def> const& defs, expr_ref_vector& lits);
@@ -115,6 +114,7 @@ namespace qe {
         euf_arith_mbi_plugin(solver* s, solver* emptySolver);
         ~euf_arith_mbi_plugin() override {}
         mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
+        void project(model_ref& mdl, expr_ref_vector& lits);
         void block(expr_ref_vector const& lits) override;
     };
 

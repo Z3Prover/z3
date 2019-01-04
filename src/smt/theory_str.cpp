@@ -1682,10 +1682,10 @@ namespace smt {
         expr_ref i1(mk_int_var("i1"), m);
         expr_ref result(mk_str_var("result"), m);
 
-        expr * replaceS;
-        expr * replaceT;
-        expr * replaceTPrime;
-        u.str.is_replace(ex, replaceS, replaceT, replaceTPrime);
+        expr * replaceS = nullptr;
+        expr * replaceT = nullptr;
+        expr * replaceTPrime = nullptr;
+        VERIFY(u.str.is_replace(ex, replaceS, replaceT, replaceTPrime));
 
         // t empty => result = (str.++ t' s)
         expr_ref emptySrcAst(ctx.mk_eq_atom(replaceT, mk_string("")), m);
@@ -4851,6 +4851,7 @@ namespace smt {
     bool theory_str::get_arith_value(expr* e, rational& val) const {
          context& ctx = get_context();
          ast_manager & m = get_manager();
+         (void)m;
          if (!ctx.e_internalized(e)) {
              return false;
          }
@@ -8255,6 +8256,7 @@ namespace smt {
 
     void theory_str::check_eqc_concat_concat(std::set<expr*> & eqc_concat_lhs, std::set<expr*> & eqc_concat_rhs) {
         ast_manager & m = get_manager();
+        (void)m;
 
         int hasCommon = 0;
         if (!eqc_concat_lhs.empty() && !eqc_concat_rhs.empty()) {

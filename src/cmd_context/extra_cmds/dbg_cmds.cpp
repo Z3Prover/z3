@@ -524,11 +524,21 @@ public:
         for (func_decl* v : m_vars) vars.push_back(v);
         for (expr* e : m_lits) lits.push_back(e);
         flatten_and(lits);
-        qe::term_graph tg(m);
-        tg.set_vars(vars, false);
-        tg.add_lits(lits);
-        expr_ref_vector p = tg.project();
-        ctx.regular_stream() << p << "\n";
+        solver_factory& sf = ctx.get_solver_factory();
+        params_ref pa;
+        solver_ref s = sf(m, pa, false, true, true, symbol::null);
+        solver_ref se = sf(m, pa, false, true, true, symbol::null);
+        s->assert_expr(lits);
+        lbool r = s->check_sat();
+        if (r != l_true) {
+            ctx.regular_stream() << "sat check " << r << "\n";
+            return;
+        }
+        model_ref mdl;
+        s->get_model(mdl);
+        qe::euf_arith_mbi_plugin plugin(s.get(), se.get());
+        plugin.project(mdl, lits);
+        ctx.regular_stream() << lits << "\n";
     }
 
 };

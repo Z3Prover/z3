@@ -256,6 +256,8 @@ namespace qe {
 
     void euf_arith_mbi_plugin::project(model_ref& mdl, expr_ref_vector& lits) {
         TRACE("qe", tout << lits << "\n" << *mdl << "\n";);
+        TRACE("qe", tout << m_solver->get_assertions() << "\n";);
+
 
         // 1. arithmetical variables - atomic and in purified positions
         app_ref_vector proxies(m);
