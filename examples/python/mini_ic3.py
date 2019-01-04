@@ -394,7 +394,7 @@ test("data/horn2.smt2")
 test("data/horn3.smt2")
 test("data/horn4.smt2")
 test("data/horn5.smt2")
-test("data/horn6.smt2")
+# test("data/horn6.smt2") # takes long time to finish
 
 
 
