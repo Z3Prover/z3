@@ -62,6 +62,7 @@ namespace sat {
         virtual lbool resolve_conflict() { return l_undef; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
+        virtual void pre_simplify() = 0;
         virtual void simplify() = 0;
         // have a way to replace l by r in all constraints
         virtual bool set_root(literal l, literal r) { return false; }
@@ -70,6 +71,7 @@ namespace sat {
         virtual lbool get_phase(bool_var v) = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
         virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const = 0;
+        virtual std::ostream& display_constraint(std::ostream& out, ext_constraint_idx idx) const = 0;
         virtual void collect_statistics(statistics& st) const = 0;
         virtual extension* copy(solver* s) = 0;       
         virtual extension* copy(lookahead* s, bool learned) = 0;       

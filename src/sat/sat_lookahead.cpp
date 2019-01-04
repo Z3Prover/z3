@@ -2462,7 +2462,7 @@ namespace sat {
         for (unsigned i = 0; i < m_watches.size(); ++i) {
             watch_list const& wl = m_watches[i];
             if (!wl.empty()) {
-                sat::display_watch_list(out << to_literal(i) << " -> ", dummy_allocator, wl);
+                sat::display_watch_list(out << to_literal(i) << " -> ", dummy_allocator, wl, nullptr);
                 out << "\n";
             }
         }

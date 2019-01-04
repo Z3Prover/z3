@@ -265,7 +265,7 @@ namespace sat {
         }
     }
 
-    void solver::mk_clause(unsigned num_lits, literal * lits, bool learned) {
+    clause* solver::mk_clause(unsigned num_lits, literal * lits, bool learned) {
         m_model_is_current = false;
         DEBUG_CODE({
             for (unsigned i = 0; i < num_lits; i++)
@@ -273,24 +273,24 @@ namespace sat {
         });
 
         if (m_user_scope_literals.empty()) {
-            mk_clause_core(num_lits, lits, learned);
+            return mk_clause_core(num_lits, lits, learned);
         }
         else {
             m_aux_literals.reset();
             m_aux_literals.append(num_lits, lits);
             m_aux_literals.append(m_user_scope_literals);
-            mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), learned);
+            return mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), learned);
         }
     }
 
-    void solver::mk_clause(literal l1, literal l2, bool learned) {
+    clause* solver::mk_clause(literal l1, literal l2, bool learned) {
         literal ls[2] = { l1, l2 };
-        mk_clause(2, ls, learned);
+        return mk_clause(2, ls, learned);
     }
 
-    void solver::mk_clause(literal l1, literal l2, literal l3, bool learned) {
+    clause* solver::mk_clause(literal l1, literal l2, literal l3, bool learned) {
         literal ls[3] = { l1, l2, l3 };
-        mk_clause(3, ls, learned);
+        return mk_clause(3, ls, learned);
     }
 
     void solver::del_clause(clause& c) {
@@ -1134,6 +1134,7 @@ namespace sat {
                     return r;
                 pop_reinit(scope_lvl());
                 m_conflicts_since_restart = 0;
+                m_unique_max_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
 
@@ -1652,6 +1653,7 @@ namespace sat {
         m_phase_counter           = 0;
         m_phase_cache_on          = m_config.m_phase_sticky;
         m_conflicts_since_restart = 0;
+        m_unique_max_since_restart = 0;
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
@@ -1695,6 +1697,10 @@ namespace sat {
 
         m_scc();
         CASSERT("sat_simplify_bug", check_invariant());
+
+        if (m_ext) {
+            m_ext->pre_simplify();
+        }
       
         m_simplifier(false);
 
@@ -1821,11 +1827,11 @@ namespace sat {
         if (m_clone) {
             IF_VERBOSE(1, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
             if (!m_clone->check_model(m_model)) {
-                //IF_VERBOSE(0, display(verbose_stream()));
-                //IF_VERBOSE(0, display_watches(verbose_stream()));
+                IF_VERBOSE(0, display(verbose_stream()));
+                // IF_VERBOSE(0, display_watches(verbose_stream()));
                 IF_VERBOSE(0, m_mc.display(verbose_stream()));
-                IF_VERBOSE(0, display_units(verbose_stream()));
-                //IF_VERBOSE(0, m_clone->display(verbose_stream() << "clone\n"));
+                // IF_VERBOSE(0, display_units(verbose_stream()));
+                // IF_VERBOSE(0, m_clone->display(verbose_stream() << "clone\n"));
                 throw solver_exception("check model failed (for cloned solver)");
             }
         }
@@ -1902,6 +1908,7 @@ namespace sat {
         if (m_conflicts_since_restart <= m_restart_threshold) return false;
         if (scope_lvl() < 2 + search_lvl()) return false;
         if (m_config.m_restart != RS_EMA) return true;
+        if (m_unique_max_since_restart >= m_restart_threshold) return true;
         return 
             m_fast_glue_avg + search_lvl() <= scope_lvl() && 
             m_config.m_restart_margin * m_slow_glue_avg <= m_fast_glue_avg;
@@ -1961,6 +1968,7 @@ namespace sat {
 
     void solver::set_next_restart() {
         m_conflicts_since_restart = 0;
+        m_unique_max_since_restart = 0;
         switch (m_config.m_restart) {
         case RS_GEOMETRIC:
             m_restart_threshold = static_cast<unsigned>(m_restart_threshold * m_config.m_restart_factor);
@@ -2306,6 +2314,7 @@ namespace sat {
 
     bool solver::resolve_conflict_core() {
         m_conflicts_since_init++;
+
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
         m_stats.m_conflict++;
@@ -2326,7 +2335,8 @@ namespace sat {
         }
 
         if (unique_max) {
-            IF_VERBOSE(3, verbose_stream() << "unique max\n");
+            m_unique_max_since_restart++; // does not update glue
+            IF_VERBOSE(3, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             return true;
         }
@@ -2482,7 +2492,6 @@ namespace sat {
             backtrack_lvl = backjump_lvl;
             for (unsigned i = m_lemma.size(); i-- > 1;) {
                 if (lvl(m_lemma[i]) == backjump_lvl) {
-                    IF_VERBOSE(0, verbose_stream() << "swap\n");
                     std::swap(m_lemma[i], m_lemma[0]);
                     break;
                 }
@@ -3803,7 +3812,7 @@ namespace sat {
     }
 
     std::ostream& solver::display_watch_list(std::ostream& out, watch_list const& wl) const {
-        return sat::display_watch_list(out, cls_allocator(), wl);
+        return sat::display_watch_list(out, cls_allocator(), wl, m_ext.get());
     }
 
     void solver::display_assignment(std::ostream & out) const {

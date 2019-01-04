@@ -220,10 +220,10 @@ namespace sat {
         //
         // -----------------------
         bool_var mk_var(bool ext = false, bool dvar = true);
-        void mk_clause(literal_vector const& lits, bool learned = false) { mk_clause(lits.size(), lits.c_ptr(), learned); }
-        void mk_clause(unsigned num_lits, literal * lits, bool learned = false);
-        void mk_clause(literal l1, literal l2, bool learned = false);
-        void mk_clause(literal l1, literal l2, literal l3, bool learned = false);        
+        clause* mk_clause(literal_vector const& lits, bool learned = false) { return mk_clause(lits.size(), lits.c_ptr(), learned); }
+        clause* mk_clause(unsigned num_lits, literal * lits, bool learned = false);
+        clause* mk_clause(literal l1, literal l2, bool learned = false);
+        clause* mk_clause(literal l1, literal l2, literal l3, bool learned = false);        
 
         random_gen& rand() { return m_rand; }
 
@@ -394,6 +394,7 @@ namespace sat {
         unsigned m_restarts;
         unsigned m_restart_next_out;
         unsigned m_conflicts_since_restart;
+        unsigned m_unique_max_since_restart;
         unsigned m_simplifications;
         unsigned m_restart_threshold;
         unsigned m_luby_idx;

@@ -468,8 +468,9 @@ namespace sat {
             clause & c2 = *(*it);
             if (!c2.was_removed() && *l_it == null_literal) {
                 // c2 was subsumed
-                if (c1.is_learned() && !c2.is_learned())
+                if (c1.is_learned() && !c2.is_learned()) {
                     s.set_learned(c1, false);
+                }
                 TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
                 remove_clause(c2);
                 m_num_subsumed++;
