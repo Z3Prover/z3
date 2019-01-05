@@ -210,44 +210,52 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {
-                if (has_trace_stream() && pat != nullptr) {
-                    std::ostream & out = trace_stream();
-
-                    obj_hashtable<enode> already_visited;
-
-                    // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
-                    // is used. We need to make sure that all of these equalities appear in the log.
-                    for (unsigned i = 0; i < num_bindings; ++i) {
-                        log_justification_to_root(out, bindings[i], already_visited);
-                    }
-
-                    for (auto n : used_enodes) {
-                        enode *orig = std::get<0>(n);
-                        enode *substituted = std::get<1>(n);
-                        if (orig != nullptr) {
-                            log_justification_to_root(out, orig, already_visited);
-                            log_justification_to_root(out, substituted, already_visited);
+                if (has_trace_stream()) {
+                    if (pat == nullptr) {
+                        trace_stream() << "[mbqi-triggered] " << static_cast<void*>(f) << " #" << q->get_id();
+                        for (unsigned i = 0; i < num_bindings; ++i) {
+                            trace_stream() << " #" << bindings[num_bindings - i - 1]->get_owner_id();
                         }
-                    }
+                        trace_stream() << "\n";
+                    } else {
+                        std::ostream & out = trace_stream();
 
-                    // At this point all relevant equalities for the match are logged.
-                    out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id() << " #" << pat->get_id();
-                    for (unsigned i = 0; i < num_bindings; i++) {
-                        // I don't want to use mk_pp because it creates expressions for pretty printing.
-                        // This nasty side-effect may change the behavior of Z3.
-                        out << " #" << bindings[i]->get_owner_id();
-                    }
-                    out << " ;";
-                    for (auto n : used_enodes) {
-                        enode *orig = std::get<0>(n);
-                        enode *substituted = std::get<1>(n);
-                        if (orig == nullptr)
-                            out << " #" << substituted->get_owner_id();
-                        else {
-                            out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
+                        obj_hashtable<enode> already_visited;
+
+                        // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
+                        // is used. We need to make sure that all of these equalities appear in the log.
+                        for (unsigned i = 0; i < num_bindings; ++i) {
+                            log_justification_to_root(out, bindings[i], already_visited);
                         }
+
+                        for (auto n : used_enodes) {
+                            enode *orig = std::get<0>(n);
+                            enode *substituted = std::get<1>(n);
+                            if (orig != nullptr) {
+                                log_justification_to_root(out, orig, already_visited);
+                                log_justification_to_root(out, substituted, already_visited);
+                            }
+                        }
+
+                        // At this point all relevant equalities for the match are logged.
+                        out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id() << " #" << pat->get_id();
+                        for (unsigned i = 0; i < num_bindings; i++) {
+                            // I don't want to use mk_pp because it creates expressions for pretty printing.
+                            // This nasty side-effect may change the behavior of Z3.
+                            out << " #" << bindings[num_bindings - i - 1]->get_owner_id();
+                        }
+                        out << " ;";
+                        for (auto n : used_enodes) {
+                            enode *orig = std::get<0>(n);
+                            enode *substituted = std::get<1>(n);
+                            if (orig == nullptr)
+                                out << " #" << substituted->get_owner_id();
+                            else {
+                                out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
+                            }
+                        }
+                        out << "\n";
                     }
-                    out << "\n";
                 }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;

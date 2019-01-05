@@ -28,6 +28,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_translation.h"
+#include "util/z3_version.h"
 
 
 // -----------------------------------
@@ -1364,6 +1365,7 @@ ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_form
     if (trace_file) {
         m_trace_stream       = alloc(std::fstream, trace_file, std::ios_base::out);
         m_trace_stream_owner = true;
+        *m_trace_stream << "[tool-version] Z3 " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "\n";
     }
 
     if (!is_format_manager)
@@ -2346,7 +2348,7 @@ var * ast_manager::mk_var(unsigned idx, sort * s) {
     var * r         = register_node(new_node);
 
     if (m_trace_stream && r == new_node) {
-        *m_trace_stream << "[mk-var] #" << r->get_id() << "\n";
+        *m_trace_stream << "[mk-var] #" << r->get_id() << " " << idx << "\n";
     }
     return r;
 }
