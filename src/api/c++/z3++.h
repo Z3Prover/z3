@@ -1720,6 +1720,10 @@ namespace z3 {
             m_vector = s.m_vector;
             return *this;
         }
+        ast_vector_tpl& set(unsigned idx, ast& a) {
+            Z3_ast_vector_set(ctx(), m_vector, idx, a);
+            return *this;
+        }
         /*
           Disabled pending C++98 build upgrade
         bool contains(T const& x) const {

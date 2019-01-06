@@ -4584,7 +4584,12 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
 
     IF_VERBOSE(11, verbose_stream() << mk_pp(s, m) << " in " << re << "\n");
     eautomaton* a = get_automaton(re);
-    if (!a) return;
+    if (!a) {
+        std::stringstream strm;
+        strm << "expression " << re << " does not correspond to a supported regular expression";
+        TRACE("seq", tout << strm.str() << "\n";);
+        throw default_exception(strm.str());
+    }
 
     m_s_in_re.push_back(s_in_re(lit, s, re, a));
     m_trail_stack.push(push_back_vector<theory_seq, vector<s_in_re>>(m_s_in_re));
