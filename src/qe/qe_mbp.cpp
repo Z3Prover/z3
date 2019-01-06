@@ -501,7 +501,7 @@ public:
         expr_ref val(m);
         model_evaluator eval(model);
         for (expr * f : fmls) {
-            VERIFY(model.is_true(f));
+            VERIFY(!model.is_false(f));
         }
         return true;
     }
@@ -657,7 +657,7 @@ public:
             other_vars.reset();
         }
         
-        SASSERT(eval.is_true(fml));
+        SASSERT(!eval.is_false(fml));
                 
         vars.reset ();
         vars.append(other_vars);
