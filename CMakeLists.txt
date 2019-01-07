@@ -254,6 +254,15 @@ elseif (CYGWIN)
 elseif (WIN32)
   message(STATUS "Platform: Windows")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_WINDOWS")
+elseif (EMSCRIPTEN)
+  message(STATUS "Platform: Emscripten")
+  list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS
+    "-Os"
+    "-s ALLOW_MEMORY_GROWTH=1"
+    "-s ASSERTIONS=0"
+    "-s DISABLE_EXCEPTION_CATCHING=0"
+    "-s ERROR_ON_UNDEFINED_SYMBOLS=1"
+  )
 else()
   message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
