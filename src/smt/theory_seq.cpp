@@ -3536,7 +3536,7 @@ expr_ref theory_seq::digit2int(expr* ch) {
 
 
 
-// n >= 0 & len(e) = k => is_digit(e_i) for i = 0..k-1
+// n >= 0 & len(e) >= i + 1 => is_digit(e_i) for i = 0..k-1
 // n >= 0 & len(e) = k => n = sum 10^i*digit(e_i)
 // n < 0  & len(e) = k => \/_i ~is_digit(e_i) for i = 0..k-1
 // 10^k <= n < 10^{k+1}-1 => len(e) = k
@@ -3556,7 +3556,9 @@ void theory_seq::add_si_axiom(expr* e, expr* n, unsigned k) {
     for (unsigned i = 0; i < k; ++i) {
         ith_char = mk_nth(e, m_autil.mk_int(i));
         literal isd = is_digit(ith_char);
-        add_axiom(~len_eq_k, ~ge0, isd);
+        literal len_ge_i1 = mk_literal(m_autil.mk_ge(len, m_autil.mk_int(i+1)));
+        add_axiom(~len_ge_i1, ~ge0, isd);
+        digits.push_back(~isd);
         chars.push_back(m_util.str.mk_unit(ith_char));
         nums.push_back(digit2int(ith_char));
     }        
