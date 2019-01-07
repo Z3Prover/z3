@@ -1750,6 +1750,9 @@ namespace z3 {
                 ++m_index;
                 return *this;
             }
+            void set(T& arg) {
+                Z3_ast_vector_set(m_vector->ctx(), *m_vector, m_index, arg);
+            }
             iterator operator++(int) { iterator tmp = *this; ++m_index; return tmp; }
             T * operator->() const { return &(operator*()); }
             T operator*() const { return (*m_vector)[m_index]; }
