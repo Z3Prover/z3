@@ -262,6 +262,7 @@ final_check_status theory_seq::final_check_eh() {
     m_new_propagation = false;
     TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
     TRACE("seq_verbose", get_context().display(tout););
+
     if (simplify_and_solve_eqs()) {
         ++m_stats.m_solve_eqs;
         TRACEFIN("solve_eqs");
@@ -5559,14 +5560,9 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
         propagate_lit(nullptr, 1, &lit, false_literal);
         return;
     }
-    if (_idx.get_unsigned() > m_max_unfolding_depth && 
-        m_max_unfolding_lit != null_literal && ctx.get_scope_level() > 0) {
-        propagate_lit(nullptr, 1, &lit, ~m_max_unfolding_lit);
-        return;
-    }
+
 
     expr_ref len = mk_len(e);
-
     literal_vector lits;
     lits.push_back(~lit);
     if (aut->is_final_state(src)) {
@@ -5576,9 +5572,11 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     else {
         propagate_lit(nullptr, 1, &lit, ~mk_literal(m_autil.mk_le(len, idx)));
     }
+
+
     eautomaton::moves mvs;
     aut->get_moves_from(src, mvs);
-    TRACE("seq", tout << mvs.size() << "\n";);
+    TRACE("seq", tout << mk_pp(acc, m) << " #moves " << mvs.size() << "\n";);
     for (auto const& mv : mvs) {
         expr_ref nth = mk_nth(e, idx);
         expr_ref t = mv.t()->accept(nth);
@@ -5587,6 +5585,11 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
         lits.push_back(step);
     }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+
+    if (_idx.get_unsigned() > m_max_unfolding_depth && 
+        m_max_unfolding_lit != null_literal && ctx.get_scope_level() > 0) {
+        propagate_lit(nullptr, 1, &lit, ~m_max_unfolding_lit);
+    }
 }
 
 void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
