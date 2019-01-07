@@ -1720,6 +1720,10 @@ namespace z3 {
             m_vector = s.m_vector;
             return *this;
         }
+        ast_vector_tpl& set(unsigned idx, ast& a) {
+            Z3_ast_vector_set(ctx(), m_vector, idx, a);
+            return *this;
+        }
         /*
           Disabled pending C++98 build upgrade
         bool contains(T const& x) const {
@@ -1745,6 +1749,9 @@ namespace z3 {
             iterator& operator++() {
                 ++m_index;
                 return *this;
+            }
+            void set(T& arg) {
+                Z3_ast_vector_set(m_vector->ctx(), *m_vector, m_index, arg);
             }
             iterator operator++(int) { iterator tmp = *this; ++m_index; return tmp; }
             T * operator->() const { return &(operator*()); }

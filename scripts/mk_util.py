@@ -6,6 +6,7 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
+import io
 import sys
 import os
 import re
@@ -806,7 +807,7 @@ def extract_c_includes(fname):
     # We should generate and error for any occurrence of #include that does not match the previous pattern.
     non_std_inc_pat = re.compile(".*#include.*")
 
-    f = open(fname, 'r')
+    f = io.open(fname, encoding='utf-8', mode='r')
     linenum = 1
     for line in f:
         m1 = std_inc_pat.match(line)
