@@ -1283,7 +1283,6 @@ namespace sat {
                             return true;
                         }
                         if (!s.is_marked(~lit)) {
-                            // if (m_covered_clause[0].var() == 10219) IF_VERBOSE(0, verbose_stream() << "ala: " << l << " " << lit << "\n");
                             m_covered_clause.push_back(~lit);
                             m_covered_antecedent.push_back(clause_ante(l, false));
                             s.mark_visited(~lit);
@@ -1313,7 +1312,6 @@ namespace sat {
                     if (lit1 == null_literal) {
                         return true;
                     }
-                    // if (m_covered_clause[0].var() == 10219) IF_VERBOSE(0, verbose_stream() << "ala: " << c << " " << lit1 << "\n");
                     m_covered_clause.push_back(~lit1);
                     m_covered_antecedent.push_back(clause_ante(c));
                     s.mark_visited(~lit1);

@@ -323,9 +323,9 @@ namespace sat {
         double sum = 0;
         unsigned skip_candidates = 0;
         bool autarky = get_config().m_lookahead_global_autarky;
-        for (bool_var x : m_freevars) {
-            SASSERT(is_undef(x));
-            if (!m_select_lookahead_vars.empty()) {
+        if (!m_select_lookahead_vars.empty()) {
+            for (bool_var x : m_freevars) {
+                SASSERT(is_undef(x));
                 if (m_select_lookahead_vars.contains(x)) {
                     if (!autarky || newbies || in_reduced_clause(x)) {
                         m_candidates.push_back(candidate(x, m_rating[x]));
@@ -336,10 +336,15 @@ namespace sat {
                     }
                 }                
             }
-            else if (newbies || active_prefix(x)) {
-                m_candidates.push_back(candidate(x, m_rating[x]));
-                sum += m_rating[x];                
-            }           
+        }
+        if (m_candidates.empty() && (m_select_lookahead_vars.empty() || newbies)) {
+            for (bool_var x : m_freevars) {
+                SASSERT(is_undef(x));
+                if (newbies || active_prefix(x)) {
+                    m_candidates.push_back(candidate(x, m_rating[x]));
+                    sum += m_rating[x];                
+                }           
+            }
         } 
         TRACE("sat", display_candidates(tout << "sum: " << sum << "\n"););
         if (skip_candidates > 0) {
