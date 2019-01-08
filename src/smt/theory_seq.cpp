@@ -4261,6 +4261,9 @@ void theory_seq::deque_axiom(expr* n) {
     else if (m_util.str.is_at(n)) {
         add_at_axiom(n);
     }
+    else if (m_util.str.is_nth(n)) {
+        add_nth_axiom(n);
+    }
     else if (m_util.str.is_string(n)) {
         add_elim_string_axiom(n);
     }
@@ -4965,6 +4968,17 @@ void theory_seq::add_at_axiom(expr* e) {
     add_axiom(~i_ge_len_s, mk_eq(e, emp, false));
 }
 
+void theory_seq::add_nth_axiom(expr* e) {
+    expr* s = nullptr, *i = nullptr;
+    rational n;
+    zstring str;
+    VERIFY(m_util.str.is_nth(e, s, i));
+    if (m_util.str.is_string(s, str) && m_autil.is_numeral(i, n) && n.is_unsigned() && n.get_unsigned() < str.length()) {
+        app_ref ch(m_util.str.mk_char(str[n.get_unsigned()]), m);
+        add_axiom(mk_eq(ch, e, false));
+    }
+}
+
 
 /*
     lit => s = (nth s 0) ++ (nth s 1) ++ ... ++ (nth s idx) ++ (tail s idx)
@@ -5431,6 +5445,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_replace(n) ||
         m_util.str.is_extract(n) ||
         m_util.str.is_at(n) ||
+        m_util.str.is_nth(n) ||
         m_util.str.is_empty(n) ||
         m_util.str.is_string(n) ||
         m_util.str.is_itos(n) || 

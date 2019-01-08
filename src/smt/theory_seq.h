@@ -575,6 +575,7 @@ namespace smt {
 
         expr_ref add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
+        void add_nth_axiom(expr* n);
         void add_in_re_axiom(expr* n);
         void add_itos_axiom(expr* n);
         void add_stoi_axiom(expr* n);

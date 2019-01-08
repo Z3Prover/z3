@@ -459,9 +459,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_SEQ_AT:
         SASSERT(num_args == 2);
         return mk_seq_at(args[0], args[1], result); 
+#if 0
     case OP_SEQ_NTH:
         SASSERT(num_args == 2);
         return mk_seq_nth(args[0], args[1], result); 
+#endif
     case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
         return mk_seq_prefix(args[0], args[1], result);
@@ -896,14 +898,8 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
         if (m_util.str.is_unit(a, u)) {
             if (len == i) {
                 result = u;
-                return BR_REWRITE1;
+                return BR_DONE;
             }            
-        }
-        else if (i > 0) {
-            SASSERT(len >= i);
-            result = m_util.str.mk_concat(as.size() - i, as.c_ptr() + i);
-            result = m().mk_app(m_util.get_family_id(), OP_SEQ_NTH, result, m_autil.mk_int(len - i));
-            return BR_REWRITE2;
         }
         else {
             return BR_FAILED;
