@@ -262,6 +262,7 @@ final_check_status theory_seq::final_check_eh() {
     m_new_propagation = false;
     TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
     TRACE("seq_verbose", get_context().display(tout););
+
     if (simplify_and_solve_eqs()) {
         ++m_stats.m_solve_eqs;
         TRACEFIN("solve_eqs");
@@ -3536,7 +3537,7 @@ expr_ref theory_seq::digit2int(expr* ch) {
 
 
 
-// n >= 0 & len(e) = k => is_digit(e_i) for i = 0..k-1
+// n >= 0 & len(e) >= i + 1 => is_digit(e_i) for i = 0..k-1
 // n >= 0 & len(e) = k => n = sum 10^i*digit(e_i)
 // n < 0  & len(e) = k => \/_i ~is_digit(e_i) for i = 0..k-1
 // 10^k <= n < 10^{k+1}-1 => len(e) = k
@@ -3556,7 +3557,9 @@ void theory_seq::add_si_axiom(expr* e, expr* n, unsigned k) {
     for (unsigned i = 0; i < k; ++i) {
         ith_char = mk_nth(e, m_autil.mk_int(i));
         literal isd = is_digit(ith_char);
-        add_axiom(~len_eq_k, ~ge0, isd);
+        literal len_ge_i1 = mk_literal(m_autil.mk_ge(len, m_autil.mk_int(i+1)));
+        add_axiom(~len_ge_i1, ~ge0, isd);
+        digits.push_back(~isd);
         chars.push_back(m_util.str.mk_unit(ith_char));
         nums.push_back(digit2int(ith_char));
     }        
@@ -4258,6 +4261,9 @@ void theory_seq::deque_axiom(expr* n) {
     else if (m_util.str.is_at(n)) {
         add_at_axiom(n);
     }
+    else if (m_util.str.is_nth(n)) {
+        add_nth_axiom(n);
+    }
     else if (m_util.str.is_string(n)) {
         add_elim_string_axiom(n);
     }
@@ -4584,7 +4590,12 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
 
     IF_VERBOSE(11, verbose_stream() << mk_pp(s, m) << " in " << re << "\n");
     eautomaton* a = get_automaton(re);
-    if (!a) return;
+    if (!a) {
+        std::stringstream strm;
+        strm << "expression " << re << " does not correspond to a supported regular expression";
+        TRACE("seq", tout << strm.str() << "\n";);
+        throw default_exception(strm.str());
+    }
 
     m_s_in_re.push_back(s_in_re(lit, s, re, a));
     m_trail_stack.push(push_back_vector<theory_seq, vector<s_in_re>>(m_s_in_re));
@@ -4955,6 +4966,17 @@ void theory_seq::add_at_axiom(expr* e) {
 
     add_axiom(i_ge_0, mk_eq(e, emp, false));
     add_axiom(~i_ge_len_s, mk_eq(e, emp, false));
+}
+
+void theory_seq::add_nth_axiom(expr* e) {
+    expr* s = nullptr, *i = nullptr;
+    rational n;
+    zstring str;
+    VERIFY(m_util.str.is_nth(e, s, i));
+    if (m_util.str.is_string(s, str) && m_autil.is_numeral(i, n) && n.is_unsigned() && n.get_unsigned() < str.length()) {
+        app_ref ch(m_util.str.mk_char(str[n.get_unsigned()]), m);
+        add_axiom(mk_eq(ch, e, false));
+    }
 }
 
 
@@ -5423,6 +5445,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_replace(n) ||
         m_util.str.is_extract(n) ||
         m_util.str.is_at(n) ||
+        m_util.str.is_nth(n) ||
         m_util.str.is_empty(n) ||
         m_util.str.is_string(n) ||
         m_util.str.is_itos(n) || 
@@ -5559,14 +5582,9 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
         propagate_lit(nullptr, 1, &lit, false_literal);
         return;
     }
-    if (_idx.get_unsigned() > m_max_unfolding_depth && 
-        m_max_unfolding_lit != null_literal && ctx.get_scope_level() > 0) {
-        propagate_lit(nullptr, 1, &lit, ~m_max_unfolding_lit);
-        return;
-    }
+
 
     expr_ref len = mk_len(e);
-
     literal_vector lits;
     lits.push_back(~lit);
     if (aut->is_final_state(src)) {
@@ -5576,9 +5594,11 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     else {
         propagate_lit(nullptr, 1, &lit, ~mk_literal(m_autil.mk_le(len, idx)));
     }
+
+
     eautomaton::moves mvs;
     aut->get_moves_from(src, mvs);
-    TRACE("seq", tout << mvs.size() << "\n";);
+    TRACE("seq", tout << mk_pp(acc, m) << " #moves " << mvs.size() << "\n";);
     for (auto const& mv : mvs) {
         expr_ref nth = mk_nth(e, idx);
         expr_ref t = mv.t()->accept(nth);
@@ -5587,6 +5607,11 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
         lits.push_back(step);
     }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+
+    if (_idx.get_unsigned() > m_max_unfolding_depth && 
+        m_max_unfolding_lit != null_literal && ctx.get_scope_level() > 0) {
+        propagate_lit(nullptr, 1, &lit, ~m_max_unfolding_lit);
+    }
 }
 
 void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
