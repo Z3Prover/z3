@@ -41,17 +41,6 @@ struct index_with_sign {
     const rational& sign() const { return m_sign; }
 };
 
-struct rat_hash {
-    typedef rational data;
-    unsigned operator()(const rational& x) const { return x.hash(); }
-};
-
-
-struct hash_vector {
-    size_t operator()(const vector<rational> & v) const {
-        return vector_hash<rat_hash>()(v);
-    }
-};
 
 struct vars_equivalence {
     
@@ -82,36 +71,21 @@ struct vars_equivalence {
     // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), that k is the parent of v
     vector<equiv>                                 m_equivs;         // all equivalences extracted from constraints
     std::unordered_map<rational, unsigned_vector> m_vars_by_abs_values;
-    std::unordered_map<vector<rational>,
-                       unsigned_vector,
-                       hash_vector>               m_monomials_by_abs_vals;
-
     std::function<rational(lpvar)>                m_vvr;
-
+    
 
     // constructor
     vars_equivalence(std::function<rational(lpvar)> vvr) : m_vvr(vvr) {}
     
-    const std::unordered_map<vector<rational>,
-                             unsigned_vector,
-                             hash_vector>& monomials_by_abs_values() const {
-        return m_monomials_by_abs_vals;
-    }
-
-    
     void clear() {
         m_equivs.clear();
         m_tree.clear();
-        m_vars_by_abs_values.clear();
-        m_monomials_by_abs_vals.clear();
+        m_vars_by_abs_values.clear(); 
     }
 
-    svector<lpvar> get_vars_with_the_same_abs_val(const rational& v) const {
-        svector<unsigned> ret;
+    const svector<lpvar>& get_vars_with_the_same_abs_val(const rational& v) const {
         auto it = m_vars_by_abs_values.find(abs(v));
-        if (it == m_vars_by_abs_values.end())
-            return ret;
-
+        SASSERT (it != m_vars_by_abs_values.end());
         return it->second; 
     } 
 
@@ -242,13 +216,6 @@ struct vars_equivalence {
         }
     }
 
-    void deregister_monomial_from_abs_vals(const monomial & m, unsigned i){
-        int sign;
-        auto key = get_sorted_abs_vals_from_mon(m, sign);
-        SASSERT(m_monomials_by_abs_vals.find(key)->second.back() == i);
-        m_monomials_by_abs_vals.find(key)->second.pop_back();
-    }
-
     vector<rational> get_sorted_abs_vals_from_mon(const monomial& m, int & sign) {
         sign = 1;
         vector<rational> abs_vals;
@@ -261,22 +228,6 @@ struct vars_equivalence {
         }
         std::sort(abs_vals.begin(), abs_vals.end());
         return abs_vals;
-    }
-    
-    void register_monomial_in_abs_vals(unsigned i, const monomial & m ) {
-        int sign;
-        vector<rational> abs_vals = get_sorted_abs_vals_from_mon(m, sign);
-        auto it = m_monomials_by_abs_vals.find(abs_vals);
-        if (it == m_monomials_by_abs_vals.end()) {
-            unsigned_vector v;
-            v.push_back(i);
-            // v is a vector containing a single index_with_sign
-            m_monomials_by_abs_vals.emplace(abs_vals, v);
-        } 
-        else {
-            it->second.push_back(i);
-        }
-        
     }
 }; // end of vars_equivalence
 }
