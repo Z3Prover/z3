@@ -1330,6 +1330,7 @@ struct solver::imp {
     }
 
     void clear() {
+        m_to_refine.clear();
         m_var_to_its_monomial.clear();
         m_vars_equivalence.clear();
         m_rm_table.clear();
@@ -1343,8 +1344,15 @@ struct solver::imp {
         map_vars_to_monomials();
         init_vars_equivalence();
         register_monomials_in_tables();
+        init_to_refine();
     }
 
+    void init_to_refine() {
+        for (unsigned i = 0; i < m_monomials.size(); i++) {
+            if (!check_monomial(m_monomials[i]))
+                m_to_refine.push_back(i);
+        }
+    }
 
     bool divide(const rooted_mon& bc, const factor& c, factor & b) const {
         svector<lpvar> c_vars = sorted_vars(c);
@@ -1909,16 +1917,11 @@ struct solver::imp {
             return l_undef;
         }
 
-        for (unsigned i = 0; i < m_monomials.size(); i++) {
-            if (!check_monomial(m_monomials[i]))
-                m_to_refine.push_back(i);
-        }
-
+        init_search();
         if (m_to_refine.empty()) {
             return l_true;
         }
 
-        init_search();
         lbool ret = l_undef;
         for (int search_level = 0; search_level < 3 && ret == l_undef; search_level++) {
             TRACE("nla_solver", tout << "search_level = " << search_level << "\n";);
