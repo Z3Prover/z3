@@ -20,9 +20,13 @@ namespace nla {
     public:
         // constructors
         monomial(lp::var_index v, unsigned sz, lp::var_index const* vs):
-           m_v(v), m_vs(sz, vs) {}
+           m_v(v), m_vs(sz, vs) {
+            std::sort(m_vs.begin(), m_vs.end());
+        }
         monomial(lp::var_index v, const svector<lp::var_index> &vs):
-           m_v(v), m_vs(vs) {}
+           m_v(v), m_vs(vs) {
+            std::sort(m_vs.begin(), m_vs.end());
+        }
         monomial() {}
         
         unsigned var() const { return m_v; }

@@ -267,8 +267,8 @@ class theory_lra::imp {
     struct switcher {
         theory_lra::imp& m_th_imp;
         scoped_ptr<nra::solver>*  m_nra;
-        scoped_ptr<nla::solver>* m_nla;
-        bool m_use_nla;
+        scoped_ptr<nla::solver>*  m_nla;
+        bool                      m_use_nla;
         switcher(theory_lra::imp& i): m_th_imp(i), m_nra(nullptr), m_nla(nullptr) {
         }
 
