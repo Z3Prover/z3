@@ -1197,8 +1197,11 @@ namespace smt {
             literal_vector& lits = get_unhelpful_literals(c, true);
             lits.push_back(c.lit());
             for (unsigned i = 0; i < sz; ++i) {
-                DEBUG_CODE(validate_assign(c, lits, c.lit(i)););
-                add_assign(c, lits, c.lit(i));                               
+                literal lit = c.lit(i);
+                if (ctx.get_assignment(lit) == l_undef) {
+                    DEBUG_CODE(validate_assign(c, lits, lit););
+                    add_assign(c, lits, c.lit(i));               
+                }
             }
         }
     }
