@@ -1527,6 +1527,7 @@ namespace sat {
                     block_covered_binary(w, l, blocked, k);
                     break;
                 }
+                s.checkpoint();
             }
         }
 
@@ -1552,6 +1553,7 @@ namespace sat {
                     s.set_learned(c);
                     break;
                 }
+                s.checkpoint();
             }
         }
 
