@@ -177,7 +177,7 @@ public:
         m_params = p;
         sat_params p1(p);
         m_params.set_bool("xor_solver", p1.xor_solver());
-        m_imp->updt_params(p);
+        if (m_imp) m_imp->updt_params(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {

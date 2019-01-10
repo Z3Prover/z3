@@ -2960,7 +2960,8 @@ namespace sat {
 
     void ba_solver::simplify() {        
         VERIFY(s().at_base_lvl());
-        unsigned trail_sz;
+        unsigned trail_sz, count = 0;
+
         do {
             trail_sz = s().init_trail_size();
             m_simplify_change = false;
@@ -2980,8 +2981,9 @@ namespace sat {
             cleanup_clauses();
             cleanup_constraints();
             update_pure();
+            count++;
         }        
-        while (m_simplify_change || trail_sz < s().init_trail_size());
+        while (count < 10 && (m_simplify_change || trail_sz < s().init_trail_size()));
 
         IF_VERBOSE(1, 
                    unsigned subs = m_stats.m_num_bin_subsumes + m_stats.m_num_clause_subsumes + m_stats.m_num_pb_subsumes;
