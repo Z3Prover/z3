@@ -51,20 +51,21 @@ struct solver::imp {
 
     struct const_iterator_equiv_mon {
         // fields
-        const unsigned_vector                               m_vars;
-        vector<unsigned_vector::const_iterator>             m_offsets;
-        const imp&                                          m_imp;
+        vector<const unsigned_vector*>                      m_same_abs_vals;
+        vector<unsigned_vector::const_iterator>             m_its;
         bool                                                m_done;
+        const imp *                                         m_imp;
         // constructor for begin()
-        const_iterator_equiv_mon(const unsigned_vector& vars,
-                                 vector<unsigned_vector::const_iterator> offsets,
-                                 const imp& i) : m_vars(vars),
-                                                 m_offsets(offsets),
-                                                 m_imp(i),
-                                                 m_done(false) {}
+        const_iterator_equiv_mon(vector<const unsigned_vector*> abs_vals, const imp* i)
+            : m_same_abs_vals(abs_vals),
+              m_done(false),
+              m_imp(i) {
+            for (auto it: abs_vals){
+                m_its.push_back(it->begin());
+            }
+        }
         // constructor for end()
-        const_iterator_equiv_mon( const imp& i) :m_imp(i),
-                                                 m_done(true) {}
+        const_iterator_equiv_mon() : m_done(true) {}
         
         //typedefs
         typedef const_iterator_equiv_mon self_type;
@@ -77,10 +78,10 @@ struct solver::imp {
             if (m_done)
                 return;
             unsigned k = 0;
-            for (; k < m_offsets.size(); k++) {
-                auto & it = m_offsets[k];
+            for (; k < m_its.size(); k++) {
+                auto & it = m_its[k];
                 it++;
-                const auto & evars = m_imp.abs_eq_vars(m_vars[k]);
+                const auto & evars = *(m_same_abs_vals[k]);
                 if (it == evars.end()) {
                     it = evars.begin();
                 } else {
@@ -88,24 +89,23 @@ struct solver::imp {
                 }
             }
             
-            if (k == m_vars.size()) {
+            if (k == m_its.size()) {
                 m_done = true;
             }
         }
 
         unsigned_vector get_key() const {
             unsigned_vector r;
-            for(const auto& it : m_offsets){
+            for(const auto& it : m_its){
                 r.push_back(*it);
             }
             std::sort(r.begin(), r.end());
-            TRACE("nla_solver", tout << "r = "; m_imp.print_product_with_vars(r, tout););
+            TRACE("nla_solver", tout << "r = "; m_imp->print_product_with_vars(r, tout););
             return r;
         }
         
         unsigned get_monomial() const {
-            unsigned_vector key = get_key();
-            return m_imp.find_monomial(key);
+            return m_imp->find_monomial(get_key());
         }
             
         self_type operator++() {self_type i = *this; operator++(1); return i;}
@@ -117,7 +117,7 @@ struct solver::imp {
             unsigned i = get_monomial();
             TRACE("nla_solver",
             if (static_cast<int>(i) != -1)
-                m_imp.print_monomial_with_vars(m_imp.m_monomials[i], tout);
+                m_imp->print_monomial_with_vars(m_imp->m_monomials[i], tout);
             else
                 tout << "not found";);
             return i;
@@ -129,27 +129,19 @@ struct solver::imp {
         const imp&       m_imp;
         equiv_monomials(const monomial & m, const imp& i) : m_mon(m), m_imp(i) {}
 
-        const_iterator_equiv_mon begin() {
-            return const_iterator_equiv_mon(m_mon.vars(), vars_eq_offsets_begin(), m_imp);
-        }
-
-        const_iterator_equiv_mon end() {
-            return const_iterator_equiv_mon(m_imp);
-        }
-        vector<unsigned_vector::const_iterator> vars_eq_offsets_end() const {
-            vector<unsigned_vector::const_iterator> r;
+        vector<const unsigned_vector*> vars_eqs() const {
+            vector<const unsigned_vector*> r;
             for(lpvar j : m_mon.vars()) {
-                r.push_back(m_imp.abs_eq_vars(j).end());
+                r.push_back(&m_imp.abs_eq_vars(j));
             }
             return r;
         } 
-        vector<unsigned_vector::const_iterator> vars_eq_offsets_begin() const {
-            vector<unsigned_vector::const_iterator> r;
-            for(lpvar j : m_mon.vars()) {
-                r.push_back(m_imp.abs_eq_vars(j).begin());
-            }
-            return r;
-        } 
+        const_iterator_equiv_mon begin() const {
+            return const_iterator_equiv_mon(vars_eqs(), &m_imp);
+        }
+        const_iterator_equiv_mon end() const {
+            return const_iterator_equiv_mon();
+        }
     };
 
     unsigned find_monomial(const unsigned_vector& k) const {
