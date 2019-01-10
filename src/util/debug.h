@@ -51,6 +51,10 @@ bool assertions_enabled();
 #endif
 #endif
 
+#ifdef __EMSCRIPTEN__
+#define NO_Z3_DEBUGGER
+#endif
+
 #ifdef NO_Z3_DEBUGGER
 #define INVOKE_DEBUGGER() exit(ERR_INTERNAL_FATAL)
 #else
