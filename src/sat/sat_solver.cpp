@@ -298,14 +298,14 @@ namespace sat {
         mk_clause(3, ls, learned);
     }
 
-    void solver::del_clause(clause& c) {
+    void solver::del_clause(clause& c, bool enable_drat) {
         if (!c.is_learned()) {
             m_stats.m_non_learned_generation++;
         } 
         if (c.frozen()) {
             --m_num_frozen;
         }
-        if (m_config.m_drat && !m_drat.is_cleaned(c)) {
+        if (enable_drat && m_config.m_drat && !m_drat.is_cleaned(c)) {
             m_drat.del(c);
         }
         dealloc_clause(&c);        
