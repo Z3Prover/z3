@@ -1273,7 +1273,8 @@ namespace sat {
          * unless C contains lit, and it is a tautology.
          */
         bool add_ala() {
-            for (; m_ala_qhead < m_covered_clause.size(); ++m_ala_qhead) {
+            unsigned init_size = m_covered_clause.size();
+            for (; m_ala_qhead < m_covered_clause.size() && m_ala_qhead < 5*init_size; ++m_ala_qhead) {
                 literal l = m_covered_clause[m_ala_qhead];                
                 for (watched & w : s.get_wlist(~l)) {
                     if (w.is_binary_non_learned_clause()) {
@@ -1526,6 +1527,7 @@ namespace sat {
                     block_covered_binary(w, l, blocked, k);
                     break;
                 }
+                s.checkpoint();
             }
         }
 
@@ -1551,6 +1553,7 @@ namespace sat {
                     s.set_learned(c);
                     break;
                 }
+                s.checkpoint();
             }
         }
 

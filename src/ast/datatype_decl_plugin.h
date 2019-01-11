@@ -132,71 +132,28 @@ namespace datatype {
             size* m_arg1, *m_arg2;
             plus(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref();}
             ~plus() override { m_arg1->dec_ref(); m_arg2->dec_ref(); }
-            size* subst(obj_map<sort,size*>& S) override { return mk_plus(m_arg1->subst(S), m_arg2->subst(S)); }
-            sort_size eval(obj_map<sort, sort_size> const& S) override {
-                rational r(0);
-                ptr_vector<size> todo;
-                todo.push_back(m_arg1);
-                todo.push_back(m_arg2);
-                while (!todo.empty()) {
-                    size* s = todo.back();
-                    todo.pop_back();
-                    plus* p = dynamic_cast<plus*>(s);
-                    if (p) {
-                        todo.push_back(p->m_arg1);
-                        todo.push_back(p->m_arg2);
-                    }
-                    else {
-                        sort_size sz = s->eval(S);                        
-                        if (sz.is_infinite()) return sz;
-                        if (sz.is_very_big()) return sz;
-                        r += rational(sz.size(), rational::ui64());
-                    }
-                }
-                return sort_size(r);
-            }
+            size* subst(obj_map<sort,size*>& S) override;
+            sort_size eval(obj_map<sort, sort_size> const& S) override;
         };
         struct times : public size {
             size* m_arg1, *m_arg2;
             times(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
             ~times() override { m_arg1->dec_ref(); m_arg2->dec_ref(); }
-            size* subst(obj_map<sort,size*>& S) override { return mk_times(m_arg1->subst(S), m_arg2->subst(S)); }
-            sort_size eval(obj_map<sort, sort_size> const& S) override {
-                sort_size s1 = m_arg1->eval(S);
-                sort_size s2 = m_arg2->eval(S);
-                if (s1.is_infinite()) return s1;
-                if (s2.is_infinite()) return s2;
-                if (s1.is_very_big()) return s1;
-                if (s2.is_very_big()) return s2;
-                rational r = rational(s1.size(), rational::ui64()) * rational(s2.size(), rational::ui64());
-                return sort_size(r);
-            }
+            size* subst(obj_map<sort,size*>& S) override;
+            sort_size eval(obj_map<sort, sort_size> const& S) override;
         };
         struct power : public size {
             size* m_arg1, *m_arg2;
             power(size* a1, size* a2): m_arg1(a1), m_arg2(a2) { a1->inc_ref(); a2->inc_ref(); }
             ~power() override { m_arg1->dec_ref(); m_arg2->dec_ref(); }
-            size* subst(obj_map<sort,size*>& S) override { return mk_power(m_arg1->subst(S), m_arg2->subst(S)); }
-            sort_size eval(obj_map<sort, sort_size> const& S) override {
-                sort_size s1 = m_arg1->eval(S);
-                sort_size s2 = m_arg2->eval(S);
-                // s1^s2
-                if (s1.is_infinite()) return s1;
-                if (s2.is_infinite()) return s2;
-                if (s1.is_very_big()) return s1;
-                if (s2.is_very_big()) return s2;
-                if (s1.size() == 1) return s1;
-                if (s2.size() == 1) return s1;
-                if (s1.size() > (2 << 20) || s2.size() > 10) return sort_size::mk_very_big();
-                rational r = ::power(rational(s1.size(), rational::ui64()), static_cast<unsigned>(s2.size()));
-                return sort_size(r);
-            }
+            size* subst(obj_map<sort,size*>& S) override;
+            sort_size eval(obj_map<sort, sort_size> const& S) override;
         };
         struct sparam : public size {
             sort_ref m_param;
             sparam(sort_ref& p): m_param(p) {}
             ~sparam() override {}
-            size* subst(obj_map<sort,size*>& S) override { return S[m_param]; }
+            size* subst(obj_map<sort, size*>& S) override;
             sort_size eval(obj_map<sort, sort_size> const& S) override { return S[m_param]; }
         };
     };

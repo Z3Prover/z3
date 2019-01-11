@@ -236,7 +236,7 @@ namespace sat {
         void defrag_clauses();
         bool should_defrag();
         bool memory_pressure();
-        void del_clause(clause & c);
+        void del_clause(clause & c, bool enable_drat = true);
         clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
         clause * mk_clause_core(literal_vector const& lits) { return mk_clause_core(lits.size(), lits.c_ptr()); }
         clause * mk_clause_core(unsigned num_lits, literal * lits) { return mk_clause_core(num_lits, lits, false); }

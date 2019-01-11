@@ -192,10 +192,14 @@ namespace sat {
         report rpt(*this);
         m_last_num_units = trail_sz;
         m_cleanup_counter = 0;
-        cleanup_watches();
-        cleanup_clauses(s.m_clauses);
-        cleanup_clauses(s.m_learned);
-        s.propagate(false);
+        do {
+            trail_sz = s.m_trail.size();
+            cleanup_watches();
+            cleanup_clauses(s.m_clauses);
+            cleanup_clauses(s.m_learned);
+            s.propagate(false);
+        }
+        while (trail_sz < s.m_trail.size());
         CASSERT("cleaner_bug", s.check_invariant());
         return true;
     }
