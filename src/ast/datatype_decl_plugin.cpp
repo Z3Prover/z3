@@ -584,13 +584,14 @@ namespace datatype {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
             unsigned n = get_datatype_num_parameter_sorts(s);
+            def & d = get_def(s->get_name());
+            SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                sz->inc_ref();
-                S.insert(ps, sz); 
-            }
-            def & d = get_def(s->get_name());
+                sz->inc_ref();                
+                S.insert(d.params().get(i), sz); 
+            }            
             sz = d.sort_size()->subst(S);
             for (auto & kv : S) {
                 kv.m_value->dec_ref();
