@@ -251,7 +251,7 @@ void theory_seq::init(context* ctx) {
     m_arith_value.init(ctx);
 }
 
-#define TRACEFIN(s) { TRACE("seq", tout << ">>" << s << "\n";); IF_VERBOSE(10, verbose_stream() << s << "\n"); }
+#define TRACEFIN(s) { TRACE("seq", tout << ">>" << s << "\n";); IF_VERBOSE(11, verbose_stream() << s << "\n"); }
 
 
 final_check_status theory_seq::final_check_eh() {
