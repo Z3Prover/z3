@@ -12,7 +12,7 @@
 
     <AssemblyProduct>Z3</AssemblyProduct>
 
-    <Description>.NET Interface to the Z3 Theorem Prover</Description>
+    <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
     <AssemblyDescription>.NET Interface to the Z3 Theorem Prover</AssemblyDescription>
 
     <Copyright>Copyright (C) 2006-2019 Microsoft Corporation</Copyright>
@@ -28,17 +28,22 @@
     <AssemblyFileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</AssemblyFileVersion>
 
     <PackageVersion>${DOTNET_PACKAGE_VERSION}</PackageVersion>
+    <PackageTags>smt constraint solver theorem prover</PackageTags>
+
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
   </PropertyGroup>
 
   <!-- Code contract & signing properties -->
-  <PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' != 'Release_delaysign'">
     <SignAssembly>false</SignAssembly>
-    <AssemblyOriginatorKeyFile> </AssemblyOriginatorKeyFile>
     <DelaySign>false</DelaySign>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release_delaysign'">
     <DefineConstants>DELAYSIGN</DefineConstants>
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
   </PropertyGroup>
 
   <!-- Build properties -->

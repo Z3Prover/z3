@@ -139,8 +139,10 @@ endforeach()
 # And thus we can put the conditional properties in the project file.
 # Note, nuget package file names do not have the ${VER_REV} part.
 
-# TODO how to receive "configuration" and "platform" from here? 
 set(Z3_DOTNET_NUPKG_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}")
+
+# TODO conditional for signing. we can then enable the ``Release_delaysign`` configuration
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.csproj.in ${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj)
 ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj
     VERSION ${Z3_DOTNET_NUPKG_VERSION}
@@ -163,10 +165,9 @@ add_custom_target(build_z3_dotnet_bindings ALL DEPENDS BUILD_Microsoft.Z3)
 option(INSTALL_DOTNET_BINDINGS "Install .NET bindings when invoking install target" ON)
 
 if(INSTALL_DOTNET_BINDINGS)
-    install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3.${Z3_DOTNET_NUPKG_VERSION}.nupkg" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
+    install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3/Microsoft.Z3.${Z3_DOTNET_NUPKG_VERSION}.nupkg" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
     install(CODE "include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/modules/FindDotnet.cmake)\n DOTNET_REGISTER_LOCAL_REPOSITORY(Microsoft.Z3.LocalBuild ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/z3.nuget)")
-# TODO docs?
-#  install(FILES "${Z3_DOTNET_ASSEMBLY_DLL_DOC}" DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+    install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3/Microsoft.Z3.xml" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
 # TODO GAC?
 #  set(GAC_PKG_NAME "Microsoft.Z3.Sharp")
 #  set(PREFIX "${CMAKE_INSTALL_PREFIX}")

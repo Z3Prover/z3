@@ -78,3 +78,4 @@ doc/api
 doc/code
 .vs
 examples/**/obj
+CMakeSettings.json

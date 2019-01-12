@@ -95,7 +95,7 @@
 #  - DOTNET_PACKAGE_VERSION: a version string that can be referenced in the actual project file as $(DOTNET_PACKAGE_VERSION).
 #    The version string value can be set with PACKAGE_VERSION argument, and defaults to '1.0.0'.
 #  - XPLAT_LIB_DIR: points to the cmake build root directory.
-#  - OutputPath: Points to the cmake build root directory (overridden by OUTPUT_PATH). Therefore, projects built without cmake will consistently output
+#  - OutputPath: Points to the cmake binary directory (overridden by OUTPUT_PATH, relatively). Therefore, projects built without cmake will consistently output
 #    to the cmake build directory.
 #  - Custom properties can be injected with XML_INJECT argument, which injects an arbitrary string into the project XML file.
 #
@@ -203,7 +203,7 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
     ENDIF()
 
     IF(NOT _DN_CONFIG)
-        SET(_DN_CONFIG Release)
+        SET(_DN_CONFIG $<IF:$<CONFIG:Debug>,Debug,Release>)
     ENDIF()
 
     # If platform is not specified, do not pass the Platform property.
@@ -226,7 +226,7 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
         SET(_DN_VERSION "1.0.0")
     ENDIF()
 
-    # Set the output path to the current binary directory.
+    # Set the output path to the binary directory.
     # Build outputs in separated output directories prevent overwriting.
     # Later we then copy the outputs to the destination.
 
@@ -234,7 +234,7 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
         SET(_DN_OUTPUT_PATH ${_DN_projname_noext})
     ENDIF()
 
-    GET_FILENAME_COMPONENT(_DN_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/${_DN_OUTPUT_PATH} ABSOLUTE)
+    GET_FILENAME_COMPONENT(_DN_OUTPUT_PATH ${CMAKE_BINARY_DIR}/${_DN_OUTPUT_PATH} ABSOLUTE)
 
     # In a cmake build, the XPLAT libraries are always copied over.
     # Set the proper directory for .NET projects.
@@ -328,16 +328,11 @@ MACRO(DOTNET_BUILD_COMMANDS)
     LIST(APPEND build_dotnet_cmds COMMAND ${CMAKE_COMMAND} -E touch ${DOTNET_OUTPUTS})
     IF(NOT "${DOTNET_PACKAGES}" STREQUAL "")
         MESSAGE("-- Adding ${build_dotnet_type} project ${DOTNET_PROJPATH} (version ${DOTNET_PACKAGE_VERSION})")
-        SET(_DN_OUTPUTS "")
         FOREACH(pkg ${DOTNET_PACKAGES})
-            LIST(APPEND _DN_OUTPUTS ${DOTNET_OUTPUT_PATH}/${pkg}.${DOTNET_PACKAGE_VERSION}.nupkg)
-            LIST(APPEND DOTNET_OUTPUTS ${CMAKE_BINARY_DIR}/${pkg}.${DOTNET_PACKAGE_VERSION}.nupkg)
-
-            LIST(APPEND _DN_OUTPUTS ${DOTNET_OUTPUT_PATH}/${pkg}.${DOTNET_PACKAGE_VERSION}.symbols.nupkg)
-            LIST(APPEND DOTNET_OUTPUTS ${CMAKE_BINARY_DIR}/${pkg}.${DOTNET_PACKAGE_VERSION}.symbols.nupkg)
+            LIST(APPEND DOTNET_OUTPUTS ${DOTNET_OUTPUT_PATH}/${pkg}.${DOTNET_PACKAGE_VERSION}.nupkg)
+            LIST(APPEND DOTNET_OUTPUTS ${DOTNET_OUTPUT_PATH}/${pkg}.${DOTNET_PACKAGE_VERSION}.symbols.nupkg)
         ENDFOREACH()
         LIST(APPEND build_dotnet_cmds COMMAND ${DOTNET_EXE} pack --no-build --no-restore ${DOTNET_PROJPATH} -c ${DOTNET_CONFIG} ${DOTNET_BUILD_PROPERTIES} ${DOTNET_PACK_OPTIONS})
-        LIST(APPEND build_dotnet_cmds COMMAND ${CMAKE_COMMAND} -E copy ${_DN_OUTPUTS} ${CMAKE_BINARY_DIR})
     ELSE()
         MESSAGE("-- Adding ${build_dotnet_type} project ${DOTNET_PROJPATH} (no nupkg)")
     ENDIF()
