@@ -26,7 +26,7 @@ RUN apt-get update && \
         python2.7 \
         python-setuptools
 
-RUN curl -SL https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
+RUN curl -SL https://packages.microsoft.com/config/ubuntu/14.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
     dpkg -i packages-microsoft-prod.deb && \
     apt-get update && \
     apt-get -y --no-install-recommends install dotnet-sdk-2.1
