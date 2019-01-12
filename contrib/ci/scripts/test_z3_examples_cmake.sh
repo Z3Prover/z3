@@ -88,8 +88,8 @@ if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
 fi
 
 if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
-  # Build & Run .NET example
-  run_quiet run_non_native_binding dotnet run -p ${Z3_SRC_DIR}/examples/dotnet/dotnet.csproj
+  # Run .NET example
+  run_quiet run_non_native_binding dotnet ${Z3_BUILD_DIR}/dotnet/netcoreapp2.0/dotnet.dll
 fi
 
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then

@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-      <PackageReference Include="Microsoft.Z3" Version="4.8.0" />
+      <PackageReference Include="Microsoft.Z3" Version="$(Z3_VERSION)" />
   </ItemGroup>
 
 </Project>
