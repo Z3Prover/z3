@@ -279,7 +279,6 @@ public:
             }
         }
         else {
-            m_is_cnf &= is_clause(t);
             assert_expr_core(t);
         }
     }
@@ -287,6 +286,7 @@ public:
     ast_manager& get_manager() const override { return m; }
     void assert_expr_core(expr * t) override {
         TRACE("goal2sat", tout << mk_pp(t, m) << "\n";);
+        m_is_cnf &= is_clause(t);
         m_fmls.push_back(t);
     }
     void set_produce_models(bool f) override {}

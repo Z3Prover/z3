@@ -361,7 +361,7 @@ namespace opt {
         mdl = m_model;
         fix_model(mdl);
         if (mdl) mdl->set_model_completion(true);
-        TRACE("opt", tout << *mdl;);
+        CTRACE("opt", mdl, tout << *mdl;);
     }
 
     void context::get_box_model(model_ref& mdl, unsigned index) {
