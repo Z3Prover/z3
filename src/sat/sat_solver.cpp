@@ -344,11 +344,11 @@ namespace sat {
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
         if (find_binary_watch(get_wlist(~l1), ~l2)) {
-            assign_core(l1, 0, justification(l1));
+            assign_core(l1, 0, justification(l2));
             return;
         }
         if (find_binary_watch(get_wlist(~l2), ~l1)) {
-            assign_core(l2, 0, justification(l2));
+            assign_core(l2, 0, justification(l1));
             return;
         }
         watched* w0 = find_binary_watch(get_wlist(~l1), l2);
