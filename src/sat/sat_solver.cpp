@@ -761,7 +761,7 @@ namespace sat {
 
     void solver::assign_core(literal l, unsigned _lvl, justification j) {
         SASSERT(value(l) == l_undef);
-        TRACE("sat_assign_core", tout << l << " " << j << " level: " << lvl << "\n";);
+        TRACE("sat_assign_core", tout << l << " " << j << " level: " << _lvl << "\n";);
         if (_lvl == 0 && m_config.m_drat) {
             m_drat.add(l, !j.is_none());
         }
