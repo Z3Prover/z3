@@ -347,22 +347,17 @@ namespace sat {
                 return;                
             case 1:
                 s.assign(c[0], justification());
-                c.restore(sz0);
-                s.del_clause(c);
+                s.del_clause(c, false);
                 break;
             case 2:
                 s.mk_bin_clause(c[0], c[1], c.is_learned());
-                c.restore(sz0);
-                s.del_clause(c, true);
+                s.del_clause(c, false);
                 break;
             default:
                 *it2 = *it;
                 it2++;
                 if (!c.frozen()) {
                     s.attach_clause(c);
-                    if (sz != sz0 && s.m_config.m_drat) {
-                        s.m_drat.add(c, true);
-                    }
                 }
                 break;
             }

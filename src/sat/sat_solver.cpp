@@ -2382,7 +2382,6 @@ namespace sat {
         while (num_marks > 0);
 
         m_lemma[0] = ~consequent;
-        m_drat.verify(m_lemma.size(), m_lemma.c_ptr());
         learn_lemma_and_backjump();
         return true;
     }

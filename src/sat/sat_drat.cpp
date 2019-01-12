@@ -68,7 +68,7 @@ namespace sat {
         case status::asserted: return;
         case status::external: return; // requires extension to drat format.
         case status::learned: break;
-        case status::deleted: return; (*m_out) << "d "; break;
+        case status::deleted: (*m_out) << "d "; break;
         }
         for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
         (*m_out) << "0\n";
@@ -220,6 +220,7 @@ namespace sat {
                 SASSERT(m_assignment[u.var()] != l_undef);
             });
 
+#if 0
         if (!m_inconsistent) {
             literal_vector lits(n, c);
             IF_VERBOSE(0, verbose_stream() << "not drup " << lits << "\n");
@@ -268,6 +269,8 @@ namespace sat {
             IF_VERBOSE(0, s.display(verbose_stream()));
             exit(0);
         }
+#endif
+
         for (unsigned i = num_units; i < m_units.size(); ++i) {
             m_assignment[m_units[i].var()] = l_undef;
         }
@@ -568,7 +571,9 @@ namespace sat {
         if (m_check) 
             append(l1, l2, status::deleted);
     }
+
     void drat::del(clause& c) {
+
         TRACE("sat", tout << "del: " << c << "\n";);
         if (m_out) dump(c.size(), c.begin(), status::deleted);
         if (m_check) {
