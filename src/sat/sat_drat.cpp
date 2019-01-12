@@ -332,10 +332,17 @@ namespace sat {
     }
 
     void drat::verify(unsigned n, literal const* c) {
-        if (m_check_unsat && !is_drup(n, c) && !is_drat(n, c)) {
+        if (!m_check_unsat) {
+            return;
+        }
+        for (unsigned i = 0; i < n; ++i) { 
+            declare(c[i]);
+        } 
+        if (!is_drup(n, c) && !is_drat(n, c)) {
             literal_vector lits(n, c);
             std::cout << "Verification of " << lits << " failed\n";
             s.display(std::cout);
+            SASSERT(false);
             exit(0);
             UNREACHABLE();
             //display(std::cout);
@@ -476,6 +483,10 @@ namespace sat {
                     literal lit = c[i];
                     if (lit != wc.m_l1 && lit != wc.m_l2 && value(lit) != l_false) {
                         wc.m_l2 = lit;
+						if (m_watches.size() <= (~lit).index())
+						{
+							IF_VERBOSE(0, verbose_stream() << m_watches.size() << " " << lit << " " << (~lit).index() << "\n");
+						}
                         m_watches[(~lit).index()].push_back(idx);
                         done = true;
                     } 

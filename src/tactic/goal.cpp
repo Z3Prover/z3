@@ -434,7 +434,8 @@ void goal::display_ll(std::ostream & out) const {
    \brief Assumes that the formula is already in CNF.
 */
 void goal::display_dimacs(std::ostream & out) const {
-    obj_map<expr, unsigned> expr2var;
+    unsigned_vector expr2var;
+    ptr_vector<expr> exprs;
     unsigned num_vars = 0;
     unsigned num_cls  = size();
     for (unsigned i = 0; i < num_cls; i++) {
@@ -453,10 +454,11 @@ void goal::display_dimacs(std::ostream & out) const {
             expr * l = lits[j];
             if (m().is_not(l))
                 l = to_app(l)->get_arg(0);
-            if (expr2var.contains(l))
-                continue;
-            num_vars++;
-            expr2var.insert(l, num_vars);
+            if (expr2var.get(l->get_id(), UINT_MAX) == UINT_MAX) {
+                num_vars++;
+                expr2var.setx(l->get_id(), num_vars, UINT_MAX);
+                exprs.setx(l->get_id(), l, nullptr);
+            }
         }
     }
     out << "p cnf " << num_vars << " " << num_cls << "\n";
@@ -478,17 +480,16 @@ void goal::display_dimacs(std::ostream & out) const {
                 out << "-";
                 l = to_app(l)->get_arg(0);
             }
-            unsigned id = UINT_MAX;
-            expr2var.find(l, id);
+            unsigned id = expr2var[l->get_id()];
             SASSERT(id != UINT_MAX);
             out << id << " ";
         }
         out << "0\n";
     }
-    for (auto const& kv : expr2var) {
-        expr* key = kv.m_key;
-        if (is_app(key)) 
-            out << "c " << kv.m_value << " " << to_app(key)->get_decl()->get_name() << "\n";
+    for (expr* e : exprs) {
+        if (e && is_app(e)) {
+            out << "c " << expr2var[e->get_id()] << " " << to_app(e)->get_decl()->get_name() << "\n";
+        }
     }
 }
 
