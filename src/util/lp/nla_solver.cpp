@@ -24,14 +24,12 @@
 #include "util/lp/vars_equivalence.h"
 #include "util/lp/factorization.h"
 #include "util/lp/rooted_mons.h"
+#include "util/lp/equiv_monomials.h"
 namespace nla {
 
 typedef lp::lconstraint_kind llc;
 
 struct solver::imp {
-    
-    typedef lp::lar_base_constraint lpcon;
-
     //fields    
     vars_equivalence                                                 m_vars_equivalence;
     vector<monomial>                                                 m_monomials;
@@ -49,100 +47,6 @@ struct solver::imp {
     unsigned_vector                                                  m_to_refine;
     std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial
 
-    struct const_iterator_equiv_mon {
-        // fields
-        vector<const unsigned_vector*>                      m_same_abs_vals;
-        vector<unsigned_vector::const_iterator>             m_its;
-        bool                                                m_done;
-        const imp *                                         m_imp;
-        // constructor for begin()
-        const_iterator_equiv_mon(vector<const unsigned_vector*> abs_vals, const imp* i)
-            : m_same_abs_vals(abs_vals),
-              m_done(false),
-              m_imp(i) {
-            for (auto it: abs_vals){
-                m_its.push_back(it->begin());
-            }
-        }
-        // constructor for end()
-        const_iterator_equiv_mon() : m_done(true) {}
-        
-        //typedefs
-        typedef const_iterator_equiv_mon self_type;
-        typedef unsigned value_type;
-        typedef unsigned reference;
-        typedef int difference_type;
-        typedef std::forward_iterator_tag iterator_category;
-
-        void advance() {
-            if (m_done)
-                return;
-            unsigned k = 0;
-            for (; k < m_its.size(); k++) {
-                auto & it = m_its[k];
-                it++;
-                const auto & evars = *(m_same_abs_vals[k]);
-                if (it == evars.end()) {
-                    it = evars.begin();
-                } else {
-                    break;
-                }
-            }
-            
-            if (k == m_its.size()) {
-                m_done = true;
-            }
-        }
-
-        unsigned_vector get_key() const {
-            unsigned_vector r;
-            for(const auto& it : m_its){
-                r.push_back(*it);
-            }
-            std::sort(r.begin(), r.end());
-            TRACE("nla_solver", tout << "r = "; m_imp->print_product_with_vars(r, tout););
-            return r;
-        }
-        
-        unsigned get_monomial() const {
-            return m_imp->find_monomial(get_key());
-        }
-            
-        self_type operator++() {self_type i = *this; operator++(1); return i;}
-        self_type operator++(int) { advance(); return *this; }
-
-        bool operator==(const self_type &other) const { return m_done == other.m_done;}
-        bool operator!=(const self_type &other) const { return ! (*this == other); }
-        reference operator*() const {
-            unsigned i = get_monomial();
-            TRACE("nla_solver",
-            if (static_cast<int>(i) != -1)
-                m_imp->print_monomial_with_vars(m_imp->m_monomials[i], tout);
-            else
-                tout << "not found";);
-            return i;
-        }
-    };
-
-    struct equiv_monomials {
-        const monomial & m_mon;
-        const imp&       m_imp;
-        equiv_monomials(const monomial & m, const imp& i) : m_mon(m), m_imp(i) {}
-
-        vector<const unsigned_vector*> vars_eqs() const {
-            vector<const unsigned_vector*> r;
-            for(lpvar j : m_mon.vars()) {
-                r.push_back(&m_imp.abs_eq_vars(j));
-            }
-            return r;
-        } 
-        const_iterator_equiv_mon begin() const {
-            return const_iterator_equiv_mon(vars_eqs(), &m_imp);
-        }
-        const_iterator_equiv_mon end() const {
-            return const_iterator_equiv_mon();
-        }
-    };
 
     unsigned find_monomial(const unsigned_vector& k) const {
         TRACE("nla_solver", tout << "k = "; print_product_with_vars(k, tout););
@@ -257,7 +161,6 @@ struct solver::imp {
         m_monomials_counts.push_back(m_monomials.size());
     }
 
-
     void deregister_monomial_from_rooted_monomials (const monomial & m, unsigned i){
         rational sign = rational(1);
         svector<lpvar> vars = reduce_monomial_to_rooted(m.vars(), sign);
@@ -300,16 +203,6 @@ struct solver::imp {
         SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
         return mon_value_by_vars(m) == m_lar_solver.get_column_value_rational(m.var());
     }
-    
-    /**
-     * \brief <here we have two monomials, i_mon and other_m, examined for "sign" equivalence>
-     */
-
-    bool values_are_different(lpvar j, rational const& sign, lpvar k) const {
-        SASSERT(sign == 1 || sign == -1);
-        return sign * m_lar_solver.get_column_value(j) != m_lar_solver.get_column_value(k);
-    }
-
     
     void explain(const monomial& m) const {
         m_vars_equivalence.explain(m, *m_expl);
@@ -744,7 +637,9 @@ struct solver::imp {
     bool basic_sign_lemma_on_mon(unsigned i){
         TRACE("nla_solver", tout << "i = " << i << ", mon = "; print_monomial_with_vars(m_monomials[i], tout););
         const monomial& m = m_monomials[i];
-        for (unsigned n : equiv_monomials(m, *this)) {
+        for (unsigned n : equiv_monomials(m, [this](lpvar j) {return &abs_eq_vars(j);},
+                                          [this](const unsigned_vector& key) {return find_monomial(key);})
+             ) {
             if (n == static_cast<unsigned>(-1) || n == i) continue;
             if (basic_sign_lemma_on_two_monomials(m_monomials[i], m_monomials[n]))
                 return true;
