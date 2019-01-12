@@ -68,7 +68,7 @@ namespace sat {
         case status::asserted: return;
         case status::external: return; // requires extension to drat format.
         case status::learned: break;
-        case status::deleted: (*m_out) << "d "; break;
+        case status::deleted: return; (*m_out) << "d "; break;
         }
         for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
         (*m_out) << "0\n";
@@ -215,18 +215,12 @@ namespace sat {
         if (!m_inconsistent) {
             DEBUG_CODE(validate_propagation(););
         }
-        for (unsigned i = 0; i < m_units.size(); ++i) {
-            SASSERT(m_assignment[m_units[i].var()] != l_undef);
-        }
+        DEBUG_CODE(
+            for (literal u : m_units) {
+                SASSERT(m_assignment[u.var()] != l_undef);
+            });
 
-        for (unsigned i = num_units; i < m_units.size(); ++i) {
-            m_assignment[m_units[i].var()] = l_undef;
-        }
-        m_units.resize(num_units);
-        bool ok = m_inconsistent;
-        m_inconsistent = false;
-
-        if (!ok) {
+        if (!m_inconsistent) {
             literal_vector lits(n, c);
             IF_VERBOSE(0, verbose_stream() << "not drup " << lits << "\n");
             for (unsigned v = 0; v < m_assignment.size(); ++v) {
@@ -274,6 +268,13 @@ namespace sat {
             IF_VERBOSE(0, s.display(verbose_stream()));
             exit(0);
         }
+        for (unsigned i = num_units; i < m_units.size(); ++i) {
+            m_assignment[m_units[i].var()] = l_undef;
+        }
+        m_units.resize(num_units);
+        bool ok = m_inconsistent;
+        m_inconsistent = false;
+
         return ok;
     }
 
@@ -344,6 +345,7 @@ namespace sat {
     }
 
     bool drat::contains(unsigned n, literal const* lits) {
+        if (!m_check) return true;
         for (unsigned i = m_proof.size(); i-- > 0; ) {
             clause& c = *m_proof[i];
             status st = m_status[i];

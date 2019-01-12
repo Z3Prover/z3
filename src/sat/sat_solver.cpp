@@ -344,11 +344,11 @@ namespace sat {
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
         if (find_binary_watch(get_wlist(~l1), ~l2)) {
-            assign(l1, justification());
+            assign_core(l1, 0, justification(l2));
             return;
         }
         if (find_binary_watch(get_wlist(~l2), ~l1)) {
-            assign(l2, justification());
+            assign_core(l2, 0, justification(l1));
             return;
         }
         watched* w0 = find_binary_watch(get_wlist(~l1), l2);
@@ -759,17 +759,20 @@ namespace sat {
         m_not_l    = not_l;
     }
 
-    void solver::assign_core(literal l, unsigned lvl, justification j) {
+    void solver::assign_core(literal l, unsigned _lvl, justification j) {
         SASSERT(value(l) == l_undef);
         TRACE("sat_assign_core", tout << l << " " << j << " level: " << lvl << "\n";);
+        if (_lvl == 0 && m_config.m_drat) {
+            m_drat.add(l, !j.is_none());
+        }
+
         if (at_base_lvl()) {
-            if (m_config.m_drat) m_drat.add(l, !j.is_none());
             j = justification(); // erase justification for level 0
         }
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
         bool_var v = l.var();
-        m_level[v]                 = lvl;
+        m_level[v]                 = scope_lvl();
         m_justification[v]         = j;
         m_phase[v]                 = static_cast<phase>(l.sign());
         m_assigned_since_gc[v]     = true;
@@ -2263,6 +2266,7 @@ namespace sat {
 
     bool solver::resolve_conflict_core() {
 
+
         m_conflicts_since_init++;
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
@@ -2378,6 +2382,7 @@ namespace sat {
         while (num_marks > 0);
 
         m_lemma[0] = ~consequent;
+        m_drat.verify(m_lemma.size(), m_lemma.c_ptr());
         learn_lemma_and_backjump();
         return true;
     }
@@ -2409,7 +2414,6 @@ namespace sat {
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
         m_fast_glue_avg.update(glue);
         m_slow_glue_avg.update(glue);
-
         pop_reinit(m_scope_lvl - new_scope_lvl);
         TRACE("sat_conflict_detail", tout << new_scope_lvl << "\n"; display(tout););
         // unsound: m_asymm_branch.minimize(m_scc, m_lemma);
@@ -2879,20 +2883,16 @@ namespace sat {
     void solver::minimize_lemma() {
         SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
-        //m_unmark.reset();
         updt_lemma_lvl_set();
 
         unsigned sz   = m_lemma.size();
         unsigned i    = 1; // the first literal is the FUIP
         unsigned j    = 1;
-        //bool drop = false;
-        //unsigned bound = sz/5+10;
         for (; i < sz; i++) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
                 TRACE("sat", tout << "drop: " << l << "\n";);
                 m_unmark.push_back(l.var());
-                //drop = true;
             }
             else {
                 if (j != i) {
@@ -2900,12 +2900,6 @@ namespace sat {
                 }
                 j++;
             }
-#if 0
-            if (!drop && i >= bound) {
-                j = sz;
-                break;
-            }
-#endif
         }
 
         reset_unmark(0);

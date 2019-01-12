@@ -94,6 +94,11 @@ namespace sat {
             mark_strengthened(); 
         } 
     }
+    
+    void clause::restore(unsigned num_lits) {
+        SASSERT(num_lits <= m_capacity);
+        m_size = num_lits;
+    }
 
     bool clause::satisfied_by(model const & m) const {
         for (literal l : *this) {

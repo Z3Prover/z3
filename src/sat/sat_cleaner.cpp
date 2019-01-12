@@ -135,7 +135,7 @@ namespace sat {
                     break;
                 default:
                     SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
-                    if (s.m_config.m_drat && new_sz < i) {
+                    if (s.m_config.m_drat && new_sz < sz) {
                         tmp.set(c.size(), c.begin(), c.is_learned());
                     }
                     c.shrink(new_sz);
@@ -144,7 +144,7 @@ namespace sat {
                     if (!c.frozen()) {                            
                         s.attach_clause(c);
                     }
-                    if (s.m_config.m_drat && new_sz < i) {
+                    if (s.m_config.m_drat && new_sz < sz) {
                         // for optimization, could also report deletion 
                         // of previous version of clause.
                         s.m_drat.add(c, true);

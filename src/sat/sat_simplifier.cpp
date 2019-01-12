@@ -125,8 +125,9 @@ namespace sat {
     }
 
     inline void simplifier::remove_clause_core(clause & c) {
-        for (literal l : c) 
+        for (literal l : c) {
             insert_elim_todo(l.var());
+        }
         m_sub_todo.erase(c);
         c.set_removed(true);
         TRACE("resolution_bug", tout << "del_clause: " << c << "\n";);
@@ -330,35 +331,40 @@ namespace sat {
                 }
             }
 
+            unsigned sz0 = c.size();
             if (cleanup_clause(c, in_use_lists)) {
                 s.del_clause(c);
                 continue;
             }
             unsigned sz = c.size();
-            if (sz == 0) {
+            switch(sz) {
+            case 0:
                 s.set_conflict(justification());
                 for (; it != end; ++it, ++it2) {
                     *it2 = *it;                  
                 }
-                break;
-            }
-            if (sz == 1) {
+                cs.set_end(it2);
+                return;                
+            case 1:
                 s.assign(c[0], justification());
+                c.restore(sz0);
                 s.del_clause(c);
-                continue;
-            }
-            if (sz == 2) {
+                break;
+            case 2:
                 s.mk_bin_clause(c[0], c[1], c.is_learned());
-                s.del_clause(c, false);
-                continue;
-            }
-            *it2 = *it;
-            it2++;
-            if (!c.frozen()) {
-                s.attach_clause(c);
-                if (s.m_config.m_drat) {
-                    s.m_drat.add(c, true);
+                c.restore(sz0);
+                s.del_clause(c, true);
+                break;
+            default:
+                *it2 = *it;
+                it2++;
+                if (!c.frozen()) {
+                    s.attach_clause(c);
+                    if (sz != sz0 && s.m_config.m_drat) {
+                        s.m_drat.add(c, true);
+                    }
                 }
+                break;
             }
         }
         cs.set_end(it2);
@@ -679,9 +685,15 @@ namespace sat {
         m_need_cleanup = true;
         m_num_elim_lits++;
         insert_elim_todo(l.var());
-        c.elim(l);
-        if (s.m_config.m_drat) s.m_drat.add(c, true); 
-        // if (s.m_config.m_drat) s.m_drat.del(c0); // can delete previous version 
+        if (s.m_config.m_drat && c.contains(l)) {
+            m_dummy.set(c.size(), c.begin(), c.is_learned());
+            c.elim(l);
+            s.m_drat.add(c, true); 
+            s.m_drat.del(*m_dummy.get());
+        }
+        else {
+            c.elim(l);
+        }
         clause_use_list & occurs = m_use_list.get(l);
         occurs.erase_not_removed(c);
         m_sub_counter -= occurs.size()/2;
@@ -695,23 +707,23 @@ namespace sat {
         case 0:
             TRACE("elim_lit", tout << "clause is empty\n";);
             s.set_conflict(justification());
-            return;
+            break;
         case 1:
             TRACE("elim_lit", tout << "clause became unit: " << c[0] << "\n";);
             propagate_unit(c[0]);
             // propagate_unit will delete c.
             // remove_clause(c);
-            return;
+            break;
         case 2:
             TRACE("elim_lit", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
             m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));
             remove_clause(c);
-            return;
+            break;
         default:
             TRACE("elim_lit", tout << "result: " << c << "\n";);
             m_sub_todo.insert(c);
-            return;
+            break;
         }
     }
 
@@ -876,27 +888,30 @@ namespace sat {
             m_sub_counter--;
             TRACE("subsumption", tout << "next: " << c << "\n";);
             if (s.m_trail.size() > m_last_sub_trail_sz) {
+                unsigned sz0 = c.size();
                 if (cleanup_clause(c, true /* clause is in the use_lists */)) {
                     remove_clause(c);
                     continue;
                 }
                 unsigned sz = c.size();
-                if (sz == 0) {
+                switch (sz) {
+                case 0:
                     s.set_conflict(justification());
                     return;
-                }
-                if (sz == 1) {
+                case 1:
                     propagate_unit(c[0]);
                     // propagate_unit will delete c.
                     // remove_clause(c);
                     continue;
-                }
-                if (sz == 2) {
+                case 2:
                     TRACE("subsumption", tout << "clause became binary: " << c << "\n";);
                     s.mk_bin_clause(c[0], c[1], c.is_learned());
                     m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));
+                    c.restore(sz0);
                     remove_clause(c);
                     continue;
+                default:
+                    break;
                 }
             }
             TRACE("subsumption", tout << "using: " << c << "\n";);
