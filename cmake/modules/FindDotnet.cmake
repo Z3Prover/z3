@@ -203,7 +203,7 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
     ENDIF()
 
     IF(NOT _DN_CONFIG)
-        SET(_DN_CONFIG $<IF:$<CONFIG:Debug>,Debug,Release>)
+        SET(_DN_CONFIG "$<$<CONFIG:Debug>:Debug>$<$<NOT:$<CONFIG:Debug>>:Release>")
     ENDIF()
 
     # If platform is not specified, do not pass the Platform property.
