@@ -349,7 +349,7 @@ namespace sat {
             }
             if (sz == 2) {
                 s.mk_bin_clause(c[0], c[1], c.is_learned());
-                s.del_clause(c);
+                s.del_clause(c, false);
                 continue;
             }
             *it2 = *it;
@@ -611,10 +611,15 @@ namespace sat {
                 break;
             }
         }
-        if (j < sz) {
-            if (s.m_config.m_drat) s.m_drat.del(c);
+        if (j < sz && !r) {
+            if (s.m_config.m_drat) {
+                m_dummy.set(c.size(), c.begin(), c.is_learned());
+            }
             c.shrink(j);
-            if (s.m_config.m_drat) s.m_drat.add(c, true);
+            if (s.m_config.m_drat) {
+                s.m_drat.add(c, true);
+                s.m_drat.del(*m_dummy.get());
+            }
         }
         return r;
     }
@@ -1272,7 +1277,8 @@ namespace sat {
          * unless C contains lit, and it is a tautology.
          */
         bool add_ala() {
-            for (; m_ala_qhead < m_covered_clause.size(); ++m_ala_qhead) {
+            unsigned init_size = m_covered_clause.size();
+            for (; m_ala_qhead < m_covered_clause.size() && m_ala_qhead < 5*init_size; ++m_ala_qhead) {
                 literal l = m_covered_clause[m_ala_qhead];                
                 for (watched & w : s.get_wlist(~l)) {
                     if (w.is_binary_non_learned_clause()) {
@@ -1282,7 +1288,6 @@ namespace sat {
                             return true;
                         }
                         if (!s.is_marked(~lit)) {
-                            // if (m_covered_clause[0].var() == 10219) IF_VERBOSE(0, verbose_stream() << "ala: " << l << " " << lit << "\n");
                             m_covered_clause.push_back(~lit);
                             m_covered_antecedent.push_back(clause_ante(l, false));
                             s.mark_visited(~lit);
@@ -1312,7 +1317,6 @@ namespace sat {
                     if (lit1 == null_literal) {
                         return true;
                     }
-                    // if (m_covered_clause[0].var() == 10219) IF_VERBOSE(0, verbose_stream() << "ala: " << c << " " << lit1 << "\n");
                     m_covered_clause.push_back(~lit1);
                     m_covered_antecedent.push_back(clause_ante(c));
                     s.mark_visited(~lit1);
@@ -1527,6 +1531,7 @@ namespace sat {
                     block_covered_binary(w, l, blocked, k);
                     break;
                 }
+                s.checkpoint();
             }
         }
 
@@ -1552,6 +1557,7 @@ namespace sat {
                     s.set_learned(c);
                     break;
                 }
+                s.checkpoint();
             }
         }
 
@@ -2019,8 +2025,7 @@ namespace sat {
             for (auto & c2 : m_neg_cls) {
                 m_new_cls.reset();
                 if (!resolve(c1, c2, pos_l, m_new_cls))
-                    continue;
-                if (false && v == 767) IF_VERBOSE(0, verbose_stream() << "elim: " << c1 << " +  " << c2 << " -> " << m_new_cls << "\n");
+                    continue;                
                 TRACE("resolution_new_cls", tout << c1 << "\n" << c2 << "\n-->\n" << m_new_cls << "\n";);
                 if (cleanup_clause(m_new_cls))
                     continue; // clause is already satisfied.

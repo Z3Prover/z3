@@ -196,6 +196,9 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bv_comp(args[0], args[1], result);
     case OP_MKBV:
         return mk_mkbv(num_args, args, result);
+    case OP_BIT2BOOL:
+        SASSERT(num_args == 1);
+        return mk_bit2bool(args[0], f->get_parameter(0).get_int(), result);
     case OP_BSMUL_NO_OVFL:
         return mk_bvsmul_no_overflow(num_args, args, result);
     case OP_BUMUL_NO_OVFL:
@@ -2201,6 +2204,19 @@ br_status bv_rewriter::mk_bv_mul(unsigned num_args, expr * const * args, expr_re
     }
 
     return st;
+}
+
+br_status bv_rewriter::mk_bit2bool(expr * n, int idx, expr_ref & result) {
+    rational v, bit;
+    unsigned sz = 0;
+    if (!is_numeral(n, v, sz)) 
+        return BR_FAILED;
+    if (idx < 0 || idx >= static_cast<int>(sz)) 
+        return BR_FAILED;
+    div(v, rational::power_of_two(idx), bit);
+    mod(bit, rational(2), bit);
+    result = m().mk_bool_val(bit.is_one());
+    return BR_DONE;
 }
 
 br_status bv_rewriter::mk_bit2bool(expr * lhs, expr * rhs, expr_ref & result) {

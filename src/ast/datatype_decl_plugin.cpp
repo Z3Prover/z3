@@ -143,7 +143,77 @@ namespace datatype {
             }
             return r;
         }
-        size* size::mk_power(size* a1, size* a2) { return alloc(power, a1, a2); }
+
+        size* size::mk_power(size* a1, size* a2) { 
+            return alloc(power, a1, a2); 
+        }
+
+        
+        sort_size plus::eval(obj_map<sort, sort_size> const& S) {
+            rational r(0);
+            ptr_vector<size> todo;
+            todo.push_back(m_arg1);
+            todo.push_back(m_arg2);
+            while (!todo.empty()) {
+                size* s = todo.back();
+                todo.pop_back();
+                plus* p = dynamic_cast<plus*>(s);
+                if (p) {
+                    todo.push_back(p->m_arg1);
+                    todo.push_back(p->m_arg2);
+                }
+                else {
+                    sort_size sz = s->eval(S);                        
+                    if (sz.is_infinite()) return sz;
+                    if (sz.is_very_big()) return sz;
+                    r += rational(sz.size(), rational::ui64());
+                }
+            }
+            return sort_size(r);
+        }
+
+        size* plus::subst(obj_map<sort,size*>& S) { 
+            return mk_plus(m_arg1->subst(S), m_arg2->subst(S)); 
+        }
+
+        sort_size times::eval(obj_map<sort, sort_size> const& S) {
+            sort_size s1 = m_arg1->eval(S);
+            sort_size s2 = m_arg2->eval(S);
+            if (s1.is_infinite()) return s1;
+            if (s2.is_infinite()) return s2;
+            if (s1.is_very_big()) return s1;
+            if (s2.is_very_big()) return s2;
+            rational r = rational(s1.size(), rational::ui64()) * rational(s2.size(), rational::ui64());
+            return sort_size(r);
+        }
+
+        size* times::subst(obj_map<sort,size*>& S) { 
+            return mk_times(m_arg1->subst(S), m_arg2->subst(S)); 
+        }
+
+        sort_size power::eval(obj_map<sort, sort_size> const& S) {
+            sort_size s1 = m_arg1->eval(S);
+            sort_size s2 = m_arg2->eval(S);
+            // s1^s2
+            if (s1.is_infinite()) return s1;
+            if (s2.is_infinite()) return s2;
+            if (s1.is_very_big()) return s1;
+            if (s2.is_very_big()) return s2;
+            if (s1.size() == 1) return s1;
+            if (s2.size() == 1) return s1;
+            if (s1.size() > (2 << 20) || s2.size() > 10) return sort_size::mk_very_big();
+            rational r = ::power(rational(s1.size(), rational::ui64()), static_cast<unsigned>(s2.size()));
+            return sort_size(r);
+        }
+
+        size* power::subst(obj_map<sort,size*>& S) { 
+            return mk_power(m_arg1->subst(S), m_arg2->subst(S)); 
+        }
+
+        size* sparam::subst(obj_map<sort, size*>& S) { 
+            return S[m_param]; 
+        }
+
     }
 
     namespace decl {
@@ -584,13 +654,14 @@ namespace datatype {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
             unsigned n = get_datatype_num_parameter_sorts(s);
+            def & d = get_def(s->get_name());
+            SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                sz->inc_ref();
-                S.insert(ps, sz); 
-            }
-            def & d = get_def(s->get_name());
+                sz->inc_ref();                
+                S.insert(d.params().get(i), sz); 
+            }            
             sz = d.sort_size()->subst(S);
             for (auto & kv : S) {
                 kv.m_value->dec_ref();
@@ -667,7 +738,7 @@ namespace datatype {
                 continue;
             }
 
-            ptr_vector<param_size::size> s_add;        
+            ptr_vector<param_size::size> s_add;      
             for (constructor const* c : d) {
                 ptr_vector<param_size::size> s_mul;
                 for (accessor const* a : *c) {

@@ -459,6 +459,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_SEQ_AT:
         SASSERT(num_args == 2);
         return mk_seq_at(args[0], args[1], result); 
+#if 0
+    case OP_SEQ_NTH:
+        SASSERT(num_args == 2);
+        return mk_seq_nth(args[0], args[1], result); 
+#endif
     case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
         return mk_seq_prefix(args[0], args[1], result);
@@ -875,6 +880,32 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     }
     result = m_util.str.mk_empty(m().get_sort(a));
     return BR_DONE;
+}
+
+br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
+    zstring c;
+    rational r;
+    if (!m_autil.is_numeral(b, r) || !r.is_unsigned()) {
+        return BR_FAILED;
+    }
+    unsigned len = r.get_unsigned();
+
+    expr_ref_vector as(m());
+    m_util.str.get_concat_units(a, as);
+
+    for (unsigned i = 0; i < as.size(); ++i) {
+        expr* a = as.get(i), *u = nullptr;
+        if (m_util.str.is_unit(a, u)) {
+            if (len == i) {
+                result = u;
+                return BR_DONE;
+            }            
+        }
+        else {
+            return BR_FAILED;
+        }
+    }
+    return BR_FAILED;
 }
 
 br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result) {

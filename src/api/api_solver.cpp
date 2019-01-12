@@ -181,7 +181,7 @@ extern "C" {
         if (!is) {
             SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
         }
-        else if (ext && std::string("dimacs") == ext) {
+        else if (ext && (std::string("dimacs") == ext || std::string("cnf") == ext)) {
             ast_manager& m = to_solver_ref(s)->get_manager();
             std::stringstream err;
             sat::solver solver(to_solver_ref(s)->get_params(), m.limit());

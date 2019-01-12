@@ -723,10 +723,11 @@ namespace smt {
             ineqs = alloc(ptr_vector<ineq>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
         }
-        for (auto* c1 : *ineqs) {
-            //if (c1 == c) return;
-            SASSERT (c1 != c);
-        }
+        DEBUG_CODE(
+            for (auto* c1 : *ineqs) {
+                //if (c1 == c) return;
+                SASSERT (c1 != c);
+            });
         ineqs->push_back(c);
     }
 
@@ -965,9 +966,9 @@ namespace smt {
         justification* js = nullptr;
         c.inc_propagations(*this);
         if (!resolve_conflict(c, lits)) {
-			if (proofs_enabled()) {
-				js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
-			}
+            if (proofs_enabled()) {
+                js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
+            }
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
         }
         SASSERT(ctx.inconsistent());
@@ -1194,10 +1195,15 @@ namespace smt {
         // perform unit propagation
         if (maxsum >= c.mpz_k() && maxsum - mininc < c.mpz_k()) { 
             literal_vector& lits = get_unhelpful_literals(c, true);
+            // for (literal lit : lits) SASSERT(ctx.get_assignment(lit) == l_true);
             lits.push_back(c.lit());
+            // SASSERT(ctx.get_assignment(c.lit()) == l_true);
             for (unsigned i = 0; i < sz; ++i) {
-                DEBUG_CODE(validate_assign(c, lits, c.lit(i)););
-                add_assign(c, lits, c.lit(i));                               
+                literal lit = c.lit(i);
+                if (ctx.get_assignment(lit) == l_undef) {
+                    DEBUG_CODE(validate_assign(c, lits, lit););
+                    add_assign(c, lits, c.lit(i));               
+                }
             }
         }
     }
