@@ -966,9 +966,9 @@ namespace smt {
         justification* js = nullptr;
         c.inc_propagations(*this);
         if (!resolve_conflict(c, lits)) {
-			if (proofs_enabled()) {
-				js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
-			}
+            if (proofs_enabled()) {
+                js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
+            }
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
         }
         SASSERT(ctx.inconsistent());
@@ -1195,7 +1195,9 @@ namespace smt {
         // perform unit propagation
         if (maxsum >= c.mpz_k() && maxsum - mininc < c.mpz_k()) { 
             literal_vector& lits = get_unhelpful_literals(c, true);
+            // for (literal lit : lits) SASSERT(ctx.get_assignment(lit) == l_true);
             lits.push_back(c.lit());
+            // SASSERT(ctx.get_assignment(c.lit()) == l_true);
             for (unsigned i = 0; i < sz; ++i) {
                 literal lit = c.lit(i);
                 if (ctx.get_assignment(lit) == l_undef) {

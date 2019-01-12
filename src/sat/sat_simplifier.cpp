@@ -349,7 +349,7 @@ namespace sat {
             }
             if (sz == 2) {
                 s.mk_bin_clause(c[0], c[1], c.is_learned());
-                s.del_clause(c);
+                s.del_clause(c, false);
                 continue;
             }
             *it2 = *it;
@@ -611,10 +611,15 @@ namespace sat {
                 break;
             }
         }
-        if (j < sz) {
-            if (s.m_config.m_drat) s.m_drat.del(c);
+        if (j < sz && !r) {
+            if (s.m_config.m_drat) {
+                m_dummy.set(c.size(), c.begin(), c.is_learned());
+            }
             c.shrink(j);
-            if (s.m_config.m_drat) s.m_drat.add(c, true);
+            if (s.m_config.m_drat) {
+                s.m_drat.add(c, true);
+                s.m_drat.del(*m_dummy.get());
+            }
         }
         return r;
     }
@@ -2020,8 +2025,7 @@ namespace sat {
             for (auto & c2 : m_neg_cls) {
                 m_new_cls.reset();
                 if (!resolve(c1, c2, pos_l, m_new_cls))
-                    continue;
-                if (false && v == 767) IF_VERBOSE(0, verbose_stream() << "elim: " << c1 << " +  " << c2 << " -> " << m_new_cls << "\n");
+                    continue;                
                 TRACE("resolution_new_cls", tout << c1 << "\n" << c2 << "\n-->\n" << m_new_cls << "\n";);
                 if (cleanup_clause(m_new_cls))
                     continue; // clause is already satisfied.

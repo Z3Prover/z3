@@ -38,9 +38,13 @@ void atom2bool_var::mk_var_inv(app_ref_vector & var2expr) const {
 }
 
 sat::bool_var atom2bool_var::to_bool_var(expr * n) const {
-    sat::bool_var v = sat::null_bool_var;
-    m_mapping.find(n, v);
-    return v;
+    unsigned idx = m_id2map.get(n->get_id(), UINT_MAX);
+    if (idx == UINT_MAX) {
+        return sat::null_bool_var;
+    }
+    else {
+        return m_mapping[idx].m_value;
+    }
 }
 
 struct collect_boolean_interface_proc {

@@ -60,6 +60,7 @@ class inc_sat_solver : public solver {
     atom2bool_var       m_map;
     scoped_ptr<bit_blaster_rewriter> m_bb_rewriter;
     tactic_ref          m_preprocess;
+    bool                m_is_cnf;
     unsigned            m_num_scopes;
     sat::literal_vector m_asms;
     goal_ref_buffer     m_subgoals;
@@ -88,6 +89,7 @@ public:
         m_fmls_head(0),
         m_core(m),
         m_map(m),
+        m_is_cnf(true),
         m_num_scopes(0),
         m_unknown("no reason given"),
         m_internalized_converted(false), 
@@ -262,9 +264,22 @@ public:
     void assert_expr_core2(expr * t, expr * a) override {        
         if (a) {
             m_asmsf.push_back(a);
-            assert_expr_core(m.mk_implies(a, t));
+            if (m_is_cnf && is_literal(t) && is_literal(a)) {
+                assert_expr_core(m.mk_or(::mk_not(m, a), t));
+            }
+            else if (m_is_cnf && m.is_or(t) && is_clause(t) && is_literal(a)) {
+                expr_ref_vector args(m);
+                args.push_back(::mk_not(m, a));
+                args.append(to_app(t)->get_num_args(), to_app(t)->get_args());
+                assert_expr_core(m.mk_or(args.size(), args.c_ptr()));
+            }
+            else {
+                m_is_cnf = false;
+                assert_expr_core(m.mk_implies(a, t));
+            }
         }
         else {
+            m_is_cnf &= is_clause(t);
             assert_expr_core(t);
         }
     }
@@ -545,7 +560,12 @@ private:
         SASSERT(!g->proofs_enabled());
         TRACE("sat", m_solver.display(tout); g->display(tout););
         try {
-            (*m_preprocess)(g, m_subgoals);
+            if (m_is_cnf) {
+                m_subgoals.push_back(g.get());
+            }
+            else {
+                (*m_preprocess)(g, m_subgoals);
+            }
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
@@ -705,6 +725,25 @@ private:
         }
     }
 
+    bool is_literal(expr* n) {
+        return is_uninterp_const(n) || (m.is_not(n, n) && is_uninterp_const(n));
+    }
+
+    bool is_clause(expr* fml) {
+        if (is_literal(fml)) {
+            return true;
+        }
+        if (!m.is_or(fml)) {
+            return false;
+        }
+        for (expr* n : *to_app(fml)) {
+            if (!is_literal(n)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     lbool internalize_formulas() {
         if (m_fmls_head == m_fmls.size()) {
             return l_true;
@@ -712,7 +751,8 @@ private:
         dep2asm_t dep2asm;
         goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
         for (unsigned i = m_fmls_head ; i < m_fmls.size(); ++i) {
-            g->assert_expr(m_fmls[i].get());
+            expr* fml = m_fmls.get(i);
+            g->assert_expr(fml);
         }
         lbool res = internalize_goal(g, dep2asm, false);
         if (res != l_undef) {
