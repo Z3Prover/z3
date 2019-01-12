@@ -342,7 +342,10 @@ namespace sat {
                     break;
                 default:
                     if (!m_to_delete.contains(lit)) {
-                        c[j++] = lit;
+                        if (i != j) {
+                            std::swap(c[i], c[j]);
+                        }
+                        j++;
                     }
                     break;
                 }
@@ -406,12 +409,13 @@ namespace sat {
 
     bool asymm_branch::re_attach(scoped_detach& scoped_d, clause& c, unsigned new_sz) {
         VERIFY(s.m_trail.size() == s.m_qhead);
-        m_elim_literals += c.size() - new_sz;
+        unsigned old_sz = c.size();
+        m_elim_literals += old_sz - new_sz;
         if (c.is_learned()) {
-            m_elim_learned_literals += c.size() - new_sz; 
+            m_elim_learned_literals += old_sz - new_sz; 
         }
 
-        switch(new_sz) {
+        switch (new_sz) {
         case 0:
             s.set_conflict(justification());
             return false;
@@ -430,8 +434,12 @@ namespace sat {
             return false;
         default:
             c.shrink(new_sz);
-            if (s.m_config.m_drat) s.m_drat.add(c, true);
-            // if (s.m_config.m_drat) s.m_drat.del(c0); // TBD
+            if (s.m_config.m_drat && new_sz < old_sz) {
+                s.m_drat.add(c, true);
+                c.restore(old_sz);
+                s.m_drat.del(c);
+                c.shrink(new_sz);
+            }
             return true;
         }
     }

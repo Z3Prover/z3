@@ -480,15 +480,15 @@ void goal::display_dimacs(std::ostream & out) const {
                 out << "-";
                 l = to_app(l)->get_arg(0);
             }
-            unsigned id = expr2var[l->get_id()];
-            SASSERT(id != UINT_MAX);
-            out << id << " ";
+            SASSERT(exprs[l->get_id()]);
+            out << expr2var[l->get_id()] << " ";
         }
         out << "0\n";
     }
     for (expr* e : exprs) {
         if (e && is_app(e)) {
-            out << "c " << expr2var[e->get_id()] << " " << to_app(e)->get_decl()->get_name() << "\n";
+            symbol const& n = to_app(e)->get_decl()->get_name();
+            out << "c " << expr2var[e->get_id()] << " " << n << "\n";            
         }
     }
 }

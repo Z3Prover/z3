@@ -585,8 +585,21 @@ namespace sat {
 
     void drat::del(clause& c) {
 
+#if 0
+        // check_duplicates:
+        for (literal lit : c) {
+            VERIFY(!m_seen[lit.index()]);
+            m_seen[lit.index()] = true;
+        }
+        for (literal lit : c) {
+            m_seen[lit.index()] = false;
+        }
+#endif
+
         TRACE("sat", tout << "del: " << c << "\n";);
-        if (m_out) dump(c.size(), c.begin(), status::deleted);
+        if (m_out) {
+            dump(c.size(), c.begin(), status::deleted);
+        }
         if (m_check) {
             clause* c1 = s.alloc_clause(c.size(), c.begin(), c.is_learned()); 
             append(*c1, status::deleted);
