@@ -76,7 +76,7 @@ ${Z3_DOTNET_COMPILE_ITEMS}
   <!-- TODO we may want to pack x64 and x86 native assemblies into a single nupkg -->
 
   <!-- Native binaries x64 -->
-  <ItemGroup Condition="'$(Platform)' == 'x64'">
+  <ItemGroup Condition="'$(Platform)' != 'x86'">
     <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(Configuration)/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(Configuration)/libz3.dll')">
       <PackagePath>runtimes\win-x64\native</PackagePath>
     </Content>
