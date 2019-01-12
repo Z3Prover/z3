@@ -351,7 +351,8 @@ namespace sat {
                 break;
             case 2:
                 s.mk_bin_clause(c[0], c[1], c.is_learned());
-                s.del_clause(c, false);
+                c.restore(sz0);
+                s.del_clause(c, true);
                 break;
             default:
                 *it2 = *it;
@@ -613,13 +614,9 @@ namespace sat {
             }
         }
         if (j < sz && !r) {
-            if (s.m_config.m_drat) {
-                m_dummy.set(c.size(), c.begin(), c.is_learned());
-            }
             c.shrink(j);
             if (s.m_config.m_drat) {
                 s.m_drat.add(c, true);
-                s.m_drat.del(*m_dummy.get());
             }
         }
         return r;
@@ -692,6 +689,7 @@ namespace sat {
         clause_use_list & occurs = m_use_list.get(l);
         occurs.erase_not_removed(c);
         m_sub_counter -= occurs.size()/2;
+        unsigned sz0 = c.size();
         if (cleanup_clause(c, true /* clause is in the use lists */)) {
             // clause was satisfied
             TRACE("elim_lit", tout << "clause was satisfied\n";);
@@ -707,12 +705,12 @@ namespace sat {
             TRACE("elim_lit", tout << "clause became unit: " << c[0] << "\n";);
             propagate_unit(c[0]);
             // propagate_unit will delete c.
-            // remove_clause(c);
             break;
         case 2:
             TRACE("elim_lit", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
-            m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));
+            m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));            
+            c.restore(sz0);
             remove_clause(c);
             break;
         default:
