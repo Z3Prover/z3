@@ -157,6 +157,10 @@ add_dependencies(BUILD_Microsoft.Z3 libz3)
 # Convenient top-level target
 add_custom_target(build_z3_dotnet_bindings ALL DEPENDS BUILD_Microsoft.Z3)
 
+# Register the local nupkg repo
+set(Z3_DOTNET_LOCALREPO_NAME "Microsoft Z3 Local Repository")
+DOTNET_REGISTER_LOCAL_REPOSITORY(${Z3_DOTNET_LOCALREPO_NAME} ${CMAKE_BINARY_DIR})
+
 ###############################################################################
 # Install: register a local nuget repo and install our package.
 #          the build step depends on the 'purge' target, making sure that
@@ -166,7 +170,8 @@ option(INSTALL_DOTNET_BINDINGS "Install .NET bindings when invoking install targ
 
 if(INSTALL_DOTNET_BINDINGS)
     install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3/Microsoft.Z3.${Z3_DOTNET_NUPKG_VERSION}.nupkg" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
-    install(CODE "include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/modules/FindDotnet.cmake)\n DOTNET_REGISTER_LOCAL_REPOSITORY(Microsoft.Z3.LocalBuild ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/z3.nuget)")
+    # move the local repo to the installation directory (cancel the build-time repo)
+    install(CODE "include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/modules/FindDotnet.cmake)\n DOTNET_REGISTER_LOCAL_REPOSITORY(\"${Z3_DOTNET_LOCALREPO_NAME}\" ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/z3.nuget)")
     install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3/Microsoft.Z3.xml" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
 # TODO GAC?
 #  set(GAC_PKG_NAME "Microsoft.Z3.Sharp")
