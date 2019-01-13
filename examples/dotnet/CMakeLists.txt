@@ -1,0 +1,15 @@
+find_package(Dotnet REQUIRED)
+
+if("${TARGET_ARCHITECTURE}" STREQUAL "i686")
+    set(Z3_DOTNET_PLATFORM "x86")
+else()
+    set(Z3_DOTNET_PLATFORM "Any CPU")
+endif()
+
+configure_file(dotnet.csproj dotnet.csproj COPYONLY)
+configure_file(program.cs program.cs       COPYONLY)
+
+ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/dotnet.csproj
+    PLATFORM ${Z3_DOTNET_PLATFORM}
+    CUSTOM_BUILDPROPS "<Z3_VERSION>${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}</Z3_VERSION>"
+    DEPENDS Microsoft.Z3)

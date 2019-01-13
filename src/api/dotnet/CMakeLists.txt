@@ -159,11 +159,6 @@ ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/build/Microsoft.Z3.csproj
     PACKAGE Microsoft.Z3
     PACK_ARGUMENTS "/p:_DN_CMAKE_CONFIG=$<CONFIG>"
     )
-ADD_DOTNET(${CMAKE_SOURCE_DIR}/examples/dotnet/dotnet.csproj
-    PLATFORM ${Z3_DOTNET_PLATFORM}
-    CUSTOM_BUILDPROPS "<Z3_VERSION>${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}</Z3_VERSION>"
-    DEPENDS Microsoft.Z3)
-
 add_dependencies(BUILD_Microsoft.Z3 libz3)
 
 # Convenient top-level target
