@@ -7,7 +7,7 @@ else()
 endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dotnet.csproj dotnet.csproj COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/program.cs program.cs       COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Program.cs Program.cs       COPYONLY)
 
 ADD_DOTNET(${CMAKE_CURRENT_BINARY_DIR}/dotnet.csproj
     PLATFORM ${Z3_DOTNET_PLATFORM}
