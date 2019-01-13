@@ -177,6 +177,7 @@ public:
         else {
             asum = mk_fresh_bool("soft");
             fml = m.mk_iff(asum, e);
+            m_defs.push_back(fml);
             add(fml);
         }
         new_assumption(asum, w);
@@ -698,8 +699,7 @@ public:
                 fml = m.mk_implies(d, cls);
                 update_model(d, cls);
                 add(fml);
-                m_defs.push_back(fml);
-                
+                m_defs.push_back(fml);                
             }
             else {
                 d = cls;
@@ -833,7 +833,7 @@ public:
 
     void commit_assignment() override {
         if (m_found_feasible_optimum) {
-            TRACE("opt", tout << "Committing feasible solution\n" << m_defs << " " << m_asms;);
+            TRACE("opt", tout << "Committing feasible solution\ndefs:" << m_defs << "\nasms:" << m_asms << "\n";);
             add(m_defs);
             add(m_asms);
         }

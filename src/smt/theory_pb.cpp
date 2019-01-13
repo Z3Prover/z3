@@ -158,8 +158,6 @@ namespace smt {
         m_watch_sz = 0;
         m_watch_sum.reset();
         m_num_propagations = 0;
-        m_compilation_threshold = UINT_MAX;
-        m_compiled = l_false;
         m_args[0].reset();
         m_args[0].m_k.reset();
         m_args[1].reset();
@@ -430,10 +428,6 @@ namespace smt {
 
     void theory_pb::card::inc_propagations(theory_pb& th) {
         ++m_num_propagations;
-        if (m_compiled == l_false && m_num_propagations >= m_compilation_threshold) {
-            // m_compiled = l_undef;
-            // th.m_to_compile.push_back(&c);
-        }
     }
 
     // ------------------------
@@ -443,8 +437,6 @@ namespace smt {
         theory(m.mk_family_id("pb")),
         m_params(p),
         pb(m),
-        m_max_compiled_coeff(rational(8)),
-        m_cardinality_lemma(false),
         m_restart_lim(3),
         m_restart_inc(0),
         m_antecedent_exprs(m),
@@ -452,7 +444,6 @@ namespace smt {
     {        
         m_learn_complements  = p.m_pb_learn_complements;
         m_conflict_frequency = p.m_pb_conflict_frequency;
-        m_enable_compilation = p.m_pb_enable_compilation;
     }
 
     theory_pb::~theory_pb() {
@@ -529,7 +520,6 @@ namespace smt {
         numeral& k = c->m_args[0].m_k;
         arg_t& args = c->m_args[0];
 
-
         // extract literals and coefficients.
         for (unsigned i = 0; i < num_args; ++i) {
             expr* arg = atom->get_arg(i);
@@ -546,28 +536,23 @@ namespace smt {
                 break;
             }
         }
+
         if (pb.is_at_most_k(atom) || pb.is_le(atom)) {
-            IF_VERBOSE(0, verbose_stream() << "***le\n");
             k = -k;
             for (auto& a : args) {
                 a.first.neg();
                 k += a.second;
             }
         }
-        else {
-            SASSERT(pb.is_at_least_k(atom) || pb.is_ge(atom) || pb.is_eq(atom));
-        }
-        TRACE("pb", display(tout << "inconsistent: " << ctx.inconsistent() << " ", *c, true););        
         c->unique();
         lbool is_true = c->normalize();
         c->prune();
         c->post_prune();
 
-
         TRACE("pb", display(tout, *c); tout << " := " << lit << " " << is_true << "\n";);        
         switch (is_true) {
         case l_false: 
-            lit = ~lit;
+            lit.neg();
             // fall-through
         case l_true: 
             ctx.mk_th_axiom(get_id(), 1, &lit);
@@ -599,25 +584,6 @@ namespace smt {
             }
         }
 
-        // pre-compile threshold for cardinality
-        bool enable_compile = m_enable_compilation && c->is_ge() && !c->k().is_one();
-        for (unsigned i = 0; enable_compile && i < args.size(); ++i) {
-            enable_compile = (args[i].second <= m_max_compiled_coeff);
-        }
-        if (enable_compile) {
-            unsigned log = 1, n = 1;
-            while (n <= args.size()) {
-                ++log;
-                n *= 2;
-            }
-            unsigned th = args.size()*log*log; 
-            c->m_compilation_threshold = th;
-            IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threshold to " << th << ")\n";);
-            TRACE("pb", tout << "compilation threshold: " << th << "\n";);
-        }
-        else {
-            c->m_compilation_threshold = UINT_MAX;
-        }
         init_watch_ineq(*c);
         init_watch(abv);
         m_var_infos[abv].m_ineq = c;
@@ -1007,9 +973,6 @@ namespace smt {
         st.update("pb conflicts", m_stats.m_num_conflicts);
         st.update("pb propagations", m_stats.m_num_propagations);
         st.update("pb predicates", m_stats.m_num_predicates);        
-        st.update("pb compilations", m_stats.m_num_compiles);
-        st.update("pb compiled clauses", m_stats.m_num_compiled_clauses);
-        st.update("pb compiled vars", m_stats.m_num_compiled_vars);
     }
     
     void theory_pb::reset_eh() {
@@ -1022,8 +985,6 @@ namespace smt {
         m_card_trail.reset();
         m_card_lim.reset();
         m_stats.reset();
-        m_to_compile.reset();
-        m_cardinality_lemma = false;
     }
 
     void theory_pb::new_eq_eh(theory_var v1, theory_var v2) {
@@ -1372,31 +1333,9 @@ namespace smt {
 
     void theory_pb::inc_propagations(ineq& c) {
         ++c.m_num_propagations;
-        if (c.m_compiled == l_false && c.m_num_propagations >= c.m_compilation_threshold) {
-            c.m_compiled = l_undef;
-            m_to_compile.push_back(&c);
-        }
     }
 
     void theory_pb::restart_eh() {
-        for (unsigned i = 0; i < m_to_compile.size(); ++i) {
-            compile_ineq(*m_to_compile[i]);
-        }
-        m_to_compile.reset();
-
-        return;
-
-        if (m_restart_lim <= m_restart_inc) {
-            m_restart_inc = 0;
-            if (gc()) {
-                m_restart_lim = 3;
-            }
-            else {
-                m_restart_lim *= 4;
-                m_restart_lim /= 3;
-            }
-        }
-        ++m_restart_inc;
     }
 
     bool theory_pb::gc() {
@@ -1461,76 +1400,6 @@ namespace smt {
     }
 
 
-    void theory_pb::compile_ineq(ineq& c) {
-        ++m_stats.m_num_compiles;
-        context& ctx = get_context();
-        // only cardinality constraints are compiled.
-        SASSERT(c.m_compilation_threshold < UINT_MAX);
-        DEBUG_CODE(for (unsigned i = 0; i < c.size(); ++i) SASSERT(c.coeff(i).is_int()); );
-        unsigned k = c.k().get_unsigned();
-        unsigned num_args = c.size();
-
-
-        literal thl = c.lit();
-        literal at_least_k;
-
-        literal_vector in;
-        for (unsigned i = 0; i < num_args; ++i) {
-            rational n = c.coeff(i);
-            literal lit = c.lit(i);
-            lbool val = ctx.get_assignment(lit); 
-            if (val != l_undef  && ctx.get_assign_level(lit) == ctx.get_base_level()) {
-                if (val == l_true) {
-                    unsigned m = n.get_unsigned();
-                    if (k < m) {
-                        return;
-                    }
-                    k -= m;
-                }
-                continue;
-            }
-            while (n.is_pos()) {
-                in.push_back(c.lit(i));
-                n -= rational::one();
-            }
-        }
-        
-        TRACE("pb", tout << in << " >= " << k << "\n";);
-
-
-        psort_expr ps(ctx, *this);
-        psort_nw<psort_expr> sortnw(ps);
-        sortnw.m_stats.reset();
-
-        if (ctx.get_assignment(thl) == l_true  && 
-            ctx.get_assign_level(thl) == ctx.get_base_level()) {
-            at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());            
-            TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
-            ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
-        }
-        else {
-            literal at_least_k = sortnw.ge(true, k, in.size(), in.c_ptr());
-            TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
-            ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
-            ctx.mk_clause(~at_least_k, thl, justify(thl, ~at_least_k));
-        }
-        m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
-        m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
-
-        IF_VERBOSE(2, verbose_stream() 
-                   << "(smt.pb compile sorting network bound: " 
-                   << k << " literals: " << in.size() 
-                   << " clauses: " << sortnw.m_stats.m_num_compiled_clauses 
-                   << " vars: " << sortnw.m_stats.m_num_compiled_vars << ")\n";);
-
-        // auxiliary clauses get removed when popping scopes.
-        // we have to recompile the circuit after back-tracking.
-        c.m_compiled = l_false;
-        ctx.push_trail(value_trail<context, lbool>(c.m_compiled));
-        c.m_compiled = l_true;
-    }
-
-
     void theory_pb::init_search_eh() {
     }
 
@@ -1550,7 +1419,6 @@ namespace smt {
             clear_watch(*c);
             m_var_infos[v].m_ineq = nullptr;
             m_ineqs_trail.pop_back();
-            m_to_compile.erase(c);
             dealloc(c);
         }
         m_ineqs_lim.resize(new_lim);
@@ -1869,82 +1737,6 @@ namespace smt {
         return true;
     }
 
-    void theory_pb::add_cardinality_lemma() {
-        context& ctx = get_context();
-        normalize_active_coeffs();
-        int s = 0;
-        int new_bound = 0;
-        if (!init_arg_max()) {
-            return;
-        }
-        // TBD: can be optimized
-        while (s < m_bound) {
-            int coeff;
-            int arg = arg_max(coeff);
-            if (arg == -1) break;
-            s += coeff;
-            ++new_bound;
-        }
-        int slack = m_active_coeffs.empty() ? m_bound : (std::min(m_bound, static_cast<int>(m_active_coeffs[0]) - 1));
-        reset_arg_max();
-
-        while (slack > 0) {
-            bool found = false;
-            int v = 0;
-            int coeff = 0;
-            for (unsigned i = 0; !found && i < m_active_vars.size(); ++i) {            
-                bool_var v = m_active_vars[i];
-                coeff = get_abs_coeff(v);
-                if (0 < coeff && coeff < slack) {
-                    found = true;
-                }
-            }
-            if (!found) {
-                break;
-            }
-            slack -= coeff;
-            m_coeffs[v] = 0; // deactivate coefficient.
-        }
-        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
-            bool_var v = m_active_vars[i];
-            int coeff = get_coeff(v);
-            if (coeff < 0) {
-                m_coeffs[v] = -1;
-            }
-            else if (coeff > 0) {
-                m_coeffs[v] = 1;
-            }
-        }        
-
-        m_bound = new_bound;
-        if (!validate_lemma()) {
-            return;
-        }
-        SASSERT(m_bound > 0);
-        if (m_bound > static_cast<int>(m_active_vars.size())) {
-            return;
-        }           
-        if (m_bound == static_cast<int>(m_active_vars.size())) {
-            return;
-        }
-
-        m_antecedent_exprs.reset();
-        m_antecedent_signs.reset();
-        m_cardinality_exprs.reset();
-        m_cardinality_signs.reset();
-        for (unsigned i = 0; i < m_antecedents.size(); ++i) {
-            literal lit = m_antecedents[i];
-            m_antecedent_exprs.push_back(ctx.bool_var2expr(lit.var()));
-            m_antecedent_signs.push_back(lit.sign());
-        }
-        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
-            bool_var v = m_active_vars[i];
-            m_cardinality_exprs.push_back(ctx.bool_var2expr(v));
-            m_cardinality_signs.push_back(get_coeff(v) < 0);
-        }
-        m_cardinality_lemma = true;
-    }
-
     void theory_pb::normalize_active_coeffs() {
         while (!m_active_var_set.empty()) m_active_var_set.erase();
         unsigned i = 0, j = 0, sz = m_active_vars.size();
@@ -2024,48 +1816,9 @@ namespace smt {
         }
     }
 
-    bool theory_pb::can_propagate() { return m_cardinality_lemma; }
+    bool theory_pb::can_propagate() { return false; }
     
-    void theory_pb::propagate() {
-        context& ctx = get_context();
-        ast_manager& m = get_manager();
-        if (!m_cardinality_lemma) {
-            return;
-        }
-        m_cardinality_lemma = false;
-        if (ctx.inconsistent()) {
-            return;
-        }
-        m_antecedents.reset();
-
-        for (unsigned i = 0; i < m_antecedent_exprs.size(); ++i) {
-            expr* a = m_antecedent_exprs[i].get();
-            if (!ctx.b_internalized(a)) {
-                // std::cout << "not internalized " << mk_pp(a, m) << "\n";
-                return;
-            }
-            m_antecedents.push_back(~literal(ctx.get_bool_var(a), m_antecedent_signs[i]));
-        }
-        for (unsigned i = 0; i < m_cardinality_exprs.size(); ++i) {
-            expr* a = m_cardinality_exprs[i].get();
-            if (!ctx.b_internalized(a)) {
-                // std::cout << "not internalized " << mk_pp(a, m) << "\n";
-                return;
-            }
-            if (m_cardinality_signs[i]) {
-                m_cardinality_exprs[i] = m.mk_not(a);
-            }
-        }        
-        app_ref atl(pb.mk_at_least_k(m_cardinality_exprs.size(), m_cardinality_exprs.c_ptr(), m_bound), m);
-        VERIFY(internalize_card(atl, false));
-        bool_var abv = ctx.get_bool_var(atl);
-        m_antecedents.push_back(literal(abv));
-        justification* js = nullptr;
-        if (proofs_enabled()) {
-            js = nullptr;
-        }
-        ctx.mk_clause(m_antecedents.size(), m_antecedents.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
-    }
+    void theory_pb::propagate() { }
 
     bool theory_pb::resolve_conflict(card& c, literal_vector const& confl) {
        
@@ -2075,9 +1828,7 @@ namespace smt {
         context& ctx = get_context();
         ast_manager& m = get_manager();
         m_conflict_lvl = 0;
-        m_cardinality_lemma = false;
-        for (unsigned i = 0; i < confl.size(); ++i) {
-            literal lit = confl[i];
+        for (literal lit : confl) {
             SASSERT(ctx.get_assignment(lit) == l_false);
             m_conflict_lvl = std::max(m_conflict_lvl, ctx.get_assign_level(lit));            
         }
@@ -2244,66 +1995,41 @@ namespace smt {
             slack += get_abs_coeff(v);
         }
 
-#if 1
-        //std::cout << slack << " " << m_bound << "\n";
         unsigned i = 0;
         literal_vector const& alits = ctx.assigned_literals();
 
         literal alit = get_asserting_literal(~conseq);
         slack -= get_abs_coeff(alit.var());
 
-        for (i = alits.size(); 0 <= slack && i > 0; ) {
-            --i;
+        for (i = alits.size(); 0 <= slack && i-- > 0; ) {
             literal lit = alits[i];
             bool_var v = lit.var();
             // -3*x >= k 
             if (m_active_var_set.contains(v) && v != alit.var()) {
                 int coeff = get_coeff(v);
-                //std::cout << coeff << " " << lit << "\n";
                 if (coeff < 0 && !lit.sign()) {
                     slack += coeff;
                     m_antecedents.push_back(lit);
-                    //std::cout << "ante: " << lit << "\n";
                 }
                 else if (coeff > 0 && lit.sign()) {
                     slack -= coeff;
                     m_antecedents.push_back(lit);
-                    //std::cout << "ante: " << lit << "\n";
                 }
             }
         }
         SASSERT(slack < 0);
 
-#else 
-
-        literal alit = get_asserting_literal(~conseq);
-        slack -= get_abs_coeff(alit.var());
-
-        for (unsigned i = 0; 0 <= slack; ++i) { 
-            SASSERT(i < m_active_vars.size());
-            bool_var v = m_active_vars[i];
-            literal lit(v, get_coeff(v) < 0);
-            if (v != alit.var() && ctx.get_assignment(lit) == l_false) {
-                m_antecedents.push_back(~lit);
-                slack -= get_abs_coeff(v);
-            }
-            if (slack < 0) {
-                std::cout << i << " " << m_active_vars.size() << "\n";
-            }
-        }
-#endif
         SASSERT(validate_antecedents(m_antecedents));
         ctx.assign(alit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), alit, 0, nullptr)));
 
         DEBUG_CODE(
             m_antecedents.push_back(~alit);
             expr_ref_vector args(m);
-            for (unsigned i = 0; i < m_antecedents.size(); ++i) {
-                args.push_back(literal2expr(m_antecedents[i]));
+            for (literal lit : m_antecedents) {
+                args.push_back(literal2expr(lit));
             }
             B = m.mk_not(m.mk_and(args.size(), args.c_ptr()));
             validate_implies(A, B); );
-        // add_cardinality_lemma();
         return true;
     }
 
@@ -2446,8 +2172,8 @@ namespace smt {
 
     bool theory_pb::validate_antecedents(literal_vector const& lits) {
         context& ctx = get_context();
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            if (ctx.get_assignment(lits[i]) != l_true) {
+        for (literal lit : lits) {
+            if (ctx.get_assignment(lit) != l_true) {
                 return false;
             }
         }
@@ -2457,7 +2183,9 @@ namespace smt {
     bool theory_pb::validate_unit_propagation(card const& c) {
         context& ctx = get_context();
         for (unsigned i = c.k(); i < c.size(); ++i) {
-            VERIFY(ctx.get_assignment(c.lit(i)) == l_false);
+            if (ctx.get_assignment(c.lit(i)) != l_false) {
+                return false;
+            }
         }
         return true;
     }

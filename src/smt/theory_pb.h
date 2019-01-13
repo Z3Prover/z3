@@ -97,9 +97,6 @@ namespace smt {
             unsigned m_num_conflicts;
             unsigned m_num_propagations;
             unsigned m_num_predicates;
-            unsigned m_num_compiles;
-            unsigned m_num_compiled_vars;
-            unsigned m_num_compiled_clauses;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -120,8 +117,6 @@ namespace smt {
             scoped_mpz      m_max_sum;      // maximal possible sum.
             scoped_mpz      m_min_sum;      // minimal possible sum.
             unsigned        m_num_propagations;
-            unsigned        m_compilation_threshold;
-            lbool           m_compiled;
             
             ineq(unsynch_mpz_manager& m, literal l, bool is_eq) : 
                 m_mpz(m), m_lit(l), m_is_eq(is_eq), 
@@ -197,8 +192,6 @@ namespace smt {
             unsigned        m_bound;
             unsigned        m_num_propagations;
             unsigned        m_all_propagations;
-            unsigned        m_compilation_threshold;
-            lbool           m_compiled;
             bool            m_aux;
             
         public:
@@ -207,8 +200,6 @@ namespace smt {
                 m_bound(bound),
                 m_num_propagations(0),
                 m_all_propagations(0),
-                m_compilation_threshold(0),
-                m_compiled(l_false),
                 m_aux(is_aux)
             {
                 SASSERT(bound > 0);
@@ -284,13 +275,9 @@ namespace smt {
         literal_vector           m_literals;    // temporary vector
         pb_util                  pb;
         stats                    m_stats;
-        ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
         unsigned                 m_conflict_frequency;
         bool                     m_learn_complements;
-        bool                     m_enable_compilation;
-        rational                 m_max_compiled_coeff;
 
-        bool                     m_cardinality_lemma;
         unsigned                 m_restart_lim;
         unsigned                 m_restart_inc;
         uint_set                 m_occs;
@@ -352,11 +339,6 @@ namespace smt {
         literal_vector& get_helpful_literals(ineq& c, bool negate);
         literal_vector& get_unhelpful_literals(ineq& c, bool negate);
 
-        //
-        // Utilities to compile cardinality 
-        // constraints into a sorting network.
-        //
-        void compile_ineq(ineq& c);
         void inc_propagations(ineq& c);
 
         //
@@ -391,7 +373,6 @@ namespace smt {
         void reset_arg_max();
 
         void reset_coeffs();
-        void add_cardinality_lemma();
         literal get_asserting_literal(literal conseq);
 
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
