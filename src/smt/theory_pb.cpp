@@ -467,7 +467,6 @@ namespace smt {
         context& ctx = get_context();
         ast_manager& m = get_manager();
 
-        TRACE("pb", tout << mk_pp(atom, m) << "\n";);
         if (ctx.b_internalized(atom)) {
             return true;
         }
@@ -494,17 +493,25 @@ namespace smt {
         ctx.set_var_theory(abv, get_id());
         literal lit(abv);
 
-
         if (pb.is_eq(atom)) {
-            expr_ref_vector args(m);
+            expr_ref_vector args(m), nargs(m);
             vector<rational> coeffs;
-            unsigned n = atom->get_num_args();
-            for (unsigned i = 0; i < n; ++i) {
+            rational sum(0);
+            for (unsigned i = 0; i < num_args; ++i) {
                 args.push_back(atom->get_arg(i));
-                coeffs.push_back(pb.get_coeff(atom, i));
+                nargs.push_back(::mk_not(m, atom->get_arg(i)));
+                rational c = pb.get_coeff(atom, i);
+                coeffs.push_back(c);
+                sum += c;
             }
-            expr_ref le(pb.mk_le(n, coeffs.c_ptr(), args.c_ptr(), pb.get_k(atom)), m);
-            expr_ref ge(pb.mk_ge(n, coeffs.c_ptr(), args.c_ptr(), pb.get_k(atom)), m);
+            rational k = pb.get_k(atom);
+            // ax + by + cz <= k
+            // <=>
+            // -ax - by - cz >= -k
+            // <=>
+            // a(1-x) + b(1-y) + c(1-z) >= a + b + c - k
+            expr_ref le(pb.mk_ge(num_args, coeffs.c_ptr(), nargs.c_ptr(), sum - k), m);
+            expr_ref ge(pb.mk_ge(num_args, coeffs.c_ptr(), args.c_ptr(), k), m);
             ctx.internalize(le, false);
             ctx.internalize(ge, false);
             literal le_lit = ctx.get_literal(le);
@@ -540,23 +547,24 @@ namespace smt {
             }
         }
         if (pb.is_at_most_k(atom) || pb.is_le(atom)) {
-            // turn W <= k into -W >= -k
-            for (unsigned i = 0; i < args.size(); ++i) {
-                args[i].second = -args[i].second;
-            }
+            IF_VERBOSE(0, verbose_stream() << "***le\n");
             k = -k;
+            for (auto& a : args) {
+                a.first.neg();
+                k += a.second;
+            }
         }
         else {
             SASSERT(pb.is_at_least_k(atom) || pb.is_ge(atom) || pb.is_eq(atom));
         }
-        TRACE("pb", display(tout, *c, true););        
+        TRACE("pb", display(tout << "inconsistent: " << ctx.inconsistent() << " ", *c, true););        
         c->unique();
         lbool is_true = c->normalize();
         c->prune();
         c->post_prune();
 
 
-        TRACE("pb", display(tout, *c); tout << " := " << lit << "\n";);        
+        TRACE("pb", display(tout, *c); tout << " := " << lit << " " << is_true << "\n";);        
         switch (is_true) {
         case l_false: 
             lit = ~lit;
@@ -584,8 +592,8 @@ namespace smt {
         // maximal coefficient:
         scoped_mpz& max_watch = c->m_max_watch;
         max_watch.reset();
-        for (unsigned i = 0; i < args.size(); ++i) {
-            mpz const& num = args[i].second.to_mpq().numerator();
+        for (auto const& a : args) {
+            mpz const& num = a.second.to_mpq().numerator();
             if (m_mpz_mgr.lt(max_watch, num)) {
                 max_watch = num;
             }
@@ -1046,12 +1054,8 @@ namespace smt {
         }
         ineq* c = m_var_infos[v].m_ineq;
         if (c != nullptr) {
-            if (c->is_ge()) {
-                assign_ineq(*c, is_true);
-            }
-            else {
-                assign_eq(*c, is_true);
-            }
+            VERIFY(c->is_ge());
+            assign_ineq(*c, is_true);
         }
 
         ptr_vector<card>* cards = m_var_infos[v].m_lit_cwatch[nlit.sign()];
@@ -1213,7 +1217,7 @@ namespace smt {
     */
     void theory_pb::assign_eq(ineq& c, bool is_true) {
         SASSERT(c.is_eq());
-        
+        UNREACHABLE();
     }
 
 
@@ -2363,21 +2367,58 @@ namespace smt {
     }
 
     void theory_pb::validate_final_check() {
-        for (unsigned i = 0; i < m_var_infos.size(); ++i) {
-            ineq* c = m_var_infos[i].m_ineq;
-            if (c) {
-                validate_final_check(*c);
+        TRACE("pb", tout << "validate " << m_var_infos.size() << "\n";);
+        for (auto & vi : m_var_infos) {
+            if (vi.m_ineq) {
+                validate_final_check(*vi.m_ineq);
+            }
+            if (vi.m_card) {
+                validate_final_check(*vi.m_card);
             }
         }
+    }
+
+    void theory_pb::validate_final_check(card& c) {
+        context& ctx = get_context();
+        if (ctx.get_assignment(c.lit()) == l_undef) {
+            TRACE("pb", display(tout << "is undef ", c, true););
+            return;
+        }
+        if (!ctx.is_relevant(c.lit())) {
+            TRACE("pb", display(tout << "not relevant ", c, true););
+            return;
+        }
+
+        unsigned sum = 0, maxsum = 0;
+        for (unsigned i = 0; i < c.size(); ++i) {
+            switch(ctx.get_assignment(c.lit(i))) {
+            case l_true:
+                ++sum;
+            case l_undef:
+                ++maxsum;
+                break;
+            case l_false:
+                break;
+            }
+        }
+        TRACE("pb", display(tout << "validate: ", c, true);
+              tout << "sum: " << sum << " " << maxsum << " ";
+              tout << ctx.get_assignment(c.lit()) << "\n";);
+
+        SASSERT(sum <= maxsum);
+        SASSERT((sum >= c.k()) == (ctx.get_assignment(c.lit()) == l_true));
+        SASSERT((maxsum < c.k()) == (ctx.get_assignment(c.lit()) == l_false));        
     }
 
     void theory_pb::validate_final_check(ineq& c) {
         context& ctx = get_context();
 
         if (ctx.get_assignment(c.lit()) == l_undef) {
+            TRACE("pb", tout << c.lit() << " is undef\n";);
             return;
         }
         if (!ctx.is_relevant(c.lit())) {
+            TRACE("pb", tout << c.lit() << " is not relevant\n";);
             return;
         }
         numeral sum = numeral::zero(), maxsum = numeral::zero();

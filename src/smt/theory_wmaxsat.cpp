@@ -103,8 +103,8 @@ namespace smt {
         m_normalize = true;
         bool_var bv = register_var(var, true);
         (void)bv;
-        TRACE("opt", tout << "enable: v" << m_bool2var[bv] << " b" << bv << " " << mk_pp(var, get_manager()) << "\n";
-              tout << wfml << "\n";);
+        TRACE("opt", tout << "inc: " << ctx.inconsistent() << " enable: v" << m_bool2var[bv] 
+              << " b" << bv << " " << mk_pp(var, get_manager()) << "\n" << wfml << "\n";);
         return var;
     }
 
@@ -134,8 +134,10 @@ namespace smt {
             theory_var v = mk_var(x);
             ctx.attach_th_var(x, this, v);
             m_bool2var.insert(bv, v);
-            SASSERT(v == static_cast<theory_var>(m_var2bool.size()));
-            m_var2bool.push_back(bv);
+            while (m_var2bool.size() <= static_cast<unsigned>(v)) {
+                m_var2bool.push_back(null_bool_var);
+            }
+            m_var2bool[v] = bv;
             SASSERT(ctx.bool_var2enode(bv));
         }
         return bv;

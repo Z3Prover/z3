@@ -406,6 +406,7 @@ namespace smt {
         bool validate_lemma();
         void validate_final_check();
         void validate_final_check(ineq& c);
+        void validate_final_check(card& c);
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
         bool validate_unit_propagation(card const& c);

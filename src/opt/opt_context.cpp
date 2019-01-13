@@ -437,7 +437,7 @@ namespace opt {
         for (unsigned i = 0; r == l_true && i < sz; ++i) {
             objective const& o = m_objectives[i];
             bool is_last = i + 1 == sz;            
-            r = execute(o, i + 1 < sz, sc && !is_last && o.m_type != O_MAXSMT);
+            r = execute(o, i + 1 < sz, sc && !is_last);
             if (r == l_true && o.m_type == O_MINIMIZE && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
