@@ -5,7 +5,6 @@ RUN apt-get update && \
         apt-transport-https \
         binutils \
         clang-3.9 \
-        cmake \
         curl \
         doxygen \
         default-jdk \
@@ -30,6 +29,9 @@ RUN curl -SL https://packages.microsoft.com/config/ubuntu/14.04/packages-microso
     dpkg -i packages-microsoft-prod.deb && \
     apt-get update && \
     apt-get -y --no-install-recommends install dotnet-sdk-2.1
+
+RUN curl -SL https://cmake.org/files/v3.12/cmake-3.12.0-Linux-x86_64.sh --output cmake-3.12.0-Linux-x86_64.sh && \
+    sh cmake-3.12.0-Linux-x86_64.sh --prefix=/usr/local --exclude-subdir
 
 # Create `user` user for container with password `user`.  and give it
 # password-less sudo access
