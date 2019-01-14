@@ -218,7 +218,7 @@ FUNCTION(DOTNET_GET_DEPS _DN_PROJECT arguments)
     ELSEIF(_DN_X64)
         SET(_DN_PLATFORM x64)
     ELSEIF(_DN_ANYCPU)
-        SET(_DN_PLATFORM "Any CPU")
+        SET(_DN_PLATFORM "AnyCPU")
     ENDIF()
 
     # If package version is not set, first fallback to DOTNET_PACKAGE_VERSION

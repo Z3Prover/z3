@@ -89,7 +89,13 @@ fi
 
 if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
   # Run .NET example
-  run_quiet run_non_native_binding dotnet ${Z3_BUILD_DIR}/dotnet/netcoreapp2.0/dotnet.dll
+  if [ "X${ASAN_BUILD}" = "X1" ]; then
+    # The dotnet test get stuck on ASAN
+    # so don't run it for now.
+    echo "Skipping .NET example under ASan build"
+  else
+    run_quiet run_non_native_binding dotnet ${Z3_BUILD_DIR}/dotnet/netcoreapp2.0/dotnet.dll
+  fi
 fi
 
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then

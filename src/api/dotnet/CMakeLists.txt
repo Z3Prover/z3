@@ -143,7 +143,7 @@ set(Z3_DOTNET_NUPKG_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUILD}")
 if("${TARGET_ARCHITECTURE}" STREQUAL "i686")
     set(Z3_DOTNET_PLATFORM "x86")
 else()
-    set(Z3_DOTNET_PLATFORM "Any CPU")
+    set(Z3_DOTNET_PLATFORM "AnyCPU")
 endif()
 
 # TODO conditional for signing. we can then enable the ``Release_delaysign`` configuration
