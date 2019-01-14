@@ -77,30 +77,12 @@ BINARY_SYM_CMD(shift_vars_cmd,
     store_expr_ref(ctx, m_sym, r.get());
 });
 
-UNARY_CMD(pp_shared_cmd, "dbg-pp-shared", "<term>", "display shared subterms of the given term", CPK_EXPR, expr *, {
-    shared_occs s(ctx.m());
-    s(arg);
-    ctx.regular_stream() << "(shared";
-    shared_occs::iterator it  = s.begin_shared();
-    shared_occs::iterator end = s.end_shared();
-    for (; it != end; ++it) {
-        expr * curr = *it;
-        ctx.regular_stream() << std::endl << "  ";
-        ctx.display(ctx.regular_stream(), curr, 2);
-    }
-    ctx.regular_stream() << ")" << std::endl;
-});
 
 UNARY_CMD(assert_not_cmd, "assert-not", "<term>", "assert negation", CPK_EXPR, expr *, {
     expr_ref ne(ctx.m().mk_not(arg), ctx.m());
     ctx.assert_expr(ne);
 });
 
-UNARY_CMD(num_shared_cmd, "dbg-num-shared", "<term>", "return the number of shared subterms", CPK_EXPR, expr *, {
-    shared_occs s(ctx.m());
-    s(arg);
-    ctx.regular_stream() << s.num_shared() << std::endl;
-});
 
 UNARY_CMD(size_cmd, "dbg-size", "<term>", "return the size of the given term", CPK_EXPR, expr *, {
     ctx.regular_stream() << get_num_exprs(arg) << std::endl;
@@ -550,8 +532,6 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(set_cmd));
     ctx.insert(alloc(pp_var_cmd));
     ctx.insert(alloc(shift_vars_cmd));
-    ctx.insert(alloc(pp_shared_cmd));
-    ctx.insert(alloc(num_shared_cmd));
     ctx.insert(alloc(assert_not_cmd));
     ctx.insert(alloc(size_cmd));
     ctx.insert(alloc(subst_cmd));

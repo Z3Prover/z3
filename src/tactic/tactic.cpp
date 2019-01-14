@@ -39,13 +39,14 @@ struct tactic_report::imp {
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        verbose_stream() << "(" << m_id
-                         << " :num-exprs " << m_goal.num_exprs()
-                         << " :num-asts " << m_goal.m().get_num_asts()
-                         << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
-                         << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
-                         << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
-                         << ")" << std::endl;
+        IF_VERBOSE(0, 
+                   verbose_stream() << "(" << m_id
+                   << " :num-exprs " << m_goal.num_exprs()
+                   << " :num-asts " << m_goal.m().get_num_asts()
+                   << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
+                   << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
+                   << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
+                   << ")" << std::endl);
     }
 };
 

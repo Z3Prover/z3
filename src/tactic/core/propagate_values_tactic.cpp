@@ -23,7 +23,6 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/expr_substitution.h"
 #include "tactic/goal_shared_occs.h"
-#include "ast/pb_decl_plugin.h"
 
 namespace {
 class propagate_values_tactic : public tactic {
@@ -117,21 +116,8 @@ class propagate_values_tactic : public tactic {
         TRACE("shallow_context_simplifier_bug", tout << mk_ismt2_pp(curr, m) << "\n---->\n" << mk_ismt2_pp(new_curr, m) << "\n";);
         if (new_curr != curr) {
             m_modified = true;
-            //if (has_pb(curr))
-            //    IF_VERBOSE(0, verbose_stream() << mk_ismt2_pp(curr, m) << "\n---->\n" << mk_ismt2_pp(new_curr, m) << "\n");
         }
         push_result(new_curr, new_pr);
-    }
-
-    bool has_pb(expr* e) {
-        pb_util pb(m);
-        if (pb.is_ge(e)) return true;
-        if (m.is_or(e)) {
-            for (expr* a : *to_app(e)) {
-                if (pb.is_ge(a)) return true;
-            }
-        }
-        return false;
     }
 
     void run(goal_ref const & g, goal_ref_buffer & result) {

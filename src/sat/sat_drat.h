@@ -67,7 +67,6 @@ namespace sat {
         void propagate(literal l);
         void assign_propagate(literal l);
         void del_watch(clause& c, literal l);
-        void verify(unsigned n, literal const* c);
         bool is_drup(unsigned n, literal const* c);
         bool is_drat(unsigned n, literal const* c);
         bool is_drat(unsigned n, literal const* c, unsigned pos);
@@ -75,6 +74,7 @@ namespace sat {
         void trace(std::ostream& out, unsigned n, literal const* c, status st);
         void display(std::ostream& out) const;
         void validate_propagation() const;
+        bool match(unsigned n, literal const* lits, clause const& c) const;
 
     public:
         drat(solver& s);
@@ -92,6 +92,16 @@ namespace sat {
         void del(literal l);
         void del(literal l1, literal l2);
         void del(clause& c);
+
+        void verify(clause const& c) { verify(c.size(), c.begin()); }
+        void verify(unsigned n, literal const* c);
+        void verify(literal l1, literal l2) { literal lits[2] = {l1, l2}; verify(2, lits); }
+        void verify(literal l1, literal l2, literal l3) { literal lits[3] = {l1, l2, l3}; verify(3, lits); }
+
+        bool contains(clause const& c) { return contains(c.size(), c.begin()); }
+        bool contains(unsigned n, literal const* c);
+        bool contains(literal l1, literal l2) { literal lits[2] = {l1, l2}; return contains(2, lits); }
+        bool contains(literal l1, literal l2, literal l3) { literal lits[3] = {l1, l2, l3}; return contains(3, lits); }
 
         void check_model(model const& m);
     };
