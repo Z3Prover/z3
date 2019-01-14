@@ -65,7 +65,7 @@ public:
             for_each_expr_core<proc, expr_fast_mark1, true, true>(p, visited, g.form(i));
         }
         const double total = ackr_helper::calculate_lemma_bound(p.m_fun2terms);
-        TRACE("ackr_bound_probe", tout << "total=" << total << std::endl;);
+        TRACE("ackermannize", tout << "total=" << total << std::endl;);
         return result(total);
     }
 

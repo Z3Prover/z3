@@ -567,12 +567,9 @@ namespace smt {
         case b_justification::AXIOM:
             out << "axiom";
             break;
-        case b_justification::BIN_CLAUSE: {
-            literal l2 = j.get_literal();
-            out << "bin-clause ";
-            display_literal(out, l2);
+        case b_justification::BIN_CLAUSE: 
+            out << "bin " << j.get_literal();
             break;
-        }
         case b_justification::CLAUSE: {
             clause * cls = j.get_clause();
             out << "clause ";
@@ -580,10 +577,9 @@ namespace smt {
             break;
         }
         case b_justification::JUSTIFICATION: {
-            out << "justification " << j.get_justification()->get_from_theory() << ": ";
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            display_literals(out, lits);
+            out << "justification " << j.get_justification()->get_from_theory() << ": " << lits;
             break;
         }
         default:

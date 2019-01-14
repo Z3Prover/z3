@@ -383,6 +383,7 @@ public:
             }
             if (core.empty()) {
                 IF_VERBOSE(100, verbose_stream() << "(opt.maxres core is empty)\n";);
+                TRACE("opt", tout << "empty core\n";);
                 cores.reset();
                 m_lower = m_upper;
                 return l_true;
@@ -517,6 +518,10 @@ public:
         max_resolve(core, w);
         fml = mk_not(m, mk_and(m, core.size(), core.c_ptr()));
         add(fml);
+        // save small cores such that lex-combinations of maxres can reuse these cores.
+        if (core.size() <= 2) {
+            m_defs.push_back(fml);
+        }
         m_lower += w;
         if (m_st == s_primal_dual) {
             m_lower = std::min(m_lower, m_upper);
@@ -847,7 +852,10 @@ public:
         _solver->assert_expr(s().get_assertions());
         _solver->assert_expr(core);
         lbool is_sat = _solver->check_sat(0, nullptr);
-        IF_VERBOSE(0, verbose_stream() << "core status (l_false:) " << is_sat << "\n");
+        IF_VERBOSE(0, verbose_stream() << "core status (l_false:) " << is_sat << " core size " << core.size() << "\n");
+        CTRACE("opt", is_sat != l_false, 
+               for (expr* c : core) tout << "core: " << mk_pp(c, m) << "\n";
+               _solver->display(tout););
         VERIFY(is_sat == l_false);
     }
 

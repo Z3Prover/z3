@@ -383,7 +383,7 @@ namespace opt {
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
-        if (result == l_true) m_optsmt.get_model(m_model, m_labels);
+        if (result == l_true) { m_optsmt.get_model(m_model, m_labels); SASSERT(m_model); }
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
         if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
@@ -1604,6 +1604,7 @@ namespace opt {
     void context::validate_lex() {
         rational r1;
         expr_ref val(m);
+        SASSERT(m_model);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             switch(obj.m_type) {

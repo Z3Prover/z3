@@ -1836,8 +1836,6 @@ namespace smt {
             return false;
         }
 
-        // std::cout << c.lit() << "\n";
-
         reset_coeffs();
         m_num_marks = 0;
         m_bound = c.k();
@@ -1936,7 +1934,10 @@ namespace smt {
                 }
                 if (pbj == nullptr) {
                     TRACE("pb", tout << "skip justification for " << conseq << "\n";);
-                    inc_coeff(conseq, offset);
+                    // this is possible when conseq is an assumption.
+                    // The justification of conseq is itself, 
+                    // don't increment the cofficient here because it assumes
+                    // conseq is justified further. it isnt'. conseq becomes part of the lemma.
                 }
                 else {
                     card& c2 = pbj->get_card();
@@ -1944,7 +1945,6 @@ namespace smt {
                     bound = c2.k();
                 }
                 
-                // std::cout << " offset: " << offset << " bound: " << bound << "\n";
                 break;
             }
             default:
@@ -2020,6 +2020,7 @@ namespace smt {
         SASSERT(slack < 0);
 
         SASSERT(validate_antecedents(m_antecedents));
+        TRACE("pb", tout << "antecedents " << m_antecedents << "\n";);
         ctx.assign(alit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), alit, 0, nullptr)));
 
         DEBUG_CODE(
@@ -2127,7 +2128,7 @@ namespace smt {
                 break;
             }
         }
-        TRACE("pb", display(tout << "validate: ", c, true);
+        TRACE("pb_verbose", display(tout << "validate: ", c, true);
               tout << "sum: " << sum << " " << maxsum << " ";
               tout << ctx.get_assignment(c.lit()) << "\n";);
 
@@ -2215,15 +2216,11 @@ namespace smt {
 
     void theory_pb::display_resolved_lemma(std::ostream& out) const {
         context& ctx = get_context();
-        bool_var v;
-        unsigned lvl;
         out << "num marks: " << m_num_marks << "\n";
         out << "conflict level: " << m_conflict_lvl << "\n";
-        for (unsigned i = 0; i < m_resolved.size(); ++i) {
-            v = m_resolved[i].var();
-            lvl = ctx.get_assign_level(v);
-            out << lvl << ": " << m_resolved[i] << " ";
-            ctx.display(out, ctx.get_justification(v));
+        for (literal r : m_resolved) {
+            out << ctx.get_assign_level(r) << ": " << r << " ";
+            ctx.display(out, ctx.get_justification(r.var()));
         }
 
         if (!m_antecedents.empty()) {

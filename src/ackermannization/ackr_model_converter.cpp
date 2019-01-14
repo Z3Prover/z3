@@ -84,7 +84,7 @@ void ackr_model_converter::convert(model * source, model * destination) {
 }
 
 void ackr_model_converter::convert_constants(model * source, model * destination) {
-    TRACE("ackr_model", tout << "converting constants\n";);
+    TRACE("ackermannize", tout << "converting constants\n";);
     obj_map<func_decl, func_interp*> interpretations;
     model_evaluator evaluator(*source);
     evaluator.set_model_completion(true);
@@ -113,7 +113,7 @@ void ackr_model_converter::convert_constants(model * source, model * destination
 void ackr_model_converter::add_entry(model_evaluator & evaluator,
                                      app* term, expr* value,
                                      obj_map<func_decl, func_interp*>& interpretations) {
-    TRACE("ackr_model", tout << "add_entry"
+    TRACE("ackermannize", tout << "add_entry"
           << mk_ismt2_pp(term, m, 2)
           << "->"
           << mk_ismt2_pp(value, m, 2) << "\n";
@@ -137,7 +137,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         args.push_back(std::move(arg_value));
     }
     if (fi->get_entry(args.c_ptr()) == nullptr) {
-        TRACE("ackr_model",
+        TRACE("ackermannize",
               tout << mk_ismt2_pp(declaration, m) << " args: " << std::endl;
                 for (unsigned i = 0; i < args.size(); i++)
                     tout << mk_ismt2_pp(args.get(i), m) << std::endl;
@@ -145,7 +145,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         fi->insert_new_entry(args.c_ptr(), value);
     }
     else {
-        TRACE("ackr_model", tout << "entry already present\n";);
+        TRACE("ackermannize", tout << "entry already present\n";);
     }
 
 }

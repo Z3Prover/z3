@@ -171,6 +171,7 @@ namespace opt {
     }
 
     lbool optsmt::geometric_lex(unsigned obj_index, bool is_maximize) {
+        TRACE("opt", tout << "index: " << obj_index << " is-max: " << is_maximize << "\n";);
         arith_util arith(m);
         bool is_int = arith.is_int(m_objs[obj_index].get());
         lbool is_sat = l_true;
@@ -189,9 +190,11 @@ namespace opt {
             SASSERT(delta_per_step.is_int());
             SASSERT(delta_per_step.is_pos());
             is_sat = m_s->check_sat(0, nullptr);
+            TRACE("opt", tout << "check " << is_sat << "\n";);
             if (is_sat == l_true) {                
                 m_s->maximize_objective(obj_index, bound);
                 m_s->get_model(m_model);
+                SASSERT(m_model);
                 m_s->get_labels(m_labels);
                 inf_eps obj = m_s->saved_objective_value(obj_index);
                 update_lower_lex(obj_index, obj, is_maximize);
@@ -220,13 +223,17 @@ namespace opt {
                 delta_per_step = rational::one();
                 SASSERT(num_scopes > 0);
                 --num_scopes;
-                m_s->pop(1);             
+                m_s->pop(1);                             
             }
             else {
                 break;
             }
         }
         m_s->pop(num_scopes);        
+
+        if (is_sat == l_false && !m_model) {
+            return l_false;
+        }
         
         if (m.canceled() || is_sat == l_undef) {
             return l_undef;
@@ -574,7 +581,7 @@ namespace opt {
         return m_upper[i];
     }
 
-    void optsmt::get_model(model_ref& mdl, svector<symbol> & labels) {
+    void optsmt::get_model(model_ref& mdl, svector<symbol> & labels) {        
         mdl = m_model.get();
         labels = m_labels;
     }
