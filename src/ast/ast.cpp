@@ -2202,7 +2202,14 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
         }
 
         if (m_trace_stream && r == new_node) {
-            *m_trace_stream << "[mk-app] #" << r->get_id() << " ";
+            if (is_proof(r)) {
+                if (decl == mk_func_decl(m_basic_family_id, PR_UNDEF, 0, nullptr, 0, static_cast<expr * const *>(nullptr)))
+                    return r;
+                *m_trace_stream << "[mk-proof] #";
+            } else {
+                *m_trace_stream << "[mk-app] #";
+            }
+            *m_trace_stream << r->get_id() << " ";
             if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
                 ast_ll_pp(*m_trace_stream, *this, r);
             }
@@ -2479,7 +2486,7 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
         trace_quant(*m_trace_stream, r);
         *m_trace_stream << "[attach-var-names] #" << r->get_id();
         for (unsigned i = 0; i < num_decls; ++i) {
-            *m_trace_stream << " " << decl_names[num_decls - i - 1].str();
+            *m_trace_stream << " (" << decl_names[num_decls - i - 1].str() << " ; " << decl_sorts[num_decls - i -1]->get_name().str() << ")";
         }
         *m_trace_stream << "\n";
     }
