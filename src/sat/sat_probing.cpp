@@ -65,6 +65,10 @@ namespace sat {
         if (implied_lits) {
             for (literal lit : *implied_lits) {
                 if (m_assigned.contains(lit)) {
+                    if (s.m_config.m_drat) {
+                        s.m_drat.add(l, lit, true);
+                        s.m_drat.add(~l, lit, true);
+                    }
                     s.assign_scoped(lit);
                     m_num_assigned++;
                 }
@@ -95,7 +99,11 @@ namespace sat {
                 cache_bins(l, old_tr_sz);
             s.pop(1);
 
-            for (literal l : m_to_assert) {
+            for (literal lit : m_to_assert) {
+                if (s.m_config.m_drat) {
+                    s.m_drat.add(l, lit, true);
+                    s.m_drat.add(~l, lit, true);
+                }
                 s.assign_scoped(l);
                 m_num_assigned++;
             }
