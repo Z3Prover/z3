@@ -483,10 +483,6 @@ namespace sat {
                     literal lit = c[i];
                     if (lit != wc.m_l1 && lit != wc.m_l2 && value(lit) != l_false) {
                         wc.m_l2 = lit;
-						if (m_watches.size() <= (~lit).index())
-						{
-							IF_VERBOSE(0, verbose_stream() << m_watches.size() << " " << lit << " " << (~lit).index() << "\n");
-						}
                         m_watches[(~lit).index()].push_back(idx);
                         done = true;
                     } 
