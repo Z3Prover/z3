@@ -3997,7 +3997,7 @@ namespace sat {
                 m_reason_unknown = "sat.max.conflicts";
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts_since_init << "\")\n";);
             }
-            return true;
+            return !inconsistent();
         }
         return false;
     }
