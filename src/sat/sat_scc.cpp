@@ -251,8 +251,8 @@ namespace sat {
     }
 
     void scc::collect_statistics(statistics & st) const {
-        st.update("elim bool vars scc", m_num_elim);
-        st.update("elim binary", m_num_elim_bin);
+        st.update("sat scc elim vars", m_num_elim);
+        st.update("sat scc elim binary", m_num_elim_bin);
     }
     
     void scc::reset_statistics() {
