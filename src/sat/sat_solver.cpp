@@ -534,7 +534,7 @@ namespace sat {
     void solver::defrag_clauses() {
         if (memory_pressure()) return;
         pop(scope_lvl());
-        IF_VERBOSE(1, verbose_stream() << "(sat-defrag)\n");
+        IF_VERBOSE(2, verbose_stream() << "(sat-defrag)\n");
         clause_allocator& alloc = m_cls_allocator[!m_cls_allocator_idx];
         ptr_vector<clause> new_clauses, new_learned;
         for (clause* c : m_clauses) c->unmark_used();
@@ -1626,6 +1626,8 @@ namespace sat {
         m_gc_threshold            = m_config.m_gc_initial;
         m_defrag_threshold        = 2;
         m_restarts                = 0;
+        m_last_position_log       = 0;
+        m_restart_logs            = 0;
         m_simplifications         = 0;
         m_conflicts_since_init    = 0;
         m_next_simplify           = m_config.m_simplify_delay;
@@ -1879,12 +1881,72 @@ namespace sat {
     void solver::restart(bool to_base) {
         m_stats.m_restart++;
         m_restarts++;
-        if (m_conflicts_since_init > m_restart_next_out + 500) {
-            m_restart_next_out = m_conflicts_since_init;
-            IF_VERBOSE(1,
-                       verbose_stream() << "(sat-restart :conflicts " << m_stats.m_conflict << " :decisions " << m_stats.m_decision
-                       << " :restarts " << m_stats.m_restart << mk_stat(*this)
-                       << " :time " << std::fixed << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
+        if (m_conflicts_since_init >= m_restart_next_out && get_verbosity_level() >= 1) {
+            m_restart_logs++;
+            if (0 == m_restart_next_out) {
+                m_restart_next_out = 1;
+            }
+            else {
+                m_restart_next_out = (3*m_restart_next_out)/2 + 1; 
+            }
+
+            std::stringstream strm;
+            strm << "(sat.stats " << std::setw(6) << m_stats.m_conflict << " " 
+                 << std::setw(6) << m_stats.m_decision << " "
+                 << std::setw(4) << m_stats.m_restart 
+                 << mk_stat(*this)
+                 << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
+            std::string str(strm.str());
+            svector<size_t> nums;
+            for (size_t i = 0; i < str.size(); ++i) {
+                while (i < str.size() && str[i] != ' ') ++i;
+                while (i < str.size() && str[i] == ' ') ++i;
+                // position of first character after space
+                if (i < str.size()) {
+                    nums.push_back(i);
+                }
+            }   
+            bool same = m_last_positions.size() == nums.size();
+            size_t diff = 0;
+            for (unsigned i = 0; i < nums.size() && same; ++i) {
+                if (m_last_positions[i] > nums[i]) diff += m_last_positions[i] - nums[i];
+                if (m_last_positions[i] < nums[i]) diff += nums[i] - m_last_positions[i];
+            }
+            if (m_last_positions.empty() || m_restart_logs >= 20 + m_last_position_log || (m_restart_logs >= 6 + m_last_position_log && (!same || diff > 3))) {
+                m_last_position_log = m_restart_logs;
+                //           conflicts          restarts          learned            gc               time
+                //                     decisions         clauses            units          memory
+                int adjust[9] = { -3,      -3,      -3,      -1,      -3,      -2,   -1,     -2,       -1 };
+                char* tag[9]  = { ":conflicts ", ":decisions ", ":restarts ", ":clauses/bin ", ":learned/bin ", ":units ", ":gc ", ":memory ", ":time" };
+                std::stringstream l1, l2;
+                l1 << "(sat.stats ";
+                l2 << "(sat.stats ";
+                size_t p1 = 11, p2 = 11;
+                SASSERT(nums.size() == 9);
+                for (unsigned i = 0; i < 9 && i < nums.size(); ++i) {
+                    size_t p = nums[i];
+                    if (i & 0x1) {
+                        // odd positions
+                        for (; p2 < p + adjust[i]; ++p2) l2 << " ";
+                        p2 += strlen(tag[i]);
+                        l2 << tag[i];
+                    }
+                    else {
+                        // even positions
+                        for (; p1 < p + adjust[i]; ++p1) l1 << " ";
+                        p1 += strlen(tag[i]);
+                        l1 << tag[i];
+                    }                               
+                }
+                for (; p1 + 2 < str.size(); ++p1) l1 << " ";            
+                for (; p2 + 2 < str.size(); ++p2) l2 << " ";            
+                l1 << ")\n";
+                l2 << ")\n";
+                IF_VERBOSE(1, verbose_stream() << l1.str() << l2.str());
+                m_last_positions.reset();
+                m_last_positions.append(nums);
+            }
+            IF_VERBOSE(1, verbose_stream() << str);            
         }
         IF_VERBOSE(30, display_status(verbose_stream()););
         pop_reinit(restart_level(to_base));
@@ -3503,15 +3565,38 @@ namespace sat {
     }
 
     std::ostream& solver::display_justification(std::ostream & out, justification const& js) const {
-        out << js;
-        if (js.is_clause()) {
-            out << get_clause(js);
+        switch (js.get_kind()) {
+        case justification::NONE:
+            out << "none "; // << js.level();
+            break;
+        case justification::BINARY:
+            out << "binary " << js.get_literal() << "@" << lvl(js.get_literal());
+            break;
+        case justification::TERNARY:
+            out << "ternary " << js.get_literal1() << "@" << lvl(js.get_literal1()) << " ";
+            out << js.get_literal2() << "@" << lvl(js.get_literal2());
+            break;
+        case justification::CLAUSE: {
+            out << "(";
+            bool first = true;
+            for (literal l : get_clause(js)) {
+                if (first) first = false; else out << " ";
+                out << l << "@" << lvl(l);
+            }
+            out << ")";
+            break;
         }
-        else if (js.is_ext_justification() && m_ext) {
-            m_ext->display_justification(out << " ", js.get_ext_justification_idx());
+        case justification::EXT_JUSTIFICATION:
+            if (m_ext) {
+                m_ext->display_justification(out << " ", js.get_ext_justification_idx());
+            }
+            break;
+        default:
+            break;
         }
         return out;
     }
+
 
     unsigned solver::num_clauses() const {
         unsigned num_cls = m_trail.size(); // units;
@@ -4329,16 +4414,11 @@ namespace sat {
     void mk_stat::display(std::ostream & out) const {
         unsigned given, learned;
         m_solver.num_binary(given, learned);
-        if (!m_solver.m_clauses.empty())
-            out << " :clauses " << m_solver.m_clauses.size() + given << "/" << given;
-        if (!m_solver.m_learned.empty()) {
-            out << " :learned " << (m_solver.m_learned.size() + learned - m_solver.m_num_frozen) << "/" << learned;
-            if (m_solver.m_num_frozen > 0)
-                out << " :frozen " << m_solver.m_num_frozen;
-        }
-        out << " :units " << m_solver.init_trail_size();
-        out << " :gc-clause " << m_solver.m_stats.m_gc_clause;
-        out << mem_stat();
+        out << " " << std::setw(5) << m_solver.m_clauses.size() + given << "/" << given;
+        out << " " << std::setw(5) << (m_solver.m_learned.size() + learned - m_solver.m_num_frozen) << "/" << learned;
+        out << " " << std::setw(3)  << m_solver.init_trail_size();
+        out << " " << std::setw(7)  << m_solver.m_stats.m_gc_clause << " ";
+        out << " " << std::setw(7)  << mem_stat();
     }
 
     std::ostream & operator<<(std::ostream & out, mk_stat const & stat) {

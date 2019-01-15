@@ -421,6 +421,9 @@ namespace sat {
         void mk_model();
         bool check_model(model const & m) const;
         void restart(bool to_base);
+        svector<size_t> m_last_positions;
+        unsigned m_last_position_log;
+        unsigned m_restart_logs;
         unsigned restart_level(bool to_base);
         bool should_restart() const;
         void set_next_restart();
