@@ -120,6 +120,11 @@ namespace sat {
         m_qhead = 0;
         m_trail.reset();
         m_scopes.reset();
+
+        if (src.inconsistent()) {
+            set_conflict(justification());
+            return;
+        }
         
         // create new vars
         for (bool_var v = num_vars(); v < src.num_vars(); v++) {
