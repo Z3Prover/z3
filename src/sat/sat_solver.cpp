@@ -1922,7 +1922,7 @@ namespace sat {
                 //           conflicts          restarts          learned            gc               time
                 //                     decisions         clauses            units          memory
                 int adjust[9] = { -3,      -3,      -3,      -1,      -3,      -2,   -1,     -2,       -1 };
-                char* tag[9]  = { ":conflicts ", ":decisions ", ":restarts ", ":clauses/bin ", ":learned/bin ", ":units ", ":gc ", ":memory ", ":time" };
+                char const* tag[9]  = { ":conflicts ", ":decisions ", ":restarts ", ":clauses/bin ", ":learned/bin ", ":units ", ":gc ", ":memory ", ":time" };
                 std::stringstream l1, l2;
                 l1 << "(sat.stats ";
                 l2 << "(sat.stats ";
