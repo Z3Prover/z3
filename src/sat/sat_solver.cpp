@@ -4387,24 +4387,24 @@ namespace sat {
     }
 
     void stats::collect_statistics(statistics & st) const {
-        st.update("mk bool var", m_mk_var);
-        st.update("mk binary clause", m_mk_bin_clause);
-        st.update("mk ternary clause", m_mk_ter_clause);
-        st.update("mk clause", m_mk_clause);
-        st.update("gc clause", m_gc_clause);
-        st.update("del clause", m_del_clause);
-        st.update("conflicts", m_conflict);
-        st.update("propagations", m_propagate);
-        st.update("decisions", m_decision);
-        st.update("binary propagations", m_bin_propagate);
-        st.update("ternary propagations", m_ter_propagate);
-        st.update("restarts", m_restart);
-        st.update("minimized lits", m_minimized_lits);
-        st.update("dyn subsumption resolution", m_dyn_sub_res);
-        st.update("blocked correction sets", m_blocked_corr_sets);
-        st.update("units", m_units);
-        st.update("elim bool vars res", m_elim_var_res);
-        st.update("elim bool vars bdd", m_elim_var_bdd);
+        st.update("sat mk clause 2ary", m_mk_bin_clause);
+        st.update("sat mk clause 3ary", m_mk_ter_clause);
+        st.update("sat mk clause nary", m_mk_clause);
+        st.update("sat mk var", m_mk_var);
+        st.update("sat gc clause", m_gc_clause);
+        st.update("sat del clause", m_del_clause);
+        st.update("sat conflicts", m_conflict);
+        st.update("sat decisions", m_decision);
+        st.update("sat propagations 2ary", m_bin_propagate);
+        st.update("sat propagations 3ary", m_ter_propagate);
+        st.update("sat propagations nary", m_propagate);
+        st.update("sat restarts", m_restart);
+        st.update("sat minimized lits", m_minimized_lits);
+        st.update("sat subs resolution dyn", m_dyn_sub_res);
+        st.update("sat blocked correction sets", m_blocked_corr_sets);
+        st.update("sat units", m_units);
+        st.update("sat elim bool vars res", m_elim_var_res);
+        st.update("sat elim bool vars bdd", m_elim_var_bdd);
     }
 
     void stats::reset() {
