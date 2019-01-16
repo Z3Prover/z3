@@ -20,7 +20,7 @@ env:
     # 64-bit UBSan Debug build
     - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug UBSAN_BUILD=1 RUN_UNIT_TESTS=SKIP
     # 64-bit ASan Debug build
-    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug ASAN_BUILD=1 RUN_UNIT_TESTS=SKIP ASAN_DSO=/usr/lib/clang/3.9/lib/linux/libclang_rt.asan-x86_64.so 
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug ASAN_BUILD=1 RUN_UNIT_TESTS=SKIP ASAN_DSO=/usr/lib/clang/3.9/lib/linux/libclang_rt.asan-x86_64.so
     # Build for running unit tests under ASan/UBSan
     # FIXME: We should really be doing a debug build but the unit tests run too
     # slowly when we do that.
@@ -85,7 +85,6 @@ matrix:
       osx_image: xcode8.3
       # Note: Apple Clang does not support OpenMP
       env: Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0 DOTNET_BINDINGS=0
-
 script:
   # Use `travis_wait` when doing LTO builds because this configuration will
   # have long link times during which it will not show any output which

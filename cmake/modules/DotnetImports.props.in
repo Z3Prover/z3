@@ -1,8 +1,0 @@
-<Project>
-    <PropertyGroup>
-        <OutputPath>${_DN_OUTPUT_PATH}/</OutputPath>
-        <XPLAT_LIB_DIR>${_DN_XPLAT_LIB_DIR}/</XPLAT_LIB_DIR>
-        <DOTNET_PACKAGE_VERSION>${_DN_VERSION}</DOTNET_PACKAGE_VERSION>
-        ${_DN_CUSTOM_BUILDPROPS}
-    </PropertyGroup>
-</Project>

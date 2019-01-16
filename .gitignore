@@ -76,6 +76,3 @@ src/api/ml/z3.mllib
 *.bak
 doc/api
 doc/code
-.vs
-examples/**/obj
-CMakeSettings.json
