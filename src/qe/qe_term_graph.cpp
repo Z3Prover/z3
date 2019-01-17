@@ -242,12 +242,13 @@ namespace qe {
 
     bool term_graph::term_eq::operator()(term const* a, term const* b) const { return term::cg_eq(a, b); }
 
-    term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m) {
+    term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m), m_projector(nullptr) {
         m_plugins.register_plugin(mk_basic_solve_plugin(m, m_is_var));
         m_plugins.register_plugin(mk_arith_solve_plugin(m, m_is_var));
     }
 
     term_graph::~term_graph() {
+        dealloc(m_projector);
         reset();
     }
 
@@ -582,12 +583,24 @@ namespace qe {
         u_map<expr*> m_term2app;
         u_map<expr*> m_root2rep;
 
+        void add_term2app(term const& t, expr* a) {
+            m_term2app.insert(t.get_id(), a);
+        }
+
+        void del_term2app(term const& t) {
+            m_term2app.remove(t.get_id());
+        }
+
+        bool find_term2app(term const& t, expr*& r) {
+            return m_term2app.find(t.get_id(), r);
+        }
+
         model_ref m_model;
         expr_ref_vector m_pinned;  // tracks expr in the maps
 
         expr* mk_pure(term const& t) {
             expr* e = nullptr;
-            if (m_term2app.find(t.get_id(), e)) return e;
+            if (find_term2app(t, e)) return e;
             e = t.get_expr();
             if (!is_app(e)) return nullptr;
             app* a = ::to_app(e);
@@ -595,17 +608,20 @@ namespace qe {
             for (term* ch : term::children(t)) {
                 // prefer a node that resembles current child, 
                 // otherwise, pick a root representative, if present.
-                if (m_term2app.find(ch->get_id(), e))
-                kids.push_back(e);
-                else if (m_root2rep.find(ch->get_root().get_id(), e)) 
+                if (find_term2app.find(*ch, e)) {
                     kids.push_back(e);
-                else 
+                }
+                else if (m_root2rep.find(ch->get_root().get_id(), e)) {
+                    kids.push_back(e);
+                }
+                else {
                     return nullptr;
+                }
                 TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
             }
             expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
             m_pinned.push_back(pure);
-            m_term2app.insert(t.get_id(), pure);
+            add_term2app(t, pure);
             return pure;
         }
 
@@ -649,7 +665,7 @@ namespace qe {
                 expr* pure = mk_pure(*t);
                 if (!pure) continue;
 
-                m_term2app.insert(t->get_id(), pure);
+                add_term2app(*t, pure);
                 TRACE("qe_verbose", tout << "purified " << *t << " " << mk_pp(pure, m) << "\n";);
                 expr* rep = nullptr;                // ensure that the root has a representative
                 m_root2rep.find(t->get_root().get_id(), rep);
@@ -658,7 +674,7 @@ namespace qe {
                 if (pure != rep && is_better_rep(pure, rep)) {
                     m_root2rep.insert(t->get_root().get_id(), pure);
                     for (term * p : term::parents(t->get_root())) {
-                        m_term2app.remove(p->get_id());
+                        del_term2app(*p);
                         if (!p->is_marked()) {
                             p->set_mark(true);
                             worklist.push_back(p);
@@ -697,7 +713,7 @@ namespace qe {
                 expr* pure = mk_pure(*t);
                 if (!pure) continue;
 
-                m_term2app.insert(t->get_id(), pure);
+                add_term2app(*t, pure);
                 expr* rep = nullptr;
                 // ensure that the root has a representative
                 m_root2rep.find(t->get_root().get_id(), rep);
@@ -718,14 +734,14 @@ namespace qe {
 
         bool find_app(term &t, expr *&res) {
             return 
-                m_term2app.find(t.get_id(), res) ||
+                find_term2app.find(t, res) ||
                 m_root2rep.find(t.get_root().get_id(), res);
         }
 
         bool find_app(expr *lit, expr *&res) {
             term const* t = m_tg.get_term(lit);
             return 
-                m_term2app.find(t->get_id(), res) ||
+                find_term2app.find(*t, res) ||
                 m_root2rep.find(t->get_root().get_id(), res);
         }
 
@@ -856,7 +872,7 @@ namespace qe {
             term const * r = &t;
             do {
                 expr* member = nullptr;
-                if (m_term2app.find(r->get_id(), member) && !members.contains(member)) {
+                if (find_term2app.find(*r, member) && !members.contains(member)) {
                     res.push_back (m.mk_eq (rep, member));
                     members.insert(member);
                 }

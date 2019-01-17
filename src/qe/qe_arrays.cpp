@@ -1357,6 +1357,41 @@ namespace qe {
             }
             return l_undef;
         }
+
+        void saturate(model& model, app_ref_vector const& vars, expr_ref_vector& lits) {
+            term_graph tg(m);
+            func_decl_ref_vector fns(m);
+            for (app* v : vars) fns.push_back(v->get_decl());
+            tg.set_vars(fns, true);
+            tg.add_lits(lits);            
+
+            // need tg to take term and map it to optional rep over the
+            // shared vocabulary if it exists.
+            
+            // . collect shared store expressions, index sorts 
+            // . collect shared index expressions
+            // . assert extensionality (add shared index expressions)
+            // . assert store axioms for collected expressions
+
+            
+        }
+
+        void collect_store_expressions() {
+
+        }
+
+        void collect_index_expressions() {
+            
+        }
+
+        void assert_extensionality() {
+
+        }
+
+        void assert_store_axioms() {
+
+        }
+
     };
 
 
@@ -1416,5 +1451,10 @@ namespace qe {
     vector<def> array_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
         return vector<def>();
     }
+
+    void array_project_plugin::saturate(model& model, app_ref_vector const& vars, expr_ref_vector& lits) {
+        saturate(model, vars, lits);
+    }
+
 
 };
