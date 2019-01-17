@@ -62,7 +62,7 @@ public:
     void push();
     void pop(unsigned scopes);
     bool need_check();
-    lbool check(lp::explanation&, lemma&);
+    lbool check(vector<lp::explanation>&, vector<lemma>&);
     static void test_factorization();
     static void test_basic_sign_lemma();
     static void test_basic_lemma_for_mon_zero_from_monomial_to_factors();
@@ -74,5 +74,6 @@ public:
     static void test_order_lemma();
     static void test_order_lemma_params(bool, int sign);
     static void test_monotone_lemma();
+    static void test_tangent_lemma();
 };
 }
