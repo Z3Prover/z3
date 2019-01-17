@@ -160,7 +160,7 @@ namespace smt {
     }
 
     void context::display_clause(std::ostream & out, clause const * cls) const {
-        cls->display_compact(out, m_manager, m_bool_var2expr.c_ptr());
+        cls->display_smt2(out, m_manager, m_bool_var2expr.c_ptr());
     }
 
     void context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
@@ -185,11 +185,18 @@ namespace smt {
                         out << "binary clauses:\n";
                         first = false;
                     }
+                    expr_ref t1(m_manager), t2(m_manager);
+                    literal2expr(neg_l1, t1);
+                    literal2expr(l2, t2);
+                    expr_ref disj(m_manager.mk_or(t1, t2), m_manager);
+                    out << disj << "\n";
+#if 0
                     out << "(clause ";
                     display_literal(out, neg_l1);
                     out << " ";
                     display_literal(out, l2);
                     out << ")\n";
+#endif
                 }
             }
         }

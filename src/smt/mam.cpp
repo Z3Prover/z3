@@ -3915,7 +3915,7 @@ namespace smt {
                 SASSERT(bindings[i]->get_generation() <= max_generation);
             }
 #endif
-            unsigned min_gen, max_gen;
+            unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
             m_context.add_instance(qa, pat, num_bindings, bindings, nullptr, max_generation, min_gen, max_gen, used_enodes);
         }

@@ -78,7 +78,6 @@ namespace sat {
     }
 
     void cleaner::cleanup_clauses(clause_vector & cs) {
-        tmp_clause tmp;
         clause_vector::iterator it  = cs.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = cs.end();
@@ -134,10 +133,6 @@ namespace sat {
                     s.del_clause(c);
                     break;
                 default:
-                    SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
-                    if (s.m_config.m_drat && new_sz < sz) {
-                        tmp.set(c.size(), c.begin(), c.is_learned());
-                    }
                     c.shrink(new_sz);
                     *it2 = *it;
                     it2++;
@@ -145,11 +140,12 @@ namespace sat {
                         s.attach_clause(c);
                     }
                     if (s.m_config.m_drat && new_sz < sz) {
-                        // for optimization, could also report deletion 
-                        // of previous version of clause.
                         s.m_drat.add(c, true);
-                        s.m_drat.del(*tmp.get());
+                        c.restore(sz);
+                        s.m_drat.del(c);
+                        c.shrink(new_sz);
                     }
+                    break;
                 }
             }
         }
