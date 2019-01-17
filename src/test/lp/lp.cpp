@@ -1900,6 +1900,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-nla_fact", "test nla_solver factorization");
     parser.add_option_with_help_string("-nla_order", "test nla_solver order lemma");
     parser.add_option_with_help_string("-nla_monot", "test nla_solver order lemma");
+    parser.add_option_with_help_string("-nla_tan", "test_tangent_lemma");
     parser.add_option_with_help_string("-nla_bsl", "test_basic_sign_lemma");
     parser.add_option_with_help_string("-nla_blnt_mf", "test_basic_lemma_for_mon_neutral_from_monomial_to_factors");
     parser.add_option_with_help_string("-nla_blnt_fm", "test_basic_lemma_for_mon_neutral_from_factors_to_monomial");
@@ -3607,6 +3608,13 @@ void test_lp_local(int argn, char**argv) {
     if (args_parser.option_is_used("-nla_bsl")) { 
 #ifdef Z3DEBUG
         nla::solver::test_basic_sign_lemma();
+#endif
+        return finalize(0);
+    }
+
+    if (args_parser.option_is_used("-nla_tan")) { 
+#ifdef Z3DEBUG
+        nla::solver::test_tangent_lemma();
 #endif
         return finalize(0);
     }

@@ -2132,37 +2132,46 @@ public:
         return term;
     }
 
-    lbool check_aftermath_nla(lbool r) {
-        switch (r) {
-        case l_false: {            
-            literal_vector core;
-            for (auto const& ineq : m_lemma) {
-                bool is_lower = true, pos = true, is_eq = false;
-                
-                switch (ineq.m_cmp) {
-                case lp::LE: is_lower = false; pos = false;  break;
-                case lp::LT: is_lower = true;  pos = true; break;
-                case lp::GE: is_lower = true;  pos = false;  break;
-                case lp::GT: is_lower = false; pos = true; break;
-                case lp::EQ: is_eq = true; pos = false; break;
-                case lp::NE: is_eq = true; pos = true; break;
-                default: UNREACHABLE();
-                }
-                TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
-                app_ref atom(m);
-                // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
-                // then term is used instead of ineq.m_term
-                if (is_eq) {
-                    atom = mk_eq(ineq.m_term, ineq.m_rs);
-                }
-                else {
-                    // create term >= 0 (or term <= 0)
-                    atom = mk_bound(ineq.m_term, ineq.m_rs, is_lower);
-                }
-                literal lit(ctx().get_bool_var(atom), pos);
-                core.push_back(~lit);
+    void false_case_of_check_nla() {
+        literal_vector core;
+        for (auto const& ineq : m_lemma) {
+            bool is_lower = true, pos = true, is_eq = false;
+            switch (ineq.m_cmp) {
+            case lp::LE: is_lower = false; pos = false;  break;
+            case lp::LT: is_lower = true;  pos = true; break;
+            case lp::GE: is_lower = true;  pos = false;  break;
+            case lp::GT: is_lower = false; pos = true; break;
+            case lp::EQ: is_eq = true; pos = false; break;
+            case lp::NE: is_eq = true; pos = true; break;
+            default: UNREACHABLE();
             }
-            set_conflict_or_lemma(core, false);
+            TRACE("arith", tout << "is_lower: " << is_lower << " pos " << pos << "\n";);
+            app_ref atom(m);
+            // TBD utility: lp::lar_term term = mk_term(ineq.m_poly);
+            // then term is used instead of ineq.m_term
+            if (is_eq) {
+                atom = mk_eq(ineq.m_term, ineq.m_rs);
+            }
+            else {
+                // create term >= 0 (or term <= 0)
+                atom = mk_bound(ineq.m_term, ineq.m_rs, is_lower);
+            }
+            literal lit(ctx().get_bool_var(atom), pos);
+            core.push_back(~lit);
+        }
+        set_conflict_or_lemma(core, false);
+    }
+    
+    lbool check_aftermath_nla(lbool r, const vector<nla::lemma>& l,
+        const vector<lp::explanation>& e) {
+        switch (r) {
+        case l_false: {
+            SASSERT(l.size() == e.size());
+            for(unsigned i = 0; i < l.size(); i++) {
+                m_lemma = l[i];
+                m_explanation = e[i];
+                false_case_of_check_nla();
+            }
             break;
         }
         case l_true:
@@ -2185,9 +2194,13 @@ public:
         if (!m_nra && !m_nla) return l_true;
         if (!m_switcher.need_check()) return l_true;
         m_a1 = nullptr; m_a2 = nullptr;
-        m_explanation.clear();
-        lbool r = m_nra? m_nra->check(m_explanation): m_nla->check(m_explanation, m_lemma);
-        return m_nra? check_aftermath_nra(r) : check_aftermath_nla(r);
+        if (m_nra) {
+            m_explanation.clear();
+            return check_aftermath_nra(m_nra->check(m_explanation));
+        }
+        vector<nla::lemma> l;
+        vector<lp::explanation> e;
+        return check_aftermath_nla(m_nla->check(e, l), l, e);
     }
 
     /**
