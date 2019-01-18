@@ -609,6 +609,15 @@ bool model_evaluator::is_true(expr_ref_vector const& ts) {
     return true;
 }
 
+bool model_evaluator::are_equal(expr* s, expr* t) {
+    if (m().are_equal(s, t)) return true;
+    if (m().are_distinct(s, t)) return false;
+    expr_ref t1(m()), t2(m());
+    eval(t, t1, true);
+    eval(s, t2, true);
+    return m().are_equal(t1, t2);
+}
+
 bool model_evaluator::eval(expr* t, expr_ref& r, bool model_completion) {
     set_model_completion(model_completion);
     try {

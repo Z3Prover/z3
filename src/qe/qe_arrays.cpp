@@ -21,12 +21,14 @@ Revision History:
 #include "util/lbool.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/expr_functors.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "model/model_evaluator.h"
 #include "qe/qe_arrays.h"
+#include "qe/qe_term_graph.h"
 
 
 namespace {
@@ -1363,7 +1365,7 @@ namespace qe {
             func_decl_ref_vector fns(m);
             for (app* v : vars) fns.push_back(v->get_decl());
             tg.set_vars(fns, true);
-            tg.add_lits(lits);            
+            tg.add_model_based_terms(model, lits);
 
             // need tg to take term and map it to optional rep over the
             // shared vocabulary if it exists.
@@ -1373,23 +1375,206 @@ namespace qe {
             // . assert extensionality (add shared index expressions)
             // . assert store axioms for collected expressions
 
+            collect_store_expressions(tg, lits);
+            collect_index_expressions(tg, lits);
+            assert_extensionality(tg, lits);
+            assert_store_select(tg, lits);
+
+            IF_VERBOSE(0, verbose_stream() << lits << "\n");
+
+            for (auto& kv : m_indices) {
+                dealloc(kv.m_value);
+            }
+            for (auto& kv : m_arrays) {
+                dealloc(kv.m_value);
+            }
+            m_stores.reset();
+            m_indices.reset();
+            m_arrays.reset();
+        }
+
+        ptr_vector<app>                  m_stores;
+        obj_map<sort, ptr_vector<expr>*> m_indices;
+        obj_map<sort, ptr_vector<expr>*> m_arrays;
+
+        void add_index_sort(expr* n) {
+            sort* s = m.get_sort(n);
+            if (!m_indices.contains(s)) {
+                m_indices.insert(s, alloc(ptr_vector<expr>));
+            }
+        }
+
+        void add_array(expr* n) {
+            sort* s = m.get_sort(n);
+            ptr_vector<expr>* vs = nullptr;
+            if (!m_arrays.find(s, vs)) {
+                vs = alloc(ptr_vector<expr>);
+                m_arrays.insert(s, vs);
+            }
+            vs->push_back(n);
+        }
+
+        ptr_vector<expr>* is_index(expr* n) {
+            ptr_vector<expr>* result = nullptr;
+            m_indices.find(m.get_sort(n), result);
+            return result;
+        }
+
+        struct for_each_store_proc {
+            imp&               m_imp;
+            term_graph&        tg;
+            for_each_store_proc(imp& i, term_graph& tg) : m_imp(i), tg(tg) {}
+
+            void operator()(app* n) {
+                if (m_imp.a.is_array(n)) {
+                    expr* r = tg.get_model_based_rep(n);
+                    if (r) {
+                        m_imp.add_array(n);
+                        if (m_imp.a.is_store(n)) {
+                            m_imp.m_stores.push_back(n);
+                            for (unsigned i = 1; i + 1 < n->get_num_args(); ++i) {
+                                m_imp.add_index_sort(n->get_arg(i));
+                            }
+                        }
+                    }
+                }
+            }
             
-        }
+            void operator()(expr* e) {}
+        };
 
-        void collect_store_expressions() {
+        struct for_each_index_proc {
+            imp&               m_imp;
+            term_graph&        tg;
+            for_each_index_proc(imp& i, term_graph& tg) : m_imp(i), tg(tg) {}
 
-        }
-
-        void collect_index_expressions() {
+            void operator()(app* n) {
+                auto* v = m_imp.is_index(n);
+                if (v && tg.get_model_based_rep(n)) {
+                    v->push_back(n);
+                }
+            }
             
+            void operator()(expr* e) {}
+
+        };
+
+        void collect_store_expressions(term_graph& tg, expr_ref_vector const& terms) {
+            for_each_store_proc proc(*this, tg);
+            for_each_expr<for_each_store_proc>(proc, terms);
+            for (app* s : m_stores) {
+                IF_VERBOSE(0, verbose_stream() << "store: " << expr_ref(s, m) << "\n");
+            }
         }
 
-        void assert_extensionality() {
-
+        void collect_index_expressions(term_graph& tg, expr_ref_vector const& terms) {
+            for_each_index_proc proc(*this, tg);
+            for_each_expr<for_each_index_proc>(proc, terms);
         }
 
-        void assert_store_axioms() {
+        bool are_equal(expr* s, expr* t) {
+            return true;
+        }
 
+        void assert_extensionality(term_graph& tg, expr_ref_vector& lits) {
+            for (auto& kv : m_arrays) {
+                ptr_vector<expr>& vs = *kv.m_value;
+                if (vs.size() <= 1) continue;
+                func_decl_ref_vector ext(m);
+                sort* s = kv.m_key;
+                unsigned arity = get_array_arity(s);
+                for (unsigned i = 0; i < arity; ++i) {
+                    ext.push_back(a.mk_array_ext(get_array_domain(s, i), i));
+                } 
+                expr_ref_vector args(m);
+                args.resize(arity + 1);
+                for (unsigned i = 0; i < vs.size(); ++i) {
+                    expr* s = vs[i];
+                    for (unsigned j = i + 1; j < vs.size(); ++j) {
+                        expr* t = vs[j];
+                        if (are_equal(s, t)) {
+                            lits.push_back(m.mk_eq(s, t));
+                        }
+                        else {
+                            for (unsigned k = 0; k < arity; ++k) {
+                                args[k+1] = m.mk_app(ext.get(k), s, t);
+                            }
+                            args[0] = t;
+                            expr* t1 = a.mk_select(arity, args.c_ptr());
+                            args[0] = s;
+                            expr* s1 = a.mk_select(arity, args.c_ptr());
+                            lits.push_back(m.mk_not(m.mk_eq(t1, s1)));
+                        }
+                    }
+                }
+            }
+        }
+
+        void assert_store_select(term_graph& tg, expr_ref_vector& lits) {
+            for (auto& store : m_stores) {
+                assert_store_select(store, tg, lits);                
+            }
+        }
+
+        void assert_store_select(app* store, term_graph& tg, expr_ref_vector& lits) {
+            SASSERT(a.is_store(store));
+            // loop over indices of store.
+            for (unsigned i = 1; i + 1 < store->get_num_args(); ++i) {
+                expr* arg = store->get_arg(i);
+                sort* s = m.get_sort(arg);
+                auto& v = *m_indices[s];
+                for (unsigned j = 0; j < v.size(); ++j) {
+                    expr* idx1 = v[j];
+                    for (unsigned k = j + 1; k < v.size(); ++k) {
+                        expr* idx2 = v[k];
+                        if (!are_equal(idx1, idx2)) {
+                            lits.push_back(m.mk_not(m.mk_eq(idx1, idx2)));
+                        }
+                    }
+                }
+                // assert distinct axioms for each argument
+            }
+            ptr_vector<expr> indices;
+            for (unsigned i = 1; i + 1 < store->get_num_args(); ++i) {
+                assert_store_select(indices, store, tg, lits);
+                SASSERT(indices.empty());
+            }
+        }
+
+        void assert_store_select(ptr_vector<expr>& indices, app* store, term_graph& tg, expr_ref_vector& lits) {
+            unsigned sz = store->get_num_args();
+            if (indices.size() + 2 == sz) {
+                bool neq = false;
+                ptr_vector<expr> args;
+                args.push_back(store);
+                args.append(indices);
+                for (unsigned i = 1; i + 1 < sz && !neq; ++i) {
+                    expr* idx1 = store->get_arg(i);
+                    expr* idx2 = indices[i - 1];
+                    if (!are_equal(idx1, idx2)) {
+                        neq = true;
+                        lits.push_back(m.mk_not(m.mk_eq(idx1, idx2)));
+                        lits.push_back(m.mk_eq(store->get_arg(sz-1), a.mk_select(args.size(), args.c_ptr())));
+                    }
+                }
+                for (unsigned i = 1; i + 1 < sz && !neq; ++i) {
+                    expr* idx1 = store->get_arg(i);
+                    expr* idx2 = indices[i - 1];
+                    lits.push_back(m.mk_eq(idx1, idx2));
+                    expr* a1 = a.mk_select(args.size(), args.c_ptr());
+                    args[0] = store->get_arg(0);
+                    expr* a2 = a.mk_select(args.size(), args.c_ptr());
+                    lits.push_back(m.mk_eq(a1, a2));
+                }
+            }
+            else {
+                sort* s = m.get_sort(store->get_arg(indices.size() + 1));
+                for (expr* idx : *m_indices[s]) {
+                    indices.push_back(idx);
+                    assert_store_select(indices, store, tg, lits);
+                    indices.pop_back();
+                }
+            }
         }
 
     };

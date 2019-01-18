@@ -139,7 +139,8 @@ namespace qe {
         /**
          * Map expression that occurs in added literals into representative if it exists.
          */
-        expr* rep(expr* e);
+        void  add_model_based_terms(model& mdl, expr_ref_vector const& terms);
+        expr* get_model_based_rep(expr* e);
 
     };
 

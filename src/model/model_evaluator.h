@@ -55,6 +55,8 @@ public:
     bool is_true(expr * t);
     bool is_false(expr * t);
     bool is_true(expr_ref_vector const& ts);
+    bool are_equal(expr* s, expr* t);
+
 
     void set_solver(expr_solver* solver);
 
