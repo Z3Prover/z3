@@ -30,39 +30,16 @@ namespace nla {
 typedef lp::lconstraint_kind llc;
 
 struct solver::imp {
-    struct fr_interval {
-        rational m_l;
-        rational m_u;
-        fr_interval() {}
-        fr_interval(const rational& l, const rational& u) : m_l(l), m_u(u) {
-            SASSERT(l <= u);
-        }
-    };
-    
-    struct frontier {
-        fr_interval m_intervals[2];
-    };
 
-    struct binfac {
-        lpvar x, y;
-        binfac() {}
-        binfac(lpvar a, lpvar b) {
+    struct bfc {
+        lpvar m_x, m_y;
+        bfc() {}
+        bfc(lpvar a, lpvar b) {
             if (a < b) {
-                x = a; y = b;
+                m_x = a; m_y = b;
             } else {
-                x = b; y = a;
+                m_x = b; m_y = a;
             }
-        }
-        bool operator==(const binfac& b) const {
-            return x == b.x && y == b.y;
-        } 
-    };
-    struct hash_binfac {
-        inline size_t operator()(const binfac& b) const {
-            size_t seed = 0;
-            hash_combine(seed, b.x);
-            hash_combine(seed, b.y);
-            return seed;
         }
     };
 
@@ -83,9 +60,7 @@ struct solver::imp {
     vector<lemma> *                                                  m_lemma_vec;
     lemma *                                                          m_lemma;
     unsigned_vector                                                  m_to_refine;
-    std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial
-    std::unordered_map<binfac, frontier, hash_binfac>             m_tang_frontier;   
-    
+    std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial 
     
     unsigned find_monomial(const unsigned_vector& k) const {
         TRACE("nla_solver", tout << "k = "; print_product_with_vars(k, tout););
@@ -298,19 +273,18 @@ struct solver::imp {
         return out;
     }
 
-    std::ostream& print_fr_interval(const fr_interval& m, std::ostream& out) const {
-        out << "(" << m.m_l <<  ", " << m.m_u << ")";
+    std::ostream& print_tang_corner(const rational &a, const rational &b, std::ostream& out) const {
+        out << "(" << a <<  ", " << b << ")";
         return out;
     }
     
-    std::ostream& print_frontier(const frontier& m, std::ostream& out) const {
-        out << "("; print_fr_interval(m.m_intervals[0], out);
-        out <<  ", "; print_fr_interval(m.m_intervals[1], out); out <<  ")";
+    std::ostream& print_tangent_domain(const rational &a, const rational &b, const rational &c, const rational &d, std::ostream& out) const {
+        out << "("; print_tang_corner(a, b, out);  out <<  ", "; print_tang_corner(c, d, out); out <<  ")";
         return out;
     }
 
-    std::ostream& print_binfac(const binfac& m, std::ostream& out) const {
-        out << "( x = "; print_var(m.x, out); out <<  ", y = "; print_var(m.y, out); out <<  ")";
+    std::ostream& print_bfc(const bfc& m, std::ostream& out) const {
+        out << "( x = "; print_var(m.m_x, out); out <<  ", y = "; print_var(m.m_y, out); out <<  ")";
         return out;
     }
 
@@ -470,14 +444,14 @@ struct solver::imp {
         }
         case llc::EQ: 
             {
-            if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs
-                ||
-                uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
-                return false;
-            m_expl->add(lc);
-            m_expl->add(uc);
-            return true;
-        }
+                if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs
+                    ||
+                    uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
+                    return false;
+                m_expl->add(lc);
+                m_expl->add(uc);
+                return true;
+            }
         case llc::NE: {
             if (uc + 1 && m_lar_solver.column_upper_bound(j) < rs) {
                 m_expl->add(uc);
@@ -703,15 +677,20 @@ struct solver::imp {
         return false;
     }
 
+    const rooted_mon& mon_to_rooted_mon(const svector<lpvar>& vars) const {
+        auto rit = m_rm_table.map().find(vars);
+        SASSERT(rit != m_rm_table.map().end());
+        unsigned rm_i = rit->second.m_i;
+        return m_rm_table.vec()[rm_i];
+    }
+    
+    
     const rooted_mon& mon_to_rooted_mon(const monomial& m) const {
         monomial_coeff mc = canonize_monomial(m);
         TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout);
               tout << "mc = "; print_product_with_vars(mc.vars(), tout););
-        
-        auto rit = m_rm_table.map().find(mc.vars());
-        SASSERT(rit != m_rm_table.map().end());
-        unsigned rm_i = rit->second.m_i;
-        return m_rm_table.vec()[rm_i];
+
+        return mon_to_rooted_mon(mc.vars());
     }
     
     /**
@@ -1278,7 +1257,6 @@ struct solver::imp {
         m_monomials_containing_var.clear();
         m_expl->clear();
         m_lemma->clear();
-        m_tang_frontier.clear();
     }
     
     void init_search() {
@@ -1703,8 +1681,8 @@ struct solver::imp {
 
     // strict version
     void generate_monl_strict(const rooted_mon& a,
-                       const rooted_mon& b,
-                       unsigned strict) {
+                              const rooted_mon& b,
+                              unsigned strict) {
         auto akey = get_sorted_key_with_vars(a);
         auto bkey = get_sorted_key_with_vars(b);
         SASSERT(akey.size() == bkey.size());
@@ -1733,7 +1711,7 @@ struct solver::imp {
         assert_abs_val_a_le_abs_var_b(a, b, false);
         explain(a);
         explain(b);
-   }
+    }
     
     bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
         const rational v = abs(vvr(rm));
@@ -1844,13 +1822,14 @@ struct solver::imp {
         return false;
     }
 
-    bool find_binfac_on_monomial(const rooted_mon& rm, binfac & bf) {
+    bool find_bfc_on_monomial(const rooted_mon& rm, bfc & bf) {
         for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
             if (factorization.size() == 2) {
                 lpvar a = var(factorization[0]);
                 lpvar b = var(factorization[1]);
                 if (vvr(rm) != vvr(a) * vvr(b)) {
-                    bf = binfac(a, b);
+                    
+                    bf = bfc(a, b);
                     return true;
                 }
             }
@@ -1858,13 +1837,17 @@ struct solver::imp {
         return false;
     }
     
-    bool find_binfac_to_refine(binfac& bf){
+    bool find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign){
         for (const auto& rm : m_rm_table.vec()) {
             if (check_monomial(m_monomials[rm.orig_index()]))
                 continue;
-            if (find_binfac_on_monomial(rm, bf)) {
-                TRACE("nla_solver", tout << "found binfac"; print_binfac(bf, tout);
-                      tout << " product = " << vvr(rm) << ", but should be =" << vvr(bf.x)*vvr(bf.y)<< "\n"; );
+            if (find_bfc_on_monomial(rm, bf)) {
+                j = m_monomials[rm.orig_index()].var();
+                sign = rm.orig_sign();
+                TRACE("nla_solver", tout << "found bf"; print_bfc(bf, tout);
+                      tout << " product = " << vvr(rm) << ", but should be =" << vvr(bf.m_x)*vvr(bf.m_y);
+                      tout << ", j == "; print_var(j, tout) << "\n";);
+                
                 return true;
             } 
         }
@@ -1872,38 +1855,48 @@ struct solver::imp {
     }
     
     bool tangent_lemma() {
-        return false;
-        binfac bf;
-        if (!find_binfac_to_refine(bf)) {
+        bfc bf;
+        lpvar j;
+        rational sign;
+        if (!find_bfc_to_refine(bf, j, sign)) {
             return false;
         }
-        return tangent_lemma_bf(bf);
+        tangent_lemma_bf(bf, j, sign);
+        return true;
     }
 
-    bool tangent_lemma_bf(const binfac& bf){
-        auto& fr = get_frontier(bf);
-        TRACE("nla_solver", tout << "front = "; print_frontier(fr, tout); tout << std::endl;);
+    void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign){
+        rational a, b, c, d;
+        bool below = vvr(j) * sign < vvr(bf.m_x) * vvr(bf.m_y);
+        get_tang_domain(a, b, c, d, bf, below);
+        TRACE("nla_solver", tout << "below = " << below << ", tang domain = "; print_tangent_domain(a, b, c, d, tout); tout << std::endl;);
         SASSERT(false);
         return false;
     }
 
-    frontier get_initial_frontier(const binfac& bf) const {
-        frontier f;
-        rational a = vvr(bf.x);
-        f.m_intervals[0] = fr_interval(a - rational(1), a + rational(1));
-        rational b = vvr(bf.y);
-        f.m_intervals[1] = fr_interval(b - rational(1), b + rational(1));
-        return f;
+    void get_initial_tang_domain(rational &a, rational &b, rational &c, rational &d, const bfc& bf, bool below) const {
+        rational x = vvr(bf.m_x);
+        rational y = vvr(bf.m_y);
+        if (below){
+            a = x - rational(1);
+            b = y + rational(1);
+            c = x + rational(1);
+            d = y - rational(1);
+        }
+        else {
+            a = x - rational(1);
+            b = y - rational(1);
+            c = x + rational(1);
+            d = y + rational(1);
+        }
+    }
+
+    void extend_tang_domain(rational &a, rational &b, rational &c, rational &d, const bfc& bf, bool below) const {
     }
     
-    frontier& get_frontier(const binfac& bf) {
-        auto it = m_tang_frontier.find(bf);
-        if (it != m_tang_frontier.end()){
-            SASSERT(false);
-        } else {
-            it = m_tang_frontier.insert(it, std::make_pair(bf, get_initial_frontier(bf)));
-        }
-        return it->second;
+    void get_tang_domain(rational &a, rational &b, rational &c, rational &d, const bfc& bf, bool below) const {
+        get_initial_tang_domain(a, b, c, d, bf, below);
+        extend_tang_domain(a, b, c, d, bf, below);
     }
     
     lbool check(vector<lp::explanation> & expl_vec, vector<lemma>& l_vec) {
