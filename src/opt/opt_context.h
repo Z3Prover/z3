@@ -189,7 +189,7 @@ namespace opt {
         bool empty() override { return m_scoped_state.m_objectives.empty(); }
         void set_hard_constraints(expr_ref_vector const& hard) override;
         lbool optimize(expr_ref_vector const& asms) override;
-        void set_model(model_ref& _m) override { m_model = _m; }
+        void set_model(model_ref& _m) override;
         void get_model_core(model_ref& _m) override;
         void get_box_model(model_ref& _m, unsigned index) override;
         void fix_model(model_ref& _m) override;

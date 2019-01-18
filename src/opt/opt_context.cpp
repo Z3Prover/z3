@@ -125,7 +125,7 @@ namespace opt {
         m_solver(nullptr),
         m_pareto1(false),
         m_box_index(UINT_MAX),
-        m_optsmt(m),
+        m_optsmt(m, *this),
         m_scoped_state(m),
         m_fm(alloc(generic_model_converter, m, "opt")),
         m_model_fixed(),
@@ -356,6 +356,17 @@ namespace opt {
             m_model_fixed.push_back(mdl.get());
         }
     }
+
+    void context::set_model(model_ref& m) { 
+        m_model = m; 
+        opt_params optp(m_params);
+        if (optp.dump_models()) {
+            model_ref md = m->copy();
+            fix_model(md);
+            std::cout << *md << "\n";
+        }
+    }
+
 
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
@@ -1062,6 +1073,9 @@ namespace opt {
 
 
     void context::model_updated(model* md) {
+        model_ref mdl = md;
+        set_model(mdl);
+#if 0
         opt_params optp(m_params);
         symbol prefix = optp.solution_prefix();
         if (prefix == symbol::null || prefix == symbol("")) return;        
@@ -1074,6 +1088,7 @@ namespace opt {
             out << *mdl;
             out.close();
         }
+#endif
     }
 
 
