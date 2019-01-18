@@ -311,7 +311,7 @@ namespace smt {
         bool_var var = antecedent.var();
         unsigned lvl = m_ctx.get_assign_level(var);
         SASSERT(var < static_cast<int>(m_ctx.get_num_bool_vars()));
-        TRACE("conflict", tout << "processing antecedent (level " << lvl << "):";
+        TRACE("conflict_", tout << "processing antecedent (level " << lvl << "):";
               m_ctx.display_literal(tout, antecedent);
               m_ctx.display_detailed_literal(tout << " ", antecedent) << "\n";);
         
@@ -429,7 +429,7 @@ namespace smt {
     void conflict_resolution::finalize_resolve(b_justification conflict, literal not_l) {
         unmark_justifications(0);
 
-        TRACE("conflict", m_ctx.display_literals(tout << "before minimization:\n", m_lemma) << "\n";);
+        TRACE("conflict", m_ctx.display_literals(tout << "before minimization:\n", m_lemma) << "\n" << m_lemma << "\n";);
 
         TRACE("conflict_verbose",m_ctx.display_literals_verbose(tout << "before minimization:\n", m_lemma) << "\n";);
 
@@ -484,7 +484,7 @@ namespace smt {
 
         unsigned num_marks = 0;
         if (not_l != null_literal) {
-            TRACE("conflict", tout << "not_l: "; m_ctx.display_literal_verbose(tout, not_l); tout << "\n";);
+            TRACE("conflict", tout << "not_l: "; m_ctx.display_literal_verbose(tout, not_l) << "\n";);
             process_antecedent(not_l, num_marks);
         }
 
@@ -497,7 +497,7 @@ namespace smt {
             }
 
             TRACE("conflict", tout << "processing consequent id: " << idx << " lit: " << consequent << " "; m_ctx.display_literal(tout, consequent); 
-                  m_ctx.display_literal_verbose(tout, consequent) << "\n";
+                  m_ctx.display_literal_verbose(tout << " ", consequent) << "\n";
                   tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << " level: " << m_ctx.get_assign_level(consequent) << "\n";
                   );
             SASSERT(js != null_b_justification);

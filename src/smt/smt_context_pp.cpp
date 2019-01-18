@@ -263,7 +263,7 @@ namespace smt {
             for (unsigned i = 0; i < sz; i++) {
                 expr *  n  = m_b_internalized_stack.get(i);
                 bool_var v = get_bool_var_of_id(n->get_id());
-                out << "(#" << n->get_id() << " -> p!" << v << ") ";
+                out << "(#" << n->get_id() << " -> " << literal(v, false) << ") ";
             }
             out << "\n";
         }

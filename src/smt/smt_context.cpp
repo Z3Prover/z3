@@ -3918,6 +3918,8 @@ namespace smt {
                 conflict_lvl > m_search_lvl + 1 &&
                 !m_manager.proofs_enabled() &&
                 m_units_to_reassert.size() < m_fparams.m_delay_units_threshold;
+
+            TRACE("conflict", tout << delay_forced_restart << "\n";);
             if (delay_forced_restart) {
                 new_lvl = conflict_lvl - 1;
             }
