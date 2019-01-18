@@ -85,7 +85,12 @@ def create_nuget_spec():
         <id>Microsoft.Z3</id>
         <version>%s</version>
         <authors>Microsoft</authors>
-        <description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</description>
+        <description>
+Z3 is a satisfiability modulo theories solver from Microsoft Research.
+
+Linux Dependencies:
+    libgomp.so.1 installed    
+        </description>
         <copyright>Copyright Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
         <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/master/package/icon.jpg</iconUrl>
