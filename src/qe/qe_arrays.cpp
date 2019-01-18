@@ -359,7 +359,7 @@ namespace qe {
                 ptr_vector<expr> sel_args;
                 sel_args.push_back (arr);
                 sel_args.append(I[i].size(), I[i].c_ptr());
-                expr_ref val_term (m_arr_u.mk_select (sel_args.size (), sel_args.c_ptr ()), m);
+                expr_ref val_term (m_arr_u.mk_select (sel_args), m);
                 // evaluate and assign to ith diff_val_const
                 val = (*m_mev)(val_term);
                 M->register_decl (diff_val_consts.get (i)->get_decl (), val);
@@ -453,7 +453,7 @@ namespace qe {
                         ptr_vector<expr> sel_args;
                         sel_args.push_back (arr1);
                         sel_args.append(idxs.size(), idxs.c_ptr());
-                        expr_ref arr1_idx (m_arr_u.mk_select (sel_args.size (), sel_args.c_ptr ()), m);
+                        expr_ref arr1_idx (m_arr_u.mk_select (sel_args), m);
                         expr_ref eq (m.mk_eq (arr1_idx, x), m);
                         m_aux_lits_v.push_back (eq);
 
@@ -823,7 +823,7 @@ namespace qe {
             ptr_vector<expr> args;
             args.push_back(array);
             args.append(arity, js);
-            expr* r = m_arr_u.mk_select (args.size(), args.c_ptr());
+            expr* r = m_arr_u.mk_select (args);
             m_pinned.push_back (r);
             return r;
         }
@@ -1269,7 +1269,7 @@ namespace qe {
 
                     args.push_back (s);
                     args.append(idxs[i].m_values.size(), idxs[i].m_vars);
-                    sel = a.mk_select (args.size (), args.c_ptr ());
+                    sel = a.mk_select (args);
                     val = model(sel);
                     model.register_decl (var->get_decl (), val);
 
@@ -1308,7 +1308,7 @@ namespace qe {
                     }
                     args.push_back(t);
                     args.append(n, s->get_args()+1);
-                    lits.push_back(m.mk_eq(a.mk_select(args.size(), args.c_ptr()), s->get_arg(n+1)));
+                    lits.push_back(m.mk_eq(a.mk_select(args), s->get_arg(n+1)));
                     idxs.push_back(idx);
                     return solve(model, to_app(s->get_arg(0)), t, idxs, vars, lits);
                 case l_undef:
@@ -1360,11 +1360,9 @@ namespace qe {
             return l_undef;
         }
 
-        void saturate(model& model, app_ref_vector const& vars, expr_ref_vector& lits) {
+        void saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {
             term_graph tg(m);
-            func_decl_ref_vector fns(m);
-            for (app* v : vars) fns.push_back(v->get_decl());
-            tg.set_vars(fns, true);
+            tg.set_vars(shared, false);
             tg.add_model_based_terms(model, lits);
 
             // need tg to take term and map it to optional rep over the
@@ -1426,15 +1424,12 @@ namespace qe {
             for_each_store_proc(imp& i, term_graph& tg) : m_imp(i), tg(tg) {}
 
             void operator()(app* n) {
-                if (m_imp.a.is_array(n)) {
-                    expr* r = tg.get_model_based_rep(n);
-                    if (r) {
-                        m_imp.add_array(n);
-                        if (m_imp.a.is_store(n)) {
-                            m_imp.m_stores.push_back(n);
-                            for (unsigned i = 1; i + 1 < n->get_num_args(); ++i) {
-                                m_imp.add_index_sort(n->get_arg(i));
-                            }
+                if (m_imp.a.is_array(n) && tg.get_model_based_rep(n)) {
+                    m_imp.add_array(n);
+                    if (m_imp.a.is_store(n)) {
+                        m_imp.m_stores.push_back(n);
+                        for (unsigned i = 1; i + 1 < n->get_num_args(); ++i) {
+                            m_imp.add_index_sort(n->get_arg(i));
                         }
                     }
                 }
@@ -1472,8 +1467,9 @@ namespace qe {
             for_each_expr<for_each_index_proc>(proc, terms);
         }
 
-        bool are_equal(expr* s, expr* t) {
-            return true;
+        bool are_equal(term_graph& tg, expr* s, expr* t) {
+            SASSERT(tg.get_model_based_rep(s));
+            return tg.get_model_based_rep(s) == tg.get_model_based_rep(t);
         }
 
         void assert_extensionality(term_graph& tg, expr_ref_vector& lits) {
@@ -1492,7 +1488,7 @@ namespace qe {
                     expr* s = vs[i];
                     for (unsigned j = i + 1; j < vs.size(); ++j) {
                         expr* t = vs[j];
-                        if (are_equal(s, t)) {
+                        if (are_equal(tg, s, t)) {
                             lits.push_back(m.mk_eq(s, t));
                         }
                         else {
@@ -1500,9 +1496,9 @@ namespace qe {
                                 args[k+1] = m.mk_app(ext.get(k), s, t);
                             }
                             args[0] = t;
-                            expr* t1 = a.mk_select(arity, args.c_ptr());
+                            expr* t1 = a.mk_select(args);
                             args[0] = s;
-                            expr* s1 = a.mk_select(arity, args.c_ptr());
+                            expr* s1 = a.mk_select(args);
                             lits.push_back(m.mk_not(m.mk_eq(t1, s1)));
                         }
                     }
@@ -1518,54 +1514,37 @@ namespace qe {
 
         void assert_store_select(app* store, term_graph& tg, expr_ref_vector& lits) {
             SASSERT(a.is_store(store));
-            // loop over indices of store.
-            for (unsigned i = 1; i + 1 < store->get_num_args(); ++i) {
-                expr* arg = store->get_arg(i);
-                sort* s = m.get_sort(arg);
-                auto& v = *m_indices[s];
-                for (unsigned j = 0; j < v.size(); ++j) {
-                    expr* idx1 = v[j];
-                    for (unsigned k = j + 1; k < v.size(); ++k) {
-                        expr* idx2 = v[k];
-                        if (!are_equal(idx1, idx2)) {
-                            lits.push_back(m.mk_not(m.mk_eq(idx1, idx2)));
-                        }
-                    }
-                }
-                // assert distinct axioms for each argument
-            }
             ptr_vector<expr> indices;
             for (unsigned i = 1; i + 1 < store->get_num_args(); ++i) {
-                assert_store_select(indices, store, tg, lits);
                 SASSERT(indices.empty());
+                assert_store_select(indices, store, tg, lits);
             }
         }
 
         void assert_store_select(ptr_vector<expr>& indices, app* store, term_graph& tg, expr_ref_vector& lits) {
             unsigned sz = store->get_num_args();
             if (indices.size() + 2 == sz) {
-                bool neq = false;
                 ptr_vector<expr> args;
                 args.push_back(store);
                 args.append(indices);
-                for (unsigned i = 1; i + 1 < sz && !neq; ++i) {
+                for (unsigned i = 1; i + 1 < sz; ++i) {
                     expr* idx1 = store->get_arg(i);
                     expr* idx2 = indices[i - 1];
-                    if (!are_equal(idx1, idx2)) {
-                        neq = true;
+                    if (!are_equal(tg, idx1, idx2)) {
                         lits.push_back(m.mk_not(m.mk_eq(idx1, idx2)));
-                        lits.push_back(m.mk_eq(store->get_arg(sz-1), a.mk_select(args.size(), args.c_ptr())));
+                        lits.push_back(m.mk_eq(store->get_arg(sz-1), a.mk_select(args)));
+                        return;
                     }
                 }
-                for (unsigned i = 1; i + 1 < sz && !neq; ++i) {
+                for (unsigned i = 1; i + 1 < sz; ++i) {
                     expr* idx1 = store->get_arg(i);
                     expr* idx2 = indices[i - 1];
                     lits.push_back(m.mk_eq(idx1, idx2));
-                    expr* a1 = a.mk_select(args.size(), args.c_ptr());
-                    args[0] = store->get_arg(0);
-                    expr* a2 = a.mk_select(args.size(), args.c_ptr());
-                    lits.push_back(m.mk_eq(a1, a2));
                 }
+                expr* a1 = a.mk_select(args);
+                args[0] = store->get_arg(0);
+                expr* a2 = a.mk_select(args);
+                lits.push_back(m.mk_eq(a1, a2));
             }
             else {
                 sort* s = m.get_sort(store->get_arg(indices.size() + 1));
@@ -1637,8 +1616,8 @@ namespace qe {
         return vector<def>();
     }
 
-    void array_project_plugin::saturate(model& model, app_ref_vector const& vars, expr_ref_vector& lits) {
-        saturate(model, vars, lits);
+    void array_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {
+        saturate(model, shared, lits);
     }
 
 

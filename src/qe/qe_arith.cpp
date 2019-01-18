@@ -604,7 +604,7 @@ namespace qe {
         return m_imp->maximize(fmls, mdl, t, ge, gt);
     }
 
-    void arith_project_plugin::saturate(model& model, app_ref_vector const& vars, expr_ref_vector& lits) {
+    void arith_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {
         UNREACHABLE();
     }
 

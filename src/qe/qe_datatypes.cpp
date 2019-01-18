@@ -304,7 +304,7 @@ namespace qe {
         return vector<def>();
     }
 
-    void datatype_project_plugin::saturate(model& model, app_ref_vector const& vars, expr_ref_vector& lits) {
+    void datatype_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {
         NOT_IMPLEMENTED_YET();
     }
 

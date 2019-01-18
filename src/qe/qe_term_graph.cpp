@@ -626,61 +626,6 @@ namespace qe {
             }
         };           
 
-        void purify() {
-            // - propagate representatives up over parents.
-            //   use work-list + marking to propagate.
-            // - produce equalities over represented classes.
-            // - produce other literals over represented classes
-            //   (walk disequalities in m_lits and represent
-            //   lhs/rhs over decls or excluding decls)
-
-            ptr_vector<term> worklist;
-            for (term * t : m_tg.m_terms) {
-                worklist.push_back(t);
-                t->set_mark(true);
-            }
-            // traverse worklist in order of depth.
-            term_depth td;
-            std::sort(worklist.begin(), worklist.end(), td);
-
-            for (unsigned i = 0; i < worklist.size(); ++i) {
-                term* t = worklist[i];
-                t->set_mark(false);
-                if (in_term2app(*t)) 
-                    continue;
-                if (!t->is_theory() && is_projected(*t))
-                    continue;
-
-                expr* pure = mk_pure(*t);
-                if (!pure) continue;
-
-                add_term2app(*t, pure);
-                TRACE("qe_verbose", tout << "purified " << *t << " " << mk_pp(pure, m) << "\n";);
-                expr* rep = nullptr;                // ensure that the root has a representative
-                m_root2rep.find(t->get_root().get_id(), rep);
-
-                // update rep with pure if it is better
-                if (pure != rep && is_better_rep(pure, rep)) {
-                    m_root2rep.insert(t->get_root().get_id(), pure);
-                    for (term * p : term::parents(t->get_root())) {
-                        del_term2app(*p);
-                        if (!p->is_marked()) {
-                            p->set_mark(true);
-                            worklist.push_back(p);
-                        }
-                    }
-                }
-            }
-
-            // Here we could also walk equivalence classes that
-            // contain interpreted values by sort and extract
-            // disequalities between non-unique value
-            // representatives.  these disequalities are implied
-            // and can be mined using other means, such as theory
-            // aware core minimization
-            m_tg.reset_marks();
-            TRACE("qe", display(tout << "after purify\n"););
-        }
 
         void solve_core() {
             ptr_vector<term> worklist;
@@ -1094,6 +1039,63 @@ namespace qe {
             }
             return result;
         }
+
+        void purify() {
+            // - propagate representatives up over parents.
+            //   use work-list + marking to propagate.
+            // - produce equalities over represented classes.
+            // - produce other literals over represented classes
+            //   (walk disequalities in m_lits and represent
+            //   lhs/rhs over decls or excluding decls)
+
+            ptr_vector<term> worklist;
+            for (term * t : m_tg.m_terms) {
+                worklist.push_back(t);
+                t->set_mark(true);
+            }
+            // traverse worklist in order of depth.
+            term_depth td;
+            std::sort(worklist.begin(), worklist.end(), td);
+
+            for (unsigned i = 0; i < worklist.size(); ++i) {
+                term* t = worklist[i];
+                t->set_mark(false);
+                if (in_term2app(*t)) 
+                    continue;
+                if (!t->is_theory() && is_projected(*t))
+                    continue;
+
+                expr* pure = mk_pure(*t);
+                if (!pure) continue;
+
+                add_term2app(*t, pure);
+                TRACE("qe_verbose", tout << "purified " << *t << " " << mk_pp(pure, m) << "\n";);
+                expr* rep = nullptr;                // ensure that the root has a representative
+                m_root2rep.find(t->get_root().get_id(), rep);
+
+                // update rep with pure if it is better
+                if (pure != rep && is_better_rep(pure, rep)) {
+                    m_root2rep.insert(t->get_root().get_id(), pure);
+                    for (term * p : term::parents(t->get_root())) {
+                        del_term2app(*p);
+                        if (!p->is_marked()) {
+                            p->set_mark(true);
+                            worklist.push_back(p);
+                        }
+                    }
+                }
+            }
+
+            // Here we could also walk equivalence classes that
+            // contain interpreted values by sort and extract
+            // disequalities between non-unique value
+            // representatives.  these disequalities are implied
+            // and can be mined using other means, such as theory
+            // aware core minimization
+            m_tg.reset_marks();
+            TRACE("qe", display(tout << "after purify\n"););
+        }
+
     };
 
     void term_graph::set_vars(func_decl_ref_vector const& decls, bool exclude) {
@@ -1157,7 +1159,7 @@ namespace qe {
             }
         }
         // create representatives for shared/projected variables.
-        // TBD: m_projector->purify();
+        m_projector->purify();
     }
 
     expr* term_graph::get_model_based_rep(expr* e) {
