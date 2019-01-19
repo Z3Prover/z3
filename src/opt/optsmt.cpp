@@ -31,6 +31,7 @@ Notes:
 #include <typeinfo>
 #include "opt/optsmt.h"
 #include "opt/opt_solver.h"
+#include "opt/opt_context.h"
 #include "ast/arith_decl_plugin.h"
 #include "smt/theory_arith.h"
 #include "ast/ast_pp.h"
@@ -362,12 +363,14 @@ namespace opt {
                            verbose_stream() << "(optsmt lower bound: " << v << ")\n";
                        else
                            verbose_stream() << "(optsmt upper bound: " << (-v) << ")\n";
-                       );
+                       );            
             expr_ref tmp(m);
             for (unsigned i = idx+1; i < m_vars.size(); ++i) {
                 m_s->maximize_objective(i, tmp);
                 m_lower[i] = m_s->saved_objective_value(i);
             }
+
+            m_context.set_model(m_model);
         }
     }
 

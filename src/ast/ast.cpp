@@ -2138,7 +2138,6 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
     app * new_node = nullptr;
     unsigned sz = app::get_obj_size(num_args);
     void * mem = allocate_node(sz);
-
     try {
         if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
             expr_ref_buffer new_args(*this);
