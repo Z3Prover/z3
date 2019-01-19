@@ -1193,7 +1193,7 @@ namespace qe {
         array_util   a;
         scoped_ptr<contains_app> m_var;
 
-        imp(ast_manager& m): m(m), a(m) {}
+        imp(ast_manager& m): m(m), a(m), m_stores(m) {}
         ~imp() {}
 
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
@@ -1375,10 +1375,22 @@ namespace qe {
 
             collect_store_expressions(tg, lits);
             collect_index_expressions(tg, lits);
-            assert_extensionality(tg, lits);
-            assert_store_select(tg, lits);
 
-            IF_VERBOSE(0, verbose_stream() << lits << "\n");
+            TRACE("qe",
+                  tout << "indices\n";
+                  for (auto& kv : m_indices) {
+                      tout << sort_ref(kv.m_key, m) << " |-> " << *kv.m_value << "\n";
+                  }
+                  tout << "stores " << m_stores << "\n";
+                  tout << "arrays\n";
+                  for (auto& kv : m_arrays) {
+                      tout << sort_ref(kv.m_key, m) << " |-> " << *kv.m_value << "\n";
+                  });
+
+            assert_extensionality(model, tg, lits);
+            assert_store_select(model, tg, lits);
+
+            TRACE("qe", tout << lits << "\n";);
 
             for (auto& kv : m_indices) {
                 dealloc(kv.m_value);
@@ -1389,31 +1401,34 @@ namespace qe {
             m_stores.reset();
             m_indices.reset();
             m_arrays.reset();
+
+            TRACE("qe", tout << "done: " << lits << "\n";);
+
         }
 
-        ptr_vector<app>                  m_stores;
-        obj_map<sort, ptr_vector<expr>*> m_indices;
-        obj_map<sort, ptr_vector<expr>*> m_arrays;
+        app_ref_vector                  m_stores;
+        obj_map<sort, app_ref_vector*> m_indices;
+        obj_map<sort, app_ref_vector*> m_arrays;
 
         void add_index_sort(expr* n) {
             sort* s = m.get_sort(n);
             if (!m_indices.contains(s)) {
-                m_indices.insert(s, alloc(ptr_vector<expr>));
+                m_indices.insert(s, alloc(app_ref_vector, m));
             }
         }
 
-        void add_array(expr* n) {
+        void add_array(app* n) {
             sort* s = m.get_sort(n);
-            ptr_vector<expr>* vs = nullptr;
+            app_ref_vector* vs = nullptr;
             if (!m_arrays.find(s, vs)) {
-                vs = alloc(ptr_vector<expr>);
+                vs = alloc(app_ref_vector, m);
                 m_arrays.insert(s, vs);
             }
             vs->push_back(n);
         }
 
-        ptr_vector<expr>* is_index(expr* n) {
-            ptr_vector<expr>* result = nullptr;
+        app_ref_vector* is_index(expr* n) {
+            app_ref_vector* result = nullptr;
             m_indices.find(m.get_sort(n), result);
             return result;
         }
@@ -1426,11 +1441,14 @@ namespace qe {
             void operator()(app* n) {
                 if (m_imp.a.is_array(n) && tg.get_model_based_rep(n)) {
                     m_imp.add_array(n);
-                    if (m_imp.a.is_store(n)) {
-                        m_imp.m_stores.push_back(n);
-                        for (unsigned i = 1; i + 1 < n->get_num_args(); ++i) {
-                            m_imp.add_index_sort(n->get_arg(i));
-                        }
+                }
+
+                if (m_imp.a.is_store(n) &&
+                    (tg.get_model_based_rep(n->get_arg(0)) ||
+                     tg.get_model_based_rep(n->get_arg(n->get_num_args() - 1)))) {
+                    m_imp.m_stores.push_back(n);
+                    for (unsigned i = 1; i + 1 < n->get_num_args(); ++i) {
+                        m_imp.add_index_sort(n->get_arg(i));
                     }
                 }
             }
@@ -1457,9 +1475,6 @@ namespace qe {
         void collect_store_expressions(term_graph& tg, expr_ref_vector const& terms) {
             for_each_store_proc proc(*this, tg);
             for_each_expr<for_each_store_proc>(proc, terms);
-            for (app* s : m_stores) {
-                IF_VERBOSE(0, verbose_stream() << "store: " << expr_ref(s, m) << "\n");
-            }
         }
 
         void collect_index_expressions(term_graph& tg, expr_ref_vector const& terms) {
@@ -1467,20 +1482,19 @@ namespace qe {
             for_each_expr<for_each_index_proc>(proc, terms);
         }
 
-        bool are_equal(term_graph& tg, expr* s, expr* t) {
-            SASSERT(tg.get_model_based_rep(s));
-            return tg.get_model_based_rep(s) == tg.get_model_based_rep(t);
+        bool are_equal(model& mdl, expr* s, expr* t) {
+            return mdl.are_equal(s, t);
         }
 
-        void assert_extensionality(term_graph& tg, expr_ref_vector& lits) {
+        void assert_extensionality(model & mdl, term_graph& tg, expr_ref_vector& lits) {
             for (auto& kv : m_arrays) {
-                ptr_vector<expr>& vs = *kv.m_value;
+                app_ref_vector const& vs = *kv.m_value;
                 if (vs.size() <= 1) continue;
                 func_decl_ref_vector ext(m);
                 sort* s = kv.m_key;
                 unsigned arity = get_array_arity(s);
                 for (unsigned i = 0; i < arity; ++i) {
-                    ext.push_back(a.mk_array_ext(get_array_domain(s, i), i));
+                    ext.push_back(a.mk_array_ext(s, i));
                 } 
                 expr_ref_vector args(m);
                 args.resize(arity + 1);
@@ -1488,7 +1502,7 @@ namespace qe {
                     expr* s = vs[i];
                     for (unsigned j = i + 1; j < vs.size(); ++j) {
                         expr* t = vs[j];
-                        if (are_equal(tg, s, t)) {
+                        if (are_equal(mdl, s, t)) {
                             lits.push_back(m.mk_eq(s, t));
                         }
                         else {
@@ -1506,31 +1520,31 @@ namespace qe {
             }
         }
 
-        void assert_store_select(term_graph& tg, expr_ref_vector& lits) {
+        void assert_store_select(model & mdl, term_graph& tg, expr_ref_vector& lits) {
             for (auto& store : m_stores) {
-                assert_store_select(store, tg, lits);                
+                assert_store_select(store, mdl, tg, lits);                
             }
         }
 
-        void assert_store_select(app* store, term_graph& tg, expr_ref_vector& lits) {
+        void assert_store_select(app* store, model & mdl, term_graph& tg, expr_ref_vector& lits) {
             SASSERT(a.is_store(store));
-            ptr_vector<expr> indices;
+            ptr_vector<app> indices;
             for (unsigned i = 1; i + 1 < store->get_num_args(); ++i) {
                 SASSERT(indices.empty());
-                assert_store_select(indices, store, tg, lits);
+                assert_store_select(indices, store, mdl, tg, lits);
             }
         }
 
-        void assert_store_select(ptr_vector<expr>& indices, app* store, term_graph& tg, expr_ref_vector& lits) {
+        void assert_store_select(ptr_vector<app>& indices, app* store, model & mdl, term_graph& tg, expr_ref_vector& lits) {
             unsigned sz = store->get_num_args();
             if (indices.size() + 2 == sz) {
                 ptr_vector<expr> args;
                 args.push_back(store);
-                args.append(indices);
+                for (expr* idx : indices) args.push_back(idx);
                 for (unsigned i = 1; i + 1 < sz; ++i) {
                     expr* idx1 = store->get_arg(i);
                     expr* idx2 = indices[i - 1];
-                    if (!are_equal(tg, idx1, idx2)) {
+                    if (!are_equal(mdl, idx1, idx2)) {
                         lits.push_back(m.mk_not(m.mk_eq(idx1, idx2)));
                         lits.push_back(m.mk_eq(store->get_arg(sz-1), a.mk_select(args)));
                         return;
@@ -1548,9 +1562,9 @@ namespace qe {
             }
             else {
                 sort* s = m.get_sort(store->get_arg(indices.size() + 1));
-                for (expr* idx : *m_indices[s]) {
+                for (app* idx : *m_indices[s]) {
                     indices.push_back(idx);
-                    assert_store_select(indices, store, tg, lits);
+                    assert_store_select(indices, store, mdl, tg, lits);
                     indices.pop_back();
                 }
             }
@@ -1617,7 +1631,7 @@ namespace qe {
     }
 
     void array_project_plugin::saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) {
-        saturate(model, shared, lits);
+        m_imp->saturate(model, shared, lits);
     }
 
 

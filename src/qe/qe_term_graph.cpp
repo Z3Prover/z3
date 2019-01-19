@@ -217,6 +217,7 @@ namespace qe {
     bool term_graph::is_variable_proc::operator()(const expr * e) const {
         if (!is_app(e)) return false;
         const app *a = ::to_app(e);
+        TRACE("qe", tout << a->get_family_id() << " " << m_solved.contains(a->get_decl()) << " " << m_decls.contains(a->get_decl()) << "\n";);
         return
             a->get_family_id() == null_family_id &&
             !m_solved.contains(a->get_decl()) &&
@@ -588,6 +589,7 @@ namespace qe {
         expr_ref_vector m_pinned;  // tracks expr in the maps
 
         expr* mk_pure(term const& t) {
+            TRACE("qe", t.display(tout););
             expr* e = nullptr;
             if (find_term2app(t, e)) return e;
             e = t.get_expr();
@@ -817,7 +819,9 @@ namespace qe {
             while (r != &t);
         }
 
-        bool is_projected(const term &t) {return m_tg.m_is_var(t);}
+        bool is_projected(const term &t) {
+            return m_tg.m_is_var(t);
+        }
 
         void mk_unpure_equalities(const term &t, expr_ref_vector &res) {
             expr *rep = nullptr;
@@ -1142,14 +1146,16 @@ namespace qe {
     }
 
     void term_graph::add_model_based_terms(model& mdl, expr_ref_vector const& terms) {
+        for (expr* t : terms) {
+            internalize_term(t);
+        }
+        m_is_var.reset_solved();
+        
         SASSERT(!m_projector);
         m_projector = alloc(term_graph::projector, *this);        
 
         // retrieve partition of terms
         vector<expr_ref_vector> equivs = m_projector->get_partition(mdl, true);
-        for (expr* t : terms) {
-            internalize_term(t);
-        }
 
         // merge term graph on equal terms.
         for (auto const& cs : equivs) {
@@ -1158,8 +1164,17 @@ namespace qe {
                 merge(*t0, *get_term(cs[i]));
             }
         }
+        TRACE("qe", 
+              for (auto & es : equivs) {
+                  tout << "equiv: ";
+                  for (expr* t : es) tout << expr_ref(t, m) << " ";
+                  tout << "\n";
+              }
+              display(tout););
         // create representatives for shared/projected variables.
+        m_projector->set_model(mdl);
         m_projector->purify();
+
     }
 
     expr* term_graph::get_model_based_rep(expr* e) {
