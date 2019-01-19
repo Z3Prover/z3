@@ -28,9 +28,27 @@
 namespace nla {
 
 typedef lp::lconstraint_kind llc;
+struct point {
+    rational x;
+    rational y;
+    point(const rational& a, const rational& b): x(a), y(b) {}
+    point() {}
+    point& operator*=(rational a) {
+        x *= a;
+        y *= a;
+        return *this;
+    } 
+};
+
+point operator+(const point& a, const point& b) {
+    return point(a.x + b.x, a.y + b.y);
+} 
+
+point operator-(const point& a, const point& b) {
+    return point(a.x - b.x, a.y - b.y);
+} 
 
 struct solver::imp {
-
     struct bfc {
         lpvar m_x, m_y;
         bfc() {}
@@ -273,13 +291,13 @@ struct solver::imp {
         return out;
     }
 
-    std::ostream& print_tang_corner(const rational &a, const rational &b, std::ostream& out) const {
-        out << "(" << a <<  ", " << b << ")";
+    std::ostream& print_point(const point &a, std::ostream& out) const {
+        out << "(" << a.x <<  ", " << a.y << ")";
         return out;
     }
     
-    std::ostream& print_tangent_domain(const rational &a, const rational &b, const rational &c, const rational &d, std::ostream& out) const {
-        out << "("; print_tang_corner(a, b, out);  out <<  ", "; print_tang_corner(c, d, out); out <<  ")";
+    std::ostream& print_tangent_domain(const point &a, const point &b, std::ostream& out) const {
+        out << "("; print_point(a, out);  out <<  ", "; print_point(b, out); out <<  ")";
         return out;
     }
 
@@ -1866,37 +1884,83 @@ struct solver::imp {
     }
 
     void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign){
-        rational a, b, c, d;
-        bool below = vvr(j) * sign < vvr(bf.m_x) * vvr(bf.m_y);
-        get_tang_domain(a, b, c, d, bf, below);
-        TRACE("nla_solver", tout << "below = " << below << ", tang domain = "; print_tangent_domain(a, b, c, d, tout); tout << std::endl;);
+        point a, b;
+        point xy (vvr(bf.m_x), vvr(bf.m_y));
+        rational correct_mult_val =  xy.x * xy.y;
+        rational val = vvr(j) * sign;
+        bool below = val < correct_mult_val;
+        TRACE("nla_solver", tout << "below = " << below << std::endl;);
+        get_tang_points(a, b, below, val, xy);
+        TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
         SASSERT(false);
-        return false;
     }
-
-    void get_initial_tang_domain(rational &a, rational &b, rational &c, rational &d, const bfc& bf, bool below) const {
-        rational x = vvr(bf.m_x);
-        rational y = vvr(bf.m_y);
-        if (below){
-            a = x - rational(1);
-            b = y + rational(1);
-            c = x + rational(1);
-            d = y - rational(1);
+    // There are two planes tangent to surface z = xy at points a and b
+    // One can show that these planes still create a cut
+    void get_initial_tang_points(point &a, point &b, const point& xy,
+                                 bool below) const {
+        const rational& x = xy.x;
+        const rational& y = xy.y;
+        if (!below){
+            a = point(x - rational(1), y + rational(1));
+            b = point(x + rational(1), y - rational(1));
         }
         else {
-            a = x - rational(1);
-            b = y - rational(1);
-            c = x + rational(1);
-            d = y + rational(1);
+            a = point(x - rational(1), y - rational(1));
+            b = point(x + rational(1), y + rational(1));
         }
     }
 
-    void extend_tang_domain(rational &a, rational &b, rational &c, rational &d, const bfc& bf, bool below) const {
+    void push_tang_point(point &a, const point& xy, bool below, const rational& correct_val, const rational& val) const {
+        SASSERT(correct_val ==  xy.x * xy.y);
+        int steps = 10;
+        point del = a - xy;
+        while (steps--) {
+            del *= rational(2);
+            point na = xy + del;
+            TRACE("nla_solver", tout << "del = "; print_point(del, tout); tout << std::endl;);
+            if (!plane_is_correct_cut(na, xy, correct_val, val, below)) {
+                TRACE("nla_solver", tout << "exit";tout << std::endl;);
+                return;
+            }
+            a = na;
+        }
     }
     
-    void get_tang_domain(rational &a, rational &b, rational &c, rational &d, const bfc& bf, bool below) const {
-        get_initial_tang_domain(a, b, c, d, bf, below);
-        extend_tang_domain(a, b, c, d, bf, below);
+    void push_tang_points(point &a, point &b, const point& xy, bool below, const rational& correct_val, const rational& val) const {
+        push_tang_point(a, xy, below, correct_val, val);
+        push_tang_point(b, xy, below, correct_val, val);
+    }
+
+    rational tang_plane(const point& a, const point& x) const {
+        return  a.x * x.y + a.y * x.x - a.x * a.y;
+    }
+
+    bool plane_is_correct_cut(const point& plane,
+                              const point& xy,
+                              const rational & correct_val,                             
+                              const rational & val,
+                              bool below) const {
+        SASSERT(correct_val ==  xy.x * xy.y);
+        if (below && val > correct_val) return false;
+        rational sign = below? rational(1) : rational(-1);
+        rational px = tang_plane(plane, xy);
+        return ((correct_val - px)*sign).is_pos() && !((px - val)*sign).is_neg();
+        
+    }
+
+    // "below" means that the val is below the surface xy 
+    void get_tang_points(point &a, point &b, bool below, const rational& val,
+                         const point& xy) const {
+        get_initial_tang_points(a, b, xy, below);
+        auto correct_val = xy.x * xy.y;
+        TRACE("nla_solver", tout << "xy = "; print_point(xy, tout); tout << ", correct val = " << xy.x * xy.y;
+              tout << "\ntang points:"; print_tangent_domain(a, b, tout);tout << std::endl;);
+        TRACE("nla_solver", tout << "tang_plane(a, xy) = " << tang_plane(a, xy) << " , val = " << val;
+              tout << "\ntang_plane(b, xy) = " << tang_plane(b, xy); tout << std::endl;);
+        SASSERT(plane_is_correct_cut(a, xy, correct_val, val, below));
+        SASSERT(plane_is_correct_cut(b, xy, correct_val, val, below));
+        push_tang_points(a, b, xy, below, correct_val, val);
+        TRACE("nla_solver", tout << "pushed a = "; print_point(a, tout); tout << "\npushed b = "; print_point(b, tout); tout << std::endl;);
     }
     
     lbool check(vector<lp::explanation> & expl_vec, vector<lemma>& l_vec) {
@@ -2741,7 +2805,7 @@ void solver::test_tangent_lemma() {
     vec.push_back(lp_b);
     int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
     
-    s.set_column_value(lp_ab, nla.m_imp->mon_value_by_vars(mon_ab) + rational(1)); // greater by one than the correct value
+    s.set_column_value(lp_ab, nla.m_imp->mon_value_by_vars(mon_ab) + rational(10)); // greater by ten than the correct value
     vector<lemma> lemma;
     vector<lp::explanation> exp;
 
