@@ -48,4 +48,5 @@ RUN useradd -m user && \
     echo 'user  ALL=(root) NOPASSWD: ALL' >> /etc/sudoers
 USER user
 WORKDIR /home/user
-ENV ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-3.9/bin/llvm-symbolizer
+# dotnet core doesn't support x86
+ENV ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-3.9/bin/llvm-symbolizer DOTNET_BINDINGS=0
