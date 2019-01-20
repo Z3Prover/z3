@@ -1654,7 +1654,7 @@ namespace opt {
                 maxsmt& ms = *m_maxsmts.find(obj.m_id);
                 rational value0 = ms.get_lower();
                 TRACE("opt", tout << "value " << value << " other " << value0 << "\n";);
-                SASSERT(value0 == value);
+                // TBD SASSERT(value0 == value);
                 break;
             }
             }       
