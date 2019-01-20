@@ -1774,6 +1774,22 @@ class DotNetDLLComponent(Component):
     def has_assembly_info(self):
         return True
 
+    def make_assembly_info(c, major, minor, build, revision):
+        assembly_info_template = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo.cs.in')
+        assembly_info_output = assembly_info_template[:-3]
+        assert assembly_info_output.endswith('.cs')
+        if os.path.exists(assembly_info_template):
+             configure_file(assembly_info_template, assembly_info_output,
+                            { 'VER_MAJOR': str(major),
+                              'VER_MINOR': str(minor),
+                              'VER_BUILD': str(build),
+                              'VER_REVISION': str(revision),
+                            }
+                           )
+        else:
+             raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
+
+
     def mk_win_dist(self, build_path, dist_path):
         if is_dotnet_enabled():
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
@@ -2004,7 +2020,7 @@ class DotNetCoreDLLComponent(Component):
     
     def has_assembly_info(self):
         # TBD: is this required for dotnet core given that version numbers are in z3.csproj file?
-        return True
+        return False
 
     
     def mk_win_dist(self, build_path, dist_path):
@@ -3093,19 +3109,7 @@ def mk_version_dot_h(major, minor, build, revision):
 def mk_all_assembly_infos(major, minor, build, revision):
     for c in get_components():
         if c.has_assembly_info():
-            assembly_info_template = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo.cs.in')
-            assembly_info_output = assembly_info_template[:-3]
-            assert assembly_info_output.endswith('.cs')
-            if os.path.exists(assembly_info_template):
-                configure_file(assembly_info_template, assembly_info_output,
-                               { 'VER_MAJOR': str(major),
-                                 'VER_MINOR': str(minor),
-                                 'VER_BUILD': str(build),
-                                 'VER_REVISION': str(revision),
-                               }
-                              )
-            else:
-                raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
+            c.make_assembly_info(major, minor, build, revision)
 
 def get_header_files_for_components(component_src_dirs):
     assert isinstance(component_src_dirs, list)

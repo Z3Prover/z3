@@ -1614,7 +1614,7 @@ namespace opt {
                 value = obj.m_adjust_value(value);
                 rational value0 = ms.get_lower();
                 TRACE("opt", tout << "value " << value << " " << value0 << "\n";);
-                SASSERT(value == value0);
+                // TBD is this correct? SASSERT(value == value0);
             }
         }
     }
