@@ -1,7 +1,0 @@
-prefix=@PREFIX@
-assemblies_dir=${prefix}/lib/mono/@GAC_PKG_NAME@
-
-Name: @GAC_PKG_NAME@
-Description: .NET bindings for The Microsoft Z3 SMT solver
-Version: @VERSION@
-Libs: -r:${assemblies_dir}/Microsoft.Z3.dll
