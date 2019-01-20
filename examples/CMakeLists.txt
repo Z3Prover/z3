@@ -116,6 +116,6 @@ endif()
 ################################################################################
 # Build dotnet examples
 ################################################################################
-#if (BUILD_DOTNET_BINDINGS)
-#    add_subdirectory(dotnet)
-#endif()
+if (BUILD_DOTNET_BINDINGS)
+    add_subdirectory(dotnet)
+endif()
