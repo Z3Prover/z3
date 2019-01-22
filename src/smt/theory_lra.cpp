@@ -483,22 +483,6 @@ class theory_lra::imp {
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
                 }
                 else if (a.is_mod(n, n1, n2)) {
-                    bool is_num = a.is_numeral(n2, r) && !r.is_zero();
-                    if (!is_num) {
-                        found_not_handled(n);
-                    }
-#if 0
-                    else {
-                        app_ref div(a.mk_idiv(n1, n2), m);
-                        mk_enode(div);
-                        theory_var w = mk_var(div);
-                        theory_var u = mk_var(n1);
-                        // add axioms: 
-                        // u = v + r*w
-                        // abs(r) > v >= 0
-                        assert_idiv_mod_axioms(u, v, w, r);
-                    }
-#endif
                     if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);                    
                 }
                 else if (a.is_rem(n, n1, n2)) {
