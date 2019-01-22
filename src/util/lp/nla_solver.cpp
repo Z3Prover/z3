@@ -1880,9 +1880,14 @@ struct solver::imp {
             return false;
         }
         tangent_lemma_bf(bf, j, sign);
+        generate_explanations_of_tang_lemma();
         return true;
     }
 
+    void generate_explanations_of_tang_lemma() {
+        SASSERT(false);
+    }
+    
     void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign){
         point a, b;
         point xy (vvr(bf.m_x), vvr(bf.m_y));
@@ -1892,9 +1897,27 @@ struct solver::imp {
         TRACE("nla_solver", tout << "below = " << below << std::endl;);
         get_tang_points(a, b, below, val, xy);
         TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
-        SASSERT(false);
+        generate_tang_lemma(bf, xy, sign, j);
     }
-    // There are two planes tangent to surface z = xy at points a and b
+
+    void generate_tang_lemma(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
+        generate_two_tang_lines(bf, xy, sign, j);
+        generate_two_tang_planes();
+    }
+
+    void generate_two_tang_planes() {}
+    void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
+        m_lemma_vec->push_back(lemma());
+        m_lemma = &m_lemma_vec->back();
+        mk_ineq(var(bf.m_x), llc::NE, xy.x);
+        mk_ineq(j, llc::EQ, sign * xy.x * xy.y);
+
+        m_lemma_vec->push_back(lemma());
+        m_lemma = &m_lemma_vec->back();
+        mk_ineq(var(bf.m_y), llc::NE, xy.y);
+        mk_ineq(j, llc::EQ, sign * xy.x * xy.y);
+    }
+     // There are two planes tangent to surface z = xy at points a and b
     // One can show that these planes still create a cut
     void get_initial_tang_points(point &a, point &b, const point& xy,
                                  bool below) const {
@@ -1940,7 +1963,7 @@ struct solver::imp {
                               const rational & correct_val,                             
                               const rational & val,
                               bool below) const {
-        SASSERT(correct_val ==  xy.x * xy.y);
+            SASSERT(correct_val ==  xy.x * xy.y);
         if (below && val > correct_val) return false;
         rational sign = below? rational(1) : rational(-1);
         rational px = tang_plane(plane, xy);
@@ -2006,7 +2029,7 @@ struct solver::imp {
         SASSERT(ret != l_false || ((!m_lemma->empty()) && (!lemma_holds())));
         return ret;
     }
-    
+   
     void test_factorization(unsigned mon_index, unsigned number_of_factorizations) {
         vector<ineq> lemma;
         m_lemma = & lemma;
