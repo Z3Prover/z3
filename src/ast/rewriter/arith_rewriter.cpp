@@ -907,7 +907,7 @@ expr_ref arith_rewriter::remove_divisor(expr* arg, expr* num, expr* den) {
                                m_util.mk_idiv(zero, zero), 
                                m().mk_ite(m_util.mk_ge(arg, zero), 
                                           d,
-                                          m_util.mk_uminus(nd))),                               
+                                          nd)),
                     m());
 } 
  
