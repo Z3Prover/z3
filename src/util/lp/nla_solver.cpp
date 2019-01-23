@@ -74,9 +74,7 @@ struct solver::imp {
     // m_var_to_its_monomial[m_monomials[i].var()] = i
     std::unordered_map<lpvar, unsigned>                              m_var_to_its_monomial;
     vector<lp::explanation>  *                                       m_expl_vec;                                  
-    lp::explanation *                                                m_expl;
     vector<lemma> *                                                  m_lemma_vec;
-    lemma *                                                          m_lemma;
     unsigned_vector                                                  m_to_refine;
     std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial 
     
@@ -131,8 +129,8 @@ struct solver::imp {
         return compare_holds(value(n.term()), n.cmp(), n.rs());
     }
 
-    bool lemma_holds() const {
-        for(auto &i : *m_lemma) {
+    bool lemma_holds(const lemma& l) const {
+        for(auto &i : l) {
             if (!ineq_holds(i))
                 return false;
         }
@@ -236,20 +234,20 @@ struct solver::imp {
         return product_value(m) == m_lar_solver.get_column_value_rational(m.var());
     }
     
-    void explain(const monomial& m) const {
-        m_vars_equivalence.explain(m, *m_expl);
+    void explain(const monomial& m, lp::explanation& exp) const {
+        m_vars_equivalence.explain(m, exp);
     }
 
-    void explain(const rooted_mon& rm) const {
+    void explain(const rooted_mon& rm, lp::explanation& exp) const {
         auto & m = m_monomials[rm.orig_index()];
-        explain(m);
+        explain(m, exp);
     }
 
-    void explain(const factor& f) const {
+    void explain(const factor& f, lp::explanation& exp) const {
         if (f.type() == factor_type::VAR) {
-            m_vars_equivalence.explain(f.index(), *m_expl);
+            m_vars_equivalence.explain(f.index(), exp);
         } else {
-            m_vars_equivalence.explain(m_monomials[m_rm_table.vec()[f.index()].orig_index()], *m_expl);
+            m_vars_equivalence.explain(m_monomials[m_rm_table.vec()[f.index()].orig_index()], exp);
         }
     }
 
@@ -350,53 +348,53 @@ struct solver::imp {
         return out;
     }
 
-    std::ostream& print_explanation(std::ostream& out) const {
-        for (auto &p : *m_expl) {
+    std::ostream& print_explanation(std::ostream& out, lp::explanation& exp) const {
+        for (auto &p : exp) {
             m_lar_solver.print_constraint(p.second, out);
         }
         return out;
     }
 
-    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
+    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs, lemma& l) {
         lp::lar_term t;
         t.add_coeff_var(a, j);
         t.add_coeff_var(b, k);
         if (t.is_empty() && rs.is_zero() &&
             (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE))
             return; // otherwise we get something like 0 < 0, which is always false and can be removed from the lemma
-        m_lemma->push_back(ineq(cmp, t, rs));
+        l.push_back(ineq(cmp, t, rs));
     }
 
-    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
-        mk_ineq(rational(1), j, b, k, cmp, rs);
+    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs, lemma& l) {
+        mk_ineq(rational(1), j, b, k, cmp, rs, l);
     }
 
-    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp) {
-        mk_ineq(j, b, k, cmp, rational::zero());
+    void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, lemma& l) {
+        mk_ineq(j, b, k, cmp, rational::zero(), l);
     }
 
-    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp) {
-        mk_ineq(a, j, b, k, cmp, rational::zero());
+    void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, lemma& l) {
+        mk_ineq(a, j, b, k, cmp, rational::zero(), l);
     }
 
-    void mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs) {
-        mk_ineq(a, j, rational(1), k, cmp, rs);
+    void mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs, lemma& l) {
+        mk_ineq(a, j, rational(1), k, cmp, rs, l);
     }
 
-    void mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs) {
-        mk_ineq(j, rational(1), k, cmp, rs);
+    void mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs, lemma& l) {
+        mk_ineq(j, rational(1), k, cmp, rs, l);
     }
 
-    void mk_ineq(lpvar j, llc cmp, const rational& rs) {
+    void mk_ineq(lpvar j, llc cmp, const rational& rs, lemma& l) {
         lp::lar_term t;
-        t.add_coeff_var(j);  
-        m_lemma->push_back(ineq(cmp, t, rs));
+        t.add_var(j);  
+        l.push_back(ineq(cmp, t, rs));
     }
 
-    void mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs) {
+    void mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs, lemma& l) {
         lp::lar_term t;
         t.add_coeff_var(a, j);  
-        m_lemma->push_back(ineq(cmp, t, rs));
+        l.push_back(ineq(cmp, t, rs));
     }
 
     llc negate(llc cmp) {
@@ -423,41 +421,41 @@ struct solver::imp {
         return cmp;
     }
     
-    bool explain(const rational& a, lpvar j, llc cmp, const rational& rs) {
+    bool explain(const rational& a, lpvar j, llc cmp, const rational& rs, lp::explanation & exp) {
         cmp = negate(cmp);
         if (a == rational(1))
-            return explain(j, cmp, rs);
+            return explain(j, cmp, rs, exp);
         if (a == -rational(1))
-            return explain(j, apply_minus(cmp), -rs);
+            return explain(j, apply_minus(cmp), -rs, exp);
         return false;
     }
 
-    bool explain(lpvar j, llc cmp, const rational& rs) {
+    bool explain(lpvar j, llc cmp, const rational& rs, lp::explanation & exp) {
         unsigned lc, uc; // indices for the lower and upper bounds
         m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
         switch(cmp) {
         case llc::LE: {
             if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
                 return false;
-            m_expl->add(uc);
+            exp.add(uc);
             return true;
         }
         case llc::LT: {
             if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) >= rs) 
                 return false;
-            m_expl->add(uc);
+            exp.add(uc);
             return true;
         }
         case llc::GE: {
             if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs) 
                 return false;
-            m_expl->add(lc);
+            exp.add(lc);
             return true;
         }
         case llc::GT:  {
             if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) <= rs) 
                 return false;
-            m_expl->add(lc);
+            exp.add(lc);
             return true;
         }
         case llc::EQ: 
@@ -466,17 +464,17 @@ struct solver::imp {
                     ||
                     uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
                     return false;
-                m_expl->add(lc);
-                m_expl->add(uc);
+                exp.add(lc);
+                exp.add(uc);
                 return true;
             }
         case llc::NE: {
             if (uc + 1 && m_lar_solver.column_upper_bound(j) < rs) {
-                m_expl->add(uc);
+                exp.add(uc);
                 return true;
             }
             if (lc + 1 && m_lar_solver.column_lower_bound(j) > rs) {
-                m_expl->add(lc);
+                exp.add(lc);
                 return true;
             }
             return false;
@@ -488,31 +486,31 @@ struct solver::imp {
         return false;
     }
     
-    void mk_ineq(const rational& a, lpvar j, llc cmp) {
-        mk_ineq(a, j, cmp, rational::zero());
+    void mk_ineq(const rational& a, lpvar j, llc cmp, lemma& l) {
+        mk_ineq(a, j, cmp, rational::zero(), l);
     }
 
-    void mk_ineq(lpvar j, lpvar k, llc cmp) {
-        mk_ineq(rational(1), j, rational(1), k, cmp, rational::zero());
+    void mk_ineq(lpvar j, lpvar k, llc cmp, lemma& l) {
+        mk_ineq(rational(1), j, rational(1), k, cmp, rational::zero(), l);
     }
 
-    void mk_ineq(lpvar j, llc cmp) {
-        mk_ineq(j, cmp, rational::zero());
+    void mk_ineq(lpvar j, llc cmp, lemma& l) {
+        mk_ineq(j, cmp, rational::zero(), l);
     }
     
     // the monomials should be equal by modulo sign but this is not so in the model
     void fill_explanation_and_lemma_sign(const monomial& a, const monomial & b, rational const& sign) {
         SASSERT(sign == 1 || sign == -1);
-        explain(a);
-        explain(b);
+        explain(a, m_expl_vec->back());
+        explain(b, m_expl_vec->back());
         TRACE("nla_solver",
               tout << "used constraints: ";
-              for (auto &p : *m_expl)
+              for (auto &p :  m_expl_vec->back())
                   m_lar_solver.print_constraint(p.second, tout); tout << "\n";
               );
-        SASSERT(m_lemma->size() == 0);
-        mk_ineq(rational(1), a.var(), -sign, b.var(), llc::EQ, rational::zero());
-        TRACE("nla_solver", print_lemma(tout););
+        SASSERT(m_lemma_vec->back().size() == 0);
+        mk_ineq(rational(1), a.var(), -sign, b.var(), llc::EQ, rational::zero(), m_lemma_vec->back());
+        TRACE("nla_solver", print_lemma(m_lemma_vec->back(), tout););
     }
 
     // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
@@ -549,7 +547,7 @@ struct solver::imp {
     // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
     // but it is not the case in the model
     void generate_sign_lemma(const vector<rational>& abs_vals, const monomial& m, const monomial& n, const rational& sign) {
-        SASSERT(m_lemma->empty());
+        SASSERT(m_lemma_vec->back().empty());
         TRACE("nla_solver",
               tout << "m = "; print_monomial_with_vars(m, tout);
               tout << "n = "; print_monomial_with_vars(n, tout);
@@ -590,15 +588,17 @@ struct solver::imp {
             index_with_sign & ins = it->second.back();
             if (j != ins.m_i) {
                 s *= ins.m_sign;
-                mk_ineq(j, -s, ins.m_i, llc::NE);
+                mk_ineq(j, -s, ins.m_i, llc::NE, m_lemma_vec->back());
             }
             it->second.pop_back();
         } 
 
-        mk_ineq(m.var(), -sign, n.var(), llc::EQ);        
-        TRACE("nla_solver", print_lemma(tout););
+        mk_ineq(m.var(), -sign, n.var(), llc::EQ, current_lemma());        
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
     }
 
+    lemma& current_lemma() {return m_lemma_vec->back();}
+    lp::explanation& current_expl() {return m_expl_vec->back();}
 
     static int rat_sign(const rational& r) {
         return r.is_pos()? 1 : ( r.is_neg()? -1 : 0);
@@ -623,8 +623,8 @@ struct solver::imp {
             }
         }
         SASSERT(zero_j + 1);
-        mk_ineq(zero_j, llc::NE);
-        mk_ineq(m.var(), llc::EQ);
+        mk_ineq(zero_j, llc::NE, m_lemma_vec->back());
+        mk_ineq(m.var(), llc::EQ, m_lemma_vec->back());
     }
     
     // we know here that the value one of the vars of each monomial is zero
@@ -761,8 +761,7 @@ struct solver::imp {
         return out;
     }    
 
-    std::ostream & print_lemma(std::ostream & out) const {
-        auto &l = *m_lemma;
+    std::ostream & print_lemma(const lemma& l, std::ostream & out) const {
         out << "lemma: ";
         for (unsigned i = 0; i < l.size(); i++) {
             print_ineq(l[i], out);
@@ -831,15 +830,15 @@ struct solver::imp {
             }
         }
         
-        SASSERT(m_lemma->empty());
+        SASSERT(current_lemma().empty());
         
-        mk_ineq(var(rm), llc::NE);
+        mk_ineq(var(rm), llc::NE, current_lemma());
         for (auto j : f) {
-            mk_ineq(var(j), llc::EQ);
+            mk_ineq(var(j), llc::EQ, current_lemma());
         }
 
-        explain(rm);
-        TRACE("nla_solver", print_lemma(tout););
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
 
         return true;
     }
@@ -870,11 +869,11 @@ struct solver::imp {
             return false;
         } 
 
-        mk_ineq(zero_j, llc::NE);
-        mk_ineq(var(rm), llc::EQ);
+        mk_ineq(zero_j, llc::NE, current_lemma());
+        mk_ineq(var(rm), llc::EQ, current_lemma());
 
-        explain(rm);
-        TRACE("nla_solver", print_lemma(tout););
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
         return true;
     }
 
@@ -917,21 +916,21 @@ struct solver::imp {
         } 
 
         // mon_var = 0
-        mk_ineq(mon_var, llc::EQ);
+        mk_ineq(mon_var, llc::EQ, current_lemma());
         
         // negate abs(jl) == abs()
         if (vvr(jl) == - vvr(mon_var))
-            mk_ineq(jl, mon_var, llc::NE);   
+            mk_ineq(jl, mon_var, llc::NE, current_lemma());   
         else  // jl == mon_var
-            mk_ineq(jl, -rational(1), mon_var, llc::NE);   
+            mk_ineq(jl, -rational(1), mon_var, llc::NE, current_lemma());   
 
         // not_one_j = 1
-        mk_ineq(not_one_j, llc::EQ,  rational(1));   
+        mk_ineq(not_one_j, llc::EQ,  rational(1), current_lemma());   
         
         // not_one_j = -1
-        mk_ineq(not_one_j, llc::EQ, -rational(1));
-        explain(rm);
-        TRACE("nla_solver", print_lemma(tout); );
+        mk_ineq(not_one_j, llc::EQ, -rational(1), current_lemma());
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma(current_lemma(), tout); );
         return true;
     }
 
@@ -963,22 +962,22 @@ struct solver::imp {
             return false;
         }
        
-        explain(rm);
+        explain(rm, current_expl());
 
         for (auto j : f){
             lpvar var_j = var(j);
             if (not_one == var_j) continue;
-            mk_ineq(var_j, llc::NE, j.is_var()? vvr(j) : flip_sign(j) * vvr(j) );   
+            mk_ineq(var_j, llc::NE, j.is_var()? vvr(j) : flip_sign(j) * vvr(j), current_lemma());   
         }
 
         if (not_one == static_cast<lpvar>(-1)) {
-            mk_ineq(m_monomials[rm.orig_index()].var(), llc::EQ, sign);
+            mk_ineq(m_monomials[rm.orig_index()].var(), llc::EQ, sign, current_lemma());
         } else {
-            mk_ineq(m_monomials[rm.orig_index()].var(), -sign, not_one, llc::EQ);
+            mk_ineq(m_monomials[rm.orig_index()].var(), -sign, not_one, llc::EQ, current_lemma());
         }
         TRACE("nla_solver",
               tout << "rm = "; print_rooted_monomial_with_vars(rm, tout);
-              print_lemma(tout););
+              print_lemma(current_lemma(), tout););
         return true;
     }
     
@@ -989,9 +988,9 @@ struct solver::imp {
         return false;
     }
 
-    void explain(const factorization& f) {
+    void explain(const factorization& f, lp::explanation& exp) {
         for (const auto& fc : f) {
-            explain(fc);
+            explain(fc, exp);
         }
     }
 
@@ -1008,7 +1007,7 @@ struct solver::imp {
         int fi = 0;
         for (factor f : fc) {
             if (fi++ != factor_index) {
-                mk_ineq(var(f), llc::EQ);
+                mk_ineq(var(f), llc::EQ, current_lemma());
             } else {
                 rational rmv = vvr(rm);
                 rational sm = rational(rat_sign(rmv));
@@ -1018,13 +1017,13 @@ struct solver::imp {
                 rational sj = rational(rat_sign(jv));
                 SASSERT(sm*rmv < sj*jv);
                 TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
-                mk_ineq(sm, mon_var, llc::LT);
-                mk_ineq(sj, j, llc::LT);
-                mk_ineq(sm, mon_var, -sj, j, llc::GE);
+                mk_ineq(sm, mon_var, llc::LT, current_lemma());
+                mk_ineq(sj, j, llc::LT, current_lemma());
+                mk_ineq(sm, mon_var, -sj, j, llc::GE, current_lemma());
             }
-            explain(f);
+            explain(f, current_expl());
         }
-        TRACE("nla_solver", print_lemma(tout););
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
     }   
 
     // x != 0 or y = 0 => |xy| >= |y|
@@ -1054,7 +1053,7 @@ struct solver::imp {
                     continue;
                 if (basic_lemma_for_mon_zero(rm, factorization) ||
                     basic_lemma_for_mon_neutral(rm, factorization)) {
-                    explain(factorization);
+                    explain(factorization, current_expl());
                     return true;
                 }
             }
@@ -1065,7 +1064,7 @@ struct solver::imp {
                 if (basic_lemma_for_mon_non_zero(rm, factorization) ||
                     basic_lemma_for_mon_neutral(rm, factorization) ||
                     proportion_lemma(rm, factorization)) {
-                    explain(factorization);
+                    explain(factorization, current_expl());
                     return true;
                 }
             }
@@ -1273,8 +1272,8 @@ struct solver::imp {
         m_vars_equivalence.clear();
         m_rm_table.clear();
         m_monomials_containing_var.clear();
-        m_expl->clear();
-        m_lemma->clear();
+        m_expl_vec->clear();
+        m_lemma_vec->clear();
     }
     
     void init_search() {
@@ -1328,9 +1327,9 @@ struct solver::imp {
         auto iv = vvr(i), jv = vvr(j);
         SASSERT(abs(iv) == abs(jv));
         if (iv == jv) {
-            mk_ineq(i, -rational(1), j, llc::NE);
+            mk_ineq(i, -rational(1), j, llc::NE, current_lemma());
         } else { // iv == -jv
-            mk_ineq(i, j, llc::NE);                
+            mk_ineq(i, j, llc::NE, current_lemma());                
         }
     }
     
@@ -1338,7 +1337,7 @@ struct solver::imp {
         rational a_fs = flip_sign(a);
         rational b_fs = flip_sign(b);
         llc cmp = a_sign*vvr(a) < b_sign*vvr(b)? llc::GE : llc::LE;
-        mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
+        mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp, current_lemma());
     }
 
     // |c_sign| = |d_sign| = 1, and c*c_sign = d*d_sign > 0
@@ -1353,17 +1352,17 @@ struct solver::imp {
                      int d_sign,
                      const factor& d,
                      llc ab_cmp) {
-        mk_ineq(rational(c_sign) * flip_sign(c), var(c), llc::LE);
+        mk_ineq(rational(c_sign) * flip_sign(c), var(c), llc::LE, current_lemma());
         negate_factor_equality(c, d);
         negate_factor_relation(rational(c_sign), a, rational(d_sign), b);
-        mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), ab_cmp);
-        explain(ac);
-        explain(a);
-        explain(c);
-        explain(bd);
-        explain(b);
-        explain(d); // todo: double check that these explanations are enough!
-        TRACE("nla_solver", print_lemma(tout););
+        mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), ab_cmp, current_lemma());
+        explain(ac, current_expl());
+        explain(a, current_expl());
+        explain(c, current_expl());
+        explain(bd, current_expl());
+        explain(b, current_expl());
+        explain(d, current_expl()); // todo: double check that these explanations are enough!
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
     }
 
     bool get_cd_signs_for_ol(const rational& c, const rational& d, int& c_sign, int & d_sign) const {
@@ -1664,9 +1663,9 @@ struct solver::imp {
         rational bs = rational(rat_sign(bv));
         TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
         SASSERT(as*av <= bs*bv);
-        mk_ineq(as, a, llc::LT); // |aj| < 0
-        mk_ineq(bs, b, llc::LT); // |bj| < 0
-        mk_ineq(as, a, -bs, b, llc::GT); // negate |aj| <= |bj| 
+        mk_ineq(as, a, llc::LT, current_lemma()); // |aj| < 0
+        mk_ineq(bs, b, llc::LT, current_lemma()); // |bj| < 0
+        mk_ineq(as, a, -bs, b, llc::GT, current_lemma()); // negate |aj| <= |bj| 
     }
 
     void negate_abs_a_lt_abs_b(lpvar a, lpvar b) {
@@ -1676,9 +1675,9 @@ struct solver::imp {
         rational bs = rational(rat_sign(bv));
         TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
         SASSERT(as*av < bs*bv);
-        mk_ineq(as, a, llc::LT); // |aj| < 0
-        mk_ineq(bs, b, llc::LT); // |bj| < 0
-        mk_ineq(as, a, -bs, b, llc::GE); // negate  |aj| < |bj|
+        mk_ineq(as, a, llc::LT, current_lemma()); // |aj| < 0
+        mk_ineq(bs, b, llc::LT, current_lemma()); // |bj| < 0
+        mk_ineq(as, a, -bs, b, llc::GE, current_lemma()); // negate  |aj| < |bj|
     }
 
     void assert_abs_val_a_le_abs_var_b(
@@ -1692,9 +1691,9 @@ struct solver::imp {
         rational bv = vvr(bj);
         rational bs = rational(rat_sign(bv));
         //        TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
-        mk_ineq(as, aj, llc::LT); // |aj| < 0
-        mk_ineq(bs, bj, llc::LT); // |bj| < 0
-        mk_ineq(as, aj, -bs, bj, strict? llc::LT : llc::LE); // |aj| < |bj|
+        mk_ineq(as, aj, llc::LT, current_lemma()); // |aj| < 0
+        mk_ineq(bs, bj, llc::LT, current_lemma()); // |bj| < 0
+        mk_ineq(as, aj, -bs, bj, strict? llc::LT : llc::LE, current_lemma()); // |aj| < |bj|
     }
 
     // strict version
@@ -1708,13 +1707,13 @@ struct solver::imp {
             if (i != strict) {
                 negate_abs_a_le_abs_b(akey[i].second, bkey[i].second);
             } else {
-                mk_ineq(b[i], llc::EQ);
+                mk_ineq(b[i], llc::EQ, current_lemma());
                 negate_abs_a_lt_abs_b(akey[i].second, bkey[i].second);
             }
         }
         assert_abs_val_a_le_abs_var_b(a, b, true);
-        explain(a);
-        explain(b);
+        explain(a, current_expl());
+        explain(b, current_expl());
     }
 
     // not a strict version
@@ -1727,8 +1726,8 @@ struct solver::imp {
             negate_abs_a_le_abs_b(a[i], b[i]);
         }
         assert_abs_val_a_le_abs_var_b(a, b, false);
-        explain(a);
-        explain(b);
+        explain(a, current_expl());
+        explain(b, current_expl());
     }
     
     bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
@@ -1855,7 +1854,7 @@ struct solver::imp {
         return false;
     }
     
-    bool find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign){
+    bool find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found){
         for (const auto& rm : m_rm_table.vec()) {
             if (check_monomial(m_monomials[rm.orig_index()]))
                 continue;
@@ -1865,7 +1864,7 @@ struct solver::imp {
                 TRACE("nla_solver", tout << "found bf"; print_bfc(bf, tout);
                       tout << " product = " << vvr(rm) << ", but should be =" << vvr(bf.m_x)*vvr(bf.m_y);
                       tout << ", j == "; print_var(j, tout) << "\n";);
-                
+                rm_found = &rm;
                 return true;
             } 
         }
@@ -1876,19 +1875,27 @@ struct solver::imp {
         bfc bf;
         lpvar j;
         rational sign;
-        if (!find_bfc_to_refine(bf, j, sign)) {
+        const rooted_mon* rm;
+        if (!find_bfc_to_refine(bf, j, sign, rm)) {
             return false;
         }
-        tangent_lemma_bf(bf, j, sign);
-        generate_explanations_of_tang_lemma();
+        tangent_lemma_bf(bf, j, sign, *rm);
         return true;
     }
 
-    void generate_explanations_of_tang_lemma() {
-        SASSERT(false);
+    void generate_explanations_of_tang_lemma(const rooted_mon& rm, const bfc& bf) {
+        // here we repeat the same explanation for each lemma
+        lp::explanation exp;
+        explain(rm, exp);
+        explain(bf.m_x, exp);
+        explain(bf.m_y, exp);
+        m_expl_vec->clear();
+        while (m_expl_vec->size() < m_lemma_vec->size()) {
+            m_expl_vec->push_back(exp);
+        }
     }
     
-    void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign){
+    void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const rooted_mon& rm){
         point a, b;
         point xy (vvr(bf.m_x), vvr(bf.m_y));
         rational correct_mult_val =  xy.x * xy.y;
@@ -1897,25 +1904,52 @@ struct solver::imp {
         TRACE("nla_solver", tout << "below = " << below << std::endl;);
         get_tang_points(a, b, below, val, xy);
         TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
-        generate_tang_lemma(bf, xy, sign, j);
-    }
-
-    void generate_tang_lemma(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
         generate_two_tang_lines(bf, xy, sign, j);
-        generate_two_tang_planes();
+        generate_tang_plane(a.x, a.y, var(bf.m_x), var(bf.m_y), below, j, sign);
+        generate_tang_plane(b.x, b.y, var(bf.m_x), var(bf.m_y), below, j, sign);
+        generate_explanations_of_tang_lemma(rm, bf);
     }
 
-    void generate_two_tang_planes() {}
-    void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
+    void add_empty_lemma() {
         m_lemma_vec->push_back(lemma());
-        m_lemma = &m_lemma_vec->back();
-        mk_ineq(var(bf.m_x), llc::NE, xy.x);
-        mk_ineq(j, llc::EQ, sign * xy.x * xy.y);
+    }
+    
+    void generate_tang_plane(const rational & a, const rational& b, lpvar jx, lpvar jy, bool below, lpvar j, const rational& j_sign) {
+        add_empty_lemma();
+        lemma& l = m_lemma_vec->back();
+        negate_relation(jx, a, l);
+        negate_relation(jy, a, l);
+        // If "below" holds then ay + bx - ab < xy, otherwise ay + bx - ab > xy,
+        // j_sign*vvr(j) stands for xy. So, finally we have ay + bx - j_sign*j < ab ( or > )
+        lp::lar_term t;
+        t.add_coeff_var(a, jy);
+        t.add_coeff_var(b, jx);
+        t.add_coeff_var( -j_sign, j);
+        l.push_back(ineq(below? llc::LT : llc::GT, t, a*b));
+        TRACE("nla_solver", print_lemma(l, tout););
+    }  
 
-        m_lemma_vec->push_back(lemma());
-        m_lemma = &m_lemma_vec->back();
-        mk_ineq(var(bf.m_y), llc::NE, xy.y);
-        mk_ineq(j, llc::EQ, sign * xy.x * xy.y);
+    void negate_relation(unsigned j, const rational& a, lemma& l) {
+        SASSERT(vvr(j) != a);
+        if (vvr(j) < a) {
+            mk_ineq(j, llc::GE, a, l);
+        }
+        else {
+            mk_ineq(j, llc::LE, a, l);
+        }
+        TRACE("nla_solver", print_ineq(l.back(), tout););
+    }
+    
+    void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
+        auto rs = sign * xy.x * xy.y;
+        
+        add_empty_lemma();
+        mk_ineq(var(bf.m_x), llc::NE, xy.x, m_lemma_vec->back());
+        mk_ineq(j, llc::EQ, rs, m_lemma_vec->back());
+
+        add_empty_lemma();
+        mk_ineq(var(bf.m_y), llc::NE, xy.y, m_lemma_vec->back());
+        mk_ineq(j, llc::EQ, rs, m_lemma_vec->back());
     }
      // There are two planes tangent to surface z = xy at points a and b
     // One can show that these planes still create a cut
@@ -1987,15 +2021,9 @@ struct solver::imp {
     }
     
     lbool check(vector<lp::explanation> & expl_vec, vector<lemma>& l_vec) {
-        
         TRACE("nla_solver", tout << "check of nla";);
         m_expl_vec =   &expl_vec;
         m_lemma_vec =  &l_vec;
-        m_expl_vec->push_back(lp::explanation());
-        m_expl = m_expl_vec->begin();
-        m_lemma_vec->push_back(lemma());
-        m_lemma = m_lemma_vec->begin();
-       
         if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
             TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << lp_status_to_string(m_lar_solver.get_status()) << "\n";);
             return l_undef;
@@ -2026,15 +2054,20 @@ struct solver::imp {
         
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
-        SASSERT(ret != l_false || ((!m_lemma->empty()) && (!lemma_holds())));
+        SASSERT(ret != l_false || !lemmas_hold());
         return ret;
     }
-   
+
+    bool lemmas_hold() const {
+        for (auto & l : * m_lemma_vec) {
+            if (lemma_holds(l))
+                return true;
+        }
+        return false;
+    }
+    
     void test_factorization(unsigned mon_index, unsigned number_of_factorizations) {
         vector<ineq> lemma;
-        m_lemma = & lemma;
-        lp::explanation exp;
-        m_expl = & exp;
         init_search();
 
         factorization_factory_imp fc(m_monomials[mon_index].vars(), // 0 is the index of "abcde"
@@ -2224,15 +2257,15 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
-    nla.m_imp->print_lemma(std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
 
     ineq i0(llc::NE, lp::lar_term(), rational(1));
-    i0.m_term.add_coeff_var(lp_ac);
+    i0.m_term.add_var(lp_ac);
     ineq i1(llc::EQ, lp::lar_term(), rational(0));
-    i1.m_term.add_coeff_var(lp_bde);
+    i1.m_term.add_var(lp_bde);
     i1.m_term.add_coeff_var(-rational(1), lp_abcde);
     ineq i2(llc::EQ, lp::lar_term(), rational(0));
-    i2.m_term.add_coeff_var(lp_abcde);
+    i2.m_term.add_var(lp_abcde);
     i2.m_term.add_coeff_var(-rational(1), lp_bde);
     bool found0 = false;
     bool found1 = false;
@@ -2283,16 +2316,16 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     SASSERT(lemma[0].size() == 4);
-    nla.m_imp->print_lemma(std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
 
     ineq i0(llc::NE, lp::lar_term(), rational(1));
-    i0.m_term.add_coeff_var(lp_b);
+    i0.m_term.add_var(lp_b);
     ineq i1(llc::NE, lp::lar_term(), rational(1));
-    i1.m_term.add_coeff_var(lp_d);
+    i1.m_term.add_var(lp_d);
     ineq i2(llc::NE, lp::lar_term(), rational(1));
-    i2.m_term.add_coeff_var(lp_e);
+    i2.m_term.add_var(lp_e);
     ineq i3(llc::EQ, lp::lar_term(), rational(1));
-    i3.m_term.add_coeff_var(lp_bde);
+    i3.m_term.add_var(lp_bde);
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
@@ -2362,12 +2395,12 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     s.set_column_value(lp_be, rational(1));
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-    nla.m_imp->print_lemma(std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
     SASSERT(lemma.size() == 1 && lemma[0].size() == 2);
     ineq i0(llc::NE, lp::lar_term(), rational(0));
-    i0.m_term.add_coeff_var(lp_b);
+    i0.m_term.add_var(lp_b);
     ineq i1(llc::EQ, lp::lar_term(), rational(0));
-    i1.m_term.add_coeff_var(lp_be);
+    i1.m_term.add_var(lp_be);
     bool found0 = false;
     bool found1 = false;
 
@@ -2426,14 +2459,14 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
-    nla.m_imp->print_lemma(std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
 
     ineq i0(llc::EQ, lp::lar_term(), rational(0));
-    i0.m_term.add_coeff_var(lp_b);
+    i0.m_term.add_var(lp_b);
     ineq i1(llc::EQ, lp::lar_term(), rational(0));
-    i1.m_term.add_coeff_var(lp_d);
+    i1.m_term.add_var(lp_d);
     ineq i2(llc::EQ, lp::lar_term(), rational(0));
-    i2.m_term.add_coeff_var(lp_e);
+    i2.m_term.add_var(lp_e);
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
@@ -2504,11 +2537,11 @@ void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     // we have bde = -b, therefore d = +-1 and e = +-1
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
-    nla.m_imp->print_lemma(std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
     ineq i0(llc::EQ, lp::lar_term(), rational(1));
-    i0.m_term.add_coeff_var(lp_b);
+    i0.m_term.add_var(lp_b);
     ineq i1(llc::EQ, lp::lar_term(), -rational(1));
-    i1.m_term.add_coeff_var(lp_b);
+    i1.m_term.add_var(lp_b);
     bool found0 = false;
     bool found1 = false;
 
@@ -2577,15 +2610,15 @@ void solver::test_basic_sign_lemma() {
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
 
     lp::lar_term t;
-    t.add_coeff_var(lp_bde);
-    t.add_coeff_var(lp_acd);
+    t.add_var(lp_bde);
+    t.add_var(lp_acd);
     ineq q(llc::EQ, t, rational(0));
    
-    nla.m_imp->print_lemma(std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
     SASSERT(q == lemma[0].back());
     ineq i0(llc::EQ, lp::lar_term(), rational(0));
-    i0.m_term.add_coeff_var(lp_bde);
-    i0.m_term.add_coeff_var(rational(1), lp_acd);
+    i0.m_term.add_var(lp_bde);
+    i0.m_term.add_var(lp_acd);
     bool found = false;
     for (const auto& k : lemma[0]){
         if (k == i0) {
@@ -2654,7 +2687,7 @@ void solver::test_order_lemma_params(bool var_equiv, int sign) {
 
     if (var_equiv) { // make k equivalent to j
         lp::lar_term t;
-        t.add_coeff_var(lp_k);
+        t.add_var(lp_k);
         t.add_coeff_var(-rational(1), lp_j);
         lpvar kj = s.add_term(t.coeffs_as_vector());
         s.add_var_bound(kj, llc::LE, rational(0));
@@ -2718,7 +2751,7 @@ void solver::test_order_lemma_params(bool var_equiv, int sign) {
     // t.add_coeff_var(lp_acd);
     // ineq q(llc::EQ, t, rational(0));
    
-    nla.m_imp->print_lemma(std::cout << "lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "lemma: ");
     // SASSERT(q == lemma.back());
     // ineq i0(llc::EQ, lp::lar_term(), rational(0));
     // i0.m_term.add_coeff_var(lp_bde);
@@ -2796,7 +2829,7 @@ void solver::test_monotone_lemma() {
     vector<lemma> lemma;
     vector<lp::explanation> exp;
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-    nla.m_imp->print_lemma(std::cout << "lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "lemma: ");
 }
 
 void solver::test_tangent_lemma() {
@@ -2833,7 +2866,7 @@ void solver::test_tangent_lemma() {
     vector<lp::explanation> exp;
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-    nla.m_imp->print_lemma(std::cout << "lemma: ");
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "lemma: ");
 }
 
 void solver::test_order_lemma() {
