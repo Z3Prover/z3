@@ -2837,7 +2837,7 @@ namespace sat {
 
     void ba_solver::simplify() {        
         if (!s().at_base_lvl()) s().pop_to_base_level();
-        unsigned trail_sz;
+        unsigned trail_sz, count = 0;
         do {
             trail_sz = s().init_trail_size();
             m_simplify_change = false;
@@ -2855,8 +2855,9 @@ namespace sat {
             cleanup_clauses();
             cleanup_constraints();
             update_pure();
+            ++count;
         }        
-        while (m_simplify_change || trail_sz < s().init_trail_size());
+        while (count < 10 && (m_simplify_change || trail_sz < s().init_trail_size()));
 
         IF_VERBOSE(1, verbose_stream() << "(ba.simplify"
                    << " :vars " << s().num_vars() - trail_sz 
