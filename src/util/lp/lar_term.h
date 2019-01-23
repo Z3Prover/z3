@@ -43,7 +43,7 @@ struct lar_term {
         }
     }
 
-    void add_coeff_var(unsigned j) {
+    void add_var(unsigned j) {
         rational c(1);
         add_coeff_var(c, j);
     }
