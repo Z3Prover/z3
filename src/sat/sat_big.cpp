@@ -172,6 +172,7 @@ namespace sat {
 
     void big::add_del(literal u, literal v) {
         if (u.index() > v.index()) std::swap(u, v);
+		
         m_del_bin[u.index()].push_back(v);
     }
 
@@ -210,7 +211,6 @@ namespace sat {
             }
             wlist.set_end(itprev);
         }        
-
         s.propagate(false);
         return elim;
     }
