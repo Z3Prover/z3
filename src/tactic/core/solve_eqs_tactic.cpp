@@ -25,6 +25,7 @@ Revision History:
 #include "tactic/goal_shared_occs.h"
 #include "tactic/tactical.h"
 #include "tactic/generic_model_converter.h"
+#include "tactic/tactic_params.hpp"
 
 class solve_eqs_tactic : public tactic {
     struct imp {
@@ -40,6 +41,7 @@ class solve_eqs_tactic : public tactic {
         bool                          m_theory_solver;
         bool                          m_ite_solver;
         unsigned                      m_max_occs;
+        bool                          m_context_solve;
         scoped_ptr<expr_substitution> m_subst;
         scoped_ptr<expr_substitution> m_norm_subst;
         expr_sparse_mark              m_candidate_vars;
@@ -72,9 +74,11 @@ class solve_eqs_tactic : public tactic {
         ast_manager & m() const { return m_manager; }
         
         void updt_params(params_ref const & p) {
-            m_ite_solver     = p.get_bool("ite_solver", true);
-            m_theory_solver  = p.get_bool("theory_solver", true);
-            m_max_occs       = p.get_uint("solve_eqs_max_occs", UINT_MAX);
+            tactic_params tp(p);
+            m_ite_solver     = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
+            m_theory_solver  = p.get_bool("theory_solver", tp.solve_eqs_theory_solver());
+            m_max_occs       = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
+            m_context_solve  = p.get_bool("context_solve", tp.solve_eqs_context_solve());
         }
                 
         void checkpoint() {
@@ -555,7 +559,7 @@ class solve_eqs_tactic : public tactic {
                             insert_solution(g, idx, arg, var, def, pr);
                         }
                         else {
-                            IF_VERBOSE(0, 
+                            IF_VERBOSE(10000, 
                                        verbose_stream() << "eq not solved " << mk_pp(arg, m()) << "\n";
                                        verbose_stream() << is_uninterp_const(lhs) << " " << !m_candidate_vars.is_marked(lhs) << " " 
                                        << !occurs(lhs, rhs) << " " << check_occs(lhs) << "\n";);
@@ -726,7 +730,7 @@ class solve_eqs_tactic : public tactic {
                 ++idx;
             }
             
-            IF_VERBOSE(10, 
+            IF_VERBOSE(10000, 
                        verbose_stream() << "ordered vars: ";
                        for (app* v : m_ordered_vars) verbose_stream() << mk_pp(v, m()) << " ";
                        verbose_stream() << "\n";);
@@ -811,12 +815,6 @@ class solve_eqs_tactic : public tactic {
                 }
 
                 m_r->operator()(f, new_f, new_pr, new_dep);
-#if 0
-                pb_util pb(m());
-                if (pb.is_ge(f) && f != new_f) {
-                    IF_VERBOSE(0, verbose_stream() << mk_ismt2_pp(f, m()) << "\n--->\n" << mk_ismt2_pp(new_f, m()) << "\n");
-                }
-#endif
 
                 TRACE("solve_eqs_subst", tout << mk_ismt2_pp(f, m()) << "\n--->\n" << mk_ismt2_pp(new_f, m()) << "\n";);
                 m_num_steps += m_r->get_num_steps() + 1;
@@ -922,8 +920,9 @@ class solve_eqs_tactic : public tactic {
                 while (true) {
                     collect_num_occs(*g);
                     collect(*g);
-                    // TBD Disabled until tested more:
-                    // collect_hoist(*g);
+                    if (m_context_solve) {
+                        collect_hoist(*g);
+                    }
                     if (m_subst->empty()) 
                         break;
                     sort_vars();
@@ -941,7 +940,6 @@ class solve_eqs_tactic : public tactic {
             g->inc_depth();
             g->add(mc.get());
             result.push_back(g.get());
-            //IF_VERBOSE(0, g->display(verbose_stream()));
             TRACE("solve_eqs", g->display(tout););
             SASSERT(g->is_well_sorted());
         }
@@ -968,10 +966,11 @@ public:
         m_imp->updt_params(p);
     }
 
-    void collect_param_descrs(param_descrs & r) override {
+    void collect_param_descrs(param_descrs & r) override {        
         r.insert("solve_eqs_max_occs", CPK_UINT, "(default: infty) maximum number of occurrences for considering a variable for gaussian eliminations.");
         r.insert("theory_solver", CPK_BOOL, "(default: true) use theory solvers.");
         r.insert("ite_solver", CPK_BOOL, "(default: true) use if-then-else solver.");
+        r.insert("context_solve", CPK_BOOL, "(default: false) solve equalities under disjunctions.");
     }
     
     void operator()(goal_ref const & in, 
