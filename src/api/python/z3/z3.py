@@ -6800,6 +6800,10 @@ class Solver(Z3PPObject):
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
+    def dimacs(self):
+        """Return a textual representation of the solver in DIMACS format."""
+        return Z3_solver_to_dimacs_string(self.ctx.ref(), self.solver)
+
     def to_smt2(self):
         """return SMTLIB2 formatted benchmark for solver's assertions"""
         es = self.assertions()

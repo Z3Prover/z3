@@ -127,7 +127,7 @@ public:
     void pop(unsigned n) override;
     unsigned get_scope_level() const override { return m_solver.get_scope_level(); }
 
-    lbool check_sat(unsigned num_assumptions, expr * const *assumptions) override;
+    lbool check_sat_core(unsigned num_assumptions, expr * const *assumptions) override;
     lbool check_sat_cc(const expr_ref_vector &cube, vector<expr_ref_vector> const & clauses) override;
     void set_progress_callback(progress_callback *callback) override {
         m_solver.set_progress_callback(callback);

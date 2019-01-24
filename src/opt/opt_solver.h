@@ -95,7 +95,7 @@ namespace opt {
         void assert_expr_core(expr * t) override;
         void push_core() override;
         void pop_core(unsigned n) override;
-        lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
+        lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override;
         void get_unsat_core(expr_ref_vector & r) override;
         void get_model_core(model_ref & _m) override;
         proof * get_proof() override;

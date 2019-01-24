@@ -6368,6 +6368,14 @@ extern "C" {
     */
     Z3_string Z3_API Z3_solver_to_string(Z3_context c, Z3_solver s);
 
+    /**
+       \brief Convert a solver into a DIMACS formatted string.
+       \sa Z3_goal_to_diamcs_string for requirements.
+
+       def_API('Z3_solver_to_dimacs_string', STRING, (_in(CONTEXT), _in(SOLVER)))
+    */
+    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s);
+
     /*@}*/
 
     /** @name Statistics */

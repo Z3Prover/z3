@@ -166,7 +166,7 @@ public:
             (m.is_not(e, e) && is_uninterp_const(e));
     }
 
-    lbool check_sat(unsigned sz, expr * const * assumptions) override {
+    lbool check_sat_core(unsigned sz, expr * const * assumptions) override {
         m_solver.pop_to_base_level();
         m_core.reset();
         if (m_solver.inconsistent()) return l_false;
