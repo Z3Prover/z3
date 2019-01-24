@@ -1907,7 +1907,7 @@ struct solver::imp {
         bool below = val < correct_mult_val;
         TRACE("nla_solver", tout << "below = " << below << std::endl;);
         get_tang_points(a, b, below, val, xy);
-        TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
+        TRACE("nla_solver", tout << "sign = " << sign << ", tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
         generate_two_tang_lines(bf, xy, sign, j);
         generate_tang_plane(a.x, a.y, var(bf.m_x), var(bf.m_y), below, j, sign);
         generate_tang_plane(b.x, b.y, var(bf.m_x), var(bf.m_y), below, j, sign);
@@ -1946,18 +1946,17 @@ struct solver::imp {
     }
     
     void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
-        auto rs = sign * xy.x * xy.y;
-        
         add_empty_lemma_and_explanation();
         mk_ineq(var(bf.m_x), llc::NE, xy.x, m_lemma_vec->back());
-        mk_ineq(j, llc::EQ, rs, m_lemma_vec->back());
-
+        mk_ineq(sign, j, - xy.x, var(bf.m_y), llc::EQ, m_lemma_vec->back());
+        TRACE("nla_solver", print_lemma(m_lemma_vec->back(), tout););
         add_empty_lemma_and_explanation();
         mk_ineq(var(bf.m_y), llc::NE, xy.y, m_lemma_vec->back());
-        mk_ineq(j, llc::EQ, rs, m_lemma_vec->back());
+        mk_ineq(sign, j, - xy.y, var(bf.m_x), llc::EQ, m_lemma_vec->back());
+        TRACE("nla_solver", print_lemma(m_lemma_vec->back(), tout););
     }
-     // There are two planes tangent to surface z = xy at points a and b
-    // One can show that these planes still create a cut
+     // Get two planes tangent to surface z = xy, one at point a,  and another at point b.
+    // One can show that these planes still create a cut.
     void get_initial_tang_points(point &a, point &b, const point& xy,
                                  bool below) const {
         const rational& x = xy.x;
@@ -2059,16 +2058,16 @@ struct solver::imp {
         
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
-        SASSERT(ret != l_false || !lemmas_hold());
+        SASSERT(ret != l_false || no_lemmas_hold());
         return ret;
     }
 
-    bool lemmas_hold() const {
+    bool no_lemmas_hold() const {
         for (auto & l : * m_lemma_vec) {
             if (lemma_holds(l))
-                return true;
+                return false;
         }
-        return false;
+        return true;
     }
     
     void test_factorization(unsigned mon_index, unsigned number_of_factorizations) {
@@ -2837,7 +2836,7 @@ void solver::test_monotone_lemma() {
     nla.m_imp->print_lemma(lemma.back(), std::cout << "lemma: ");
 }
 
-void solver::test_tangent_lemma() {
+void solver::test_tangent_lemma_reg() {
     enable_trace("nla_solver");
     lp::lar_solver s;
     unsigned a = 0, b = 1, ab = 10;
@@ -2872,6 +2871,58 @@ void solver::test_tangent_lemma() {
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     nla.m_imp->print_lemma(lemma.back(), std::cout << "lemma: ");
+}
+
+void solver::test_tangent_lemma_equiv() {
+    enable_trace("nla_solver");
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, k = 2, ab = 10;
+    
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_k = s.add_named_var(k, true, "k");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    //    lpvar lp_c = s.add_named_var(c, true, "c");
+    //    lpvar lp_d = s.add_named_var(d, true, "d");
+    // lpvar lp_e = s.add_named_var(e, true, "e");
+    // lpvar lp_f = s.add_named_var(f, true, "f");
+    // lpvar lp_i = s.add_named_var(i, true, "i");
+    // lpvar lp_j = s.add_named_var(j, true, "j");
+    lpvar lp_ab = s.add_named_var(ab, true, "ab");
+    int sign = 1;
+    for (unsigned j = 0; j < s.number_of_vars(); j++) {
+        sign *= -1;
+        s.set_column_value(j, sign * rational((j + 2) * (j + 2)));
+    }
+
+    // make k == -a
+    lp::lar_term t;
+    t.add_var(lp_k);
+    t.add_var(lp_a);
+    lpvar kj = s.add_term(t.coeffs_as_vector());
+    s.add_var_bound(kj, llc::LE, rational(0)); 
+    s.add_var_bound(kj, llc::GE, rational(0));
+
+    reslimit l;
+    params_ref p;
+    solver nla(s, l, p);
+    // create monomial ab
+    vector<unsigned> vec;
+    vec.push_back(lp_a);
+    vec.push_back(lp_b);
+    int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
+    
+    s.set_column_value(lp_ab, nla.m_imp->mon_value_by_vars(mon_ab) + rational(10)); // greater by ten than the correct value
+    vector<lemma> lemma;
+    vector<lp::explanation> exp;
+
+    SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
+    nla.m_imp->print_lemma(lemma.back(), std::cout << "lemma: ");
+}
+
+
+void solver::test_tangent_lemma() {
+    test_tangent_lemma_reg();
+    test_tangent_lemma_equiv();    
 }
 
 void solver::test_order_lemma() {
