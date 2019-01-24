@@ -547,7 +547,7 @@ struct solver::imp {
     // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
     // but it is not the case in the model
     void generate_sign_lemma(const vector<rational>& abs_vals, const monomial& m, const monomial& n, const rational& sign) {
-        SASSERT(m_lemma_vec->back().empty());
+        add_empty_lemma_and_explanation();
         TRACE("nla_solver",
               tout << "m = "; print_monomial_with_vars(m, tout);
               tout << "n = "; print_monomial_with_vars(n, tout);
@@ -829,8 +829,8 @@ struct solver::imp {
                 return false;
             }
         }
-        
-        SASSERT(current_lemma().empty());
+
+        add_empty_lemma_and_explanation();
         
         mk_ineq(var(rm), llc::NE, current_lemma());
         for (auto j : f) {
@@ -868,7 +868,7 @@ struct solver::imp {
         if (zero_j == -1) {
             return false;
         } 
-
+        add_empty_lemma_and_explanation();
         mk_ineq(zero_j, llc::NE, current_lemma());
         mk_ineq(var(rm), llc::EQ, current_lemma());
 
@@ -915,6 +915,7 @@ struct solver::imp {
             return false;
         } 
 
+        add_empty_lemma_and_explanation();
         // mon_var = 0
         mk_ineq(mon_var, llc::EQ, current_lemma());
         
@@ -961,7 +962,8 @@ struct solver::imp {
             // if we are here then there are at least two factors with values different from one and minus one: cannot create the lemma
             return false;
         }
-       
+
+        add_empty_lemma_and_explanation();
         explain(rm, current_expl());
 
         for (auto j : f){
@@ -1004,6 +1006,7 @@ struct solver::imp {
 
     void generate_pl(const rooted_mon& rm, const factorization& fc, int factor_index) {
         TRACE("nla_solver", tout << "rm = "; print_rooted_monomial_with_vars(rm, tout););
+        add_empty_lemma_and_explanation();
         int fi = 0;
         for (factor f : fc) {
             if (fi++ != factor_index) {
@@ -1352,6 +1355,7 @@ struct solver::imp {
                      int d_sign,
                      const factor& d,
                      llc ab_cmp) {
+        add_empty_lemma_and_explanation();
         mk_ineq(rational(c_sign) * flip_sign(c), var(c), llc::LE, current_lemma());
         negate_factor_equality(c, d);
         negate_factor_relation(rational(c_sign), a, rational(d_sign), b);
@@ -1700,6 +1704,7 @@ struct solver::imp {
     void generate_monl_strict(const rooted_mon& a,
                               const rooted_mon& b,
                               unsigned strict) {
+        add_empty_lemma_and_explanation();
         auto akey = get_sorted_key_with_vars(a);
         auto bkey = get_sorted_key_with_vars(b);
         SASSERT(akey.size() == bkey.size());
@@ -1889,9 +1894,8 @@ struct solver::imp {
         explain(rm, exp);
         explain(bf.m_x, exp);
         explain(bf.m_y, exp);
-        m_expl_vec->clear();
-        while (m_expl_vec->size() < m_lemma_vec->size()) {
-            m_expl_vec->push_back(exp);
+        for (auto& e : *m_expl_vec) {
+            e = exp;
         }
     }
     
@@ -1910,15 +1914,16 @@ struct solver::imp {
         generate_explanations_of_tang_lemma(rm, bf);
     }
 
-    void add_empty_lemma() {
+    void add_empty_lemma_and_explanation() {
         m_lemma_vec->push_back(lemma());
+        m_expl_vec->push_back(lp::explanation());
     }
     
     void generate_tang_plane(const rational & a, const rational& b, lpvar jx, lpvar jy, bool below, lpvar j, const rational& j_sign) {
-        add_empty_lemma();
+        add_empty_lemma_and_explanation();
         lemma& l = m_lemma_vec->back();
         negate_relation(jx, a, l);
-        negate_relation(jy, a, l);
+        negate_relation(jy, b, l);
         // If "below" holds then ay + bx - ab < xy, otherwise ay + bx - ab > xy,
         // j_sign*vvr(j) stands for xy. So, finally we have ay + bx - j_sign*j < ab ( or > )
         lp::lar_term t;
@@ -1943,11 +1948,11 @@ struct solver::imp {
     void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
         auto rs = sign * xy.x * xy.y;
         
-        add_empty_lemma();
+        add_empty_lemma_and_explanation();
         mk_ineq(var(bf.m_x), llc::NE, xy.x, m_lemma_vec->back());
         mk_ineq(j, llc::EQ, rs, m_lemma_vec->back());
 
-        add_empty_lemma();
+        add_empty_lemma_and_explanation();
         mk_ineq(var(bf.m_y), llc::NE, xy.y, m_lemma_vec->back());
         mk_ineq(j, llc::EQ, rs, m_lemma_vec->back());
     }
