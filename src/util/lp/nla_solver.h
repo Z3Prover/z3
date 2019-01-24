@@ -75,5 +75,7 @@ public:
     static void test_order_lemma_params(bool, int sign);
     static void test_monotone_lemma();
     static void test_tangent_lemma();
+    static void test_tangent_lemma_reg();
+    static void test_tangent_lemma_equiv();
 };
 }
