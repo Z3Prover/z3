@@ -1014,6 +1014,9 @@ namespace sat {
         svector<bool>  m_in_intersection;
         unsigned       m_ala_qhead;
         clause_wrapper m_clause;
+        unsigned       m_ala_cost;
+        unsigned       m_ala_benefit;
+        unsigned       m_ala_max_cost;
 
         blocked_clause_elim(simplifier & _s, unsigned limit, model_converter & _mc, use_list & l,
                             vector<watch_list> & wlist):
@@ -1021,8 +1024,11 @@ namespace sat {
             m_counter(limit),
             m_mc(_mc),
             m_queue(l, wlist),
-            m_clause(null_literal, null_literal) {
+            m_clause(null_literal, null_literal),
+            m_ala_cost(0),
+            m_ala_benefit(0) {
             m_in_intersection.resize(s.s.num_vars() * 2, false);
+            m_ala_max_cost = (s.s.m_clauses.size() * s.m_num_calls)/5;
         }
 
         void insert(literal l) {
@@ -1032,6 +1038,10 @@ namespace sat {
 
         bool process_var(bool_var v) {
             return !s.s.is_assumption(v) && !s.was_eliminated(v) && !s.is_external(v) && s.value(v) == l_undef;
+        }
+
+        bool reached_max_cost() {
+            return m_ala_benefit <= m_ala_cost * 100 && m_ala_cost > m_ala_max_cost;
         }
 
         enum elim_type {
@@ -1296,13 +1306,15 @@ namespace sat {
          */
         bool add_ala() {
             unsigned init_size = m_covered_clause.size();
-            for (; m_ala_qhead < m_covered_clause.size() && m_ala_qhead < 5*init_size; ++m_ala_qhead) {
+            for (; m_ala_qhead < m_covered_clause.size() && m_ala_qhead < 5*init_size && !reached_max_cost(); ++m_ala_qhead) {
+                ++m_ala_cost;
                 literal l = m_covered_clause[m_ala_qhead];                
                 for (watched & w : s.get_wlist(~l)) {
                     if (w.is_binary_non_learned_clause()) {
                         literal lit = w.get_literal();
                         if (revisit_binary(l, lit)) continue;
                         if (s.is_marked(lit)) {
+                            ++m_ala_benefit;
                             return true;
                         }
                         if (!s.is_marked(~lit)) {
@@ -1333,6 +1345,7 @@ namespace sat {
                     }
                     if (!ok) continue;
                     if (lit1 == null_literal) {
+                        ++m_ala_benefit;
                         return true;
                     }
                     m_covered_clause.push_back(~lit1);
@@ -1504,7 +1517,9 @@ namespace sat {
 
         template<elim_type et>
         void cce_binary() {
-            while (!m_queue.empty() && m_counter >= 0) {
+            m_ala_cost = 0;
+            m_ala_benefit = 0;
+            while (!m_queue.empty() && m_counter >= 0 && !reached_max_cost()) {
                 s.checkpoint();
                 process_cce_binary<et>(m_queue.next());
             }
@@ -1516,7 +1531,7 @@ namespace sat {
             watch_list & wlist = s.get_wlist(~l);
             m_counter -= wlist.size();
             model_converter::kind k;
-            for (watched & w : wlist) {
+            for (watched& w : wlist) {
                 if (!w.is_binary_non_learned_clause()) continue;
                 if (!select_clause<et>(2)) continue;
                 literal l2 = w.get_literal();
@@ -1543,9 +1558,13 @@ namespace sat {
         template<elim_type et>
         void cce_clauses() {
             literal blocked;
+            m_ala_cost = 0;
+            m_ala_benefit = 0;
             model_converter::kind k;
-            for (clause* cp : s.s.m_clauses) {
-                clause& c = *cp;
+            unsigned start = s.s.m_rand(); 
+            unsigned sz = s.s.m_clauses.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                clause& c = *s.s.m_clauses[(i + start) % sz];
                 if (c.was_removed() || c.is_learned()) continue;
                 if (!select_clause<et>(c.size())) continue;
                 elim_type r = cce<et>(c, blocked, k);
@@ -1563,7 +1582,10 @@ namespace sat {
                     break;
                 }
                 s.checkpoint();
-            }
+                if (reached_max_cost()) {
+                    break;
+                }
+            }            
         }
 
         void inc_bc(elim_type et) {

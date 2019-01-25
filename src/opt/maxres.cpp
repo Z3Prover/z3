@@ -329,8 +329,8 @@ public:
         verify_assumptions();
         m_lower.reset();
         for (soft& s : m_soft) {
-            s.is_true = m_model->is_true(s.s);
-            if (!s.is_true) {
+            s.set_value(m_model->is_true(s.s));
+            if (!s.is_true()) {
                 m_lower += s.weight;
             }
         }
@@ -764,7 +764,7 @@ public:
         TRACE("opt", tout << "updated upper: " << upper << "\nmodel\n" << *m_model;);
 
         for (soft& s : m_soft) {
-            s.is_true = m_model->is_true(s.s);
+            s.set_value(m_model->is_true(s.s));
         }
        
         verify_assignment();
@@ -878,7 +878,7 @@ public:
         expr_ref n(m);
         for (soft& s : m_soft) {
             n = s.s;
-            if (!s.is_true) {
+            if (!s.is_true()) {
                 n = mk_not(m, n);
             }
             _solver->assert_expr(n);
