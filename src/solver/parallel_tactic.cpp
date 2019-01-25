@@ -213,7 +213,7 @@ class parallel_tactic : public tactic {
         solver_state* clone() {
             SASSERT(!m_cubes.empty());
             ast_manager& m = m_solver->get_manager();
-            ast_manager* new_m = alloc(ast_manager, m, m.proof_mode());
+            ast_manager* new_m = alloc(ast_manager, m, true);
             ast_translation tr(m, *new_m);
             solver* s = m_solver.get()->translate(*new_m, m_params);
             solver_state* st = alloc(solver_state, new_m, s, m_params);

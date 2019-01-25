@@ -137,9 +137,9 @@ public:
         }
     }
 
-    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
+    lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
         flush_assertions();
-        return m_solver->check_sat(num_assumptions, assumptions);
+        return m_solver->check_sat_core(num_assumptions, assumptions);
     }
 
     void updt_params(params_ref const & p) override { solver::updt_params(p); m_solver->updt_params(p);  }

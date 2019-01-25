@@ -20,6 +20,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
+#include "ast/display_dimacs.h"
 #include "tactic/goal.h"
 
 goal::precision goal::mk_union(precision p1, precision p2) {
@@ -262,14 +263,14 @@ void goal::assert_expr(expr * f, expr_dependency * d) {
     assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : nullptr, d);
 }
 
-void goal::get_formulas(ptr_vector<expr> & result) {
+void goal::get_formulas(ptr_vector<expr> & result) const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         result.push_back(form(i));
     }
 }
 
-void goal::get_formulas(expr_ref_vector & result) {
+void goal::get_formulas(expr_ref_vector & result) const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         result.push_back(form(i));
@@ -434,63 +435,9 @@ void goal::display_ll(std::ostream & out) const {
    \brief Assumes that the formula is already in CNF.
 */
 void goal::display_dimacs(std::ostream & out) const {
-    unsigned_vector expr2var;
-    ptr_vector<expr> exprs;
-    unsigned num_vars = 0;
-    unsigned num_cls  = size();
-    for (unsigned i = 0; i < num_cls; i++) {
-        expr * f = form(i);
-        unsigned num_lits;
-        expr * const * lits;
-        if (m().is_or(f)) {
-            num_lits = to_app(f)->get_num_args();
-            lits     = to_app(f)->get_args();
-        }
-        else {
-            num_lits = 1;
-            lits     = &f;
-        }
-        for (unsigned j = 0; j < num_lits; j++) {
-            expr * l = lits[j];
-            if (m().is_not(l))
-                l = to_app(l)->get_arg(0);
-            if (expr2var.get(l->get_id(), UINT_MAX) == UINT_MAX) {
-                num_vars++;
-                expr2var.setx(l->get_id(), num_vars, UINT_MAX);
-                exprs.setx(l->get_id(), l, nullptr);
-            }
-        }
-    }
-    out << "p cnf " << num_vars << " " << num_cls << "\n";
-    for (unsigned i = 0; i < num_cls; i++) {
-        expr * f = form(i);
-        unsigned num_lits;
-        expr * const * lits;
-        if (m().is_or(f)) {
-            num_lits = to_app(f)->get_num_args();
-            lits     = to_app(f)->get_args();
-        }
-        else {
-            num_lits = 1;
-            lits     = &f;
-        }
-        for (unsigned j = 0; j < num_lits; j++) {
-            expr * l = lits[j];
-            if (m().is_not(l)) {
-                out << "-";
-                l = to_app(l)->get_arg(0);
-            }
-            SASSERT(exprs[l->get_id()]);
-            out << expr2var[l->get_id()] << " ";
-        }
-        out << "0\n";
-    }
-    for (expr* e : exprs) {
-        if (e && is_app(e)) {
-            symbol const& n = to_app(e)->get_decl()->get_name();
-            out << "c " << expr2var[e->get_id()] << " " << n << "\n";            
-        }
-    }
+    expr_ref_vector fmls(m());
+    get_formulas(fmls);
+    ::display_dimacs(out, fmls);
 }
 
 unsigned goal::num_exprs() const {

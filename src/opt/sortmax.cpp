@@ -114,7 +114,7 @@ namespace opt {
         }
 
         void update_assignment() {
-            for (soft& s : m_soft) s.is_true = is_true(s.s);
+            for (soft& s : m_soft) s.set_value(is_true(s.s));
         }
 
         bool is_true(expr* e) {

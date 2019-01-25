@@ -218,7 +218,7 @@ public:
         return l_undef;
     }
 
-    lbool check_sat(unsigned num_assumptions, expr * const * assumptions) override {
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
         m_check_sat_executed  = true;        
         m_use_solver1_results = false;
 
@@ -227,13 +227,13 @@ public:
             m_ignore_solver1)  {
             // must use incremental solver
             switch_inc_mode();
-            return m_solver2->check_sat(num_assumptions, assumptions);
+            return m_solver2->check_sat_core(num_assumptions, assumptions);
         }
         
         if (m_inc_mode) {
             if (m_inc_timeout == UINT_MAX) {
                 IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 2 (without a timeout)\")\n";);            
-                lbool r = m_solver2->check_sat(num_assumptions, assumptions);
+                lbool r = m_solver2->check_sat_core(num_assumptions, assumptions);
                 if (r != l_undef || !use_solver1_when_undef() || get_manager().canceled()) {
                     return r;
                 }
@@ -244,7 +244,7 @@ public:
                 lbool r = l_undef;
                 try {
                     scoped_timer timer(m_inc_timeout, &eh);
-                    r = m_solver2->check_sat(num_assumptions, assumptions);
+                    r = m_solver2->check_sat_core(num_assumptions, assumptions);
                 }
                 catch (z3_exception&) {
                     if (!eh.m_canceled) {
@@ -260,7 +260,7 @@ public:
         
         IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 1\")\n";);
         m_use_solver1_results = true;
-        return m_solver1->check_sat(num_assumptions, assumptions);
+        return m_solver1->check_sat_core(num_assumptions, assumptions);
     }
     
     void set_progress_callback(progress_callback * callback) override {

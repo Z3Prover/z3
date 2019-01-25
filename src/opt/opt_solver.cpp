@@ -158,7 +158,7 @@ namespace opt {
         return m_dump_benchmarks;
     }
 
-    lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+    lbool opt_solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
         TRACE("opt_verbose", {
             tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {

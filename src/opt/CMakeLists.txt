@@ -1,5 +1,6 @@
 z3_add_component(opt
   SOURCES
+    maxlex.cpp
     maxres.cpp
     maxsmt.cpp
     opt_cmds.cpp

@@ -62,7 +62,7 @@ public:
 
     void push_core() override;
     void pop_core(unsigned n) override;
-    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
+    lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override;
 
     void collect_statistics(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;
@@ -136,7 +136,7 @@ void tactic2solver::pop_core(unsigned n) {
     m_result = nullptr;
 }
 
-lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
     if (m_tactic.get() == nullptr)
         return l_false;
     ast_manager & m = m_assertions.m();

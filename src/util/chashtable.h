@@ -32,6 +32,7 @@ Revision History:
 #include "util/debug.h"
 #include "util/trace.h"
 #include "util/tptr.h"
+#include "util/util.h"
 #ifdef Z3DEBUG
 #include "util/hashtable.h"
 #endif
