@@ -232,10 +232,11 @@ namespace opt {
     lbool maxsmt::operator()() {
         lbool is_sat = l_undef;
         m_msolver = nullptr;
+        opt_params optp(m_params);
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         TRACE("opt_verbose", s().display(tout << "maxsmt\n") << "\n";);
-        if (is_maxlex(m_weights)) {
+        if (optp.maxlex_enable() && is_maxlex(m_weights)) {
             m_msolver = mk_maxlex(m_c, m_index, m_weights, m_soft_constraints);
         }
         else if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            

@@ -26,10 +26,6 @@ Author:
 namespace opt {
 
     bool is_maxlex(weights_t & _ws) {
-        // disable for now
-#if true
-        return false;
-#else
         vector<rational> ws(_ws);
         std::sort(ws.begin(), ws.end());
         ws.reverse();
@@ -42,7 +38,6 @@ namespace opt {
             sum -= w;
         }
         return true;
-#endif
     }
 
     class maxlex : public maxsmt_solver_base {
@@ -141,7 +136,7 @@ namespace opt {
                 if (soft.value == l_true) {
                     continue;
                 }
-                SASSERT(soft.value() == l_undef);
+                SASSERT(soft.value == l_undef);
                 expr* a = soft.s;                
                 lbool is_sat = s().check_sat(1, &a);
                 switch (is_sat) {
@@ -169,7 +164,7 @@ namespace opt {
                 if (soft.value != l_undef) {
                     continue;
                 }
-                SASSERT(soft.value() == l_undef);
+                SASSERT(soft.value == l_undef);
                 if (i + 1 == sz) {
                     expr* a = soft.s;                
                     lbool is_sat = s().check_sat(1, &a);
