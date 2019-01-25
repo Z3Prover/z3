@@ -20,12 +20,12 @@
 namespace nla {
 struct const_iterator_equiv_mon {
     // fields
-    vector<const unsigned_vector*>                      m_same_abs_vals;
+    const vector<const unsigned_vector*>&               m_same_abs_vals;
     vector<unsigned_vector::const_iterator>             m_its;
     bool                                                m_done;
     std::function<unsigned (const unsigned_vector&)>    m_find_monomial;
     // constructor for begin()
-    const_iterator_equiv_mon(vector<const unsigned_vector*> abs_vals,
+    const_iterator_equiv_mon(const vector<const unsigned_vector*>& abs_vals,
                              std::function<unsigned (const unsigned_vector&)> find_monomial)
         : m_same_abs_vals(abs_vals),
           m_done(false),
@@ -35,7 +35,7 @@ struct const_iterator_equiv_mon {
         }
     }
     // constructor for end()
-    const_iterator_equiv_mon() : m_done(true) {}
+    const_iterator_equiv_mon(const vector<const unsigned_vector*>& abs_vals) : m_same_abs_vals(abs_vals), m_done(true) {}
         
     //typedefs
     typedef const_iterator_equiv_mon self_type;
@@ -87,12 +87,15 @@ struct equiv_monomials {
     const monomial &                                    m_mon;
     std::function<const unsigned_vector*(lpvar)>        m_abs_eq_vars;
     std::function<unsigned (const unsigned_vector&)>    m_find_monomial;
+    vector<const unsigned_vector*>                      m_vars_eqs;
     equiv_monomials(const monomial & m,
                     std::function<const unsigned_vector*(lpvar)> abs_eq_vars,
                     std::function<unsigned (const unsigned_vector&)> find_monomial) :
         m_mon(m),
         m_abs_eq_vars(abs_eq_vars),
-        m_find_monomial(find_monomial) {}
+        m_find_monomial(find_monomial),
+        m_vars_eqs(vars_eqs())
+    {}
 
     vector<const unsigned_vector*> vars_eqs() const {
         vector<const unsigned_vector*> r;
@@ -102,10 +105,10 @@ struct equiv_monomials {
         return r;
     } 
     const_iterator_equiv_mon begin() const {
-        return const_iterator_equiv_mon(vars_eqs(), m_find_monomial);
+        return const_iterator_equiv_mon(m_vars_eqs, m_find_monomial);
     }
     const_iterator_equiv_mon end() const {
-        return const_iterator_equiv_mon();
+        return const_iterator_equiv_mon(m_vars_eqs);
     }
 };
 } // end of namespace nla
