@@ -21,6 +21,18 @@
 #pragma once
 #include "util/lp/lp_utils.h"
 namespace nla {
+struct index_with_sign {
+    unsigned m_i; // the index
+    rational m_sign; // the sign: -1 or 1
+    index_with_sign(unsigned i, rational sign) : m_i(i), m_sign(sign) {}
+    index_with_sign() {}
+    bool operator==(const index_with_sign& b) {
+        return m_i == b.m_i && m_sign == b.m_sign;
+    }
+    unsigned var() const { return m_i; }
+    const rational& sign() const { return m_sign; }
+};
+    
 struct rooted_mon {
     svector<lpvar>   m_vars;
     index_with_sign  m_orig;

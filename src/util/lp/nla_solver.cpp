@@ -684,6 +684,7 @@ struct solver::imp {
     bool basic_sign_lemma_on_mon(unsigned i){
         TRACE("nla_solver", tout << "i = " << i << ", mon = "; print_monomial_with_vars(m_monomials[i], tout););
         const monomial& m = m_monomials[i];
+        
         for (unsigned n : equiv_monomials(m, [this](lpvar j) {return &abs_eq_vars(j);},
                                           [this](const unsigned_vector& key) {return find_monomial(key);})
              ) {
@@ -716,6 +717,7 @@ struct solver::imp {
      -ab = a(-b)
     */
     bool basic_sign_lemma() {
+        TRACE("nla_solver", tout << "m_to_refine.size = " << m_to_refine.size(););
         for (unsigned i : m_to_refine){
             if (basic_sign_lemma_on_mon(i))
                 return true;
@@ -1177,13 +1179,13 @@ struct solver::imp {
     
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
-        TRACE("nla_solver",);
         SASSERT(m_vars_equivalence.empty());
         collect_equivs();
         m_vars_equivalence.create_tree();
         for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
             m_vars_equivalence.register_var(j, vvr(j));
         }
+        TRACE("nla_solver", tout << "number of equivs = " << m_vars_equivalence.size(););
         
         SASSERT((m_lar_solver.settings().random_next() % 100) || tables_are_ok());
     }
@@ -1564,6 +1566,7 @@ struct solver::imp {
     }
     
     bool order_lemma() {
+        TRACE("nla_solver", );
         for (const auto& rm : m_rm_table.vec()) {
             if (check_monomial(m_monomials[rm.orig_index()]))
                 continue;
