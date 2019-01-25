@@ -26,6 +26,10 @@ Author:
 namespace opt {
 
     bool is_maxlex(weights_t & _ws) {
+        // disable for now
+#if true
+        return false;
+#else
         vector<rational> ws(_ws);
         std::sort(ws.begin(), ws.end());
         ws.reverse();
@@ -38,6 +42,7 @@ namespace opt {
             sum -= w;
         }
         return true;
+#endif
     }
 
     class maxlex : public maxsmt_solver_base {
@@ -131,21 +136,7 @@ namespace opt {
             update_assignment(mdl);           
         }
 
-
-    public:
-
-        maxlex(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& s):
-            maxsmt_solver_base(c, ws, s),
-            m(c.get_manager()),
-            m_c(c) {
-            // ensure that soft constraints are sorted with largest soft constraints first.
-            cmp_soft cmp;
-            std::sort(m_soft.begin(), m_soft.end(), cmp);
-        }            
-        
-        lbool operator()() override {
-            init();
-
+        lbool maxlex1() {
             for (auto & soft : m_soft) {
                 if (soft.value == l_true) {
                     continue;
@@ -167,6 +158,100 @@ namespace opt {
                 }
             }
             return l_true;
+        }
+
+        // try two literals per round.
+        // doesn't seem to make a difference based on sample test.
+        lbool maxlex2() {
+            unsigned sz = m_soft.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                auto& soft = m_soft[i];
+                if (soft.value != l_undef) {
+                    continue;
+                }
+                SASSERT(soft.value() == l_undef);
+                if (i + 1 == sz) {
+                    expr* a = soft.s;                
+                    lbool is_sat = s().check_sat(1, &a);
+                    switch (is_sat) {
+                    case l_false: 
+                        set_value(soft, l_false);
+                        update_bounds();
+                        break;
+                    case l_true:
+                        update_assignment();
+                        SASSERT(soft.value == l_true);
+                        break;
+                    case l_undef:
+                        return l_undef;
+                    }
+                }                
+                else {
+                    auto& soft2 = m_soft[i+1];
+                    expr_ref_vector core(m);
+                    expr* a = soft.s;
+                    expr* b = soft2.s;
+                    expr* asms[2] = { a, b };
+                    lbool is_sat = s().check_sat(2, asms);
+                    switch (is_sat) {
+                    case l_true:
+                        update_assignment();
+                        SASSERT(soft.value == l_true);
+                        SASSERT(soft2.value == l_true);
+                        break;
+                    case l_false:
+                        s().get_unsat_core(core);
+                        if (core.contains(b)) {
+                            expr_ref not_b(mk_not(m, b), m);
+                            asms[1] = not_b;
+                            switch (s().check_sat(2, asms)) {
+                            case l_true:
+                                // a, b is unsat, a, not b is sat.
+                                set_value(soft2, l_false);
+                                update_assignment();
+                                SASSERT(soft.value == l_true);
+                                SASSERT(soft2.value == l_false);
+                                break;
+                            case l_false:
+                                // a, b is unsat, a, not b is unsat -> a is unsat
+                                // b is unsat, a, not b is unsat -> not a, not b
+                                set_value(soft, l_false);
+                                if (!core.contains(a)) {
+                                    set_value(soft2, l_false);
+                                }
+                                update_bounds();
+                                break;
+                            case l_undef:
+                                return l_undef;
+                            }
+                        }
+                        else {
+                            set_value(soft, l_false);
+                            update_bounds();
+                        }
+                        break;
+                    case l_undef:
+                        return l_undef;
+                    }
+                }
+            }
+            return l_true;
+        }
+
+    public:
+
+        maxlex(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& s):
+            maxsmt_solver_base(c, ws, s),
+            m(c.get_manager()),
+            m_c(c) {
+            // ensure that soft constraints are sorted with largest soft constraints first.
+            cmp_soft cmp;
+            std::sort(m_soft.begin(), m_soft.end(), cmp);
+        }            
+        
+        lbool operator()() override {
+            init();            
+            return maxlex1();
         }
 
 
