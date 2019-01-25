@@ -29,17 +29,6 @@ struct hash_svector {
     }
 };
 
-struct index_with_sign {
-    unsigned m_i; // the index
-    rational m_sign; // the sign: -1 or 1
-    index_with_sign(unsigned i, rational sign) : m_i(i), m_sign(sign) {}
-    index_with_sign() {}
-    bool operator==(const index_with_sign& b) {
-        return m_i == b.m_i && m_sign == b.m_sign;
-    }
-    unsigned var() const { return m_i; }
-    const rational& sign() const { return m_sign; }
-};
 
 
 struct vars_equivalence {
@@ -68,7 +57,7 @@ struct vars_equivalence {
     // m_tree is a spanning tree of the graph of equivs represented by m_equivs
     std::unordered_map<unsigned, unsigned>        m_tree;  
     // If m_tree[v] == -1 then the variable is a root.
-    // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), that k is the parent of v
+    // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), where k is the parent of v
     vector<equiv>                                 m_equivs;         // all equivalences extracted from constraints
     std::unordered_map<rational, unsigned_vector> m_vars_by_abs_values;
     std::function<rational(lpvar)>                m_vvr;
@@ -86,6 +75,7 @@ struct vars_equivalence {
     const svector<lpvar>& get_vars_with_the_same_abs_val(const rational& v) const {
         auto it = m_vars_by_abs_values.find(abs(v));
         SASSERT (it != m_vars_by_abs_values.end());
+        TRACE("nla_solver", tout << "size of same_abs_vals = " << it->second.size(); );
         return it->second; 
     } 
 
