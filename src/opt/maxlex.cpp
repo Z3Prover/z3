@@ -55,6 +55,7 @@ namespace opt {
             model_ref mdl;
             s().get_model(mdl);
             if (mdl) {
+                m_model = mdl;
                 m_c.model_updated(mdl.get());
                 update_assignment(mdl);
             }
@@ -79,16 +80,16 @@ namespace opt {
         }
 
         void update_assignment(model_ref & mdl) {
+            bool prefix_defined = true;
             for (auto & soft : m_soft) {
+                if (!prefix_defined) {
+                    set_value(soft, l_undef);
+                    continue;
+                }
                 switch (soft.value) {
                 case l_undef:
-                    if (mdl->is_true(soft.s)) {
-                        set_value(soft, l_true);
-                    }
-                    else {
-                        update_bounds();
-                        return;
-                    }
+                    prefix_defined = mdl->is_true(soft.s);
+                    set_value(soft, prefix_defined ? l_true : l_undef);
                     break;
                 case l_true:
                     break;
@@ -127,8 +128,9 @@ namespace opt {
         void init() {
             model_ref mdl;
             s().get_model(mdl);
-            update_assignment(mdl);
+            update_assignment(mdl);           
         }
+
 
     public:
 
@@ -136,10 +138,10 @@ namespace opt {
             maxsmt_solver_base(c, ws, s),
             m(c.get_manager()),
             m_c(c) {
+            // ensure that soft constraints are sorted with largest soft constraints first.
             cmp_soft cmp;
             std::sort(m_soft.begin(), m_soft.end(), cmp);
-        }
-            
+        }            
         
         lbool operator()() override {
             init();
@@ -167,6 +169,7 @@ namespace opt {
             return l_true;
         }
 
+
         void commit_assignment() override {
             for (auto & soft : m_soft) {
                 if (soft.value == l_undef) {
@@ -175,7 +178,6 @@ namespace opt {
                 assert_value(soft);
             }
         }
-
     };
 
     maxsmt_solver_base* mk_maxlex(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& soft) {
