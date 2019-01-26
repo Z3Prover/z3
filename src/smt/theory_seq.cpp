@@ -3148,6 +3148,9 @@ bool theory_seq::solve_nc(unsigned idx) {
         if (!linearize(deps, eqs, lits)) {
             return false;
         }
+        for (literal& lit : lits) {
+            lit.neg();
+        }
         for (enode_pair const& p : eqs) {
             lits.push_back(~mk_eq(p.first->get_owner(), p.second->get_owner(), false));
         }
