@@ -50,12 +50,17 @@ struct vars_equivalence {
         }
     };
 
+    struct node {
+        unsigned            m_parent;   // points to m_equivs
+        svector<unsigned>   m_children;  // point to m_equivs
+        node() : m_parent(-1) {}
+    };
    
     //fields
     
-    // The map from the variables to m_equivs indices
+    // The map from the variables to m_nodes
     // m_tree is a spanning tree of the graph of equivs represented by m_equivs
-    std::unordered_map<unsigned, unsigned>        m_tree;  
+    std::unordered_map<unsigned, node>            m_tree;  
     // If m_tree[v] == -1 then the variable is a root.
     // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), where k is the parent of v
     vector<equiv>                                 m_equivs;         // all equivalences extracted from constraints
@@ -79,6 +84,52 @@ struct vars_equivalence {
         return it->second; 
     } 
 
+    // j itself is also included
+    svector<lpvar> eq_vars(lpvar j) const {
+        svector<lpvar> r = path_to_root(j);
+        svector<lpvar> ch = children(j);
+        for (lpvar k : ch) {
+            r.push_back(k);
+        }
+        r.push_back(j);
+        return r;
+    } 
+
+    svector<lpvar> children(lpvar j) const {
+        svector<lpvar> r;
+        auto it = m_tree.find(j);
+        if (it == m_tree.end())
+            return r;
+
+        const node& n = it->second;
+        for (unsigned e_k: n.m_children) {
+            const equiv & e = m_equivs[e_k];
+            lpvar oj = e.m_i == j? e.m_j : e.m_i;
+            r.push_back(oj);
+            for (lpvar k :  children(oj)) {
+                r.push_back(k);
+            }
+        }
+        return r;
+    } 
+
+    
+    
+    svector<lpvar> path_to_root(lpvar j) const {
+        svector<lpvar> r;
+        while (true) {
+            auto it = m_tree.find(j);
+            if (it == m_tree.end() || it->second.m_parent == static_cast<unsigned>(-1))
+                return r;
+              
+            const equiv & e = m_equivs[it->second.m_parent];
+            j = get_parent_node(j, e);
+            r.push_back(j);
+        }
+        SASSERT(false);
+    } 
+
+    
     unsigned size() const { return static_cast<unsigned>(m_tree.size()); }
 
     // we create a spanning tree on all variables participating in an equivalence
@@ -92,27 +143,37 @@ struct vars_equivalence {
     }
     
     void connect_equiv_to_tree(unsigned k) {
-        // m_tree is a spanning tree of the graph of m_equivs
+        // m_tree is the tree with the edges formed by m_equivs
         const equiv &e = m_equivs[k];
         TRACE("nla_vars_eq", tout << "m_i = " << e.m_i << ", " << "m_j = " << e.m_j ;);
-        bool i_is_in = m_tree.find(e.m_i) != m_tree.end();
-        bool j_is_in = m_tree.find(e.m_j) != m_tree.end();
+        auto it_i = m_tree.find(e.m_i);
+        auto it_j = m_tree.find(e.m_j);
+        bool i_is_in = it_i != m_tree.end();
+        bool j_is_in = it_j != m_tree.end();
         
         if (!(i_is_in || j_is_in)) {
             // none of the edge vertices is in the tree
             // let m_i be the parent, and m_j be the child
             TRACE("nla_vars_eq", tout << "create nodes for " << e.m_i << " and " << e.m_j; );
-            m_tree.emplace(e.m_i, -1);
-            m_tree.emplace(e.m_j, k);
+            node parent;
+            node child;
+            child.m_parent = k;
+            parent.m_children.push_back(k);
+            m_tree.emplace(e.m_i, parent);
+            m_tree.emplace(e.m_j, child);
         } else if (i_is_in && (!j_is_in)) {
             // create a node for m_j, with m_i is the parent
+            node child;
+            child.m_parent = k;
             TRACE("nla_vars_eq", tout << "create a node for " << e.m_j; );
-            m_tree.emplace(e.m_j, k);
-            // if m_i is a root here we can set its parent m_j
+            m_tree.emplace(e.m_j, child);
+            it_i->second.m_children.push_back(k);
         } else if ((!i_is_in) && j_is_in) {
             TRACE("nla_vars_eq", tout << "create a node for " << e.m_i; );
-            m_tree.emplace(e.m_i, k);
-            // if m_j is a root here we can set its parent to m_i
+            node child;
+            child.m_parent = k;            
+            m_tree.emplace(e.m_i, child);
+            it_j->second.m_children.push_back(k);            
         } else {
             TRACE("nla_vars_eq", tout << "both vertices are in the tree";);
         }
@@ -127,7 +188,7 @@ struct vars_equivalence {
         if (it == m_tree.end())
             return true;
 
-        return it->second == static_cast<unsigned>(-1);
+        return it->second.m_parent == static_cast<unsigned>(-1);
     }
 
     static unsigned get_parent_node(unsigned j, const equiv& e) {
@@ -143,11 +204,11 @@ struct vars_equivalence {
             auto it = m_tree.find(j);
             if (it == m_tree.end())
                 return j;
-            if (it->second == static_cast<unsigned>(-1)) {
+            if (it->second.m_parent == static_cast<unsigned>(-1)) {
                 TRACE("nla_vars_eq", tout << "mapped to " << j << "\n";);
                 return j;
             }
-            const equiv & e = m_equivs[it->second];
+            const equiv & e = m_equivs[it->second.m_parent];
             sign *= e.m_sign;
             j = get_parent_node(j, e);
         }
@@ -160,9 +221,9 @@ struct vars_equivalence {
             auto it = m_tree.find(j);
             if (it == m_tree.end())
                 return j;
-            if (it->second == static_cast<unsigned>(-1))
+            if (it->second.m_parent == static_cast<unsigned>(-1))
                 return j;
-            const equiv & e = m_equivs[it->second];
+            const equiv & e = m_equivs[it->second.m_parent];
             j = get_parent_node(j, e);
         }
     }
@@ -178,9 +239,9 @@ struct vars_equivalence {
             auto it = m_tree.find(j);
             if (it == m_tree.end())
                 return;
-            if (it->second == static_cast<unsigned>(-1))
+            if (it->second.m_parent == static_cast<unsigned>(-1))
                 return;
-            const equiv & e = m_equivs[it->second];
+            const equiv & e = m_equivs[it->second.m_parent];
             exp.add(e.m_c0);
             exp.add(e.m_c1);
             j = get_parent_node(j, e);
