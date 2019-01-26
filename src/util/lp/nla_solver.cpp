@@ -546,54 +546,15 @@ struct solver::imp {
 
     // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
     // but it is not the case in the model
-    void generate_sign_lemma(const vector<rational>& abs_vals, const monomial& m, const monomial& n, const rational& sign) {
+    void generate_sign_lemma(const monomial& m, const monomial& n, const rational& sign) {
         add_empty_lemma_and_explanation();
         TRACE("nla_solver",
               tout << "m = "; print_monomial_with_vars(m, tout);
               tout << "n = "; print_monomial_with_vars(n, tout);
-              tout << "abs_vals="; print_vector(abs_vals, tout);
               );
-        std::unordered_map<rational, vector<index_with_sign>> map;
-        for (const rational& v : abs_vals) {
-            map[v] = vector<index_with_sign>();
-        }
-  
-        for (unsigned j : m) {
-            rational v = vvr(j);
-            int s;
-            if (v.is_pos()) {
-                s = 1;
-            } else {
-                s = -1;
-                v = -v; 
-            };
-            // v = abs(vvr(j))
-            auto it = map.find(v);
-            SASSERT(it != map.end());
-            it->second.push_back(index_with_sign(j, rational(s)));
-        } 
-
-        for (unsigned j : n) {
-            rational v = vvr(j);
-            rational s;
-            if (v.is_pos()) {
-                s = rational(1);
-            } else {
-                s = -rational(1);
-                v = -v;
-            };
-            // v = abs(vvr(j))
-            auto it = map.find(v);
-            SASSERT(it != map.end());
-            index_with_sign & ins = it->second.back();
-            if (j != ins.m_i) {
-                s *= ins.m_sign;
-                mk_ineq(j, -s, ins.m_i, llc::NE, m_lemma_vec->back());
-            }
-            it->second.pop_back();
-        } 
-
-        mk_ineq(m.var(), -sign, n.var(), llc::EQ, current_lemma());        
+        mk_ineq(m.var(), -sign, n.var(), llc::EQ, current_lemma());
+        explain(m, current_expl());
+        explain(n, current_expl());        
         TRACE("nla_solver", print_lemma(current_lemma(), tout););
     }
 
@@ -661,21 +622,15 @@ struct solver::imp {
         return  vvr(m) != sign * vvr(n) ;
     }
 
-    vector<rational> abs_vals(const monomial& m) const {
-        vector<rational> r;
-        for(unsigned j : m){
-            r.push_back(abs(vvr(j)));
-        }
-        return r;
+    unsigned_vector eq_vars(lpvar j) const {
+        return m_vars_equivalence.eq_vars(j);
     }
-
-    
     
     bool basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n) {
         TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout); tout << "n= "; print_monomial_with_vars(n, tout); );
         rational sign;
         if (sign_contradiction(m, n, sign)) {
-            generate_sign_lemma(abs_vals(m) ,m, n, sign);
+            generate_sign_lemma(m, n, sign);
             return true;
         }
         return false;
@@ -685,7 +640,7 @@ struct solver::imp {
         TRACE("nla_solver", tout << "i = " << i << ", mon = "; print_monomial_with_vars(m_monomials[i], tout););
         const monomial& m = m_monomials[i];
         
-        for (unsigned n : equiv_monomials(m, [this](lpvar j) {return &abs_eq_vars(j);},
+        for (unsigned n : equiv_monomials(m, [this](lpvar j) {return eq_vars(j);},
                                           [this](const unsigned_vector& key) {return find_monomial(key);})
              ) {
             if (n == static_cast<unsigned>(-1) || n == i) continue;
@@ -1727,6 +1682,7 @@ struct solver::imp {
     // not a strict version
     void generate_monl(const rooted_mon& a,
                        const rooted_mon& b) {
+        add_empty_lemma_and_explanation();
         auto akey = get_sorted_key_with_vars(a);
         auto bkey = get_sorted_key_with_vars(b);
         SASSERT(akey.size() == bkey.size());
