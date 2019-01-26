@@ -141,7 +141,7 @@ namespace opt {
                 if (soft.value == l_true) {
                     continue;
                 }
-                SASSERT(soft.value() == l_undef);
+                SASSERT(soft.value == l_undef);
                 expr* a = soft.s;                
                 lbool is_sat = s().check_sat(1, &a);
                 switch (is_sat) {
@@ -169,7 +169,7 @@ namespace opt {
                 if (soft.value != l_undef) {
                     continue;
                 }
-                SASSERT(soft.value() == l_undef);
+                SASSERT(soft.value == l_undef);
                 if (i + 1 == sz) {
                     expr* a = soft.s;                
                     lbool is_sat = s().check_sat(1, &a);
