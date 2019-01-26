@@ -80,21 +80,23 @@ namespace opt {
         }
 
         void update_assignment(model_ref & mdl) {
-            bool prefix_defined = true;
+            bool first_undef = true, second_undef = false;
             for (auto & soft : m_soft) {
-                if (!prefix_defined) {
-                    set_value(soft, l_undef);
+                if (first_undef && soft.value != l_undef) {
                     continue;
                 }
-                switch (soft.value) {
-                case l_undef:
-                    prefix_defined = mdl->is_true(soft.s);
-                    set_value(soft, prefix_defined ? l_true : l_undef);
-                    break;
-                case l_true:
-                    break;
-                case l_false:
-                    break;
+                first_undef = false;
+                if (soft.value != l_false) {
+                    lbool v = mdl->is_true(soft.s) ? l_true : l_undef;;
+                    if (v == l_undef) {
+                        second_undef = true;
+                    }
+                    if (second_undef) {
+                        soft.set_value(v);
+                    }
+                    else {
+                        set_value(soft, v); // also update constraints
+                    }
                 }
             }
             update_bounds();
@@ -103,15 +105,9 @@ namespace opt {
         void update_bounds() {
             m_lower.reset();
             m_upper.reset();
-            bool prefix_defined = true;
             for (auto & soft : m_soft) {
-                if (!prefix_defined) {
-                    m_upper += soft.weight;
-                    continue;
-                }
                 switch (soft.value) {
                 case l_undef:
-                    prefix_defined = false;
                     m_upper += soft.weight;
                     break;
                 case l_true:
@@ -126,6 +122,9 @@ namespace opt {
         }
 
         void init() {
+            for (auto & soft : m_soft) {
+                soft.set_value(l_undef);
+            }
             model_ref mdl;
             s().get_model(mdl);
             update_assignment(mdl);           
@@ -211,8 +210,19 @@ namespace opt {
                                 // a, b is unsat, a, not b is unsat -> a is unsat
                                 // b is unsat, a, not b is unsat -> not a, not b
                                 set_value(soft, l_false);
+                                // core1 = { b }
+                                // core2 = { a, not b }
                                 if (!core.contains(a)) {
                                     set_value(soft2, l_false);
+                                }
+                                else {
+                                    // core1 = { a, b}
+                                    // core2 = { not_b }
+                                    core.reset();
+                                    s().get_unsat_core(core);
+                                    if (!core.contains(a)) {
+                                        set_value(soft2, l_true);
+                                    }
                                 }
                                 update_bounds();
                                 break;
@@ -233,6 +243,47 @@ namespace opt {
             return l_true;
         }
 
+        // every time probing whether to include soft_i, 
+        // include suffix that is known to be assignable to T
+        lbool maxlexN() {
+            unsigned sz = m_soft.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                auto& soft = m_soft[i];
+                if (soft.value != l_undef) {
+                    continue;
+                }
+                expr_ref_vector asms(m);
+                asms.push_back(soft.s);
+                for (unsigned j = i + 1; j < sz; ++j) {
+                    auto& soft2 = m_soft[j];
+                    if (soft2.value == l_true) {
+                        asms.push_back(soft2.s);                    
+                    }
+                }
+                lbool is_sat = s().check_sat(asms);
+                switch (is_sat) {
+                case l_true:
+                    update_assignment();
+                    SASSERT(soft.value == l_true);
+                    break;
+                case l_false:
+                    set_value(soft, l_false);
+                    for (unsigned j = i + 1; j < sz; ++j) {
+                        auto& soft2 = m_soft[j];
+                        if (soft2.value != l_true) {
+                            break;
+                        }                        
+                        assert_value(soft2);
+                    }
+                    update_bounds();
+                    break;
+                case l_undef:
+                    return l_undef;
+                }
+            }
+            return l_true;
+        }
+
     public:
 
         maxlex(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& s):
@@ -246,7 +297,7 @@ namespace opt {
         
         lbool operator()() override {
             init();            
-            return maxlex1();
+            return maxlexN();
         }
 
 
