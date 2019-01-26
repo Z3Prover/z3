@@ -20,22 +20,22 @@
 namespace nla {
 struct const_iterator_equiv_mon {
     // fields
-    const vector<const unsigned_vector*>&               m_same_abs_vals;
+    const vector<unsigned_vector>&                      m_eq_vars;
     vector<unsigned_vector::const_iterator>             m_its;
     bool                                                m_done;
     std::function<unsigned (const unsigned_vector&)>    m_find_monomial;
     // constructor for begin()
-    const_iterator_equiv_mon(const vector<const unsigned_vector*>& abs_vals,
+    const_iterator_equiv_mon(const vector<unsigned_vector>& abs_vals,
                              std::function<unsigned (const unsigned_vector&)> find_monomial)
-        : m_same_abs_vals(abs_vals),
+        : m_eq_vars(abs_vals),
           m_done(false),
           m_find_monomial(find_monomial) {
-        for (auto it: abs_vals){
-            m_its.push_back(it->begin());
+        for (auto& vars: abs_vals){
+            m_its.push_back(vars.begin());
         }
     }
     // constructor for end()
-    const_iterator_equiv_mon(const vector<const unsigned_vector*>& abs_vals) : m_same_abs_vals(abs_vals), m_done(true) {}
+    const_iterator_equiv_mon(const vector<unsigned_vector>& does_not_matter) : m_eq_vars(does_not_matter), m_done(true) {}
         
     //typedefs
     typedef const_iterator_equiv_mon self_type;
@@ -51,7 +51,7 @@ struct const_iterator_equiv_mon {
         for (; k < m_its.size(); k++) {
             auto & it = m_its[k];
             it++;
-            const auto & evars = *(m_same_abs_vals[k]);
+            const auto & evars = m_eq_vars[k];
             if (it == evars.end()) {
                 it = evars.begin();
             } else {
@@ -85,22 +85,22 @@ struct const_iterator_equiv_mon {
 
 struct equiv_monomials {
     const monomial &                                    m_mon;
-    std::function<const unsigned_vector*(lpvar)>        m_abs_eq_vars;
+    std::function<unsigned_vector (lpvar)>              m_eq_vars;
     std::function<unsigned (const unsigned_vector&)>    m_find_monomial;
-    vector<const unsigned_vector*>                      m_vars_eqs;
+    vector<unsigned_vector>                             m_vars_eqs;
     equiv_monomials(const monomial & m,
-                    std::function<const unsigned_vector*(lpvar)> abs_eq_vars,
+                    std::function<unsigned_vector (lpvar)> eq_vars,
                     std::function<unsigned (const unsigned_vector&)> find_monomial) :
         m_mon(m),
-        m_abs_eq_vars(abs_eq_vars),
+        m_eq_vars(eq_vars),
         m_find_monomial(find_monomial),
         m_vars_eqs(vars_eqs())
     {}
 
-    vector<const unsigned_vector*> vars_eqs() const {
-        vector<const unsigned_vector*> r;
+    vector<unsigned_vector> vars_eqs() const {
+        vector<unsigned_vector> r;
         for(lpvar j : m_mon.vars()) {
-            r.push_back(m_abs_eq_vars(j));
+            r.push_back(m_eq_vars(j));
         }
         return r;
     } 
